@@ -14,6 +14,8 @@
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>2.15.0.Final</quarkus.platform.version>
     <skipITs>true</skipITs>
+
+    <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
   </properties>
   <dependencyManagement>
@@ -85,6 +87,34 @@
             <arg>-parameters</arg>
           </compilerArgs>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.mycila</groupId>
+        <artifactId>license-maven-plugin</artifactId>
+        <version>${com.mycila.license.maven.plugin.version}</version>
+        <configuration>
+          <licenseSets>
+            <licenseSet>
+              <header>LICENSE</header>
+              <includes>
+                <include>src/main/**/*.java</include>
+                <include>src/test/**/*.java</include>
+              </includes>
+              <excludes>
+                <exclude>src/main/java/io/cryostat/util/OutputToReadStream.java</exclude>
+              </excludes>
+            </licenseSet>
+          </licenseSets>
+        </configuration>
+        <executions>
+          <execution>
+            <id>update-license</id>
+            <goals>
+              <goal>check</goal>
+            </goals>
+            <phase>process-sources</phase>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
