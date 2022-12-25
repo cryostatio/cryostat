@@ -1,0 +1,57 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`<DurationFilter /> renders correctly 1`] = `
+<div
+  className="pf-l-flex"
+>
+  <div
+    className=""
+  >
+    <input
+      aria-invalid={false}
+      aria-label="duration filter"
+      className="pf-c-form-control"
+      data-ouia-component-id="OUIA-Generated-TextInputBase-1"
+      data-ouia-component-type="PF4/TextInput"
+      data-ouia-safe={true}
+      disabled={false}
+      id="duration-input"
+      min="0"
+      onBlur={[Function]}
+      onChange={[Function]}
+      onFocus={[Function]}
+      onKeyDown={[Function]}
+      required={false}
+      type="number"
+      value={30}
+    />
+  </div>
+  <div
+    className=""
+  >
+    <div
+      className="pf-c-check"
+    >
+      <input
+        aria-invalid={false}
+        checked={false}
+        className="pf-c-check__input"
+        data-ouia-component-id="OUIA-Generated-Checkbox-1"
+        data-ouia-component-type="PF4/Checkbox"
+        data-ouia-safe={true}
+        disabled={false}
+        id="continuous-checkbox"
+        onChange={[Function]}
+        required={false}
+        type="checkbox"
+      />
+      <label
+        className="pf-c-check__label"
+        htmlFor="continuous-checkbox"
+      >
+        Continuous
+      </label>
+    </div>
+  </div>
+</div>
+`;

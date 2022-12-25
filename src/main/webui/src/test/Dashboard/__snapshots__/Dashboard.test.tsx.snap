@@ -1,0 +1,63 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`<Dashboard /> renders correctly 1`] = `
+<section
+  className="pf-c-page__main-section"
+>
+  <nav
+    aria-label="Breadcrumb"
+    className="pf-c-breadcrumb"
+    data-ouia-component-id="OUIA-Generated-Breadcrumb-1"
+    data-ouia-component-type="PF4/Breadcrumb"
+    data-ouia-safe={true}
+  >
+    <ol
+      className="pf-c-breadcrumb__list"
+    >
+      <li
+        className="pf-c-breadcrumb__item"
+      >
+        <h1
+          className="pf-c-breadcrumb__heading"
+        >
+          Dashboard
+        </h1>
+      </li>
+    </ol>
+  </nav>
+  <div
+    className="pf-l-stack pf-m-gutter"
+  >
+    <div
+      className="pf-l-stack__item"
+    >
+      <div
+        className="pf-l-grid pf-m-gutter"
+      >
+        <div
+          className="pf-l-grid__item pf-m-12-col"
+        >
+          <div>
+            Target Select
+          </div>
+        </div>
+        <div
+          className="pf-l-grid__item"
+        >
+          <div
+            className="pf-l-stack pf-m-gutter"
+          >
+            <div
+              className="pf-l-stack__item"
+            >
+              <div>
+                Add Card
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+`;

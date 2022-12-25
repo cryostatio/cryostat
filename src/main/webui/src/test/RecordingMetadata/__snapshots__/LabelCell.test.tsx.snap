@@ -1,0 +1,36 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`<LabelCell /> renders correctly 1`] = `
+Array [
+  <span
+    aria-label="someLabel: someValue"
+    className="pf-c-label"
+    onClick={[Function]}
+    onFocus={[Function]}
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    style={Object {}}
+  >
+    <span
+      className="pf-c-label__content"
+    >
+      someLabel: someValue
+    </span>
+  </span>,
+  <span
+    aria-label="anotherLabel: anotherValue"
+    className="pf-c-label"
+    onClick={[Function]}
+    onFocus={[Function]}
+    onMouseEnter={[Function]}
+    onMouseLeave={[Function]}
+    style={Object {}}
+  >
+    <span
+      className="pf-c-label__content"
+    >
+      anotherLabel: anotherValue
+    </span>
+  </span>,
+]
+`;

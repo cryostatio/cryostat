@@ -1,0 +1,288 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`<RecordingLabelFields /> renders correctly 1`] = `
+Array [
+  <button
+    aria-disabled={false}
+    aria-label="Add Label"
+    className="pf-c-button pf-m-link"
+    data-ouia-component-id="OUIA-Generated-Button-link-1"
+    data-ouia-component-type="PF4/Button"
+    data-ouia-safe={true}
+    disabled={false}
+    onClick={[Function]}
+    role={null}
+    type="button"
+  >
+    <span
+      className="pf-c-button__icon pf-m-start"
+    >
+      <svg
+        aria-hidden={true}
+        aria-labelledby={null}
+        fill="currentColor"
+        height="1em"
+        role="img"
+        style={
+          Object {
+            "verticalAlign": "-0.125em",
+          }
+        }
+        viewBox="0 0 512 512"
+        width="1em"
+      >
+        <path
+          d="M256 8C119 8 8 119 8 256s111 248 248 248 248-111 248-248S393 8 256 8zm144 276c0 6.6-5.4 12-12 12h-92v92c0 6.6-5.4 12-12 12h-56c-6.6 0-12-5.4-12-12v-92h-92c-6.6 0-12-5.4-12-12v-56c0-6.6 5.4-12 12-12h92v-92c0-6.6 5.4-12 12-12h56c6.6 0 12 5.4 12 12v92h92c6.6 0 12 5.4 12 12v56z"
+        />
+      </svg>
+    </span>
+    Add Label
+  </button>,
+  <div
+    className="pf-l-split pf-m-gutter"
+  >
+    <div
+      className="pf-l-split__item pf-m-fill"
+    >
+      <input
+        aria-describedby="label-key-input-helper"
+        aria-invalid={false}
+        aria-label="Label Key"
+        className="pf-c-form-control pf-m-success"
+        data-ouia-component-id="OUIA-Generated-TextInputBase-1"
+        data-ouia-component-type="PF4/TextInput"
+        data-ouia-safe={true}
+        disabled={false}
+        id="label-key-input"
+        name="label-key-input"
+        onBlur={[Function]}
+        onChange={[Function]}
+        onFocus={[Function]}
+        required={true}
+        type="text"
+        value="someLabel"
+      />
+      <p
+        className=""
+        data-ouia-component-id="OUIA-Generated-Text-1"
+        data-ouia-component-type="PF4/Text"
+        data-ouia-safe={true}
+        data-pf-content={true}
+      >
+        Key
+      </p>
+      <div
+        className="pf-c-form__helper-text pf-m-hidden"
+      >
+        <div
+          className="pf-c-helper-text"
+          id="label-error-text"
+        >
+          <div
+            className="pf-c-helper-text__item pf-m-error"
+          >
+            <span
+              className="pf-c-helper-text__item-text"
+            >
+              Keys must be unique. Labels should not contain whitespace.
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      className="pf-l-split__item pf-m-fill"
+    >
+      <input
+        aria-describedby="label-value-input-helper"
+        aria-invalid={false}
+        aria-label="Label Value"
+        className="pf-c-form-control pf-m-success"
+        data-ouia-component-id="OUIA-Generated-TextInputBase-2"
+        data-ouia-component-type="PF4/TextInput"
+        data-ouia-safe={true}
+        disabled={false}
+        id="label-value-input"
+        name="label-value-input"
+        onBlur={[Function]}
+        onChange={[Function]}
+        onFocus={[Function]}
+        required={true}
+        type="text"
+        value="someValue"
+      />
+      <p
+        className=""
+        data-ouia-component-id="OUIA-Generated-Text-2"
+        data-ouia-component-type="PF4/Text"
+        data-ouia-safe={true}
+        data-pf-content={true}
+      >
+        Value
+      </p>
+    </div>
+    <div
+      className="pf-l-split__item"
+    >
+      <button
+        aria-disabled={false}
+        aria-label="Remove Label"
+        className="pf-c-button pf-m-link"
+        data-ouia-component-id="OUIA-Generated-Button-link-2"
+        data-ouia-component-type="PF4/Button"
+        data-ouia-safe={true}
+        disabled={false}
+        onClick={[Function]}
+        role={null}
+        type="button"
+      >
+        <span
+          className="pf-c-button__icon pf-m-start"
+        >
+          <svg
+            aria-hidden={true}
+            aria-labelledby={null}
+            fill="gray"
+            height="1em"
+            role="img"
+            style={
+              Object {
+                "verticalAlign": "-0.125em",
+              }
+            }
+            viewBox="0 0 730 1024"
+            width="1em"
+          >
+            <path
+              d="M725.499315,767.757345 L469.242169,511.500499 L725.499315,255.243653 C729.196254,251.545719 731.096195,247.248119 731,242.4498 C731,237.653479 728.997365,233.35588 725.299427,229.558002 L647.542773,151.701495 C643.743891,147.903617 639.446287,146 634.64996,146 C629.852635,146 625.55503,147.803673 621.857092,151.500607 L365.5,407.857398 L109.241857,151.500607 C105.544917,147.803673 101.246314,145.904733 96.4499876,146 C91.6526619,146.104622 87.3550577,148.002562 83.5571748,151.701495 L5.7005771,229.457058 C1.90269428,233.255936 0,237.553535 0,242.350855 C0,247.148175 1.80175055,251.444775 5.50068853,255.143709 L261.857779,511.500499 L5.50068853,767.757345 C1.80175055,771.454279 -0.0961914123,775.752878 0,779.750645 C0.103697157,784.547965 2.00263857,788.845564 5.7005771,792.642443 L83.4572306,871.299502 C87.2541139,875.096381 91.5527176,877 96.3500433,877 C101.147369,877 105.444973,875.197325 109.142912,871.499391 L365.400058,615.241545 L621.657203,871.499391 C625.355142,875.197325 629.652746,877.095265 634.449072,877 C639.246398,877 643.545002,874.997437 647.342885,871.299502 L725.099538,793.54294 C728.896421,789.745062 730.796362,785.446463 730.796362,780.649143 C731.096195,775.752878 729.196254,771.454279 725.499315,767.757345"
+            />
+          </svg>
+        </span>
+      </button>
+    </div>
+  </div>,
+  <div
+    className="pf-l-split pf-m-gutter"
+  >
+    <div
+      className="pf-l-split__item pf-m-fill"
+    >
+      <input
+        aria-describedby="label-key-input-helper"
+        aria-invalid={false}
+        aria-label="Label Key"
+        className="pf-c-form-control pf-m-success"
+        data-ouia-component-id="OUIA-Generated-TextInputBase-3"
+        data-ouia-component-type="PF4/TextInput"
+        data-ouia-safe={true}
+        disabled={false}
+        id="label-key-input"
+        name="label-key-input"
+        onBlur={[Function]}
+        onChange={[Function]}
+        onFocus={[Function]}
+        required={true}
+        type="text"
+        value="anotherLabel"
+      />
+      <p
+        className=""
+        data-ouia-component-id="OUIA-Generated-Text-3"
+        data-ouia-component-type="PF4/Text"
+        data-ouia-safe={true}
+        data-pf-content={true}
+      >
+        Key
+      </p>
+      <div
+        className="pf-c-form__helper-text pf-m-hidden"
+      >
+        <div
+          className="pf-c-helper-text"
+          id="label-error-text"
+        >
+          <div
+            className="pf-c-helper-text__item pf-m-error"
+          >
+            <span
+              className="pf-c-helper-text__item-text"
+            >
+              Keys must be unique. Labels should not contain whitespace.
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      className="pf-l-split__item pf-m-fill"
+    >
+      <input
+        aria-describedby="label-value-input-helper"
+        aria-invalid={false}
+        aria-label="Label Value"
+        className="pf-c-form-control pf-m-success"
+        data-ouia-component-id="OUIA-Generated-TextInputBase-4"
+        data-ouia-component-type="PF4/TextInput"
+        data-ouia-safe={true}
+        disabled={false}
+        id="label-value-input"
+        name="label-value-input"
+        onBlur={[Function]}
+        onChange={[Function]}
+        onFocus={[Function]}
+        required={true}
+        type="text"
+        value="anotherValue"
+      />
+      <p
+        className=""
+        data-ouia-component-id="OUIA-Generated-Text-4"
+        data-ouia-component-type="PF4/Text"
+        data-ouia-safe={true}
+        data-pf-content={true}
+      >
+        Value
+      </p>
+    </div>
+    <div
+      className="pf-l-split__item"
+    >
+      <button
+        aria-disabled={false}
+        aria-label="Remove Label"
+        className="pf-c-button pf-m-link"
+        data-ouia-component-id="OUIA-Generated-Button-link-3"
+        data-ouia-component-type="PF4/Button"
+        data-ouia-safe={true}
+        disabled={false}
+        onClick={[Function]}
+        role={null}
+        type="button"
+      >
+        <span
+          className="pf-c-button__icon pf-m-start"
+        >
+          <svg
+            aria-hidden={true}
+            aria-labelledby={null}
+            fill="gray"
+            height="1em"
+            role="img"
+            style={
+              Object {
+                "verticalAlign": "-0.125em",
+              }
+            }
+            viewBox="0 0 730 1024"
+            width="1em"
+          >
+            <path
+              d="M725.499315,767.757345 L469.242169,511.500499 L725.499315,255.243653 C729.196254,251.545719 731.096195,247.248119 731,242.4498 C731,237.653479 728.997365,233.35588 725.299427,229.558002 L647.542773,151.701495 C643.743891,147.903617 639.446287,146 634.64996,146 C629.852635,146 625.55503,147.803673 621.857092,151.500607 L365.5,407.857398 L109.241857,151.500607 C105.544917,147.803673 101.246314,145.904733 96.4499876,146 C91.6526619,146.104622 87.3550577,148.002562 83.5571748,151.701495 L5.7005771,229.457058 C1.90269428,233.255936 0,237.553535 0,242.350855 C0,247.148175 1.80175055,251.444775 5.50068853,255.143709 L261.857779,511.500499 L5.50068853,767.757345 C1.80175055,771.454279 -0.0961914123,775.752878 0,779.750645 C0.103697157,784.547965 2.00263857,788.845564 5.7005771,792.642443 L83.4572306,871.299502 C87.2541139,875.096381 91.5527176,877 96.3500433,877 C101.147369,877 105.444973,875.197325 109.142912,871.499391 L365.400058,615.241545 L621.657203,871.499391 C625.355142,875.197325 629.652746,877.095265 634.449072,877 C639.246398,877 643.545002,874.997437 647.342885,871.299502 L725.099538,793.54294 C728.896421,789.745062 730.796362,785.446463 730.796362,780.649143 C731.096195,775.752878 729.196254,771.454279 725.499315,767.757345"
+            />
+          </svg>
+        </span>
+      </button>
+    </div>
+  </div>,
+]
+`;
