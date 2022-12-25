@@ -37,21 +37,27 @@
  */
 package io.cryostat;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.CoreMatchers.is;
+import java.util.Map;
 
-import io.quarkus.test.junit.QuarkusTest;
-import org.junit.jupiter.api.Test;
+import javax.ws.rs.POST;
+import javax.ws.rs.Path;
 
-@QuarkusTest
-public class GreetingResourceTest {
+import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
-    @Test
-    public void testHelloEndpoint() {
-        given().when()
-                .get("/hello")
-                .then()
-                .statusCode(200)
-                .body(is("Hello from RESTEasy Reactive"));
+@Path("/api/v2.1/auth")
+public class Auth {
+    @POST
+    public RestResponse<Map<String, Map<String, ? extends Object>>> post() {
+        return ResponseBuilder.ok(
+                        Map.of(
+                                "meta",
+                                Map.of(
+                                        "status", "OK",
+                                        "type", "application/json"),
+                                "data",
+                                Map.of("result", Map.of("username", "quarkus-dev"))))
+                .header("X-WWW-Authenticate", "None")
+                .build();
     }
 }

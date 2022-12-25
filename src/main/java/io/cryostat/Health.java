@@ -37,21 +37,37 @@
  */
 package io.cryostat;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.CoreMatchers.is;
+import java.util.Map;
 
-import io.quarkus.test.junit.QuarkusTest;
-import org.junit.jupiter.api.Test;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
 
-@QuarkusTest
-public class GreetingResourceTest {
+@Path("/")
+class Health {
 
-    @Test
-    public void testHelloEndpoint() {
-        given().when()
-                .get("/hello")
-                .then()
-                .statusCode(200)
-                .body(is("Hello from RESTEasy Reactive"));
+    @GET
+    @Path("health")
+    public Map<String, Object> health() {
+        return Map.of(
+                "cryostatVersion",
+                "3.0.0",
+                "dashboardConfigured",
+                false,
+                "dashboardAvailable",
+                false,
+                "datasourceConfigured",
+                false,
+                "datasourceAvailable",
+                false,
+                "reportsConfigured",
+                false,
+                "reportsAvailable",
+                false);
+    }
+
+    @GET
+    @Path("api/v1/notifications_url")
+    public Map<String, String> notificationsUrl() {
+        return Map.of("notificationsUrl", "ws://0.0.0.0:8080/api/v1/notifications");
     }
 }

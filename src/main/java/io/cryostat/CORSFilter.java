@@ -37,21 +37,30 @@
  */
 package io.cryostat;
 
-import static io.restassured.RestAssured.given;
-import static org.hamcrest.CoreMatchers.is;
+import java.io.IOException;
 
-import io.quarkus.test.junit.QuarkusTest;
-import org.junit.jupiter.api.Test;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.container.ContainerResponseContext;
+import javax.ws.rs.container.ContainerResponseFilter;
+import javax.ws.rs.ext.Provider;
 
-@QuarkusTest
-public class GreetingResourceTest {
+import io.quarkus.arc.profile.IfBuildProfile;
 
-    @Test
-    public void testHelloEndpoint() {
-        given().when()
-                .get("/hello")
-                .then()
-                .statusCode(200)
-                .body(is("Hello from RESTEasy Reactive"));
+@Provider
+@IfBuildProfile("dev")
+public class CORSFilter implements ContainerResponseFilter {
+
+    @Override
+    public void filter(
+            final ContainerRequestContext requestContext, final ContainerResponseContext cres)
+            throws IOException {
+        cres.getHeaders().add("Access-Control-Allow-Origin", "http://localhost:9000");
+        cres.getHeaders()
+                .add(
+                        "Access-Control-Allow-Headers",
+                        "accept, origin, authorization, content-type, x-requested-with");
+        cres.getHeaders().add("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+        cres.getHeaders().add("Access-Control-Allow-Credentials", "true");
+        // cres.getHeaders().add("Access-Control-Max-Age", "1209600");
     }
 }
