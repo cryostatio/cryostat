@@ -1,0 +1,3 @@
+[submodule "src/main/webui"]
+	path = src/main/webui
+	url = git@github.com:cryostatio/cryostat-web

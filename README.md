@@ -6,6 +6,13 @@ If you want to learn more about Quarkus, please visit its website: https://quark
 
 ## Running the application in dev mode
 
+```bash
+git submodule init && git submodule update
+cd src/main/webui
+yarn install && yarn yarn:frzinstall
+cd -
+```
+
 You can run your application in dev mode that enables live coding using:
 ```shell script
 ./mvnw compile quarkus:dev
