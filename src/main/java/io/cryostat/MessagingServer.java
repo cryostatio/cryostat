@@ -49,37 +49,43 @@ import javax.websocket.OnOpen;
 import javax.websocket.Session;
 import javax.websocket.server.ServerEndpoint;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @ApplicationScoped
 @ServerEndpoint("/api/v1/notifications")
 public class MessagingServer {
 
+    private final Logger LOG = LoggerFactory.getLogger(getClass());
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
 
     @OnOpen
     public void onOpen(Session session) {
-        System.out.println("Adding session " + session.getId());
+        LOG.debug("Adding session {}", session.getId());
         sessions.add(session);
     }
 
     @OnClose
     public void onClose(Session session) {
-        System.out.println("Removing session " + session.getId());
+        LOG.debug("Removing session {}", session.getId());
         sessions.remove(session);
     }
 
     @OnError
     public void onError(Session session, Throwable throwable) {
-        throwable.printStackTrace(System.err);
+        LOG.error("Session error", throwable);
         try {
+            LOG.error("Closing session {}", session.getId());
             session.close();
         } catch (IOException ioe) {
             ioe.printStackTrace(System.err);
+            LOG.error("Unable to close session", ioe);
         }
     }
 
     @OnMessage
     public void onMessage(Session session, String message) {
-        System.out.println(String.format("[%s] message: %s", session.getId(), message));
+        LOG.debug("[{}] message: {}", session.getId(), message);
         // broadcast(String.format(">> %s", message));
     }
 
@@ -91,7 +97,7 @@ public class MessagingServer {
                                     message,
                                     result -> {
                                         if (result.getException() != null) {
-                                            System.out.println(
+                                            LOG.warn(
                                                     "Unable to send message: "
                                                             + result.getException());
                                         }
