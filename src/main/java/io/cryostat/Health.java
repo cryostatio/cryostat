@@ -38,19 +38,37 @@
 package io.cryostat;
 
 import java.util.Map;
+import java.util.Optional;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+
 @Path("/")
 class Health {
+
+    @ConfigProperty(name = "quarkus.application.version")
+    String version;
+
+    @ConfigProperty(name = "quarkus.http.host")
+    String host;
+
+    @ConfigProperty(name = "quarkus.http.port")
+    int port;
+
+    @ConfigProperty(name = "quarkus.http.ssl-port")
+    int sslPort;
+
+    @ConfigProperty(name = "quarkus.http.ssl.certificate.key-store-password")
+    Optional<String> sslPass;
 
     @GET
     @Path("health")
     public Map<String, Object> health() {
         return Map.of(
                 "cryostatVersion",
-                "3.0.0",
+                version,
                 "dashboardConfigured",
                 false,
                 "dashboardAvailable",
@@ -68,6 +86,11 @@ class Health {
     @GET
     @Path("api/v1/notifications_url")
     public Map<String, String> notificationsUrl() {
-        return Map.of("notificationsUrl", "ws://0.0.0.0:8080/api/v1/notifications");
+        boolean ssl = sslPass.isPresent();
+        return Map.of(
+                "notificationsUrl",
+                String.format(
+                        "%s://%s:%d/api/v1/notifications",
+                        ssl ? "wss" : "ws", host, ssl ? sslPort : port));
     }
 }

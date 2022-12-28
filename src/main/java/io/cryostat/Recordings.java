@@ -58,5 +58,4 @@ public class Recordings {
     }
 
     public record Recording() {}
-
 }

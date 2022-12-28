@@ -40,3 +40,6 @@ nb-configuration.xml
 .env
 
 .quinoa/
+truststore/
+certs/*.p12
+certs/*.pass

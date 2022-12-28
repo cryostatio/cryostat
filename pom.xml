@@ -22,6 +22,10 @@
     <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
 
     <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
+
+    <cryostat.rjmxPort>9091</cryostat.rjmxPort>
+    <cryostat.itest.webHost>0.0.0.0</cryostat.itest.webHost>
+    <cryostat.itest.webPort>8181</cryostat.itest.webPort>
   </properties>
   <dependencyManagement>
     <dependencies>
