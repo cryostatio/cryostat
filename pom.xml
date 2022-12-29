@@ -18,6 +18,12 @@
     <quarkus.platform.version>2.15.0.Final</quarkus.platform.version>
     <skipITs>true</skipITs>
 
+    <io.quarkiverse.hibernatetypes.version>1.0.0</io.quarkiverse.hibernatetypes.version>
+    <org.apache.commons.lang3.version>3.12.0</org.apache.commons.lang3.version>
+    <org.apache.commons.codec.version>1.15</org.apache.commons.codec.version>
+    <org.apache.commons.validator.version>1.7</org.apache.commons.validator.version>
+    <org.apache.commons.io.version>2.11.0</org.apache.commons.io.version>
+
     <com.diffplug.spotless.maven.plugin.version>2.28.0</com.diffplug.spotless.maven.plugin.version>
     <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
 
@@ -66,6 +72,39 @@
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-hibernate-orm-panache</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkiverse.hibernatetypes</groupId>
+      <artifactId>quarkus-hibernate-types</artifactId>
+      <version>${io.quarkiverse.hibernatetypes.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-jdbc-h2</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>${org.apache.commons.lang3.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+      <version>${org.apache.commons.codec.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-io</groupId>
+      <artifactId>commons-io</artifactId>
+      <version>${org.apache.commons.io.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-validator</groupId>
+      <artifactId>commons-validator</artifactId>
+      <version>${org.apache.commons.validator.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>
       <scope>test</scope>
     </dependency>
@@ -99,6 +138,13 @@
           <compilerArgs>
             <arg>-parameters</arg>
           </compilerArgs>
+          <annotationProcessorPaths>
+            <path>
+              <groupId>io.quarkus</groupId>
+              <artifactId>quarkus-panache-common</artifactId>
+              <version>${quarkus.platform.version}</version>
+            </path>
+          </annotationProcessorPaths>
         </configuration>
       </plugin>
       <plugin>

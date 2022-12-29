@@ -38,6 +38,7 @@
 package io.cryostat;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -49,6 +50,8 @@ import javax.websocket.OnOpen;
 import javax.websocket.Session;
 import javax.websocket.server.ServerEndpoint;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -58,6 +61,7 @@ public class MessagingServer {
 
     private final Logger LOG = LoggerFactory.getLogger(getClass());
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
+    private final ObjectMapper mapper = new ObjectMapper();
 
     @OnOpen
     public void onOpen(Session session) {
@@ -89,19 +93,25 @@ public class MessagingServer {
         // broadcast(String.format(">> %s", message));
     }
 
-    private void broadcast(String message) {
+    public void broadcast(String category, Object message) {
+        var map = Map.of("meta", Map.of("category", category), "message", message);
+        LOG.info("Broadcasting: {}", map);
         sessions.forEach(
                 s -> {
-                    s.getAsyncRemote()
-                            .sendObject(
-                                    message,
-                                    result -> {
-                                        if (result.getException() != null) {
-                                            LOG.warn(
-                                                    "Unable to send message: "
-                                                            + result.getException());
-                                        }
-                                    });
+                    try {
+                        s.getAsyncRemote()
+                                .sendObject(
+                                        mapper.writeValueAsString(map),
+                                        result -> {
+                                            if (result.getException() != null) {
+                                                LOG.warn(
+                                                        "Unable to send message: "
+                                                                + result.getException());
+                                            }
+                                        });
+                    } catch (JsonProcessingException e) {
+                        LOG.error("Unable to send message", e);
+                    }
                 });
     }
 }
