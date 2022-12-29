@@ -58,8 +58,11 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import io.cryostat.MessagingServer;
+import io.cryostat.Notification;
 
 import io.quarkus.runtime.util.StringUtil;
+import io.quarkus.vertx.ConsumeEvent;
+import io.vertx.core.eventbus.EventBus;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.resteasy.reactive.RestForm;
@@ -69,11 +72,12 @@ import org.slf4j.LoggerFactory;
 @Path("")
 public class Targets {
 
+    public static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
     public static final Pattern HOST_PORT_PAIR_PATTERN =
             Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))?$");
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
-    @Inject MessagingServer messaging;
+    @Inject EventBus bus;
     @Inject TargetConnectionManager connectionManager;
 
     @GET
@@ -107,8 +111,8 @@ public class Targets {
 
             target.persistAndFlush();
 
-            messaging.broadcast(
-                    "TargetJvmDiscovery",
+            bus.publish(
+                    TARGET_JVM_DISCOVERY,
                     new TargetDiscoveryEvent(new TargetDiscovery(EventKind.FOUND, target)));
 
             return Response.created(URI.create("/api/v3/targets/" + target.id)).build();
@@ -151,8 +155,8 @@ public class Targets {
         try {
             Target target = Target.getTargetByConnectUrl(connectUrl);
             target.delete();
-            messaging.broadcast(
-                    "TargetJvmDiscovery",
+            bus.publish(
+                    TARGET_JVM_DISCOVERY,
                     new TargetDiscoveryEvent(new TargetDiscovery(EventKind.LOST, target)));
             return Response.ok().build();
         } catch (Exception e) {
@@ -167,12 +171,20 @@ public class Targets {
     @DELETE
     @Path("/api/v3/targets/{id}")
     public Response delete(@PathParam("id") long id) {
-        boolean response = Target.deleteById(id);
-        if (response) {
-            return Response.ok().build();
-        } else {
+        Target target = Target.findById(id);
+        if (target == null) {
             return Response.status(404).build();
         }
+        target.delete();
+        bus.publish(
+                TARGET_JVM_DISCOVERY,
+                new TargetDiscoveryEvent(new TargetDiscovery(EventKind.LOST, target)));
+        return Response.ok().build();
+    }
+
+    @ConsumeEvent(TARGET_JVM_DISCOVERY)
+    void onDiscovery(TargetDiscoveryEvent event) {
+        bus.publish(MessagingServer.class.getName(), new Notification(TARGET_JVM_DISCOVERY, event));
     }
 
     public record TargetDiscoveryEvent(TargetDiscovery event) {}

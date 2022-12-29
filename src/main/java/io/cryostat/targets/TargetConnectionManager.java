@@ -41,12 +41,12 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Semaphore;
 
 import javax.enterprise.context.Dependent;
@@ -55,6 +55,8 @@ import javax.management.remote.JMXServiceURL;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.JFRConnectionToolkit;
+import io.cryostat.targets.Targets.EventKind;
+import io.cryostat.targets.Targets.TargetDiscoveryEvent;
 
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
@@ -62,6 +64,8 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.Label;
@@ -83,7 +87,7 @@ public class TargetConnectionManager {
     @Inject
     TargetConnectionManager(JFRConnectionToolkit jfrConnectionToolkit) {
         this.jfrConnectionToolkit = jfrConnectionToolkit;
-        this.executor = ForkJoinPool.commonPool();
+        this.executor = Infrastructure.getDefaultExecutor();
 
         int maxTargetConnections = 2; // TODO make configurable
 
@@ -107,23 +111,21 @@ public class TargetConnectionManager {
             cacheBuilder = cacheBuilder.expireAfterAccess(ttl);
         }
         this.connections = cacheBuilder.buildAsync(new ConnectionLoader());
+    }
 
+    @ConsumeEvent(Targets.TARGET_JVM_DISCOVERY)
+    void onMessage(TargetDiscoveryEvent event) {
         // force removal of connections from cache when we're notified about targets being lost.
         // This should already be taken care of by the connection close listener, but this provides
         // some additional insurance in case a target disappears and the underlying JMX network
         // connection doesn't immediately report itself as closed
-        // platform.addTargetDiscoveryListener(
-        //         tde -> {
-        //             if (EventKind.LOST.equals(tde.getEventKind())) {
-        //                 for (ConnectionDescriptor cd : connections.asMap().keySet()) {
-        //                     if (Objects.equals(
-        //                             cd.getTargetId(),
-        //                             tde.getServiceRef().getServiceUri().toString())) {
-        //                         connections.synchronous().invalidate(cd);
-        //                     }
-        //                 }
-        //             }
-        //         });
+        if (EventKind.LOST.equals(event.event().kind())) {
+            for (Target target : connections.asMap().keySet()) {
+                if (Objects.equals(target.id, event.event().serviceRef().id)) {
+                    connections.synchronous().invalidate(target);
+                }
+            }
+        }
     }
 
     public <T> CompletableFuture<T> executeConnectedTaskAsync(
@@ -215,7 +217,7 @@ public class TargetConnectionManager {
                     null /* TODO get from credentials storage */,
                     Collections.singletonList(
                             () -> {
-                                logger.info("Connection for {} closed", uri);
+                                logger.info("Connection for {} closed from target side", uri);
                                 this.connections.synchronous().invalidate(target);
                             }));
         } catch (Exception e) {

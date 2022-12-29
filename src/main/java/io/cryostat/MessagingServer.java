@@ -52,6 +52,8 @@ import javax.websocket.server.ServerEndpoint;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.Blocking;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -59,43 +61,50 @@ import org.slf4j.LoggerFactory;
 @ServerEndpoint("/api/v1/notifications")
 public class MessagingServer {
 
-    private final Logger LOG = LoggerFactory.getLogger(getClass());
+    private final Logger logger = LoggerFactory.getLogger(getClass());
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
     private final ObjectMapper mapper = new ObjectMapper();
 
     // TODO implement authentication check
     @OnOpen
     public void onOpen(Session session) {
-        LOG.debug("Adding session {}", session.getId());
+        logger.debug("Adding session {}", session.getId());
         sessions.add(session);
     }
 
     @OnClose
     public void onClose(Session session) {
-        LOG.debug("Removing session {}", session.getId());
+        logger.debug("Removing session {}", session.getId());
         sessions.remove(session);
     }
 
     @OnError
     public void onError(Session session, Throwable throwable) {
-        LOG.error("Session error", throwable);
+        logger.error("Session error", throwable);
         try {
-            LOG.error("Closing session {}", session.getId());
+            logger.error("Closing session {}", session.getId());
             session.close();
         } catch (IOException ioe) {
             ioe.printStackTrace(System.err);
-            LOG.error("Unable to close session", ioe);
+            logger.error("Unable to close session", ioe);
         }
     }
 
     @OnMessage
     public void onMessage(Session session, String message) {
-        LOG.debug("[{}] message: {}", session.getId(), message);
+        logger.debug("[{}] message: {}", session.getId(), message);
     }
 
-    public void broadcast(String category, Object message) {
-        var map = Map.of("meta", Map.of("category", category), "message", message);
-        LOG.info("Broadcasting: {}", map);
+    @ConsumeEvent
+    @Blocking
+    public void broadcast(Notification notification) {
+        var map =
+                Map.of(
+                        "meta",
+                        Map.of("category", notification.category()),
+                        "message",
+                        notification.message());
+        logger.info("Broadcasting: {}", map);
         sessions.forEach(
                 s -> {
                     try {
@@ -104,13 +113,13 @@ public class MessagingServer {
                                         mapper.writeValueAsString(map),
                                         result -> {
                                             if (result.getException() != null) {
-                                                LOG.warn(
+                                                logger.warn(
                                                         "Unable to send message: "
                                                                 + result.getException());
                                             }
                                         });
                     } catch (JsonProcessingException e) {
-                        LOG.error("Unable to send message", e);
+                        logger.error("Unable to send message", e);
                     }
                 });
     }
