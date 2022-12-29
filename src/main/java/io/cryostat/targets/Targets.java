@@ -55,12 +55,10 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.core.Response;
-import javax.ws.rs.core.Response.Status;
 
 import io.cryostat.MessagingServer;
 import io.cryostat.Notification;
 
-import io.quarkus.runtime.util.StringUtil;
 import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.core.eventbus.EventBus;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -92,7 +90,7 @@ public class Targets {
     @Consumes("application/json")
     public Response create(Target target) {
         try {
-            target.connectUrl = sanitizeConnectUrl(target.connectUrl);
+            target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
             if (target.annotations == null) {
                 target.annotations = new Target.Annotations();
                 target.annotations.cryostat.put("REALM", "Custom Targets");
@@ -147,11 +145,7 @@ public class Targets {
     @Transactional
     @DELETE
     @Path("/api/v2/targets/{connectUrl}")
-    public Response delete(@PathParam("connectUrl") String raw) throws URISyntaxException {
-        if (StringUtil.isNullOrEmpty(raw)) {
-            return Response.status(Status.BAD_REQUEST).build();
-        }
-        URI connectUrl = new URI(raw);
+    public Response delete(@PathParam("connectUrl") URI connectUrl) throws URISyntaxException {
         try {
             Target target = Target.getTargetByConnectUrl(connectUrl);
             target.delete();
@@ -170,16 +164,12 @@ public class Targets {
     @Transactional
     @DELETE
     @Path("/api/v3/targets/{id}")
-    public Response delete(@PathParam("id") long id) {
+    public Response delete(@PathParam("id") long id) throws URISyntaxException {
         Target target = Target.findById(id);
         if (target == null) {
             return Response.status(404).build();
         }
-        target.delete();
-        bus.publish(
-                TARGET_JVM_DISCOVERY,
-                new TargetDiscoveryEvent(new TargetDiscovery(EventKind.LOST, target)));
-        return Response.ok().build();
+        return delete(target.connectUrl);
     }
 
     @ConsumeEvent(TARGET_JVM_DISCOVERY)
@@ -214,9 +204,5 @@ public class Targets {
         }
 
         return out;
-    }
-
-    private URI sanitizeConnectUrl(URI in) throws URISyntaxException, MalformedURLException {
-        return sanitizeConnectUrl(in.toString());
     }
 }
