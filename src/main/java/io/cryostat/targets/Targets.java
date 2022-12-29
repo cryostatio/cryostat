@@ -64,6 +64,7 @@ import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestQuery;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -88,7 +89,7 @@ public class Targets {
     @POST
     @Path("/api/v2/targets")
     @Consumes("application/json")
-    public Response create(Target target) {
+    public Response create(Target target, @RestQuery boolean dryrun) {
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
             if (target.annotations == null) {
@@ -105,6 +106,10 @@ public class Targets {
             } catch (Exception e) {
                 logger.error("Target connection failed", e);
                 return Response.status(400).build();
+            }
+
+            if (dryrun) {
+                return Response.ok().build();
             }
 
             target.persistAndFlush();
@@ -128,12 +133,13 @@ public class Targets {
     @POST
     @Path("/api/v2/targets")
     @Consumes("multipart/form-data")
-    public Response create(@RestForm URI connectUrl, @RestForm String alias) {
+    public Response create(
+            @RestForm URI connectUrl, @RestForm String alias, @RestQuery boolean dryrun) {
         var target = new Target();
         target.connectUrl = connectUrl;
         target.alias = alias;
 
-        return create(target);
+        return create(target, dryrun);
     }
 
     @GET
