@@ -18,6 +18,7 @@
     <quarkus.platform.version>2.15.0.Final</quarkus.platform.version>
     <skipITs>true</skipITs>
 
+    <io.cryostat.core.version>2.16.2</io.cryostat.core.version>
     <io.quarkiverse.hibernatetypes.version>1.0.0</io.quarkiverse.hibernatetypes.version>
     <org.apache.commons.lang3.version>3.12.0</org.apache.commons.lang3.version>
     <org.apache.commons.codec.version>1.15</org.apache.commons.codec.version>
@@ -26,6 +27,8 @@
 
     <com.diffplug.spotless.maven.plugin.version>2.28.0</com.diffplug.spotless.maven.plugin.version>
     <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
+    <com.github.spotbugs.version>4.7.3</com.github.spotbugs.version>
+    <com.github.spotbugs.plugin.version>${com.github.spotbugs.version}.0</com.github.spotbugs.plugin.version>
 
     <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
 
@@ -45,6 +48,11 @@
     </dependencies>
   </dependencyManagement>
   <dependencies>
+    <dependency>
+      <groupId>io.cryostat</groupId>
+      <artifactId>cryostat-core</artifactId>
+      <version>${io.cryostat.core.version}</version>
+    </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-arc</artifactId>
@@ -113,6 +121,12 @@
       <artifactId>rest-assured</artifactId>
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>com.github.spotbugs</groupId>
+      <artifactId>spotbugs-annotations</artifactId>
+      <version>${com.github.spotbugs.version}</version>
+      <scope>provided</scope>
+    </dependency>
   </dependencies>
   <build>
     <plugins>
@@ -175,6 +189,20 @@
             <removeUnusedImports/>
           </java>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>${com.github.spotbugs.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>spotbugs</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>com.mycila</groupId>
@@ -249,4 +277,13 @@
       </properties>
     </profile>
   </profiles>
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>com.github.spotbugs</groupId>
+        <artifactId>spotbugs-maven-plugin</artifactId>
+        <version>${com.github.spotbugs.plugin.version}</version>
+      </plugin>
+    </plugins>
+  </reporting>
 </project>

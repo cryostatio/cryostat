@@ -37,10 +37,13 @@
  */
 package io.cryostat.targets;
 
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.inject.Inject;
 import javax.persistence.NoResultException;
@@ -66,8 +69,12 @@ import org.slf4j.LoggerFactory;
 @Path("")
 public class Targets {
 
-    private final Logger LOG = LoggerFactory.getLogger(getClass());
+    public static final Pattern HOST_PORT_PAIR_PATTERN =
+            Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))?$");
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
     @Inject MessagingServer messaging;
+    @Inject TargetConnectionManager connectionManager;
 
     @GET
     @Path("/api/v1/targets")
@@ -81,6 +88,7 @@ public class Targets {
     @Consumes("application/json")
     public Response create(Target target) {
         try {
+            target.connectUrl = sanitizeConnectUrl(target.connectUrl);
             if (target.annotations == null) {
                 target.annotations = new Target.Annotations();
                 target.annotations.cryostat.put("REALM", "Custom Targets");
@@ -88,6 +96,15 @@ public class Targets {
             if (target.labels == null) {
                 target.labels = new HashMap<>();
             }
+
+            try {
+                target.jvmId =
+                        connectionManager.executeConnectedTask(target, conn -> conn.getJvmId());
+            } catch (Exception e) {
+                logger.error("Target connection failed", e);
+                return Response.status(400).build();
+            }
+
             target.persistAndFlush();
 
             messaging.broadcast(
@@ -97,9 +114,10 @@ public class Targets {
             return Response.created(URI.create("/api/v3/targets/" + target.id)).build();
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
-                LOG.warn("", e);
+                logger.warn("Invalid target definition", e);
                 return Response.status(400).build();
             }
+            logger.error("Unknown error", e);
             return Response.serverError().build();
         }
     }
@@ -109,29 +127,11 @@ public class Targets {
     @Path("/api/v2/targets")
     @Consumes("multipart/form-data")
     public Response create(@RestForm URI connectUrl, @RestForm String alias) {
-        try {
-            LOG.info("Creating custom target {} ({})", connectUrl, alias);
-            var target = new Target();
-            target.connectUrl = connectUrl;
-            target.alias = alias;
-            target.labels = new HashMap<>();
-            target.annotations = new Target.Annotations();
-            target.annotations.cryostat.put("REALM", "Custom Targets");
+        var target = new Target();
+        target.connectUrl = connectUrl;
+        target.alias = alias;
 
-            target.persistAndFlush();
-
-            messaging.broadcast(
-                    "TargetJvmDiscovery",
-                    new TargetDiscoveryEvent(new TargetDiscovery(EventKind.FOUND, target)));
-
-            return Response.created(URI.create("/api/v3/targets/" + target.id)).build();
-        } catch (Exception e) {
-            if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
-                LOG.warn("", e);
-                return Response.status(400).build();
-            }
-            return Response.serverError().build();
-        }
+        return create(target);
     }
 
     @GET
@@ -163,6 +163,18 @@ public class Targets {
         }
     }
 
+    @Transactional
+    @DELETE
+    @Path("/api/v3/targets/{id}")
+    public Response delete(@PathParam("id") long id) {
+        boolean response = Target.deleteById(id);
+        if (response) {
+            return Response.ok().build();
+        } else {
+            return Response.status(404).build();
+        }
+    }
+
     public record TargetDiscoveryEvent(TargetDiscovery event) {}
 
     public record TargetDiscovery(EventKind kind, Target serviceRef) {}
@@ -171,5 +183,28 @@ public class Targets {
         FOUND,
         LOST,
         ;
+    }
+
+    private URI sanitizeConnectUrl(String in) throws URISyntaxException, MalformedURLException {
+        URI out;
+
+        Matcher m = HOST_PORT_PAIR_PATTERN.matcher(in);
+        if (m.find()) {
+            String host = m.group(1);
+            String port = m.group(2);
+            out =
+                    URI.create(
+                            String.format(
+                                    "service:jmx:rmi:///jndi/rmi://%s:%d/jmxrmi",
+                                    host, Integer.valueOf(port)));
+        } else {
+            out = new URI(in);
+        }
+
+        return out;
+    }
+
+    private URI sanitizeConnectUrl(URI in) throws URISyntaxException, MalformedURLException {
+        return sanitizeConnectUrl(in.toString());
     }
 }

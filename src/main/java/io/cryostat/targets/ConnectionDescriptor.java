@@ -37,76 +37,51 @@
  */
 package io.cryostat.targets;
 
-import java.net.URI;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
+import io.cryostat.core.net.Credentials;
 
-import io.quarkiverse.hibernate.types.json.JsonBinaryType;
-import io.quarkiverse.hibernate.types.json.JsonTypes;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import org.hibernate.annotations.Type;
-import org.hibernate.annotations.TypeDef;
+public class ConnectionDescriptor {
 
-@Entity
-@TypeDef(name = JsonTypes.JSON_BIN, typeClass = JsonBinaryType.class)
-public class Target extends PanacheEntity {
+    private final Target target;
+    private final Optional<Credentials> credentials;
 
-    @Column(unique = true, nullable = false)
-    public URI connectUrl;
-
-    @Column(unique = true, nullable = false)
-    public String alias;
-
-    public String jvmId;
-
-    @Type(type = JsonTypes.JSON_BIN)
-    @Column(columnDefinition = JsonTypes.JSON_BIN, nullable = false)
-    public Map<String, String> labels;
-
-    @Type(type = JsonTypes.JSON_BIN)
-    @Column(columnDefinition = JsonTypes.JSON_BIN, nullable = false)
-    public Annotations annotations;
-
-    public static Target getTargetByConnectUrl(URI connectUrl) {
-        return find("connectUrl", connectUrl).singleResult();
+    public ConnectionDescriptor(Target target) {
+        this(target, null);
     }
 
-    public static boolean deleteByConnectUrl(URI connectUrl) {
-        return delete("connectUrl", connectUrl) > 0;
+    public ConnectionDescriptor(Target target, Credentials credentials) {
+        this.target = target;
+        this.credentials = Optional.ofNullable(credentials);
     }
 
-    public static class Annotations {
-        public Map<String, String> platform;
-        public Map<String, String> cryostat;
+    public Target getTarget() {
+        return target;
+    }
 
-        public Annotations() {
-            this.platform = new HashMap<>();
-            this.cryostat = new HashMap<>();
-        }
+    public Optional<Credentials> getCredentials() {
+        return credentials;
+    }
 
-        @Override
-        public int hashCode() {
-            return Objects.hash(cryostat, platform);
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
         }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        ConnectionDescriptor other = (ConnectionDescriptor) obj;
+        return Objects.equals(credentials, other.credentials)
+                && Objects.equals(target, other.target);
+    }
 
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null) {
-                return false;
-            }
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
-            Annotations other = (Annotations) obj;
-            return Objects.equals(cryostat, other.cryostat)
-                    && Objects.equals(platform, other.platform);
-        }
+    @Override
+    public int hashCode() {
+        return Objects.hash(credentials, target);
     }
 }

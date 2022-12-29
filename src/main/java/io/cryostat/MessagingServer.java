@@ -63,6 +63,7 @@ public class MessagingServer {
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
     private final ObjectMapper mapper = new ObjectMapper();
 
+    // TODO implement authentication check
     @OnOpen
     public void onOpen(Session session) {
         LOG.debug("Adding session {}", session.getId());
@@ -90,7 +91,6 @@ public class MessagingServer {
     @OnMessage
     public void onMessage(Session session, String message) {
         LOG.debug("[{}] message: {}", session.getId(), message);
-        // broadcast(String.format(">> %s", message));
     }
 
     public void broadcast(String category, Object message) {
