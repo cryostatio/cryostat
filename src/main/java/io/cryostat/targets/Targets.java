@@ -53,7 +53,6 @@ import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
 import javax.ws.rs.core.Response;
 
 import io.cryostat.MessagingServer;
@@ -64,6 +63,7 @@ import io.vertx.core.eventbus.EventBus;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.RestPath;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -138,14 +138,14 @@ public class Targets {
 
     @GET
     @Path("/api/v3/targets/{id}")
-    public Target getById(@PathParam("id") Long id) {
+    public Target getById(@RestPath Long id) {
         return Target.findById(id);
     }
 
     @Transactional
     @DELETE
     @Path("/api/v2/targets/{connectUrl}")
-    public Response delete(@PathParam("connectUrl") URI connectUrl) throws URISyntaxException {
+    public Response delete(@RestPath URI connectUrl) throws URISyntaxException {
         try {
             Target target = Target.getTargetByConnectUrl(connectUrl);
             target.delete();
@@ -164,7 +164,7 @@ public class Targets {
     @Transactional
     @DELETE
     @Path("/api/v3/targets/{id}")
-    public Response delete(@PathParam("id") long id) throws URISyntaxException {
+    public Response delete(@RestPath long id) throws URISyntaxException {
         Target target = Target.findById(id);
         if (target == null) {
             return Response.status(404).build();

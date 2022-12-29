@@ -97,7 +97,7 @@ public class MessagingServer {
 
     @ConsumeEvent
     @Blocking
-    public void broadcast(Notification notification) {
+    void broadcast(Notification notification) {
         var map =
                 Map.of(
                         "meta",
