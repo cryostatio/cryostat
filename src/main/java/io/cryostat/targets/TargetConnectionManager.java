@@ -162,7 +162,7 @@ public class TargetConnectionManager {
      * future from the time this method is called. This may be done repeatedly as long as the
      * connection is required to remain active.
      *
-     * @return false if the connection for the specified {@link ConnectionDescriptor} was already
+     * @return false if the connection for the specified {@link Target} was already
      *     removed from cache, true if it is still active and was refreshed
      */
     public boolean markConnectionInUse(Target target) {
