@@ -39,6 +39,7 @@ package io.cryostat.security.auth;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -78,7 +79,7 @@ public class DevBasicAuthMechanism implements HttpAuthenticationMechanism {
     public Uni<SecurityIdentity> authenticate(
             RoutingContext context, IdentityProviderManager identityProviderManager) {
         if (!context.request().headers().contains(HttpHeaders.AUTHORIZATION)) {
-            return Uni.createFrom().nullItem();
+            return Uni.createFrom().optional(Optional.empty());
         }
         String header = context.request().getHeader(HttpHeaders.AUTHORIZATION);
         Matcher m = BASIC_HEADER_PATTERN.matcher(header);
@@ -99,7 +100,7 @@ public class DevBasicAuthMechanism implements HttpAuthenticationMechanism {
     @Override
     public Uni<ChallengeData> getChallenge(RoutingContext context) {
         int statusCode = HttpResponseStatus.UNAUTHORIZED.code();
-        String headerName = HttpHeaders.WWW_AUTHENTICATE;
+        String headerName = "X-" + HttpHeaders.WWW_AUTHENTICATE;
         String content = "Basic";
         var cd = new ChallengeData(statusCode, headerName, content);
         return Uni.createFrom().item(cd);

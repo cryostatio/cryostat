@@ -68,13 +68,13 @@ public class MessagingServer {
     // TODO implement authentication check
     @OnOpen
     public void onOpen(Session session) {
-        logger.debug("Adding session {}", session.getId());
+        logger.info("Adding session {}", session.getId());
         sessions.add(session);
     }
 
     @OnClose
     public void onClose(Session session) {
-        logger.debug("Removing session {}", session.getId());
+        logger.info("Removing session {}", session.getId());
         sessions.remove(session);
     }
 
@@ -92,7 +92,7 @@ public class MessagingServer {
 
     @OnMessage
     public void onMessage(Session session, String message) {
-        logger.debug("[{}] message: {}", session.getId(), message);
+        logger.info("[{}] message: {}", session.getId(), message);
     }
 
     @ConsumeEvent

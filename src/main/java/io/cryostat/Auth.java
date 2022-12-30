@@ -37,27 +37,95 @@
  */
 package io.cryostat;
 
+import java.time.Duration;
 import java.util.Map;
 
+import javax.annotation.security.PermitAll;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.Produces;
+import javax.ws.rs.core.Context;
+import javax.ws.rs.core.Response;
 
-import org.jboss.resteasy.reactive.RestResponse;
-import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
+import io.netty.handler.codec.http.HttpResponseStatus;
+import io.quarkus.vertx.http.runtime.security.HttpAuthenticator;
+import io.vertx.ext.web.RoutingContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Path("/api/v2.1/auth")
 public class Auth {
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+
     @POST
-    public RestResponse<Map<String, Map<String, ? extends Object>>> post() {
-        return ResponseBuilder.ok(
-                        Map.of(
-                                "meta",
-                                Map.of(
-                                        "status", "OK",
-                                        "type", "application/json"),
-                                "data",
-                                Map.of("result", Map.of("username", "quarkus-dev"))))
-                .header("X-WWW-Authenticate", "None")
-                .build();
+    @PermitAll
+    @Produces("application/json")
+    public Response post(@Context RoutingContext context) {
+        HttpAuthenticator authenticator = context.get(HttpAuthenticator.class.getName());
+        return authenticator
+                .attemptAuthentication(context)
+                .onItemOrFailure()
+                .transform(
+                        (id, t) -> {
+                            if (id == null) {
+                                return Response.status(HttpResponseStatus.UNAUTHORIZED.code())
+                                        .header(
+                                                "X-WWW-Authenticate",
+                                                authenticator
+                                                        .getChallenge(context)
+                                                        .await()
+                                                        .indefinitely()
+                                                        .headerContent)
+                                        .entity(
+                                                Map.of(
+                                                        "meta",
+                                                        Map.of(
+                                                                "status", "Unauthorized",
+                                                                "type", "text/plain"),
+                                                        "data",
+                                                        Map.of(
+                                                                "reason",
+                                                                "HTTP Authorization Failure")))
+                                        .build();
+                            }
+                            if (t != null) {
+                                logger.error("Internal authentication failure", t);
+                                return Response.status(HttpResponseStatus.UNAUTHORIZED.code())
+                                        .header(
+                                                "X-WWW-Authenticate",
+                                                authenticator
+                                                        .getChallenge(context)
+                                                        .await()
+                                                        .indefinitely()
+                                                        .headerContent)
+                                        .entity(
+                                                Map.of(
+                                                        "meta",
+                                                        Map.of(
+                                                                "status", "Unauthorized",
+                                                                "type", "text/plain"),
+                                                        "data",
+                                                        Map.of(
+                                                                "reason",
+                                                                "HTTP Authorization Failure")))
+                                        .build();
+                            }
+                            return Response.ok(
+                                            Map.of(
+                                                    "meta",
+                                                    Map.of(
+                                                            "status", "OK",
+                                                            "type", "application/json"),
+                                                    "data",
+                                                    Map.of(
+                                                            "result",
+                                                            Map.of(
+                                                                    "username",
+                                                                    id.getPrincipal().getName()))))
+                                    .build();
+                        })
+                .await()
+                .atMost(Duration.ofSeconds(20));
     }
 }

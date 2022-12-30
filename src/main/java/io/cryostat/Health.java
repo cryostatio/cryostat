@@ -43,8 +43,11 @@ import java.util.Optional;
 import javax.annotation.security.PermitAll;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.core.Response;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Path("/")
 class Health {
@@ -67,25 +70,37 @@ class Health {
     @ConfigProperty(name = "quarkus.http.ssl.certificate.key-store-password")
     Optional<String> sslPass;
 
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+
     @GET
     @Path("health")
     @PermitAll
-    public Map<String, Object> health() {
-        return Map.of(
-                "cryostatVersion",
-                version,
-                "dashboardConfigured",
-                false,
-                "dashboardAvailable",
-                false,
-                "datasourceConfigured",
-                false,
-                "datasourceAvailable",
-                false,
-                "reportsConfigured",
-                false,
-                "reportsAvailable",
-                false);
+    public Response health() {
+        return Response.ok(
+                        Map.of(
+                                "cryostatVersion",
+                                version,
+                                "dashboardConfigured",
+                                false,
+                                "dashboardAvailable",
+                                false,
+                                "datasourceConfigured",
+                                false,
+                                "datasourceAvailable",
+                                false,
+                                "reportsConfigured",
+                                false,
+                                "reportsAvailable",
+                                false))
+                .header("Access-Control-Allow-Origin", "http://localhost:9000")
+                .header(
+                        "Access-Control-Allow-Headers",
+                        "accept, origin, authorization, content-type,"
+                                + " x-requested-with, x-jmx-authorization")
+                .header("Access-Control-Expose-Headers", "x-www-authenticate, x-jmx-authenticate")
+                .header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+                .header("Access-Control-Allow-Credentials", "true")
+                .build();
     }
 
     @GET
@@ -96,12 +111,25 @@ class Health {
     @GET
     @Path("api/v1/notifications_url")
     @PermitAll
-    public Map<String, String> notificationsUrl() {
+    public Response notificationsUrl() {
+        // TODO @PermitAll annotation seems to skip the CORS filter, so these headers don't get
+        // added. We shouldn't need to add them manually like this and they should not be added in
+        // prod builds.
         boolean ssl = sslPass.isPresent();
-        return Map.of(
-                "notificationsUrl",
-                String.format(
-                        "%s://%s:%d/api/v1/notifications",
-                        ssl ? "wss" : "ws", host, ssl ? sslPort : port));
+        return Response.ok(
+                        Map.of(
+                                "notificationsUrl",
+                                String.format(
+                                        "%s://%s:%d/api/v1/notifications",
+                                        ssl ? "wss" : "ws", host, ssl ? sslPort : port)))
+                .header("Access-Control-Allow-Origin", "http://localhost:9000")
+                .header(
+                        "Access-Control-Allow-Headers",
+                        "accept, origin, authorization, content-type,"
+                                + " x-requested-with, x-jmx-authorization")
+                .header("Access-Control-Expose-Headers", "x-www-authenticate, x-jmx-authenticate")
+                .header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+                .header("Access-Control-Allow-Credentials", "true")
+                .build();
     }
 }
