@@ -35,73 +35,27 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.cryostat;
+package io.cryostat.security.auth;
 
-import java.util.Map;
-import java.util.Optional;
+import javax.enterprise.context.ApplicationScoped;
 
-import javax.annotation.security.PermitAll;
-import javax.ws.rs.GET;
-import javax.ws.rs.Path;
+import io.quarkus.arc.profile.IfBuildProfile;
+import io.quarkus.security.identity.AuthenticationRequestContext;
+import io.quarkus.security.identity.SecurityIdentity;
+import io.quarkus.security.identity.SecurityIdentityAugmentor;
+import io.smallrye.mutiny.Uni;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import org.eclipse.microprofile.config.inject.ConfigProperty;
+@ApplicationScoped
+@IfBuildProfile("dev")
+public class DevSecurityIdentityAugmentor implements SecurityIdentityAugmentor {
 
-@Path("/")
-class Health {
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
-    @ConfigProperty(name = "quarkus.application.name")
-    String name;
-
-    @ConfigProperty(name = "quarkus.application.version")
-    String version;
-
-    @ConfigProperty(name = "quarkus.http.host")
-    String host;
-
-    @ConfigProperty(name = "quarkus.http.port")
-    int port;
-
-    @ConfigProperty(name = "quarkus.http.ssl-port")
-    int sslPort;
-
-    @ConfigProperty(name = "quarkus.http.ssl.certificate.key-store-password")
-    Optional<String> sslPass;
-
-    @GET
-    @Path("health")
-    @PermitAll
-    public Map<String, Object> health() {
-        return Map.of(
-                "cryostatVersion",
-                version,
-                "dashboardConfigured",
-                false,
-                "dashboardAvailable",
-                false,
-                "datasourceConfigured",
-                false,
-                "datasourceAvailable",
-                false,
-                "reportsConfigured",
-                false,
-                "reportsAvailable",
-                false);
-    }
-
-    @GET
-    @Path("health/liveness")
-    @PermitAll
-    public void liveness() {}
-
-    @GET
-    @Path("api/v1/notifications_url")
-    @PermitAll
-    public Map<String, String> notificationsUrl() {
-        boolean ssl = sslPass.isPresent();
-        return Map.of(
-                "notificationsUrl",
-                String.format(
-                        "%s://%s:%d/api/v1/notifications",
-                        ssl ? "wss" : "ws", host, ssl ? sslPort : port));
+    @Override
+    public Uni<SecurityIdentity> augment(
+            SecurityIdentity identity, AuthenticationRequestContext context) {
+        return Uni.createFrom().item(identity);
     }
 }

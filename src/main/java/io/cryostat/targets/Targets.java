@@ -45,6 +45,7 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.persistence.NoResultException;
 import javax.transaction.Transactional;
@@ -73,7 +74,7 @@ public class Targets {
 
     public static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
     public static final Pattern HOST_PORT_PAIR_PATTERN =
-            Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))?$");
+            Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))$");
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
     @Inject EventBus bus;
@@ -81,6 +82,7 @@ public class Targets {
 
     @GET
     @Path("/api/v1/targets")
+    @RolesAllowed("target:read")
     public List<Target> list() {
         return Target.listAll();
     }
@@ -89,6 +91,7 @@ public class Targets {
     @POST
     @Path("/api/v2/targets")
     @Consumes("application/json")
+    @RolesAllowed("target:create")
     public Response create(Target target, @RestQuery boolean dryrun) {
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
@@ -133,6 +136,7 @@ public class Targets {
     @POST
     @Path("/api/v2/targets")
     @Consumes("multipart/form-data")
+    @RolesAllowed("target:create")
     public Response create(
             @RestForm URI connectUrl, @RestForm String alias, @RestQuery boolean dryrun) {
         var target = new Target();
@@ -144,6 +148,7 @@ public class Targets {
 
     @GET
     @Path("/api/v3/targets/{id}")
+    @RolesAllowed("target:read")
     public Target getById(@RestPath Long id) {
         return Target.findById(id);
     }
@@ -151,6 +156,7 @@ public class Targets {
     @Transactional
     @DELETE
     @Path("/api/v2/targets/{connectUrl}")
+    @RolesAllowed("target:delete")
     public Response delete(@RestPath URI connectUrl) throws URISyntaxException {
         try {
             Target target = Target.getTargetByConnectUrl(connectUrl);
@@ -170,6 +176,7 @@ public class Targets {
     @Transactional
     @DELETE
     @Path("/api/v3/targets/{id}")
+    @RolesAllowed("target:delete")
     public Response delete(@RestPath long id) throws URISyntaxException {
         Target target = Target.findById(id);
         if (target == null) {
