@@ -35,7 +35,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.cryostat;
+package io.cryostat.recordings;
 
 import java.net.URI;
 import java.util.List;
@@ -43,7 +43,6 @@ import java.util.Map;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
-import javax.persistence.NoResultException;
 import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.Path;
@@ -56,8 +55,6 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import jdk.jfr.RecordingState;
 import org.jboss.resteasy.reactive.RestPath;
-import org.jboss.resteasy.reactive.RestResponse;
-import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -119,12 +116,6 @@ public class Recordings {
     public List<ActiveRecording> listForTargetByUrl(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return listForTarget(target.id);
-    }
-
-    // FIXME extract this somewhere
-    @ServerExceptionMapper
-    public RestResponse<Void> mapNoResultException(NoResultException ex) {
-        return RestResponse.notFound();
     }
 
     private RecordingState mapState(IRecordingDescriptor desc) {
