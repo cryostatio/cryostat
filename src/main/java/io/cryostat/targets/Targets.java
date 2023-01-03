@@ -83,6 +83,13 @@ public class Targets {
     @GET
     @Path("/api/v1/targets")
     @RolesAllowed("target:read")
+    public List<Target> listV1() {
+        return Target.listAll();
+    }
+
+    @GET
+    @Path("/api/v3/targets")
+    @RolesAllowed("target:read")
     public List<Target> list() {
         return Target.listAll();
     }
