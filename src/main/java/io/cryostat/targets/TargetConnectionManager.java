@@ -49,7 +49,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 
-import javax.enterprise.context.Dependent;
+import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
 import javax.management.remote.JMXServiceURL;
 
@@ -65,6 +65,7 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
@@ -73,7 +74,7 @@ import jdk.jfr.Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Dependent
+@ApplicationScoped
 public class TargetConnectionManager {
 
     private final JFRConnectionToolkit jfrConnectionToolkit;
@@ -89,7 +90,7 @@ public class TargetConnectionManager {
         this.jfrConnectionToolkit = jfrConnectionToolkit;
         this.executor = Infrastructure.getDefaultExecutor();
 
-        int maxTargetConnections = 2; // TODO make configurable
+        int maxTargetConnections = 0; // TODO make configurable
 
         this.targetLocks = new ConcurrentHashMap<>();
         if (maxTargetConnections > 0) {
@@ -103,7 +104,7 @@ public class TargetConnectionManager {
                         .executor(executor)
                         .scheduler(Scheduler.systemScheduler())
                         .removalListener(this::closeConnection);
-        Duration ttl = Duration.ofSeconds(10);
+        Duration ttl = Duration.ofSeconds(10); // TODO make configurable
         if (ttl.isZero() || ttl.isNegative()) {
             throw new IllegalArgumentException(
                     "TTL must be a positive integer in seconds, was " + ttl.toSeconds());
@@ -128,21 +129,22 @@ public class TargetConnectionManager {
         }
     }
 
-    public <T> CompletableFuture<T> executeConnectedTaskAsync(
-            Target target, ConnectedTask<T> task) {
+    public <T> Uni<T> executeConnectedTaskAsync(Target target, ConnectedTask<T> task) {
         synchronized (targetLocks.computeIfAbsent(target, k -> new Object())) {
-            return connections
-                    .get(target)
-                    .thenApplyAsync(
-                            conn -> {
-                                try {
-                                    return task.execute(conn);
-                                } catch (Exception e) {
-                                    logger.error("Connection failure", e);
-                                    throw new CompletionException(e);
-                                }
-                            },
-                            executor);
+            return Uni.createFrom()
+                    .completionStage(
+                            connections
+                                    .get(target)
+                                    .thenApplyAsync(
+                                            conn -> {
+                                                try {
+                                                    return task.execute(conn);
+                                                } catch (Exception e) {
+                                                    logger.error("Connection failure", e);
+                                                    throw new CompletionException(e);
+                                                }
+                                            },
+                                            executor));
         }
     }
 
@@ -217,7 +219,6 @@ public class TargetConnectionManager {
                     null /* TODO get from credentials storage */,
                     Collections.singletonList(
                             () -> {
-                                logger.info("Connection for {} closed from target side", uri);
                                 this.connections.synchronous().invalidate(target);
                             }));
         } catch (Exception e) {

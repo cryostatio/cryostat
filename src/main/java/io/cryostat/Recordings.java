@@ -37,25 +37,133 @@
  */
 package io.cryostat;
 
+import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
+import javax.annotation.security.RolesAllowed;
+import javax.inject.Inject;
+import javax.persistence.NoResultException;
 import javax.ws.rs.GET;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.Path;
+
+import org.openjdk.jmc.common.unit.UnitLookup;
+import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
+
+import io.cryostat.targets.Target;
+import io.cryostat.targets.TargetConnectionManager;
+
+import jdk.jfr.RecordingState;
+import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Path("")
 public class Recordings {
 
+    private final Logger logger = LoggerFactory.getLogger(getClass());
+    @Inject TargetConnectionManager connectionManager;
+
     @GET
     @Path("/api/v1/recordings")
-    public List<Recording> listArchives() {
+    @RolesAllowed("recording:read")
+    public List<ArchivedRecording> listArchives() {
         return List.of();
+    }
+
+    @GET
+    @Path("/api/v3/targets/{id}/recordings")
+    @RolesAllowed({"recording:read", "target:read"})
+    public List<ActiveRecording> listForTarget(@RestPath long id) throws Exception {
+        Target target = Target.findById(id);
+        if (target == null) {
+            throw new NotFoundException();
+        }
+        return connectionManager.executeConnectedTask(
+                target,
+                conn -> {
+                    return conn.getService().getAvailableRecordings().stream()
+                            .map(
+                                    desc -> {
+                                        Metadata metadata = new Metadata(Map.of());
+                                        return new ActiveRecording(
+                                                desc.getId(),
+                                                mapState(desc),
+                                                desc.getDuration()
+                                                        .in(UnitLookup.MILLISECOND)
+                                                        .longValue(),
+                                                desc.getStartTime()
+                                                        .in(UnitLookup.MILLISECOND)
+                                                        .longValue(),
+                                                desc.isContinuous(),
+                                                desc.getToDisk(),
+                                                desc.getMaxSize().in(UnitLookup.BYTE).longValue(),
+                                                desc.getMaxAge()
+                                                        .in(UnitLookup.MILLISECOND)
+                                                        .longValue(),
+                                                desc.getName(),
+                                                "TODO",
+                                                "TODO",
+                                                metadata);
+                                    })
+                            .toList();
+                });
     }
 
     @GET
     @Path("/api/v1/targets/{connectUrl}/recordings")
-    public List<Recording> listForTarget() {
-        return List.of();
+    @RolesAllowed({"recording:read", "target:read"})
+    public List<ActiveRecording> listForTargetByUrl(@RestPath URI connectUrl) throws Exception {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        return listForTarget(target.id);
     }
 
-    public record Recording() {}
+    // FIXME extract this somewhere
+    @ServerExceptionMapper
+    public RestResponse<Void> mapNoResultException(NoResultException ex) {
+        return RestResponse.notFound();
+    }
+
+    private RecordingState mapState(IRecordingDescriptor desc) {
+        switch (desc.getState()) {
+            case CREATED:
+                return RecordingState.NEW;
+            case RUNNING:
+                return RecordingState.RUNNING;
+            case STOPPING:
+                return RecordingState.RUNNING;
+            case STOPPED:
+                return RecordingState.STOPPED;
+            default:
+                logger.warn("Unrecognized recording state: {}", desc.getState());
+                return RecordingState.CLOSED;
+        }
+    }
+
+    public record ActiveRecording(
+            long id,
+            RecordingState state,
+            long duration,
+            long startTime,
+            boolean continuous,
+            boolean toDisk,
+            long maxSize,
+            long maxAge,
+            String name,
+            String downloadUrl,
+            String reportUrl,
+            Metadata metadata) {}
+
+    public record ArchivedRecording(
+            String name,
+            String downloadUrl,
+            String reportUrl,
+            Metadata metadata,
+            long size,
+            long archivedTime) {}
+
+    public record Metadata(Map<String, String> labels) {}
 }

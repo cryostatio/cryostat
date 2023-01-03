@@ -37,8 +37,8 @@
  */
 package io.cryostat.targets;
 
-import javax.enterprise.context.Dependent;
 import javax.enterprise.inject.Produces;
+import javax.inject.Singleton;
 
 import io.cryostat.core.net.JFRConnectionToolkit;
 import io.cryostat.core.sys.Environment;
@@ -48,7 +48,7 @@ import io.quarkus.arc.DefaultBean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Dependent
+@Singleton
 public class TargetModule {
 
     @Produces
