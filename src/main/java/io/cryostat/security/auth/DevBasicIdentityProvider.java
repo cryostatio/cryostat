@@ -108,7 +108,7 @@ public class DevBasicIdentityProvider
                         // TODO extract these
                         var actions = List.of("create", "read", "update", "delete");
                         var resources =
-                                List.of("target", "recording", "report", "template", "rule");
+                                List.of("target", "recording", "report", "template", "rule", "credential");
                         var roles = new HashSet<String>();
                         for (var action : actions) {
                             for (var resource : resources) {
