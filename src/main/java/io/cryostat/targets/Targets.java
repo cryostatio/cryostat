@@ -56,8 +56,8 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
 
-import io.cryostat.MessagingServer;
-import io.cryostat.Notification;
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
 import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.core.eventbus.EventBus;

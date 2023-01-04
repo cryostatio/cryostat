@@ -67,13 +67,13 @@ import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
-import io.cryostat.MessagingServer;
-import io.cryostat.Notification;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
 import io.vertx.core.eventbus.EventBus;
 import jdk.jfr.RecordingState;

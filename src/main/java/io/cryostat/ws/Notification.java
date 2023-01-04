@@ -35,6 +35,6 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.cryostat;
+package io.cryostat.ws;
 
 public record Notification(String category, Object message) {}
