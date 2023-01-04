@@ -60,6 +60,13 @@ public class RecordingsModule {
 
     @Produces
     @DefaultBean
+    public EventOptionsBuilder.Factory provideEventOptionsBuilderFactory() {
+        Logger logger = LoggerFactory.getLogger(EventOptionsBuilder.class);
+        return new EventOptionsBuilder.Factory(logger::debug);
+    }
+
+    @Produces
+    @DefaultBean
     public RecordingOptionsCustomizer provideRecordingOptionsCustomizer() {
         Logger logger = LoggerFactory.getLogger(RecordingOptionsCustomizer.class);
         return new RecordingOptionsCustomizer(logger::debug);

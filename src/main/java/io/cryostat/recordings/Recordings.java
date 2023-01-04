@@ -64,6 +64,7 @@ import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
 import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
+import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
 import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
@@ -93,6 +94,7 @@ public class Recordings {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
+    @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
     @Inject EventBus bus;
 
     @GET
@@ -533,9 +535,9 @@ public class Recordings {
     private IConstrainedMap<EventOptionID> enableEvents(
             JFRConnection connection, String templateName, TemplateType templateType)
             throws Exception {
-        // if (templateName.equals("ALL")) {
-        //     return enableAllEvents(connection);
-        // }
+        if (templateName.equals("ALL")) {
+            return enableAllEvents(connection);
+        }
         // if template type not specified, try to find a Custom template by that name. If none,
         // fall back on finding a Target built-in template by the name. If not, throw an
         // exception and bail out.
@@ -543,16 +545,16 @@ public class Recordings {
         return connection.getTemplateService().getEvents(templateName, type).get();
     }
 
-    // private IConstrainedMap<EventOptionID> enableAllEvents(JFRConnection connection)
-    //         throws Exception {
-    //     EventOptionsBuilder builder = eventOptionsBuilderFactory.create(connection);
+    private IConstrainedMap<EventOptionID> enableAllEvents(JFRConnection connection)
+            throws Exception {
+        EventOptionsBuilder builder = eventOptionsBuilderFactory.create(connection);
 
-    //     for (IEventTypeInfo eventTypeInfo : connection.getService().getAvailableEventTypes()) {
-    //         builder.addEvent(eventTypeInfo.getEventTypeID().getFullKey(), "enabled", "true");
-    //     }
+        for (IEventTypeInfo eventTypeInfo : connection.getService().getAvailableEventTypes()) {
+            builder.addEvent(eventTypeInfo.getEventTypeID().getFullKey(), "enabled", "true");
+        }
 
-    //     return builder.build();
-    // }
+        return builder.build();
+    }
 
     private void notify(NotificationCategory category, URI connectUrl, Object recording) {
         bus.publish(
