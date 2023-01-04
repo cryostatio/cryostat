@@ -244,7 +244,7 @@ public class Recordings {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return createRecording(
                 target.id,
-                events,
+                recordingName,
                 events,
                 maxSize,
                 archiveOnStop,
