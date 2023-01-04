@@ -321,29 +321,8 @@ public class Recordings {
                                         target,
                                         conn -> {
                                             getDescriptorById(conn, r.remoteId)
-                                                    .ifPresentOrElse(
-                                                            rec -> {
-                                                                try {
-                                                                    conn.getService().close(rec);
-                                                                } catch (
-                                                                        FlightRecorderException e) {
-                                                                    logger.error(
-                                                                            "Failed to stop remote"
-                                                                                    + " recording",
-                                                                            e);
-                                                                    throw new ServerErrorException(
-                                                                            500, e);
-                                                                } catch (Exception e) {
-                                                                    logger.error(
-                                                                            "Unexpected exception",
-                                                                            e);
-                                                                    throw new ServerErrorException(
-                                                                            500, e);
-                                                                }
-                                                            },
-                                                            () -> {
-                                                                throw new NotFoundException();
-                                                            });
+                                                    .ifPresent(
+                                                            rec -> safeCloseRecording(conn, rec));
                                             return null;
                                         });
                             } catch (WebApplicationException e) {
@@ -380,29 +359,8 @@ public class Recordings {
                                         target,
                                         conn -> {
                                             getDescriptorById(conn, r.remoteId)
-                                                    .ifPresentOrElse(
-                                                            rec -> {
-                                                                try {
-                                                                    conn.getService().close(rec);
-                                                                } catch (
-                                                                        FlightRecorderException e) {
-                                                                    logger.error(
-                                                                            "Failed to stop remote"
-                                                                                    + " recording",
-                                                                            e);
-                                                                    throw new ServerErrorException(
-                                                                            500, e);
-                                                                } catch (Exception e) {
-                                                                    logger.error(
-                                                                            "Unexpected exception",
-                                                                            e);
-                                                                    throw new ServerErrorException(
-                                                                            500, e);
-                                                                }
-                                                            },
-                                                            () -> {
-                                                                throw new NotFoundException();
-                                                            });
+                                                    .ifPresent(
+                                                            rec -> safeCloseRecording(conn, rec));
                                             return null;
                                         });
                             } catch (WebApplicationException e) {
@@ -422,6 +380,16 @@ public class Recordings {
                         () -> {
                             throw new NotFoundException();
                         });
+    }
+
+    private void safeCloseRecording(JFRConnection conn, IRecordingDescriptor rec) {
+        try {
+            conn.getService().close(rec);
+        } catch (FlightRecorderException e) {
+            logger.error("Failed to stop remote" + " recording", e);
+        } catch (Exception e) {
+            logger.error("Unexpected exception", e);
+        }
     }
 
     @GET
