@@ -38,6 +38,7 @@
 package io.cryostat.recordings;
 
 import java.net.URI;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -56,10 +57,12 @@ import javax.ws.rs.Path;
 import javax.ws.rs.ServerErrorException;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
+import org.openjdk.jmc.common.unit.IOptionDescriptor;
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
 import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
+import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.core.net.JFRConnection;
@@ -314,6 +317,67 @@ public class Recordings {
                                     });
                     return null;
                 });
+    }
+
+    @GET
+    @Path("/api/v1/targets/{connectUrl}/recordingOptions")
+    @RolesAllowed("target:read")
+    public Map<String, Object> getRecordingOptionsV1(@RestPath URI connectUrl) throws Exception {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        return getRecordingOptions(target.id);
+    }
+
+    @GET
+    @Path("/api/v3/targets/{id}/recordingOptions")
+    @RolesAllowed("target:read")
+    public Map<String, Object> getRecordingOptions(@RestPath long id) throws Exception {
+        Target target = Target.findById(id);
+        return connectionManager.executeConnectedTask(
+                target,
+                connection -> {
+                    RecordingOptionsBuilder builder =
+                            recordingOptionsBuilderFactory.create(connection.getService());
+                    return getRecordingOptions(connection.getService(), builder);
+                });
+    }
+
+    private static Map<String, Object> getRecordingOptions(
+            IFlightRecorderService service, RecordingOptionsBuilder builder) throws Exception {
+        IConstrainedMap<String> recordingOptions = builder.build();
+
+        Map<String, IOptionDescriptor<?>> targetRecordingOptions =
+                service.getAvailableRecordingOptions();
+
+        Map<String, Object> map = new HashMap<String, Object>();
+
+        if (recordingOptions.get("toDisk") != null) {
+            map.put("toDisk", recordingOptions.get("toDisk"));
+        } else {
+            map.put("toDisk", targetRecordingOptions.get("disk").getDefault());
+        }
+
+        map.put("maxAge", getNumericOption("maxAge", recordingOptions, targetRecordingOptions));
+        map.put("maxSize", getNumericOption("maxSize", recordingOptions, targetRecordingOptions));
+
+        return map;
+    }
+
+    private static Long getNumericOption(
+            String name,
+            IConstrainedMap<String> defaultOptions,
+            Map<String, IOptionDescriptor<?>> targetOptions) {
+        Object value;
+
+        if (defaultOptions.get(name) != null) {
+            value = defaultOptions.get(name);
+        } else {
+            value = targetOptions.get(name).getDefault();
+        }
+
+        if (value instanceof Number) {
+            return Long.valueOf(((Number) value).longValue());
+        }
+        return null;
     }
 
     private RecordingState mapState(IRecordingDescriptor desc) {
