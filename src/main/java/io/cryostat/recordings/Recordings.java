@@ -577,7 +577,7 @@ public class Recordings {
         }
     }
 
-    public record RecordingEvent(URI target, Object recording) {}
+    private record RecordingEvent(URI target, Object recording) {}
 
     public record LinkedRecordingDescriptor(
             long id,

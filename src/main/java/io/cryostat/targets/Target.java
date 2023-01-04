@@ -61,7 +61,7 @@ import org.hibernate.annotations.TypeDef;
 @TypeDef(name = JsonTypes.JSON_BIN, typeClass = JsonBinaryType.class)
 public class Target extends PanacheEntity {
 
-    @Column(unique = true, nullable = false)
+    @Column(unique = true, nullable = false, updatable = false)
     public URI connectUrl;
 
     @Column(unique = true, nullable = false)
