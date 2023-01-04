@@ -35,38 +35,58 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.cryostat;
+package io.cryostat.events;
 
 import java.net.URI;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.event.Observes;
+import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
-import javax.transaction.Transactional;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
 
+import io.cryostat.core.templates.Template;
+import io.cryostat.core.templates.TemplateType;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 
-import io.quarkus.arc.profile.IfBuildProfile;
-import io.quarkus.runtime.StartupEvent;
+import org.jboss.resteasy.reactive.RestPath;
 
-@ApplicationScoped
-@IfBuildProfile("dev")
-// FIXME remove this once auto discovery is re-implemented
-public class Lifecycle {
+@Path("")
+public class EventTemplates {
+
+    public static final Template ALL_EVENTS_TEMPLATE =
+            new Template(
+                    "ALL",
+                    "Enable all available events in the target JVM, with default option values."
+                            + " This will be very expensive and is intended primarily for testing"
+                            + " Cryostat's own capabilities.",
+                    "Cryostat",
+                    TemplateType.TARGET);
 
     @Inject TargetConnectionManager connectionManager;
 
-    @Transactional
-    void onStart(@Observes StartupEvent evt) throws Exception {
-        Target self = new Target();
-        self.connectUrl = URI.create("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi");
-        self.alias = "self";
-        self.jvmId = connectionManager.executeConnectedTask(self, conn -> conn.getJvmId());
-        self.labels = Map.of();
-        self.annotations = new Annotations();
-        self.persist();
+    @GET
+    @Path("/api/v1/targets/{connectUrl}/templates")
+    @RolesAllowed("target:read")
+    public List<Template> listTemplatesV1(@RestPath URI connectUrl) throws Exception {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        return listTemplates(target.id);
+    }
+
+    @GET
+    @Path("/api/v3/targets/{id}/event_templates")
+    @RolesAllowed("target:read")
+    public List<Template> listTemplates(@RestPath long id) throws Exception {
+        Target target = Target.findById(id);
+        return connectionManager.executeConnectedTask(
+                target,
+                connection -> {
+                    List<Template> list =
+                            new ArrayList<>(connection.getTemplateService().getTemplates());
+                    list.add(ALL_EVENTS_TEMPLATE);
+                    return list;
+                });
     }
 }
