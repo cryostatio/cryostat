@@ -37,7 +37,6 @@
  */
 package io.cryostat.recordings;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
@@ -49,6 +48,7 @@ import java.util.regex.Pattern;
 
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
+import javax.transaction.Transactional;
 import javax.ws.rs.BadRequestException;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -56,14 +56,13 @@ import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.ServerErrorException;
+import javax.ws.rs.WebApplicationException;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
-import org.openjdk.jmc.rjmx.ConnectionException;
-import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
 import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
@@ -106,31 +105,28 @@ public class Recordings {
     @GET
     @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed({"recording:read", "target:read"})
-    public List<ActiveRecording> listForTarget(@RestPath long id) throws Exception {
+    public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
         Target target = Target.findById(id);
         if (target == null) {
             throw new NotFoundException();
         }
-        return connectionManager.executeConnectedTask(
-                target,
-                conn ->
-                        conn.getService().getAvailableRecordings().stream()
-                                .map(this::mapDescriptor)
-                                .toList());
+        return target.activeRecordings.stream().map(this::mapDescriptor).toList();
     }
 
     @GET
     @Path("/api/v1/targets/{connectUrl}/recordings")
     @RolesAllowed({"recording:read", "target:read"})
-    public List<ActiveRecording> listForTargetByUrl(@RestPath URI connectUrl) throws Exception {
+    public List<LinkedRecordingDescriptor> listForTargetByUrl(@RestPath URI connectUrl)
+            throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return listForTarget(target.id);
     }
 
+    @Transactional
     @POST
     @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed({"recording:create", "target:read", "target:update"})
-    public ActiveRecording createRecording(
+    public LinkedRecordingDescriptor createRecording(
             @RestPath long id,
             @RestForm String recordingName,
             @RestForm String events,
@@ -149,106 +145,139 @@ public class Recordings {
         }
 
         Target target = Target.findById(id);
-        return connectionManager.executeConnectedTask(
-                target,
-                connection -> {
-                    Optional<IRecordingDescriptor> previous =
-                            getDescriptorByName(connection, recordingName);
-                    if (previous.isPresent()) {
-                        throw new BadRequestException(
-                                String.format(
-                                        "Recording with name \"%s\" already exists",
-                                        recordingName));
-                    }
+        LinkedRecordingDescriptor descriptor =
+                connectionManager.executeConnectedTask(
+                        target,
+                        connection -> {
+                            Optional<IRecordingDescriptor> previous =
+                                    getDescriptorByName(connection, recordingName);
+                            if (previous.isPresent()) {
+                                throw new BadRequestException(
+                                        String.format(
+                                                "Recording with name \"%s\" already exists",
+                                                recordingName));
+                            }
 
-                    RecordingOptionsBuilder optionsBuilder =
-                            recordingOptionsBuilderFactory
-                                    .create(connection.getService())
-                                    .name(recordingName);
-                    if (duration.isPresent()) {
-                        optionsBuilder.duration(duration.get());
-                    }
-                    if (toDisk.isPresent()) {
-                        optionsBuilder.toDisk(toDisk.get());
-                    }
-                    if (maxAge.isPresent()) {
-                        optionsBuilder.maxAge(maxAge.get());
-                    }
-                    if (maxSize.isPresent()) {
-                        optionsBuilder.maxSize(maxSize.get());
-                    }
-                    // if (attrs.contains("metadata")) {
-                    //     metadata =
-                    //             gson.fromJson(
-                    //                     attrs.get("metadata"),
-                    //                     new TypeToken<Metadata>() {}.getType());
-                    // }
-                    // boolean archiveOnStop = false;
-                    // if (attrs.contains("archiveOnStop")) {
-                    //     if (attrs.get("archiveOnStop").equals("true")
-                    //             || attrs.get("archiveOnStop").equals("false")) {
-                    //         archiveOnStop = Boolean.valueOf(attrs.get("archiveOnStop"));
-                    //     } else {
-                    //         throw new HttpException(400, "Invalid options");
-                    //     }
-                    // }
-                    IConstrainedMap<String> recordingOptions = optionsBuilder.build();
+                            RecordingOptionsBuilder optionsBuilder =
+                                    recordingOptionsBuilderFactory
+                                            .create(connection.getService())
+                                            .name(recordingName);
+                            if (duration.isPresent()) {
+                                optionsBuilder.duration(duration.get());
+                            }
+                            if (toDisk.isPresent()) {
+                                optionsBuilder.toDisk(toDisk.get());
+                            }
+                            if (maxAge.isPresent()) {
+                                optionsBuilder.maxAge(maxAge.get());
+                            }
+                            if (maxSize.isPresent()) {
+                                optionsBuilder.maxSize(maxSize.get());
+                            }
+                            // if (attrs.contains("metadata")) {
+                            //     metadata =
+                            //             gson.fromJson(
+                            //                     attrs.get("metadata"),
+                            //                     new TypeToken<Metadata>() {}.getType());
+                            // }
+                            // boolean archiveOnStop = false;
+                            // if (attrs.contains("archiveOnStop")) {
+                            //     if (attrs.get("archiveOnStop").equals("true")
+                            //             || attrs.get("archiveOnStop").equals("false")) {
+                            //         archiveOnStop = Boolean.valueOf(attrs.get("archiveOnStop"));
+                            //     } else {
+                            //         throw new HttpException(400, "Invalid options");
+                            //     }
+                            // }
+                            IConstrainedMap<String> recordingOptions = optionsBuilder.build();
 
-                    Pair<String, TemplateType> template = parseEventSpecifierToTemplate(events);
-                    TemplateType preferredTemplateType =
-                            getPreferredTemplateType(
-                                    connection, template.getKey(), template.getValue());
-                    IRecordingDescriptor descriptor =
-                            connection
-                                    .getService()
-                                    .start(
-                                            recordingOptions,
-                                            enableEvents(
-                                                    connection,
-                                                    template.getKey(),
-                                                    preferredTemplateType));
+                            Pair<String, TemplateType> template =
+                                    parseEventSpecifierToTemplate(events);
+                            String templateName = template.getKey();
+                            TemplateType templateType = template.getValue();
+                            TemplateType preferredTemplateType =
+                                    getPreferredTemplateType(
+                                            connection, templateName, templateType);
 
-                    // Map<String, String> labels = metadata.getLabels();
-                    // labels.put("template.name", templateName);
-                    // labels.put("template.type", preferredTemplateType.name());
-                    // Metadata updatedMetadata = new Metadata(labels);
-                    // updatedMetadata =
-                    //         recordingMetadataManager
-                    //                 .setRecordingMetadata(
-                    //                         connectionDescriptor, recordingName, updatedMetadata)
-                    //                 .get();
+                            IRecordingDescriptor desc =
+                                    connection
+                                            .getService()
+                                            .start(
+                                                    recordingOptions,
+                                                    enableEvents(
+                                                            connection,
+                                                            templateName,
+                                                            preferredTemplateType));
 
-                    // this.issueNotification(targetId, linkedDesc, CREATION_NOTIFICATION_CATEGORY);
+                            Metadata meta =
+                                    new Metadata(
+                                            Map.of(
+                                                    "template.name",
+                                                    templateName,
+                                                    "template.type",
+                                                    preferredTemplateType.name()));
+                            return new LinkedRecordingDescriptor(
+                                    desc.getId(),
+                                    mapState(desc),
+                                    desc.getDuration().in(UnitLookup.MILLISECOND).longValue(),
+                                    desc.getStartTime().in(UnitLookup.EPOCH_MS).longValue(),
+                                    desc.isContinuous(),
+                                    desc.getToDisk(),
+                                    desc.getMaxSize().in(UnitLookup.BYTE).longValue(),
+                                    desc.getMaxAge().in(UnitLookup.MILLISECOND).longValue(),
+                                    desc.getName(),
+                                    "TODO",
+                                    "TODO",
+                                    meta);
+                        });
 
-                    // Object fixedDuration =
-                    //         recordingOptions.get(RecordingOptionsBuilder.KEY_DURATION);
-                    // if (fixedDuration != null) {
-                    //     Long delay =
-                    //             Long.valueOf(fixedDuration.toString().replaceAll("[^0-9]", ""));
+        ActiveRecording recording = ActiveRecording.from(target, descriptor);
+        recording.persist();
+        target.activeRecordings.add(recording);
+        target.persist();
+        notify(NotificationCategory.ACTIVE_CREATE, target.connectUrl, descriptor);
 
-                    //     scheduleRecordingTasks(
-                    //             recordingName, delay, connectionDescriptor, archiveOnStop);
-                    // }
+        // Object fixedDuration =
+        //         recordingOptions.get(RecordingOptionsBuilder.KEY_DURATION);
+        // if (fixedDuration != null) {
+        //     Long delay =
+        //             Long.valueOf(fixedDuration.toString().replaceAll("[^0-9]", ""));
 
-                    ActiveRecording mapDescriptor = mapDescriptor(descriptor);
-                    notify(NotificationCategory.ACTIVE_CREATE, target.connectUrl, mapDescriptor);
-                    return mapDescriptor;
-                });
+        //     scheduleRecordingTasks(
+        //             recordingName, delay, connectionDescriptor, archiveOnStop);
+        // }
+
+        return descriptor;
+    }
+
+    private Optional<IRecordingDescriptor> getDescriptorById(JFRConnection connection, long id) {
+        try {
+            return connection.getService().getAvailableRecordings().stream()
+                    .filter(r -> id == r.getId())
+                    .findFirst();
+        } catch (Exception e) {
+            logger.error("Target connection failed", e);
+            throw new ServerErrorException(500, e);
+        }
     }
 
     private Optional<IRecordingDescriptor> getDescriptorByName(
-            JFRConnection connection, String recordingName)
-            throws FlightRecorderException, ServiceNotAvailableException, IOException,
-                    ConnectionException {
-        return connection.getService().getAvailableRecordings().stream()
-                .filter(r -> Objects.equals(r.getName(), recordingName))
-                .findFirst();
+            JFRConnection connection, String recordingName) {
+        try {
+            return connection.getService().getAvailableRecordings().stream()
+                    .filter(r -> Objects.equals(r.getName(), recordingName))
+                    .findFirst();
+        } catch (Exception e) {
+            logger.error("Target connection failed", e);
+            throw new ServerErrorException(500, e);
+        }
     }
 
+    @Transactional
     @POST
     @Path("/api/v1/targets/{connectUrl}/recordings")
     @RolesAllowed({"recording:create", "target:read", "target:update"})
-    public ActiveRecording createRecordingV1(
+    public LinkedRecordingDescriptor createRecordingV1(
             @RestPath URI connectUrl,
             @RestForm String recordingName,
             @RestForm String events,
@@ -272,6 +301,7 @@ public class Recordings {
                 archiveOnStop);
     }
 
+    @Transactional
     @DELETE
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
     @RolesAllowed({"recording:delete", "target:read", "target:update"})
@@ -281,68 +311,117 @@ public class Recordings {
             throw new BadRequestException("\"recordingName\" form parameter must be provided");
         }
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        connectionManager.executeConnectedTask(
-                target,
-                conn -> {
-                    conn.getService().getAvailableRecordings().stream()
-                            .filter(rec -> recordingName.equals(rec.getName()))
-                            .findFirst()
-                            .ifPresentOrElse(
-                                    rec -> {
-                                        try {
-                                            conn.getService().close(rec);
-                                            notify(
-                                                    NotificationCategory.ACTIVE_DELETE,
-                                                    connectUrl,
-                                                    mapDescriptor(rec));
-                                        } catch (FlightRecorderException e) {
-                                            logger.error("Failed to stop recording", e);
-                                            throw new ServerErrorException(500, e);
-                                        } catch (Exception e) {
-                                            logger.error("Unexpected exception", e);
-                                            throw new ServerErrorException(500, e);
-                                        }
-                                    },
-                                    () -> {
-                                        throw new NotFoundException();
-                                    });
-                    return null;
-                });
+        target.activeRecordings.stream()
+                .filter(r -> Objects.equals(r.name, recordingName))
+                .findFirst()
+                .ifPresentOrElse(
+                        r -> {
+                            try {
+                                connectionManager.executeConnectedTask(
+                                        target,
+                                        conn -> {
+                                            getDescriptorById(conn, r.remoteId)
+                                                    .ifPresentOrElse(
+                                                            rec -> {
+                                                                try {
+                                                                    conn.getService().close(rec);
+                                                                } catch (
+                                                                        FlightRecorderException e) {
+                                                                    logger.error(
+                                                                            "Failed to stop remote"
+                                                                                    + " recording",
+                                                                            e);
+                                                                    throw new ServerErrorException(
+                                                                            500, e);
+                                                                } catch (Exception e) {
+                                                                    logger.error(
+                                                                            "Unexpected exception",
+                                                                            e);
+                                                                    throw new ServerErrorException(
+                                                                            500, e);
+                                                                }
+                                                            },
+                                                            () -> {
+                                                                throw new NotFoundException();
+                                                            });
+                                            return null;
+                                        });
+                            } catch (WebApplicationException e) {
+                                throw e;
+                            } catch (Exception e) {
+                                throw new ServerErrorException(
+                                        "Failed to stop remote recording", 500, e);
+                            }
+                            r.delete();
+                            target.activeRecordings.remove(r);
+                            notify(
+                                    NotificationCategory.ACTIVE_DELETE,
+                                    connectUrl,
+                                    mapDescriptor(r));
+                        },
+                        () -> {
+                            throw new NotFoundException();
+                        });
     }
 
+    @Transactional
     @DELETE
-    @Path("/api/v3/targets/{targetId}/recordings/{recordingId}")
+    @Path("/api/v3/targets/{targetId}/recordings/{remoteId}")
     @RolesAllowed({"recording:delete", "target:read", "target:update"})
-    public void deleteRecording(@RestPath long targetId, @RestPath long recordingId)
-            throws Exception {
+    public void deleteRecording(@RestPath long targetId, @RestPath long remoteId) throws Exception {
         Target target = Target.findById(targetId);
-        connectionManager.executeConnectedTask(
-                target,
-                conn -> {
-                    conn.getService().getAvailableRecordings().stream()
-                            .filter(rec -> Objects.equals(rec.getId(), recordingId))
-                            .findFirst()
-                            .ifPresentOrElse(
-                                    rec -> {
-                                        try {
-                                            conn.getService().close(rec);
-                                            notify(
-                                                    NotificationCategory.ACTIVE_DELETE,
-                                                    target.connectUrl,
-                                                    mapDescriptor(rec));
-                                        } catch (FlightRecorderException e) {
-                                            logger.error("Failed to stop recording", e);
-                                            throw new ServerErrorException(500, e);
-                                        } catch (Exception e) {
-                                            logger.error("Unexpected exception", e);
-                                            throw new ServerErrorException(500, e);
-                                        }
-                                    },
-                                    () -> {
-                                        throw new NotFoundException();
-                                    });
-                    return null;
-                });
+        target.activeRecordings.stream()
+                .filter(r -> r.remoteId == remoteId)
+                .findFirst()
+                .ifPresentOrElse(
+                        r -> {
+                            try {
+                                connectionManager.executeConnectedTask(
+                                        target,
+                                        conn -> {
+                                            getDescriptorById(conn, r.remoteId)
+                                                    .ifPresentOrElse(
+                                                            rec -> {
+                                                                try {
+                                                                    conn.getService().close(rec);
+                                                                } catch (
+                                                                        FlightRecorderException e) {
+                                                                    logger.error(
+                                                                            "Failed to stop remote"
+                                                                                    + " recording",
+                                                                            e);
+                                                                    throw new ServerErrorException(
+                                                                            500, e);
+                                                                } catch (Exception e) {
+                                                                    logger.error(
+                                                                            "Unexpected exception",
+                                                                            e);
+                                                                    throw new ServerErrorException(
+                                                                            500, e);
+                                                                }
+                                                            },
+                                                            () -> {
+                                                                throw new NotFoundException();
+                                                            });
+                                            return null;
+                                        });
+                            } catch (WebApplicationException e) {
+                                throw e;
+                            } catch (Exception e) {
+                                logger.error("Failed to stop remote recording", e);
+                                throw new ServerErrorException(
+                                        "Failed to stop remote recording", 500, e);
+                            }
+                            r.delete();
+                            target.activeRecordings.remove(r);
+                            notify(
+                                    NotificationCategory.ACTIVE_DELETE,
+                                    target.connectUrl,
+                                    mapDescriptor(r));
+                        },
+                        () -> {
+                            throw new NotFoundException();
+                        });
     }
 
     @GET
@@ -422,21 +501,20 @@ public class Recordings {
         }
     }
 
-    private ActiveRecording mapDescriptor(IRecordingDescriptor desc) {
-        Metadata metadata = new Metadata(Map.of());
-        return new ActiveRecording(
-                desc.getId(),
-                mapState(desc),
-                desc.getDuration().in(UnitLookup.MILLISECOND).longValue(),
-                desc.getStartTime().in(UnitLookup.EPOCH_MS).longValue(),
-                desc.isContinuous(),
-                desc.getToDisk(),
-                desc.getMaxSize().in(UnitLookup.BYTE).longValue(),
-                desc.getMaxAge().in(UnitLookup.MILLISECOND).longValue(),
-                desc.getName(),
+    private LinkedRecordingDescriptor mapDescriptor(ActiveRecording desc) {
+        return new LinkedRecordingDescriptor(
+                desc.remoteId,
+                desc.state,
+                desc.duration,
+                desc.startTime,
+                desc.continuous,
+                desc.toDisk,
+                desc.maxSize,
+                desc.maxAge,
+                desc.name,
                 "TODO",
                 "TODO",
-                metadata);
+                desc.metadata);
     }
 
     private static Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier) {
@@ -531,7 +609,7 @@ public class Recordings {
 
     public record RecordingEvent(URI target, Object recording) {}
 
-    public record ActiveRecording(
+    public record LinkedRecordingDescriptor(
             long id,
             RecordingState state,
             long duration,
@@ -543,7 +621,23 @@ public class Recordings {
             String name,
             String downloadUrl,
             String reportUrl,
-            Metadata metadata) {}
+            Metadata metadata) {
+        public static LinkedRecordingDescriptor from(ActiveRecording recording) {
+            return new LinkedRecordingDescriptor(
+                    recording.remoteId,
+                    recording.state,
+                    recording.duration,
+                    recording.startTime,
+                    recording.continuous,
+                    recording.toDisk,
+                    recording.maxSize,
+                    recording.maxAge,
+                    recording.name,
+                    "TODO",
+                    "TODO",
+                    recording.metadata);
+        }
+    }
 
     public record ArchivedRecording(
             String name,

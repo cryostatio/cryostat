@@ -38,12 +38,18 @@
 package io.cryostat.targets;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.OneToMany;
+
+import io.cryostat.recordings.ActiveRecording;
 
 import io.quarkiverse.hibernate.types.json.JsonBinaryType;
 import io.quarkiverse.hibernate.types.json.JsonTypes;
@@ -65,11 +71,17 @@ public class Target extends PanacheEntity {
 
     @Type(type = JsonTypes.JSON_BIN)
     @Column(columnDefinition = JsonTypes.JSON_BIN, nullable = false)
-    public Map<String, String> labels;
+    public Map<String, String> labels = new HashMap<>();
 
     @Type(type = JsonTypes.JSON_BIN)
     @Column(columnDefinition = JsonTypes.JSON_BIN, nullable = false)
-    public Annotations annotations;
+    public Annotations annotations = new Annotations();
+
+    @OneToMany(
+            mappedBy = "target",
+            cascade = {CascadeType.ALL},
+            orphanRemoval = true)
+    public List<ActiveRecording> activeRecordings = new ArrayList<>();
 
     public static Target getTargetByConnectUrl(URI connectUrl) {
         return find("connectUrl", connectUrl).singleResult();
