@@ -87,6 +87,10 @@
       <artifactId>quarkus-hibernate-orm-panache</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-jdbc-postgresql</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.quarkiverse.hibernatetypes</groupId>
       <artifactId>quarkus-hibernate-types</artifactId>
       <version>${io.quarkiverse.hibernatetypes.version}</version>
