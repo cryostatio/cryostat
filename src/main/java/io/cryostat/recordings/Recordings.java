@@ -65,12 +65,15 @@ import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
+import io.cryostat.MessagingServer;
+import io.cryostat.Notification;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
+import io.vertx.core.eventbus.EventBus;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -88,6 +91,7 @@ public class Recordings {
     private final Logger logger = LoggerFactory.getLogger(getClass());
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
+    @Inject EventBus bus;
 
     @GET
     @Path("/api/v1/recordings")
@@ -223,7 +227,9 @@ public class Recordings {
                     //             recordingName, delay, connectionDescriptor, archiveOnStop);
                     // }
 
-                    return mapDescriptor(descriptor);
+                    ActiveRecording mapDescriptor = mapDescriptor(descriptor);
+                    notify(NotificationCategory.ACTIVE_CREATE, target.connectUrl, mapDescriptor);
+                    return mapDescriptor;
                 });
     }
 
@@ -273,6 +279,10 @@ public class Recordings {
                                     rec -> {
                                         try {
                                             conn.getService().close(rec);
+                                            notify(
+                                                    NotificationCategory.ACTIVE_DELETE,
+                                                    connectUrl,
+                                                    mapDescriptor(rec));
                                         } catch (FlightRecorderException e) {
                                             logger.error("Failed to stop recording", e);
                                             throw new ServerErrorException(500, e);
@@ -291,7 +301,7 @@ public class Recordings {
     @DELETE
     @Path("/api/v3/targets/{targetId}/recordings/{recordingId}")
     @RolesAllowed({"recording:delete", "target:read", "target:update"})
-    public void deleteRecordingV1(@RestPath long targetId, @RestPath long recordingId)
+    public void deleteRecording(@RestPath long targetId, @RestPath long recordingId)
             throws Exception {
         Target target = Target.findById(targetId);
         connectionManager.executeConnectedTask(
@@ -304,6 +314,10 @@ public class Recordings {
                                     rec -> {
                                         try {
                                             conn.getService().close(rec);
+                                            notify(
+                                                    NotificationCategory.ACTIVE_DELETE,
+                                                    target.connectUrl,
+                                                    mapDescriptor(rec));
                                         } catch (FlightRecorderException e) {
                                             logger.error("Failed to stop recording", e);
                                             throw new ServerErrorException(500, e);
@@ -482,6 +496,29 @@ public class Recordings {
 
     //     return builder.build();
     // }
+
+    private void notify(NotificationCategory category, URI connectUrl, Object recording) {
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(category.cat, new RecordingEvent(connectUrl, recording)));
+    }
+
+    private enum NotificationCategory {
+        ACTIVE_CREATE("ActiveRecordingCreated"),
+        ACTIVE_STOP("ActiveRecordingStopped"),
+        ACTIVE_DELETE("ActiveRecordingDeleted"),
+        SNAPSHOT_CREATE("SnapshotCreated"),
+        SNAPSHOT_DELETE("SnapshotDeleted"),
+        ;
+
+        private final String cat;
+
+        NotificationCategory(String cat) {
+            this.cat = cat;
+        }
+    }
+
+    public record RecordingEvent(URI target, Object recording) {}
 
     public record ActiveRecording(
             long id,
