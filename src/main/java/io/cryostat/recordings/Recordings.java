@@ -105,6 +105,13 @@ public class Recordings {
     }
 
     @GET
+    @Path("/api/beta/fs/recordings")
+    @RolesAllowed("recording:read")
+    public List<ArchivedRecording> listFsArchives() {
+        return List.of();
+    }
+
+    @GET
     @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed({"recording:read", "target:read"})
     public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
