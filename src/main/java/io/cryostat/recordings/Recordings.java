@@ -37,6 +37,7 @@
  */
 package io.cryostat.recordings;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
@@ -61,6 +62,8 @@ import org.openjdk.jmc.common.unit.IOptionDescriptor;
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
+import org.openjdk.jmc.rjmx.ConnectionException;
+import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
 import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
@@ -149,10 +152,10 @@ public class Recordings {
         return connectionManager.executeConnectedTask(
                 target,
                 connection -> {
-                    Optional<IRecordingDescriptor> previous = Optional.empty();
-                    // getDescriptorByName(connection, recordingName);
+                    Optional<IRecordingDescriptor> previous =
+                            getDescriptorByName(connection, recordingName);
                     if (previous.isPresent()) {
-                        throw new IllegalArgumentException(
+                        throw new BadRequestException(
                                 String.format(
                                         "Recording with name \"%s\" already exists",
                                         recordingName));
@@ -231,6 +234,15 @@ public class Recordings {
                     notify(NotificationCategory.ACTIVE_CREATE, target.connectUrl, mapDescriptor);
                     return mapDescriptor;
                 });
+    }
+
+    private Optional<IRecordingDescriptor> getDescriptorByName(
+            JFRConnection connection, String recordingName)
+            throws FlightRecorderException, ServiceNotAvailableException, IOException,
+                    ConnectionException {
+        return connection.getService().getAvailableRecordings().stream()
+                .filter(r -> Objects.equals(r.getName(), recordingName))
+                .findFirst();
     }
 
     @POST
@@ -427,8 +439,7 @@ public class Recordings {
                 metadata);
     }
 
-    private static Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier)
-            throws IllegalArgumentException {
+    private static Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier) {
         if (TEMPLATE_PATTERN.matcher(eventSpecifier).matches()) {
             Matcher m = TEMPLATE_PATTERN.matcher(eventSpecifier);
             m.find();
@@ -440,7 +451,7 @@ public class Recordings {
             }
             return Pair.of(templateName, templateType);
         }
-        throw new IllegalArgumentException(eventSpecifier);
+        throw new BadRequestException(eventSpecifier);
     }
 
     private static TemplateType getPreferredTemplateType(
@@ -469,7 +480,7 @@ public class Recordings {
         if (target) {
             return TemplateType.TARGET;
         }
-        throw new IllegalArgumentException(
+        throw new BadRequestException(
                 String.format("Invalid/unknown event template %s", templateName));
     }
 
