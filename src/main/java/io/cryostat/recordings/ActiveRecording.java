@@ -37,6 +37,7 @@
  */
 package io.cryostat.recordings;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.Map;
 
@@ -51,13 +52,18 @@ import javax.persistence.ManyToOne;
 import javax.persistence.PostPersist;
 import javax.persistence.PostRemove;
 import javax.persistence.PostUpdate;
+import javax.persistence.PreRemove;
+import javax.persistence.PreUpdate;
 
 import org.openjdk.jmc.common.unit.UnitLookup;
+import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
+import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -68,6 +74,8 @@ import io.vertx.core.eventbus.EventBus;
 import jdk.jfr.RecordingState;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Entity
 @EntityListeners(ActiveRecording.Listener.class)
@@ -171,11 +179,38 @@ public class ActiveRecording extends PanacheEntity {
     @ApplicationScoped
     static class Listener {
 
+        private final Logger logger = LoggerFactory.getLogger(getClass());
         @Inject EventBus bus;
+        @Inject TargetConnectionManager connectionManager;
 
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
             notify("ActiveRecordingCreated", activeRecording);
+        }
+
+        @PreUpdate
+        public void preUpdate(ActiveRecording activeRecording) throws Exception {
+            if (RecordingState.STOPPED.equals(activeRecording.state)) {
+                connectionManager.executeConnectedTask(
+                        activeRecording.target,
+                        conn -> {
+                            conn.getService().getAvailableRecordings().stream()
+                                    .filter(rec -> rec.getId() == activeRecording.remoteId)
+                                    .findFirst()
+                                    .ifPresent(
+                                            d -> {
+                                                try {
+                                                    conn.getService().close(d);
+                                                } catch (FlightRecorderException
+                                                        | IOException
+                                                        | ServiceNotAvailableException e) {
+                                                    logger.warn(
+                                                            "Failed to stop remote recording", e);
+                                                }
+                                            });
+                            return null;
+                        });
+            }
         }
 
         @PostUpdate
@@ -183,6 +218,18 @@ public class ActiveRecording extends PanacheEntity {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 notify("ActiveRecordingStopped", activeRecording);
             }
+        }
+
+        @PreRemove
+        public void preRemove(ActiveRecording activeRecording) throws Exception {
+            activeRecording.target.activeRecordings.remove(activeRecording);
+            connectionManager.executeConnectedTask(
+                    activeRecording.target,
+                    conn -> {
+                        Recordings.getDescriptorById(conn, activeRecording.remoteId)
+                                .ifPresent(rec -> Recordings.safeCloseRecording(conn, rec, logger));
+                        return null;
+                    });
         }
 
         @PostRemove

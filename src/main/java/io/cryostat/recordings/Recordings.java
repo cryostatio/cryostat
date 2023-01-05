@@ -53,10 +53,10 @@ import javax.ws.rs.BadRequestException;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
+import javax.ws.rs.PATCH;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.ServerErrorException;
-import javax.ws.rs.WebApplicationException;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
@@ -125,6 +125,54 @@ public class Recordings {
             throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return listForTarget(target.id);
+    }
+
+    @PATCH
+    @Transactional
+    @Path("/api/v3/targets/{targetId}/recordings/{remoteId}")
+    @RolesAllowed({"target:read", "recording:update"})
+    public LinkedRecordingDescriptor patch(
+            @RestPath long targetId, @RestPath long remoteId, String body) throws Exception {
+        switch (body.toLowerCase()) {
+            case "stop":
+                Target target = Target.findById(targetId);
+                if (target == null) {
+                    throw new NotFoundException();
+                }
+                Optional<ActiveRecording> recording =
+                        target.activeRecordings.stream()
+                                .filter(rec -> rec.remoteId == remoteId)
+                                .findFirst();
+                if (!recording.isPresent()) {
+                    throw new NotFoundException();
+                }
+                recording.get().state = RecordingState.STOPPED;
+                recording.get().persist();
+                break;
+            case "save":
+                // TODO
+                throw new UnsupportedOperationException();
+            default:
+                throw new BadRequestException(body);
+        }
+        return null;
+    }
+
+    @PATCH
+    @Transactional
+    @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
+    @RolesAllowed({"target:read", "recording:update"})
+    public LinkedRecordingDescriptor patchV1(
+            @RestPath URI connectUrl, @RestPath String recordingName, String body)
+            throws Exception {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        Optional<IRecordingDescriptor> recording =
+                connectionManager.executeConnectedTask(
+                        target, conn -> getDescriptorByName(conn, recordingName));
+        if (recording.isEmpty()) {
+            throw new NotFoundException();
+        }
+        return patch(target.id, recording.get().getId(), body);
     }
 
     @Transactional
@@ -254,25 +302,23 @@ public class Recordings {
         return descriptor;
     }
 
-    private Optional<IRecordingDescriptor> getDescriptorById(JFRConnection connection, long id) {
+    static Optional<IRecordingDescriptor> getDescriptorById(JFRConnection connection, long id) {
         try {
             return connection.getService().getAvailableRecordings().stream()
                     .filter(r -> id == r.getId())
                     .findFirst();
         } catch (Exception e) {
-            logger.error("Target connection failed", e);
             throw new ServerErrorException(500, e);
         }
     }
 
-    private Optional<IRecordingDescriptor> getDescriptorByName(
+    static Optional<IRecordingDescriptor> getDescriptorByName(
             JFRConnection connection, String recordingName) {
         try {
             return connection.getService().getAvailableRecordings().stream()
                     .filter(r -> Objects.equals(r.getName(), recordingName))
                     .findFirst();
         } catch (Exception e) {
-            logger.error("Target connection failed", e);
             throw new ServerErrorException(500, e);
         }
     }
@@ -319,25 +365,7 @@ public class Recordings {
                 .filter(r -> Objects.equals(r.name, recordingName))
                 .findFirst()
                 .ifPresentOrElse(
-                        r -> {
-                            try {
-                                connectionManager.executeConnectedTask(
-                                        target,
-                                        conn -> {
-                                            getDescriptorById(conn, r.remoteId)
-                                                    .ifPresent(
-                                                            rec -> safeCloseRecording(conn, rec));
-                                            return null;
-                                        });
-                            } catch (WebApplicationException e) {
-                                throw e;
-                            } catch (Exception e) {
-                                throw new ServerErrorException(
-                                        "Failed to stop remote recording", 500, e);
-                            }
-                            r.delete();
-                            target.activeRecordings.remove(r);
-                        },
+                        ActiveRecording::delete,
                         () -> {
                             throw new NotFoundException();
                         });
@@ -353,32 +381,13 @@ public class Recordings {
                 .filter(r -> r.remoteId == remoteId)
                 .findFirst()
                 .ifPresentOrElse(
-                        r -> {
-                            try {
-                                connectionManager.executeConnectedTask(
-                                        target,
-                                        conn -> {
-                                            getDescriptorById(conn, r.remoteId)
-                                                    .ifPresent(
-                                                            rec -> safeCloseRecording(conn, rec));
-                                            return null;
-                                        });
-                            } catch (WebApplicationException e) {
-                                throw e;
-                            } catch (Exception e) {
-                                logger.error("Failed to stop remote recording", e);
-                                throw new ServerErrorException(
-                                        "Failed to stop remote recording", 500, e);
-                            }
-                            r.delete();
-                            target.activeRecordings.remove(r);
-                        },
+                        ActiveRecording::delete,
                         () -> {
                             throw new NotFoundException();
                         });
     }
 
-    private void safeCloseRecording(JFRConnection conn, IRecordingDescriptor rec) {
+    static void safeCloseRecording(JFRConnection conn, IRecordingDescriptor rec, Logger logger) {
         try {
             conn.getService().close(rec);
         } catch (FlightRecorderException e) {
