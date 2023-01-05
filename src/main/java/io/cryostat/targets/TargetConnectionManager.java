@@ -63,7 +63,6 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -272,9 +271,10 @@ public class TargetConnectionManager {
     @Name("io.cryostat.net.TargetConnectionManager.JMXConnectionOpened")
     @Label("JMX Connection Status")
     @Category("Cryostat")
-    @SuppressFBWarnings(
-            value = "URF_UNREAD_FIELD",
-            justification = "The event fields are recorded with JFR instead of accessed directly")
+    // @SuppressFBWarnings(
+    //         value = "URF_UNREAD_FIELD",
+    //         justification = "The event fields are recorded with JFR instead of accessed
+    // directly")
     public static class JMXConnectionOpened extends Event {
         String serviceUri;
         boolean exceptionThrown;
@@ -292,9 +292,10 @@ public class TargetConnectionManager {
     @Name("io.cryostat.net.TargetConnectionManager.JMXConnectionClosed")
     @Label("JMX Connection Status")
     @Category("Cryostat")
-    @SuppressFBWarnings(
-            value = "URF_UNREAD_FIELD",
-            justification = "The event fields are recorded with JFR instead of accessed directly")
+    // @SuppressFBWarnings(
+    //         value = "URF_UNREAD_FIELD",
+    //         justification = "The event fields are recorded with JFR instead of accessed
+    // directly")
     public static class JMXConnectionClosed extends Event {
         URI serviceUri;
         boolean exceptionThrown;

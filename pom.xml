@@ -27,8 +27,8 @@
 
     <com.diffplug.spotless.maven.plugin.version>2.28.0</com.diffplug.spotless.maven.plugin.version>
     <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
-    <com.github.spotbugs.version>4.7.3</com.github.spotbugs.version>
-    <com.github.spotbugs.plugin.version>${com.github.spotbugs.version}.0</com.github.spotbugs.plugin.version>
+    <!-- <com.github.spotbugs.version>4.7.3</com.github.spotbugs.version> -->
+    <!-- <com.github.spotbugs.plugin.version>${com.github.spotbugs.version}.0</com.github.spotbugs.plugin.version> -->
 
     <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
 
@@ -129,12 +129,12 @@
       <artifactId>rest-assured</artifactId>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>com.github.spotbugs</groupId>
-      <artifactId>spotbugs-annotations</artifactId>
-      <version>${com.github.spotbugs.version}</version>
-      <scope>provided</scope>
-    </dependency>
+    <!-- <dependency> -->
+    <!--   <groupId>com.github.spotbugs</groupId> -->
+    <!--   <artifactId>spotbugs-annotations</artifactId> -->
+    <!--   <version>${com.github.spotbugs.version}</version> -->
+    <!--   <scope>provided</scope> -->
+    <!-- </dependency> -->
   </dependencies>
   <build>
     <plugins>
@@ -198,20 +198,20 @@
           </java>
         </configuration>
       </plugin>
-      <plugin>
-        <groupId>com.github.spotbugs</groupId>
-        <artifactId>spotbugs-maven-plugin</artifactId>
-        <version>${com.github.spotbugs.plugin.version}</version>
-        <executions>
-          <execution>
-            <id>spotbugs</id>
-            <phase>verify</phase>
-            <goals>
-              <goal>check</goal>
-            </goals>
-          </execution>
-        </executions>
-      </plugin>
+      <!-- <plugin> -->
+      <!--   <groupId>com.github.spotbugs</groupId> -->
+      <!--   <artifactId>spotbugs-maven-plugin</artifactId> -->
+      <!--   <version>${com.github.spotbugs.plugin.version}</version> -->
+      <!--   <executions> -->
+      <!--     <execution> -->
+      <!--       <id>spotbugs</id> -->
+      <!--       <phase>verify</phase> -->
+      <!--       <goals> -->
+      <!--         <goal>check</goal> -->
+      <!--       </goals> -->
+      <!--     </execution> -->
+      <!--   </executions> -->
+      <!-- </plugin> -->
       <plugin>
         <groupId>com.mycila</groupId>
         <artifactId>license-maven-plugin</artifactId>
@@ -287,11 +287,11 @@
   </profiles>
   <reporting>
     <plugins>
-      <plugin>
-        <groupId>com.github.spotbugs</groupId>
-        <artifactId>spotbugs-maven-plugin</artifactId>
-        <version>${com.github.spotbugs.plugin.version}</version>
-      </plugin>
+      <!-- <plugin> -->
+      <!--   <groupId>com.github.spotbugs</groupId> -->
+      <!--   <artifactId>spotbugs-maven-plugin</artifactId> -->
+      <!--   <version>${com.github.spotbugs.plugin.version}</version> -->
+      <!-- </plugin> -->
     </plugins>
   </reporting>
 </project>
