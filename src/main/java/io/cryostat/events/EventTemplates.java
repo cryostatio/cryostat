@@ -69,7 +69,7 @@ public class EventTemplates {
 
     @GET
     @Path("/api/v1/targets/{connectUrl}/templates")
-    @RolesAllowed({"target:read", "template:read"})
+    @RolesAllowed("read")
     public List<Template> listTemplatesV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return listTemplates(target.id);
@@ -77,7 +77,7 @@ public class EventTemplates {
 
     @GET
     @Path("/api/v3/targets/{id}/event_templates")
-    @RolesAllowed({"target:read", "template:read"})
+    @RolesAllowed("read")
     public List<Template> listTemplates(@RestPath long id) throws Exception {
         Target target = Target.findById(id);
         return connectionManager.executeConnectedTask(

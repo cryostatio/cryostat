@@ -57,7 +57,7 @@ public class Events {
 
     @GET
     @Path("/api/v1/targets/{connectUrl}/events")
-    @RolesAllowed("target:read")
+    @RolesAllowed("read")
     public List<SerializableEventTypeInfo> listEventsV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return listEvents(target.id);
@@ -65,7 +65,7 @@ public class Events {
 
     @GET
     @Path("/api/v3/targets/{id}/events")
-    @RolesAllowed("target:read")
+    @RolesAllowed("read")
     public List<SerializableEventTypeInfo> listEvents(@RestPath long id) throws Exception {
         Target target = Target.findById(id);
         return connectionManager.executeConnectedTask(

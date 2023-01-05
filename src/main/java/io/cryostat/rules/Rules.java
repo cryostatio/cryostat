@@ -61,13 +61,13 @@ public class Rules {
     @Inject EventBus bus;
 
     @GET
-    @RolesAllowed("rule:read")
+    @RolesAllowed("read")
     public V2Response list() {
         return V2Response.json(Rule.listAll());
     }
 
     @GET
-    @RolesAllowed("rule:read")
+    @RolesAllowed("read")
     @Path("/{name}")
     public V2Response get(@RestPath String name) {
         return V2Response.json(Rule.getByName(name));
@@ -75,7 +75,7 @@ public class Rules {
 
     @Transactional
     @POST
-    @RolesAllowed("rule:create")
+    @RolesAllowed("write")
     @Consumes("application/json")
     public V2Response create(Rule rule) {
         // TODO validate the incoming rule
@@ -85,7 +85,7 @@ public class Rules {
 
     @Transactional
     @PATCH
-    @RolesAllowed("rule:update")
+    @RolesAllowed("write")
     @Path("/{name}")
     @Consumes("application/json")
     public V2Response update(@RestPath String name, @RestQuery boolean clean, JsonObject body) {
@@ -98,7 +98,7 @@ public class Rules {
 
     @Transactional
     @POST
-    @RolesAllowed("rule:create")
+    @RolesAllowed("write")
     public V2Response create(
             @RestForm String name,
             @RestForm String description,
@@ -126,7 +126,7 @@ public class Rules {
 
     @Transactional
     @DELETE
-    @RolesAllowed("rule:delete")
+    @RolesAllowed("write")
     @Path("/{name}")
     public V2Response delete(@RestPath String name, @RestQuery boolean clean) {
         Rule rule = Rule.getByName(name);

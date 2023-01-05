@@ -58,14 +58,14 @@ import org.jboss.resteasy.reactive.RestPath;
 public class Credentials {
 
     @GET
-    @RolesAllowed("credential:read")
+    @RolesAllowed("read")
     public V2Response list() {
         List<Credential> credentials = Credential.listAll();
         return V2Response.json(credentials.stream().map(Credentials::safeResult).toList());
     }
 
     @GET
-    @RolesAllowed("credential:read")
+    @RolesAllowed("read")
     @Path("/{id}")
     public V2Response get(@RestPath long id) {
         Credential credential = Credential.findById(id);
@@ -77,7 +77,7 @@ public class Credentials {
 
     @Transactional
     @POST
-    @RolesAllowed("credential:create")
+    @RolesAllowed("write")
     public void create(
             @RestForm String matchExpression,
             @RestForm String username,
@@ -91,7 +91,7 @@ public class Credentials {
 
     @Transactional
     @DELETE
-    @RolesAllowed("credential:delete")
+    @RolesAllowed("write")
     @Path("/{id}")
     public void delete(@RestPath long id) {
         Credential credential = Credential.findById(id);

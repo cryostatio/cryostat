@@ -37,25 +37,19 @@
  */
 package io.cryostat.security.auth;
 
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.Optional;
 import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
+import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.inject.Alternative;
-import javax.inject.Singleton;
+import javax.inject.Inject;
 import javax.ws.rs.core.HttpHeaders;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.quarkus.arc.Priority;
-import io.quarkus.security.UnauthorizedException;
-import io.quarkus.security.credential.PasswordCredential;
 import io.quarkus.security.identity.IdentityProviderManager;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.security.identity.request.AuthenticationRequest;
-import io.quarkus.security.identity.request.UsernamePasswordAuthenticationRequest;
+import io.quarkus.vertx.http.runtime.security.BasicAuthenticationMechanism;
 import io.quarkus.vertx.http.runtime.security.ChallengeData;
 import io.quarkus.vertx.http.runtime.security.HttpAuthenticationMechanism;
 import io.smallrye.mutiny.Uni;
@@ -63,41 +57,25 @@ import io.vertx.ext.web.RoutingContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@ApplicationScoped
 @Alternative
 @Priority(0)
-// @IfBuildProfile("dev")
-@Singleton
 public class DevBasicAuthMechanism implements HttpAuthenticationMechanism {
 
-    private static final Pattern BASIC_HEADER_PATTERN =
-            Pattern.compile(
-                    "^Basic[\\s]+([a-zA-Z0-9+=/]+$)", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
     private final Logger logger = LoggerFactory.getLogger(getClass());
+    // TODO replace this with an OAuth mechanism full-time
+    @Inject BasicAuthenticationMechanism delegate;
 
     @Override
     public Uni<SecurityIdentity> authenticate(
             RoutingContext context, IdentityProviderManager identityProviderManager) {
-        if (!context.request().headers().contains(HttpHeaders.AUTHORIZATION)) {
-            return Uni.createFrom().optional(Optional.empty());
-        }
-        String header = context.request().getHeader(HttpHeaders.AUTHORIZATION);
-        Matcher m = BASIC_HEADER_PATTERN.matcher(header);
-        if (!m.find()) {
-            return Uni.createFrom().failure(new UnauthorizedException());
-        }
-        String cred = m.group(1);
-        String[] parts =
-                new String(Base64.getDecoder().decode(cred), StandardCharsets.UTF_8).split(":");
-        if (parts.length != 2) {
-            return Uni.createFrom().failure(new UnauthorizedException());
-        }
-        return identityProviderManager.authenticate(
-                new UsernamePasswordAuthenticationRequest(
-                        parts[0], new PasswordCredential(parts[1].toCharArray())));
+        logger.info("hello authenticator");
+        return delegate.authenticate(context, identityProviderManager);
     }
 
     @Override
     public Uni<ChallengeData> getChallenge(RoutingContext context) {
+        logger.info("getting challenge");
         int statusCode = HttpResponseStatus.UNAUTHORIZED.code();
         String headerName = "X-" + HttpHeaders.WWW_AUTHENTICATE;
         String content = "Basic";
@@ -107,6 +85,7 @@ public class DevBasicAuthMechanism implements HttpAuthenticationMechanism {
 
     @Override
     public Set<Class<? extends AuthenticationRequest>> getCredentialTypes() {
-        return Set.of(UsernamePasswordAuthenticationRequest.class);
+        logger.info("getting credential types");
+        return delegate.getCredentialTypes();
     }
 }

@@ -95,21 +95,21 @@ public class Recordings {
 
     @GET
     @Path("/api/v1/recordings")
-    @RolesAllowed("recording:read")
+    @RolesAllowed("read")
     public List<ArchivedRecording> listArchives() {
         return List.of();
     }
 
     @GET
     @Path("/api/beta/fs/recordings")
-    @RolesAllowed("recording:read")
+    @RolesAllowed("read")
     public List<ArchivedRecording> listFsArchives() {
         return List.of();
     }
 
     @GET
     @Path("/api/v3/targets/{id}/recordings")
-    @RolesAllowed({"recording:read", "target:read"})
+    @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
         Target target = Target.findById(id);
         if (target == null) {
@@ -120,7 +120,7 @@ public class Recordings {
 
     @GET
     @Path("/api/v1/targets/{connectUrl}/recordings")
-    @RolesAllowed({"recording:read", "target:read"})
+    @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> listForTargetByUrl(@RestPath URI connectUrl)
             throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
@@ -130,7 +130,7 @@ public class Recordings {
     @PATCH
     @Transactional
     @Path("/api/v3/targets/{targetId}/recordings/{remoteId}")
-    @RolesAllowed({"target:read", "recording:update"})
+    @RolesAllowed("write")
     public LinkedRecordingDescriptor patch(
             @RestPath long targetId, @RestPath long remoteId, String body) throws Exception {
         switch (body.toLowerCase()) {
@@ -161,7 +161,7 @@ public class Recordings {
     @PATCH
     @Transactional
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
-    @RolesAllowed({"target:read", "recording:update"})
+    @RolesAllowed("write")
     public LinkedRecordingDescriptor patchV1(
             @RestPath URI connectUrl, @RestPath String recordingName, String body)
             throws Exception {
@@ -178,7 +178,7 @@ public class Recordings {
     @Transactional
     @POST
     @Path("/api/v3/targets/{id}/recordings")
-    @RolesAllowed({"recording:create", "target:read", "target:update"})
+    @RolesAllowed("write")
     public LinkedRecordingDescriptor createRecording(
             @RestPath long id,
             @RestForm String recordingName,
@@ -326,7 +326,7 @@ public class Recordings {
     @Transactional
     @POST
     @Path("/api/v1/targets/{connectUrl}/recordings")
-    @RolesAllowed({"recording:create", "target:read", "target:update"})
+    @RolesAllowed("write")
     public LinkedRecordingDescriptor createRecordingV1(
             @RestPath URI connectUrl,
             @RestForm String recordingName,
@@ -354,7 +354,7 @@ public class Recordings {
     @Transactional
     @DELETE
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
-    @RolesAllowed({"recording:delete", "target:read", "target:update"})
+    @RolesAllowed("write")
     public void deleteRecordingV1(@RestPath URI connectUrl, @RestPath String recordingName)
             throws Exception {
         if (StringUtils.isBlank(recordingName)) {
@@ -374,7 +374,7 @@ public class Recordings {
     @Transactional
     @DELETE
     @Path("/api/v3/targets/{targetId}/recordings/{remoteId}")
-    @RolesAllowed({"recording:delete", "target:read", "target:update"})
+    @RolesAllowed("write")
     public void deleteRecording(@RestPath long targetId, @RestPath long remoteId) throws Exception {
         Target target = Target.findById(targetId);
         target.activeRecordings.stream()
@@ -399,7 +399,7 @@ public class Recordings {
 
     @GET
     @Path("/api/v1/targets/{connectUrl}/recordingOptions")
-    @RolesAllowed("target:read")
+    @RolesAllowed("read")
     public Map<String, Object> getRecordingOptionsV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return getRecordingOptions(target.id);
@@ -407,7 +407,7 @@ public class Recordings {
 
     @GET
     @Path("/api/v3/targets/{id}/recordingOptions")
-    @RolesAllowed("target:read")
+    @RolesAllowed("read")
     public Map<String, Object> getRecordingOptions(@RestPath long id) throws Exception {
         Target target = Target.findById(id);
         return connectionManager.executeConnectedTask(

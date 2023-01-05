@@ -47,9 +47,9 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.Response;
 
-import io.netty.handler.codec.http.HttpResponseStatus;
 import io.quarkus.vertx.http.runtime.security.HttpAuthenticator;
 import io.vertx.ext.web.RoutingContext;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -69,14 +69,13 @@ public class Auth {
                 .transform(
                         (id, t) -> {
                             if (id == null) {
-                                return Response.status(HttpResponseStatus.UNAUTHORIZED.code())
+                                var cd = authenticator.getChallenge(context).await().indefinitely();
+                                return Response.status(cd.status)
                                         .header(
-                                                "X-WWW-Authenticate",
-                                                authenticator
-                                                        .getChallenge(context)
-                                                        .await()
-                                                        .indefinitely()
-                                                        .headerContent)
+                                                cd.headerName.toString(),
+                                                // FIXME this should not be capitalized, but the
+                                                // web-client currently requires it
+                                                StringUtils.capitalize(cd.headerContent))
                                         .entity(
                                                 Map.of(
                                                         "meta",
@@ -90,15 +89,12 @@ public class Auth {
                                         .build();
                             }
                             if (t != null) {
+                                var cd = authenticator.getChallenge(context).await().indefinitely();
                                 logger.error("Internal authentication failure", t);
-                                return Response.status(HttpResponseStatus.UNAUTHORIZED.code())
+                                return Response.status(cd.status)
                                         .header(
-                                                "X-WWW-Authenticate",
-                                                authenticator
-                                                        .getChallenge(context)
-                                                        .await()
-                                                        .indefinitely()
-                                                        .headerContent)
+                                                cd.headerName.toString(),
+                                                StringUtils.capitalize(cd.headerContent))
                                         .entity(
                                                 Map.of(
                                                         "meta",
