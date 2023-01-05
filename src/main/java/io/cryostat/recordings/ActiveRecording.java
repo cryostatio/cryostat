@@ -38,6 +38,7 @@
 package io.cryostat.recordings;
 
 import java.net.URI;
+import java.util.Map;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -50,6 +51,9 @@ import javax.persistence.ManyToOne;
 import javax.persistence.PostPersist;
 import javax.persistence.PostRemove;
 import javax.persistence.PostUpdate;
+
+import org.openjdk.jmc.common.unit.UnitLookup;
+import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
@@ -88,9 +92,6 @@ public class ActiveRecording extends PanacheEntity {
     @Column(columnDefinition = JsonTypes.JSON_BIN, nullable = false)
     public Metadata metadata;
 
-    // TODO on target discovery: connect, query for observed active recordings, and create entities
-    // to match.
-
     public static ActiveRecording from(Target target, LinkedRecordingDescriptor descriptor) {
         ActiveRecording recording = new ActiveRecording();
 
@@ -109,6 +110,40 @@ public class ActiveRecording extends PanacheEntity {
         return recording;
     }
 
+    public static ActiveRecording from(Target target, IRecordingDescriptor descriptor) {
+        ActiveRecording recording = new ActiveRecording();
+
+        recording.target = target;
+        recording.remoteId = descriptor.getId();
+        recording.name = descriptor.getName();
+        switch (descriptor.getState()) {
+            case CREATED:
+                recording.state = RecordingState.NEW;
+                break;
+            case RUNNING:
+                recording.state = RecordingState.RUNNING;
+                break;
+            case STOPPING:
+                recording.state = RecordingState.RUNNING;
+                break;
+            case STOPPED:
+                recording.state = RecordingState.STOPPED;
+                break;
+            default:
+                break;
+        }
+        recording.duration = descriptor.getDuration().in(UnitLookup.MILLISECOND).longValue();
+        recording.startTime = descriptor.getStartTime().in(UnitLookup.EPOCH_MS).longValue();
+        recording.continuous = descriptor.isContinuous();
+        recording.toDisk = descriptor.getToDisk();
+        recording.maxSize = descriptor.getMaxSize().in(UnitLookup.BYTE).longValue();
+        recording.maxAge = descriptor.getMaxAge().in(UnitLookup.MILLISECOND).longValue();
+        // TODO is there any metadata we can or should attach?
+        recording.metadata = new Metadata(Map.of());
+
+        return recording;
+    }
+
     public static ActiveRecording getByName(String name) {
         return find("name", name).singleResult();
     }
@@ -117,7 +152,7 @@ public class ActiveRecording extends PanacheEntity {
         return delete("name", name) > 0;
     }
 
-    LinkedRecordingDescriptor toExternalForm() {
+    public LinkedRecordingDescriptor toExternalForm() {
         return new LinkedRecordingDescriptor(
                 this.remoteId,
                 this.state,

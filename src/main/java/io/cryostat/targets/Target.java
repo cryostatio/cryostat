@@ -55,6 +55,9 @@ import javax.persistence.PostPersist;
 import javax.persistence.PostRemove;
 import javax.persistence.PostUpdate;
 import javax.persistence.PrePersist;
+import javax.transaction.Transactional;
+
+import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.ws.MessagingServer;
@@ -63,17 +66,21 @@ import io.cryostat.ws.Notification;
 import io.quarkiverse.hibernate.types.json.JsonBinaryType;
 import io.quarkiverse.hibernate.types.json.JsonTypes;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.eventbus.EventBus;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Entity
 @EntityListeners(Target.Listener.class)
 @TypeDef(name = JsonTypes.JSON_BIN, typeClass = JsonBinaryType.class)
 public class Target extends PanacheEntity {
 
-    static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
+    public static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
 
     @Column(unique = true, nullable = false, updatable = false)
     public URI connectUrl;
@@ -172,8 +179,37 @@ public class Target extends PanacheEntity {
     @ApplicationScoped
     static class Listener {
 
+        private final Logger logger = LoggerFactory.getLogger(getClass());
         @Inject EventBus bus;
         @Inject TargetConnectionManager connectionManager;
+
+        @Transactional
+        @Blocking
+        @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
+        void onMessage(TargetDiscovery event) {
+            switch (event.kind()) {
+                case LOST:
+                    // this should already be handled by the cascading deletion of the Target
+                    // TODO verify this
+                    break;
+                case FOUND:
+                    Target target = event.serviceRef();
+                    try {
+                        List<IRecordingDescriptor> descriptors =
+                                connectionManager.executeConnectedTask(
+                                        target, conn -> conn.getService().getAvailableRecordings());
+                        for (var descriptor : descriptors) {
+                            ActiveRecording.from(target, descriptor).persist();
+                        }
+                    } catch (Exception e) {
+                        logger.error("Failure to synchronize existing target recording state", e);
+                    }
+                    break;
+                default:
+                    // no-op
+                    break;
+            }
+        }
 
         @PrePersist
         void prePersist(Target target) throws JvmIdException {
