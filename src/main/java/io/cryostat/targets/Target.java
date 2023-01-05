@@ -71,6 +71,8 @@ import org.hibernate.annotations.TypeDef;
 @TypeDef(name = JsonTypes.JSON_BIN, typeClass = JsonBinaryType.class)
 public class Target extends PanacheEntity {
 
+    static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
+
     @Column(unique = true, nullable = false, updatable = false)
     public URI connectUrl;
 
@@ -156,43 +158,44 @@ public class Target extends PanacheEntity {
                 && Objects.equals(labels, other.labels);
     }
 
+    public enum EventKind {
+        FOUND,
+        MODIFIED,
+        LOST,
+        ;
+    }
+
+    public record TargetDiscovery(EventKind kind, Target serviceRef) {}
+
     @ApplicationScoped
     static class Listener {
-
-        private static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
 
         @Inject EventBus bus;
 
         @PostPersist
         void postPersist(Target target) {
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(
-                            TARGET_JVM_DISCOVERY,
-                            new TargetDiscoveryEvent(
-                                    new TargetDiscovery(EventKind.FOUND, target))));
+            notify(EventKind.FOUND, target);
         }
 
         @PostUpdate
-        void postUpdate(Target target) {}
+        void postUpdate(Target target) {
+            notify(EventKind.MODIFIED, target);
+        }
 
         @PostRemove
         void postRemove(Target target) {
+            notify(EventKind.LOST, target);
+        }
+
+        private void notify(EventKind eventKind, Target target) {
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
                             TARGET_JVM_DISCOVERY,
-                            new TargetDiscoveryEvent(new TargetDiscovery(EventKind.LOST, target))));
+                            new TargetDiscoveryEvent(new TargetDiscovery(eventKind, target))));
+            bus.publish(TARGET_JVM_DISCOVERY, new TargetDiscovery(eventKind, target));
         }
 
-        private record TargetDiscoveryEvent(TargetDiscovery event) {}
-
-        private record TargetDiscovery(EventKind kind, Target serviceRef) {}
-
-        private enum EventKind {
-            FOUND,
-            LOST,
-            ;
-        }
+        public record TargetDiscoveryEvent(TargetDiscovery event) {}
     }
 }

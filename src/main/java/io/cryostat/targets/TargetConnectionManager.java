@@ -55,8 +55,8 @@ import javax.management.remote.JMXServiceURL;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.JFRConnectionToolkit;
-import io.cryostat.targets.Targets.EventKind;
-import io.cryostat.targets.Targets.TargetDiscoveryEvent;
+import io.cryostat.targets.Target.EventKind;
+import io.cryostat.targets.Target.TargetDiscovery;
 
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
@@ -114,15 +114,15 @@ public class TargetConnectionManager {
         this.connections = cacheBuilder.buildAsync(new ConnectionLoader());
     }
 
-    @ConsumeEvent(Targets.TARGET_JVM_DISCOVERY)
-    void onMessage(TargetDiscoveryEvent event) {
+    @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
+    void onMessage(TargetDiscovery event) {
         // force removal of connections from cache when we're notified about targets being lost.
         // This should already be taken care of by the connection close listener, but this provides
         // some additional insurance in case a target disappears and the underlying JMX network
         // connection doesn't immediately report itself as closed
-        if (EventKind.LOST.equals(event.event().kind())) {
+        if (EventKind.LOST.equals(event.kind())) {
             for (Target target : connections.asMap().keySet()) {
-                if (Objects.equals(target.id, event.event().serviceRef().id)) {
+                if (Objects.equals(target.id, event.serviceRef().id)) {
                     connections.synchronous().invalidate(target);
                 }
             }
