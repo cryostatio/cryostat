@@ -73,10 +73,7 @@ import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
-import io.cryostat.ws.MessagingServer;
-import io.cryostat.ws.Notification;
 
-import io.vertx.core.eventbus.EventBus;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -95,7 +92,6 @@ public class Recordings {
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
-    @Inject EventBus bus;
 
     @GET
     @Path("/api/v1/recordings")
@@ -119,7 +115,7 @@ public class Recordings {
         if (target == null) {
             throw new NotFoundException();
         }
-        return target.activeRecordings.stream().map(this::mapDescriptor).toList();
+        return target.activeRecordings.stream().map(ActiveRecording::toExternalForm).toList();
     }
 
     @GET
@@ -244,7 +240,6 @@ public class Recordings {
         recording.persist();
         target.activeRecordings.add(recording);
         target.persist();
-        notify(NotificationCategory.ACTIVE_CREATE, target.connectUrl, descriptor);
 
         // Object fixedDuration =
         //         recordingOptions.get(RecordingOptionsBuilder.KEY_DURATION);
@@ -342,10 +337,6 @@ public class Recordings {
                             }
                             r.delete();
                             target.activeRecordings.remove(r);
-                            notify(
-                                    NotificationCategory.ACTIVE_DELETE,
-                                    connectUrl,
-                                    mapDescriptor(r));
                         },
                         () -> {
                             throw new NotFoundException();
@@ -381,10 +372,6 @@ public class Recordings {
                             }
                             r.delete();
                             target.activeRecordings.remove(r);
-                            notify(
-                                    NotificationCategory.ACTIVE_DELETE,
-                                    target.connectUrl,
-                                    mapDescriptor(r));
                         },
                         () -> {
                             throw new NotFoundException();
@@ -478,22 +465,6 @@ public class Recordings {
         }
     }
 
-    private LinkedRecordingDescriptor mapDescriptor(ActiveRecording desc) {
-        return new LinkedRecordingDescriptor(
-                desc.remoteId,
-                desc.state,
-                desc.duration,
-                desc.startTime,
-                desc.continuous,
-                desc.toDisk,
-                desc.maxSize,
-                desc.maxAge,
-                desc.name,
-                "TODO",
-                "TODO",
-                desc.metadata);
-    }
-
     private static Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier) {
         if (TEMPLATE_PATTERN.matcher(eventSpecifier).matches()) {
             Matcher m = TEMPLATE_PATTERN.matcher(eventSpecifier);
@@ -562,29 +533,6 @@ public class Recordings {
 
         return builder.build();
     }
-
-    private void notify(NotificationCategory category, URI connectUrl, Object recording) {
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(category.cat, new RecordingEvent(connectUrl, recording)));
-    }
-
-    private enum NotificationCategory {
-        ACTIVE_CREATE("ActiveRecordingCreated"),
-        ACTIVE_STOP("ActiveRecordingStopped"),
-        ACTIVE_DELETE("ActiveRecordingDeleted"),
-        SNAPSHOT_CREATE("SnapshotCreated"),
-        SNAPSHOT_DELETE("SnapshotDeleted"),
-        ;
-
-        private final String cat;
-
-        NotificationCategory(String cat) {
-            this.cat = cat;
-        }
-    }
-
-    private record RecordingEvent(URI target, Object recording) {}
 
     public record LinkedRecordingDescriptor(
             long id,

@@ -42,7 +42,6 @@ import java.util.List;
 import java.util.Map;
 
 import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
 import javax.transaction.Transactional;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
@@ -51,23 +50,18 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 
 import io.cryostat.V2Response;
-import io.cryostat.ws.MessagingServer;
-import io.cryostat.ws.Notification;
 
-import io.vertx.core.eventbus.EventBus;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 
 @Path("/api/v2.2/credentials")
 public class Credentials {
 
-    @Inject EventBus bus;
-
     @GET
     @RolesAllowed("credential:read")
     public V2Response list() {
         List<Credential> credentials = Credential.listAll();
-        return V2Response.json(credentials.stream().map(this::safeResult).toList());
+        return V2Response.json(credentials.stream().map(Credentials::safeResult).toList());
     }
 
     @GET
@@ -93,9 +87,6 @@ public class Credentials {
         credential.username = username;
         credential.password = password;
         credential.persist();
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification("CredentialsStored", safeResult(credential)));
     }
 
     @Transactional
@@ -108,12 +99,9 @@ public class Credentials {
             throw new NotFoundException();
         }
         credential.delete();
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification("CredentialsDeleted", safeResult(credential)));
     }
 
-    private Map<String, Object> safeResult(Credential credential) {
+    static Map<String, Object> safeResult(Credential credential) {
         Map<String, Object> result = new HashMap<>();
         result.put("id", credential.id);
         result.put("matchExpression", credential.matchExpression);
@@ -122,7 +110,7 @@ public class Credentials {
         return result;
     }
 
-    private Map<String, Object> safeMatchedResult(Credential credential) {
+    static Map<String, Object> safeMatchedResult(Credential credential) {
         Map<String, Object> result = new HashMap<>();
         result.put("matchExpression", credential.matchExpression);
         result.put("targets", List.of());

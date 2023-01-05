@@ -48,8 +48,6 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 
 import io.cryostat.V2Response;
-import io.cryostat.ws.MessagingServer;
-import io.cryostat.ws.Notification;
 
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonObject;
@@ -82,7 +80,6 @@ public class Rules {
     public V2Response create(Rule rule) {
         // TODO validate the incoming rule
         rule.persist();
-        notify(NotificationCategory.RULE_CREATE, rule);
         return V2Response.json(rule);
     }
 
@@ -95,8 +92,6 @@ public class Rules {
         Rule rule = Rule.getByName(name);
         rule.enabled = body.getBoolean("enabled");
         rule.persist();
-
-        notify(NotificationCategory.RULE_UPDATE, rule);
 
         return V2Response.json(rule);
     }
@@ -136,24 +131,6 @@ public class Rules {
     public V2Response delete(@RestPath String name, @RestQuery boolean clean) {
         Rule rule = Rule.getByName(name);
         rule.delete();
-        notify(NotificationCategory.RULE_DELETE, rule);
         return V2Response.json(rule);
-    }
-
-    private void notify(NotificationCategory category, Rule rule) {
-        bus.publish(MessagingServer.class.getName(), new Notification(category.cat, rule));
-    }
-
-    private enum NotificationCategory {
-        RULE_CREATE("RuleCreated"),
-        RULE_UPDATE("RuleUpdated"),
-        RULE_DELETE("RuleDeleted"),
-        ;
-
-        private final String cat;
-
-        NotificationCategory(String cat) {
-            this.cat = cat;
-        }
     }
 }

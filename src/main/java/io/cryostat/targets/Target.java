@@ -44,20 +44,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
 import javax.persistence.OneToMany;
+import javax.persistence.PostPersist;
+import javax.persistence.PostRemove;
+import javax.persistence.PostUpdate;
 
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
 import io.quarkiverse.hibernate.types.json.JsonBinaryType;
 import io.quarkiverse.hibernate.types.json.JsonTypes;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.vertx.core.eventbus.EventBus;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 
 @Entity
+@EntityListeners(Target.Listener.class)
 @TypeDef(name = JsonTypes.JSON_BIN, typeClass = JsonBinaryType.class)
 public class Target extends PanacheEntity {
 
@@ -144,5 +154,45 @@ public class Target extends PanacheEntity {
                 && Objects.equals(connectUrl, other.connectUrl)
                 && Objects.equals(jvmId, other.jvmId)
                 && Objects.equals(labels, other.labels);
+    }
+
+    @ApplicationScoped
+    static class Listener {
+
+        private static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
+
+        @Inject EventBus bus;
+
+        @PostPersist
+        void postPersist(Target target) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            TARGET_JVM_DISCOVERY,
+                            new TargetDiscoveryEvent(
+                                    new TargetDiscovery(EventKind.FOUND, target))));
+        }
+
+        @PostUpdate
+        void postUpdate(Target target) {}
+
+        @PostRemove
+        void postRemove(Target target) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            TARGET_JVM_DISCOVERY,
+                            new TargetDiscoveryEvent(new TargetDiscovery(EventKind.LOST, target))));
+        }
+
+        private record TargetDiscoveryEvent(TargetDiscovery event) {}
+
+        private record TargetDiscovery(EventKind kind, Target serviceRef) {}
+
+        private enum EventKind {
+            FOUND,
+            LOST,
+            ;
+        }
     }
 }

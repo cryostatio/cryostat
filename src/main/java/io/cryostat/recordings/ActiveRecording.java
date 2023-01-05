@@ -37,24 +37,36 @@
  */
 package io.cryostat.recordings;
 
+import java.net.URI;
+
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
 import javax.persistence.FetchType;
 import javax.persistence.JoinColumn;
 import javax.persistence.ManyToOne;
+import javax.persistence.PostPersist;
+import javax.persistence.PostRemove;
+import javax.persistence.PostUpdate;
 
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
 import io.quarkiverse.hibernate.types.json.JsonBinaryType;
 import io.quarkiverse.hibernate.types.json.JsonTypes;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.vertx.core.eventbus.EventBus;
 import jdk.jfr.RecordingState;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 
 @Entity
+@EntityListeners(ActiveRecording.Listener.class)
 @TypeDef(name = JsonTypes.JSON_BIN, typeClass = JsonBinaryType.class)
 public class ActiveRecording extends PanacheEntity {
 
@@ -75,6 +87,9 @@ public class ActiveRecording extends PanacheEntity {
     @Type(type = JsonTypes.JSON_BIN)
     @Column(columnDefinition = JsonTypes.JSON_BIN, nullable = false)
     public Metadata metadata;
+
+    // TODO on target discovery: connect, query for observed active recordings, and create entities
+    // to match.
 
     public static ActiveRecording from(Target target, LinkedRecordingDescriptor descriptor) {
         ActiveRecording recording = new ActiveRecording();
@@ -100,5 +115,55 @@ public class ActiveRecording extends PanacheEntity {
 
     public static boolean deleteByName(String name) {
         return delete("name", name) > 0;
+    }
+
+    LinkedRecordingDescriptor toExternalForm() {
+        return new LinkedRecordingDescriptor(
+                this.remoteId,
+                this.state,
+                this.duration,
+                this.startTime,
+                this.continuous,
+                this.toDisk,
+                this.maxSize,
+                this.maxAge,
+                this.name,
+                "TODO",
+                "TODO",
+                this.metadata);
+    }
+
+    @ApplicationScoped
+    static class Listener {
+
+        @Inject EventBus bus;
+
+        @PostPersist
+        public void postPersist(ActiveRecording activeRecording) {
+            notify("ActiveRecordingCreated", activeRecording);
+        }
+
+        @PostUpdate
+        public void postUpdate(ActiveRecording activeRecording) {
+            if (RecordingState.STOPPED.equals(activeRecording.state)) {
+                notify("ActiveRecordingStopped", activeRecording);
+            }
+        }
+
+        @PostRemove
+        public void postRemove(ActiveRecording activeRecording) {
+            notify("ActiveRecordingDeleted", activeRecording);
+        }
+
+        private void notify(String category, ActiveRecording recording) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            category,
+                            new RecordingEvent(
+                                    recording.target.connectUrl, recording.toExternalForm())));
+        }
+
+        private record RecordingEvent(URI target, Object recording) {}
     }
 }

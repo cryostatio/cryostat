@@ -37,13 +37,24 @@
  */
 package io.cryostat.credentials;
 
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 import javax.persistence.Column;
 import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
+import javax.persistence.PostPersist;
+import javax.persistence.PostRemove;
+import javax.persistence.PostUpdate;
+
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.vertx.core.eventbus.EventBus;
 import org.hibernate.annotations.ColumnTransformer;
 
 @Entity
+@EntityListeners(Credential.Listener.class)
 public class Credential extends PanacheEntity {
 
     @Column(nullable = false, updatable = false)
@@ -60,4 +71,31 @@ public class Credential extends PanacheEntity {
             write = "pgp_sym_encrypt(?, current_setting('encrypt.key'))")
     @Column(nullable = false, updatable = false, columnDefinition = "bytea")
     public String password;
+
+    @ApplicationScoped
+    static class Listener {
+
+        @Inject EventBus bus;
+
+        @PostPersist
+        public void postPersist(Credential credential) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification("CredentialsStored", Credentials.safeResult(credential)));
+        }
+
+        @PostUpdate
+        public void postUpdate(Credential credential) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification("CredentialsUpdated", Credentials.safeResult(credential)));
+        }
+
+        @PostRemove
+        public void postRemove(Credential credential) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification("CredentialsDeleted", Credentials.safeResult(credential)));
+        }
+    }
 }

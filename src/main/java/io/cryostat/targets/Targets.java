@@ -56,10 +56,6 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
 
-import io.cryostat.ws.MessagingServer;
-import io.cryostat.ws.Notification;
-
-import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.core.eventbus.EventBus;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.exception.ConstraintViolationException;
@@ -72,7 +68,6 @@ import org.slf4j.LoggerFactory;
 @Path("")
 public class Targets {
 
-    public static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
     public static final Pattern HOST_PORT_PAIR_PATTERN =
             Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))$");
 
@@ -122,11 +117,7 @@ public class Targets {
                 return Response.ok().build();
             }
 
-            target.persistAndFlush();
-
-            bus.publish(
-                    TARGET_JVM_DISCOVERY,
-                    new TargetDiscoveryEvent(new TargetDiscovery(EventKind.FOUND, target)));
+            target.persist();
 
             return Response.created(URI.create("/api/v3/targets/" + target.id)).build();
         } catch (Exception e) {
@@ -168,9 +159,6 @@ public class Targets {
         try {
             Target target = Target.getTargetByConnectUrl(connectUrl);
             target.delete();
-            bus.publish(
-                    TARGET_JVM_DISCOVERY,
-                    new TargetDiscoveryEvent(new TargetDiscovery(EventKind.LOST, target)));
             return Response.ok().build();
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, NoResultException.class) >= 0) {
@@ -190,21 +178,6 @@ public class Targets {
             return Response.status(404).build();
         }
         return delete(target.connectUrl);
-    }
-
-    @ConsumeEvent(TARGET_JVM_DISCOVERY)
-    void onDiscovery(TargetDiscoveryEvent event) {
-        bus.publish(MessagingServer.class.getName(), new Notification(TARGET_JVM_DISCOVERY, event));
-    }
-
-    public record TargetDiscoveryEvent(TargetDiscovery event) {}
-
-    public record TargetDiscovery(EventKind kind, Target serviceRef) {}
-
-    public enum EventKind {
-        FOUND,
-        LOST,
-        ;
     }
 
     private URI sanitizeConnectUrl(String in) throws URISyntaxException, MalformedURLException {
