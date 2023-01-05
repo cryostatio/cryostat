@@ -50,7 +50,6 @@ import javax.ws.rs.core.HttpHeaders;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.quarkus.arc.Priority;
-import io.quarkus.arc.profile.IfBuildProfile;
 import io.quarkus.security.UnauthorizedException;
 import io.quarkus.security.credential.PasswordCredential;
 import io.quarkus.security.identity.IdentityProviderManager;
@@ -66,7 +65,7 @@ import org.slf4j.LoggerFactory;
 
 @Alternative
 @Priority(0)
-@IfBuildProfile("dev")
+// @IfBuildProfile("dev")
 @Singleton
 public class DevBasicAuthMechanism implements HttpAuthenticationMechanism {
 

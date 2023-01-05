@@ -89,7 +89,7 @@ public class Targets {
         return Target.listAll();
     }
 
-    @Transactional
+    @Transactional(rollbackOn = {JvmIdException.class})
     @POST
     @Path("/api/v2/targets")
     @Consumes("application/json")

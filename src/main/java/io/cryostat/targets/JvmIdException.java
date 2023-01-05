@@ -35,37 +35,11 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.cryostat;
+package io.cryostat.targets;
 
-import java.net.URI;
-import java.util.Map;
+public class JvmIdException extends Exception {
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.enterprise.event.Observes;
-import javax.inject.Inject;
-import javax.transaction.Transactional;
-
-import io.cryostat.targets.Target;
-import io.cryostat.targets.Target.Annotations;
-import io.cryostat.targets.TargetConnectionManager;
-
-import io.quarkus.arc.profile.IfBuildProfile;
-import io.quarkus.runtime.StartupEvent;
-
-@ApplicationScoped
-@IfBuildProfile("dev")
-// FIXME remove this once auto discovery is re-implemented and enabled in dev profile
-public class Lifecycle {
-
-    @Inject TargetConnectionManager connectionManager;
-
-    @Transactional
-    void onStart(@Observes StartupEvent evt) throws Exception {
-        Target self = new Target();
-        self.connectUrl = URI.create("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi");
-        self.alias = "dev-self";
-        self.labels = Map.of();
-        self.annotations = new Annotations();
-        self.persist();
+    public JvmIdException(Exception e) {
+        super(e);
     }
 }

@@ -39,7 +39,6 @@ package io.cryostat.security.auth;
 
 import javax.enterprise.context.ApplicationScoped;
 
-import io.quarkus.arc.profile.IfBuildProfile;
 import io.quarkus.security.identity.AuthenticationRequestContext;
 import io.quarkus.security.identity.SecurityIdentity;
 import io.quarkus.security.identity.SecurityIdentityAugmentor;
@@ -48,7 +47,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @ApplicationScoped
-@IfBuildProfile("dev")
+// @IfBuildProfile("dev")
 public class DevSecurityIdentityAugmentor implements SecurityIdentityAugmentor {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());

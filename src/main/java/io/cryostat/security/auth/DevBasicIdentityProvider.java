@@ -49,7 +49,6 @@ import javax.enterprise.inject.Alternative;
 import javax.inject.Singleton;
 
 import io.quarkus.arc.Priority;
-import io.quarkus.arc.profile.IfBuildProfile;
 import io.quarkus.security.UnauthorizedException;
 import io.quarkus.security.credential.Credential;
 import io.quarkus.security.identity.AuthenticationRequestContext;
@@ -63,7 +62,7 @@ import org.slf4j.LoggerFactory;
 @Singleton
 @Alternative
 @Priority(10)
-@IfBuildProfile("dev")
+// @IfBuildProfile("dev")
 public class DevBasicIdentityProvider
         implements IdentityProvider<UsernamePasswordAuthenticationRequest> {
 

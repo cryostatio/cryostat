@@ -74,9 +74,13 @@
       <artifactId>quarkus-quinoa</artifactId>
       <version>1.2.3</version>
     </dependency>
+    <!-- <dependency> -->
+    <!--   <groupId>io.quarkus</groupId> -->
+    <!--   <artifactId>quarkus-container-image-jib</artifactId> -->
+    <!-- </dependency> -->
     <dependency>
       <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-container-image-jib</artifactId>
+      <artifactId>quarkus-container-image-docker</artifactId>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
@@ -176,7 +180,7 @@
         <executions>
           <execution>
             <id>spotless</id>
-            <phase>verify</phase>
+            <phase>process-sources</phase>
             <goals>
               <goal>check</goal>
             </goals>

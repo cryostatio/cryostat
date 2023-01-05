@@ -54,6 +54,7 @@ import javax.persistence.OneToMany;
 import javax.persistence.PostPersist;
 import javax.persistence.PostRemove;
 import javax.persistence.PostUpdate;
+import javax.persistence.PrePersist;
 
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.ws.MessagingServer;
@@ -63,6 +64,7 @@ import io.quarkiverse.hibernate.types.json.JsonBinaryType;
 import io.quarkiverse.hibernate.types.json.JsonTypes;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.core.eventbus.EventBus;
+import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
 
@@ -171,6 +173,20 @@ public class Target extends PanacheEntity {
     static class Listener {
 
         @Inject EventBus bus;
+        @Inject TargetConnectionManager connectionManager;
+
+        @PrePersist
+        void prePersist(Target target) throws JvmIdException {
+            if (StringUtils.isNotBlank(target.jvmId)) {
+                return;
+            }
+            try {
+                target.jvmId =
+                        connectionManager.executeConnectedTask(target, conn -> conn.getJvmId());
+            } catch (Exception e) {
+                throw new JvmIdException(e);
+            }
+        }
 
         @PostPersist
         void postPersist(Target target) {
