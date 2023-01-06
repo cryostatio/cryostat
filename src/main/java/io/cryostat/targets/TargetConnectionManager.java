@@ -65,7 +65,6 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.Label;
@@ -84,9 +83,10 @@ public class TargetConnectionManager {
     private final Optional<Semaphore> semaphore;
 
     @Inject
-    TargetConnectionManager(JFRConnectionToolkit jfrConnectionToolkit, Logger logger) {
+    TargetConnectionManager(
+            JFRConnectionToolkit jfrConnectionToolkit, Executor executor, Logger logger) {
         this.jfrConnectionToolkit = jfrConnectionToolkit;
-        this.executor = Infrastructure.getDefaultExecutor();
+        this.executor = executor;
 
         int maxTargetConnections = 0; // TODO make configurable
 

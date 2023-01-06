@@ -65,6 +65,7 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkiverse.hibernate.types.json.JsonBinaryType;
 import io.quarkiverse.hibernate.types.json.JsonTypes;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
@@ -99,6 +100,7 @@ public class Target extends PanacheEntity {
     @Column(columnDefinition = JsonTypes.JSON_BIN, nullable = false)
     public Annotations annotations = new Annotations();
 
+    @JsonIgnore
     @OneToMany(
             mappedBy = "target",
             cascade = {CascadeType.ALL},

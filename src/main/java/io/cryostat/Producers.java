@@ -37,6 +37,10 @@
  */
 package io.cryostat;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+
+import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.inject.Produces;
 
 import io.cryostat.core.sys.Clock;
@@ -49,5 +53,12 @@ public class Producers {
     @DefaultBean
     public static Clock produceClock() {
         return new Clock();
+    }
+
+    @Produces
+    @ApplicationScoped
+    @DefaultBean
+    public static ScheduledExecutorService produceScheduledExecutorService() {
+        return Executors.newSingleThreadScheduledExecutor();
     }
 }

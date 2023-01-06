@@ -49,6 +49,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -122,6 +124,7 @@ public class Recordings {
     @Inject Clock clock;
     @Inject MinioClient minio;
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
+    @Inject ScheduledExecutorService scheduler;
 
     @ConfigProperty(name = "minio.buckets.archives.name")
     String archiveBucket;
@@ -281,48 +284,49 @@ public class Recordings {
                 activeRecording.persist();
                 return null;
             case "save":
-                String timestamp =
-                        clock.now()
-                                .truncatedTo(ChronoUnit.SECONDS)
-                                .toString()
-                                .replaceAll("[-:]+", "");
-                String filename =
-                        String.format(
-                                "%s_%s_%s.jfr", target.alias, activeRecording.name, timestamp);
-                long mib = 1024 * 1024;
-                try (var stream = remoteRecordingStreamFactory.open(target, activeRecording)) {
-                    // TODO attach other metadata than labels somehow
-                    minio.putObject(
-                            PutObjectArgs.builder()
-                                    .bucket(archiveBucket)
-                                    .object(String.format("%s/%s", target.jvmId, filename))
-                                    .contentType(JFR_MIME)
-                                    .stream(stream, -1, 5 * mib)
-                                    .tags(activeRecording.metadata.labels())
-                                    .userMetadata(
-                                            Map.of(
-                                                    "connectUrl",
-                                                    target.connectUrl.toString(),
-                                                    "recordingName",
-                                                    activeRecording.name))
-                                    .build());
-                }
-                bus.publish(
-                        MessagingServer.class.getName(),
-                        new Notification(
-                                "ActiveRecordingSaved",
-                                new RecordingEvent(
-                                        target.connectUrl, activeRecording.toExternalForm())));
-                bus.publish(
-                        MessagingServer.class.getName(),
-                        new Notification(
-                                "ArchivedRecordingCreated",
-                                new RecordingEvent(
-                                        target.connectUrl, activeRecording.toExternalForm())));
-                return filename;
+                return saveRecording(target, activeRecording);
             default:
                 throw new BadRequestException(body);
         }
+    }
+
+    private String saveRecording(Target target, ActiveRecording activeRecording)
+            throws ErrorResponseException, InsufficientDataException, InternalException,
+                    InvalidKeyException, InvalidResponseException, IOException,
+                    NoSuchAlgorithmException, ServerException, XmlParserException, Exception {
+        String timestamp =
+                clock.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
+        String filename =
+                String.format("%s_%s_%s.jfr", target.alias, activeRecording.name, timestamp);
+        long mib = 1024 * 1024;
+        try (var stream = remoteRecordingStreamFactory.open(target, activeRecording)) {
+            // TODO attach other metadata than labels somehow
+            minio.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(archiveBucket)
+                            .object(String.format("%s/%s", target.jvmId, filename))
+                            .contentType(JFR_MIME)
+                            .stream(stream, -1, 5 * mib)
+                            .tags(activeRecording.metadata.labels())
+                            .userMetadata(
+                                    Map.of(
+                                            "connectUrl",
+                                            target.connectUrl.toString(),
+                                            "recordingName",
+                                            activeRecording.name))
+                            .build());
+        }
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        "ActiveRecordingSaved",
+                        new RecordingEvent(target.connectUrl, activeRecording.toExternalForm())));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        "ArchivedRecordingCreated",
+                        new RecordingEvent(target.connectUrl, activeRecording.toExternalForm())));
+        return filename;
     }
 
     @PATCH
@@ -399,15 +403,6 @@ public class Recordings {
                             //                     attrs.get("metadata"),
                             //                     new TypeToken<Metadata>() {}.getType());
                             // }
-                            // boolean archiveOnStop = false;
-                            // if (attrs.contains("archiveOnStop")) {
-                            //     if (attrs.get("archiveOnStop").equals("true")
-                            //             || attrs.get("archiveOnStop").equals("false")) {
-                            //         archiveOnStop = Boolean.valueOf(attrs.get("archiveOnStop"));
-                            //     } else {
-                            //         throw new HttpException(400, "Invalid options");
-                            //     }
-                            // }
                             IConstrainedMap<String> recordingOptions = optionsBuilder.build();
 
                             Pair<String, TemplateType> template =
@@ -438,7 +433,7 @@ public class Recordings {
                             return new LinkedRecordingDescriptor(
                                     desc.getId(),
                                     mapState(desc),
-                                    desc.getDuration().in(UnitLookup.MILLISECOND).longValue(),
+                                    TimeUnit.SECONDS.toMillis(duration.orElse(0L)),
                                     desc.getStartTime().in(UnitLookup.EPOCH_MS).longValue(),
                                     desc.isContinuous(),
                                     desc.getToDisk(),
@@ -455,17 +450,28 @@ public class Recordings {
         target.activeRecordings.add(recording);
         target.persist();
 
-        // Object fixedDuration =
-        //         recordingOptions.get(RecordingOptionsBuilder.KEY_DURATION);
-        // if (fixedDuration != null) {
-        //     Long delay =
-        //             Long.valueOf(fixedDuration.toString().replaceAll("[^0-9]", ""));
-
-        //     scheduleRecordingTasks(
-        //             recordingName, delay, connectionDescriptor, archiveOnStop);
-        // }
+        if (recording.duration > 0) {
+            scheduler.schedule(
+                    () -> stopRecording(target.id, recording.id, archiveOnStop.orElse(false)),
+                    recording.duration,
+                    TimeUnit.MILLISECONDS);
+        }
 
         return descriptor;
+    }
+
+    @Transactional
+    void stopRecording(long targetId, long recordingId, boolean archive) {
+        try {
+            ActiveRecording recording = ActiveRecording.findById(recordingId);
+            recording.state = RecordingState.STOPPED;
+            recording.persist();
+            if (archive) {
+                saveRecording(Target.findById(targetId), recording);
+            }
+        } catch (Exception e) {
+            logger.error("couldn't update recording", e);
+        }
     }
 
     static Optional<IRecordingDescriptor> getDescriptorById(
@@ -515,9 +521,9 @@ public class Recordings {
                 target.id,
                 recordingName,
                 events,
-                maxSize,
+                duration,
                 archiveOnStop,
-                maxSize,
+                maxAge,
                 maxSize,
                 metadata,
                 archiveOnStop);
