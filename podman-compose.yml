@@ -52,6 +52,8 @@ services:
     environment:
       HTTP_PORT: 8081
       JMX_PORT: 9093
+    ports:
+      - "8081:8081"
 
 volumes:
   minio_data:
