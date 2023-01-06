@@ -49,19 +49,23 @@ import javax.ws.rs.core.Response;
 
 import io.quarkus.vertx.http.runtime.security.HttpAuthenticator;
 import io.vertx.ext.web.RoutingContext;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-@Path("/api/v2.1/auth")
+@Path("")
 public class Auth {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @POST
+    @Path("/api/v2.1/logout")
+    public void logout() {}
+
+    @POST
+    @Path("/api/v2.1/auth")
     @PermitAll
     @Produces("application/json")
-    public Response post(@Context RoutingContext context) {
+    public Response login(@Context RoutingContext context) {
         HttpAuthenticator authenticator = context.get(HttpAuthenticator.class.getName());
         return authenticator
                 .attemptAuthentication(context)
@@ -71,11 +75,7 @@ public class Auth {
                             if (id == null) {
                                 var cd = authenticator.getChallenge(context).await().indefinitely();
                                 return Response.status(cd.status)
-                                        .header(
-                                                cd.headerName.toString(),
-                                                // FIXME this should not be capitalized, but the
-                                                // web-client currently requires it
-                                                StringUtils.capitalize(cd.headerContent))
+                                        .header(cd.headerName.toString(), cd.headerContent)
                                         .entity(
                                                 Map.of(
                                                         "meta",
@@ -92,9 +92,7 @@ public class Auth {
                                 var cd = authenticator.getChallenge(context).await().indefinitely();
                                 logger.error("Internal authentication failure", t);
                                 return Response.status(cd.status)
-                                        .header(
-                                                cd.headerName.toString(),
-                                                StringUtils.capitalize(cd.headerContent))
+                                        .header(cd.headerName.toString(), cd.headerContent)
                                         .entity(
                                                 Map.of(
                                                         "meta",

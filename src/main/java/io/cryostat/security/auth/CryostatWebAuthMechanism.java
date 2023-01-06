@@ -60,7 +60,7 @@ import org.slf4j.LoggerFactory;
 @ApplicationScoped
 @Alternative
 @Priority(0)
-public class DevBasicAuthMechanism implements HttpAuthenticationMechanism {
+public class CryostatWebAuthMechanism implements HttpAuthenticationMechanism {
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
     // TODO replace this with an OAuth mechanism full-time
@@ -69,15 +69,17 @@ public class DevBasicAuthMechanism implements HttpAuthenticationMechanism {
     @Override
     public Uni<SecurityIdentity> authenticate(
             RoutingContext context, IdentityProviderManager identityProviderManager) {
-        logger.info("hello authenticator");
         return delegate.authenticate(context, identityProviderManager);
     }
 
     @Override
     public Uni<ChallengeData> getChallenge(RoutingContext context) {
-        logger.info("getting challenge");
         int statusCode = HttpResponseStatus.UNAUTHORIZED.code();
+        // prepend the 'X-' to the header name so the web-client JS can read it and the browser does
+        // not intervene as it normally does to this header
         String headerName = "X-" + HttpHeaders.WWW_AUTHENTICATE;
+        // FIXME the content should not need to be capitalized, but the web-client currently
+        // requires this
         String content = "Basic";
         var cd = new ChallengeData(statusCode, headerName, content);
         return Uni.createFrom().item(cd);
@@ -85,7 +87,6 @@ public class DevBasicAuthMechanism implements HttpAuthenticationMechanism {
 
     @Override
     public Set<Class<? extends AuthenticationRequest>> getCredentialTypes() {
-        logger.info("getting credential types");
         return delegate.getCredentialTypes();
     }
 }
