@@ -38,6 +38,8 @@
 package io.cryostat.targets;
 
 import java.net.URI;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -213,6 +215,8 @@ public class Target extends PanacheEntity {
 
         @PrePersist
         void prePersist(Target target) throws JvmIdException {
+            target.alias = URLEncoder.encode(target.alias, StandardCharsets.UTF_8);
+
             if (StringUtils.isNotBlank(target.jvmId)) {
                 return;
             }
