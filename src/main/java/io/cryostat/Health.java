@@ -41,13 +41,13 @@ import java.util.Map;
 import java.util.Optional;
 
 import javax.annotation.security.PermitAll;
+import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 @Path("/")
 class Health {
@@ -70,7 +70,7 @@ class Health {
     @ConfigProperty(name = "quarkus.http.ssl.certificate.key-store-password")
     Optional<String> sslPass;
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    @Inject Logger logger;
 
     @GET
     @Path("health")

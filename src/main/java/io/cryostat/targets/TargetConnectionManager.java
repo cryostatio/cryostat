@@ -70,22 +70,21 @@ import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class TargetConnectionManager {
 
     private final JFRConnectionToolkit jfrConnectionToolkit;
     private final Executor executor;
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    private final Logger logger;
 
     private final AsyncLoadingCache<Target, JFRConnection> connections;
     private final Map<Target, Object> targetLocks;
     private final Optional<Semaphore> semaphore;
 
     @Inject
-    TargetConnectionManager(JFRConnectionToolkit jfrConnectionToolkit) {
+    TargetConnectionManager(JFRConnectionToolkit jfrConnectionToolkit, Logger logger) {
         this.jfrConnectionToolkit = jfrConnectionToolkit;
         this.executor = Infrastructure.getDefaultExecutor();
 
@@ -111,6 +110,7 @@ public class TargetConnectionManager {
             cacheBuilder = cacheBuilder.expireAfterAccess(ttl);
         }
         this.connections = cacheBuilder.buildAsync(new ConnectionLoader());
+        this.logger = logger;
     }
 
     @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
@@ -181,7 +181,7 @@ public class TargetConnectionManager {
         }
         try {
             JMXConnectionClosed evt = new JMXConnectionClosed(target.connectUrl, cause.name());
-            logger.info("Removing cached connection for {}: {}", target.connectUrl, cause);
+            logger.infov("Removing cached connection for {0}: {1}", target.connectUrl, cause);
             evt.begin();
             try {
                 connection.close();
@@ -200,7 +200,8 @@ public class TargetConnectionManager {
         } finally {
             if (semaphore.isPresent()) {
                 semaphore.get().release();
-                logger.trace("Semaphore released! Permits: {}", semaphore.get().availablePermits());
+                logger.tracev(
+                        "Semaphore released! Permits: {0}", semaphore.get().availablePermits());
             }
         }
     }
@@ -242,7 +243,7 @@ public class TargetConnectionManager {
             return CompletableFuture.supplyAsync(
                     () -> {
                         try {
-                            logger.info("Opening connection to {}", key.connectUrl);
+                            logger.infov("Opening connection to {0}", key.connectUrl);
                             return connect(key);
                         } catch (Exception e) {
                             throw new CompletionException(e);
@@ -256,10 +257,10 @@ public class TargetConnectionManager {
                 Target key, JFRConnection prev, Executor executor) throws Exception {
             // if we're refreshed and already have an existing, open connection, just reuse it.
             if (prev.isConnected()) {
-                logger.info("Reusing connection to {}", key.connectUrl);
+                logger.infov("Reusing connection to {0}", key.connectUrl);
                 return CompletableFuture.completedFuture(prev);
             }
-            logger.info("Refreshing connection to {}", key.connectUrl);
+            logger.infov("Refreshing connection to {0}", key.connectUrl);
             return asyncLoad(key, executor);
         }
     }

@@ -41,6 +41,7 @@ import java.time.Duration;
 import java.util.Map;
 
 import javax.annotation.security.PermitAll;
+import javax.inject.Inject;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
@@ -49,13 +50,12 @@ import javax.ws.rs.core.Response;
 
 import io.quarkus.vertx.http.runtime.security.HttpAuthenticator;
 import io.vertx.ext.web.RoutingContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 @Path("")
 public class Auth {
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    @Inject Logger logger;
 
     @POST
     @Path("/api/v2.1/logout")

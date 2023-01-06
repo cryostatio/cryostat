@@ -103,10 +103,9 @@ import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Path("")
 public class Recordings {
@@ -115,8 +114,7 @@ public class Recordings {
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
-
+    @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
     @Inject EventBus bus;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
@@ -596,7 +594,7 @@ public class Recordings {
         try {
             conn.getService().close(rec);
         } catch (FlightRecorderException e) {
-            logger.error("Failed to stop remote" + " recording", e);
+            logger.error("Failed to stop remote recording", e);
         } catch (Exception e) {
             logger.error("Unexpected exception", e);
         }
@@ -674,7 +672,7 @@ public class Recordings {
             case STOPPED:
                 return RecordingState.STOPPED;
             default:
-                logger.warn("Unrecognized recording state: {}", desc.getState());
+                logger.warnv("Unrecognized recording state: {0}", desc.getState());
                 return RecordingState.CLOSED;
         }
     }

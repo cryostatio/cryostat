@@ -74,8 +74,7 @@ import io.vertx.core.eventbus.EventBus;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 @Entity
 @EntityListeners(Target.Listener.class)
@@ -181,7 +180,7 @@ public class Target extends PanacheEntity {
     @ApplicationScoped
     static class Listener {
 
-        private final Logger logger = LoggerFactory.getLogger(getClass());
+        @Inject Logger logger;
         @Inject EventBus bus;
         @Inject TargetConnectionManager connectionManager;
 

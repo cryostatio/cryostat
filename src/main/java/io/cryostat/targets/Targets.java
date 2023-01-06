@@ -59,11 +59,10 @@ import javax.ws.rs.core.Response;
 import io.vertx.core.eventbus.EventBus;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.exception.ConstraintViolationException;
+import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @Path("")
 public class Targets {
@@ -71,7 +70,7 @@ public class Targets {
     public static final Pattern HOST_PORT_PAIR_PATTERN =
             Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))$");
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    @Inject Logger logger;
     @Inject EventBus bus;
     @Inject TargetConnectionManager connectionManager;
 

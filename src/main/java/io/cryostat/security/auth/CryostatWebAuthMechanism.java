@@ -54,15 +54,14 @@ import io.quarkus.vertx.http.runtime.security.ChallengeData;
 import io.quarkus.vertx.http.runtime.security.HttpAuthenticationMechanism;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.RoutingContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 @Alternative
 @Priority(0)
 public class CryostatWebAuthMechanism implements HttpAuthenticationMechanism {
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    @Inject Logger logger;
     // TODO replace this with an OAuth mechanism full-time
     @Inject BasicAuthenticationMechanism delegate;
 

@@ -74,8 +74,7 @@ import io.vertx.core.eventbus.EventBus;
 import jdk.jfr.RecordingState;
 import org.hibernate.annotations.Type;
 import org.hibernate.annotations.TypeDef;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 @Entity
 @EntityListeners(ActiveRecording.Listener.class)
@@ -179,7 +178,7 @@ public class ActiveRecording extends PanacheEntity {
     @ApplicationScoped
     static class Listener {
 
-        private final Logger logger = LoggerFactory.getLogger(getClass());
+        @Inject Logger logger;
         @Inject EventBus bus;
         @Inject TargetConnectionManager connectionManager;
 

@@ -43,6 +43,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 import javax.websocket.OnClose;
 import javax.websocket.OnError;
 import javax.websocket.OnMessage;
@@ -54,27 +55,26 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 @ServerEndpoint("/api/v1/notifications")
 public class MessagingServer {
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    @Inject Logger logger;
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
     private final ObjectMapper mapper = new ObjectMapper();
 
     // TODO implement authentication check
     @OnOpen
     public void onOpen(Session session) {
-        logger.info("Adding session {}", session.getId());
+        logger.infov("Adding session {0}", session.getId());
         sessions.add(session);
     }
 
     @OnClose
     public void onClose(Session session) {
-        logger.info("Removing session {}", session.getId());
+        logger.infov("Removing session {0}", session.getId());
         sessions.remove(session);
     }
 
@@ -82,7 +82,7 @@ public class MessagingServer {
     public void onError(Session session, Throwable throwable) {
         logger.error("Session error", throwable);
         try {
-            logger.error("Closing session {}", session.getId());
+            logger.errorv("Closing session {0}", session.getId());
             session.close();
         } catch (IOException ioe) {
             ioe.printStackTrace(System.err);
@@ -92,7 +92,7 @@ public class MessagingServer {
 
     @OnMessage
     public void onMessage(Session session, String message) {
-        logger.info("[{}] message: {}", session.getId(), message);
+        logger.infov("[{0}] message: {1}", session.getId(), message);
     }
 
     @ConsumeEvent
@@ -104,7 +104,7 @@ public class MessagingServer {
                         Map.of("category", notification.category()),
                         "message",
                         notification.message());
-        logger.info("Broadcasting: {}", map);
+        logger.infov("Broadcasting: {0}", map);
         sessions.forEach(
                 s -> {
                     try {

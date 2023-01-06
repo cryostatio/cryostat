@@ -58,8 +58,7 @@ import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.Vertx;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
@@ -69,7 +68,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
         return new JvmDiscoveryClient(io.cryostat.core.log.Logger.INSTANCE);
     }
 
-    private final Logger logger = LoggerFactory.getLogger(getClass());
+    @Inject Logger logger;
     @Inject JvmDiscoveryClient jdp;
     @Inject Vertx vertx;
 
@@ -98,7 +97,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @Transactional
     @Override
     public void accept(JvmDiscoveryEvent evt) {
-        logger.info("JDP Discovery Event {}", evt);
+        logger.infov("JDP Discovery Event {0}", evt);
         URI connectUrl = null;
         try {
             connectUrl = URI.create(evt.getJvmDescriptor().getJmxServiceUrl().toString());
@@ -119,7 +118,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
                 Target.getTargetByConnectUrl(connectUrl).delete();
                 break;
             default:
-                logger.warn("Unknown JVM discovery event {}", evt.getEventKind());
+                logger.warnv("Unknown JVM discovery event {0}", evt.getEventKind());
                 break;
         }
     }
