@@ -226,7 +226,7 @@ public class ActiveRecording extends PanacheEntity {
             connectionManager.executeConnectedTask(
                     activeRecording.target,
                     conn -> {
-                        Recordings.getDescriptorById(conn, activeRecording.remoteId)
+                        Recordings.getDescriptor(conn, activeRecording)
                                 .ifPresent(rec -> Recordings.safeCloseRecording(conn, rec, logger));
                         return null;
                     });
@@ -246,6 +246,6 @@ public class ActiveRecording extends PanacheEntity {
                                     recording.target.connectUrl, recording.toExternalForm())));
         }
 
-        private record RecordingEvent(URI target, Object recording) {}
+        public record RecordingEvent(URI target, Object recording) {}
     }
 }

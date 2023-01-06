@@ -1,6 +1,20 @@
 version: "3.7"
 
 services:
+  minio:
+    image: docker.io/bitnami/minio:latest
+    # command: server /data --console-address ":9090"
+    hostname: minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioroot
+      MINIO_ROOT_PASSWORD: minioroot
+      MINIO_DEFAULT_BUCKETS: archivedrecordings
+    volumes:
+      - minio_data:/data
+      - minio_certs:/certs
   db:
     image: quay.io/cryostat/cryostat3-db:latest
     build: ../db
@@ -11,9 +25,12 @@ services:
     environment:
       POSTGRES_USER: cryostat3
       POSTGRES_PASSWORD: cryostat3
+    volumes:
+      - postgresql:/var/lib/postgresql/data
   cryostat:
     depends-on:
       - db
+      - minio
     image: quay.io/cryostat/cryostat3:latest
     expose:
       - "9091"
@@ -25,5 +42,22 @@ services:
       QUARKUS_DATASOURCE_USERNAME: cryostat3
       QUARKUS_DATASOURCE_PASSWORD: cryostat3
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://db:5432/cryostat3
+      QUARKUS_MINIO_URL: http://minio:9000
+        # create access key in minio console by visiting above URL and then replace these values
+      QUARKUS_MINIO_ACCESS_KEY: UbtwPrxZvBuInipa
+      QUARKUS_MINIO_SECRET_KEY: Ri3YN1PruPZqR3eIbgTYLLA36Gvk1P25
       CRYOSTAT_JDP_ENABLED: true
       JAVA_OPTS_APPEND: "-XX:+FlightRecorder -XX:StartFlightRecording=name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false"
+  sample-app:
+    image: quay.io/andrewazores/vertx-fib-demo:0.9.1
+    environment:
+      HTTP_PORT: 8081
+      JMX_PORT: 9093
+
+volumes:
+  minio_data:
+    driver: local
+  minio_certs:
+    driver: local
+  postgresql:
+    driver: local

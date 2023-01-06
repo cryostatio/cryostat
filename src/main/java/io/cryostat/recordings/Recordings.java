@@ -37,7 +37,13 @@
  */
 package io.cryostat.recordings;
 
+import java.io.IOException;
 import java.net.URI;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -69,14 +75,34 @@ import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.core.net.JFRConnection;
+import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
+import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
+import io.minio.GetObjectTagsArgs;
+import io.minio.ListObjectsArgs;
+import io.minio.MinioClient;
+import io.minio.PutObjectArgs;
+import io.minio.RemoveObjectArgs;
+import io.minio.StatObjectArgs;
+import io.minio.errors.ErrorResponseException;
+import io.minio.errors.InsufficientDataException;
+import io.minio.errors.InternalException;
+import io.minio.errors.InvalidResponseException;
+import io.minio.errors.ServerException;
+import io.minio.errors.XmlParserException;
+import io.minio.messages.Item;
+import io.smallrye.common.annotation.Blocking;
+import io.vertx.core.eventbus.EventBus;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.slf4j.Logger;
@@ -85,26 +111,132 @@ import org.slf4j.LoggerFactory;
 @Path("")
 public class Recordings {
 
+    private static final String JFR_MIME = "application/jfr";
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
 
     private final Logger logger = LoggerFactory.getLogger(getClass());
+
     @Inject TargetConnectionManager connectionManager;
+    @Inject EventBus bus;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
+    @Inject Clock clock;
+    @Inject MinioClient minio;
+    @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
+
+    @ConfigProperty(name = "minio.buckets.archives.name")
+    String archiveBucket;
 
     @GET
     @Path("/api/v1/recordings")
     @RolesAllowed("read")
-    public List<ArchivedRecording> listArchives() {
-        return List.of();
+    public List<ArchivedRecording> listArchivesV1() {
+        var result = new ArrayList<ArchivedRecording>();
+        minio.listObjects(ListObjectsArgs.builder().bucket(archiveBucket).recursive(true).build())
+                .forEach(
+                        r -> {
+                            try {
+                                Item item = r.get();
+                                String path = item.objectName();
+                                String[] parts = path.split("/");
+                                String jvmId = parts[0];
+                                String filename = parts[1];
+                                Metadata metadata =
+                                        new Metadata(
+                                                minio.getObjectTags(
+                                                                GetObjectTagsArgs.builder()
+                                                                        .bucket(archiveBucket)
+                                                                        .object(path)
+                                                                        .build())
+                                                        .get());
+                                result.add(
+                                        new ArchivedRecording(
+                                                filename,
+                                                "TODO",
+                                                "TODO",
+                                                metadata,
+                                                item.size(),
+                                                item.lastModified().toEpochSecond()));
+                            } catch (InvalidKeyException
+                                    | ErrorResponseException
+                                    | IllegalArgumentException
+                                    | InsufficientDataException
+                                    | InternalException
+                                    | InvalidResponseException
+                                    | NoSuchAlgorithmException
+                                    | ServerException
+                                    | XmlParserException
+                                    | IOException e) {
+                                logger.error("Could not retrieve list of archived recordings", e);
+                            }
+                        });
+        return result;
     }
 
     @GET
     @Path("/api/beta/fs/recordings")
     @RolesAllowed("read")
-    public List<ArchivedRecording> listFsArchives() {
-        return List.of();
+    public Collection<ArchivedRecordingDirectory> listFsArchives() {
+        var map = new HashMap<String, ArchivedRecordingDirectory>();
+        minio.listObjects(
+                        ListObjectsArgs.builder()
+                                .bucket(archiveBucket)
+                                .recursive(true)
+                                .includeUserMetadata(true)
+                                .build())
+                .forEach(
+                        r -> {
+                            try {
+                                Item item = r.get();
+                                String path = item.objectName();
+                                String[] parts = path.split("/");
+                                String jvmId = parts[0];
+                                String connectUrl;
+                                if (item.userMetadata().containsKey("connectUrl")) {
+                                    // FIXME this is broken somehow - the userMetadata map is always
+                                    // empty
+                                    connectUrl = item.userMetadata().get("connectUrl");
+                                } else {
+                                    connectUrl = "lost-" + jvmId;
+                                }
+                                var dir =
+                                        map.computeIfAbsent(
+                                                jvmId,
+                                                id ->
+                                                        new ArchivedRecordingDirectory(
+                                                                connectUrl, id, new ArrayList<>()));
+                                String filename = parts[1];
+                                Metadata metadata =
+                                        new Metadata(
+                                                minio.getObjectTags(
+                                                                GetObjectTagsArgs.builder()
+                                                                        .bucket(archiveBucket)
+                                                                        .object(path)
+                                                                        .build())
+                                                        .get());
+                                dir.recordings.add(
+                                        new ArchivedRecording(
+                                                filename,
+                                                "TODO",
+                                                "TODO",
+                                                metadata,
+                                                item.size(),
+                                                item.lastModified().toEpochSecond()));
+                            } catch (InvalidKeyException
+                                    | ErrorResponseException
+                                    | IllegalArgumentException
+                                    | InsufficientDataException
+                                    | InternalException
+                                    | InvalidResponseException
+                                    | NoSuchAlgorithmException
+                                    | ServerException
+                                    | XmlParserException
+                                    | IOException e) {
+                                logger.error("Could not retrieve list of archived recordings", e);
+                            }
+                        });
+        return map.values();
     }
 
     @GET
@@ -131,39 +263,75 @@ public class Recordings {
     @Transactional
     @Path("/api/v3/targets/{targetId}/recordings/{remoteId}")
     @RolesAllowed("write")
-    public LinkedRecordingDescriptor patch(
-            @RestPath long targetId, @RestPath long remoteId, String body) throws Exception {
+    public String patch(@RestPath long targetId, @RestPath long remoteId, String body)
+            throws Exception {
+        Target target = Target.findById(targetId);
+        if (target == null) {
+            throw new NotFoundException();
+        }
+        Optional<ActiveRecording> recording =
+                target.activeRecordings.stream()
+                        .filter(rec -> rec.remoteId == remoteId)
+                        .findFirst();
+        if (!recording.isPresent()) {
+            throw new NotFoundException();
+        }
+        ActiveRecording activeRecording = recording.get();
         switch (body.toLowerCase()) {
             case "stop":
-                Target target = Target.findById(targetId);
-                if (target == null) {
-                    throw new NotFoundException();
-                }
-                Optional<ActiveRecording> recording =
-                        target.activeRecordings.stream()
-                                .filter(rec -> rec.remoteId == remoteId)
-                                .findFirst();
-                if (!recording.isPresent()) {
-                    throw new NotFoundException();
-                }
-                recording.get().state = RecordingState.STOPPED;
-                recording.get().persist();
-                break;
+                activeRecording.state = RecordingState.STOPPED;
+                activeRecording.persist();
+                return null;
             case "save":
-                // TODO
-                throw new UnsupportedOperationException();
+                String timestamp =
+                        clock.now()
+                                .truncatedTo(ChronoUnit.SECONDS)
+                                .toString()
+                                .replaceAll("[-:]+", "");
+                String filename =
+                        String.format(
+                                "%s_%s_%s.jfr", target.alias, activeRecording.name, timestamp);
+                long mib = 1024 * 1024;
+                try (var stream = remoteRecordingStreamFactory.open(target, activeRecording)) {
+                    // TODO attach other metadata than labels somehow
+                    minio.putObject(
+                            PutObjectArgs.builder()
+                                    .bucket(archiveBucket)
+                                    .object(String.format("%s/%s", target.jvmId, filename))
+                                    .contentType(JFR_MIME)
+                                    .stream(stream, -1, 5 * mib)
+                                    .tags(activeRecording.metadata.labels())
+                                    .userMetadata(
+                                            Map.of(
+                                                    "connectUrl",
+                                                    target.connectUrl.toString(),
+                                                    "recordingName",
+                                                    activeRecording.name))
+                                    .build());
+                }
+                bus.publish(
+                        MessagingServer.class.getName(),
+                        new Notification(
+                                "ActiveRecordingSaved",
+                                new RecordingEvent(
+                                        target.connectUrl, activeRecording.toExternalForm())));
+                bus.publish(
+                        MessagingServer.class.getName(),
+                        new Notification(
+                                "ArchivedRecordingCreated",
+                                new RecordingEvent(
+                                        target.connectUrl, activeRecording.toExternalForm())));
+                return filename;
             default:
                 throw new BadRequestException(body);
         }
-        return null;
     }
 
     @PATCH
     @Transactional
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
     @RolesAllowed("write")
-    public LinkedRecordingDescriptor patchV1(
-            @RestPath URI connectUrl, @RestPath String recordingName, String body)
+    public String patchV1(@RestPath URI connectUrl, @RestPath String recordingName, String body)
             throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         Optional<IRecordingDescriptor> recording =
@@ -302,14 +470,20 @@ public class Recordings {
         return descriptor;
     }
 
-    static Optional<IRecordingDescriptor> getDescriptorById(JFRConnection connection, long id) {
+    static Optional<IRecordingDescriptor> getDescriptorById(
+            JFRConnection connection, long remoteId) {
         try {
             return connection.getService().getAvailableRecordings().stream()
-                    .filter(r -> id == r.getId())
+                    .filter(r -> remoteId == r.getId())
                     .findFirst();
         } catch (Exception e) {
             throw new ServerErrorException(500, e);
         }
+    }
+
+    static Optional<IRecordingDescriptor> getDescriptor(
+            JFRConnection connection, ActiveRecording activeRecording) {
+        return getDescriptorById(connection, activeRecording.remoteId);
     }
 
     static Optional<IRecordingDescriptor> getDescriptorByName(
@@ -385,6 +559,37 @@ public class Recordings {
                         () -> {
                             throw new NotFoundException();
                         });
+    }
+
+    @Blocking
+    @DELETE
+    @Path("/api/beta/fs/recordings/{jvmId}/{filename}")
+    @RolesAllowed("write")
+    public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
+            throws Exception {
+
+        var item =
+                minio.statObject(
+                        StatObjectArgs.builder()
+                                .bucket(archiveBucket)
+                                .object(String.format("%s/%s", jvmId, filename))
+                                .build());
+
+        String connectUrl = "lost-" + jvmId;
+        if (item.userMetadata().containsKey("connectUrl")) {
+            // FIXME this is broken somehow - the userMetadata map is always empty
+            connectUrl = item.userMetadata().get("connectUrl");
+        }
+        minio.removeObject(
+                RemoveObjectArgs.builder()
+                        .bucket(archiveBucket)
+                        .object(String.format("%s/%s", jvmId, filename))
+                        .build());
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        "ArchivedRecordingDeleted",
+                        new RecordingEvent(URI.create(connectUrl), Map.of("name", filename))));
     }
 
     static void safeCloseRecording(JFRConnection conn, IRecordingDescriptor rec, Logger logger) {
@@ -580,6 +785,9 @@ public class Recordings {
             Metadata metadata,
             long size,
             long archivedTime) {}
+
+    public record ArchivedRecordingDirectory(
+            String connectUrl, String jvmId, List<ArchivedRecording> recordings) {}
 
     public record Metadata(Map<String, String> labels) {}
 }
