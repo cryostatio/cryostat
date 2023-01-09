@@ -290,7 +290,8 @@ public class Recordings {
         }
     }
 
-    private String saveRecording(Target target, ActiveRecording activeRecording)
+    @Blocking
+    String saveRecording(Target target, ActiveRecording activeRecording)
             throws ErrorResponseException, InsufficientDataException, InternalException,
                     InvalidKeyException, InvalidResponseException, IOException,
                     NoSuchAlgorithmException, ServerException, XmlParserException, Exception {
