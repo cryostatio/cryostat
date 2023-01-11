@@ -77,6 +77,8 @@ public class Credential extends PanacheEntity {
 
         @Inject EventBus bus;
 
+        // TODO prePersist validate the matchExpression syntax
+
         @PostPersist
         public void postPersist(Credential credential) {
             bus.publish(
