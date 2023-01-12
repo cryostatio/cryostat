@@ -1,5 +1,5 @@
-apiVersion: v1
-kind: Service
+apiVersion: networking.k8s.io/v1
+kind: Ingress
 metadata:
   annotations:
     kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest -f /home/andrew/workspace/cryostat3/smoketest/../container-compose.yml
@@ -10,14 +10,16 @@ metadata:
     io.kompose.service: cryostat
   name: cryostat
 spec:
-  ports:
-    - name: "8181"
-      port: 8181
-      targetPort: 8181
-    - name: "9091"
-      port: 9091
-      targetPort: 9091
-  selector:
-    io.kompose.service: cryostat
+  rules:
+    - host: cryostat
+      http:
+        paths:
+          - backend:
+              service:
+                name: cryostat
+                port:
+                  number: 8181
+            path: /
+            pathType: Prefix
 status:
   loadBalancer: {}

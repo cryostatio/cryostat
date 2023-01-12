@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   annotations:
     kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest -f /home/andrew/workspace/cryostat3/smoketest/../container-compose.yml
+    kompose.service.expose: minio
     kompose.version: 1.27.0 (b0ed6a2c9)
   creationTimestamp: null
   labels:
@@ -19,24 +20,28 @@ spec:
     metadata:
       annotations:
         kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest -f /home/andrew/workspace/cryostat3/smoketest/../container-compose.yml
+        kompose.service.expose: minio
         kompose.version: 1.27.0 (b0ed6a2c9)
       creationTimestamp: null
       labels:
         io.kompose.service: minio
     spec:
       containers:
-        - env:
-            - name: MINIO_DEFAULT_BUCKETS
-              value: archivedrecordings
+        - args:
+            - server
+            - /data
+            - --console-address
+            - :9001
+          env:
             - name: MINIO_ROOT_PASSWORD
               value: minioroot
             - name: MINIO_ROOT_USER
               value: minioroot
-          image: docker.io/bitnami/minio:latest
+          image: docker.io/minio/minio:latest
           name: minio
           ports:
-            - containerPort: 9000
             - containerPort: 9001
+            - containerPort: 9000
           resources: {}
           volumeMounts:
             - mountPath: /data

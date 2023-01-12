@@ -3,6 +3,7 @@ kind: Deployment
 metadata:
   annotations:
     kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest -f /home/andrew/workspace/cryostat3/smoketest/../container-compose.yml
+    kompose.service.expose: cryostat
     kompose.version: 1.27.0 (b0ed6a2c9)
   creationTimestamp: null
   labels:
@@ -18,6 +19,7 @@ spec:
     metadata:
       annotations:
         kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest -f /home/andrew/workspace/cryostat3/smoketest/../container-compose.yml
+        kompose.service.expose: cryostat
         kompose.version: 1.27.0 (b0ed6a2c9)
       creationTimestamp: null
       labels:

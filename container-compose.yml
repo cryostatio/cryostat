@@ -18,8 +18,8 @@ services:
     image: docker.io/minio/minio:latest
     hostname: minio
     ports:
-      - "9000:9000"
       - "9001:9001"
+      - "9000:9000"
     command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioroot
@@ -27,6 +27,8 @@ services:
     volumes:
       - minio_data:/data
       - minio_certs:/certs
+    labels:
+      kompose.service.expose: "minio"
   db:
     image: quay.io/cryostat/cryostat3-db:latest
     build: ./db
@@ -48,6 +50,8 @@ services:
       - "9091"
     ports:
       - "8181:8181"
+    labels:
+      kompose.service.expose: "cryostat"
     environment:
       QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION: drop-and-create
       QUARKUS_DATASOURCE_DB_KIND: postgresql
