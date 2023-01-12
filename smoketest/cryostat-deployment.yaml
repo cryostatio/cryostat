@@ -42,9 +42,9 @@ spec:
             - name: QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION
               value: drop-and-create
             - name: QUARKUS_MINIO_ACCESS_KEY
-              value: REPLACEME
+              value: minioroot
             - name: QUARKUS_MINIO_SECRET_KEY
-              value: REPLACEME
+              value: minioroot
             - name: QUARKUS_MINIO_URL
               value: http://minio:9000
           image: quay.io/cryostat/cryostat3:latest
