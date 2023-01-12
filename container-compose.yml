@@ -1,16 +1,29 @@
 version: "3"
 
 services:
+  # minio:
+  #   image: docker.io/bitnami/minio:latest
+  #   hostname: minio
+  #   ports:
+  #     - "9000:9000"
+  #     - "9001:9001"
+  #   environment:
+  #     MINIO_ROOT_USER: minioroot
+  #     MINIO_ROOT_PASSWORD: minioroot
+  #     MINIO_DEFAULT_BUCKETS: archivedrecordings
+  #   volumes:
+  #     - minio_data:/data
+  #     - minio_certs:/certs
   minio:
-    image: docker.io/bitnami/minio:latest
+    image: docker.io/minio/minio:latest
     hostname: minio
     ports:
       - "9000:9000"
       - "9001:9001"
+    command: server /data --console-address ":9001"
     environment:
       MINIO_ROOT_USER: minioroot
       MINIO_ROOT_PASSWORD: minioroot
-      MINIO_DEFAULT_BUCKETS: archivedrecordings
     volumes:
       - minio_data:/data
       - minio_certs:/certs
@@ -42,7 +55,7 @@ services:
       QUARKUS_DATASOURCE_PASSWORD: cryostat3
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://db:5432/cryostat3
       QUARKUS_MINIO_URL: http://minio:9000
-        # create access key in minio console by visiting above URL
+        # create access key in minio console by visiting http://localhost:9001
         # `podman-compose up minio` may be useful to start minio first to create
         # these secrets, then `export MINIO_ACCESS=abcd ; export MINIO_SECRET=1234 ; podman-compose up`
       QUARKUS_MINIO_ACCESS_KEY: ${MINIO_ACCESS:-REPLACEME}

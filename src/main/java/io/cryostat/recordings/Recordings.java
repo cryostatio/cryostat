@@ -55,6 +55,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import javax.annotation.security.RolesAllowed;
+import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import javax.transaction.Transactional;
 import javax.ws.rs.BadRequestException;
@@ -86,8 +87,10 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import io.minio.BucketExistsArgs;
 import io.minio.GetObjectTagsArgs;
 import io.minio.ListObjectsArgs;
+import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
@@ -99,6 +102,7 @@ import io.minio.errors.InvalidResponseException;
 import io.minio.errors.ServerException;
 import io.minio.errors.XmlParserException;
 import io.minio.messages.Item;
+import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.eventbus.EventBus;
 import jdk.jfr.RecordingState;
@@ -128,6 +132,17 @@ public class Recordings {
 
     @ConfigProperty(name = "minio.buckets.archives.name")
     String archiveBucket;
+
+    void onStart(@Observes StartupEvent evt) {
+        try {
+            if (!minio.bucketExists(
+                    BucketExistsArgs.builder().bucket("archivedrecordings").build())) {
+                minio.makeBucket(MakeBucketArgs.builder().bucket("archivedrecordings").build());
+            }
+        } catch (Exception e) {
+            logger.error(e);
+        }
+    }
 
     @GET
     @Path("/api/v1/recordings")
