@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest -f /home/andrew/workspace/cryostat3/smoketest/../container-compose.yml
+    kompose.version: 1.27.0 (b0ed6a2c9)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: sample-app
+  name: sample-app
+spec:
+  ports:
+    - name: "8081"
+      port: 8081
+      targetPort: 8081
+  selector:
+    io.kompose.service: sample-app
+status:
+  loadBalancer: {}

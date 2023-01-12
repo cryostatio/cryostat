@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest -f /home/andrew/workspace/cryostat3/smoketest/../container-compose.yml
+    kompose.version: 1.27.0 (b0ed6a2c9)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: cryostat
+  name: cryostat
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: cryostat
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest -f /home/andrew/workspace/cryostat3/smoketest/../container-compose.yml
+        kompose.version: 1.27.0 (b0ed6a2c9)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: cryostat
+    spec:
+      containers:
+        - env:
+            - name: CRYOSTAT_JDP_ENABLED
+              value: "true"
+            - name: JAVA_OPTS_APPEND
+              value: -XX:+FlightRecorder -XX:StartFlightRecording=name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false
+            - name: QUARKUS_DATASOURCE_DB_KIND
+              value: postgresql
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: jdbc:postgresql://db:5432/cryostat3
+            - name: QUARKUS_DATASOURCE_PASSWORD
+              value: cryostat3
+            - name: QUARKUS_DATASOURCE_USERNAME
+              value: cryostat3
+            - name: QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION
+              value: drop-and-create
+            - name: QUARKUS_MINIO_ACCESS_KEY
+              value: REPLACEME
+            - name: QUARKUS_MINIO_SECRET_KEY
+              value: REPLACEME
+            - name: QUARKUS_MINIO_URL
+              value: http://minio:9000
+          image: quay.io/cryostat/cryostat3:latest
+          name: cryostat
+          ports:
+            - containerPort: 8181
+            - containerPort: 9091
+          resources: {}
+      restartPolicy: Always
+status: {}

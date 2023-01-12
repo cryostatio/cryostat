@@ -17,7 +17,7 @@ services:
   db:
     image: quay.io/cryostat/cryostat3-db:latest
     build: ./db
-    command: -c encrypt.key=${PG_ENCRYPY_KEY:-REPLACEME}
+    command: -c encrypt.key=${PG_ENCRYPT_KEY:-REPLACEME}
     hostname: db
     expose:
       - "5432"

@@ -1,0 +1,13 @@
+groups:
+  - name: smoketest
+    services:
+      - displayName: Cryostat Web
+        port: 8181
+        namespace: default
+        name: cryostat
+        protocol: http
+      - displayName: MINIO
+        port: 9001
+        namespace: default
+        name: minio
+        protocol: http
