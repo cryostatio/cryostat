@@ -73,10 +73,10 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @Inject Vertx vertx;
 
     @ConfigProperty(name = "cryostat.jdp.enabled")
-    boolean jdpEnabled;
+    boolean enabled;
 
     void onStart(@Observes StartupEvent evt) {
-        if (!jdpEnabled) {
+        if (!enabled) {
             return;
         }
         logger.info("Starting JDP client");
