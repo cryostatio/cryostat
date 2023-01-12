@@ -44,6 +44,7 @@ import java.util.List;
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.GET;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.Path;
 
 import io.cryostat.core.templates.Template;
@@ -80,6 +81,9 @@ public class EventTemplates {
     @RolesAllowed("read")
     public List<Template> listTemplates(@RestPath long id) throws Exception {
         Target target = Target.findById(id);
+        if (target == null) {
+            throw new NotFoundException();
+        }
         return connectionManager.executeConnectedTask(
                 target,
                 connection -> {

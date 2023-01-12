@@ -52,6 +52,7 @@ import javax.transaction.Transactional;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
+import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
@@ -147,7 +148,11 @@ public class Targets {
     @Path("/api/v3/targets/{id}")
     @RolesAllowed("read")
     public Target getById(@RestPath Long id) {
-        return Target.findById(id);
+        Target target = Target.findById(id);
+        if (target == null) {
+            throw new NotFoundException();
+        }
+        return target;
     }
 
     @Transactional
