@@ -43,6 +43,8 @@ services:
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://db:5432/cryostat3
       QUARKUS_MINIO_URL: http://minio:9000
         # create access key in minio console by visiting above URL
+        # `podman-compose up minio` may be useful to start minio first to create
+        # these secrets, then `export MINIO_ACCESS=abcd ; export MINIO_SECRET=1234 ; podman-compose up`
       QUARKUS_MINIO_ACCESS_KEY: ${MINIO_ACCESS:-REPLACEME}
       QUARKUS_MINIO_SECRET_KEY: ${MINIO_SECRET:-REPLACEME}
       CRYOSTAT_JDP_ENABLED: "true"
