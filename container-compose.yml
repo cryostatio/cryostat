@@ -1,4 +1,4 @@
-version: "3.7"
+version: "3"
 
 services:
   minio:
@@ -16,7 +16,7 @@ services:
       - minio_certs:/certs
   db:
     image: quay.io/cryostat/cryostat3-db:latest
-    build: ../db
+    build: ./db
     command: -c encrypt.key=${PG_ENCRYPY_KEY:-REPLACEME}
     hostname: db
     expose:
@@ -27,7 +27,7 @@ services:
     volumes:
       - postgresql:/var/lib/postgresql/data
   cryostat:
-    depends-on:
+    depends_on:
       - db
       - minio
     image: quay.io/cryostat/cryostat3:latest
@@ -45,7 +45,7 @@ services:
         # create access key in minio console by visiting above URL
       QUARKUS_MINIO_ACCESS_KEY: ${MINIO_ACCESS:-REPLACEME}
       QUARKUS_MINIO_SECRET_KEY: ${MINIO_SECRET:-REPLACEME}
-      CRYOSTAT_JDP_ENABLED: true
+      CRYOSTAT_JDP_ENABLED: "true"
       JAVA_OPTS_APPEND: "-XX:+FlightRecorder -XX:StartFlightRecording=name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false"
   sample-app:
     image: quay.io/andrewazores/vertx-fib-demo:0.9.1
