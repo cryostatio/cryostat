@@ -18,7 +18,7 @@
     <quarkus.platform.version>2.15.0.Final</quarkus.platform.version>
     <skipITs>true</skipITs>
 
-    <io.cryostat.core.version>2.16.2</io.cryostat.core.version>
+    <io.cryostat.core.version>2.18.0</io.cryostat.core.version>
     <io.quarkiverse.hibernatetypes.version>1.0.0</io.quarkiverse.hibernatetypes.version>
     <io.quarkiverse.minio.version>2.10.3</io.quarkiverse.minio.version>
     <org.apache.commons.lang3.version>3.12.0</org.apache.commons.lang3.version>
