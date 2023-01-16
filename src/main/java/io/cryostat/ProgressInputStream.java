@@ -53,6 +53,9 @@ public class ProgressInputStream extends ProxyInputStream {
 
     @Override
     protected void afterRead(int n) {
+        if (n < 0) {
+            return;
+        }
         onUpdate.accept(n);
     }
 }
