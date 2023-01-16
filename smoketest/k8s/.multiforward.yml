@@ -11,3 +11,7 @@ groups:
         namespace: default
         name: minio
         protocol: http
+      - displayName: pgadmin
+        port: 8989
+        namespace: default
+        protocol: http

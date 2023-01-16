@@ -22,7 +22,7 @@ while [ "$#" -ne 0 ]; do
             cleanKind
             ;;
         generate)
-            kompose convert -o "${DIR}" -f "${DIR}/../container-compose.yml"
+            kompose convert -o "${DIR}" -f "${DIR}/../../container-compose.yml"
             ;;
         apply)
             kind load docker-image \
@@ -45,11 +45,12 @@ while [ "$#" -ne 0 ]; do
             kubectl delete -f "${DIR}/*.yaml"
             ;;
         forward)
-            sh -c '(sleep 1 ; xdg-open http://localhost:9001 ; xdg-open http://localhost:8181)&'
+            sh -c '(sleep 1 ; xdg-open http://localhost:9001 ; xdg-open http://localhost:8181 ; xdg-open http://localhost:8989)&'
             if ! kubectl multiforward smoketest; then
                 echo "Run the following to expose the applications:"
                 echo "kubectl port-forward svc/cryostat 8181"
                 echo "kubectl port-forward svc/minio 9001"
+                echo "kubectl port-forward svc/pgadmin 8989"
             fi
             ;;
         *)

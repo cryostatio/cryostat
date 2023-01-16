@@ -41,6 +41,21 @@ services:
       POSTGRES_PASSWORD: cryostat3
     volumes:
       - postgresql:/var/lib/postgresql/data
+  db-viewer:
+    depends_on:
+      - db
+    image: docker.io/dpage/pgadmin4:6
+    hostname: db-viewer
+    ports:
+      - "8989:8989"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@cryostat.io
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_LISTEN_PORT: 8989
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+      - ./smoketest/compose/servers.json:/pgadmin4/servers.json:z
+      # - ./smoketest/compose/pgpass:/pgpass:z
   cryostat:
     depends_on:
       - db
@@ -80,4 +95,6 @@ volumes:
   minio_certs:
     driver: local
   postgresql:
+    driver: local
+  pgadmin:
     driver: local
