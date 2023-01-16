@@ -91,9 +91,12 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
 
         DiscoveryNode universe = DiscoveryNode.getUniverse();
         if (DiscoveryNode.getRealm(REALM).isEmpty()) {
+            DiscoveryPlugin plugin = new DiscoveryPlugin();
             DiscoveryNode node = DiscoveryNode.environment(REALM, DiscoveryNode.REALM);
+            plugin.realm = node;
+            plugin.builtin = true;
             universe.children.add(node);
-            node.persist();
+            plugin.persist();
             universe.persist();
         }
 

@@ -35,40 +35,29 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.cryostat.recordings;
+package io.cryostat.discovery;
 
-import javax.enterprise.inject.Produces;
-import javax.inject.Singleton;
+import java.net.URI;
 
-import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
+import javax.persistence.AttributeConverter;
 
-import io.cryostat.core.RecordingOptionsCustomizer;
+import org.apache.commons.lang3.StringUtils;
 
-import io.quarkus.arc.DefaultBean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+public class UriConverter implements AttributeConverter<URI, String> {
 
-@Singleton
-public class RecordingsModule {
-
-    @Produces
-    @DefaultBean
-    public RecordingOptionsBuilderFactory provideRecordingOptionsBuilderFactory(
-            RecordingOptionsCustomizer customizer) {
-        return service -> customizer.apply(new RecordingOptionsBuilder(service));
+    @Override
+    public String convertToDatabaseColumn(URI attribute) {
+        if (attribute == null) {
+            return null;
+        }
+        return attribute.toString();
     }
 
-    @Produces
-    @DefaultBean
-    public EventOptionsBuilder.Factory provideEventOptionsBuilderFactory() {
-        Logger log = LoggerFactory.getLogger(EventOptionsBuilder.class);
-        return new EventOptionsBuilder.Factory(log::debug);
-    }
-
-    @Produces
-    @DefaultBean
-    public RecordingOptionsCustomizer provideRecordingOptionsCustomizer() {
-        Logger log = LoggerFactory.getLogger(RecordingOptionsCustomizer.class);
-        return new RecordingOptionsCustomizer(log::debug);
+    @Override
+    public URI convertToEntityAttribute(String dbData) {
+        if (StringUtils.isBlank(dbData)) {
+            return null;
+        }
+        return URI.create(dbData.strip());
     }
 }

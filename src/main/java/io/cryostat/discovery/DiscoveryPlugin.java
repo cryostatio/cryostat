@@ -35,40 +35,44 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.cryostat.recordings;
+package io.cryostat.discovery;
 
-import javax.enterprise.inject.Produces;
-import javax.inject.Singleton;
+import java.net.URI;
+import java.util.UUID;
 
-import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
+import javax.persistence.CascadeType;
+import javax.persistence.Column;
+import javax.persistence.Convert;
+import javax.persistence.Entity;
+import javax.persistence.GeneratedValue;
+import javax.persistence.Id;
+import javax.persistence.OneToOne;
 
-import io.cryostat.core.RecordingOptionsCustomizer;
+import io.quarkiverse.hibernate.types.json.JsonBinaryType;
+import io.quarkiverse.hibernate.types.json.JsonTypes;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.TypeDef;
 
-import io.quarkus.arc.DefaultBean;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+@Entity
+@TypeDef(name = JsonTypes.JSON_BIN, typeClass = JsonBinaryType.class)
+public class DiscoveryPlugin extends PanacheEntityBase {
 
-@Singleton
-public class RecordingsModule {
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(generator = "UUID")
+    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    public UUID id;
 
-    @Produces
-    @DefaultBean
-    public RecordingOptionsBuilderFactory provideRecordingOptionsBuilderFactory(
-            RecordingOptionsCustomizer customizer) {
-        return service -> customizer.apply(new RecordingOptionsBuilder(service));
-    }
+    @OneToOne(
+            optional = false,
+            cascade = {CascadeType.ALL},
+            orphanRemoval = true)
+    public DiscoveryNode realm;
 
-    @Produces
-    @DefaultBean
-    public EventOptionsBuilder.Factory provideEventOptionsBuilderFactory() {
-        Logger log = LoggerFactory.getLogger(EventOptionsBuilder.class);
-        return new EventOptionsBuilder.Factory(log::debug);
-    }
+    @Column(unique = true)
+    @Convert(converter = UriConverter.class)
+    public URI callback;
 
-    @Produces
-    @DefaultBean
-    public RecordingOptionsCustomizer provideRecordingOptionsCustomizer() {
-        Logger log = LoggerFactory.getLogger(RecordingOptionsCustomizer.class);
-        return new RecordingOptionsCustomizer(log::debug);
-    }
+    public boolean builtin;
 }

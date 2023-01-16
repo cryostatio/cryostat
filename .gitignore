@@ -43,3 +43,4 @@ nb-configuration.xml
 truststore/
 certs/*.p12
 certs/*.pass
+*.jfr

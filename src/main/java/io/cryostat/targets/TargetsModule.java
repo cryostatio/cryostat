@@ -45,7 +45,8 @@ import io.cryostat.core.sys.Environment;
 import io.cryostat.core.sys.FileSystem;
 
 import io.quarkus.arc.DefaultBean;
-import io.quarkus.logging.Log;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Singleton
 public class TargetsModule {
@@ -53,6 +54,7 @@ public class TargetsModule {
     @Produces
     @DefaultBean
     public JFRConnectionToolkit provideJfrConnectionToolkit() {
-        return new JFRConnectionToolkit(Log::warn, new FileSystem(), new Environment());
+        Logger log = LoggerFactory.getLogger(JFRConnectionToolkit.class);
+        return new JFRConnectionToolkit(log::warn, new FileSystem(), new Environment());
     }
 }

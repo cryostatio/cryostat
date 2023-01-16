@@ -61,6 +61,7 @@ services:
       - db
       - minio
     image: quay.io/cryostat/cryostat3:latest
+    hostname: cryostat3
     expose:
       - "9091"
     ports:
@@ -88,6 +89,27 @@ services:
       JMX_PORT: 9093
     ports:
       - "8081:8081"
+  quarkus-test-agent:
+    image: quay.io/andrewazores/quarkus-test:latest
+    hostname: quarkus-test-agent
+    ports:
+      - "9977:9977"
+      - "10010:10010"
+    environment:
+      JAVA_OPTS: "-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -Dcom.sun.management.jmxremote.port=9097 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -javaagent:/deployments/app/cryostat-agent.jar"
+      # QUARKUS_LOG_LEVEL: ALL
+      QUARKUS_HTTP_PORT: 10010
+      ORG_ACME_CRYOSTATSERVICE_ENABLED: false
+      CRYOSTAT_AGENT_APP_NAME: quarkus-test-agent
+      CRYOSTAT_AGENT_WEBSERVER_HOST: quarkus-test-agent
+      CRYOSTAT_AGENT_WEBSERVER_PORT: 9977
+      CRYOSTAT_AGENT_CALLBACK: http://quarkus-test-agent:9977/
+      CRYOSTAT_AGENT_BASEURI: http://cryostat:8181/
+      CRYOSTAT_AGENT_TRUST_ALL: true
+      CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz # "Basic $(echo -n user:pass | base64)"
+      CRYOSTAT_AGENT_HARVESTER_PERIOD_MS: 30000
+      CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS: 60000
+      CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
 
 volumes:
   minio_data:

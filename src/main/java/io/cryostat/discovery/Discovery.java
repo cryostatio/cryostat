@@ -37,19 +37,34 @@
  */
 package io.cryostat.discovery;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.regex.Pattern;
 
+import javax.annotation.security.RolesAllowed;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
 import javax.transaction.Transactional;
+import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
+import javax.ws.rs.NotFoundException;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 
 import io.cryostat.targets.TargetConnectionManager;
 
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.json.JsonObject;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestQuery;
 
 @Path("")
 public class Discovery {
@@ -68,7 +83,107 @@ public class Discovery {
 
     @GET
     @Path("/api/v2.1/discovery")
+    @RolesAllowed("read")
     public DiscoveryNode get() {
         return DiscoveryNode.getUniverse();
+    }
+
+    @Transactional
+    @POST
+    @Path("/api/v2.2/discovery")
+    @Consumes("application/json")
+    @RolesAllowed("write")
+    public Map<String, Object> register(JsonObject body) throws URISyntaxException {
+        String id = body.getString("id");
+        String priorToken = body.getString("token");
+
+        if (StringUtils.isNotBlank(id) && StringUtils.isNotBlank(priorToken)) {
+            // TODO refresh the JWT
+            return Map.of("id", id, "token", priorToken);
+        }
+
+        String realmName = body.getString("realm");
+        URI callbackUri = new URI(body.getString("callback"));
+
+        DiscoveryPlugin plugin = new DiscoveryPlugin();
+        plugin.callback = callbackUri;
+        plugin.realm = DiscoveryNode.environment(realmName, DiscoveryNode.REALM);
+        plugin.persist();
+
+        return Map.of(
+                "meta",
+                        Map.of(
+                                "mimeType", "JSON",
+                                "status", "OK"),
+                "data",
+                        Map.of(
+                                "result",
+                                Map.of(
+                                        "id",
+                                        plugin.id.toString(),
+                                        "token",
+                                        UUID.randomUUID().toString())));
+    }
+
+    @Transactional
+    @POST
+    @Path("/api/v2.2/discovery/{id}")
+    @Consumes("application/json")
+    @RolesAllowed("write")
+    public Map<String, Map<String, String>> publish(
+            @RestPath UUID id, @RestQuery String token, List<DiscoveryNode> body) {
+        DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
+        if (plugin == null) {
+            throw new NotFoundException();
+        }
+        plugin.realm.children.clear();
+        plugin.realm.children.addAll(body);
+        body.forEach(b -> b.persist());
+        plugin.persist();
+
+        return Map.of(
+                "meta",
+                        Map.of(
+                                "mimeType", "JSON",
+                                "status", "OK"),
+                "data", Map.of("result", plugin.id.toString()));
+    }
+
+    @Transactional
+    @DELETE
+    @Path("/api/v2.2/discovery/{id}")
+    @RolesAllowed("write")
+    public Map<String, Map<String, String>> deregister(@RestPath UUID id, @RestQuery String token) {
+        DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
+        if (plugin == null) {
+            throw new NotFoundException();
+        }
+        if (plugin.builtin) {
+            throw new ForbiddenException();
+        }
+        plugin.delete();
+        return Map.of(
+                "meta",
+                        Map.of(
+                                "mimeType", "JSON",
+                                "status", "OK"),
+                "data", Map.of("result", plugin.id.toString()));
+    }
+
+    @GET
+    @Path("/api/v3/discovery_plugins")
+    @RolesAllowed("read")
+    public List<DiscoveryPlugin> getPlugins(@RestQuery String realm) {
+        List<DiscoveryPlugin> plugins = DiscoveryPlugin.findAll().list();
+        return plugins.stream()
+                .filter(p -> StringUtils.isBlank(realm) || p.realm.name.equals(realm))
+                .toList();
+    }
+
+    @GET
+    @Path("/api/v3/discovery_plugins/{id}")
+    @RolesAllowed("read")
+    public DiscoveryPlugin getPlugin(@RestPath UUID id) {
+        return DiscoveryPlugin.findById(id);
     }
 }
