@@ -68,7 +68,6 @@ import javax.ws.rs.NotFoundException;
 import javax.ws.rs.PATCH;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
-import javax.ws.rs.Produces;
 import javax.ws.rs.ServerErrorException;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
@@ -99,7 +98,6 @@ import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
-import io.minio.Result;
 import io.minio.StatObjectArgs;
 import io.minio.errors.ErrorResponseException;
 import io.minio.errors.InsufficientDataException;
@@ -110,7 +108,6 @@ import io.minio.errors.XmlParserException;
 import io.minio.messages.Item;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
-import io.smallrye.mutiny.Multi;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonObject;
 import jdk.jfr.RecordingState;
@@ -228,7 +225,12 @@ public class Recordings {
     @RolesAllowed("read")
     public List<ArchivedRecording> agentGet(@RestPath String jvmId) {
         var result = new ArrayList<ArchivedRecording>();
-        minio.listObjects(ListObjectsArgs.builder().bucket(archiveBucket).prefix(jvmId).recursive(true).build())
+        minio.listObjects(
+                        ListObjectsArgs.builder()
+                                .bucket(archiveBucket)
+                                .prefix(jvmId)
+                                .recursive(true)
+                                .build())
                 .forEach(
                         r -> {
                             try {
