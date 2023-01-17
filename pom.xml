@@ -6,36 +6,30 @@
   <artifactId>cryostat3</artifactId>
   <version>3.0.0-SNAPSHOT</version>
   <properties>
-    <java.version>17</java.version>
-    <maven.compiler.target>${java.version}</maven.compiler.target>
-    <maven.compiler.source>${java.version}</maven.compiler.source>
-    <maven.compiler.release>${java.version}</maven.compiler.release>
+    <com.diffplug.spotless.maven.plugin.version>2.28.0</com.diffplug.spotless.maven.plugin.version>
+    <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
     <compiler-plugin.version>3.8.1</compiler-plugin.version>
+    <cryostat.itest.webHost>0.0.0.0</cryostat.itest.webHost>
+    <cryostat.itest.webPort>8181</cryostat.itest.webPort>
+    <cryostat.rjmxPort>9091</cryostat.rjmxPort>
+    <io.cryostat.core.version>2.18.0</io.cryostat.core.version>
+    <io.quarkiverse.hibernatetypes.version>1.0.0</io.quarkiverse.hibernatetypes.version>
+    <io.quarkiverse.minio.version>2.10.3</io.quarkiverse.minio.version>
+    <java.version>17</java.version>
+    <maven.compiler.release>${java.version}</maven.compiler.release>
+    <maven.compiler.source>${java.version}</maven.compiler.source>
+    <maven.compiler.target>${java.version}</maven.compiler.target>
+    <org.apache.commons.codec.version>1.15</org.apache.commons.codec.version>
+    <org.apache.commons.io.version>2.11.0</org.apache.commons.io.version>
+    <org.apache.commons.lang3.version>3.12.0</org.apache.commons.lang3.version>
+    <org.apache.commons.validator.version>1.7</org.apache.commons.validator.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>2.15.0.Final</quarkus.platform.version>
     <skipITs>true</skipITs>
-
-    <io.cryostat.core.version>2.18.0</io.cryostat.core.version>
-    <io.quarkiverse.hibernatetypes.version>1.0.0</io.quarkiverse.hibernatetypes.version>
-    <io.quarkiverse.minio.version>2.10.3</io.quarkiverse.minio.version>
-    <org.apache.commons.lang3.version>3.12.0</org.apache.commons.lang3.version>
-    <org.apache.commons.codec.version>1.15</org.apache.commons.codec.version>
-    <org.apache.commons.validator.version>1.7</org.apache.commons.validator.version>
-    <org.apache.commons.io.version>2.11.0</org.apache.commons.io.version>
-
-    <com.diffplug.spotless.maven.plugin.version>2.28.0</com.diffplug.spotless.maven.plugin.version>
-    <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
-    <!-- <com.github.spotbugs.version>4.7.3</com.github.spotbugs.version> -->
-    <!-- <com.github.spotbugs.plugin.version>${com.github.spotbugs.version}.0</com.github.spotbugs.plugin.version> -->
-
     <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
-
-    <cryostat.rjmxPort>9091</cryostat.rjmxPort>
-    <cryostat.itest.webHost>0.0.0.0</cryostat.itest.webHost>
-    <cryostat.itest.webPort>8181</cryostat.itest.webPort>
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -79,10 +73,6 @@
       <artifactId>quarkus-quinoa</artifactId>
       <version>1.2.3</version>
     </dependency>
-    <!-- <dependency> -->
-    <!--   <groupId>io.quarkus</groupId> -->
-    <!--   <artifactId>quarkus-container-image-jib</artifactId> -->
-    <!-- </dependency> -->
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-container-image-docker</artifactId>
@@ -131,6 +121,10 @@
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-rest-client-reactive-jackson</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>
       <scope>test</scope>
     </dependency>
@@ -139,12 +133,6 @@
       <artifactId>rest-assured</artifactId>
       <scope>test</scope>
     </dependency>
-    <!-- <dependency> -->
-    <!--   <groupId>com.github.spotbugs</groupId> -->
-    <!--   <artifactId>spotbugs-annotations</artifactId> -->
-    <!--   <version>${com.github.spotbugs.version}</version> -->
-    <!--   <scope>provided</scope> -->
-    <!-- </dependency> -->
   </dependencies>
   <build>
     <plugins>
@@ -203,29 +191,15 @@
               <style>AOSP</style>
               <reflowLongStrings>true</reflowLongStrings>
             </googleJavaFormat>
-            <trimTrailingWhitespace/>
-            <endWithNewline/>
+            <trimTrailingWhitespace />
+            <endWithNewline />
             <importOrder>
               <order>java,javax,org.openjdk.jmc,io.cryostat,</order>
             </importOrder>
-            <removeUnusedImports/>
+            <removeUnusedImports />
           </java>
         </configuration>
       </plugin>
-      <!-- <plugin> -->
-      <!--   <groupId>com.github.spotbugs</groupId> -->
-      <!--   <artifactId>spotbugs-maven-plugin</artifactId> -->
-      <!--   <version>${com.github.spotbugs.plugin.version}</version> -->
-      <!--   <executions> -->
-      <!--     <execution> -->
-      <!--       <id>spotbugs</id> -->
-      <!--       <phase>verify</phase> -->
-      <!--       <goals> -->
-      <!--         <goal>check</goal> -->
-      <!--       </goals> -->
-      <!--     </execution> -->
-      <!--   </executions> -->
-      <!-- </plugin> -->
       <plugin>
         <groupId>com.mycila</groupId>
         <artifactId>license-maven-plugin</artifactId>
@@ -285,6 +259,7 @@
       </plugin>
     </plugins>
   </build>
+  <reporting />
   <profiles>
     <profile>
       <id>native</id>
@@ -299,13 +274,4 @@
       </properties>
     </profile>
   </profiles>
-  <reporting>
-    <plugins>
-      <!-- <plugin> -->
-      <!--   <groupId>com.github.spotbugs</groupId> -->
-      <!--   <artifactId>spotbugs-maven-plugin</artifactId> -->
-      <!--   <version>${com.github.spotbugs.plugin.version}</version> -->
-      <!-- </plugin> -->
-    </plugins>
-  </reporting>
 </project>

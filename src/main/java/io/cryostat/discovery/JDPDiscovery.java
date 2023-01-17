@@ -121,7 +121,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     }
 
     @Transactional
-    public void handleJdpEvent(JvmDiscoveryEvent evt) {
+    public synchronized void handleJdpEvent(JvmDiscoveryEvent evt) {
         logger.infov(
                 "JDP Discovery Event {0} {1}",
                 evt.getEventKind(), evt.getJvmDescriptor().getMainClass());

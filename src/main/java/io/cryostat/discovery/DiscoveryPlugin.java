@@ -44,17 +44,23 @@ import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Convert;
 import javax.persistence.Entity;
+import javax.persistence.EntityListeners;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.OneToOne;
+import javax.persistence.PrePersist;
+import javax.ws.rs.GET;
+import javax.ws.rs.Path;
 
 import io.quarkiverse.hibernate.types.json.JsonBinaryType;
 import io.quarkiverse.hibernate.types.json.JsonTypes;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import org.eclipse.microprofile.rest.client.RestClientBuilder;
 import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.TypeDef;
 
 @Entity
+@EntityListeners(DiscoveryPlugin.Listener.class)
 @TypeDef(name = JsonTypes.JSON_BIN, typeClass = JsonBinaryType.class)
 public class DiscoveryPlugin extends PanacheEntityBase {
 
@@ -70,9 +76,32 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             orphanRemoval = true)
     public DiscoveryNode realm;
 
-    @Column(unique = true)
+    @Column(unique = true, updatable = false)
     @Convert(converter = UriConverter.class)
     public URI callback;
 
     public boolean builtin;
+
+    static class Listener {
+        @PrePersist
+        public void prePersist(DiscoveryPlugin plugin) {
+            if (plugin.builtin) {
+                return;
+            }
+            if (plugin.callback == null) {
+                throw new IllegalArgumentException();
+            }
+            PluginCallback client =
+                    RestClientBuilder.newBuilder()
+                            .baseUri(plugin.callback)
+                            .build(PluginCallback.class);
+            client.ping();
+        }
+    }
+
+    @Path("")
+    private interface PluginCallback {
+        @GET
+        public void ping();
+    }
 }
