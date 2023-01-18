@@ -98,6 +98,8 @@ import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 import io.minio.PutObjectArgs;
 import io.minio.RemoveObjectArgs;
+import io.minio.RemoveObjectsArgs;
+import io.minio.Result;
 import io.minio.StatObjectArgs;
 import io.minio.errors.ErrorResponseException;
 import io.minio.errors.InsufficientDataException;
@@ -105,6 +107,7 @@ import io.minio.errors.InternalException;
 import io.minio.errors.InvalidResponseException;
 import io.minio.errors.ServerException;
 import io.minio.errors.XmlParserException;
+import io.minio.messages.DeleteObject;
 import io.minio.messages.Item;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
@@ -214,9 +217,73 @@ public class Recordings {
             @RestForm("labels") JsonObject rawLabels,
             @RestForm("maxFiles") int maxFiles)
             throws Exception {
-        int max = Math.max(1, maxFiles);
+        int max = Integer.MAX_VALUE;
+        if (maxFiles > 0) {
+            max = maxFiles;
+        }
         doUpload(recording, rawLabels, jvmId);
-        // minio.listObjects(ListObjectsArgs.builder().bucket(archiveBucket).build());
+        var objs = new ArrayList<Result<Item>>();
+        minio.listObjects(
+                        ListObjectsArgs.builder()
+                                .bucket(archiveBucket)
+                                .prefix(jvmId)
+                                .recursive(true)
+                                .build())
+                .iterator()
+                .forEachRemaining(objs::add);
+        var toRemove =
+                objs.stream()
+                        .map(
+                                r -> {
+                                    try {
+                                        return r.get();
+                                    } catch (IllegalArgumentException
+                                            | InvalidKeyException
+                                            | ErrorResponseException
+                                            | InsufficientDataException
+                                            | InternalException
+                                            | InvalidResponseException
+                                            | NoSuchAlgorithmException
+                                            | ServerException
+                                            | XmlParserException
+                                            | IOException e) {
+                                        logger.warn("Could not retrieve file modification time", e);
+                                        return null;
+                                    }
+                                })
+                        .filter(Objects::nonNull)
+                        .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
+                        .skip(max)
+                        .map(r -> r.objectName())
+                        .toList();
+        if (toRemove.isEmpty()) {
+            return;
+        }
+        logger.infov("Removing {0}", toRemove);
+        minio.removeObjects(
+                        RemoveObjectsArgs.builder()
+                                .bucket(archiveBucket)
+                                .objects(toRemove.stream().map(DeleteObject::new).toList())
+                                .build())
+                .forEach(
+                        err -> {
+                            try {
+                                logger.errorv(
+                                        "Deletion failure: {0} due to {1}",
+                                        err.get().objectName(), err.get().message());
+                            } catch (InvalidKeyException
+                                    | ErrorResponseException
+                                    | IllegalArgumentException
+                                    | InsufficientDataException
+                                    | InternalException
+                                    | InvalidResponseException
+                                    | NoSuchAlgorithmException
+                                    | ServerException
+                                    | XmlParserException
+                                    | IOException e) {
+                                logger.error("Failed to retrieve remote error", e);
+                            }
+                        });
     }
 
     @GET
