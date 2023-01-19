@@ -1,6 +1,11 @@
 version: "3"
 
 services:
+  # TODO evaluate this downstream image. This allows the backend to assume that the storage buckets
+  # already exist in minio, which may or may not be a fair assumption for users in a production environment.
+  # would users prefer that assumption be made and they have to manually set up the buckets? the bucket names
+  # are configurable for the cryostat application so there is no forced name collision, so perhaps
+  # automatic creation of the buckets on startup is OK.
   # minio:
   #   image: docker.io/bitnami/minio:latest
   #   hostname: minio
