@@ -106,8 +106,12 @@ public class Targets {
             }
 
             try {
-                target.jvmId =
-                        connectionManager.executeConnectedTask(target, conn -> conn.getJvmId());
+                if (target.isAgent()) {
+                    target.jvmId = target.connectUrl.toString();
+                } else {
+                    target.jvmId =
+                            connectionManager.executeConnectedTask(target, conn -> conn.getJvmId());
+                }
             } catch (Exception e) {
                 logger.error("Target connection failed", e);
                 return Response.status(400).build();

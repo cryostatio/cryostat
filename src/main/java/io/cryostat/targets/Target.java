@@ -45,6 +45,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -106,6 +107,10 @@ public class Target extends PanacheEntity {
             cascade = {CascadeType.ALL},
             orphanRemoval = true)
     public List<ActiveRecording> activeRecordings = new ArrayList<>();
+
+    public boolean isAgent() {
+        return Set.of("http", "https", "cryostat-agent").contains(connectUrl.getScheme());
+    }
 
     public static Target getTargetByConnectUrl(URI connectUrl) {
         return find("connectUrl", connectUrl).singleResult();

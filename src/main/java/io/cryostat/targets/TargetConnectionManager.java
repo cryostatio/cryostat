@@ -43,7 +43,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -222,8 +221,7 @@ public class TargetConnectionManager {
                 semaphore.get().acquire();
             }
 
-            String scheme = uri.getScheme();
-            if (Set.of("http", "https", "cryostat-agent").contains(scheme)) {
+            if (target.isAgent()) {
                 return agentConnectionFactory.createConnection(uri);
             }
             return jfrConnectionToolkit.connect(
