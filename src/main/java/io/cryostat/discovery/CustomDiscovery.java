@@ -77,7 +77,7 @@ public class CustomDiscovery {
 
     public static final Pattern HOST_PORT_PAIR_PATTERN =
             Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))$");
-    private static final String REALM = "CustomTargets";
+    private static final String REALM = "Custom Targets";
 
     @Inject Logger logger;
     @Inject EventBus bus;
