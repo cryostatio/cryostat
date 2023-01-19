@@ -44,6 +44,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import javax.annotation.security.PermitAll;
 import javax.annotation.security.RolesAllowed;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
@@ -56,6 +57,7 @@ import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 
+import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
 
 import io.quarkus.runtime.StartupEvent;
@@ -79,6 +81,23 @@ public class Discovery {
     @Transactional
     void onStart(@Observes StartupEvent evt) {
         DiscoveryNode.getUniverse();
+
+        DiscoveryPlugin.<DiscoveryPlugin>findAll().list().stream()
+                .filter(p -> !p.builtin)
+                .forEach(
+                        plugin -> {
+                            try {
+                                PluginCallback.create(plugin).ping();
+                                logger.infov(
+                                        "Retained discovery plugin: {0} @ {1}",
+                                        plugin.realm, plugin.callback);
+                            } catch (Exception e) {
+                                logger.infov(
+                                        "Pruned discovery plugin: {0} @ {1}",
+                                        plugin.realm, plugin.callback);
+                                plugin.delete();
+                            }
+                        });
     }
 
     @GET
@@ -129,7 +148,7 @@ public class Discovery {
     @POST
     @Path("/api/v2.2/discovery/{id}")
     @Consumes("application/json")
-    @RolesAllowed("write")
+    @PermitAll
     public Map<String, Map<String, String>> publish(
             @RestPath UUID id, @RestQuery String token, List<DiscoveryNode> body) {
         DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
@@ -152,7 +171,7 @@ public class Discovery {
     @Transactional
     @DELETE
     @Path("/api/v2.2/discovery/{id}")
-    @RolesAllowed("write")
+    @PermitAll
     public Map<String, Map<String, String>> deregister(@RestPath UUID id, @RestQuery String token) {
         DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
         if (plugin == null) {

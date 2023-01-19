@@ -40,6 +40,8 @@ package io.cryostat.discovery;
 import java.net.URI;
 import java.util.UUID;
 
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Convert;
@@ -58,6 +60,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
 import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.TypeDef;
+import org.jboss.logging.Logger;
 
 @Entity
 @EntityListeners(DiscoveryPlugin.Listener.class)
@@ -82,7 +85,11 @@ public class DiscoveryPlugin extends PanacheEntityBase {
 
     public boolean builtin;
 
+    @ApplicationScoped
     static class Listener {
+
+        @Inject Logger logger;
+
         @PrePersist
         public void prePersist(DiscoveryPlugin plugin) {
             if (plugin.builtin) {
@@ -91,17 +98,28 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             if (plugin.callback == null) {
                 throw new IllegalArgumentException();
             }
-            PluginCallback client =
-                    RestClientBuilder.newBuilder()
-                            .baseUri(plugin.callback)
-                            .build(PluginCallback.class);
-            client.ping();
+            try {
+                PluginCallback.create(plugin).ping();
+                logger.infov(
+                        "Registered discovery plugin: {0} @ {1}",
+                        plugin.realm.name, plugin.callback);
+            } catch (Exception e) {
+                logger.error("Discovery Plugin ping failed", e);
+            }
         }
     }
 
     @Path("")
-    private interface PluginCallback {
+    interface PluginCallback {
         @GET
         public void ping();
+
+        public static PluginCallback create(DiscoveryPlugin plugin) {
+            PluginCallback client =
+                    RestClientBuilder.newBuilder()
+                            .baseUri(plugin.callback)
+                            .build(PluginCallback.class);
+            return client;
+        }
     }
 }

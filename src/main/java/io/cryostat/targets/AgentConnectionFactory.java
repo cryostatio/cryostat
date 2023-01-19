@@ -35,15 +35,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.cryostat.recordings;
+package io.cryostat.targets;
 
-import io.vertx.core.json.JsonObject;
-import org.jboss.resteasy.reactive.RestForm;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
+import java.net.URI;
 
-class RecordingUpload {
+import javax.enterprise.context.ApplicationScoped;
+import javax.inject.Inject;
 
-    @RestForm JsonObject labels;
+import io.cryostat.core.sys.Clock;
 
-    @RestForm FileUpload recording;
+import io.vertx.core.Vertx;
+import io.vertx.ext.web.client.WebClient;
+
+@ApplicationScoped
+class AgentConnectionFactory {
+
+    @Inject Vertx vertx;
+    @Inject Clock clock;
+
+    AgentConnection createConnection(URI agentUri) {
+        return new AgentConnection(agentUri, WebClient.create(vertx), clock);
+    }
 }

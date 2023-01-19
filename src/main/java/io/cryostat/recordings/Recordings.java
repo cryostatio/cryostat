@@ -205,7 +205,12 @@ public class Recordings {
     public Map<String, Object> upload(
             @RestForm("recording") FileUpload recording, @RestForm("labels") JsonObject rawLabels)
             throws Exception {
-        return doUpload(recording, rawLabels, "uploads");
+        Map<String, String> labels = new HashMap<>();
+        if (rawLabels != null) {
+            rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
+        }
+        Metadata metadata = new Metadata(labels);
+        return doUpload(recording, metadata, "uploads");
     }
 
     @POST
@@ -221,7 +226,14 @@ public class Recordings {
         if (maxFiles > 0) {
             max = maxFiles;
         }
-        doUpload(recording, rawLabels, jvmId);
+        Map<String, String> labels = new HashMap<>();
+        if (rawLabels != null) {
+            rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
+        }
+        Metadata metadata = new Metadata(labels);
+        logger.infov(
+                "recording:{0}, labels:{1}, maxFiles:{2}", recording.fileName(), labels, maxFiles);
+        doUpload(recording, metadata, jvmId);
         var objs = new ArrayList<Result<Item>>();
         minio.listObjects(
                         ListObjectsArgs.builder()
@@ -260,6 +272,19 @@ public class Recordings {
             return;
         }
         logger.infov("Removing {0}", toRemove);
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        "ArchivedRecordingDeleted",
+                        new RecordingEvent(
+                                URI.create(jvmId),
+                                new ArchivedRecording(
+                                        recording.fileName(),
+                                        "TODO",
+                                        "TODO",
+                                        metadata,
+                                        0 /*filesize*/,
+                                        clock.getMonotonicTime()))));
         minio.removeObjects(
                         RemoveObjectsArgs.builder()
                                 .bucket(archiveBucket)
@@ -353,38 +378,25 @@ public class Recordings {
     }
 
     @Blocking
-    Map<String, Object> doUpload(FileUpload recording, JsonObject rawLabels, String jvmId)
+    Map<String, Object> doUpload(FileUpload recording, Metadata metadata, String jvmId)
             throws InvalidKeyException, ErrorResponseException, InsufficientDataException,
                     InternalException, InvalidResponseException, NoSuchAlgorithmException,
                     ServerException, XmlParserException, IllegalArgumentException, IOException {
-        RecordingUpload upload = new RecordingUpload();
-        upload.labels = rawLabels;
-        upload.recording = recording;
         logger.infov(
-                "Upload: {0} {1} {2} [{3}]",
-                upload.recording.name(),
-                upload.recording.fileName(),
-                upload.recording.filePath(),
-                upload.labels);
-        String filename = upload.recording.fileName();
+                "Upload: {0} {1} {2} {3}",
+                recording.name(), recording.fileName(), recording.filePath(), metadata.labels);
+        String filename = recording.fileName();
         if (StringUtils.isBlank(filename)) {
             throw new BadRequestException();
         }
         if (!filename.endsWith(".jfr")) {
             filename = filename + ".jfr";
         }
-        Map<String, String> labels = new HashMap<>();
-        if (rawLabels != null) {
-            rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
-        }
-        Metadata metadata = new Metadata(labels);
-        long filesize = upload.recording.size();
+        long filesize = recording.size();
         logger.infov("Uploading {0} ({1} bytes) to Minio storage...", filename, filesize);
         try (var stream =
                 new ProgressInputStream(
-                        new BufferedInputStream(
-                                /*recordingStream*/ Files.newInputStream(
-                                        upload.recording.filePath())),
+                        new BufferedInputStream(Files.newInputStream(recording.filePath())),
                         new Consumer<Integer>() {
                             long total;
 
@@ -404,7 +416,8 @@ public class Recordings {
                             .object(String.format("%s/%s", jvmId, filename))
                             .contentType(JFR_MIME)
                             .stream(stream, -1 /*filesize*/, 5 * mib)
-                            .tags(metadata.labels)
+                            // FIXME invalid tag error from Minio?
+                            // .tags(metadata.labels)
                             .build());
         }
         logger.info("Upload complete");
@@ -422,7 +435,7 @@ public class Recordings {
                                         0 /*filesize*/,
                                         clock.getMonotonicTime()))));
 
-        return Map.of("name", filename, "metadata", metadata.labels);
+        return Map.of("name", filename, "metadata", Map.of("labels", metadata.labels));
     }
 
     @DELETE

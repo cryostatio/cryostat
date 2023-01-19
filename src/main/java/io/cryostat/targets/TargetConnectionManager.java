@@ -43,6 +43,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -75,6 +76,7 @@ import org.jboss.logging.Logger;
 public class TargetConnectionManager {
 
     private final JFRConnectionToolkit jfrConnectionToolkit;
+    private final AgentConnectionFactory agentConnectionFactory;
     private final Executor executor;
     private final Logger logger;
 
@@ -84,8 +86,12 @@ public class TargetConnectionManager {
 
     @Inject
     TargetConnectionManager(
-            JFRConnectionToolkit jfrConnectionToolkit, Executor executor, Logger logger) {
+            JFRConnectionToolkit jfrConnectionToolkit,
+            AgentConnectionFactory agentConnectionFactory,
+            Executor executor,
+            Logger logger) {
         this.jfrConnectionToolkit = jfrConnectionToolkit;
+        this.agentConnectionFactory = agentConnectionFactory;
         this.executor = executor;
 
         int maxTargetConnections = 0; // TODO make configurable
@@ -180,7 +186,8 @@ public class TargetConnectionManager {
             return;
         }
         try {
-            JMXConnectionClosed evt = new JMXConnectionClosed(target.connectUrl, cause.name());
+            TargetConnectionClosed evt =
+                    new TargetConnectionClosed(target.connectUrl, cause.name());
             logger.infov("Removing cached connection for {0}: {1}", target.connectUrl, cause);
             evt.begin();
             try {
@@ -208,11 +215,16 @@ public class TargetConnectionManager {
 
     private JFRConnection connect(Target target) throws Exception {
         var uri = target.connectUrl;
-        JMXConnectionOpened evt = new JMXConnectionOpened(uri.toString());
+        TargetConnectionOpened evt = new TargetConnectionOpened(uri.toString());
         evt.begin();
         try {
             if (semaphore.isPresent()) {
                 semaphore.get().acquire();
+            }
+
+            String scheme = uri.getScheme();
+            if (Set.of("http", "https", "cryostat-agent").contains(scheme)) {
+                return agentConnectionFactory.createConnection(uri);
             }
             return jfrConnectionToolkit.connect(
                     new JMXServiceURL(uri.toString()),
@@ -269,18 +281,18 @@ public class TargetConnectionManager {
         T execute(JFRConnection connection) throws Exception;
     }
 
-    @Name("io.cryostat.net.TargetConnectionManager.JMXConnectionOpened")
-    @Label("JMX Connection Status")
+    @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionOpened")
+    @Label("Target Connection Status")
     @Category("Cryostat")
     // @SuppressFBWarnings(
     //         value = "URF_UNREAD_FIELD",
     //         justification = "The event fields are recorded with JFR instead of accessed
     // directly")
-    public static class JMXConnectionOpened extends Event {
+    public static class TargetConnectionOpened extends Event {
         String serviceUri;
         boolean exceptionThrown;
 
-        JMXConnectionOpened(String serviceUri) {
+        TargetConnectionOpened(String serviceUri) {
             this.serviceUri = serviceUri;
             this.exceptionThrown = false;
         }
@@ -290,19 +302,19 @@ public class TargetConnectionManager {
         }
     }
 
-    @Name("io.cryostat.net.TargetConnectionManager.JMXConnectionClosed")
-    @Label("JMX Connection Status")
+    @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionClosed")
+    @Label("Target Connection Status")
     @Category("Cryostat")
     // @SuppressFBWarnings(
     //         value = "URF_UNREAD_FIELD",
     //         justification = "The event fields are recorded with JFR instead of accessed
     // directly")
-    public static class JMXConnectionClosed extends Event {
+    public static class TargetConnectionClosed extends Event {
         URI serviceUri;
         boolean exceptionThrown;
         String reason;
 
-        JMXConnectionClosed(URI serviceUri, String reason) {
+        TargetConnectionClosed(URI serviceUri, String reason) {
             this.serviceUri = serviceUri;
             this.exceptionThrown = false;
             this.reason = reason;
