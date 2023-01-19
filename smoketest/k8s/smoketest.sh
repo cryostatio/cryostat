@@ -17,24 +17,25 @@ while [ "$#" -ne 0 ]; do
         kind)
             cleanKind
             kind create cluster
+            kind load docker-image \
+                "quay.io/${IMAGE_REPOSITORY}/cryostat3:dev" \
+                "quay.io/${IMAGE_REPOSITORY}/cryostat3-db:dev"
             ;;
         unkind)
             cleanKind
             ;;
         generate)
+            sh "${DIR}/../../db/build.sh"
             kompose convert -o "${DIR}" -f "${DIR}/../../container-compose.yml"
             ;;
         apply)
-            kind load docker-image \
-                quay.io/$IMAGE_REPOSITORY/cryostat3:latest \
-                quay.io/$IMAGE_REPOSITORY/cryostat3-db:latest
             kubectl apply -f "${DIR}/*.yaml"
-            kubectl patch -p "{\"spec\":{\"template\":{\"spec\":{\"\$setElementOrder/containers\":[{\"name\":\"db\"}],\"containers\":[{\"image\":\"quay.io/$IMAGE_REPOSITORY/cryostat3-db:latest\",\"name\":\"db\"}]}}}}" deployment/db
+            kubectl patch -p "{\"spec\":{\"template\":{\"spec\":{\"\$setElementOrder/containers\":[{\"name\":\"db\"}],\"containers\":[{\"image\":\"quay.io/$IMAGE_REPOSITORY/cryostat3-db:dev\",\"name\":\"db\"}]}}}}" deployment/db
             kubectl wait \
                 --for condition=available \
                 --timeout=5m \
                 deployment db
-            kubectl patch -p "{\"spec\":{\"template\":{\"spec\":{\"\$setElementOrder/containers\":[{\"name\":\"cryostat\"}],\"containers\":[{\"image\":\"quay.io/$IMAGE_REPOSITORY/cryostat3:latest\",\"name\":\"cryostat\"}]}}}}" deployment/cryostat
+            kubectl patch -p "{\"spec\":{\"template\":{\"spec\":{\"\$setElementOrder/containers\":[{\"name\":\"cryostat\"}],\"containers\":[{\"image\":\"quay.io/$IMAGE_REPOSITORY/cryostat3:dev\",\"name\":\"cryostat\"}]}}}}" deployment/cryostat
             kubectl wait \
                 --for condition=available \
                 --timeout=5m \

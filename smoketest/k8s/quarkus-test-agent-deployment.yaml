@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
+    kompose.version: 1.27.0 (b0ed6a2c9)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: quarkus-test-agent
+  name: quarkus-test-agent
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      io.kompose.service: quarkus-test-agent
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
+        kompose.version: 1.27.0 (b0ed6a2c9)
+      creationTimestamp: null
+      labels:
+        io.kompose.service: quarkus-test-agent
+    spec:
+      containers:
+        - env:
+            - name: CRYOSTAT_AGENT_APP_NAME
+              value: quarkus-test-agent
+            - name: CRYOSTAT_AGENT_AUTHORIZATION
+              value: Basic dXNlcjpwYXNz
+            - name: CRYOSTAT_AGENT_BASEURI
+              value: http://cryostat:8181/
+            - name: CRYOSTAT_AGENT_CALLBACK
+              value: http://quarkus-test-agent:9977/
+            - name: CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS
+              value: "60000"
+            - name: CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B
+              value: "153600"
+            - name: CRYOSTAT_AGENT_HARVESTER_MAX_FILES
+              value: "3"
+            - name: CRYOSTAT_AGENT_HARVESTER_PERIOD_MS
+              value: "30000"
+            - name: CRYOSTAT_AGENT_SSL_TRUST_ALL
+              value: "true"
+            - name: CRYOSTAT_AGENT_SSL_VERIFY_HOSTNAME
+              value: "false"
+            - name: CRYOSTAT_AGENT_WEBSERVER_HOST
+              value: quarkus-test-agent
+            - name: CRYOSTAT_AGENT_WEBSERVER_PORT
+              value: "9977"
+            - name: JAVA_OPTS
+              value: -Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -javaagent:/deployments/app/cryostat-agent.jar
+            - name: ORG_ACME_CRYOSTATSERVICE_ENABLED
+              value: "false"
+            - name: QUARKUS_HTTP_PORT
+              value: "10010"
+          image: quay.io/andrewazores/quarkus-test:latest
+          name: quarkus-test-agent
+          ports:
+            - containerPort: 9977
+            - containerPort: 10010
+          resources: {}
+      hostname: quarkus-test-agent
+      restartPolicy: Always
+status: {}

@@ -26,14 +26,17 @@ spec:
     spec:
       containers:
         - args:
+            - postgres
             - -c
             - encrypt.key=REPLACEME
+          command:
+            - /usr/local/bin/docker-entrypoint.sh
           env:
             - name: POSTGRES_PASSWORD
               value: cryostat3
             - name: POSTGRES_USER
               value: cryostat3
-          image: quay.io/cryostat/cryostat3-db:latest
+          image: quay.io/cryostat/cryostat3-db:dev
           name: db
           ports:
             - containerPort: 5432

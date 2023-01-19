@@ -47,11 +47,12 @@ spec:
               value: minioroot
             - name: QUARKUS_MINIO_URL
               value: http://minio:9000
-          image: quay.io/cryostat/cryostat3:latest
+          image: quay.io/cryostat/cryostat3:dev
           name: cryostat
           ports:
             - containerPort: 8181
             - containerPort: 9091
           resources: {}
+      hostname: cryostat3
       restartPolicy: Always
 status: {}
