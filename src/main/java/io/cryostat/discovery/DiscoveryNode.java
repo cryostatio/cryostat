@@ -51,7 +51,6 @@ import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.EntityListeners;
 import javax.persistence.FetchType;
-import javax.persistence.JoinColumn;
 import javax.persistence.OneToMany;
 import javax.persistence.OneToOne;
 import javax.persistence.PostPersist;
@@ -95,8 +94,11 @@ public class DiscoveryNode extends PanacheEntity {
     @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true)
     public List<DiscoveryNode> children = new ArrayList<>();
 
-    @OneToOne(cascade = {CascadeType.ALL})
-    @JoinColumn(name = "target_id")
+    @OneToOne(
+            mappedBy = "discoveryNode",
+            cascade = {CascadeType.ALL},
+            fetch = FetchType.EAGER,
+            orphanRemoval = true)
     public Target target;
 
     @Override

@@ -53,7 +53,9 @@ import javax.persistence.CascadeType;
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.EntityListeners;
+import javax.persistence.JoinColumn;
 import javax.persistence.OneToMany;
+import javax.persistence.OneToOne;
 import javax.persistence.PostPersist;
 import javax.persistence.PostRemove;
 import javax.persistence.PostUpdate;
@@ -62,6 +64,7 @@ import javax.transaction.Transactional;
 
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
+import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
@@ -107,6 +110,13 @@ public class Target extends PanacheEntity {
             cascade = {CascadeType.ALL},
             orphanRemoval = true)
     public List<ActiveRecording> activeRecordings = new ArrayList<>();
+
+    @JsonIgnore
+    @OneToOne(
+            cascade = {CascadeType.ALL},
+            orphanRemoval = true)
+    @JoinColumn(name = "discoveryNode")
+    public DiscoveryNode discoveryNode;
 
     public boolean isAgent() {
         return Set.of("http", "https", "cryostat-agent").contains(connectUrl.getScheme());
@@ -221,6 +231,9 @@ public class Target extends PanacheEntity {
 
         @PrePersist
         void prePersist(Target target) throws JvmIdException {
+            if (StringUtils.isBlank(target.alias)) {
+                throw new IllegalArgumentException();
+            }
             target.alias = URLEncoder.encode(target.alias, StandardCharsets.UTF_8);
 
             if (StringUtils.isNotBlank(target.jvmId)) {

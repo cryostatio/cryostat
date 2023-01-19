@@ -37,43 +37,17 @@
  */
 package io.cryostat.targets;
 
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import javax.annotation.security.RolesAllowed;
-import javax.inject.Inject;
-import javax.persistence.NoResultException;
-import javax.transaction.Transactional;
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
-import javax.ws.rs.POST;
 import javax.ws.rs.Path;
-import javax.ws.rs.core.Response;
 
-import io.vertx.core.eventbus.EventBus;
-import org.apache.commons.lang3.exception.ExceptionUtils;
-import org.hibernate.exception.ConstraintViolationException;
-import org.jboss.logging.Logger;
-import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
-import org.jboss.resteasy.reactive.RestQuery;
 
 @Path("")
 public class Targets {
-
-    public static final Pattern HOST_PORT_PAIR_PATTERN =
-            Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))$");
-
-    @Inject Logger logger;
-    @Inject EventBus bus;
-    @Inject TargetConnectionManager connectionManager;
 
     @GET
     @Path("/api/v1/targets")
@@ -89,65 +63,6 @@ public class Targets {
         return Target.listAll();
     }
 
-    @Transactional(rollbackOn = {JvmIdException.class})
-    @POST
-    @Path("/api/v2/targets")
-    @Consumes("application/json")
-    @RolesAllowed("write")
-    public Response create(Target target, @RestQuery boolean dryrun) {
-        try {
-            target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
-            if (target.annotations == null) {
-                target.annotations = new Target.Annotations();
-                target.annotations.cryostat.put("REALM", "Custom Targets");
-            }
-            if (target.labels == null) {
-                target.labels = new HashMap<>();
-            }
-
-            try {
-                if (target.isAgent()) {
-                    target.jvmId = target.connectUrl.toString();
-                } else {
-                    target.jvmId =
-                            connectionManager.executeConnectedTask(target, conn -> conn.getJvmId());
-                }
-            } catch (Exception e) {
-                logger.error("Target connection failed", e);
-                return Response.status(400).build();
-            }
-
-            if (dryrun) {
-                return Response.ok().build();
-            }
-
-            target.persist();
-
-            return Response.created(URI.create("/api/v3/targets/" + target.id)).build();
-        } catch (Exception e) {
-            if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
-                logger.warn("Invalid target definition", e);
-                return Response.status(400).build();
-            }
-            logger.error("Unknown error", e);
-            return Response.serverError().build();
-        }
-    }
-
-    @Transactional
-    @POST
-    @Path("/api/v2/targets")
-    @Consumes("multipart/form-data")
-    @RolesAllowed("write")
-    public Response create(
-            @RestForm URI connectUrl, @RestForm String alias, @RestQuery boolean dryrun) {
-        var target = new Target();
-        target.connectUrl = connectUrl;
-        target.alias = alias;
-
-        return create(target, dryrun);
-    }
-
     @GET
     @Path("/api/v3/targets/{id}")
     @RolesAllowed("read")
@@ -157,53 +72,5 @@ public class Targets {
             throw new NotFoundException();
         }
         return target;
-    }
-
-    @Transactional
-    @DELETE
-    @Path("/api/v2/targets/{connectUrl}")
-    @RolesAllowed("write")
-    public Response delete(@RestPath URI connectUrl) throws URISyntaxException {
-        try {
-            Target target = Target.getTargetByConnectUrl(connectUrl);
-            target.delete();
-            return Response.ok().build();
-        } catch (Exception e) {
-            if (ExceptionUtils.indexOfType(e, NoResultException.class) >= 0) {
-                return Response.status(404).build();
-            }
-            return Response.serverError().build();
-        }
-    }
-
-    @Transactional
-    @DELETE
-    @Path("/api/v3/targets/{id}")
-    @RolesAllowed("write")
-    public Response delete(@RestPath long id) throws URISyntaxException {
-        Target target = Target.findById(id);
-        if (target == null) {
-            return Response.status(404).build();
-        }
-        return delete(target.connectUrl);
-    }
-
-    private URI sanitizeConnectUrl(String in) throws URISyntaxException, MalformedURLException {
-        URI out;
-
-        Matcher m = HOST_PORT_PAIR_PATTERN.matcher(in);
-        if (m.find()) {
-            String host = m.group(1);
-            String port = m.group(2);
-            out =
-                    URI.create(
-                            String.format(
-                                    "service:jmx:rmi:///jndi/rmi://%s:%d/jmxrmi",
-                                    host, Integer.valueOf(port)));
-        } else {
-            out = new URI(in);
-        }
-
-        return out;
     }
 }
