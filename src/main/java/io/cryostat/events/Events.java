@@ -44,11 +44,13 @@ import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.core.Response;
 
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
 public class Events {
@@ -56,15 +58,17 @@ public class Events {
     @Inject TargetConnectionManager connectionManager;
 
     @GET
-    @Path("/api/v1/targets/{connectUrl}/events")
+    @Path("v1/targets/{connectUrl}/events")
     @RolesAllowed("read")
-    public List<SerializableEventTypeInfo> listEventsV1(@RestPath URI connectUrl) throws Exception {
+    public Response listEventsV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        return listEvents(target.id);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create(String.format("v3/targets/%d/events", target.id)))
+                .build();
     }
 
     @GET
-    @Path("/api/v3/targets/{id}/events")
+    @Path("v3/targets/{id}/events")
     @RolesAllowed("read")
     public List<SerializableEventTypeInfo> listEvents(@RestPath long id) throws Exception {
         Target target = Target.findById(id);

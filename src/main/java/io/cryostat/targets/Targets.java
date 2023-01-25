@@ -37,34 +37,39 @@
  */
 package io.cryostat.targets;
 
+import java.net.URI;
 import java.util.List;
 
 import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.Path;
+import javax.ws.rs.core.Response;
 
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
 public class Targets {
 
     @GET
-    @Path("/api/v1/targets")
+    @Path("v1/targets")
     @RolesAllowed("read")
-    public List<Target> listV1() {
-        return Target.listAll();
+    public Response listV1() {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create("v3/targets"))
+                .build();
     }
 
     @GET
-    @Path("/api/v3/targets")
+    @Path("v3/targets")
     @RolesAllowed("read")
     public List<Target> list() {
         return Target.listAll();
     }
 
     @GET
-    @Path("/api/v3/targets/{id}")
+    @Path("v3/targets/{id}")
     @RolesAllowed("read")
     public Target getById(@RestPath Long id) {
         Target target = Target.findById(id);

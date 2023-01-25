@@ -46,6 +46,7 @@ import javax.inject.Inject;
 import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.Path;
+import javax.ws.rs.core.Response;
 
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
@@ -53,6 +54,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
 public class EventTemplates {
@@ -69,15 +71,17 @@ public class EventTemplates {
     @Inject TargetConnectionManager connectionManager;
 
     @GET
-    @Path("/api/v1/targets/{connectUrl}/templates")
+    @Path("v1/targets/{connectUrl}/templates")
     @RolesAllowed("read")
-    public List<Template> listTemplatesV1(@RestPath URI connectUrl) throws Exception {
+    public Response listTemplatesV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        return listTemplates(target.id);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create(String.format("v3/targets/%d/event_templates", target.id)))
+                .build();
     }
 
     @GET
-    @Path("/api/v3/targets/{id}/event_templates")
+    @Path("v3/targets/{id}/event_templates")
     @RolesAllowed("read")
     public List<Template> listTemplates(@RestPath long id) throws Exception {
         Target target = Target.findById(id);

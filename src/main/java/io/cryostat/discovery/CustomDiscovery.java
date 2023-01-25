@@ -49,7 +49,6 @@ import javax.annotation.security.RolesAllowed;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
-import javax.persistence.NoResultException;
 import javax.transaction.Transactional;
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -70,6 +69,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
+import org.jboss.resteasy.reactive.RestResponse;
 
 @ApplicationScoped
 @Path("")
@@ -99,7 +99,7 @@ public class CustomDiscovery {
 
     @Transactional(rollbackOn = {JvmIdException.class})
     @POST
-    @Path("/api/v2/targets")
+    @Path("v2/targets")
     @Consumes("application/json")
     @RolesAllowed("write")
     public Response create(Target target, @RestQuery boolean dryrun) {
@@ -137,7 +137,7 @@ public class CustomDiscovery {
             node.persist();
             realm.persist();
 
-            return Response.created(URI.create("/api/v3/targets/" + target.id)).build();
+            return Response.created(URI.create("v3/targets/" + target.id)).build();
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
@@ -150,7 +150,7 @@ public class CustomDiscovery {
 
     @Transactional
     @POST
-    @Path("/api/v2/targets")
+    @Path("v2/targets")
     @Consumes("multipart/form-data")
     @RolesAllowed("write")
     public Response create(
@@ -164,23 +164,18 @@ public class CustomDiscovery {
 
     @Transactional
     @DELETE
-    @Path("/api/v2/targets/{connectUrl}")
+    @Path("v2/targets/{connectUrl}")
     @RolesAllowed("write")
     public Response delete(@RestPath URI connectUrl) throws URISyntaxException {
-        try {
-            Target target = Target.getTargetByConnectUrl(connectUrl);
-            return delete(target.id);
-        } catch (Exception e) {
-            if (ExceptionUtils.indexOfType(e, NoResultException.class) >= 0) {
-                return Response.status(404).build();
-            }
-            return Response.serverError().build();
-        }
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create(String.format("v3/targets/%d", target.id)))
+                .build();
     }
 
     @Transactional
     @DELETE
-    @Path("/api/v3/targets/{id}")
+    @Path("v3/targets/{id}")
     @RolesAllowed("write")
     public Response delete(@RestPath long id) throws URISyntaxException {
         Target target = Target.findById(id);

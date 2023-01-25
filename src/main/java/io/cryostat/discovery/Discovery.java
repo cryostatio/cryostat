@@ -56,6 +56,7 @@ import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.core.Response;
 
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
@@ -67,6 +68,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
+import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
 public class Discovery {
@@ -101,7 +103,16 @@ public class Discovery {
     }
 
     @GET
-    @Path("/api/v2.1/discovery")
+    @Path("v2.1/discovery")
+    @RolesAllowed("read")
+    public Response getv21() {
+        return Response.status(RestResponse.Status.MOVED_PERMANENTLY)
+                .location(URI.create("/api/v3/discovery"))
+                .build();
+    }
+
+    @GET
+    @Path("v3/discovery")
     @RolesAllowed("read")
     public DiscoveryNode get() {
         return DiscoveryNode.getUniverse();
@@ -109,7 +120,7 @@ public class Discovery {
 
     @Transactional
     @POST
-    @Path("/api/v2.2/discovery")
+    @Path("v2.2/discovery")
     @Consumes("application/json")
     @RolesAllowed("write")
     public Map<String, Object> register(JsonObject body) throws URISyntaxException {
@@ -146,7 +157,7 @@ public class Discovery {
 
     @Transactional
     @POST
-    @Path("/api/v2.2/discovery/{id}")
+    @Path("v2.2/discovery/{id}")
     @Consumes("application/json")
     @PermitAll
     public Map<String, Map<String, String>> publish(
@@ -170,7 +181,7 @@ public class Discovery {
 
     @Transactional
     @DELETE
-    @Path("/api/v2.2/discovery/{id}")
+    @Path("v2.2/discovery/{id}")
     @PermitAll
     public Map<String, Map<String, String>> deregister(@RestPath UUID id, @RestQuery String token) {
         DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
@@ -190,7 +201,7 @@ public class Discovery {
     }
 
     @GET
-    @Path("/api/v3/discovery_plugins")
+    @Path("v3/discovery_plugins")
     @RolesAllowed("read")
     public List<DiscoveryPlugin> getPlugins(@RestQuery String realm) {
         List<DiscoveryPlugin> plugins = DiscoveryPlugin.findAll().list();
@@ -200,7 +211,7 @@ public class Discovery {
     }
 
     @GET
-    @Path("/api/v3/discovery_plugins/{id}")
+    @Path("v3/discovery_plugins/{id}")
     @RolesAllowed("read")
     public DiscoveryPlugin getPlugin(@RestPath UUID id) {
         return DiscoveryPlugin.findById(id);

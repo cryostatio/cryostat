@@ -54,7 +54,7 @@ import io.cryostat.V2Response;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/v2.2/credentials")
+@Path("v2.2/credentials")
 public class Credentials {
 
     @GET
