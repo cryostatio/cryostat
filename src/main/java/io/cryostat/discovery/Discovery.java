@@ -56,7 +56,6 @@ import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
-import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
@@ -105,6 +104,8 @@ public class Discovery {
                                 plugin.delete();
                             }
                         });
+
+        mapper.addMixIn(DiscoveryPlugin.class, IgnoreChildrenMixin.class);
     }
 
     @GET
@@ -208,27 +209,20 @@ public class Discovery {
     @GET
     @Path("v3/discovery_plugins")
     @RolesAllowed("read")
-    public Response getPlugins(@RestQuery String realm) throws JsonProcessingException {
+    public List<DiscoveryPlugin> getPlugins(@RestQuery String realm)
+            throws JsonProcessingException {
         // TODO filter for the matching realm name within the DB query
         List<DiscoveryPlugin> plugins = DiscoveryPlugin.findAll().list();
-        List<DiscoveryPlugin> matches =
-                plugins.stream()
-                        .filter(p -> StringUtils.isBlank(realm) || p.realm.name.equals(realm))
-                        .toList();
-        mapper.addMixIn(DiscoveryPlugin.class, IgnoreChildrenMixin.class);
-        return Response.ok(mapper.writeValueAsString(matches))
-                .type(MediaType.APPLICATION_JSON)
-                .build();
+        return plugins.stream()
+                .filter(p -> StringUtils.isBlank(realm) || p.realm.name.equals(realm))
+                .toList();
     }
 
     @GET
     @Path("v3/discovery_plugins/{id}")
     @RolesAllowed("read")
-    public Response getPlugin(@RestPath UUID id) throws JsonProcessingException {
-        DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
-        return Response.ok(mapper.writeValueAsString(plugin))
-                .type(MediaType.APPLICATION_JSON)
-                .build();
+    public DiscoveryPlugin getPlugin(@RestPath UUID id) throws JsonProcessingException {
+        return DiscoveryPlugin.find("id", id).singleResult();
     }
 
     static class IgnoreChildrenMixin {
