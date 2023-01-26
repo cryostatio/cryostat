@@ -44,7 +44,6 @@ import java.util.List;
 import javax.annotation.security.RolesAllowed;
 import javax.inject.Inject;
 import javax.ws.rs.GET;
-import javax.ws.rs.NotFoundException;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
 
@@ -71,23 +70,21 @@ public class EventTemplates {
     @Inject TargetConnectionManager connectionManager;
 
     @GET
-    @Path("v1/targets/{connectUrl}/templates")
+    @Path("/api/v1/targets/{connectUrl}/templates")
     @RolesAllowed("read")
     public Response listTemplatesV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("v3/targets/%d/event_templates", target.id)))
+                .location(
+                        URI.create(String.format("/api/v3/targets/%d/event_templates", target.id)))
                 .build();
     }
 
     @GET
-    @Path("v3/targets/{id}/event_templates")
+    @Path("/api/v3/targets/{id}/event_templates")
     @RolesAllowed("read")
     public List<Template> listTemplates(@RestPath long id) throws Exception {
-        Target target = Target.findById(id);
-        if (target == null) {
-            throw new NotFoundException();
-        }
+        Target target = Target.find("id", id).singleResult();
         return connectionManager.executeConnectedTask(
                 target,
                 connection -> {

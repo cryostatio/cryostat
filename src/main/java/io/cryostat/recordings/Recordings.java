@@ -154,7 +154,7 @@ public class Recordings {
     }
 
     @GET
-    @Path("v1/recordings")
+    @Path("/api/v1/recordings")
     @RolesAllowed("read")
     public List<ArchivedRecording> listArchivesV1() {
         var result = new ArrayList<ArchivedRecording>();
@@ -200,7 +200,7 @@ public class Recordings {
     }
 
     @POST
-    @Path("v1/recordings")
+    @Path("/api/v1/recordings")
     @RolesAllowed("write")
     public Map<String, Object> upload(
             @RestForm("recording") FileUpload recording, @RestForm("labels") JsonObject rawLabels)
@@ -214,7 +214,7 @@ public class Recordings {
     }
 
     @POST
-    @Path("beta/recordings/{jvmId}")
+    @Path("/api/beta/recordings/{jvmId}")
     @RolesAllowed("write")
     public void agentPush(
             @RestPath String jvmId,
@@ -313,7 +313,7 @@ public class Recordings {
 
     @GET
     @Blocking
-    @Path("beta/recordings/{jvmId}")
+    @Path("/api/beta/recordings/{jvmId}")
     @RolesAllowed("read")
     public List<ArchivedRecording> agentGet(@RestPath String jvmId) {
         var result = new ArrayList<ArchivedRecording>();
@@ -362,7 +362,7 @@ public class Recordings {
     }
 
     @DELETE
-    @Path("beta/recordings/{jvmId}/{filename}")
+    @Path("/api/beta/recordings/{jvmId}/{filename}")
     @RolesAllowed("write")
     public void agentDelete(
             @RestPath String jvmId,
@@ -439,7 +439,7 @@ public class Recordings {
     }
 
     @DELETE
-    @Path("v1/recordings/{filename}")
+    @Path("/api/v1/recordings/{filename}")
     @RolesAllowed("write")
     @Blocking
     public void delete(@RestPath String filename) throws Exception {
@@ -451,7 +451,7 @@ public class Recordings {
     }
 
     @GET
-    @Path("beta/fs/recordings")
+    @Path("/api/beta/fs/recordings")
     @RolesAllowed("read")
     public Collection<ArchivedRecordingDirectory> listFsArchives() {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
@@ -516,18 +516,15 @@ public class Recordings {
     }
 
     @GET
-    @Path("v3/targets/{id}/recordings")
+    @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
-        Target target = Target.findById(id);
-        if (target == null) {
-            throw new NotFoundException();
-        }
+        Target target = Target.find("id", id).singleResult();
         return target.activeRecordings.stream().map(ActiveRecording::toExternalForm).toList();
     }
 
     @GET
-    @Path("v1/targets/{connectUrl}/recordings")
+    @Path("/api/v1/targets/{connectUrl}/recordings")
     @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> listForTargetByUrl(@RestPath URI connectUrl)
             throws Exception {
@@ -537,14 +534,11 @@ public class Recordings {
 
     @PATCH
     @Transactional
-    @Path("v3/targets/{targetId}/recordings/{remoteId}")
+    @Path("/api/v3/targets/{targetId}/recordings/{remoteId}")
     @RolesAllowed("write")
     public String patch(@RestPath long targetId, @RestPath long remoteId, String body)
             throws Exception {
-        Target target = Target.findById(targetId);
-        if (target == null) {
-            throw new NotFoundException();
-        }
+        Target target = Target.find("id", targetId).singleResult();
         Optional<ActiveRecording> recording =
                 target.activeRecordings.stream()
                         .filter(rec -> rec.remoteId == remoteId)
@@ -607,7 +601,7 @@ public class Recordings {
 
     @PATCH
     @Transactional
-    @Path("v1/targets/{connectUrl}/recordings/{recordingName}")
+    @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
     @RolesAllowed("write")
     public String patchV1(@RestPath URI connectUrl, @RestPath String recordingName, String body)
             throws Exception {
@@ -623,7 +617,7 @@ public class Recordings {
 
     @Transactional
     @POST
-    @Path("v3/targets/{id}/recordings")
+    @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed("write")
     public LinkedRecordingDescriptor createRecording(
             @RestPath long id,
@@ -643,7 +637,7 @@ public class Recordings {
             throw new BadRequestException("\"events\" form parameter must be provided");
         }
 
-        Target target = Target.findById(id);
+        Target target = Target.find("id", id).singleResult();
         LinkedRecordingDescriptor descriptor =
                 connectionManager.executeConnectedTask(
                         target,
@@ -739,11 +733,11 @@ public class Recordings {
     @Transactional
     void stopRecording(long targetId, long recordingId, boolean archive) {
         try {
-            ActiveRecording recording = ActiveRecording.findById(recordingId);
+            ActiveRecording recording = ActiveRecording.find("id", recordingId).singleResult();
             recording.state = RecordingState.STOPPED;
             recording.persist();
             if (archive) {
-                saveRecording(Target.findById(targetId), recording);
+                saveRecording(Target.find("id", targetId).singleResult(), recording);
             }
         } catch (Exception e) {
             logger.error("couldn't update recording", e);
@@ -779,7 +773,7 @@ public class Recordings {
 
     @Transactional
     @POST
-    @Path("v1/targets/{connectUrl}/recordings")
+    @Path("/api/v1/targets/{connectUrl}/recordings")
     @RolesAllowed("write")
     public LinkedRecordingDescriptor createRecordingV1(
             @RestPath URI connectUrl,
@@ -807,7 +801,7 @@ public class Recordings {
 
     @Transactional
     @DELETE
-    @Path("v1/targets/{connectUrl}/recordings/{recordingName}")
+    @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
     @RolesAllowed("write")
     public void deleteRecordingV1(@RestPath URI connectUrl, @RestPath String recordingName)
             throws Exception {
@@ -827,10 +821,10 @@ public class Recordings {
 
     @Transactional
     @DELETE
-    @Path("v3/targets/{targetId}/recordings/{remoteId}")
+    @Path("/api/v3/targets/{targetId}/recordings/{remoteId}")
     @RolesAllowed("write")
     public void deleteRecording(@RestPath long targetId, @RestPath long remoteId) throws Exception {
-        Target target = Target.findById(targetId);
+        Target target = Target.find("id", targetId).singleResult();
         target.activeRecordings.stream()
                 .filter(r -> r.remoteId == remoteId)
                 .findFirst()
@@ -843,7 +837,7 @@ public class Recordings {
 
     @Blocking
     @DELETE
-    @Path("beta/fs/recordings/{jvmId}/{filename}")
+    @Path("/api/beta/fs/recordings/{jvmId}/{filename}")
     @RolesAllowed("write")
     public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
             throws Exception {
@@ -883,7 +877,7 @@ public class Recordings {
     }
 
     @GET
-    @Path("v1/targets/{connectUrl}/recordingOptions")
+    @Path("/api/v1/targets/{connectUrl}/recordingOptions")
     @RolesAllowed("read")
     public Map<String, Object> getRecordingOptionsV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
@@ -891,10 +885,10 @@ public class Recordings {
     }
 
     @GET
-    @Path("v3/targets/{id}/recordingOptions")
+    @Path("/api/v3/targets/{id}/recordingOptions")
     @RolesAllowed("read")
     public Map<String, Object> getRecordingOptions(@RestPath long id) throws Exception {
-        Target target = Target.findById(id);
+        Target target = Target.find("id", id).singleResult();
         return connectionManager.executeConnectedTask(
                 target,
                 connection -> {

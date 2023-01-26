@@ -42,7 +42,6 @@ import java.util.List;
 
 import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.GET;
-import javax.ws.rs.NotFoundException;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
 
@@ -53,29 +52,25 @@ import org.jboss.resteasy.reactive.RestResponse;
 public class Targets {
 
     @GET
-    @Path("v1/targets")
+    @Path("/api/v1/targets")
     @RolesAllowed("read")
     public Response listV1() {
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create("v3/targets"))
+                .location(URI.create("/api/v3/targets"))
                 .build();
     }
 
     @GET
-    @Path("v3/targets")
+    @Path("/api/v3/targets")
     @RolesAllowed("read")
     public List<Target> list() {
         return Target.listAll();
     }
 
     @GET
-    @Path("v3/targets/{id}")
+    @Path("/api/v3/targets/{id}")
     @RolesAllowed("read")
     public Target getById(@RestPath Long id) {
-        Target target = Target.findById(id);
-        if (target == null) {
-            throw new NotFoundException();
-        }
-        return target;
+        return Target.find("id", id).singleResult();
     }
 }

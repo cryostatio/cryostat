@@ -53,7 +53,6 @@ import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.GET;
-import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.core.Response;
@@ -109,16 +108,16 @@ public class Discovery {
     }
 
     @GET
-    @Path("v2.1/discovery")
+    @Path("/api/v2.1/discovery")
     @RolesAllowed("read")
     public Response getv21() {
-        return Response.status(RestResponse.Status.MOVED_PERMANENTLY)
-                .location(URI.create("v3/discovery"))
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create("/api/v3/discovery"))
                 .build();
     }
 
     @GET
-    @Path("v3/discovery")
+    @Path("/api/v3/discovery")
     @RolesAllowed("read")
     public DiscoveryNode get() {
         return DiscoveryNode.getUniverse();
@@ -126,7 +125,7 @@ public class Discovery {
 
     @Transactional
     @POST
-    @Path("v2.2/discovery")
+    @Path("/api/v2.2/discovery")
     @Consumes("application/json")
     @RolesAllowed("write")
     public Map<String, Object> register(JsonObject body) throws URISyntaxException {
@@ -163,15 +162,12 @@ public class Discovery {
 
     @Transactional
     @POST
-    @Path("v2.2/discovery/{id}")
+    @Path("/api/v2.2/discovery/{id}")
     @Consumes("application/json")
     @PermitAll
     public Map<String, Map<String, String>> publish(
             @RestPath UUID id, @RestQuery String token, List<DiscoveryNode> body) {
-        DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
-        if (plugin == null) {
-            throw new NotFoundException();
-        }
+        DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         plugin.realm.children.clear();
         plugin.realm.children.addAll(body);
         body.forEach(b -> b.persist());
@@ -187,13 +183,10 @@ public class Discovery {
 
     @Transactional
     @DELETE
-    @Path("v2.2/discovery/{id}")
+    @Path("/api/v2.2/discovery/{id}")
     @PermitAll
     public Map<String, Map<String, String>> deregister(@RestPath UUID id, @RestQuery String token) {
-        DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
-        if (plugin == null) {
-            throw new NotFoundException();
-        }
+        DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         if (plugin.builtin) {
             throw new ForbiddenException();
         }
@@ -207,7 +200,7 @@ public class Discovery {
     }
 
     @GET
-    @Path("v3/discovery_plugins")
+    @Path("/api/v3/discovery_plugins")
     @RolesAllowed("read")
     public List<DiscoveryPlugin> getPlugins(@RestQuery String realm)
             throws JsonProcessingException {
@@ -219,7 +212,7 @@ public class Discovery {
     }
 
     @GET
-    @Path("v3/discovery_plugins/{id}")
+    @Path("/api/v3/discovery_plugins/{id}")
     @RolesAllowed("read")
     public DiscoveryPlugin getPlugin(@RestPath UUID id) throws JsonProcessingException {
         return DiscoveryPlugin.find("id", id).singleResult();

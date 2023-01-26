@@ -49,7 +49,7 @@ import javax.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-@Path("/")
+@Path("")
 class Health {
 
     @ConfigProperty(name = "quarkus.application.name")
@@ -73,7 +73,7 @@ class Health {
     @Inject Logger logger;
 
     @GET
-    @Path("health")
+    @Path("/health")
     @PermitAll
     public Response health() {
         return Response.ok(
@@ -104,12 +104,12 @@ class Health {
     }
 
     @GET
-    @Path("health/liveness")
+    @Path("/health/liveness")
     @PermitAll
     public void liveness() {}
 
     @GET
-    @Path("api/v1/notifications_url")
+    @Path("/api/v1/notifications_url")
     @PermitAll
     public Response notificationsUrl() {
         // TODO @PermitAll annotation seems to skip the CORS filter, so these headers don't get

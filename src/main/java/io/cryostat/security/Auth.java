@@ -58,11 +58,11 @@ public class Auth {
     @Inject Logger logger;
 
     @POST
-    @Path("v2.1/logout")
+    @Path("/api/v2.1/logout")
     public void logout() {}
 
     @POST
-    @Path("v2.1/auth")
+    @Path("/api/v2.1/auth")
     @PermitAll
     @Produces("application/json")
     public Response login(@Context RoutingContext context) {

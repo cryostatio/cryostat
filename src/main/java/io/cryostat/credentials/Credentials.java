@@ -45,7 +45,6 @@ import javax.annotation.security.RolesAllowed;
 import javax.transaction.Transactional;
 import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
-import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 
@@ -54,7 +53,7 @@ import io.cryostat.V2Response;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("v2.2/credentials")
+@Path("/api/v2.2/credentials")
 public class Credentials {
 
     @GET
@@ -68,10 +67,7 @@ public class Credentials {
     @RolesAllowed("read")
     @Path("/{id}")
     public V2Response get(@RestPath long id) {
-        Credential credential = Credential.findById(id);
-        if (credential == null) {
-            throw new NotFoundException();
-        }
+        Credential credential = Credential.find("id", id).singleResult();
         return V2Response.json(safeMatchedResult(credential));
     }
 
@@ -94,10 +90,7 @@ public class Credentials {
     @RolesAllowed("write")
     @Path("/{id}")
     public void delete(@RestPath long id) {
-        Credential credential = Credential.findById(id);
-        if (credential == null) {
-            throw new NotFoundException();
-        }
+        Credential credential = Credential.find("id", id).singleResult();
         credential.delete();
     }
 

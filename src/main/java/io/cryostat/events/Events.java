@@ -58,20 +58,20 @@ public class Events {
     @Inject TargetConnectionManager connectionManager;
 
     @GET
-    @Path("v1/targets/{connectUrl}/events")
+    @Path("/api/v1/targets/{connectUrl}/events")
     @RolesAllowed("read")
     public Response listEventsV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("v3/targets/%d/events", target.id)))
+                .location(URI.create(String.format("/api/v3/targets/%d/events", target.id)))
                 .build();
     }
 
     @GET
-    @Path("v3/targets/{id}/events")
+    @Path("/api/v3/targets/{id}/events")
     @RolesAllowed("read")
     public List<SerializableEventTypeInfo> listEvents(@RestPath long id) throws Exception {
-        Target target = Target.findById(id);
+        Target target = Target.find("id", id).singleResult();
         return connectionManager.executeConnectedTask(
                 target,
                 connection ->

@@ -169,7 +169,7 @@ public class CustomDiscovery {
     public Response delete(@RestPath URI connectUrl) throws URISyntaxException {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("v3/targets/%d", target.id)))
+                .location(URI.create(String.format("/api/v3/targets/%d", target.id)))
                 .build();
     }
 
@@ -178,10 +178,7 @@ public class CustomDiscovery {
     @Path("v3/targets/{id}")
     @RolesAllowed("write")
     public Response delete(@RestPath long id) throws URISyntaxException {
-        Target target = Target.findById(id);
-        if (target == null) {
-            return Response.status(404).build();
-        }
+        Target target = Target.find("id", id).singleResult();
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         realm.children.remove(target.discoveryNode);
         target.delete();
