@@ -47,6 +47,7 @@ import javax.persistence.Column;
 import javax.persistence.Convert;
 import javax.persistence.Entity;
 import javax.persistence.EntityListeners;
+import javax.persistence.FetchType;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import javax.persistence.OneToOne;
@@ -76,7 +77,8 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     @OneToOne(
             optional = false,
             cascade = {CascadeType.ALL},
-            orphanRemoval = true)
+            orphanRemoval = true,
+            fetch = FetchType.LAZY)
     public DiscoveryNode realm;
 
     @Column(unique = true, updatable = false)

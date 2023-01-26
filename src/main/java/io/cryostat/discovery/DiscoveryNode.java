@@ -62,6 +62,8 @@ import javax.transaction.Transactional;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import io.quarkiverse.hibernate.types.json.JsonBinaryType;
 import io.quarkiverse.hibernate.types.json.JsonTypes;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
@@ -97,8 +99,9 @@ public class DiscoveryNode extends PanacheEntity {
     @OneToOne(
             mappedBy = "discoveryNode",
             cascade = {CascadeType.ALL},
-            fetch = FetchType.EAGER,
+            fetch = FetchType.LAZY,
             orphanRemoval = true)
+    @JsonInclude(value = Include.NON_NULL)
     public Target target;
 
     @Override
