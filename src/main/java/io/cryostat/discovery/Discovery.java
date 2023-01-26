@@ -209,6 +209,7 @@ public class Discovery {
     @Path("v3/discovery_plugins")
     @RolesAllowed("read")
     public Response getPlugins(@RestQuery String realm) throws JsonProcessingException {
+        // TODO filter for the matching realm name within the DB query
         List<DiscoveryPlugin> plugins = DiscoveryPlugin.findAll().list();
         List<DiscoveryPlugin> matches =
                 plugins.stream()
