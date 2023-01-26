@@ -107,7 +107,7 @@ public class Discovery {
     @RolesAllowed("read")
     public Response getv21() {
         return Response.status(RestResponse.Status.MOVED_PERMANENTLY)
-                .location(URI.create("/api/v3/discovery"))
+                .location(URI.create("v3/discovery"))
                 .build();
     }
 
