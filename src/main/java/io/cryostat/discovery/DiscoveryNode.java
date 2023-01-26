@@ -64,6 +64,7 @@ import io.cryostat.targets.Target.TargetDiscovery;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
+import com.fasterxml.jackson.annotation.JsonView;
 import io.quarkiverse.hibernate.types.json.JsonBinaryType;
 import io.quarkiverse.hibernate.types.json.JsonTypes;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
@@ -84,16 +85,20 @@ public class DiscoveryNode extends PanacheEntity {
     public static String REALM = "Realm";
 
     @Column(unique = false, nullable = false, updatable = false)
+    @JsonView(Views.Flat.class)
     public String name;
 
     @Column(unique = false, nullable = false, updatable = false)
+    @JsonView(Views.Flat.class)
     public String nodeType;
 
     @Type(type = JsonTypes.JSON_BIN)
     @Column(columnDefinition = JsonTypes.JSON_BIN, nullable = false)
+    @JsonView(Views.Flat.class)
     public Map<String, String> labels = new HashMap<>();
 
     @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonView(Views.Nested.class)
     public List<DiscoveryNode> children = new ArrayList<>();
 
     @OneToOne(
@@ -102,6 +107,7 @@ public class DiscoveryNode extends PanacheEntity {
             fetch = FetchType.LAZY,
             orphanRemoval = true)
     @JsonInclude(value = Include.NON_NULL)
+    @JsonView(Views.Flat.class)
     public Target target;
 
     @Override
@@ -190,5 +196,11 @@ public class DiscoveryNode extends PanacheEntity {
 
         @PostRemove
         void postRemove(DiscoveryNode node) {}
+    }
+
+    public static class Views {
+        public static class Flat {}
+
+        public static class Nested extends Flat {}
     }
 }
