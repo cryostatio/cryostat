@@ -56,11 +56,15 @@ import javax.ws.rs.GET;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.POST;
 import javax.ws.rs.Path;
+import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonObject;
@@ -77,6 +81,7 @@ public class Discovery {
             Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))$");
 
     @Inject Logger logger;
+    @Inject ObjectMapper mapper;
     @Inject EventBus bus;
     @Inject TargetConnectionManager connectionManager;
 
@@ -203,17 +208,30 @@ public class Discovery {
     @GET
     @Path("v3/discovery_plugins")
     @RolesAllowed("read")
-    public List<DiscoveryPlugin> getPlugins(@RestQuery String realm) {
+    public Response getPlugins(@RestQuery String realm) throws JsonProcessingException {
         List<DiscoveryPlugin> plugins = DiscoveryPlugin.findAll().list();
-        return plugins.stream()
-                .filter(p -> StringUtils.isBlank(realm) || p.realm.name.equals(realm))
-                .toList();
+        List<DiscoveryPlugin> matches =
+                plugins.stream()
+                        .filter(p -> StringUtils.isBlank(realm) || p.realm.name.equals(realm))
+                        .toList();
+        mapper.addMixIn(DiscoveryPlugin.class, IgnoreChildrenMixin.class);
+        return Response.ok(mapper.writeValueAsString(matches))
+                .type(MediaType.APPLICATION_JSON)
+                .build();
     }
 
     @GET
     @Path("v3/discovery_plugins/{id}")
     @RolesAllowed("read")
-    public DiscoveryPlugin getPlugin(@RestPath UUID id) {
-        return DiscoveryPlugin.findById(id);
+    public Response getPlugin(@RestPath UUID id) throws JsonProcessingException {
+        DiscoveryPlugin plugin = DiscoveryPlugin.findById(id);
+        return Response.ok(mapper.writeValueAsString(plugin))
+                .type(MediaType.APPLICATION_JSON)
+                .build();
+    }
+
+    static class IgnoreChildrenMixin {
+        @JsonIgnoreProperties("children")
+        DiscoveryPlugin realm;
     }
 }
