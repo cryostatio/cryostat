@@ -100,7 +100,7 @@ services:
     ports:
       - "8081:8081"
   quarkus-test-agent:
-    image: quay.io/andrewazores/quarkus-test:latest
+    image: quay.io/andrewazores/quarkus-test:0.0.11
     hostname: quarkus-test-agent
     ports:
       - "9977:9977"
