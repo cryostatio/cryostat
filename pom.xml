@@ -12,7 +12,7 @@
     <cryostat.itest.webHost>0.0.0.0</cryostat.itest.webHost>
     <cryostat.itest.webPort>8181</cryostat.itest.webPort>
     <cryostat.rjmxPort>9091</cryostat.rjmxPort>
-    <io.cryostat.core.version>2.18.0</io.cryostat.core.version>
+    <io.cryostat.core.version>2.20.0</io.cryostat.core.version>
     <io.quarkiverse.hibernatetypes.version>1.0.0</io.quarkiverse.hibernatetypes.version>
     <io.quarkiverse.minio.version>2.10.3</io.quarkiverse.minio.version>
     <java.version>17</java.version>
