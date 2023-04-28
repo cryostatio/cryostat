@@ -34,6 +34,13 @@ services:
       - minio_certs:/certs
     labels:
       kompose.service.expose: "minio"
+    restart: unless-stopped
+    healthcheck:
+      test: curl --fail http://localhost:9001 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
   db:
     image: quay.io/cryostat/cryostat3-db:dev
     build: ./db
@@ -51,6 +58,13 @@ services:
       POSTGRES_PASSWORD: cryostat3
     volumes:
       - postgresql:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: pg_isready -U cryostat3 -d cryostat3 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
   db-viewer:
     depends_on:
       - db
@@ -66,6 +80,13 @@ services:
       - pgadmin:/var/lib/pgadmin
       - ./smoketest/compose/servers.json:/pgadmin4/servers.json:z
       # - ./smoketest/compose/pgpass:/pgpass:z
+    restart: unless-stopped
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8989 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
   cryostat:
     depends_on:
       - db
@@ -92,6 +113,13 @@ services:
       QUARKUS_MINIO_SECRET_KEY: ${MINIO_SECRET:-minioroot}
       CRYOSTAT_JDP_ENABLED: "true"
       JAVA_OPTS_APPEND: "-XX:+FlightRecorder -XX:StartFlightRecording=name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false"
+    restart: unless-stopped
+    healthcheck:
+      test: curl --fail http://localhost:8181/health/liveness || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
   sample-app:
     image: quay.io/andrewazores/vertx-fib-demo:0.9.1
     environment:
@@ -99,6 +127,13 @@ services:
       JMX_PORT: 9093
     ports:
       - "8081:8081"
+    restart: unless-stopped
+    healthcheck:
+      test: curl --fail http://localhost:8081 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
   quarkus-test-agent:
     image: quay.io/andrewazores/quarkus-test:0.0.11
     hostname: quarkus-test-agent
@@ -121,6 +156,13 @@ services:
       CRYOSTAT_AGENT_HARVESTER_MAX_FILES: 3
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS: 60000
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
+    restart: unless-stopped
+    healthcheck:
+      test: curl --fail http://localhost:10010 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
 
 volumes:
   minio_data:
