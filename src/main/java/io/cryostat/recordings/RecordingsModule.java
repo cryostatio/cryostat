@@ -37,14 +37,13 @@
  */
 package io.cryostat.recordings;
 
-import javax.enterprise.inject.Produces;
-import javax.inject.Singleton;
-
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
 
 import io.cryostat.core.RecordingOptionsCustomizer;
 
 import io.quarkus.arc.DefaultBean;
+import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Singleton;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -39,8 +39,7 @@ package io.cryostat.discovery;
 
 import java.net.URI;
 
-import javax.persistence.AttributeConverter;
-
+import jakarta.persistence.AttributeConverter;
 import org.apache.commons.lang3.StringUtils;
 
 public class UriConverter implements AttributeConverter<URI, String> {

@@ -39,13 +39,12 @@ package io.cryostat.targets;
 
 import java.net.URI;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
-
 import io.cryostat.core.sys.Clock;
 
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.client.WebClient;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
 class AgentConnectionFactory {

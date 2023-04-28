@@ -49,8 +49,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
 import javax.management.remote.JMXServiceURL;
 
 import io.cryostat.core.net.JFRConnection;
@@ -65,6 +63,8 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.Label;

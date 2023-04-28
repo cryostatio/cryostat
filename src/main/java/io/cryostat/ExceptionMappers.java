@@ -37,9 +37,8 @@
  */
 package io.cryostat;
 
-import javax.persistence.NoResultException;
-
 import io.netty.handler.codec.http.HttpResponseStatus;
+import jakarta.persistence.NoResultException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;

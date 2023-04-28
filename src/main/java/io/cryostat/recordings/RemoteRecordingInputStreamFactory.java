@@ -39,14 +39,14 @@ package io.cryostat.recordings;
 
 import java.io.InputStream;
 
-import javax.enterprise.context.ApplicationScoped;
-import javax.inject.Inject;
-
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ProgressInputStream;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
 public class RemoteRecordingInputStreamFactory {
