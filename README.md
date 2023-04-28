@@ -84,7 +84,7 @@ The next testing step is to build and package Cryostat into a container and run 
 
 ```bash
 quarkus build
-podman-compose up
+docker-compose up
 ```
 
 This will build the container image, then spin it up along with required services within a Podman pod.
