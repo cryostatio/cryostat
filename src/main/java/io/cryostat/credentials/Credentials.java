@@ -37,6 +37,7 @@
  */
 package io.cryostat.credentials;
 
+import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +53,8 @@ import io.cryostat.V2Response;
 
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
 @Path("/api/v2.2/credentials")
 public class Credentials {
@@ -74,7 +77,7 @@ public class Credentials {
     @Transactional
     @POST
     @RolesAllowed("write")
-    public void create(
+    public RestResponse<Void> create(
             @RestForm String matchExpression,
             @RestForm String username,
             @RestForm String password) {
@@ -83,6 +86,8 @@ public class Credentials {
         credential.username = username;
         credential.password = password;
         credential.persist();
+        return ResponseBuilder.<Void>created(URI.create("/api/v2.2/credentials/" + credential.id))
+                .build();
     }
 
     @Transactional
