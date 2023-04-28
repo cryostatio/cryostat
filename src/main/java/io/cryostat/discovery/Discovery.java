@@ -71,6 +71,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
 @Path("")
 public class Discovery {
@@ -121,6 +122,14 @@ public class Discovery {
         return DiscoveryNode.getUniverse();
     }
 
+    @GET
+    @Path("/api/v2.2/discovery/{id}")
+    @RolesAllowed("read")
+    public RestResponse<Void> checkRegistration(@RestPath UUID id, @RestQuery String token) {
+        DiscoveryPlugin.find("id", id).singleResult();
+        return ResponseBuilder.<Void>ok().build();
+    }
+
     @Transactional
     @POST
     @Path("/api/v2.2/discovery")
@@ -167,6 +176,7 @@ public class Discovery {
             @RestPath UUID id, @RestQuery String token, List<DiscoveryNode> body) {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         plugin.realm.children.clear();
+        plugin.persist();
         plugin.realm.children.addAll(body);
         body.forEach(b -> b.persist());
         plugin.persist();

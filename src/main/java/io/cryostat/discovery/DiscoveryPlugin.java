@@ -37,7 +37,10 @@
  */
 package io.cryostat.discovery;
 
+import java.io.IOException;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.util.Base64;
 import java.util.UUID;
 
 import javax.enterprise.context.ApplicationScoped;
@@ -54,10 +57,16 @@ import javax.persistence.OneToOne;
 import javax.persistence.PrePersist;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.client.ClientRequestContext;
+import javax.ws.rs.client.ClientRequestFilter;
+import javax.ws.rs.core.HttpHeaders;
+
+import io.cryostat.credentials.Credential;
 
 import io.quarkiverse.hibernate.types.json.JsonBinaryType;
 import io.quarkiverse.hibernate.types.json.JsonTypes;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.rest.client.RestClientBuilder;
 import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.TypeDef;
@@ -113,15 +122,55 @@ public class DiscoveryPlugin extends PanacheEntityBase {
 
     @Path("")
     interface PluginCallback {
+
         @GET
         public void ping();
 
-        public static PluginCallback create(DiscoveryPlugin plugin) {
+        public static PluginCallback create(DiscoveryPlugin plugin) throws URISyntaxException {
             PluginCallback client =
                     RestClientBuilder.newBuilder()
                             .baseUri(plugin.callback)
+                            .register(AuthorizationFilter.class)
                             .build(PluginCallback.class);
             return client;
+        }
+
+        public static class AuthorizationFilter implements ClientRequestFilter {
+
+            final Logger logger = Logger.getLogger(PluginCallback.class);
+
+            @Override
+            public void filter(ClientRequestContext requestContext) throws IOException {
+                String userInfo = requestContext.getUri().getUserInfo();
+                if (StringUtils.isBlank(userInfo)) {
+                    return;
+                }
+
+                Credential credential = null;
+                if (StringUtils.isNotBlank(userInfo) && userInfo.contains(":")) {
+                    String[] parts = userInfo.split(":");
+                    if ("storedcredentials".equals(parts[0])) {
+                        logger.infov(
+                                "Using stored credentials id:{0} referenced in ping callback"
+                                        + " userinfo",
+                                parts[1]);
+
+                        credential = Credential.find("id", Long.parseLong(parts[1])).singleResult();
+                    }
+                }
+
+                requestContext
+                        .getHeaders()
+                        .add(
+                                HttpHeaders.AUTHORIZATION,
+                                "Basic "
+                                        + Base64.getEncoder()
+                                                .encodeToString(
+                                                        (credential.username
+                                                                        + ":"
+                                                                        + credential.password)
+                                                                .getBytes()));
+            }
         }
     }
 }
