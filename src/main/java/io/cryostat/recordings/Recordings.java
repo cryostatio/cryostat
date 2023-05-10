@@ -143,9 +143,8 @@ public class Recordings {
 
     void onStart(@Observes StartupEvent evt) {
         try {
-            if (!minio.bucketExists(
-                    BucketExistsArgs.builder().bucket("archivedrecordings").build())) {
-                minio.makeBucket(MakeBucketArgs.builder().bucket("archivedrecordings").build());
+            if (!minio.bucketExists(BucketExistsArgs.builder().bucket(archiveBucket).build())) {
+                minio.makeBucket(MakeBucketArgs.builder().bucket(archiveBucket).build());
             }
         } catch (Exception e) {
             logger.error(e);
