@@ -29,8 +29,7 @@
     <cryostat.itest.webPort>8181</cryostat.itest.webPort>
     <cryostat.rjmxPort>9091</cryostat.rjmxPort>
     <io.cryostat.core.version>2.20.0</io.cryostat.core.version>
-    <!-- TODO upgrade to non-alpha 3.0.0 Minio client -->
-    <io.quarkiverse.minio.version>3.0.0.Alpha3</io.quarkiverse.minio.version>
+    <io.quarkiverse.minio.version>3.0.2</io.quarkiverse.minio.version>
     <java.version>17</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <maven.compiler.source>${java.version}</maven.compiler.source>
