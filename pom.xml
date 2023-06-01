@@ -22,29 +22,27 @@
   </distributionManagement>
 
   <properties>
-    <com.diffplug.spotless.maven.plugin.version>2.28.0</com.diffplug.spotless.maven.plugin.version>
-    <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
-    <compiler-plugin.version>3.8.1</compiler-plugin.version>
-    <cryostat.itest.webHost>0.0.0.0</cryostat.itest.webHost>
-    <cryostat.itest.webPort>8181</cryostat.itest.webPort>
-    <cryostat.rjmxPort>9091</cryostat.rjmxPort>
-    <io.cryostat.core.version>2.20.0</io.cryostat.core.version>
-    <io.quarkiverse.minio.version>3.0.2</io.quarkiverse.minio.version>
     <java.version>17</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
+    <compiler-plugin.version>3.8.1</compiler-plugin.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+    <io.cryostat.core.version>2.20.0</io.cryostat.core.version>
+    <io.quarkiverse.minio.version>3.0.2</io.quarkiverse.minio.version>
     <org.apache.commons.codec.version>1.15</org.apache.commons.codec.version>
     <org.apache.commons.io.version>2.11.0</org.apache.commons.io.version>
     <org.apache.httpcomponents.version>4.5.14</org.apache.httpcomponents.version>
     <org.apache.commons.lang3.version>3.12.0</org.apache.commons.lang3.version>
     <org.apache.commons.validator.version>1.7</org.apache.commons.validator.version>
-    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.0.3.Final</quarkus.platform.version>
-    <skipITs>true</skipITs>
+
+    <com.diffplug.spotless.maven.plugin.version>2.28.0</com.diffplug.spotless.maven.plugin.version>
+    <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
   </properties>
   <dependencyManagement>
@@ -149,6 +147,8 @@
       <artifactId>netty-transport-native-kqueue</artifactId>
       <classifier>osx-x86_64</classifier>
     </dependency>
+
+
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>
