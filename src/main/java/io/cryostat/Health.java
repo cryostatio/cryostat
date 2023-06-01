@@ -78,7 +78,7 @@ class Health {
         return Response.ok(
                         Map.of(
                                 "cryostatVersion",
-                                version,
+                                String.format("v%s", version),
                                 "dashboardConfigured",
                                 false,
                                 "dashboardAvailable",
