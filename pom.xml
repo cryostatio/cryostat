@@ -44,6 +44,7 @@
     <com.diffplug.spotless.maven.plugin.version>2.28.0</com.diffplug.spotless.maven.plugin.version>
     <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
+    <com.google.code.gson.version>2.10.1</com.google.code.gson.version><!-- TODO drop this -->
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -157,6 +158,12 @@
     <dependency>
       <groupId>io.rest-assured</groupId>
       <artifactId>rest-assured</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>${com.google.code.gson.version}</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -274,6 +281,9 @@
               <goal>verify</goal>
             </goals>
             <configuration>
+              <skipTests>${skipTests}</skipTests>
+              <skipITs>${skipITs}</skipITs>
+              <runOrder>random</runOrder>
               <systemPropertyVariables>
                 <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
                 <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
