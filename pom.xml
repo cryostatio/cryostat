@@ -44,6 +44,7 @@
     <com.diffplug.spotless.maven.plugin.version>2.28.0</com.diffplug.spotless.maven.plugin.version>
     <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
+    <failsafe-plugin.version>3.0.0-M7</failsafe-plugin.version>
     <com.google.code.gson.version>2.10.1</com.google.code.gson.version><!-- TODO drop this -->
   </properties>
   <dependencyManagement>
@@ -273,7 +274,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-failsafe-plugin</artifactId>
-        <version>${surefire-plugin.version}</version>
+        <version>${failsafe-plugin.version}</version>
         <executions>
           <execution>
             <goals>
