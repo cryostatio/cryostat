@@ -65,7 +65,8 @@ import org.apache.http.client.utils.URLEncodedUtils;
 public abstract class StandardSelfTest {
 
     public static final String SELF_REFERENCE_TARGET_ID =
-            URLEncodedUtils.formatSegments("service:jmx:rmi:///jndi/rmi://localhost:9091/jmxrmi").substring(1);
+            URLEncodedUtils.formatSegments("service:jmx:rmi:///jndi/rmi://localhost:9091/jmxrmi")
+                    .substring(1);
     public static final Pair<String, String> VERTX_FIB_CREDENTIALS =
             Pair.of("admin", "adminpass123");
 
