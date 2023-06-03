@@ -39,7 +39,7 @@
     <org.apache.commons.validator.version>1.7</org.apache.commons.validator.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-    <quarkus.platform.version>3.0.3.Final</quarkus.platform.version>
+    <quarkus.platform.version>3.1.0.Final</quarkus.platform.version>
 
     <com.diffplug.spotless.maven.plugin.version>2.28.0</com.diffplug.spotless.maven.plugin.version>
     <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
