@@ -38,8 +38,14 @@
 package io.cryostat.events;
 
 import java.net.URI;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
+import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
+
+import io.cryostat.V2Response;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -48,36 +54,82 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
+import org.apache.commons.lang3.StringUtils;
+import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
 public class Events {
 
     @Inject TargetConnectionManager connectionManager;
+    @Inject Logger logger;
 
     @GET
     @Path("/api/v1/targets/{connectUrl}/events")
     @RolesAllowed("read")
-    public Response listEventsV1(@RestPath URI connectUrl) throws Exception {
+    public Response listEventsV1(@RestPath URI connectUrl, @RestQuery String q) throws Exception {
+        logger.info(connectUrl.toString());
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v3/targets/%d/events", target.id)))
+                .location(URI.create(String.format("/api/v3/targets/%d/events?q=%s", target.id, q)))
                 .build();
+    }
+
+    @GET
+    @Path("/api/v2/targets/{connectUrl}/events")
+    @RolesAllowed("read")
+    public V2Response listEventsV2(@RestPath URI connectUrl, @RestQuery String q) throws Exception {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        List<SerializableEventTypeInfo> events =
+                connectionManager.executeConnectedTask(
+                        target,
+                        connection ->
+                                connection.getService().getAvailableEventTypes().stream()
+                                        .filter(
+                                                evt ->
+                                                        StringUtils.isBlank(q)
+                                                                || eventMatchesSearchTerm(
+                                                                        evt, q.toLowerCase()))
+                                        .map(SerializableEventTypeInfo::fromEventTypeInfo)
+                                        .sorted((a, b) -> a.typeId().compareTo(b.typeId()))
+                                        .distinct()
+                                        .toList());
+        return V2Response.json(events);
     }
 
     @GET
     @Path("/api/v3/targets/{id}/events")
     @RolesAllowed("read")
-    public List<SerializableEventTypeInfo> listEvents(@RestPath long id) throws Exception {
+    public List<SerializableEventTypeInfo> listEvents(@RestPath long id, @RestQuery String q)
+            throws Exception {
         Target target = Target.find("id", id).singleResult();
         return connectionManager.executeConnectedTask(
                 target,
                 connection ->
                         connection.getService().getAvailableEventTypes().stream()
+                                .filter(
+                                        evt ->
+                                                StringUtils.isBlank(q)
+                                                        || eventMatchesSearchTerm(
+                                                                evt, q.toLowerCase()))
                                 .map(SerializableEventTypeInfo::fromEventTypeInfo)
                                 .sorted((a, b) -> a.typeId().compareTo(b.typeId()))
                                 .distinct()
                                 .toList());
+    }
+
+    private boolean eventMatchesSearchTerm(IEventTypeInfo event, String term) {
+        Set<String> terms = new HashSet<>();
+        terms.add(event.getEventTypeID().getFullKey());
+        terms.addAll(Arrays.asList(event.getHierarchicalCategory()));
+        terms.add(event.getDescription());
+        terms.add(event.getName());
+
+        return terms.stream()
+                .filter(s -> s != null)
+                .map(String::toLowerCase)
+                .anyMatch(s -> s.contains(term));
     }
 }
