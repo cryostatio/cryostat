@@ -40,6 +40,7 @@ package itest.util;
 import io.cryostat.core.sys.Environment;
 
 import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
 import io.vertx.core.file.FileSystem;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
@@ -69,7 +70,8 @@ public class Utils {
                         .setLogActivity(true);
     }
 
-    private static final Vertx VERTX = Vertx.vertx();
+    private static final Vertx VERTX =
+            Vertx.vertx(new VertxOptions().setPreferNativeTransport(true));
     public static final HttpClient HTTP_CLIENT = VERTX.createHttpClient(HTTP_CLIENT_OPTIONS);
     private static final WebClient WEB_CLIENT_INSTANCE = WebClient.wrap(HTTP_CLIENT);
 
