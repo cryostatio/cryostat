@@ -63,11 +63,9 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-@Disabled("TODO")
 public class RecordingWorkflowIT extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "workflow_itest";
@@ -78,7 +76,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
         // Check preconditions
         CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
         webClient
-                .get(String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl()))
+                .get(String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded()))
+                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, listRespFuture1)) {
@@ -98,7 +97,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             webClient
                     .post(
                             String.format(
-                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl()))
+                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded()))
+                    .basicAuthentication("user", "pass")
                     .sendForm(
                             form,
                             ar -> {
@@ -113,7 +113,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             webClient
                     .get(
                             String.format(
-                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl()))
+                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded()))
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture2)) {
@@ -139,7 +140,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
                     .patch(
                             String.format(
                                     "/api/v1/targets/%s/recordings/%s",
-                                    getSelfReferenceConnectUrl(), TEST_RECORDING_NAME))
+                                    getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME))
+                    .basicAuthentication("user", "pass")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.PLAINTEXT.mime())
                     .sendBuffer(
                             Buffer.buffer("SAVE"),
@@ -155,7 +157,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             webClient
                     .get(
                             String.format(
-                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl()))
+                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded()))
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture3)) {
@@ -177,6 +180,7 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             CompletableFuture<JsonArray> listRespFuture4 = new CompletableFuture<>();
             webClient
                     .get("/api/v1/recordings")
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture4)) {
@@ -203,7 +207,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             webClient
                     .get(
                             String.format(
-                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl()))
+                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded()))
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture5)) {
@@ -271,7 +276,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
                     .delete(
                             String.format(
                                     "/api/v1/targets/%s/recordings/%s",
-                                    getSelfReferenceConnectUrl(), TEST_RECORDING_NAME))
+                                    getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME))
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteRespFuture1)) {
@@ -290,6 +296,7 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             CompletableFuture<JsonArray> savedRecordingsFuture = new CompletableFuture<>();
             webClient
                     .get("/api/v1/recordings")
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, savedRecordingsFuture)) {
@@ -314,7 +321,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
                             .delete(
                                     String.format(
                                             "/api/beta/recordings/%s/%s",
-                                            getSelfReferenceConnectUrl(), recordingName))
+                                            getSelfReferenceConnectUrlEncoded(), recordingName))
+                            .basicAuthentication("user", "pass")
                             .send(
                                     ar -> {
                                         if (assertRequestStatus(ar, deleteRespFuture2)) {
