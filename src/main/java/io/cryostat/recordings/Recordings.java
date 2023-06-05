@@ -112,6 +112,7 @@ import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.ServerErrorException;
+import jakarta.ws.rs.core.Response;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -119,6 +120,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 @Path("")
@@ -524,10 +526,11 @@ public class Recordings {
     @GET
     @Path("/api/v1/targets/{connectUrl}/recordings")
     @RolesAllowed("read")
-    public List<LinkedRecordingDescriptor> listForTargetByUrl(@RestPath URI connectUrl)
-            throws Exception {
+    public Response listForTargetByUrl(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        return listForTarget(target.id);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create(String.format("/api/v3/targets/%d/recordings", target.id)))
+                .build();
     }
 
     @PATCH
@@ -601,7 +604,7 @@ public class Recordings {
     @Transactional
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
     @RolesAllowed("write")
-    public String patchV1(@RestPath URI connectUrl, @RestPath String recordingName, String body)
+    public Response patchV1(@RestPath URI connectUrl, @RestPath String recordingName, String body)
             throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         Optional<IRecordingDescriptor> recording =
@@ -610,7 +613,13 @@ public class Recordings {
         if (recording.isEmpty()) {
             throw new NotFoundException();
         }
-        return patch(target.id, recording.get().getId(), body);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/recordings/%s",
+                                        target.id, recording.get().getId())))
+                .build();
     }
 
     @Transactional
@@ -801,20 +810,24 @@ public class Recordings {
     @DELETE
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
     @RolesAllowed("write")
-    public void deleteRecordingV1(@RestPath URI connectUrl, @RestPath String recordingName)
+    public Response deleteRecordingV1(@RestPath URI connectUrl, @RestPath String recordingName)
             throws Exception {
         if (StringUtils.isBlank(recordingName)) {
             throw new BadRequestException("\"recordingName\" form parameter must be provided");
         }
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        target.activeRecordings.stream()
-                .filter(r -> Objects.equals(r.name, recordingName))
-                .findFirst()
-                .ifPresentOrElse(
-                        ActiveRecording::delete,
-                        () -> {
-                            throw new NotFoundException();
-                        });
+        long remoteId =
+                target.activeRecordings.stream()
+                        .filter(r -> Objects.equals(r.name, recordingName))
+                        .findFirst()
+                        .map(r -> r.remoteId)
+                        .orElseThrow(() -> new NotFoundException());
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/recordings/%d", target.id, remoteId)))
+                .build();
     }
 
     @Transactional
@@ -877,9 +890,12 @@ public class Recordings {
     @GET
     @Path("/api/v1/targets/{connectUrl}/recordingOptions")
     @RolesAllowed("read")
-    public Map<String, Object> getRecordingOptionsV1(@RestPath URI connectUrl) throws Exception {
+    public Response getRecordingOptionsV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        return getRecordingOptions(target.id);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(String.format("/api/v3/targets/%d/recordingOptions", target.id)))
+                .build();
     }
 
     @GET
