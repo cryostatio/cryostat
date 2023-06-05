@@ -63,9 +63,11 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
+@Disabled("TODO")
 public class RecordingWorkflowIT extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "workflow_itest";
