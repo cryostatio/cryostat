@@ -68,9 +68,9 @@ import org.junit.jupiter.api.TestMethodOrder;
 public class TargetRecordingOptionsIT extends StandardSelfTest {
 
     static final String OPTIONS_REQ_URL =
-            String.format("/api/v1/targets/%s/recordingOptions", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/v1/targets/%s/recordingOptions", getSelfReferenceConnectUrl());
     static final String OPTIONS_LIST_REQ_URL =
-            String.format("/api/v2/targets/%s/recordingOptionsList", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/v2/targets/%s/recordingOptionsList", getSelfReferenceConnectUrl());
     static final String RECORDING_NAME = "test_recording";
     static final String ARCHIVED_REQ_URL = "/api/v1/recordings";
 
@@ -216,7 +216,9 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
             form.add("duration", "5");
             form.add("events", "template=ALL");
             webClient
-                    .post(String.format("/api/v1/targets/%s/recordings", SELF_REFERENCE_TARGET_ID))
+                    .post(
+                            String.format(
+                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl()))
                     .sendForm(
                             form,
                             ar -> {
@@ -240,7 +242,7 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
                     .delete(
                             String.format(
                                     "/api/v1/targets/%s/recordings/%s",
-                                    SELF_REFERENCE_TARGET_ID, RECORDING_NAME))
+                                    getSelfReferenceConnectUrl(), RECORDING_NAME))
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteRespFuture)) {
@@ -326,7 +328,9 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
             form.add("archiveOnStop", "true");
 
             webClient
-                    .post(String.format("/api/v1/targets/%s/recordings", SELF_REFERENCE_TARGET_ID))
+                    .post(
+                            String.format(
+                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl()))
                     .sendForm(
                             form,
                             ar -> {
@@ -364,7 +368,7 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
                     .delete(
                             String.format(
                                     "/api/v1/targets/%s/recordings/%s",
-                                    SELF_REFERENCE_TARGET_ID, recordingName))
+                                    getSelfReferenceConnectUrl(), recordingName))
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteRespFuture)) {
@@ -385,7 +389,7 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
                     .delete(
                             String.format(
                                     "/api/beta/recordings/%s/%s",
-                                    SELF_REFERENCE_TARGET_ID, archivedgName))
+                                    getSelfReferenceConnectUrl(), archivedgName))
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteArchiveRespFuture)) {

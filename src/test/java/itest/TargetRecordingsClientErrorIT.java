@@ -63,7 +63,7 @@ import org.junit.jupiter.api.Test;
 public class TargetRecordingsClientErrorIT extends StandardSelfTest {
 
     static final String REQ_URL =
-            String.format("/api/v1/targets/%s/recordings", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl());
     static final String TEST_RECORDING_NAME = "workflow_itest";
 
     @AfterAll
@@ -277,7 +277,8 @@ public class TargetRecordingsClientErrorIT extends StandardSelfTest {
         webClient
                 .patch(
                         String.format(
-                                "/api/v1/targets/%s/recordingOptions", SELF_REFERENCE_TARGET_ID))
+                                "/api/v1/targets/%s/recordingOptions",
+                                getSelfReferenceConnectUrl()))
                 .sendForm(
                         form,
                         ar -> {
@@ -301,7 +302,8 @@ public class TargetRecordingsClientErrorIT extends StandardSelfTest {
         webClient
                 .patch(
                         String.format(
-                                "/api/v1/targets/%s/recordingOptions", SELF_REFERENCE_TARGET_ID))
+                                "/api/v1/targets/%s/recordingOptions",
+                                getSelfReferenceConnectUrl()))
                 .sendForm(
                         form,
                         ar -> {

@@ -70,9 +70,10 @@ public class TargetReportIT extends StandardSelfTest {
     static final String TEST_RECORDING_NAME = "someRecording";
     static final String REPORT_REQ_URL =
             String.format(
-                    "/api/v1/targets/%s/reports/%s", SELF_REFERENCE_TARGET_ID, TEST_RECORDING_NAME);
+                    "/api/v1/targets/%s/reports/%s",
+                    getSelfReferenceConnectUrl(), TEST_RECORDING_NAME);
     static final String RECORDING_REQ_URL =
-            String.format("/api/v1/targets/%s/recordings", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl());
     static final String TEMP_REPORT = "src/test/resources/reportTest.html";
     static File file;
     static Document doc;

@@ -83,7 +83,7 @@ public class TargetPostDeleteIT extends StandardSelfTest {
 
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
         MultiMap form = MultiMap.caseInsensitiveMultiMap();
-        form.add("connectUrl", SELF_REFERENCE_TARGET_ID);
+        form.add("connectUrl", getSelfReferenceConnectUrl());
 
         webClient
                 .post(REQ_URL)
@@ -127,7 +127,7 @@ public class TargetPostDeleteIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
         MultiMap form = MultiMap.caseInsensitiveMultiMap();
         form.add("alias", "");
-        form.add("connectUrl", SELF_REFERENCE_TARGET_ID);
+        form.add("connectUrl", getSelfReferenceConnectUrl());
 
         webClient
                 .post(REQ_URL)
@@ -170,7 +170,7 @@ public class TargetPostDeleteIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
         MultiMap form = MultiMap.caseInsensitiveMultiMap();
         form.add("alias", "duplicateCryostat");
-        form.add("connectUrl", SELF_REFERENCE_TARGET_ID);
+        form.add("connectUrl", getSelfReferenceConnectUrl());
 
         webClient
                 .post(REQ_URL)

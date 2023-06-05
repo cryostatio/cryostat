@@ -59,9 +59,9 @@ import org.junit.jupiter.api.Test;
 public class TargetEventsGetIT extends StandardSelfTest {
 
     static final String EVENT_REQ_URL =
-            String.format("/api/v1/targets/%s/events", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/v1/targets/%s/events", getSelfReferenceConnectUrlEncoded());
     static final String SEARCH_REQ_URL =
-            String.format("/api/v2/targets/%s/events", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/v2/targets/%s/events", getSelfReferenceConnectUrlEncoded());
 
     @Test
     public void testGetTargetEventsReturnsListOfEvents() throws Exception {

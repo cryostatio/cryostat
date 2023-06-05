@@ -77,9 +77,6 @@ import org.junit.jupiter.api.BeforeAll;
 
 public abstract class StandardSelfTest {
 
-    public static final String SELF_REFERENCE_TARGET_ID =
-            URLEncodedUtils.formatSegments("service:jmx:rmi:///jndi/rmi://localhost:9091/jmxrmi")
-                    .substring(1);
     public final Logger logger = Logger.getLogger(StandardSelfTest.class);
     public static final ObjectMapper mapper = new ObjectMapper();
     public static final int REQUEST_TIMEOUT_SECONDS = 30;

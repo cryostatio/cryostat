@@ -70,11 +70,11 @@ public class ReportIT extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "someRecording";
     static final String REPORT_REQ_URL =
-            String.format("/api/beta/reports/%s", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/beta/reports/%s", getSelfReferenceConnectUrl());
     static final String RECORDING_REQ_URL =
-            String.format("/api/v1/targets/%s/recordings", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl());
     static final String ARCHIVE_REQ_URL =
-            String.format("/api/beta/recordings/%s", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/beta/recordings/%s", getSelfReferenceConnectUrl());
     static final String TEMP_REPORT = "src/test/resources/reportTest.html";
 
     @Test

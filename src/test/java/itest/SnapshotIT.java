@@ -66,9 +66,9 @@ import org.junit.jupiter.api.Test;
 public class SnapshotIT extends StandardSelfTest {
     static final String TEST_RECORDING_NAME = "someRecording";
     static final String TARGET_REQ_URL =
-            String.format("/api/v1/targets%s", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/v1/targets%s", getSelfReferenceConnectUrl());
     static final String V2_SNAPSHOT_REQ_URL =
-            String.format("/api/v2/targets%s", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/v2/targets%s", getSelfReferenceConnectUrl());
     static final Pattern SNAPSHOT_NAME_PATTERN = Pattern.compile("^snapshot-[0-9]+$");
     static final Pattern TIMESTAMP_PATTERN = Pattern.compile("^[0-9]+$");
 

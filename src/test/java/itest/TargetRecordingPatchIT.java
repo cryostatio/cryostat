@@ -60,10 +60,10 @@ import org.junit.jupiter.api.Test;
 public class TargetRecordingPatchIT extends StandardSelfTest {
     static final String TEST_RECORDING_NAME = "someRecording";
     static final String RECORDING_REQ_URL =
-            String.format("/api/v1/targets/%s/recordings", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl());
     static final String ARCHIVED_REQ_URL = "/api/v1/recordings";
     static final String OPTIONS_REQ_URL =
-            String.format("/api/v1/targets/%s/recordingOptions", SELF_REFERENCE_TARGET_ID);
+            String.format("/api/v1/targets/%s/recordingOptions", getSelfReferenceConnectUrl());
 
     @Test
     void testSaveEmptyRecordingDoesNotArchiveRecordingFile() throws Exception {

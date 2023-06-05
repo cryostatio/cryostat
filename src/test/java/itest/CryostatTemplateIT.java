@@ -65,7 +65,7 @@ public class CryostatTemplateIT extends StandardSelfTest {
         String url =
                 String.format(
                         "/api/v1/targets/%s/templates/Cryostat/type/TARGET",
-                        SELF_REFERENCE_TARGET_ID);
+                        getSelfReferenceConnectUrl());
         file =
                 downloadFile(url, "cryostat", "jfc")
                         .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
