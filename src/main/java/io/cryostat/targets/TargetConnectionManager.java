@@ -67,6 +67,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
+import jdk.jfr.FlightRecorder;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
 import org.jboss.logging.Logger;
@@ -89,6 +90,8 @@ public class TargetConnectionManager {
             AgentConnectionFactory agentConnectionFactory,
             Executor executor,
             Logger logger) {
+        FlightRecorder.register(TargetConnectionOpened.class);
+        FlightRecorder.register(TargetConnectionClosed.class);
         this.jfrConnectionToolkit = jfrConnectionToolkit;
         this.agentConnectionFactory = agentConnectionFactory;
         this.executor = executor;
