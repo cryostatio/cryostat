@@ -52,6 +52,23 @@ public record SerializableEventTypeInfo(
         String[] category,
         Map<String, SerializableOptionDescriptor> options) {
 
+    public static SerializableEventTypeInfo fromEventTypeInfo(IEventTypeInfo info) {
+        var name = info.getName();
+        var typeId = info.getEventTypeID().getFullKey();
+        var description = info.getDescription();
+        var category = info.getHierarchicalCategory();
+
+        Map<String, ? extends IOptionDescriptor<?>> origOptions = info.getOptionDescriptors();
+        Map<String, SerializableOptionDescriptor> options = new HashMap<>(origOptions.size());
+        for (Map.Entry<String, ? extends IOptionDescriptor<?>> entry : origOptions.entrySet()) {
+            options.put(
+                    entry.getKey(),
+                    SerializableOptionDescriptor.fromOptionDescriptor(entry.getValue()));
+        }
+
+        return new SerializableEventTypeInfo(name, typeId, description, category, options);
+    }
+
     @Override
     public int hashCode() {
         final int prime = 31;
@@ -78,22 +95,5 @@ public record SerializableEventTypeInfo(
                 && Objects.equals(name, other.name)
                 && Objects.equals(options, other.options)
                 && Objects.equals(typeId, other.typeId);
-    }
-
-    public static SerializableEventTypeInfo fromEventTypeInfo(IEventTypeInfo info) {
-        var name = info.getName();
-        var typeId = info.getEventTypeID().getFullKey();
-        var description = info.getDescription();
-        var category = info.getHierarchicalCategory();
-
-        Map<String, ? extends IOptionDescriptor<?>> origOptions = info.getOptionDescriptors();
-        Map<String, SerializableOptionDescriptor> options = new HashMap<>(origOptions.size());
-        for (Map.Entry<String, ? extends IOptionDescriptor<?>> entry : origOptions.entrySet()) {
-            options.put(
-                    entry.getKey(),
-                    SerializableOptionDescriptor.fromOptionDescriptor(entry.getValue()));
-        }
-
-        return new SerializableEventTypeInfo(name, typeId, description, category, options);
     }
 }

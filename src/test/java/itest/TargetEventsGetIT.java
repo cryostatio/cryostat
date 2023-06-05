@@ -114,7 +114,7 @@ public class TargetEventsGetIT extends StandardSelfTest {
     public void testGetTargetEventsV2WithQueryReturnsRequestedEvents() throws Exception {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
-                .get(String.format("%s?q=WebServerRequest", SEARCH_REQ_URL))
+                .get(String.format("%s?q=TargetConnectionOpened", SEARCH_REQ_URL))
                 .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
@@ -130,8 +130,9 @@ public class TargetEventsGetIT extends StandardSelfTest {
                 Matchers.startsWith(HttpMimeType.JSON.mime()));
 
         LinkedHashMap<String, Object> expectedResults = new LinkedHashMap<String, Object>();
-        expectedResults.put("name", "Web Server Request");
-        expectedResults.put("typeId", "io.cryostat.net.web.WebServer.WebServerRequest");
+        expectedResults.put("name", "Target Connection Status");
+        expectedResults.put(
+                "typeId", "io.cryostat.net.TargetConnectionManager.TargetConnectionOpened");
         expectedResults.put("description", null);
         expectedResults.put("category", List.of("Cryostat"));
         expectedResults.put(
