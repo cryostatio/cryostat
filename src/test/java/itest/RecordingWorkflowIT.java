@@ -76,7 +76,10 @@ public class RecordingWorkflowIT extends StandardSelfTest {
         // Check preconditions
         CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
         webClient
-                .get(String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded()))
+                .get(
+                        String.format(
+                                "/api/v1/targets/%s/recordings",
+                                getSelfReferenceConnectUrlEncoded()))
                 .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
@@ -97,7 +100,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             webClient
                     .post(
                             String.format(
-                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded()))
+                                    "/api/v1/targets/%s/recordings",
+                                    getSelfReferenceConnectUrlEncoded()))
                     .basicAuthentication("user", "pass")
                     .sendForm(
                             form,
@@ -113,7 +117,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             webClient
                     .get(
                             String.format(
-                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded()))
+                                    "/api/v1/targets/%s/recordings",
+                                    getSelfReferenceConnectUrlEncoded()))
                     .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
@@ -157,7 +162,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             webClient
                     .get(
                             String.format(
-                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded()))
+                                    "/api/v1/targets/%s/recordings",
+                                    getSelfReferenceConnectUrlEncoded()))
                     .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
@@ -207,7 +213,8 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             webClient
                     .get(
                             String.format(
-                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded()))
+                                    "/api/v1/targets/%s/recordings",
+                                    getSelfReferenceConnectUrlEncoded()))
                     .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
