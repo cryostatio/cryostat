@@ -249,7 +249,8 @@ public abstract class StandardSelfTest {
             return false;
         }
         HttpResponse<T> response = result.result();
-        if (!HttpStatusCodeIdentifier.isSuccessCode(response.statusCode())) {
+        if (!HttpStatusCodeIdentifier.isSuccessCode(response.statusCode())
+                && !HttpStatusCodeIdentifier.isRedirectCode(response.statusCode())) {
             System.err.println("HTTP " + response.statusCode() + ": " + response.statusMessage());
             future.completeExceptionally(
                     new HttpException(response.statusCode(), response.statusMessage()));
