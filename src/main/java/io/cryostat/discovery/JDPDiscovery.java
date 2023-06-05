@@ -110,6 +110,9 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     }
 
     void onStop(@Observes ShutdownEvent evt) {
+        if (!enabled) {
+            return;
+        }
         logger.info("Shutting down JDP client");
         jdp.stop();
         jdp.removeListener(this);
