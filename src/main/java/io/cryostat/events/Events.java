@@ -73,7 +73,11 @@ public class Events {
         logger.info(connectUrl.toString());
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v3/targets/%d/events?q=%s", target.id, q)))
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/events%s",
+                                        target.id, q == null ? "" : "?q=" + q)))
                 .build();
     }
 
@@ -81,22 +85,7 @@ public class Events {
     @Path("/api/v2/targets/{connectUrl}/events")
     @RolesAllowed("read")
     public V2Response listEventsV2(@RestPath URI connectUrl, @RestQuery String q) throws Exception {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        List<SerializableEventTypeInfo> events =
-                connectionManager.executeConnectedTask(
-                        target,
-                        connection ->
-                                connection.getService().getAvailableEventTypes().stream()
-                                        .filter(
-                                                evt ->
-                                                        StringUtils.isBlank(q)
-                                                                || eventMatchesSearchTerm(
-                                                                        evt, q.toLowerCase()))
-                                        .map(SerializableEventTypeInfo::fromEventTypeInfo)
-                                        .sorted((a, b) -> a.typeId().compareTo(b.typeId()))
-                                        .distinct()
-                                        .toList());
-        return V2Response.json(events);
+        return V2Response.json(searchEvents(Target.getTargetByConnectUrl(connectUrl), q));
     }
 
     @GET
@@ -104,7 +93,10 @@ public class Events {
     @RolesAllowed("read")
     public List<SerializableEventTypeInfo> listEvents(@RestPath long id, @RestQuery String q)
             throws Exception {
-        Target target = Target.find("id", id).singleResult();
+        return searchEvents(Target.find("id", id).singleResult(), q);
+    }
+
+    private List<SerializableEventTypeInfo> searchEvents(Target target, String q) throws Exception {
         return connectionManager.executeConnectedTask(
                 target,
                 connection ->
