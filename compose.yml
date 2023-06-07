@@ -17,9 +17,8 @@ services:
   #     MINIO_ROOT_PASSWORD: minioroot
   #     MINIO_DEFAULT_BUCKETS: archivedrecordings
   #   volumes:
-  #     - minio_data:/data
-  #     - minio_certs:/certs
-  minio:
+
+  s3:
     image: docker.io/minio/minio:latest
     hostname: minio
     ports:
@@ -27,8 +26,9 @@ services:
       - "9000:9000"
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: minioroot
-      MINIO_ROOT_PASSWORD: minioroot
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioroot}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioroot}
+      MINIO_DEFAULT_BUCKETS: archivedrecordings
     volumes:
       - minio_data:/data
       - minio_certs:/certs
@@ -90,7 +90,7 @@ services:
   cryostat:
     depends_on:
       - db
-      - minio
+      - s3
     image: quay.io/cryostat/cryostat3:dev
     hostname: cryostat3
     expose:
@@ -105,12 +105,12 @@ services:
       QUARKUS_DATASOURCE_USERNAME: cryostat3
       QUARKUS_DATASOURCE_PASSWORD: cryostat3
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://db:5432/cryostat3
-      QUARKUS_MINIO_URL: http://minio:9000
-        # create access key in minio console by visiting http://localhost:9001
-        # `podman-compose up minio` may be useful to start minio first to create
-        # these secrets, then `export MINIO_ACCESS=abcd ; export MINIO_SECRET=1234 ; podman-compose up`
-      QUARKUS_MINIO_ACCESS_KEY: ${MINIO_ACCESS:-minioroot}
-      QUARKUS_MINIO_SECRET_KEY: ${MINIO_SECRET:-minioroot}
+      STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
+      QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:9000
+      QUARKUS_S3_AWS_REGION: us-east-1
+      QUARKUS_S3_AWS_CREDENTIALS_TYPE: default
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioroot}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioroot}
       CRYOSTAT_JDP_ENABLED: "true"
       JAVA_OPTS_APPEND: "-XX:+FlightRecorder -XX:StartFlightRecording=name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false"
     restart: unless-stopped
