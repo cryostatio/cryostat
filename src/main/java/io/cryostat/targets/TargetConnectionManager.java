@@ -43,6 +43,7 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -80,8 +81,8 @@ public class TargetConnectionManager {
     private final Executor executor;
     private final Logger logger;
 
-    private final AsyncLoadingCache<Target, JFRConnection> connections;
-    private final Map<Target, Object> targetLocks;
+    private final AsyncLoadingCache<URI, JFRConnection> connections;
+    private final Map<URI, Object> targetLocks;
     private final Optional<Semaphore> semaphore;
 
     @Inject
@@ -105,7 +106,7 @@ public class TargetConnectionManager {
             this.semaphore = Optional.empty();
         }
 
-        Caffeine<Target, JFRConnection> cacheBuilder =
+        Caffeine<URI, JFRConnection> cacheBuilder =
                 Caffeine.newBuilder()
                         .executor(executor)
                         .scheduler(Scheduler.systemScheduler())
@@ -128,36 +129,39 @@ public class TargetConnectionManager {
         // some additional insurance in case a target disappears and the underlying JMX network
         // connection doesn't immediately report itself as closed
         if (EventKind.LOST.equals(event.kind())) {
-            for (Target target : connections.asMap().keySet()) {
-                if (Objects.equals(target.id, event.serviceRef().id)) {
-                    connections.synchronous().invalidate(target);
+            for (URI uri : connections.asMap().keySet()) {
+                if (Objects.equals(uri, event.serviceRef().connectUrl)) {
+                    connections.synchronous().invalidate(uri);
                 }
             }
         }
     }
 
     public <T> Uni<T> executeConnectedTaskAsync(Target target, ConnectedTask<T> task) {
-        synchronized (targetLocks.computeIfAbsent(target, k -> new Object())) {
-            return Uni.createFrom()
-                    .completionStage(
-                            connections
-                                    .get(target)
-                                    .thenApplyAsync(
-                                            conn -> {
-                                                try {
+        return Uni.createFrom()
+                .completionStage(
+                        connections
+                                .get(target.connectUrl)
+                                .thenApplyAsync(
+                                        conn -> {
+                                            try {
+                                                synchronized (
+                                                        targetLocks.computeIfAbsent(
+                                                                target.connectUrl,
+                                                                k -> new Object())) {
                                                     return task.execute(conn);
-                                                } catch (Exception e) {
-                                                    logger.error("Connection failure", e);
-                                                    throw new CompletionException(e);
                                                 }
-                                            },
-                                            executor));
-        }
+                                            } catch (Exception e) {
+                                                logger.error("Connection failure", e);
+                                                throw new CompletionException(e);
+                                            }
+                                        },
+                                        executor));
     }
 
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) throws Exception {
-        synchronized (targetLocks.computeIfAbsent(target, k -> new Object())) {
-            return task.execute(connections.get(target).get());
+        synchronized (targetLocks.computeIfAbsent(target.connectUrl, k -> new Object())) {
+            return task.execute(connections.get(target.connectUrl).get());
         }
     }
 
@@ -175,12 +179,12 @@ public class TargetConnectionManager {
      *     cache, true if it is still active and was refreshed
      */
     public boolean markConnectionInUse(Target target) {
-        return connections.getIfPresent(target) != null;
+        return connections.getIfPresent(target.connectUrl) != null;
     }
 
-    private void closeConnection(Target target, JFRConnection connection, RemovalCause cause) {
-        if (target == null) {
-            logger.error("Connection eviction triggered with null target");
+    private void closeConnection(URI connectUrl, JFRConnection connection, RemovalCause cause) {
+        if (connectUrl == null) {
+            logger.error("Connection eviction triggered with null connectUrl");
             return;
         }
         if (connection == null) {
@@ -188,13 +192,12 @@ public class TargetConnectionManager {
             return;
         }
         try {
-            TargetConnectionClosed evt =
-                    new TargetConnectionClosed(target.connectUrl, cause.name());
-            logger.infov("Removing cached connection for {0}: {1}", target.connectUrl, cause);
+            TargetConnectionClosed evt = new TargetConnectionClosed(connectUrl, cause.name());
+            logger.infov("Removing cached connection for {0}: {1}", connectUrl, cause);
             evt.begin();
             try {
                 connection.close();
-                targetLocks.remove(target);
+                targetLocks.remove(connectUrl);
             } catch (RuntimeException e) {
                 evt.setExceptionThrown(true);
                 throw e;
@@ -215,24 +218,23 @@ public class TargetConnectionManager {
         }
     }
 
-    private JFRConnection connect(Target target) throws Exception {
-        var uri = target.connectUrl;
-        TargetConnectionOpened evt = new TargetConnectionOpened(uri.toString());
+    private JFRConnection connect(URI connectUrl) throws Exception {
+        TargetConnectionOpened evt = new TargetConnectionOpened(connectUrl.toString());
         evt.begin();
         try {
             if (semaphore.isPresent()) {
                 semaphore.get().acquire();
             }
 
-            if (target.isAgent()) {
-                return agentConnectionFactory.createConnection(uri);
+            if (Set.of("http", "https", "cryostat-agent").contains(connectUrl.getScheme())) {
+                return agentConnectionFactory.createConnection(connectUrl);
             }
             return jfrConnectionToolkit.connect(
-                    new JMXServiceURL(uri.toString()),
+                    new JMXServiceURL(connectUrl.toString()),
                     null /* TODO get from credentials storage */,
                     Collections.singletonList(
                             () -> {
-                                this.connections.synchronous().invalidate(target);
+                                this.connections.synchronous().invalidate(connectUrl);
                             }));
         } catch (Exception e) {
             evt.setExceptionThrown(true);
@@ -248,15 +250,15 @@ public class TargetConnectionManager {
         }
     }
 
-    private class ConnectionLoader implements AsyncCacheLoader<Target, JFRConnection> {
+    private class ConnectionLoader implements AsyncCacheLoader<URI, JFRConnection> {
 
         @Override
-        public CompletableFuture<JFRConnection> asyncLoad(Target key, Executor executor)
+        public CompletableFuture<JFRConnection> asyncLoad(URI key, Executor executor)
                 throws Exception {
             return CompletableFuture.supplyAsync(
                     () -> {
                         try {
-                            logger.infov("Opening connection to {0}", key.connectUrl);
+                            logger.infov("Opening connection to {0}", key);
                             return connect(key);
                         } catch (Exception e) {
                             throw new CompletionException(e);
@@ -267,13 +269,13 @@ public class TargetConnectionManager {
 
         @Override
         public CompletableFuture<JFRConnection> asyncReload(
-                Target key, JFRConnection prev, Executor executor) throws Exception {
+                URI key, JFRConnection prev, Executor executor) throws Exception {
             // if we're refreshed and already have an existing, open connection, just reuse it.
             if (prev.isConnected()) {
-                logger.infov("Reusing connection to {0}", key.connectUrl);
+                logger.infov("Reusing connection to {0}", key);
                 return CompletableFuture.completedFuture(prev);
             }
-            logger.infov("Refreshing connection to {0}", key.connectUrl);
+            logger.infov("Refreshing connection to {0}", key);
             return asyncLoad(key, executor);
         }
     }
