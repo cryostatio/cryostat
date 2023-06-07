@@ -104,6 +104,9 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
+import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.Delete;
@@ -516,6 +519,7 @@ public class Recordings {
         int mib = 1024 * 1024;
         String key = String.format("%s/%s", target.jvmId, filename);
         String multipartId = null;
+        List<Pair<Integer, String>> parts = new ArrayList<>();
         try (var stream = remoteRecordingStreamFactory.open(target, activeRecording);
                 var ch = Channels.newChannel(stream)) {
             ByteBuffer buf = ByteBuffer.allocate(20 * mib);
@@ -560,14 +564,17 @@ public class Recordings {
                     break;
                 }
                 logger.infov("Writing chunk {0} of {1} bytes", i, read);
-                storage.uploadPart(
-                        UploadPartRequest.builder()
-                                .bucket(archiveBucket)
-                                .key(key)
-                                .uploadId(multipartId)
-                                .partNumber(i)
-                                .build(),
-                        RequestBody.fromByteBuffer(buf));
+                String eTag =
+                        storage.uploadPart(
+                                        UploadPartRequest.builder()
+                                                .bucket(archiveBucket)
+                                                .key(key)
+                                                .uploadId(multipartId)
+                                                .partNumber(i)
+                                                .build(),
+                                        RequestBody.fromByteBuffer(buf))
+                                .eTag();
+                parts.add(Pair.of(i, eTag));
                 // S3 API limit
                 if (i == 10_000) {
                     throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
@@ -587,12 +594,28 @@ public class Recordings {
             }
             throw e;
         }
-        // storage.completeMultipartUpload(
-        //         CompleteMultipartUploadRequest.builder()
-        //                 .bucket(archiveBucket)
-        //                 .key(key)
-        //                 .uploadId(multipartId)
-        //                 .build());
+        storage.completeMultipartUpload(
+                CompleteMultipartUploadRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(key)
+                        .uploadId(multipartId)
+                        .multipartUpload(
+                                CompletedMultipartUpload.builder()
+                                        .parts(
+                                                parts.stream()
+                                                        .map(
+                                                                part ->
+                                                                        CompletedPart.builder()
+                                                                                .partNumber(
+                                                                                        part
+                                                                                                .getLeft())
+                                                                                .eTag(
+                                                                                        part
+                                                                                                .getRight())
+                                                                                .build())
+                                                        .toList())
+                                        .build())
+                        .build());
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(
