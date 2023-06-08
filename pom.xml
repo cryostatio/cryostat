@@ -31,7 +31,6 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
     <io.cryostat.core.version>2.21.0</io.cryostat.core.version>
-    <io.quarkiverse.minio.version>3.1.0.Final</io.quarkiverse.minio.version>
     <org.apache.commons.codec.version>1.15</org.apache.commons.codec.version>
     <org.apache.commons.io.version>2.11.0</org.apache.commons.io.version>
     <org.apache.httpcomponents.version>4.5.14</org.apache.httpcomponents.version>
@@ -111,11 +110,6 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-jdbc-postgresql</artifactId>
-    </dependency>
-    <dependency>
-      <groupId>io.quarkiverse.minio</groupId>
-      <artifactId>quarkus-minio</artifactId>
-      <version>${io.quarkiverse.minio.version}</version>
     </dependency>
     <dependency>
       <groupId>io.quarkiverse.amazonservices</groupId>
