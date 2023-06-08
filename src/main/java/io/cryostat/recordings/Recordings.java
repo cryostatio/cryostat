@@ -40,6 +40,7 @@ package io.cryostat.recordings;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
+import java.nio.charset.StandardCharsets;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -94,6 +95,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.Response;
 import jdk.jfr.RecordingState;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -140,6 +142,7 @@ public class Recordings {
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ScheduledExecutorService scheduler;
     @Inject ObjectMapper mapper;
+    private final Base64 base64Url = new Base64(true);
 
     @ConfigProperty(name = "storage.buckets.archives.name")
     String archiveBucket;
@@ -336,7 +339,6 @@ public class Recordings {
             filename = filename + ".jfr";
         }
         long filesize = recording.size();
-        logger.infov("Uploading {0} ({1} bytes) to S3 storage...", filename, filesize);
         storage.putObject(
                 PutObjectRequest.builder()
                         .bucket(archiveBucket)
@@ -476,7 +478,8 @@ public class Recordings {
                                             .bucket(archiveBucket)
                                             .key(key)
                                             .contentType(JFR_MIME)
-                                            .tagging(createRecordingTagging(activeRecording))
+                                            .tagging(
+                                                    createMetadataTagging(activeRecording.metadata))
                                             .build())
                             .uploadId();
             int read = 0;
@@ -850,25 +853,49 @@ public class Recordings {
                 });
     }
 
-    private Tagging createRecordingTagging(ActiveRecording recording) {
-        return createMetadataTagging(recording.metadata);
-    }
-
     private Tagging createMetadataTagging(Metadata metadata) {
         // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
-        // return Tagging.builder()
-        //         .tagSet(
-        //                 metadata.labels.entrySet().stream()
-        //                         .map(e ->
-        // Tag.builder().key(e.getKey()).value(e.getValue()).build())
-        //                         .toList())
-        //         .build();
-        return Tagging.builder().tagSet(List.of()).build();
+        return Tagging.builder()
+                .tagSet(
+                        metadata.labels.entrySet().stream()
+                                .map(
+                                        e ->
+                                                Tag.builder()
+                                                        .key(
+                                                                base64Url
+                                                                        .encodeAsString(
+                                                                                e.getKey()
+                                                                                        .getBytes())
+                                                                        .trim())
+                                                        // e.getKey())
+                                                        .value(
+                                                                base64Url
+                                                                        .encodeAsString(
+                                                                                e.getValue()
+                                                                                        .getBytes())
+                                                                        .trim())
+                                                        .build())
+                                .toList())
+                .build();
     }
 
     private Metadata taggingToMetadata(List<Tag> tagSet) {
         // TODO parse out other metadata than labels
-        return new Metadata(tagSet.stream().collect(Collectors.toMap(Tag::key, Tag::value)));
+        return new Metadata(
+                tagSet.stream()
+                        .map(
+                                tag ->
+                                        Pair.of(
+                                                new String(
+                                                                base64Url.decode(tag.key()),
+                                                                StandardCharsets.UTF_8)
+                                                        .trim(),
+                                                // tag.key(),
+                                                new String(
+                                                                base64Url.decode(tag.value()),
+                                                                StandardCharsets.UTF_8)
+                                                        .trim()))
+                        .collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
     }
 
     private Metadata getArchivedRecordingMetadata(String jvmId, String filename) {
