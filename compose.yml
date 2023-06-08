@@ -128,10 +128,10 @@ services:
       CRYOSTAT_AGENT_APP_NAME: "vertx-fib-demo-1"
       CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL: "true"
       CRYOSTAT_AGENT_WEBCLIENT_SSL_VERIFY_HOSTNAME: "false"
-      CRYOSTAT_AGENT_WEBSERVER_HOST: "localhost"
+      CRYOSTAT_AGENT_WEBSERVER_HOST: "sample-app"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8910"
-      CRYOSTAT_AGENT_CALLBACK: "http://localhost:8910/"
-      CRYOSTAT_AGENT_BASEURI: "http://localhost:8181/"
+      CRYOSTAT_AGENT_CALLBACK: "http://sample-app:8910/"
+      CRYOSTAT_AGENT_BASEURI: "http://cryostat:8181/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
       CRYOSTAT_AGENT_AUTHORIZATION: "Basic dXNlcjpwYXNz"
     ports:
