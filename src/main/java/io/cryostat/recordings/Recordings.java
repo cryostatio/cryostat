@@ -583,12 +583,14 @@ public class Recordings {
         } catch (Exception e) {
             logger.error("Could not upload recording to S3 storage", e);
             try {
-                storage.abortMultipartUpload(
-                        AbortMultipartUploadRequest.builder()
-                                .bucket(archiveBucket)
-                                .key(key)
-                                .uploadId(multipartId)
-                                .build());
+                if (multipartId != null) {
+                    storage.abortMultipartUpload(
+                            AbortMultipartUploadRequest.builder()
+                                    .bucket(archiveBucket)
+                                    .key(key)
+                                    .uploadId(multipartId)
+                                    .build());
+                }
             } catch (Exception e2) {
                 logger.error("Could not abort S3 multipart upload", e2);
             }
