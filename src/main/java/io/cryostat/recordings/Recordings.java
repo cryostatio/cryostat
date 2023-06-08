@@ -180,19 +180,7 @@ public class Recordings {
                             String[] parts = path.split("/");
                             String jvmId = parts[0];
                             String filename = parts[1];
-                            Metadata metadata =
-                                    new Metadata(
-                                            storage
-                                                    .getObjectTagging(
-                                                            GetObjectTaggingRequest.builder()
-                                                                    .bucket(archiveBucket)
-                                                                    .key(path)
-                                                                    .build())
-                                                    .tagSet()
-                                                    .stream()
-                                                    .collect(
-                                                            Collectors.toMap(
-                                                                    Tag::key, Tag::value)));
+                            Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
                             result.add(
                                     new ArchivedRecording(
                                             filename,
@@ -306,19 +294,7 @@ public class Recordings {
                         item -> {
                             String objectName = item.key();
                             String filename = objectName.split("/")[1];
-                            Metadata metadata =
-                                    new Metadata(
-                                            storage
-                                                    .getObjectTagging(
-                                                            GetObjectTaggingRequest.builder()
-                                                                    .bucket(archiveBucket)
-                                                                    .key(objectName)
-                                                                    .build())
-                                                    .tagSet()
-                                                    .stream()
-                                                    .collect(
-                                                            Collectors.toMap(
-                                                                    Tag::key, Tag::value)));
+                            Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
                             result.add(
                                     new ArchivedRecording(
                                             filename,
@@ -366,18 +342,7 @@ public class Recordings {
                         .bucket(archiveBucket)
                         .key(String.format("%s/%s", jvmId, filename))
                         .contentType(JFR_MIME)
-                        .tagging(
-                                Tagging.builder()
-                                        .tagSet(
-                                                metadata.labels.entrySet().stream()
-                                                        .map(
-                                                                e ->
-                                                                        Tag.builder()
-                                                                                .key(e.getKey())
-                                                                                .value(e.getValue())
-                                                                                .build())
-                                                        .toList())
-                                        .build())
+                        .tagging(createMetadataTagging(metadata))
                         .build(),
                 RequestBody.fromFile(recording.filePath()));
         logger.info("Upload complete");
@@ -422,39 +387,19 @@ public class Recordings {
                             String path = item.key();
                             String[] parts = path.split("/");
                             String jvmId = parts[0];
-                            List<Tag> tags =
-                                    storage.getObjectTagging(
-                                                    GetObjectTaggingRequest.builder()
-                                                            .bucket(archiveBucket)
-                                                            .key(path)
-                                                            .build())
-                                            .tagSet();
+                            String filename = parts[1];
+
+                            Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
+
                             String connectUrl =
-                                    tags.stream()
-                                            .map(Tag::key)
-                                            .filter(key -> key.equals("connectUrl"))
-                                            .findFirst()
-                                            .orElseGet(() -> "lost-" + jvmId);
+                                    metadata.labels.computeIfAbsent(
+                                            "connectUrl", k -> "lost-" + jvmId);
                             var dir =
                                     map.computeIfAbsent(
                                             jvmId,
                                             id ->
                                                     new ArchivedRecordingDirectory(
                                                             connectUrl, id, new ArrayList<>()));
-                            String filename = parts[1];
-                            Metadata metadata =
-                                    new Metadata(
-                                            storage
-                                                    .getObjectTagging(
-                                                            GetObjectTaggingRequest.builder()
-                                                                    .bucket(archiveBucket)
-                                                                    .key(path)
-                                                                    .build())
-                                                    .tagSet()
-                                                    .stream()
-                                                    .collect(
-                                                            Collectors.toMap(
-                                                                    Tag::key, Tag::value)));
                             dir.recordings.add(
                                     new ArchivedRecording(
                                             filename,
@@ -531,29 +476,7 @@ public class Recordings {
                                             .bucket(archiveBucket)
                                             .key(key)
                                             .contentType(JFR_MIME)
-                                            .tagging(
-                                                    // TODO attach other metadata than labels
-                                                    // somehow
-                                                    Tagging.builder()
-                                                            .tagSet(
-                                                                    activeRecording
-                                                                            .metadata
-                                                                            .labels
-                                                                            .entrySet()
-                                                                            .stream()
-                                                                            .map(
-                                                                                    e ->
-                                                                                            Tag
-                                                                                                    .builder()
-                                                                                                    .key(
-                                                                                                            e
-                                                                                                                    .getKey())
-                                                                                                    .value(
-                                                                                                            e
-                                                                                                                    .getValue())
-                                                                                                    .build())
-                                                                            .toList())
-                                                            .build())
+                                            .tagging(createRecordingTagging(activeRecording))
                                             .build())
                             .uploadId();
             int read = 0;
@@ -810,7 +733,7 @@ public class Recordings {
     @POST
     @Path("/api/v1/targets/{connectUrl}/recordings")
     @RolesAllowed("write")
-    public LinkedRecordingDescriptor createRecordingV1(
+    public Response createRecordingV1(
             @RestPath URI connectUrl,
             @RestForm String recordingName,
             @RestForm String events,
@@ -821,17 +744,13 @@ public class Recordings {
             @RestForm Optional<String> metadata,
             @RestForm Optional<Boolean> archiveOnStop)
             throws Exception {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return createRecording(
-                target.id,
-                recordingName,
-                events,
-                duration,
-                archiveOnStop,
-                maxAge,
-                maxSize,
-                metadata,
-                archiveOnStop);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/recordings",
+                                        Target.getTargetByConnectUrl(connectUrl).id)))
+                .build();
     }
 
     @Transactional
@@ -881,19 +800,9 @@ public class Recordings {
     public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
             throws Exception {
 
-        var item =
-                storage.getObjectTagging(
-                        GetObjectTaggingRequest.builder()
-                                .bucket(archiveBucket)
-                                .key(String.format("%s/%s", jvmId, filename))
-                                .build());
+        var metadata = getArchivedRecordingMetadata(jvmId, filename);
 
-        String connectUrl =
-                item.tagSet().stream()
-                        .map(Tag::key)
-                        .filter(key -> key.equals("connectUrl"))
-                        .findFirst()
-                        .orElseGet(() -> "lost-" + jvmId);
+        String connectUrl = metadata.labels.computeIfAbsent("connectUrl", k -> "lost-" + jvmId);
         storage.deleteObject(
                 DeleteObjectRequest.builder()
                         .bucket(archiveBucket)
@@ -939,6 +848,37 @@ public class Recordings {
                             recordingOptionsBuilderFactory.create(connection.getService());
                     return getRecordingOptions(connection.getService(), builder);
                 });
+    }
+
+    private Tagging createRecordingTagging(ActiveRecording recording) {
+        return createMetadataTagging(recording.metadata);
+    }
+
+    private Tagging createMetadataTagging(Metadata metadata) {
+        // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
+        // return Tagging.builder()
+        //         .tagSet(
+        //                 metadata.labels.entrySet().stream()
+        //                         .map(e ->
+        // Tag.builder().key(e.getKey()).value(e.getValue()).build())
+        //                         .toList())
+        //         .build();
+        return Tagging.builder().tagSet(List.of()).build();
+    }
+
+    private Metadata taggingToMetadata(List<Tag> tagSet) {
+        // TODO parse out other metadata than labels
+        return new Metadata(tagSet.stream().collect(Collectors.toMap(Tag::key, Tag::value)));
+    }
+
+    private Metadata getArchivedRecordingMetadata(String jvmId, String filename) {
+        return taggingToMetadata(
+                storage.getObjectTagging(
+                                GetObjectTaggingRequest.builder()
+                                        .bucket(archiveBucket)
+                                        .key(String.format("%s/%s", jvmId, filename))
+                                        .build())
+                        .tagSet());
     }
 
     private static Map<String, Object> getRecordingOptions(
