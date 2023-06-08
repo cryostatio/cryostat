@@ -1,0 +1,48 @@
+version: "3"
+services:
+  db:
+    image: quay.io/cryostat/cryostat3-db:dev
+    build: ../../db
+    entrypoint:
+      - /usr/local/bin/docker-entrypoint.sh
+    command:
+      - postgres
+      - -c
+      - encrypt.key=${PG_ENCRYPT_KEY:-REPLACEME}
+    hostname: db
+    expose:
+      - "5432"
+    environment:
+      POSTGRES_USER: cryostat3
+      POSTGRES_PASSWORD: cryostat3
+    volumes:
+      - postgresql:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: pg_isready -U cryostat3 -d cryostat3 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
+  db-viewer:
+    depends_on:
+      - db
+    image: docker.io/dpage/pgadmin4:6
+    hostname: db-viewer
+    ports:
+      - "8989:8989"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@cryostat.io
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD:-admin}
+      PGADMIN_LISTEN_PORT: 8989
+    volumes:
+      - pgadmin:/var/lib/pgadmin
+      - ./servers.json:/pgadmin4/servers.json:z
+      # - ./smoketest/compose/pgpass:/pgpass:z
+    restart: unless-stopped
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:8989 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
