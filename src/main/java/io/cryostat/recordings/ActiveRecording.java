@@ -189,13 +189,11 @@ public class ActiveRecording extends PanacheEntity {
                 connectionManager.executeConnectedTask(
                         activeRecording.target,
                         conn -> {
-                            conn.getService().getAvailableRecordings().stream()
-                                    .filter(rec -> rec.getId() == activeRecording.remoteId)
-                                    .findFirst()
+                            Recordings.getDescriptorById(conn, activeRecording.remoteId)
                                     .ifPresent(
                                             d -> {
                                                 try {
-                                                    conn.getService().close(d);
+                                                    conn.getService().stop(d);
                                                 } catch (FlightRecorderException
                                                         | IOException
                                                         | ServiceNotAvailableException e) {

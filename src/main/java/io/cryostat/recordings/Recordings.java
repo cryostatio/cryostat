@@ -37,12 +37,10 @@
  */
 package io.cryostat.recordings;
 
-import java.io.BufferedInputStream;
-import java.io.IOException;
 import java.net.URI;
-import java.nio.file.Files;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.charset.StandardCharsets;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -53,9 +51,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
@@ -67,7 +65,6 @@ import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
 import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
-import io.cryostat.ProgressInputStream;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.Template;
@@ -75,27 +72,11 @@ import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.HttpStatusCodeIdentifier;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
-import io.minio.BucketExistsArgs;
-import io.minio.GetObjectTagsArgs;
-import io.minio.ListObjectsArgs;
-import io.minio.MakeBucketArgs;
-import io.minio.MinioClient;
-import io.minio.PutObjectArgs;
-import io.minio.RemoveObjectArgs;
-import io.minio.RemoveObjectsArgs;
-import io.minio.Result;
-import io.minio.StatObjectArgs;
-import io.minio.errors.ErrorResponseException;
-import io.minio.errors.InsufficientDataException;
-import io.minio.errors.InternalException;
-import io.minio.errors.InvalidResponseException;
-import io.minio.errors.ServerException;
-import io.minio.errors.XmlParserException;
-import io.minio.messages.DeleteObject;
-import io.minio.messages.Item;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.eventbus.EventBus;
@@ -114,6 +95,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.Response;
 import jdk.jfr.RecordingState;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -122,6 +104,26 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
+import software.amazon.awssdk.services.s3.model.CompletedPart;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.Delete;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
+import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.Tag;
+import software.amazon.awssdk.services.s3.model.Tagging;
+import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 
 @Path("")
 public class Recordings {
@@ -136,20 +138,35 @@ public class Recordings {
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
     @Inject Clock clock;
-    @Inject MinioClient minio;
+    @Inject S3Client storage;
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ScheduledExecutorService scheduler;
+    @Inject ObjectMapper mapper;
+    private final Base64 base64Url = new Base64(true);
 
-    @ConfigProperty(name = "minio.buckets.archives.name")
+    @ConfigProperty(name = "storage.buckets.archives.name")
     String archiveBucket;
 
     void onStart(@Observes StartupEvent evt) {
+        boolean exists = false;
         try {
-            if (!minio.bucketExists(BucketExistsArgs.builder().bucket(archiveBucket).build())) {
-                minio.makeBucket(MakeBucketArgs.builder().bucket(archiveBucket).build());
-            }
+            exists =
+                    HttpStatusCodeIdentifier.isSuccessCode(
+                            storage.headBucket(
+                                            HeadBucketRequest.builder()
+                                                    .bucket(archiveBucket)
+                                                    .build())
+                                    .sdkHttpResponse()
+                                    .statusCode());
         } catch (Exception e) {
-            logger.error(e);
+            logger.info(e);
+        }
+        if (!exists) {
+            try {
+                storage.createBucket(CreateBucketRequest.builder().bucket(archiveBucket).build());
+            } catch (Exception e) {
+                logger.error(e);
+            }
         }
     }
 
@@ -158,43 +175,23 @@ public class Recordings {
     @RolesAllowed("read")
     public List<ArchivedRecording> listArchivesV1() {
         var result = new ArrayList<ArchivedRecording>();
-        minio.listObjects(ListObjectsArgs.builder().bucket(archiveBucket).recursive(true).build())
+        storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
+                .contents()
                 .forEach(
-                        r -> {
-                            try {
-                                Item item = r.get();
-                                String path = item.objectName();
-                                String[] parts = path.split("/");
-                                String jvmId = parts[0];
-                                String filename = parts[1];
-                                Metadata metadata =
-                                        new Metadata(
-                                                minio.getObjectTags(
-                                                                GetObjectTagsArgs.builder()
-                                                                        .bucket(archiveBucket)
-                                                                        .object(path)
-                                                                        .build())
-                                                        .get());
-                                result.add(
-                                        new ArchivedRecording(
-                                                filename,
-                                                "TODO",
-                                                "TODO",
-                                                metadata,
-                                                item.size(),
-                                                item.lastModified().toEpochSecond()));
-                            } catch (InvalidKeyException
-                                    | ErrorResponseException
-                                    | IllegalArgumentException
-                                    | InsufficientDataException
-                                    | InternalException
-                                    | InvalidResponseException
-                                    | NoSuchAlgorithmException
-                                    | ServerException
-                                    | XmlParserException
-                                    | IOException e) {
-                                logger.error("Could not retrieve list of archived recordings", e);
-                            }
+                        item -> {
+                            String path = item.key();
+                            String[] parts = path.split("/");
+                            String jvmId = parts[0];
+                            String filename = parts[1];
+                            Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
+                            result.add(
+                                    new ArchivedRecording(
+                                            filename,
+                                            "TODO",
+                                            "TODO",
+                                            metadata,
+                                            item.size(),
+                                            item.lastModified().getEpochSecond()));
                         });
         return result;
     }
@@ -234,39 +231,16 @@ public class Recordings {
         logger.infov(
                 "recording:{0}, labels:{1}, maxFiles:{2}", recording.fileName(), labels, maxFiles);
         doUpload(recording, metadata, jvmId);
-        var objs = new ArrayList<Result<Item>>();
-        minio.listObjects(
-                        ListObjectsArgs.builder()
-                                .bucket(archiveBucket)
-                                .prefix(jvmId)
-                                .recursive(true)
-                                .build())
+        var objs = new ArrayList<S3Object>();
+        storage.listObjectsV2(
+                        ListObjectsV2Request.builder().bucket(archiveBucket).prefix(jvmId).build())
+                .contents()
                 .iterator()
                 .forEachRemaining(objs::add);
         var toRemove =
                 objs.stream()
-                        .map(
-                                r -> {
-                                    try {
-                                        return r.get();
-                                    } catch (IllegalArgumentException
-                                            | InvalidKeyException
-                                            | ErrorResponseException
-                                            | InsufficientDataException
-                                            | InternalException
-                                            | InvalidResponseException
-                                            | NoSuchAlgorithmException
-                                            | ServerException
-                                            | XmlParserException
-                                            | IOException e) {
-                                        logger.warn("Could not retrieve file modification time", e);
-                                        return null;
-                                    }
-                                })
-                        .filter(Objects::nonNull)
                         .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
                         .skip(max)
-                        .map(r -> r.objectName())
                         .toList();
         if (toRemove.isEmpty()) {
             return;
@@ -285,29 +259,28 @@ public class Recordings {
                                         metadata,
                                         0 /*filesize*/,
                                         clock.getMonotonicTime()))));
-        minio.removeObjects(
-                        RemoveObjectsArgs.builder()
+        storage.deleteObjects(
+                        DeleteObjectsRequest.builder()
                                 .bucket(archiveBucket)
-                                .objects(toRemove.stream().map(DeleteObject::new).toList())
+                                .delete(
+                                        Delete.builder()
+                                                .objects(
+                                                        toRemove.stream()
+                                                                .map(S3Object::key)
+                                                                .map(
+                                                                        k ->
+                                                                                ObjectIdentifier
+                                                                                        .builder()
+                                                                                        .key(k)
+                                                                                        .build())
+                                                                .toList())
+                                                .build())
                                 .build())
+                .errors()
                 .forEach(
                         err -> {
-                            try {
-                                logger.errorv(
-                                        "Deletion failure: {0} due to {1}",
-                                        err.get().objectName(), err.get().message());
-                            } catch (InvalidKeyException
-                                    | ErrorResponseException
-                                    | IllegalArgumentException
-                                    | InsufficientDataException
-                                    | InternalException
-                                    | InvalidResponseException
-                                    | NoSuchAlgorithmException
-                                    | ServerException
-                                    | XmlParserException
-                                    | IOException e) {
-                                logger.error("Failed to retrieve remote error", e);
-                            }
+                            logger.errorv(
+                                    "Deletion failure: {0} due to {1}", err.key(), err.message());
                         });
     }
 
@@ -317,46 +290,22 @@ public class Recordings {
     @RolesAllowed("read")
     public List<ArchivedRecording> agentGet(@RestPath String jvmId) {
         var result = new ArrayList<ArchivedRecording>();
-        minio.listObjects(
-                        ListObjectsArgs.builder()
-                                .bucket(archiveBucket)
-                                .prefix(jvmId)
-                                .recursive(true)
-                                .build())
+        storage.listObjectsV2(
+                        ListObjectsV2Request.builder().bucket(archiveBucket).prefix(jvmId).build())
+                .contents()
                 .forEach(
-                        r -> {
-                            try {
-                                Item item = r.get();
-                                String objectName = item.objectName();
-                                String filename = objectName.split("/")[1];
-                                Metadata metadata =
-                                        new Metadata(
-                                                minio.getObjectTags(
-                                                                GetObjectTagsArgs.builder()
-                                                                        .bucket(archiveBucket)
-                                                                        .object(objectName)
-                                                                        .build())
-                                                        .get());
-                                result.add(
-                                        new ArchivedRecording(
-                                                filename,
-                                                "TODO",
-                                                "TODO",
-                                                metadata,
-                                                item.size(),
-                                                item.lastModified().toEpochSecond()));
-                            } catch (InvalidKeyException
-                                    | ErrorResponseException
-                                    | IllegalArgumentException
-                                    | InsufficientDataException
-                                    | InternalException
-                                    | InvalidResponseException
-                                    | NoSuchAlgorithmException
-                                    | ServerException
-                                    | XmlParserException
-                                    | IOException e) {
-                                logger.error("Could not retrieve list of archived recordings", e);
-                            }
+                        item -> {
+                            String objectName = item.key();
+                            String filename = objectName.split("/")[1];
+                            Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
+                            result.add(
+                                    new ArchivedRecording(
+                                            filename,
+                                            "TODO",
+                                            "TODO",
+                                            metadata,
+                                            item.size(),
+                                            item.lastModified().getEpochSecond()));
                         });
         return result;
     }
@@ -370,18 +319,15 @@ public class Recordings {
             @RestForm("recording") FileUpload recording,
             @RestForm("labels") JsonObject rawLabels)
             throws Exception {
-        minio.removeObject(
-                RemoveObjectArgs.builder()
+        storage.deleteObject(
+                DeleteObjectRequest.builder()
                         .bucket(archiveBucket)
-                        .object(String.format("%s/%s", jvmId, filename))
+                        .key(String.format("%s/%s", jvmId, filename))
                         .build());
     }
 
     @Blocking
-    Map<String, Object> doUpload(FileUpload recording, Metadata metadata, String jvmId)
-            throws InvalidKeyException, ErrorResponseException, InsufficientDataException,
-                    InternalException, InvalidResponseException, NoSuchAlgorithmException,
-                    ServerException, XmlParserException, IllegalArgumentException, IOException {
+    Map<String, Object> doUpload(FileUpload recording, Metadata metadata, String jvmId) {
         logger.infov(
                 "Upload: {0} {1} {2} {3}",
                 recording.name(), recording.fileName(), recording.filePath(), metadata.labels);
@@ -393,33 +339,14 @@ public class Recordings {
             filename = filename + ".jfr";
         }
         long filesize = recording.size();
-        logger.infov("Uploading {0} ({1} bytes) to Minio storage...", filename, filesize);
-        try (var stream =
-                new ProgressInputStream(
-                        new BufferedInputStream(Files.newInputStream(recording.filePath())),
-                        new Consumer<Integer>() {
-                            long total;
-
-                            @Override
-                            public void accept(Integer n) {
-                                total += n;
-                                logger.infov(
-                                        "Minio upload: {0}/{1} bytes ({2}%)",
-                                        total, filesize, (total * 100.0d) / filesize);
-                            }
-                        })) {
-            // TODO attach other metadata than labels somehow
-            long mib = 1024 * 1024;
-            minio.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(archiveBucket)
-                            .object(String.format("%s/%s", jvmId, filename))
-                            .contentType(JFR_MIME)
-                            .stream(stream, -1 /*filesize*/, 5 * mib)
-                            // FIXME invalid tag error from Minio?
-                            // .tags(metadata.labels)
-                            .build());
-        }
+        storage.putObject(
+                PutObjectRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(String.format("%s/%s", jvmId, filename))
+                        .contentType(JFR_MIME)
+                        .tagging(createMetadataTagging(metadata))
+                        .build(),
+                RequestBody.fromFile(recording.filePath()));
         logger.info("Upload complete");
         bus.publish(
                 MessagingServer.class.getName(),
@@ -443,10 +370,10 @@ public class Recordings {
     @RolesAllowed("write")
     @Blocking
     public void delete(@RestPath String filename) throws Exception {
-        minio.removeObject(
-                RemoveObjectArgs.builder()
+        storage.deleteObject(
+                DeleteObjectRequest.builder()
                         .bucket(archiveBucket)
-                        .object(String.format("%s/%s", "uploads", filename))
+                        .key(String.format("%s/%s", "uploads", filename))
                         .build());
     }
 
@@ -455,62 +382,34 @@ public class Recordings {
     @RolesAllowed("read")
     public Collection<ArchivedRecordingDirectory> listFsArchives() {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
-        minio.listObjects(
-                        ListObjectsArgs.builder()
-                                .bucket(archiveBucket)
-                                .recursive(true)
-                                .includeUserMetadata(true)
-                                .build())
+        storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
+                .contents()
                 .forEach(
-                        r -> {
-                            try {
-                                Item item = r.get();
-                                String path = item.objectName();
-                                String[] parts = path.split("/");
-                                String jvmId = parts[0];
-                                String connectUrl;
-                                if (item.userMetadata().containsKey("connectUrl")) {
-                                    // FIXME this is broken somehow - the userMetadata map is always
-                                    // empty
-                                    connectUrl = item.userMetadata().get("connectUrl");
-                                } else {
-                                    connectUrl = "lost-" + jvmId;
-                                }
-                                var dir =
-                                        map.computeIfAbsent(
-                                                jvmId,
-                                                id ->
-                                                        new ArchivedRecordingDirectory(
-                                                                connectUrl, id, new ArrayList<>()));
-                                String filename = parts[1];
-                                Metadata metadata =
-                                        new Metadata(
-                                                minio.getObjectTags(
-                                                                GetObjectTagsArgs.builder()
-                                                                        .bucket(archiveBucket)
-                                                                        .object(path)
-                                                                        .build())
-                                                        .get());
-                                dir.recordings.add(
-                                        new ArchivedRecording(
-                                                filename,
-                                                "TODO",
-                                                "TODO",
-                                                metadata,
-                                                item.size(),
-                                                item.lastModified().toEpochSecond()));
-                            } catch (InvalidKeyException
-                                    | ErrorResponseException
-                                    | IllegalArgumentException
-                                    | InsufficientDataException
-                                    | InternalException
-                                    | InvalidResponseException
-                                    | NoSuchAlgorithmException
-                                    | ServerException
-                                    | XmlParserException
-                                    | IOException e) {
-                                logger.error("Could not retrieve list of archived recordings", e);
-                            }
+                        item -> {
+                            String path = item.key();
+                            String[] parts = path.split("/");
+                            String jvmId = parts[0];
+                            String filename = parts[1];
+
+                            Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
+
+                            String connectUrl =
+                                    metadata.labels.computeIfAbsent(
+                                            "connectUrl", k -> "lost-" + jvmId);
+                            var dir =
+                                    map.computeIfAbsent(
+                                            jvmId,
+                                            id ->
+                                                    new ArchivedRecordingDirectory(
+                                                            connectUrl, id, new ArrayList<>()));
+                            dir.recordings.add(
+                                    new ArchivedRecording(
+                                            filename,
+                                            "TODO",
+                                            "TODO",
+                                            metadata,
+                                            item.size(),
+                                            item.lastModified().getEpochSecond()));
                         });
         return map.values();
     }
@@ -561,32 +460,92 @@ public class Recordings {
     }
 
     @Blocking
-    String saveRecording(Target target, ActiveRecording activeRecording)
-            throws ErrorResponseException, InsufficientDataException, InternalException,
-                    InvalidKeyException, InvalidResponseException, IOException,
-                    NoSuchAlgorithmException, ServerException, XmlParserException, Exception {
+    String saveRecording(Target target, ActiveRecording activeRecording) throws Exception {
         String timestamp =
                 clock.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =
                 String.format("%s_%s_%s.jfr", target.alias, activeRecording.name, timestamp);
-        long mib = 1024 * 1024;
-        try (var stream = remoteRecordingStreamFactory.open(target, activeRecording)) {
-            // TODO attach other metadata than labels somehow
-            minio.putObject(
-                    PutObjectArgs.builder()
-                            .bucket(archiveBucket)
-                            .object(String.format("%s/%s", target.jvmId, filename))
-                            .contentType(JFR_MIME)
-                            .stream(stream, -1, 5 * mib)
-                            .tags(activeRecording.metadata.labels())
-                            .userMetadata(
-                                    Map.of(
-                                            "connectUrl",
-                                            target.connectUrl.toString(),
-                                            "recordingName",
-                                            activeRecording.name))
-                            .build());
+        int mib = 1024 * 1024;
+        String key = String.format("%s/%s", target.jvmId, filename);
+        String multipartId = null;
+        List<Pair<Integer, String>> parts = new ArrayList<>();
+        try (var stream = remoteRecordingStreamFactory.open(target, activeRecording);
+                var ch = Channels.newChannel(stream)) {
+            ByteBuffer buf = ByteBuffer.allocate(20 * mib);
+            multipartId =
+                    storage.createMultipartUpload(
+                                    CreateMultipartUploadRequest.builder()
+                                            .bucket(archiveBucket)
+                                            .key(key)
+                                            .contentType(JFR_MIME)
+                                            .tagging(
+                                                    createMetadataTagging(activeRecording.metadata))
+                                            .build())
+                            .uploadId();
+            int read = 0;
+            long accum = 0;
+            for (int i = 1; i <= 10_000; i++) {
+                read = ch.read(buf);
+                accum += read;
+                if (read == -1) {
+                    logger.infov("Completed upload of {0} chunks ({1} bytes)", i - 1, accum);
+                    break;
+                }
+                logger.infov("Writing chunk {0} of {1} bytes", i, read);
+                String eTag =
+                        storage.uploadPart(
+                                        UploadPartRequest.builder()
+                                                .bucket(archiveBucket)
+                                                .key(key)
+                                                .uploadId(multipartId)
+                                                .partNumber(i)
+                                                .build(),
+                                        RequestBody.fromByteBuffer(buf))
+                                .eTag();
+                parts.add(Pair.of(i, eTag));
+                // S3 API limit
+                if (i == 10_000) {
+                    throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Could not upload recording to S3 storage", e);
+            try {
+                if (multipartId != null) {
+                    storage.abortMultipartUpload(
+                            AbortMultipartUploadRequest.builder()
+                                    .bucket(archiveBucket)
+                                    .key(key)
+                                    .uploadId(multipartId)
+                                    .build());
+                }
+            } catch (Exception e2) {
+                logger.error("Could not abort S3 multipart upload", e2);
+            }
+            throw e;
         }
+        storage.completeMultipartUpload(
+                CompleteMultipartUploadRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(key)
+                        .uploadId(multipartId)
+                        .multipartUpload(
+                                CompletedMultipartUpload.builder()
+                                        .parts(
+                                                parts.stream()
+                                                        .map(
+                                                                part ->
+                                                                        CompletedPart.builder()
+                                                                                .partNumber(
+                                                                                        part
+                                                                                                .getLeft())
+                                                                                .eTag(
+                                                                                        part
+                                                                                                .getRight())
+                                                                                .build())
+                                                        .toList())
+                                        .build())
+                        .build());
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(
@@ -634,7 +593,7 @@ public class Recordings {
             @RestForm Optional<Boolean> toDisk,
             @RestForm Optional<Long> maxAge,
             @RestForm Optional<Long> maxSize,
-            @RestForm Optional<String> metadata,
+            @RestForm("metadata") Optional<String> rawMetadata,
             @RestForm Optional<Boolean> archiveOnStop)
             throws Exception {
         if (StringUtils.isBlank(recordingName)) {
@@ -674,12 +633,11 @@ public class Recordings {
                             if (maxSize.isPresent()) {
                                 optionsBuilder.maxSize(maxSize.get());
                             }
-                            // if (attrs.contains("metadata")) {
-                            //     metadata =
-                            //             gson.fromJson(
-                            //                     attrs.get("metadata"),
-                            //                     new TypeToken<Metadata>() {}.getType());
-                            // }
+                            Map<String, String> labels = new HashMap<>();
+                            if (rawMetadata.isPresent()) {
+                                labels.putAll(
+                                        mapper.readValue(rawMetadata.get(), Metadata.class).labels);
+                            }
                             IConstrainedMap<String> recordingOptions = optionsBuilder.build();
 
                             Pair<String, TemplateType> template =
@@ -700,13 +658,9 @@ public class Recordings {
                                                             templateName,
                                                             preferredTemplateType));
 
-                            Metadata meta =
-                                    new Metadata(
-                                            Map.of(
-                                                    "template.name",
-                                                    templateName,
-                                                    "template.type",
-                                                    preferredTemplateType.name()));
+                            labels.put("template.name", templateName);
+                            labels.put("template.type", preferredTemplateType.name());
+                            Metadata meta = new Metadata(labels);
                             return new LinkedRecordingDescriptor(
                                     desc.getId(),
                                     mapState(desc),
@@ -729,7 +683,7 @@ public class Recordings {
 
         if (recording.duration > 0) {
             scheduler.schedule(
-                    () -> stopRecording(target.id, recording.id, archiveOnStop.orElse(false)),
+                    () -> stopRecording(target.id, recording.remoteId, archiveOnStop.orElse(false)),
                     recording.duration,
                     TimeUnit.MILLISECONDS);
         }
@@ -782,7 +736,7 @@ public class Recordings {
     @POST
     @Path("/api/v1/targets/{connectUrl}/recordings")
     @RolesAllowed("write")
-    public LinkedRecordingDescriptor createRecordingV1(
+    public Response createRecordingV1(
             @RestPath URI connectUrl,
             @RestForm String recordingName,
             @RestForm String events,
@@ -793,17 +747,13 @@ public class Recordings {
             @RestForm Optional<String> metadata,
             @RestForm Optional<Boolean> archiveOnStop)
             throws Exception {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return createRecording(
-                target.id,
-                recordingName,
-                events,
-                duration,
-                archiveOnStop,
-                maxAge,
-                maxSize,
-                metadata,
-                archiveOnStop);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/recordings",
+                                        Target.getTargetByConnectUrl(connectUrl).id)))
+                .build();
     }
 
     @Transactional
@@ -853,22 +803,13 @@ public class Recordings {
     public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
             throws Exception {
 
-        var item =
-                minio.statObject(
-                        StatObjectArgs.builder()
-                                .bucket(archiveBucket)
-                                .object(String.format("%s/%s", jvmId, filename))
-                                .build());
+        var metadata = getArchivedRecordingMetadata(jvmId, filename);
 
-        String connectUrl = "lost-" + jvmId;
-        if (item.userMetadata().containsKey("connectUrl")) {
-            // FIXME this is broken somehow - the userMetadata map is always empty
-            connectUrl = item.userMetadata().get("connectUrl");
-        }
-        minio.removeObject(
-                RemoveObjectArgs.builder()
+        String connectUrl = metadata.labels.computeIfAbsent("connectUrl", k -> "lost-" + jvmId);
+        storage.deleteObject(
+                DeleteObjectRequest.builder()
                         .bucket(archiveBucket)
-                        .object(String.format("%s/%s", jvmId, filename))
+                        .key(String.format("%s/%s", jvmId, filename))
                         .build());
         bus.publish(
                 MessagingServer.class.getName(),
@@ -910,6 +851,61 @@ public class Recordings {
                             recordingOptionsBuilderFactory.create(connection.getService());
                     return getRecordingOptions(connection.getService(), builder);
                 });
+    }
+
+    private Tagging createMetadataTagging(Metadata metadata) {
+        // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
+        return Tagging.builder()
+                .tagSet(
+                        metadata.labels.entrySet().stream()
+                                .map(
+                                        e ->
+                                                Tag.builder()
+                                                        .key(
+                                                                base64Url
+                                                                        .encodeAsString(
+                                                                                e.getKey()
+                                                                                        .getBytes())
+                                                                        .trim())
+                                                        // e.getKey())
+                                                        .value(
+                                                                base64Url
+                                                                        .encodeAsString(
+                                                                                e.getValue()
+                                                                                        .getBytes())
+                                                                        .trim())
+                                                        .build())
+                                .toList())
+                .build();
+    }
+
+    private Metadata taggingToMetadata(List<Tag> tagSet) {
+        // TODO parse out other metadata than labels
+        return new Metadata(
+                tagSet.stream()
+                        .map(
+                                tag ->
+                                        Pair.of(
+                                                new String(
+                                                                base64Url.decode(tag.key()),
+                                                                StandardCharsets.UTF_8)
+                                                        .trim(),
+                                                // tag.key(),
+                                                new String(
+                                                                base64Url.decode(tag.value()),
+                                                                StandardCharsets.UTF_8)
+                                                        .trim()))
+                        .collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
+    }
+
+    private Metadata getArchivedRecordingMetadata(String jvmId, String filename) {
+        return taggingToMetadata(
+                storage.getObjectTagging(
+                                GetObjectTaggingRequest.builder()
+                                        .bucket(archiveBucket)
+                                        .key(String.format("%s/%s", jvmId, filename))
+                                        .build())
+                        .tagSet());
     }
 
     private static Map<String, Object> getRecordingOptions(
