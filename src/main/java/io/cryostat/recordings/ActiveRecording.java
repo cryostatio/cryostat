@@ -193,7 +193,7 @@ public class ActiveRecording extends PanacheEntity {
                                     .ifPresent(
                                             d -> {
                                                 try {
-                                                    conn.getService().close(d);
+                                                    conn.getService().stop(d);
                                                 } catch (FlightRecorderException
                                                         | IOException
                                                         | ServiceNotAvailableException e) {
