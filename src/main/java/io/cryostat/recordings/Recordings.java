@@ -729,7 +729,7 @@ public class Recordings {
 
         if (recording.duration > 0) {
             scheduler.schedule(
-                    () -> stopRecording(target.id, recording.id, archiveOnStop.orElse(false)),
+                    () -> stopRecording(target.id, recording.remoteId, archiveOnStop.orElse(false)),
                     recording.duration,
                     TimeUnit.MILLISECONDS);
         }
