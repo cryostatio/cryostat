@@ -75,6 +75,7 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.eventbus.EventBus;
@@ -138,6 +139,7 @@ public class Recordings {
     @Inject S3Client storage;
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ScheduledExecutorService scheduler;
+    @Inject ObjectMapper mapper;
 
     @ConfigProperty(name = "storage.buckets.archives.name")
     String archiveBucket;
@@ -665,7 +667,7 @@ public class Recordings {
             @RestForm Optional<Boolean> toDisk,
             @RestForm Optional<Long> maxAge,
             @RestForm Optional<Long> maxSize,
-            @RestForm Optional<String> metadata,
+            @RestForm("metadata") Optional<String> rawMetadata,
             @RestForm Optional<Boolean> archiveOnStop)
             throws Exception {
         if (StringUtils.isBlank(recordingName)) {
@@ -705,12 +707,11 @@ public class Recordings {
                             if (maxSize.isPresent()) {
                                 optionsBuilder.maxSize(maxSize.get());
                             }
-                            // if (attrs.contains("metadata")) {
-                            //     metadata =
-                            //             gson.fromJson(
-                            //                     attrs.get("metadata"),
-                            //                     new TypeToken<Metadata>() {}.getType());
-                            // }
+                            Map<String, String> labels = new HashMap<>();
+                            if (rawMetadata.isPresent()) {
+                                labels.putAll(
+                                        mapper.readValue(rawMetadata.get(), Metadata.class).labels);
+                            }
                             IConstrainedMap<String> recordingOptions = optionsBuilder.build();
 
                             Pair<String, TemplateType> template =
@@ -731,13 +732,9 @@ public class Recordings {
                                                             templateName,
                                                             preferredTemplateType));
 
-                            Metadata meta =
-                                    new Metadata(
-                                            Map.of(
-                                                    "template.name",
-                                                    templateName,
-                                                    "template.type",
-                                                    preferredTemplateType.name()));
+                            labels.put("template.name", templateName);
+                            labels.put("template.type", preferredTemplateType.name());
+                            Metadata meta = new Metadata(labels);
                             return new LinkedRecordingDescriptor(
                                     desc.getId(),
                                     mapState(desc),
