@@ -4,7 +4,25 @@ This project uses Quarkus, the Supersonic Subatomic Java Framework.
 
 If you want to learn more about Quarkus, please visit its website: https://quarkus.io/ .
 
-## Running the application in dev mode
+## Container Engines
+
+Development on this project is primarily done using `podman`, though things *should* generally work when using `docker`
+as well. For ease and convenience it is suggested to use `podman` with the following configurations:
+
+```bash
+$ systemctl --user enable --now podman.socket
+```
+
+`~/.bashrc` (or equivalent shell configuration)
+```bash
+export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
+```
+
+```bash
+$ sudo dnf install podman-docker
+```
+
+## Prerequisites
 
 ```bash
 git submodule init && git submodule update
@@ -12,6 +30,12 @@ cd src/main/webui
 yarn install && yarn yarn:frzinstall
 cd -
 ```
+
+```bash
+$ sh db/build.sh
+```
+
+## Running the application in dev mode
 
 You can run your application in dev mode that enables live coding using:
 ```bash
@@ -84,7 +108,7 @@ The next testing step is to build and package Cryostat into a container and run 
 
 ```bash
 quarkus build
-docker-compose up
+sh smoketest.sh
 ```
 
 This will build the container image, then spin it up along with required services within a Podman pod.
@@ -93,7 +117,7 @@ Data is persisted between runs in Podman volumes.
 The next testing step is to run this same container setup in k8s.
 
 ```bash
-cd smoketest
+cd smoketest/k8s
 sh smoketest.sh kind # if you use `kind` and want to spin up a cluster, otherwise skip this if you have another cluster accessible via `kubectl`
 IMAGE_REPOSITORY=$QUAY_USERNAME sh smoketest.sh generate apply
 sh smoketest.sh forward # if you need to use port-forwarding to get access to the cluster's services
