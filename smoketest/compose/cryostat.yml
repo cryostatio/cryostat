@@ -2,8 +2,10 @@ version: "3"
 services:
   cryostat:
     depends_on:
-      - db
-      - s3
+      db:
+        condition: service_healthy
+      s3:
+        condition: service_healthy
     image: quay.io/cryostat/cryostat3:dev
     hostname: cryostat3
     expose:
