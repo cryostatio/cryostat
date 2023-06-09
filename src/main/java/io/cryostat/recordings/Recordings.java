@@ -38,9 +38,11 @@
 package io.cryostat.recordings;
 
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -115,6 +117,7 @@ import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
@@ -124,6 +127,9 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
 @Path("")
 public class Recordings {
@@ -139,10 +145,11 @@ public class Recordings {
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
     @Inject Clock clock;
     @Inject S3Client storage;
+    @Inject S3Presigner presigner;
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ScheduledExecutorService scheduler;
     @Inject ObjectMapper mapper;
-    private final Base64 base64Url = new Base64(true);
+    private final Base64 base64Url = new Base64(0, null, true);
 
     @ConfigProperty(name = "storage.buckets.archives.name")
     String archiveBucket;
@@ -181,13 +188,20 @@ public class Recordings {
                         item -> {
                             String path = item.key();
                             String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
+                            String jvmId = parts[0].strip();
+                            String filename = parts[1].strip();
                             Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
                             result.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "TODO",
+                                            "/api/v3/download/"
+                                                    + base64Url
+                                                            .encodeAsString(
+                                                                    (jvmId + "/" + filename)
+                                                                            .getBytes(
+                                                                                    StandardCharsets
+                                                                                            .UTF_8))
+                                                            .strip(),
                                             "TODO",
                                             metadata,
                                             item.size(),
@@ -219,6 +233,7 @@ public class Recordings {
             @RestForm("labels") JsonObject rawLabels,
             @RestForm("maxFiles") int maxFiles)
             throws Exception {
+        jvmId = jvmId.strip();
         int max = Integer.MAX_VALUE;
         if (maxFiles > 0) {
             max = maxFiles;
@@ -254,7 +269,19 @@ public class Recordings {
                                 URI.create(jvmId),
                                 new ArchivedRecording(
                                         recording.fileName(),
-                                        "TODO",
+                                        "/api/v3/download/"
+                                                + base64Url
+                                                        .encodeAsString(
+                                                                (jvmId
+                                                                                + "/"
+                                                                                + recording
+                                                                                        .fileName()
+                                                                                        .strip())
+                                                                        .strip()
+                                                                        .getBytes(
+                                                                                StandardCharsets
+                                                                                        .UTF_8))
+                                                        .strip(),
                                         "TODO",
                                         metadata,
                                         0 /*filesize*/,
@@ -296,12 +323,17 @@ public class Recordings {
                 .forEach(
                         item -> {
                             String objectName = item.key();
-                            String filename = objectName.split("/")[1];
+                            String filename = objectName.split("/")[1].strip();
                             Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
                             result.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "TODO",
+                                            "/api/v3/download"
+                                                    + base64Url.encodeAsString(
+                                                            (jvmId + "/" + filename)
+                                                                    .getBytes(
+                                                                            StandardCharsets
+                                                                                    .UTF_8)),
                                             "TODO",
                                             metadata,
                                             item.size(),
@@ -331,18 +363,18 @@ public class Recordings {
         logger.infov(
                 "Upload: {0} {1} {2} {3}",
                 recording.name(), recording.fileName(), recording.filePath(), metadata.labels);
-        String filename = recording.fileName();
+        String filename = recording.fileName().strip();
         if (StringUtils.isBlank(filename)) {
             throw new BadRequestException();
         }
         if (!filename.endsWith(".jfr")) {
             filename = filename + ".jfr";
         }
-        long filesize = recording.size();
+        String key = String.format("%s/%s", jvmId, filename);
         storage.putObject(
                 PutObjectRequest.builder()
                         .bucket(archiveBucket)
-                        .key(String.format("%s/%s", jvmId, filename))
+                        .key(key)
                         .contentType(JFR_MIME)
                         .tagging(createMetadataTagging(metadata))
                         .build(),
@@ -356,7 +388,12 @@ public class Recordings {
                                 URI.create(jvmId),
                                 new ArchivedRecording(
                                         filename,
-                                        "TODO",
+                                        "/api/v3/download/"
+                                                + base64Url
+                                                        .encodeAsString(
+                                                                key.getBytes(
+                                                                        StandardCharsets.UTF_8))
+                                                        .strip(),
                                         "TODO",
                                         metadata,
                                         0 /*filesize*/,
@@ -386,7 +423,7 @@ public class Recordings {
                 .contents()
                 .forEach(
                         item -> {
-                            String path = item.key();
+                            String path = item.key().strip();
                             String[] parts = path.split("/");
                             String jvmId = parts[0];
                             String filename = parts[1];
@@ -405,7 +442,12 @@ public class Recordings {
                             dir.recordings.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "TODO",
+                                            "/api/v3/download/"
+                                                    + base64Url
+                                                            .encodeAsString(
+                                                                    path.getBytes(
+                                                                            StandardCharsets.UTF_8))
+                                                            .strip(),
                                             "TODO",
                                             metadata,
                                             item.size(),
@@ -853,6 +895,26 @@ public class Recordings {
                 });
     }
 
+    @GET
+    @Path("/api/v3/download/{encodedKey}")
+    @RolesAllowed("read")
+    public Response redirectPresignedDownload(@RestPath String encodedKey)
+            throws URISyntaxException {
+        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8).strip();
+        logger.infov("Handling presigned download request for {0}", key);
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder().bucket(archiveBucket).key(key).build();
+        GetObjectPresignRequest presignRequest =
+                GetObjectPresignRequest.builder()
+                        .signatureDuration(Duration.ofMinutes(1))
+                        .getObjectRequest(getRequest)
+                        .build();
+        PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(presignedRequest.url().toURI())
+                .build();
+    }
+
     private Tagging createMetadataTagging(Metadata metadata) {
         // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
         return Tagging.builder()
@@ -866,14 +928,14 @@ public class Recordings {
                                                                         .encodeAsString(
                                                                                 e.getKey()
                                                                                         .getBytes())
-                                                                        .trim())
+                                                                        .strip())
                                                         // e.getKey())
                                                         .value(
                                                                 base64Url
                                                                         .encodeAsString(
                                                                                 e.getValue()
                                                                                         .getBytes())
-                                                                        .trim())
+                                                                        .strip())
                                                         .build())
                                 .toList())
                 .build();
@@ -889,12 +951,12 @@ public class Recordings {
                                                 new String(
                                                                 base64Url.decode(tag.key()),
                                                                 StandardCharsets.UTF_8)
-                                                        .trim(),
+                                                        .strip(),
                                                 // tag.key(),
                                                 new String(
                                                                 base64Url.decode(tag.value()),
                                                                 StandardCharsets.UTF_8)
-                                                        .trim()))
+                                                        .strip()))
                         .collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
     }
 
