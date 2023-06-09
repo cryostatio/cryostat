@@ -29,6 +29,7 @@ import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -357,7 +358,7 @@ public class RecordingHelper {
         String filename =
                 String.format("%s_%s_%s.jfr", transformedAlias, activeRecording.name, timestamp);
         int mib = 1024 * 1024;
-        String key = String.format("%s/%s", target.jvmId, filename);
+        String key = archivedRecordingKey(target.jvmId, filename);
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
         try (var stream = remoteRecordingStreamFactory.open(activeRecording);
@@ -368,7 +369,7 @@ public class RecordingHelper {
                             .bucket(archiveBucket)
                             .key(key)
                             .contentType(JFR_MIME)
-                            .tagging(createMetadataTagging(activeRecording.metadata));
+                            .tagging(createActiveRecordingTagging(activeRecording.metadata));
             if (expiry != null && expiry.isAfter(Instant.now())) {
                 builder = builder.expires(expiry);
             }
@@ -457,6 +458,11 @@ public class RecordingHelper {
                 new Notification(
                         "ActiveRecordingSaved",
                         new RecordingEvent(target.connectUrl, toExternalForm(activeRecording))));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        "ArchivedRecordingCreated",
+                        new RecordingEvent(target.connectUrl, activeRecording.toExternalForm())));
         return filename;
     }
 
@@ -547,7 +553,7 @@ public class RecordingHelper {
         storage.deleteObject(
                 DeleteObjectRequest.builder()
                         .bucket(archiveBucket)
-                        .key(String.format("%s/%s", jvmId, filename))
+                        .key(archivedRecordingKey(jvmId, filename))
                         .build());
         bus.publish(
                 MessagingServer.class.getName(),
@@ -557,7 +563,7 @@ public class RecordingHelper {
     }
 
     // Metadata
-    private Tagging createMetadataTagging(Metadata metadata) {
+    Tagging createMetadataTagging(Metadata metadata) {
         // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
         return Tagging.builder()
                 .tagSet(
@@ -647,6 +653,14 @@ public class RecordingHelper {
                                 throw new BadRequestException(e);
                             }
                         });
+    }
+
+    private Tagging createActiveRecordingTagging(ActiveRecording recording) {
+        Map<String, String> labels = new HashMap<>(recording.metadata.labels());
+        labels.put("connectUrl", recording.target.connectUrl.toString());
+        labels.put("jvmId", recording.target.jvmId);
+        Metadata metadata = new Metadata(labels);
+        return createMetadataTagging(metadata);
     }
 
     public enum RecordingReplace {

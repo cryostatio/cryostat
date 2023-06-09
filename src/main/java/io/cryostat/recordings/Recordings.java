@@ -102,7 +102,6 @@ import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
-import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
@@ -221,6 +220,7 @@ public class Recordings {
         if (rawLabels != null) {
             rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
         }
+        labels.put("jvmId", jvmId);
         Metadata metadata = new Metadata(labels);
         logger.infov(
                 "recording:{0}, labels:{1}, maxFiles:{2}", recording.fileName(), labels, maxFiles);
@@ -350,13 +350,15 @@ public class Recordings {
         if (!filename.endsWith(".jfr")) {
             filename = filename + ".jfr";
         }
+        Map<String, String> labels = new HashMap<>(metadata.labels);
+        labels.put("jvmId", jvmId);
         String key = recordingHelper.archivedRecordingKey(jvmId, filename);
         storage.putObject(
                 PutObjectRequest.builder()
                         .bucket(archiveBucket)
                         .key(key)
                         .contentType(RecordingHelper.JFR_MIME)
-                        .tagging(createMetadataTagging(metadata))
+                        .tagging(recordingHelper.createMetadataTagging(new Metadata(labels)))
                         .build(),
                 RequestBody.fromFile(recording.filePath()));
         logger.info("Upload complete");
@@ -832,33 +834,6 @@ public class Recordings {
                 .build();
     }
 
-    private Tagging createMetadataTagging(Metadata metadata) {
-        // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
-        return Tagging.builder()
-                .tagSet(
-                        metadata.labels.entrySet().stream()
-                                .map(
-                                        e ->
-                                                Tag.builder()
-                                                        .key(
-                                                                base64Url.encodeAsString(
-                                                                        e.getKey().getBytes()))
-                                                        .value(
-                                                                base64Url.encodeAsString(
-                                                                        e.getValue().getBytes()))
-                                                        .build())
-                                .toList())
-                .build();
-    }
-
-    private Metadata taggingToMetadata(List<Tag> tagSet) {
-        // TODO parse out other metadata than labels
-        return new Metadata(
-                tagSet.stream()
-                        .map(tag -> Pair.of(decodeBase64(tag.key()), decodeBase64(tag.value())))
-                        .collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
-    }
-
     private String decodeBase32(String encoded) {
         return new String(base32.decode(encoded), StandardCharsets.UTF_8);
     }
@@ -883,6 +858,14 @@ public class Recordings {
             logger.warn(nske);
             return Optional.empty();
         }
+    }
+
+    private Metadata taggingToMetadata(List<Tag> tagSet) {
+        // TODO parse out other metadata than labels
+        return new Metadata(
+                tagSet.stream()
+                        .map(tag -> Pair.of(decodeBase64(tag.key()), decodeBase64(tag.value())))
+                        .collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
     }
 
     private static Map<String, Object> getRecordingOptions(
