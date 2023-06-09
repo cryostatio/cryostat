@@ -1,30 +1,32 @@
 version: "3"
 services:
-   s3:
-     image: docker.io/localstack/localstack:1.4.0
-     hostname: s3
-     ports:
-       - "4566:4566"
-       - "4577:4577"
-     environment:
-       SERVICES: s3
-       START_WEB: 1
-       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-aws_access_key_id}
-       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-aws_secret_access_key}
-       DEFAULT_REGION: us-east-1
-       PORT_WEB_UI: 4577
-     volumes:
-       - ./localstack:/etc/localstack/init/ready.d:z
-       # this buckets.sh hook script isn't working for some reason. In the meantime, after spinning up the localstack instance, do:
-       # $ podman exec -it cryostat3_s3_1 /bin/bash
-       # $ awslocal s3 mb s3://archivedrecordings
-     labels:
-       kompose.service.expose: "s3"
-     restart: unless-stopped
-     healthcheck:
-       test: curl --fail http://localhost:4566 || exit 1
-       interval: 10s
-       retries: 3
-       start_period: 10s
-       timeout: 5s
-  
+  cryostat:
+    environment:
+      STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
+  s3:
+    image: docker.io/localstack/localstack:1.4.0
+    hostname: s3
+    ports:
+      - "4566:4566"
+      - "4577:4577"
+    environment:
+      SERVICES: s3
+      START_WEB: 1
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-aws_access_key_id}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-aws_secret_access_key}
+      DEFAULT_REGION: us-east-1
+      PORT_WEB_UI: 4577
+    volumes:
+      - ./localstack:/etc/localstack/init/ready.d:z
+      # this buckets.sh hook script isn't working for some reason. In the meantime, after spinning up the localstack instance, do:
+      # $ podman exec -it cryostat3_s3_1 /bin/bash
+      # $ awslocal s3 mb s3://archivedrecordings
+    labels:
+      kompose.service.expose: "s3"
+    restart: unless-stopped
+    healthcheck:
+      test: curl --fail http://localhost:4566 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
