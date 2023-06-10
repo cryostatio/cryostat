@@ -10,7 +10,7 @@ cleanup() {
         -f ./smoketest/compose/sample-apps.yml \
         -f ./smoketest/compose/cryostat.yml \
         down --volumes --remove-orphans
-    podman kill hoster || true
+    # podman kill hoster || true
     > ~/.hosts
 }
 trap cleanup EXIT

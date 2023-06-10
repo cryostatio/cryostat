@@ -129,6 +129,7 @@ You can verify that this setup works by running `smoketest.sh`, and then in anot
 ```bash
 $ LD_PRELOAD=$HOME/bin/libuserhosts.so ping cryostat
 $ LD_PRELOAD=$HOME/bin/libuserhosts.so curl http://cryostat:8181
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so firefox http://cryostat:8181
 ```
 
 The next testing step is to run this same container setup in k8s.
