@@ -33,7 +33,8 @@ services:
       timeout: 5s
   db-viewer:
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     image: docker.io/dpage/pgadmin4:6
     hostname: db-viewer
     ports:
