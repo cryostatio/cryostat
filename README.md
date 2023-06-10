@@ -107,12 +107,29 @@ automatic rebuilds and live-coding.
 The next testing step is to build and package Cryostat into a container and run it as a container.
 
 ```bash
-quarkus build
-sh smoketest.sh
+$ quarkus build ; podman image prune -f
+$ sh smoketest.sh
 ```
 
 This will build the container image, then spin it up along with required services within a Podman pod.
 Data is persisted between runs in Podman volumes.
+
+To make containers' names DNS-resolvable from the host machine, do:
+```bash
+$ git clone https://github.com/figiel/hosts libuserhosts
+$ cd libuserhosts
+$ make
+$ mkdir -p ~/bin
+$ cp libuserhosts.so ~/bin
+$ echo 'export LD_PRELOAD=$HOME/bin/libuserhosts.so' >> ~/.bashrc
+$ export LD_PRELOAD=$HOME/bin/libuserhosts.so
+```
+
+You can verify that this setup works by running `smoketest.sh`, and then in another terminal:
+```bash
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so ping cryostat
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so curl http://cryostat:8181
+```
 
 The next testing step is to run this same container setup in k8s.
 
