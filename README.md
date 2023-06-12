@@ -15,7 +15,7 @@ $ systemctl --user enable --now podman.socket
 
 `~/.bashrc` (or equivalent shell configuration)
 ```bash
-export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
+$ export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
 ```
 
 ```bash
@@ -25,10 +25,10 @@ $ sudo dnf install podman-docker
 ## Prerequisites
 
 ```bash
-git submodule init && git submodule update
-cd src/main/webui
-yarn install && yarn yarn:frzinstall
-cd -
+$ git submodule init && git submodule update
+$ cd src/main/webui
+$ yarn install && yarn yarn:frzinstall
+$ cd -
 ```
 
 ```bash
@@ -39,13 +39,13 @@ $ sh db/build.sh
 
 You can run your application in dev mode that enables live coding using:
 ```bash
-./mvnw compile quarkus:dev
+$ ./mvnw compile quarkus:dev
 ```
 
 or
 
 ```bash
-quarkus dev
+$ quarkus dev
 ```
 
 > **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at http://localhost:8181/q/dev/.
@@ -54,13 +54,13 @@ quarkus dev
 
 The application can be packaged using:
 ```bash
-./mvnw package
+$ ./mvnw package
 ```
 
 or
 
 ```bash
-quarkus build
+$ quarkus build
 ```
 
 It produces the `quarkus-run.jar` file in the `target/quarkus-app/` directory.
@@ -70,7 +70,7 @@ The application is now runnable using `java -jar target/quarkus-app/quarkus-run.
 
 If you want to build an _über-jar_, execute the following command:
 ```bash
-./mvnw package -Dquarkus.package.type=uber-jar
+$ ./mvnw package -Dquarkus.package.type=uber-jar
 ```
 
 The application, packaged as an _über-jar_, is now runnable using `java -jar target/*-runner.jar`.
@@ -79,18 +79,18 @@ The application, packaged as an _über-jar_, is now runnable using `java -jar ta
 
 You can create a native executable using: 
 ```bash
-./mvnw package -Pnative
+$ ./mvnw package -Pnative
 ```
 
 or
 
 ```bash
-quarkus build --native
+$ quarkus build --native
 ```
 
 Or, if you don't have GraalVM installed, you can run the native executable build in a container using: 
 ```bash
-./mvnw package -Pnative -Dquarkus.native.container-build=true
+$ ./mvnw package -Pnative -Dquarkus.native.container-build=true
 ```
 
 You can then execute your native executable with: `./target/cryostat3-3.0.0-SNAPSHOT-runner`
@@ -135,8 +135,8 @@ $ LD_PRELOAD=$HOME/bin/libuserhosts.so firefox http://cryostat:8181
 The next testing step is to run this same container setup in k8s.
 
 ```bash
-cd smoketest/k8s
-sh smoketest.sh kind # if you use `kind` and want to spin up a cluster, otherwise skip this if you have another cluster accessible via `kubectl`
-IMAGE_REPOSITORY=$QUAY_USERNAME sh smoketest.sh generate apply
-sh smoketest.sh forward # if you need to use port-forwarding to get access to the cluster's services
+$ cd smoketest/k8s
+$ sh smoketest.sh kind # if you use `kind` and want to spin up a cluster, otherwise skip this if you have another cluster accessible via `kubectl`
+$ IMAGE_REPOSITORY=$QUAY_USERNAME sh smoketest.sh generate apply
+$ sh smoketest.sh forward # if you need to use port-forwarding to get access to the cluster's services
 ```
