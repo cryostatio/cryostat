@@ -39,6 +39,7 @@
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.1.0.Final</quarkus.platform.version>
+    <quarkus-quinoa.version>2.0.4</quarkus-quinoa.version>
 
     <com.diffplug.spotless.maven.plugin.version>2.28.0</com.diffplug.spotless.maven.plugin.version>
     <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
@@ -93,7 +94,7 @@
     <dependency>
       <groupId>io.quarkiverse.quinoa</groupId>
       <artifactId>quarkus-quinoa</artifactId>
-      <version>2.0.3</version>
+      <version>${quarkus-quinoa.version}</version>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
