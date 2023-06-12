@@ -16,6 +16,7 @@ $ systemctl --user enable --now podman.socket
 `~/.bashrc` (or equivalent shell configuration)
 ```bash
 $ export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
+$ export TESTCONTAINERS_RYUK_DISABLED=true
 ```
 
 ```bash
