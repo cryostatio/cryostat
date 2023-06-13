@@ -32,6 +32,17 @@ $ yarn install && yarn yarn:frzinstall
 $ cd -
 ```
 
+Installing quarkus:
+```bash
+$ curl -Ls https://sh.jbang.dev | bash -s - trust add https://repo1.maven.org/maven2/io/quarkus/quarkus-cli/
+```
+
+Installing docker-compose:
+```bash
+$ sudo dnf install docker-compose
+```
+
+Initial build:
 ```bash
 $ sh db/build.sh
 ```
