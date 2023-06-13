@@ -42,6 +42,7 @@ Installing docker-compose:
 $ sudo dnf install docker-compose
 ```
 
+Initial build:
 ```bash
 $ sh db/build.sh
 ```
