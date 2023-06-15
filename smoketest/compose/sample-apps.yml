@@ -22,7 +22,7 @@ services:
       - "8081:8081"
     labels:
       io.cryostat.discovery: "true"
-      io.cryostat.jmxHost: "sample-app"
+      io.cryostat.jmxHost: "localhost"
       io.cryostat.jmxPort: "9093"
     restart: unless-stopped
     healthcheck:
