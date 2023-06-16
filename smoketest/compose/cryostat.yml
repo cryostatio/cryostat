@@ -8,8 +8,7 @@ services:
         condition: service_healthy
     image: quay.io/cryostat/cryostat3:dev
     volumes:
-      - $XDG_RUNTIME_DIR/podman/podman.sock:/run/user/0/podman/podman.sock:Z 
-      - $XDG_RUNTIME_DIR/docker.sock:/var/run/docker.sock:Z
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/user/0/podman/podman.sock:Z 
     hostname: cryostat3
     expose:
       - "9091"

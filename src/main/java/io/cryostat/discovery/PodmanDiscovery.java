@@ -119,8 +119,54 @@ public class PodmanDiscovery {
 
         logger.info("***STARTING PODMAN TEST");
         boolean serviceReachable = testPodmanApi();
-        logger.info("***REACHABLE????" + serviceReachable);
+        logger.info("***AVAILABLE????" + serviceReachable);
         queryContainers();
+        this.timerId =
+                vertx.setPeriodic(
+                        // TODO make this configurable
+                        10_000, unused -> queryContainers());
+    }
+
+    void onStop(@Observes ShutdownEvent evt) {
+        if (!enabled) {
+            return;
+        }
+        logger.info("Shutting down Podman client");
+        vertx.cancelTimer(timerId);
+    }
+
+    private boolean testPodmanApi() {
+        CompletableFuture<Boolean> result = new CompletableFuture<>();
+        URI requestPath = URI.create("http://d/info");
+        ForkJoinPool.commonPool()
+                .submit(
+                        () -> {
+                            webClient
+                                    .request(
+                                            HttpMethod.GET,
+                                            getSocket(),
+                                            80,
+                                            "localhost",
+                                            requestPath.toString())
+                                    .timeout(2_000L)
+                                    .as(BodyCodec.none())
+                                    .send(
+                                            ar -> {
+                                                if (ar.failed()) {
+                                                    Throwable t = ar.cause();
+                                                    logger.info("Podman API request failed", t);
+                                                    result.complete(false);
+                                                    return;
+                                                }
+                                                result.complete(true);
+                                            });
+                        });
+        try {
+            return result.get(2, TimeUnit.SECONDS);
+        } catch (InterruptedException | TimeoutException | ExecutionException e) {
+            logger.error(e);
+            return false;
+        }
     }
 
     private void queryContainers() {
@@ -169,56 +215,10 @@ public class PodmanDiscovery {
                         });
     }
 
-    private boolean testPodmanApi() {
-        CompletableFuture<Boolean> result = new CompletableFuture<>();
-        URI requestPath = URI.create("http://d/info");
-        ForkJoinPool.commonPool()
-                .submit(
-                        () -> {
-                            webClient
-                                    .request(
-                                            HttpMethod.GET,
-                                            getSocket(),
-                                            80,
-                                            "localhost",
-                                            requestPath.toString())
-                                    .timeout(2_000L)
-                                    .as(BodyCodec.none())
-                                    .send(
-                                            ar -> {
-                                                if (ar.failed()) {
-                                                    Throwable t = ar.cause();
-                                                    logger.info("Podman API request failed", t);
-                                                    result.complete(false);
-                                                    return;
-                                                }
-                                                result.complete(true);
-                                            });
-                        });
-        try {
-            return result.get(2, TimeUnit.SECONDS);
-        } catch (InterruptedException | TimeoutException | ExecutionException e) {
-            logger.error(e);
-            return false;
-        }
-    }
-
-    private static String getSocketPath() {
+    private static SocketAddress getSocket() {
         long uid = new UnixSystem().getUid();
         String socketPath = String.format("/run/user/%d/podman/podman.sock", uid);
-        return socketPath;
-    }
-
-    private static SocketAddress getSocket() {
-        return SocketAddress.domainSocketAddress(getSocketPath());
-    }
-
-    void onStop(@Observes ShutdownEvent evt) {
-        if (!enabled) {
-            return;
-        }
-        logger.info("Shutting down Podman client");
-        vertx.cancelTimer(timerId);
+        return SocketAddress.domainSocketAddress(socketPath);
     }
 
     @Transactional
