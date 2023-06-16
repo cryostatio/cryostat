@@ -37,6 +37,7 @@
  */
 package io.cryostat;
 
+import java.net.URI;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -45,10 +46,16 @@ import io.cryostat.core.sys.Clock;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import software.amazon.awssdk.regions.Region;
+import software.amazon.awssdk.services.s3.S3Configuration;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.utils.StringUtils;
 
 public class Producers {
 
     @Produces
+    @ApplicationScoped
     @DefaultBean
     public static Clock produceClock() {
         return new Clock();
@@ -59,5 +66,28 @@ public class Producers {
     @DefaultBean
     public static ScheduledExecutorService produceScheduledExecutorService() {
         return Executors.newSingleThreadScheduledExecutor();
+    }
+
+    @Produces
+    @ApplicationScoped
+    public static S3Presigner produceS3Presigner(
+            @ConfigProperty(name = "quarkus.s3.endpoint-override") String endpointOverride,
+            @ConfigProperty(name = "quarkus.s3.dualstack") boolean dualstack,
+            @ConfigProperty(name = "quarkus.s3.aws.region") String region,
+            @ConfigProperty(name = "quarkus.s3.path-style-access") boolean pathStyleAccess) {
+        S3Presigner.Builder builder =
+                S3Presigner.builder()
+                        .region(Region.of(region))
+                        .dualstackEnabled(dualstack)
+                        .serviceConfiguration(
+                                S3Configuration.builder()
+                                        .pathStyleAccessEnabled(pathStyleAccess)
+                                        .build());
+
+        if (StringUtils.isNotBlank(endpointOverride)) {
+            builder = builder.endpointOverride(URI.create(endpointOverride));
+        }
+
+        return builder.build();
     }
 }
