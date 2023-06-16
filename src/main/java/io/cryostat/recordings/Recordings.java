@@ -186,22 +186,20 @@ public class Recordings {
                 .contents()
                 .forEach(
                         item -> {
-                            String path = item.key();
+                            String path = item.key().strip();
                             String[] parts = path.split("/");
-                            String jvmId = parts[0].strip();
-                            String filename = parts[1].strip();
+                            String jvmId = parts[0];
+                            String filename = parts[1];
                             Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
                             result.add(
                                     new ArchivedRecording(
                                             filename,
                                             "/api/v3/download/"
-                                                    + base64Url
-                                                            .encodeAsString(
-                                                                    (jvmId + "/" + filename)
-                                                                            .getBytes(
-                                                                                    StandardCharsets
-                                                                                            .UTF_8))
-                                                            .strip(),
+                                                    + base64Url.encodeAsString(
+                                                            (jvmId + "/" + filename)
+                                                                    .getBytes(
+                                                                            StandardCharsets
+                                                                                    .UTF_8)),
                                             "TODO",
                                             metadata,
                                             item.size(),
@@ -270,18 +268,9 @@ public class Recordings {
                                 new ArchivedRecording(
                                         recording.fileName(),
                                         "/api/v3/download/"
-                                                + base64Url
-                                                        .encodeAsString(
-                                                                (jvmId
-                                                                                + "/"
-                                                                                + recording
-                                                                                        .fileName()
-                                                                                        .strip())
-                                                                        .strip()
-                                                                        .getBytes(
-                                                                                StandardCharsets
-                                                                                        .UTF_8))
-                                                        .strip(),
+                                                + base64Url.encodeAsString(
+                                                        (jvmId + "/" + recording.fileName().strip())
+                                                                .getBytes(StandardCharsets.UTF_8)),
                                         "TODO",
                                         metadata,
                                         0 /*filesize*/,
@@ -322,8 +311,8 @@ public class Recordings {
                 .contents()
                 .forEach(
                         item -> {
-                            String objectName = item.key();
-                            String filename = objectName.split("/")[1].strip();
+                            String objectName = item.key().strip();
+                            String filename = objectName.split("/")[1];
                             Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
                             result.add(
                                     new ArchivedRecording(
@@ -389,11 +378,8 @@ public class Recordings {
                                 new ArchivedRecording(
                                         filename,
                                         "/api/v3/download/"
-                                                + base64Url
-                                                        .encodeAsString(
-                                                                key.getBytes(
-                                                                        StandardCharsets.UTF_8))
-                                                        .strip(),
+                                                + base64Url.encodeAsString(
+                                                        key.getBytes(StandardCharsets.UTF_8)),
                                         "TODO",
                                         metadata,
                                         0 /*filesize*/,
@@ -443,11 +429,8 @@ public class Recordings {
                                     new ArchivedRecording(
                                             filename,
                                             "/api/v3/download/"
-                                                    + base64Url
-                                                            .encodeAsString(
-                                                                    path.getBytes(
-                                                                            StandardCharsets.UTF_8))
-                                                            .strip(),
+                                                    + base64Url.encodeAsString(
+                                                            path.getBytes(StandardCharsets.UTF_8)),
                                             "TODO",
                                             metadata,
                                             item.size(),
@@ -900,7 +883,7 @@ public class Recordings {
     @RolesAllowed("read")
     public Response redirectPresignedDownload(@RestPath String encodedKey)
             throws URISyntaxException {
-        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8).strip();
+        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
         logger.infov("Handling presigned download request for {0}", key);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder().bucket(archiveBucket).key(key).build();
@@ -924,18 +907,12 @@ public class Recordings {
                                         e ->
                                                 Tag.builder()
                                                         .key(
-                                                                base64Url
-                                                                        .encodeAsString(
-                                                                                e.getKey()
-                                                                                        .getBytes())
-                                                                        .strip())
+                                                                base64Url.encodeAsString(
+                                                                        e.getKey().getBytes()))
                                                         // e.getKey())
                                                         .value(
-                                                                base64Url
-                                                                        .encodeAsString(
-                                                                                e.getValue()
-                                                                                        .getBytes())
-                                                                        .strip())
+                                                                base64Url.encodeAsString(
+                                                                        e.getValue().getBytes()))
                                                         .build())
                                 .toList())
                 .build();
@@ -949,14 +926,12 @@ public class Recordings {
                                 tag ->
                                         Pair.of(
                                                 new String(
-                                                                base64Url.decode(tag.key()),
-                                                                StandardCharsets.UTF_8)
-                                                        .strip(),
+                                                        base64Url.decode(tag.key()),
+                                                        StandardCharsets.UTF_8),
                                                 // tag.key(),
                                                 new String(
-                                                                base64Url.decode(tag.value()),
-                                                                StandardCharsets.UTF_8)
-                                                        .strip()))
+                                                        base64Url.decode(tag.value()),
+                                                        StandardCharsets.UTF_8)))
                         .collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
     }
 
