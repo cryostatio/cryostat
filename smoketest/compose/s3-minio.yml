@@ -38,7 +38,3 @@ volumes:
     driver: local
   minio_certs:
     driver: local
-  postgresql:
-    driver: local
-  pgadmin:
-    driver: local
