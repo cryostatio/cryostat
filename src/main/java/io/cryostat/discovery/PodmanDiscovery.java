@@ -197,7 +197,7 @@ public class PodmanDiscovery {
         URI requestPath = URI.create("http://d/v3.0.0/libpod/containers/json");
         webClient
                 .request(HttpMethod.GET, getSocket(), 80, "localhost", requestPath.toString())
-                .addQueryParam("filters", gson.toJson(Map.of("label", List.of(DISCOVERY_LABEL))))
+                //.addQueryParam("filters", gson.toJson(Map.of("label", List.of(DISCOVERY_LABEL))))
                 .timeout(2_000L)
                 .as(BodyCodec.string())
                 .send(
@@ -211,7 +211,7 @@ public class PodmanDiscovery {
                                     gson.fromJson(
                                             ar.result().body(),
                                             new TypeToken<List<ContainerSpec>>() {}));
-                            logger.info("****result" + ar.result().body());
+                            logger.info("****result" + ar.result().body().toString());
                         });
     }
 

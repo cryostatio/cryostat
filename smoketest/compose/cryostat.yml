@@ -9,7 +9,10 @@ services:
     image: quay.io/cryostat/cryostat3:dev
     volumes:
       - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/user/0/podman/podman.sock:Z 
+    security_opt:
+      - label:disable
     hostname: cryostat3
+    user: "0"
     expose:
       - "9091"
     ports:
