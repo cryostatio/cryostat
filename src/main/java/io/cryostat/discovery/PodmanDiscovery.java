@@ -68,7 +68,7 @@ import com.google.gson.reflect.TypeToken;
 import com.sun.security.auth.module.UnixSystem;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
-import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.net.SocketAddress;
@@ -97,7 +97,7 @@ public class PodmanDiscovery {
     @Inject Vertx vertx;
     @Inject WebClient webClient;
     @Inject JFRConnectionToolkit connectionToolkit;
-    @Inject Gson gson;
+    @Inject Gson gson; // change to jackson
 
     @ConfigProperty(name = "cryostat.podman.enabled")
     boolean enabled;
@@ -146,19 +146,29 @@ public class PodmanDiscovery {
                     Set<ContainerSpec> added = new HashSet<>(updated);
                     added.removeAll(intersection);
 
-                    // does anything ever get modified in this scheme?
-                    // notifyAsyncTargetDiscovery(EventKind.MODIFIED, sr);
-
-                    logger.info("querying....");
                     containers.removeAll(removed);
-                    removed.stream()
-                            .filter(Objects::nonNull)
-                            .forEach(container -> handlePodmanEvent(container, EventKind.LOST));
+                    Infrastructure.getDefaultWorkerPool()
+                            .execute(
+                                    () ->
+                                            removed.stream()
+                                                    .filter(Objects::nonNull)
+                                                    .forEach(
+                                                            container ->
+                                                                    handlePodmanEvent(
+                                                                            container,
+                                                                            EventKind.LOST)));
 
                     containers.addAll(added);
-                    added.stream()
-                            .filter(Objects::nonNull)
-                            .forEach(container -> handlePodmanEvent(container, EventKind.FOUND));
+                    Infrastructure.getDefaultWorkerPool()
+                            .execute(
+                                    () ->
+                                            added.stream()
+                                                    .filter(Objects::nonNull)
+                                                    .forEach(
+                                                            container ->
+                                                                    handlePodmanEvent(
+                                                                            container,
+                                                                            EventKind.FOUND)));
                 });
     }
 
@@ -177,7 +187,6 @@ public class PodmanDiscovery {
                                 logger.error("Podman API request failed", t);
                                 return;
                             }
-                            logger.info("Podman connection success");
                             successHandler.accept(
                                     gson.fromJson(
                                             ar.result().body(),
@@ -216,9 +225,7 @@ public class PodmanDiscovery {
     }
 
     @Transactional
-    @Blocking
-    public synchronized void handlePodmanEvent(ContainerSpec desc, EventKind evtKind) {
-        logger.info("AYO IN HERE");
+    public void handlePodmanEvent(ContainerSpec desc, EventKind evtKind) {
         URI connectUrl;
         String hostname;
         int jmxPort;
