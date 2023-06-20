@@ -45,11 +45,12 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
@@ -58,15 +59,16 @@ import javax.management.remote.JMXServiceURL;
 
 import io.cryostat.URIUtil;
 import io.cryostat.core.net.JFRConnectionToolkit;
-import io.cryostat.core.net.discovery.JvmDiscoveryClient.JvmDiscoveryEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
+import io.cryostat.targets.Target.EventKind;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.sun.security.auth.module.UnixSystem;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.net.SocketAddress;
@@ -117,14 +119,8 @@ public class PodmanDiscovery {
             universe.persist();
         }
 
-        logger.info("***STARTING PODMAN TEST");
-        boolean serviceReachable = testPodmanApi();
-        logger.info("***AVAILABLE????" + serviceReachable);
         queryContainers();
-        this.timerId =
-                vertx.setPeriodic(
-                        // TODO make this configurable
-                        10_000, unused -> queryContainers());
+        this.timerId = vertx.setPeriodic(10_000, unused -> queryContainers());
     }
 
     void onStop(@Observes ShutdownEvent evt) {
@@ -133,40 +129,6 @@ public class PodmanDiscovery {
         }
         logger.info("Shutting down Podman client");
         vertx.cancelTimer(timerId);
-    }
-
-    private boolean testPodmanApi() {
-        CompletableFuture<Boolean> result = new CompletableFuture<>();
-        URI requestPath = URI.create("http://d/info");
-        ForkJoinPool.commonPool()
-                .submit(
-                        () -> {
-                            webClient
-                                    .request(
-                                            HttpMethod.GET,
-                                            getSocket(),
-                                            80,
-                                            "localhost",
-                                            requestPath.toString())
-                                    .timeout(2_000L)
-                                    .as(BodyCodec.none())
-                                    .send(
-                                            ar -> {
-                                                if (ar.failed()) {
-                                                    Throwable t = ar.cause();
-                                                    logger.info("Podman API request failed", t);
-                                                    result.complete(false);
-                                                    return;
-                                                }
-                                                result.complete(true);
-                                            });
-                        });
-        try {
-            return result.get(2, TimeUnit.SECONDS);
-        } catch (InterruptedException | TimeoutException | ExecutionException e) {
-            logger.error(e);
-            return false;
-        }
     }
 
     private void queryContainers() {
@@ -187,8 +149,16 @@ public class PodmanDiscovery {
                     // does anything ever get modified in this scheme?
                     // notifyAsyncTargetDiscovery(EventKind.MODIFIED, sr);
 
+                    logger.info("querying....");
                     containers.removeAll(removed);
+                    removed.stream()
+                            .filter(Objects::nonNull)
+                            .forEach(container -> handlePodmanEvent(container, EventKind.LOST));
+
                     containers.addAll(added);
+                    added.stream()
+                            .filter(Objects::nonNull)
+                            .forEach(container -> handlePodmanEvent(container, EventKind.FOUND));
                 });
     }
 
@@ -197,7 +167,7 @@ public class PodmanDiscovery {
         URI requestPath = URI.create("http://d/v3.0.0/libpod/containers/json");
         webClient
                 .request(HttpMethod.GET, getSocket(), 80, "localhost", requestPath.toString())
-                //.addQueryParam("filters", gson.toJson(Map.of("label", List.of(DISCOVERY_LABEL))))
+                .addQueryParam("filters", gson.toJson(Map.of("label", List.of(DISCOVERY_LABEL))))
                 .timeout(2_000L)
                 .as(BodyCodec.string())
                 .send(
@@ -207,12 +177,36 @@ public class PodmanDiscovery {
                                 logger.error("Podman API request failed", t);
                                 return;
                             }
+                            logger.info("Podman connection success");
                             successHandler.accept(
                                     gson.fromJson(
                                             ar.result().body(),
                                             new TypeToken<List<ContainerSpec>>() {}));
-                            logger.info("****result" + ar.result().body().toString());
                         });
+    }
+
+    private CompletableFuture<ContainerDetails> doPodmanInspectRequest(ContainerSpec container) {
+        logger.info("TRYING TO GET HOSTNAME");
+        CompletableFuture<ContainerDetails> result = new CompletableFuture<>();
+        URI requestPath =
+                URI.create(
+                        String.format("http://d/v3.0.0/libpod/containers/%s/json", container.Id));
+        webClient
+                .request(HttpMethod.GET, getSocket(), 80, "localhost", requestPath.toString())
+                .timeout(2_000L)
+                .as(BodyCodec.string())
+                .send(
+                        ar -> {
+                            if (ar.failed()) {
+                                Throwable t = ar.cause();
+                                logger.error("Podman API request failed", t);
+                                result.completeExceptionally(t);
+                                return;
+                            }
+                            result.complete(
+                                    gson.fromJson(ar.result().body(), ContainerDetails.class));
+                        });
+        return result;
     }
 
     private static SocketAddress getSocket() {
@@ -222,36 +216,70 @@ public class PodmanDiscovery {
     }
 
     @Transactional
-    public synchronized void handlePodmanEvent(JvmDiscoveryEvent evt) {
+    @Blocking
+    public synchronized void handlePodmanEvent(ContainerSpec desc, EventKind evtKind) {
+        logger.info("AYO IN HERE");
         URI connectUrl;
-        URI rmiTarget;
+        String hostname;
+        int jmxPort;
         try {
-            JMXServiceURL serviceUrl = evt.getJvmDescriptor().getJmxServiceUrl();
+            JMXServiceURL serviceUrl;
+            URI rmiTarget;
+            if (desc.Labels.containsKey(JMX_URL_LABEL)) {
+                serviceUrl = new JMXServiceURL(desc.Labels.get(JMX_URL_LABEL));
+                connectUrl = URI.create(serviceUrl.toString());
+                try {
+                    rmiTarget = URIUtil.getRmiTarget(serviceUrl);
+                    hostname = rmiTarget.getHost();
+                    jmxPort = rmiTarget.getPort();
+                } catch (IllegalArgumentException e) {
+                    hostname = serviceUrl.getHost();
+                    jmxPort = serviceUrl.getPort();
+                }
+            } else {
+                jmxPort = Integer.parseInt(desc.Labels.get(JMX_PORT_LABEL));
+                hostname = desc.Labels.get(JMX_HOST_LABEL);
+                if (hostname == null) {
+                    try {
+                        hostname =
+                                doPodmanInspectRequest(desc)
+                                        .get(2, TimeUnit.SECONDS)
+                                        .Config
+                                        .Hostname;
+                    } catch (InterruptedException | TimeoutException | ExecutionException e) {
+                        containers.remove(desc);
+                        logger.warn("Invalid Podman target observed", e);
+                        return;
+                    }
+                }
+            }
+            serviceUrl = connectionToolkit.createServiceURL(hostname, jmxPort);
             connectUrl = URI.create(serviceUrl.toString());
-            rmiTarget = URIUtil.getRmiTarget(serviceUrl);
         } catch (MalformedURLException | URISyntaxException e) {
+            containers.remove(desc);
             logger.warn("Invalid Podman target observed", e);
             return;
         }
+
+        logger.info("ConnectURL: " + connectUrl);
+
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
-        switch (evt.getEventKind()) {
+        switch (evtKind) {
             case FOUND:
                 Target target = new Target();
                 target.activeRecordings = new ArrayList<>();
                 target.connectUrl = connectUrl;
-                target.alias = evt.getJvmDescriptor().getMainClass();
-                target.labels = Map.of();
+                target.alias = Optional.ofNullable(desc.Names.get(0)).orElse(desc.Id);
+                target.labels = desc.Labels;
                 target.annotations = new Annotations();
                 target.annotations.cryostat.putAll(
                         Map.of(
                                 "REALM", // AnnotationKey.REALM,
                                 REALM,
-                                "JAVA_MAIN", // AnnotationKey.JAVA_MAIN,
-                                evt.getJvmDescriptor().getMainClass(),
                                 "HOST", // AnnotationKey.HOST,
-                                rmiTarget.getHost(),
+                                hostname,
                                 "PORT", // "AnnotationKey.PORT,
-                                Integer.toString(rmiTarget.getPort())));
+                                Integer.toString(jmxPort)));
 
                 DiscoveryNode node = DiscoveryNode.target(target);
 
@@ -268,7 +296,7 @@ public class PodmanDiscovery {
                 realm.persist();
                 break;
             default:
-                logger.warnv("Unknown Podman discovery event {0}", evt.getEventKind());
+                logger.warnv("Unknown Podman discovery event");
                 break;
         }
     }
@@ -287,5 +315,9 @@ public class PodmanDiscovery {
             List<PortSpec> Ports,
             long StartedAt,
             String State) {}
+
+    static record ContainerDetails(Config Config) {}
+
+    static record Config(String Hostname) {}
 }
 /* */
