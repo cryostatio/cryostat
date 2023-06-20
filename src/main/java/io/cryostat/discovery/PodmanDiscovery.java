@@ -195,7 +195,6 @@ public class PodmanDiscovery {
     }
 
     private CompletableFuture<ContainerDetails> doPodmanInspectRequest(ContainerSpec container) {
-        logger.info("TRYING TO GET HOSTNAME");
         CompletableFuture<ContainerDetails> result = new CompletableFuture<>();
         URI requestPath =
                 URI.create(
