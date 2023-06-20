@@ -268,8 +268,6 @@ public class PodmanDiscovery {
             return;
         }
 
-        logger.info("ConnectURL: " + connectUrl);
-
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         switch (evtKind) {
             case FOUND:
