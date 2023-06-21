@@ -139,6 +139,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
             return;
         }
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
+
         switch (evt.getEventKind()) {
             case FOUND:
                 Target target = new Target();

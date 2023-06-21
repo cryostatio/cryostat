@@ -63,6 +63,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.EventKind;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import com.sun.security.auth.module.UnixSystem;
@@ -78,6 +79,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -98,6 +100,7 @@ public class PodmanDiscovery {
     @Inject WebClient webClient;
     @Inject JFRConnectionToolkit connectionToolkit;
     @Inject Gson gson; // change to jackson
+    @Inject ObjectMapper mapper;
 
     @ConfigProperty(name = "cryostat.podman.enabled")
     boolean enabled;
@@ -268,40 +271,55 @@ public class PodmanDiscovery {
         }
 
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
-        switch (evtKind) {
-            case FOUND:
-                Target target = new Target();
-                target.activeRecordings = new ArrayList<>();
-                target.connectUrl = connectUrl;
-                target.alias = Optional.ofNullable(desc.Names.get(0)).orElse(desc.Id);
-                target.labels = desc.Labels;
-                target.annotations = new Annotations();
-                target.annotations.cryostat.putAll(
-                        Map.of(
-                                "REALM", // AnnotationKey.REALM,
-                                REALM,
-                                "HOST", // AnnotationKey.HOST,
-                                hostname,
-                                "PORT", // "AnnotationKey.PORT,
-                                Integer.toString(jmxPort)));
 
-                DiscoveryNode node = DiscoveryNode.target(target);
+        if (evtKind == EventKind.FOUND) {
+            Target target = new Target();
+            target.activeRecordings = new ArrayList<>();
+            target.connectUrl = connectUrl;
+            target.alias = Optional.ofNullable(desc.Names.get(0)).orElse(desc.Id);
+            target.labels = desc.Labels;
+            target.annotations = new Annotations();
+            target.annotations.cryostat.putAll(
+                    Map.of(
+                            "REALM", // AnnotationKey.REALM,
+                            REALM,
+                            "HOST", // AnnotationKey.HOST,
+                            hostname,
+                            "PORT", // "AnnotationKey.PORT,
+                            Integer.toString(jmxPort)));
 
-                target.discoveryNode = node;
+            DiscoveryNode node = DiscoveryNode.target(target);
+            target.discoveryNode = node;
+            String podName = desc.PodName;
+            logger.info("POD NAME ******" + podName);
+            DiscoveryNode pod = new DiscoveryNode();
+            if (StringUtils.isNotBlank(podName)) {
+                pod = DiscoveryNode.environment(podName, DiscoveryNode.POD);
+                if (!realm.children.contains(pod)) {
+                    pod.children.add(node);
+                    realm.children.add(pod);
+                } else {
+                    pod = DiscoveryNode.getPod(realm, podName).orElseThrow();
+                    pod.children.add(node);
+                }
+                pod.persist();
+            } else {
                 realm.children.add(node);
-                target.persist();
-                node.persist();
-                realm.persist();
-                break;
-            case LOST:
-                Target t = Target.getTargetByConnectUrl(connectUrl);
+            }
+            target.persist();
+            node.persist();
+            realm.persist();
+        } else {
+            Target t = Target.getTargetByConnectUrl(connectUrl);
+            String podName = desc.PodName;
+            if (StringUtils.isNotBlank(podName)) {
+                DiscoveryNode pod = DiscoveryNode.environment(podName, DiscoveryNode.POD);
+                pod.children.remove(t.discoveryNode);
+            } else {
                 realm.children.remove(t.discoveryNode);
-                t.delete();
-                realm.persist();
-                break;
-            default:
-                logger.warnv("Unknown Podman discovery event");
-                break;
+            }
+            t.delete();
+            realm.persist();
         }
     }
 

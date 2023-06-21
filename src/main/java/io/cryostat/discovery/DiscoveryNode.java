@@ -79,6 +79,7 @@ public class DiscoveryNode extends PanacheEntity {
     public static String NODE_TYPE = "nodeType";
     public static String UNIVERSE = "Universe";
     public static String REALM = "Realm";
+    public static String POD = "Pod";
 
     @Column(unique = false, nullable = false, updatable = false)
     @JsonView(Views.Flat.class)
@@ -119,6 +120,10 @@ public class DiscoveryNode extends PanacheEntity {
 
     public static Optional<DiscoveryNode> getRealm(String name) {
         return getUniverse().children.stream().filter(n -> name.equals(n.name)).findFirst();
+    }
+
+    public static Optional<DiscoveryNode> getPod(DiscoveryNode realm, String name) {
+        return realm.children.stream().filter(n -> name.equals(n.name)).findFirst();
     }
 
     public static DiscoveryNode environment(String name, String nodeType) {
