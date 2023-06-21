@@ -37,7 +37,6 @@
  */
 package io.cryostat.discovery;
 
-import com.google.gson.Gson;
 import io.quarkus.arc.DefaultBean;
 import io.vertx.core.Vertx;
 import io.vertx.ext.web.client.WebClient;
@@ -51,11 +50,5 @@ public class DiscoveryModule {
     @DefaultBean
     public WebClient provideWebClient(Vertx vertx) {
         return WebClient.create(vertx);
-    }
-
-    @Produces
-    @DefaultBean
-    public Gson provideGson() {
-        return new Gson();
     }
 }

@@ -63,9 +63,9 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.EventKind;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
-import com.google.gson.reflect.TypeToken;
 import com.sun.security.auth.module.UnixSystem;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
@@ -99,7 +99,6 @@ public class PodmanDiscovery {
     @Inject Vertx vertx;
     @Inject WebClient webClient;
     @Inject JFRConnectionToolkit connectionToolkit;
-    @Inject Gson gson; // change to jackson
     @Inject ObjectMapper mapper;
 
     @ConfigProperty(name = "cryostat.podman.enabled")
@@ -178,23 +177,35 @@ public class PodmanDiscovery {
     private void doPodmanListRequest(Consumer<List<ContainerSpec>> successHandler) {
         logger.info("Starting Podman client");
         URI requestPath = URI.create("http://d/v3.0.0/libpod/containers/json");
-        webClient
-                .request(HttpMethod.GET, getSocket(), 80, "localhost", requestPath.toString())
-                .addQueryParam("filters", gson.toJson(Map.of("label", List.of(DISCOVERY_LABEL))))
-                .timeout(2_000L)
-                .as(BodyCodec.string())
-                .send(
-                        ar -> {
-                            if (ar.failed()) {
-                                Throwable t = ar.cause();
-                                logger.error("Podman API request failed", t);
-                                return;
-                            }
-                            successHandler.accept(
-                                    gson.fromJson(
-                                            ar.result().body(),
-                                            new TypeToken<List<ContainerSpec>>() {}));
-                        });
+        try {
+            webClient
+                    .request(HttpMethod.GET, getSocket(), 80, "localhost", requestPath.toString())
+                    .addQueryParam(
+                            "filters",
+                            mapper.writeValueAsString(Map.of("label", List.of(DISCOVERY_LABEL))))
+                    .timeout(2_000L)
+                    .as(BodyCodec.string())
+                    .send(
+                            ar -> {
+                                if (ar.failed()) {
+                                    Throwable t = ar.cause();
+                                    logger.error("Podman API request failed", t);
+                                    return;
+                                }
+                                try {
+                                    successHandler.accept(
+                                            mapper.readValue(
+                                                    ar.result().body(),
+                                                    new TypeReference<List<ContainerSpec>>() {}));
+                                } catch (JsonProcessingException e) {
+                                    logger.error("Json processing error");
+                                    return;
+                                }
+                            });
+        } catch (JsonProcessingException e) {
+            logger.error("Json processing error");
+            return;
+        }
     }
 
     private CompletableFuture<ContainerDetails> doPodmanInspectRequest(ContainerSpec container) {
@@ -214,8 +225,14 @@ public class PodmanDiscovery {
                                 result.completeExceptionally(t);
                                 return;
                             }
-                            result.complete(
-                                    gson.fromJson(ar.result().body(), ContainerDetails.class));
+                            try {
+                                result.complete(
+                                        mapper.readValue(
+                                                ar.result().body(), ContainerDetails.class));
+                            } catch (JsonProcessingException e) {
+                                logger.error("Json processing error");
+                                return;
+                            }
                         });
         return result;
     }
