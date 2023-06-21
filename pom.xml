@@ -163,11 +163,6 @@
       <artifactId>netty-transport-native-kqueue</artifactId>
       <classifier>osx-x86_64</classifier>
     </dependency>
-    <dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
-      <version>${com.google.code.gson.version}</version>
-    </dependency>
 
 
     <dependency>
