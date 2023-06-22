@@ -49,6 +49,7 @@ import io.cryostat.targets.TargetConnectionManager;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.RestPath;
@@ -80,6 +81,24 @@ public class EventTemplates {
     }
 
     @GET
+    @Path("/api/v1/targets/{connectUrl}/templates/{templateName}/type/{templateType}")
+    @RolesAllowed("read")
+    public Response getTargetTemplateV1(
+            @RestPath URI connectUrl,
+            @RestPath String templateName,
+            @RestPath TemplateType templateType)
+            throws Exception {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/event_templates/%s/%s",
+                                        target.id, templateName, templateType)))
+                .build();
+    }
+
+    @GET
     @Path("/api/v3/targets/{id}/event_templates")
     @RolesAllowed("read")
     public List<Template> listTemplates(@RestPath long id) throws Exception {
@@ -92,5 +111,21 @@ public class EventTemplates {
                     list.add(ALL_EVENTS_TEMPLATE);
                     return list;
                 });
+    }
+
+    @GET
+    @Path("/api/v3/targets/{id}/event_templates/{templateName}/{templateType}")
+    @RolesAllowed("read")
+    public String getTargetTemplate(
+            @RestPath long id, @RestPath String templateName, @RestPath TemplateType templateType)
+            throws Exception {
+        Target target = Target.find("id", id).singleResult();
+        return connectionManager.executeConnectedTask(
+                target,
+                conn ->
+                        conn.getTemplateService()
+                                .getXml(templateName, templateType)
+                                .orElseThrow(NotFoundException::new)
+                                .toString());
     }
 }

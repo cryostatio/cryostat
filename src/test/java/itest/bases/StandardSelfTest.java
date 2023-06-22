@@ -296,6 +296,8 @@ public abstract class StandardSelfTest {
             HttpRequest<Buffer> request, String filename, String fileSuffix, MultiMap headers) {
         CompletableFuture<Path> future = new CompletableFuture<>();
         request.putHeaders(headers)
+                .basicAuthentication("user", "pass")
+                .followRedirects(true)
                 .send(
                         ar -> {
                             if (ar.failed()) {

@@ -35,7 +35,7 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package itest.util.http;
+package itest.util;
 
 public class V2Response<T> {
     public Meta meta;
