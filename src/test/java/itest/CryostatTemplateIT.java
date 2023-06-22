@@ -51,11 +51,9 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-@Disabled("TODO")
 public class CryostatTemplateIT extends StandardSelfTest {
 
     static File file;
@@ -65,9 +63,9 @@ public class CryostatTemplateIT extends StandardSelfTest {
         String url =
                 String.format(
                         "/api/v1/targets/%s/templates/Cryostat/type/TARGET",
-                        getSelfReferenceConnectUrl());
+                        getSelfReferenceConnectUrlEncoded());
         file =
-                downloadFile(url, "cryostat", "jfc")
+                downloadFile(url, "cryostat", ".jfc")
                         .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                         .toFile();
     }
