@@ -67,10 +67,11 @@ runDB() {
         --health-retries 3 \
         --health-start-period "10s" \
         --health-timeout "5s" \
+        --entrypoint /usr/local/bin/docker-entrypoint.sh \
         --env POSTGRES_USER="cryostat3" \
         --env POSTGRES_PASSWORD="cryostat3" \
         -v postgresql:/var/lib/postgresql/data \
-        --rm -it --entrypoint='/usr/local/bin/docker-entrypoint.sh quay.io/cryostat/cryostat3-db:dev postgres -c encrypt.key="${REPLACEME}"' \
+        --rm -d quay.io/cryostat/cryostat3-db:dev postgres -c encrypt.key="${PG_ENCRYPT_KEY:-REPLACEME}" 
 
 
     podman run \
