@@ -54,10 +54,6 @@ import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.utils.StringUtils;
 
-import io.vertx.core.Vertx;
-import io.vertx.ext.web.client.WebClient;
-
-
 public class Producers {
 
     @Produces
@@ -109,4 +105,3 @@ public class Producers {
         return builder.build();
     }
 }
-

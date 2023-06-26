@@ -50,7 +50,7 @@ runMinio() {
         --env MINIO_DEFAULT_BUCKETS="archivedrecordings" \
         -v minio_data:/data \
         -v minio_certs:/certs \
-        --rm -d docker.io/minio/minio:latest
+        --rm -d docker.io/minio/minio:latest server /data --console-address ":9001"
 }
 
 runDB() {
@@ -106,12 +106,12 @@ runSampleApps() {
         --env CRYOSTAT_AGENT_WEBCLIENT_SSL_VERIFY_HOSTNAME="false" \
         --env CRYOSTAT_AGENT_WEBSERVER_HOST="sample-app" \
         --env CRYOSTAT_AGENT_WEBSERVER_PORT="8910" \
-        --env CRYOSTAT_AGENT_CALLBACK="http://sample-app:8910/" \
+        --env CRYOSTAT_AGENT_CALLBACK="http://localhost:8910/" \
         --env CRYOSTAT_AGENT_BASEURI="http://cryostat:8181/" \
         --env CRYOSTAT_AGENT_TRUST_ALL="true" \
         --env CRYOSTAT_AGENT_AUTHORIZATION="Basic dXNlcjpwYXNz" \
         --label io.cryostat.discovery="true" \
-        --label io.cryostat.jmxHost="sample-app" \
+        --label io.cryostat.jmxHost="localhost" \
         --label io.cryostat.jmxPort="9093" \
         --rm -d quay.io/andrewazores/vertx-fib-demo:0.12.3
 
