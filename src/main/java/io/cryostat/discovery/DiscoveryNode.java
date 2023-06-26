@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
@@ -122,8 +123,9 @@ public class DiscoveryNode extends PanacheEntity {
         return getUniverse().children.stream().filter(n -> name.equals(n.name)).findFirst();
     }
 
-    public static Optional<DiscoveryNode> getPod(DiscoveryNode realm, String name) {
-        return realm.children.stream().filter(n -> name.equals(n.name)).findFirst();
+    public static Optional<DiscoveryNode> getChild(
+            DiscoveryNode node, Predicate<DiscoveryNode> predicate) {
+        return node.children.stream().filter(predicate).findFirst();
     }
 
     public static DiscoveryNode environment(String name, String nodeType) {

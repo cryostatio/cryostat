@@ -308,7 +308,6 @@ public class PodmanDiscovery {
             DiscoveryNode node = DiscoveryNode.target(target);
             target.discoveryNode = node;
             String podName = desc.PodName;
-            logger.info("POD NAME ******" + podName);
             DiscoveryNode pod = new DiscoveryNode();
             if (StringUtils.isNotBlank(podName)) {
                 pod = DiscoveryNode.environment(podName, DiscoveryNode.POD);
@@ -316,7 +315,13 @@ public class PodmanDiscovery {
                     pod.children.add(node);
                     realm.children.add(pod);
                 } else {
-                    pod = DiscoveryNode.getPod(realm, podName).orElseThrow();
+                    pod =
+                            DiscoveryNode.getChild(
+                                            realm,
+                                            n ->
+                                                    podName.equals(n.name)
+                                                            && DiscoveryNode.POD.equals(n.nodeType))
+                                    .orElseThrow();
                     pod.children.add(node);
                 }
                 pod.persist();
