@@ -20,6 +20,10 @@ services:
       CRYOSTAT_AGENT_AUTHORIZATION: "Basic dXNlcjpwYXNz"
     ports:
       - "8081:8081"
+    labels:
+      io.cryostat.discovery: "true"
+      io.cryostat.jmxHost: "sample-app"
+      io.cryostat.jmxPort: "9093"
     restart: unless-stopped
     healthcheck:
       test: curl --fail http://localhost:8081 || exit 1

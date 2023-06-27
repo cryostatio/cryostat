@@ -44,6 +44,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import io.cryostat.core.sys.Clock;
 
 import io.quarkus.arc.DefaultBean;
+import io.vertx.core.Vertx;
+import io.vertx.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -66,6 +68,12 @@ public class Producers {
     @DefaultBean
     public static ScheduledExecutorService produceScheduledExecutorService() {
         return Executors.newSingleThreadScheduledExecutor();
+    }
+
+    @Produces
+    @DefaultBean
+    public WebClient provideWebClient(Vertx vertx) {
+        return WebClient.create(vertx);
     }
 
     @Produces

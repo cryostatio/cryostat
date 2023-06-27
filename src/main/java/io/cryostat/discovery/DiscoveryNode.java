@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
@@ -79,6 +80,7 @@ public class DiscoveryNode extends PanacheEntity {
     public static String NODE_TYPE = "nodeType";
     public static String UNIVERSE = "Universe";
     public static String REALM = "Realm";
+    public static String POD = "Pod";
 
     @Column(unique = false, nullable = false, updatable = false)
     @JsonView(Views.Flat.class)
@@ -119,6 +121,11 @@ public class DiscoveryNode extends PanacheEntity {
 
     public static Optional<DiscoveryNode> getRealm(String name) {
         return getUniverse().children.stream().filter(n -> name.equals(n.name)).findFirst();
+    }
+
+    public static Optional<DiscoveryNode> getChild(
+            DiscoveryNode node, Predicate<DiscoveryNode> predicate) {
+        return node.children.stream().filter(predicate).findFirst();
     }
 
     public static DiscoveryNode environment(String name, String nodeType) {

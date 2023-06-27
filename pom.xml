@@ -92,6 +92,10 @@
       <artifactId>quarkus-smallrye-openapi</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.smallrye.reactive</groupId>
+      <artifactId>smallrye-mutiny-vertx-web-client</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.quarkiverse.quinoa</groupId>
       <artifactId>quarkus-quinoa</artifactId>
       <version>${quarkus-quinoa.version}</version>
@@ -167,14 +171,14 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-      <groupId>io.rest-assured</groupId>
-      <artifactId>rest-assured</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
       <groupId>com.google.code.gson</groupId>
       <artifactId>gson</artifactId>
       <version>${com.google.code.gson.version}</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.rest-assured</groupId>
+      <artifactId>rest-assured</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -196,7 +200,7 @@
           </execution>
         </executions>
         <configuration>
-          <jvmArgs>-Dcryostat.jdp.enabled=true -XX:+FlightRecorder -XX:StartFlightRecording=name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false</jvmArgs>
+          <jvmArgs>-Dcryostat.jdp.enabled=true -Dcryostat.podman.enabled=true -XX:+FlightRecorder -XX:StartFlightRecording=name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false</jvmArgs>
         </configuration>
       </plugin>
       <plugin>
