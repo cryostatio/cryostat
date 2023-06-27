@@ -62,13 +62,7 @@ public class Producers {
     public static Clock produceClock() {
         return new Clock();
     }
-
-    @Produces
-    @DefaultBean
-    public WebClient provideWebClient(Vertx vertx) {
-        return WebClient.create(vertx);
-    }
-
+    
     @Produces
     @ApplicationScoped
     @DefaultBean

@@ -234,6 +234,7 @@ public class PodmanDiscovery {
                                 return;
                             }
                         });
+        return result;
     }
 
     private static SocketAddress getSocket() {
