@@ -62,7 +62,7 @@ public class Producers {
     public static Clock produceClock() {
         return new Clock();
     }
-    
+
     @Produces
     @ApplicationScoped
     @DefaultBean

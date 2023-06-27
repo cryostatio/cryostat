@@ -52,7 +52,7 @@ podman run \
     --label io.cryostat.jmxHost="localhost" \
     --label io.cryostat.jmxPort="0" \
     --label io.cryostat.jmxUrl="service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi" \
-    -v "$XDG_RUNTIME_DIR"/podman/podman.sock:/run/user/0/podman/podman.sock:Z \
+    -v "${XDG_RUNTIME_DIR}"/podman/podman.sock:/run/user/0/podman/podman.sock:Z \
     --security-opt label=disable \
     -e CRYOSTAT_PODMAN_ENABLED="true" \
     -e CRYOSTAT_JDP_ENABLE="true" \
