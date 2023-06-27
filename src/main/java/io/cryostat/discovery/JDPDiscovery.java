@@ -80,7 +80,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @Inject JvmDiscoveryClient jdp;
     @Inject Vertx vertx;
 
-    @ConfigProperty(name = "cryostat.jdp.enabled")
+    @ConfigProperty(name = "cryostat.discovery.jdp.enabled")
     boolean enabled;
 
     @Transactional

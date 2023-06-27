@@ -101,7 +101,7 @@ public class PodmanDiscovery {
     @Inject JFRConnectionToolkit connectionToolkit;
     @Inject ObjectMapper mapper;
 
-    @ConfigProperty(name = "cryostat.podman.enabled")
+    @ConfigProperty(name = "cryostat.discovery.podman.enabled")
     boolean enabled;
 
     @Transactional
