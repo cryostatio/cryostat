@@ -2,13 +2,13 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
+    kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
     kompose.service.expose: minio
-    kompose.version: 1.27.0 (b0ed6a2c9)
+    kompose.version: 1.28.0 (c4137012e)
   creationTimestamp: null
   labels:
-    io.kompose.service: minio
-  name: minio
+    io.kompose.service: s3
+  name: s3
 spec:
   rules:
     - host: minio
@@ -16,7 +16,7 @@ spec:
         paths:
           - backend:
               service:
-                name: minio
+                name: s3
                 port:
                   number: 9001
             path: /

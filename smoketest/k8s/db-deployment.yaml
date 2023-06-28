@@ -2,8 +2,8 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
-    kompose.version: 1.27.0 (b0ed6a2c9)
+    kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
+    kompose.version: 1.28.0 (c4137012e)
   creationTimestamp: null
   labels:
     io.kompose.service: db
@@ -18,10 +18,11 @@ spec:
   template:
     metadata:
       annotations:
-        kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
-        kompose.version: 1.27.0 (b0ed6a2c9)
+        kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
+        kompose.version: 1.28.0 (c4137012e)
       creationTimestamp: null
       labels:
+        io.kompose.network/compose-default: "true"
         io.kompose.service: db
     spec:
       containers:
@@ -32,11 +33,21 @@ spec:
           command:
             - /usr/local/bin/docker-entrypoint.sh
           env:
+            - name: PG_ENCRYPT_KEY
+              value: REPLACEME
             - name: POSTGRES_PASSWORD
               value: cryostat3
             - name: POSTGRES_USER
               value: cryostat3
           image: quay.io/cryostat/cryostat3-db:dev
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready -U cryostat3 -d cryostat3 || exit 1
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
           name: db
           ports:
             - containerPort: 5432

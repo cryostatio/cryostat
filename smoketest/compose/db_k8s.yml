@@ -40,13 +40,14 @@ services:
     hostname: db-viewer
     ports:
       - "8989:8989"
+    labels:
+      kompose.service.expose: "pgadmin"
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@cryostat.io
       PGADMIN_DEFAULT_PASSWORD: admin
       PGADMIN_LISTEN_PORT: 8989
     volumes:
       - pgadmin:/var/lib/pgadmin
-      - ./servers.json:/pgadmin4/servers.json:z
       # - ./smoketest/compose/pgpass:/pgpass:z
     restart: always
     healthcheck:

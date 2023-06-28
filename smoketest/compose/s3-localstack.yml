@@ -23,7 +23,7 @@ services:
       # $ awslocal s3 mb s3://archivedrecordings
     labels:
       kompose.service.expose: "s3"
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: curl --fail http://localhost:4566 || exit 1
       interval: 10s

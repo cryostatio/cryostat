@@ -2,9 +2,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
-    kompose.service.expose: cryostat
-    kompose.version: 1.27.0 (b0ed6a2c9)
+    io.cryostat.discovery: "true"
+    io.cryostat.jmxHost: localhost
+    io.cryostat.jmxPort: "0"
+    io.cryostat.jmxUrl: service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi
+    kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
+    kompose.service.expose: cryostat3
+    kompose.version: 1.28.0 (c4137012e)
   creationTimestamp: null
   labels:
     io.kompose.service: cryostat
@@ -18,17 +22,28 @@ spec:
   template:
     metadata:
       annotations:
-        kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
-        kompose.service.expose: cryostat
-        kompose.version: 1.27.0 (b0ed6a2c9)
+        io.cryostat.discovery: "true"
+        io.cryostat.jmxHost: localhost
+        io.cryostat.jmxPort: "0"
+        io.cryostat.jmxUrl: service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi
+        kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
+        kompose.service.expose: cryostat3
+        kompose.version: 1.28.0 (c4137012e)
       creationTimestamp: null
       labels:
+        io.kompose.network/compose-default: "true"
         io.kompose.service: cryostat
     spec:
       containers:
         - env:
-            - name: CRYOSTAT_JDP_ENABLED
+            - name: AWS_ACCESS_KEY_ID
+              value: minioroot
+            - name: AWS_SECRET_ACCESS_KEY
+              value: minioroot
+            - name: CRYOSTAT_DISCOVERY_JDP_ENABLED
               value: "true"
+            - name: CRYOSTAT_DISCOVERY_PODMAN_ENABLED
+              value: "false"
             - name: JAVA_OPTS_APPEND
               value: -XX:+FlightRecorder -XX:StartFlightRecording=name=onstart,settings=default,disk=true,maxage=5m -Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false
             - name: QUARKUS_DATASOURCE_DB_KIND
@@ -41,18 +56,32 @@ spec:
               value: cryostat3
             - name: QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION
               value: drop-and-create
-            - name: QUARKUS_MINIO_ACCESS_KEY
-              value: minioroot
-            - name: QUARKUS_MINIO_SECRET_KEY
-              value: minioroot
-            - name: QUARKUS_MINIO_URL
-              value: http://minio:9000
+            - name: QUARKUS_S3_AWS_CREDENTIALS_TYPE
+              value: default
+            - name: QUARKUS_S3_AWS_REGION
+              value: us-east-1
+            - name: QUARKUS_S3_ENDPOINT_OVERRIDE
+              value: http://s3:9000
+            - name: QUARKUS_S3_PATH_STYLE_ACCESS
+              value: "true"
+            - name: STORAGE_BUCKETS_ARCHIVES_NAME
+              value: archivedrecordings
           image: quay.io/cryostat/cryostat3:dev
+          livenessProbe:
+            exec:
+              command:
+                - curl --fail http://localhost:8181/health/liveness || exit 1
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
           name: cryostat
           ports:
             - containerPort: 8181
             - containerPort: 9091
           resources: {}
+          securityContext:
+            runAsUser: 0
       hostname: cryostat3
       restartPolicy: Always
 status: {}
