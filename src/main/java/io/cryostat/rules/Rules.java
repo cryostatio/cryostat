@@ -89,7 +89,12 @@ public class Rules {
     @Consumes("application/json")
     public V2Response update(@RestPath String name, @RestQuery boolean clean, JsonObject body) {
         Rule rule = Rule.getByName(name);
-        rule.enabled = body.getBoolean("enabled");
+        boolean enabled = body.getBoolean("enabled");
+        // order matters here, we want to clean before we disable
+        if (clean && !enabled) {
+            bus.send(RuleService.RULE_ADDRESS + "?clean", rule);
+        }
+        rule.enabled = enabled;
         rule.persist();
 
         return V2Response.json(rule);
@@ -129,6 +134,9 @@ public class Rules {
     @Path("/{name}")
     public V2Response delete(@RestPath String name, @RestQuery boolean clean) {
         Rule rule = Rule.getByName(name);
+        if (clean) {
+            bus.send(RuleService.RULE_ADDRESS + "?clean", rule);
+        }
         rule.delete();
         return V2Response.json(rule);
     }

@@ -80,13 +80,16 @@ public class Rule extends PanacheEntity {
         return String.format("auto_%s", name);
     }
 
+    public boolean isArchiver() {
+        return preservedArchives > 0;
+    }
+
     public static Rule getByName(String name) {
         return find("name", name).singleResult();
     }
 
     @ApplicationScoped
     static class Listener {
-
         @Inject EventBus bus;
         @Inject Logger logger;
         @Inject MatchExpressionEvaluator evaluator;
@@ -94,23 +97,62 @@ public class Rule extends PanacheEntity {
         @PostPersist
         public void postPersist(Rule rule) {
             // we cannot directly access EntityManager queries here
-            bus.publish(RuleService.RULE_ADDRESS, rule);
-            notify("RuleCreated", rule);
+            bus.publish(RuleService.RULE_ADDRESS, new RuleEvent(RuleEventCategory.CREATED, rule));
+            notify(RuleEventCategory.CREATED, rule);
         }
 
         @PostUpdate
         public void postUpdate(Rule rule) {
-            bus.publish(RuleService.RULE_ADDRESS, rule);
-            notify("RuleUpdated", rule);
+            bus.publish(RuleService.RULE_ADDRESS, new RuleEvent(RuleEventCategory.UPDATED, rule));
+            notify(RuleEventCategory.UPDATED, rule);
         }
 
         @PostRemove
         public void postRemove(Rule rule) {
-            notify("RuleDeleted", rule);
+            bus.publish(RuleService.RULE_ADDRESS, new RuleEvent(RuleEventCategory.DELETED, rule));
+            notify(RuleEventCategory.DELETED, rule);
         }
 
-        private void notify(String category, Rule rule) {
-            bus.publish(MessagingServer.class.getName(), new Notification(category, rule));
+        private void notify(RuleEventCategory category, Rule rule) {
+            bus.publish(MessagingServer.class.getName(), new Notification(category.toString(), rule));
+        }
+    }
+    static class RuleEvent {
+        public final RuleEventCategory category;
+        public final Rule rule;
+
+        RuleEvent(RuleEventCategory category, Rule rule) {
+            this.category = category;
+            this.rule = rule;
+        }
+
+        public RuleEventCategory getCategory() {
+            return category;
+        }
+
+        public Rule getRule() {
+            return rule;
+        }
+    }
+
+    public enum RuleEventCategory {
+        CREATED("RuleCreated"),
+        UPDATED("RuleUpdated"),
+        DELETED("RuleDeleted");
+
+        private final String name;
+
+        RuleEventCategory(String name) {
+            this.name = name;
+        }
+
+        public String getCategory() {
+            return name;
+        }
+
+        @Override
+        public String toString() {
+            return name();
         }
     }
 }

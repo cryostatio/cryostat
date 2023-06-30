@@ -83,7 +83,7 @@ public class ActiveRecording extends PanacheEntity {
 
     public long remoteId;
     public String name;
-    public RecordingState state;
+    public org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor.RecordingState state;
     public long duration;
     public long startTime;
     public boolean continuous;
