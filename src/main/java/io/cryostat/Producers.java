@@ -41,6 +41,9 @@ import java.net.URI;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+
 import io.cryostat.core.sys.Clock;
 
 import io.quarkus.arc.DefaultBean;
@@ -97,5 +100,12 @@ public class Producers {
         }
 
         return builder.build();
+    }
+
+    @Produces
+    @ApplicationScoped
+    @DefaultBean
+    public static ScriptEngine provideScriptEngine() {
+        return new ScriptEngineManager().getEngineByName("nashorn");
     }
 }

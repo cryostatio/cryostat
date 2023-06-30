@@ -50,6 +50,7 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
+import org.jboss.logging.Logger;
 
 // TODO add quarkus-quartz dependency to store Rules and make them into persistent recurring tasks
 @Entity
@@ -74,6 +75,11 @@ public class Rule extends PanacheEntity {
     public int maxSizeBytes;
     public boolean enabled;
 
+    public String getRecordingName() {
+        // FIXME do something other than simply prepending "auto_"
+        return String.format("auto_%s", name);
+    }
+
     public static Rule getByName(String name) {
         return find("name", name).singleResult();
     }
@@ -82,14 +88,19 @@ public class Rule extends PanacheEntity {
     static class Listener {
 
         @Inject EventBus bus;
+        @Inject Logger logger;
+        @Inject MatchExpressionEvaluator evaluator;
 
         @PostPersist
         public void postPersist(Rule rule) {
+            // we cannot directly access EntityManager queries here
+            bus.publish(RuleService.RULE_ADDRESS, rule);
             notify("RuleCreated", rule);
         }
 
         @PostUpdate
         public void postUpdate(Rule rule) {
+            bus.publish(RuleService.RULE_ADDRESS, rule);
             notify("RuleUpdated", rule);
         }
 

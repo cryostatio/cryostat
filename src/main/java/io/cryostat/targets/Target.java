@@ -122,6 +122,10 @@ public class Target extends PanacheEntity {
         return find("connectUrl", connectUrl).singleResult();
     }
 
+    public static List<Target> getAllTargets() {
+        return listAll();
+    }
+
     public static boolean deleteByConnectUrl(URI connectUrl) {
         return delete("connectUrl", connectUrl) > 0;
     }

@@ -35,35 +35,65 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.cryostat.recordings;
+package io.cryostat.targets;
 
-import java.io.InputStream;
+import java.util.Optional;
 
-import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
+import io.cryostat.core.net.Credentials;
 
-import io.cryostat.ProgressInputStream;
-import io.cryostat.targets.Target;
-import io.cryostat.targets.TargetConnectionManager;
+import org.apache.commons.lang3.builder.EqualsBuilder;
+import org.apache.commons.lang3.builder.HashCodeBuilder;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+public class ConnectionDescriptor {
 
-@ApplicationScoped
-public class RemoteRecordingInputStreamFactory {
+    private final String targetId;
+    private final Optional<Credentials> credentials;
 
-    @Inject TargetConnectionManager connectionManager;
+    public ConnectionDescriptor(Target target) {
+        this(target.connectUrl.toString());
+    }
 
-    public ProgressInputStream open(Target target, ActiveRecording activeRecording)
-            throws Exception {
-        InputStream bareStream =
-                connectionManager.executeConnectedTask(
-                        target,
-                        conn -> {
-                            IRecordingDescriptor desc =
-                                    RecordingHelper.getDescriptor(conn, activeRecording).orElseThrow();
-                            return conn.getService().openStream(desc, false);
-                        });
-        return new ProgressInputStream(
-                bareStream, n -> connectionManager.markConnectionInUse(target));
+    public ConnectionDescriptor(String targetId) {
+        this(targetId, null);
+    }
+
+    public ConnectionDescriptor(Target target, Credentials credentials) {
+        this(target.connectUrl.toString(), credentials);
+    }
+
+    public ConnectionDescriptor(String targetId, Credentials credentials) {
+        this.targetId = targetId;
+        this.credentials = Optional.ofNullable(credentials);
+    }
+
+    public String getTargetId() {
+        return targetId;
+    }
+
+    public Optional<Credentials> getCredentials() {
+        return credentials;
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        if (other == null) {
+            return false;
+        }
+        if (other == this) {
+            return true;
+        }
+        if (!(other instanceof ConnectionDescriptor)) {
+            return false;
+        }
+        ConnectionDescriptor cd = (ConnectionDescriptor) other;
+        return new EqualsBuilder()
+                .append(targetId, cd.targetId)
+                .append(credentials, cd.credentials)
+                .isEquals();
+    }
+
+    @Override
+    public int hashCode() {
+        return new HashCodeBuilder().append(targetId).append(credentials).hashCode();
     }
 }

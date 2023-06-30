@@ -31,6 +31,8 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
     <io.cryostat.core.version>2.21.0</io.cryostat.core.version>
+    
+    <org.openjdk.nashorn.core.version>15.4</org.openjdk.nashorn.core.version>
     <org.apache.commons.codec.version>1.15</org.apache.commons.codec.version>
     <org.apache.commons.io.version>2.11.0</org.apache.commons.io.version>
     <org.apache.httpcomponents.version>4.5.14</org.apache.httpcomponents.version>
@@ -70,6 +72,11 @@
       <groupId>io.cryostat</groupId>
       <artifactId>cryostat-core</artifactId>
       <version>${io.cryostat.core.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.nashorn</groupId>
+      <artifactId>nashorn-core</artifactId>
+      <version>${org.openjdk.nashorn.core.version}</version>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>

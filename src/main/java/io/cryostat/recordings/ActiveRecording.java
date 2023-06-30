@@ -189,7 +189,7 @@ public class ActiveRecording extends PanacheEntity {
                 connectionManager.executeConnectedTask(
                         activeRecording.target,
                         conn -> {
-                            Recordings.getDescriptorById(conn, activeRecording.remoteId)
+                            RecordingHelper.getDescriptorById(conn, activeRecording.remoteId)
                                     .ifPresent(
                                             d -> {
                                                 try {
@@ -219,7 +219,7 @@ public class ActiveRecording extends PanacheEntity {
             connectionManager.executeConnectedTask(
                     activeRecording.target,
                     conn -> {
-                        Recordings.getDescriptor(conn, activeRecording)
+                        RecordingHelper.getDescriptor(conn, activeRecording)
                                 .ifPresent(rec -> Recordings.safeCloseRecording(conn, rec, logger));
                         return null;
                     });

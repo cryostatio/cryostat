@@ -149,6 +149,7 @@ public class Recordings {
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ScheduledExecutorService scheduler;
     @Inject ObjectMapper mapper;
+    @Inject RecordingHelper recordingHelper;
     private final Base64 base64Url = new Base64(0, null, true);
 
     @ConfigProperty(name = "storage.buckets.archives.name")
@@ -593,7 +594,7 @@ public class Recordings {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         Optional<IRecordingDescriptor> recording =
                 connectionManager.executeConnectedTask(
-                        target, conn -> getDescriptorByName(conn, recordingName));
+                        target, conn -> RecordingHelper.getDescriptorByName(conn, recordingName));
         if (recording.isEmpty()) {
             throw new NotFoundException();
         }
@@ -629,19 +630,13 @@ public class Recordings {
         }
 
         Target target = Target.find("id", id).singleResult();
+
+        Pair<String, TemplateType> template = recordingHelper.parseEventSpecifierToTemplate(events);        
+
         LinkedRecordingDescriptor descriptor =
                 connectionManager.executeConnectedTask(
                         target,
                         connection -> {
-                            Optional<IRecordingDescriptor> previous =
-                                    getDescriptorByName(connection, recordingName);
-                            if (previous.isPresent()) {
-                                throw new BadRequestException(
-                                        String.format(
-                                                "Recording with name \"%s\" already exists",
-                                                recordingName));
-                            }
-
                             RecordingOptionsBuilder optionsBuilder =
                                     recordingOptionsBuilderFactory
                                             .create(connection.getService())
@@ -664,41 +659,14 @@ public class Recordings {
                                         mapper.readValue(rawMetadata.get(), Metadata.class).labels);
                             }
                             IConstrainedMap<String> recordingOptions = optionsBuilder.build();
-
-                            Pair<String, TemplateType> template =
-                                    parseEventSpecifierToTemplate(events);
-                            String templateName = template.getKey();
-                            TemplateType templateType = template.getValue();
-                            TemplateType preferredTemplateType =
-                                    getPreferredTemplateType(
-                                            connection, templateName, templateType);
-
-                            IRecordingDescriptor desc =
-                                    connection
-                                            .getService()
-                                            .start(
-                                                    recordingOptions,
-                                                    enableEvents(
-                                                            connection,
-                                                            templateName,
-                                                            preferredTemplateType));
-
-                            labels.put("template.name", templateName);
-                            labels.put("template.type", preferredTemplateType.name());
-                            Metadata meta = new Metadata(labels);
-                            return new LinkedRecordingDescriptor(
-                                    desc.getId(),
-                                    mapState(desc),
-                                    TimeUnit.SECONDS.toMillis(duration.orElse(0L)),
-                                    desc.getStartTime().in(UnitLookup.EPOCH_MS).longValue(),
-                                    desc.isContinuous(),
-                                    desc.getToDisk(),
-                                    desc.getMaxSize().in(UnitLookup.BYTE).longValue(),
-                                    desc.getMaxAge().in(UnitLookup.MILLISECOND).longValue(),
-                                    desc.getName(),
-                                    "TODO",
-                                    "TODO",
-                                    meta);
+                          return recordingHelper.startRecording(
+                            target, 
+                            recordingOptions, 
+                            template.getLeft(),
+                            template.getRight(),
+                            new Metadata(labels),
+                            archiveOnStop.orElse(false),
+                            connection);
                         });
 
         ActiveRecording recording = ActiveRecording.from(target, descriptor);
@@ -727,33 +695,6 @@ public class Recordings {
             }
         } catch (Exception e) {
             logger.error("couldn't update recording", e);
-        }
-    }
-
-    static Optional<IRecordingDescriptor> getDescriptorById(
-            JFRConnection connection, long remoteId) {
-        try {
-            return connection.getService().getAvailableRecordings().stream()
-                    .filter(r -> remoteId == r.getId())
-                    .findFirst();
-        } catch (Exception e) {
-            throw new ServerErrorException(500, e);
-        }
-    }
-
-    static Optional<IRecordingDescriptor> getDescriptor(
-            JFRConnection connection, ActiveRecording activeRecording) {
-        return getDescriptorById(connection, activeRecording.remoteId);
-    }
-
-    static Optional<IRecordingDescriptor> getDescriptorByName(
-            JFRConnection connection, String recordingName) {
-        try {
-            return connection.getService().getAvailableRecordings().stream()
-                    .filter(r -> Objects.equals(r.getName(), recordingName))
-                    .findFirst();
-        } catch (Exception e) {
-            throw new ServerErrorException(500, e);
         }
     }
 
@@ -982,91 +923,6 @@ public class Recordings {
             return Long.valueOf(((Number) value).longValue());
         }
         return null;
-    }
-
-    private RecordingState mapState(IRecordingDescriptor desc) {
-        switch (desc.getState()) {
-            case CREATED:
-                return RecordingState.NEW;
-            case RUNNING:
-                return RecordingState.RUNNING;
-            case STOPPING:
-                return RecordingState.RUNNING;
-            case STOPPED:
-                return RecordingState.STOPPED;
-            default:
-                logger.warnv("Unrecognized recording state: {0}", desc.getState());
-                return RecordingState.CLOSED;
-        }
-    }
-
-    private static Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier) {
-        if (TEMPLATE_PATTERN.matcher(eventSpecifier).matches()) {
-            Matcher m = TEMPLATE_PATTERN.matcher(eventSpecifier);
-            m.find();
-            String templateName = m.group(1);
-            String typeName = m.group(2);
-            TemplateType templateType = null;
-            if (StringUtils.isNotBlank(typeName)) {
-                templateType = TemplateType.valueOf(typeName.toUpperCase());
-            }
-            return Pair.of(templateName, templateType);
-        }
-        throw new BadRequestException(eventSpecifier);
-    }
-
-    private static TemplateType getPreferredTemplateType(
-            JFRConnection connection, String templateName, TemplateType templateType)
-            throws Exception {
-        if (templateType != null) {
-            return templateType;
-        }
-        if (templateName.equals("ALL")) {
-            // special case for the ALL meta-template
-            return TemplateType.TARGET;
-        }
-        List<Template> matchingNameTemplates =
-                connection.getTemplateService().getTemplates().stream()
-                        .filter(t -> t.getName().equals(templateName))
-                        .toList();
-        boolean custom =
-                matchingNameTemplates.stream()
-                        .anyMatch(t -> t.getType().equals(TemplateType.CUSTOM));
-        if (custom) {
-            return TemplateType.CUSTOM;
-        }
-        boolean target =
-                matchingNameTemplates.stream()
-                        .anyMatch(t -> t.getType().equals(TemplateType.TARGET));
-        if (target) {
-            return TemplateType.TARGET;
-        }
-        throw new BadRequestException(
-                String.format("Invalid/unknown event template %s", templateName));
-    }
-
-    private IConstrainedMap<EventOptionID> enableEvents(
-            JFRConnection connection, String templateName, TemplateType templateType)
-            throws Exception {
-        if (templateName.equals("ALL")) {
-            return enableAllEvents(connection);
-        }
-        // if template type not specified, try to find a Custom template by that name. If none,
-        // fall back on finding a Target built-in template by the name. If not, throw an
-        // exception and bail out.
-        TemplateType type = getPreferredTemplateType(connection, templateName, templateType);
-        return connection.getTemplateService().getEvents(templateName, type).get();
-    }
-
-    private IConstrainedMap<EventOptionID> enableAllEvents(JFRConnection connection)
-            throws Exception {
-        EventOptionsBuilder builder = eventOptionsBuilderFactory.create(connection);
-
-        for (IEventTypeInfo eventTypeInfo : connection.getService().getAvailableEventTypes()) {
-            builder.addEvent(eventTypeInfo.getEventTypeID().getFullKey(), "enabled", "true");
-        }
-
-        return builder.build();
     }
 
     public record LinkedRecordingDescriptor(
