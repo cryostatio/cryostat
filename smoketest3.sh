@@ -56,7 +56,7 @@ runMinio() {
 runDB() {
     podman build \
         -t cryostat-db \
-        --file "/home/miwan/Workspace/cryostat3/db/Dockerfile"
+        --file "../cryostat3/db/Dockerfile"
 
     podman run \
         --name db \
