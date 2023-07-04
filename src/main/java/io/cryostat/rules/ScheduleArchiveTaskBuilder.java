@@ -35,36 +35,25 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
-package io.cryostat.recordings;
+package io.cryostat.rules;
 
-import java.io.InputStream;
-
-import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
-
-import io.cryostat.ProgressInputStream;
+import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.TargetConnectionManager;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+import software.amazon.awssdk.services.s3.S3Client;
 
 @ApplicationScoped
-public class RemoteRecordingInputStreamFactory {
+public class ScheduleArchiveTaskBuilder {
 
-    @Inject TargetConnectionManager connectionManager;
+    @Inject RecordingHelper recordingHelper;
+    @Inject S3Client storage;
+    @Inject Logger logger;
 
-    public ProgressInputStream open(Target target, ActiveRecording activeRecording)
-            throws Exception {
-        InputStream bareStream =
-                connectionManager.executeConnectedTask(
-                        target,
-                        conn -> {
-                            IRecordingDescriptor desc =
-                                    RecordingHelper.getDescriptor(conn, activeRecording)
-                                            .orElseThrow();
-                            return conn.getService().openStream(desc, false);
-                        });
-        return new ProgressInputStream(
-                bareStream, n -> connectionManager.markConnectionInUse(target));
+    ScheduledArchiveTask build(Rule rule, Target target, ActiveRecording recording) {
+        return new ScheduledArchiveTask(storage, recordingHelper, logger, rule, target, recording);
     }
 }

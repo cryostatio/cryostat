@@ -114,9 +114,12 @@ public class Rule extends PanacheEntity {
         }
 
         private void notify(RuleEventCategory category, Rule rule) {
-            bus.publish(MessagingServer.class.getName(), new Notification(category.toString(), rule));
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(category.getCategory(), rule));
         }
     }
+
     static class RuleEvent {
         public final RuleEventCategory category;
         public final Rule rule;
@@ -148,11 +151,6 @@ public class Rule extends PanacheEntity {
 
         public String getCategory() {
             return name;
-        }
-
-        @Override
-        public String toString() {
-            return name();
         }
     }
 }

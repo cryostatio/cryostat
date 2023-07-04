@@ -38,12 +38,19 @@
 
 package io.cryostat.recordings;
 
+import java.net.URI;
+import java.net.URL;
+import java.net.URLDecoder;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.charset.StandardCharsets;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -55,37 +62,75 @@ import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.core.net.JFRConnection;
+import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
+import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.common.annotation.Blocking;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ServerErrorException;
 import jdk.jfr.RecordingState;
+import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+
+import software.amazon.awssdk.core.exception.SdkClientException;
+import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
+import software.amazon.awssdk.services.s3.model.CompletedPart;
+import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
+import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.Tag;
+import software.amazon.awssdk.services.s3.model.Tagging;
+import software.amazon.awssdk.services.s3.model.UploadPartRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @ApplicationScoped
 public class RecordingHelper {
 
+    private static final String JFR_MIME = "application/jfr";
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
+    private final Base64 base64Url = new Base64(0, null, true);
 
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
     @Inject ScheduledExecutorService scheduler;
+    @Inject EventBus bus;
 
+    @Inject Clock clock;
+    @Inject S3Presigner presigner;
+    @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
+    @Inject ObjectMapper mapper;
+    @Inject S3Client storage;
+
+    @ConfigProperty(name = "storage.buckets.archives.name")
+    String archiveBucket;
 
     @Blocking
+    @Transactional
     public LinkedRecordingDescriptor startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
@@ -93,6 +138,7 @@ public class RecordingHelper {
             TemplateType templateType,
             Metadata metadata,
             Boolean archiveOnStop,
+            Boolean restart,
             JFRConnection connection)
             throws Exception {
         String recordingName = (String) recordingOptions.get(RecordingOptionsBuilder.KEY_NAME);
@@ -100,8 +146,12 @@ public class RecordingHelper {
                 getPreferredTemplateType(connection, templateName, templateType);
         Optional<IRecordingDescriptor> previous = getDescriptorByName(connection, recordingName);
         if (previous.isPresent()) {
-            throw new BadRequestException(
-                    String.format("Recording with name \"%s\" already exists", recordingName));
+            if (!restart) {
+                throw new BadRequestException(
+                        String.format("Recording with name \"%s\" already exists", recordingName));
+            } else {
+                ActiveRecording.deleteByName(recordingName);
+            }
         }
 
         IRecordingDescriptor desc =
@@ -131,7 +181,6 @@ public class RecordingHelper {
                 "TODO",
                 meta);
     }
-    
 
     public Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier) {
         if (TEMPLATE_PATTERN.matcher(eventSpecifier).matches()) {
@@ -243,5 +292,147 @@ public class RecordingHelper {
                 logger.warnv("Unrecognized recording state: {0}", desc.getState());
                 return RecordingState.CLOSED;
         }
+    }
+
+    public List<S3Object> listArchivedRecordingObjects() {
+      return storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build()).contents();
+    }
+
+    @Blocking
+    public String saveRecording(Target target, ActiveRecording activeRecording) throws Exception {
+        // AWS object key name guidelines advise characters to avoid (% so we should not pass url encoded characters)
+        String transformedAlias = URLDecoder.decode(target.alias, StandardCharsets.UTF_8).replaceAll("/", ".");
+        String timestamp =
+                clock.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
+        String filename =
+                String.format("%s_%s_%s.jfr", transformedAlias, activeRecording.name, timestamp);
+        int mib = 1024 * 1024;
+        String key = String.format("%s/%s", target.jvmId, filename);
+        String multipartId = null;
+        List<Pair<Integer, String>> parts = new ArrayList<>();
+        try (var stream = remoteRecordingStreamFactory.open(target, activeRecording);
+                var ch = Channels.newChannel(stream)) {
+            ByteBuffer buf = ByteBuffer.allocate(20 * mib);
+            multipartId =
+                    storage.createMultipartUpload(
+                                    CreateMultipartUploadRequest.builder()
+                                            .bucket(archiveBucket)
+                                            .key(key)
+                                            .contentType(JFR_MIME)
+                                            .tagging(
+                                                    createMetadataTagging(activeRecording.metadata))
+                                            .build())
+                            .uploadId();
+            int read = 0;
+            long accum = 0;
+            for (int i = 1; i <= 10_000; i++) {
+                read = ch.read(buf);
+                accum += read;
+                if (read == -1) {
+                    logger.infov("Completed upload of {0} chunks ({1} bytes)", i - 1, accum);
+                    logger.infov("Key: {0}", key);
+                    break;
+                }
+                logger.infov("Writing chunk {0} of {1} bytes", i, read);
+                String eTag =
+                        storage.uploadPart(
+                                        UploadPartRequest.builder()
+                                                .bucket(archiveBucket)
+                                                .key(key)
+                                                .uploadId(multipartId)
+                                                .partNumber(i)
+                                                .build(),
+                                        RequestBody.fromByteBuffer(buf))
+                                .eTag();
+                 parts.add(Pair.of(i, eTag));
+                // S3 API limit
+                if (i == 10_000) {
+                    throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
+                }
+            }
+        } catch (Exception e) {
+            logger.error("Could not upload recording to S3 storage", e);
+            try {
+                if (multipartId != null) {
+                    storage.abortMultipartUpload(
+                            AbortMultipartUploadRequest.builder()
+                                    .bucket(archiveBucket)
+                                    .key(key)
+                                    .uploadId(multipartId)
+                                    .build());
+                }
+            } catch (Exception e2) {
+                logger.error("Could not abort S3 multipart upload", e2);
+            }
+            throw e;
+        }
+        try {
+          storage.completeMultipartUpload(
+                  CompleteMultipartUploadRequest.builder()
+                          .bucket(archiveBucket)
+                          .key(key)
+                          .uploadId(multipartId)
+                          .multipartUpload(
+                                  CompletedMultipartUpload.builder()
+                                          .parts(
+                                                  parts.stream()
+                                                          .map(
+                                                                  part ->
+                                                                          CompletedPart.builder()
+                                                                                  .partNumber(
+                                                                                          part
+                                                                                                  .getLeft())
+                                                                                  .eTag(
+                                                                                          part
+                                                                                                  .getRight())
+                                                                                  .build())
+                                                          .toList())
+                                          .build())
+                          .build());
+        } catch (SdkClientException e) {
+            // Amazon S3 couldn't be contacted for a response, or the client
+            // couldn't parse the response from Amazon S3.
+            e.printStackTrace();
+        }
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        "ActiveRecordingSaved",
+                        new RecordingEvent(target.connectUrl, activeRecording.toExternalForm())));
+        return filename;
+    }
+
+    /* Archived Recording Helpers */
+    public void deleteArchivedRecording(String jvmId, String filename) {
+        storage.deleteObject(
+                DeleteObjectRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(String.format("%s/%s", jvmId, filename))
+                        .build());
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        "ArchivedRecordingDeleted",
+                        new RecordingEvent(URI.create("localhost:0"), Map.of("name", filename))));
+    }
+
+    // Metadata
+    private Tagging createMetadataTagging(Metadata metadata) {
+        // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
+        return Tagging.builder()
+                .tagSet(
+                        metadata.labels().entrySet().stream()
+                                .map(
+                                        e ->
+                                                Tag.builder()
+                                                        .key(
+                                                                base64Url.encodeAsString(
+                                                                        e.getKey().getBytes()))
+                                                        .value(
+                                                                base64Url.encodeAsString(
+                                                                        e.getValue().getBytes()))
+                                                        .build())
+                                .toList())
+                .build();
     }
 }
