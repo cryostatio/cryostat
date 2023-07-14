@@ -75,6 +75,10 @@ public class Rule extends PanacheEntity {
     public int maxSizeBytes;
     public boolean enabled;
 
+    public String getName() {
+        return this.name;
+    }
+
     public String getRecordingName() {
         // FIXME do something other than simply prepending "auto_"
         return String.format("auto_%s", name);

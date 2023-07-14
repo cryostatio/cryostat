@@ -56,7 +56,7 @@ class ScheduledArchiveTask implements Runnable {
 
     private static final Pattern RECORDING_FILENAME_PATTERN =
             Pattern.compile(
-                    "([A-Za-z\\d-]*)_([A-Za-z\\d-_]*)_([\\d]*T[\\d]*Z)(\\.[\\d]+)?(\\.jfr)?");
+                    "([A-Za-z\\d\\.-]*)_([A-Za-z\\d-_]*)_([\\d]*T[\\d]*Z)(\\.[\\d]+)?(\\.jfr)?");
     private final Rule rule;
     private final Target target;
     private final ActiveRecording recording;
@@ -107,19 +107,14 @@ class ScheduledArchiveTask implements Runnable {
     }
 
     private void initPreviousRecordings() {
-      System.out.println("Listing recordings...");
-        System.out.println(recordingHelper.listArchivedRecordingObjects());
-        recordingHelper.listArchivedRecordingObjects()
-                .parallelStream()
+        recordingHelper.listArchivedRecordingObjects().parallelStream()
                 .forEach(
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
                             String jvmId = parts[0];
-                            System.out.println(jvmId);
                             if (jvmId.equals(target.jvmId)) {
                                 String filename = parts[1];
-
                                 Matcher m = RECORDING_FILENAME_PATTERN.matcher(filename);
                                 if (m.matches()) {
                                     String recordingName = m.group(2);

@@ -38,11 +38,12 @@
 
 package io.cryostat.recordings;
 
+import java.io.IOException;
 import java.net.URI;
-import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -87,7 +88,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -98,7 +98,6 @@ import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
@@ -295,13 +294,16 @@ public class RecordingHelper {
     }
 
     public List<S3Object> listArchivedRecordingObjects() {
-      return storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build()).contents();
+        return storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
+                .contents();
     }
 
     @Blocking
     public String saveRecording(Target target, ActiveRecording activeRecording) throws Exception {
-        // AWS object key name guidelines advise characters to avoid (% so we should not pass url encoded characters)
-        String transformedAlias = URLDecoder.decode(target.alias, StandardCharsets.UTF_8).replaceAll("/", ".");
+        // AWS object key name guidelines advise characters to avoid (% so we should not pass url
+        // encoded characters)
+        String transformedAlias =
+                URLDecoder.decode(target.alias, StandardCharsets.UTF_8).replaceAll("/", "-");
         String timestamp =
                 clock.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =
@@ -327,12 +329,17 @@ public class RecordingHelper {
             long accum = 0;
             for (int i = 1; i <= 10_000; i++) {
                 read = ch.read(buf);
+
+                if (read == 0) {
+                    read = retryRead(ch, buf);
+                }
                 accum += read;
                 if (read == -1) {
-                    logger.infov("Completed upload of {0} chunks ({1} bytes)", i - 1, accum);
+                    logger.infov("Completed upload of {0} chunks ({1} bytes)", i - 1, accum + 1);
                     logger.infov("Key: {0}", key);
                     break;
                 }
+
                 logger.infov("Writing chunk {0} of {1} bytes", i, read);
                 String eTag =
                         storage.uploadPart(
@@ -344,7 +351,7 @@ public class RecordingHelper {
                                                 .build(),
                                         RequestBody.fromByteBuffer(buf))
                                 .eTag();
-                 parts.add(Pair.of(i, eTag));
+                parts.add(Pair.of(i, eTag));
                 // S3 API limit
                 if (i == 10_000) {
                     throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
@@ -367,32 +374,32 @@ public class RecordingHelper {
             throw e;
         }
         try {
-          storage.completeMultipartUpload(
-                  CompleteMultipartUploadRequest.builder()
-                          .bucket(archiveBucket)
-                          .key(key)
-                          .uploadId(multipartId)
-                          .multipartUpload(
-                                  CompletedMultipartUpload.builder()
-                                          .parts(
-                                                  parts.stream()
-                                                          .map(
-                                                                  part ->
-                                                                          CompletedPart.builder()
-                                                                                  .partNumber(
-                                                                                          part
-                                                                                                  .getLeft())
-                                                                                  .eTag(
-                                                                                          part
-                                                                                                  .getRight())
-                                                                                  .build())
-                                                          .toList())
-                                          .build())
-                          .build());
+            storage.completeMultipartUpload(
+                    CompleteMultipartUploadRequest.builder()
+                            .bucket(archiveBucket)
+                            .key(key)
+                            .uploadId(multipartId)
+                            .multipartUpload(
+                                    CompletedMultipartUpload.builder()
+                                            .parts(
+                                                    parts.stream()
+                                                            .map(
+                                                                    part ->
+                                                                            CompletedPart.builder()
+                                                                                    .partNumber(
+                                                                                            part
+                                                                                                    .getLeft())
+                                                                                    .eTag(
+                                                                                            part
+                                                                                                    .getRight())
+                                                                                    .build())
+                                                            .toList())
+                                            .build())
+                            .build());
         } catch (SdkClientException e) {
             // Amazon S3 couldn't be contacted for a response, or the client
             // couldn't parse the response from Amazon S3.
-            e.printStackTrace();
+            throw e;
         }
         bus.publish(
                 MessagingServer.class.getName(),
@@ -400,6 +407,27 @@ public class RecordingHelper {
                         "ActiveRecordingSaved",
                         new RecordingEvent(target.connectUrl, activeRecording.toExternalForm())));
         return filename;
+    }
+
+    private int retryRead(ReadableByteChannel channel, ByteBuffer buffer) throws IOException {
+        int attempts = 30;
+        int read = 0;
+
+        while (attempts > 0) {
+            logger.info("No bytes read, retrying...");
+            read = channel.read(buffer);
+            if (read > 0 || read < 0) {
+                break;
+            } else {
+                attempts--;
+            }
+        }
+
+        if (read == 0) {
+            throw new IOException("No bytes read after 30 retry attempts");
+        }
+
+        return read;
     }
 
     /* Archived Recording Helpers */
