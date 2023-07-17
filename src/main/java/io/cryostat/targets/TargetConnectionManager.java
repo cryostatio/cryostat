@@ -285,7 +285,7 @@ public class TargetConnectionManager {
     }
 
     @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionOpened")
-    @Label("Target Connection Status")
+    @Label("Target Connection Opened")
     @Category("Cryostat")
     // @SuppressFBWarnings(
     //         value = "URF_UNREAD_FIELD",
@@ -306,7 +306,7 @@ public class TargetConnectionManager {
     }
 
     @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionClosed")
-    @Label("Target Connection Status")
+    @Label("Target Connection Closed")
     @Category("Cryostat")
     // @SuppressFBWarnings(
     //         value = "URF_UNREAD_FIELD",

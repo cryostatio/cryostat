@@ -39,18 +39,16 @@
 package io.cryostat.rules;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-
-import javax.script.ScriptException;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.QuantityConversionException;
@@ -78,10 +76,10 @@ import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jboss.logging.Logger;
+import org.projectnessie.cel.tools.ScriptException;
 
 @ApplicationScoped
 public class RuleService {
-    public static final String RULE_ADDRESS = "cryostat.rules.RuleService";
 
     @Inject Logger logger;
     @Inject MatchExpressionEvaluator evaluator;
@@ -92,17 +90,17 @@ public class RuleService {
     @Inject ScheduledExecutorService executor;
     @Inject ScheduleArchiveTaskBuilder scheduledTaskBuilderFactory;
 
-    Map<Long, List<RuleRecording>> ruleMap = new ConcurrentHashMap<>();
+    Map<Long, CopyOnWriteArrayList<RuleRecording>> ruleMap = new ConcurrentHashMap<>();
 
-    @ConsumeEvent(RULE_ADDRESS)
+    @ConsumeEvent(Rule.RULE_ADDRESS)
     @Blocking
     public void handleRuleModification(RuleEvent event) {
-        Rule rule = event.getRule();
+        Rule rule = event.rule();
         List<RuleRecording> ruleRecordings = ruleMap.get(rule.id);
-        switch (event.getCategory()) {
+        switch (event.category()) {
             case CREATED:
                 if (!ruleMap.containsKey(rule.id)) {
-                    ruleMap.put(rule.id, new ArrayList<>());
+                    ruleMap.put(rule.id, new CopyOnWriteArrayList<>());
                 }
                 if (rule.enabled) {
                     applyRuleToMatchingTargets(rule);
@@ -126,7 +124,7 @@ public class RuleService {
         }
     }
 
-    @ConsumeEvent(RULE_ADDRESS + "?clean")
+    @ConsumeEvent(Rule.RULE_ADDRESS + "?clean")
     @Blocking
     @Transactional
     public void handleRuleRecordingCleanup(Rule rule) {

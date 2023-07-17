@@ -44,6 +44,7 @@ import io.vertx.core.json.JsonObject;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -78,6 +79,10 @@ public class Rules {
     @Consumes("application/json")
     public V2Response create(Rule rule) {
         // TODO validate the incoming rule
+        boolean ruleExists = Rule.getByName(rule.name) != null;
+        if (ruleExists) {
+            throw new BadRequestException("Rule with name " + rule.name + " already exists");
+        }
         rule.persist();
         return V2Response.json(rule);
     }
@@ -92,7 +97,7 @@ public class Rules {
         boolean enabled = body.getBoolean("enabled");
         // order matters here, we want to clean before we disable
         if (clean && !enabled) {
-            bus.send(RuleService.RULE_ADDRESS + "?clean", rule);
+            bus.send(Rule.RULE_ADDRESS + "?clean", rule);
         }
         rule.enabled = enabled;
         rule.persist();
@@ -135,7 +140,7 @@ public class Rules {
     public V2Response delete(@RestPath String name, @RestQuery boolean clean) {
         Rule rule = Rule.getByName(name);
         if (clean) {
-            bus.send(RuleService.RULE_ADDRESS + "?clean", rule);
+            bus.send(Rule.RULE_ADDRESS + "?clean", rule);
         }
         rule.delete();
         return V2Response.json(rule);

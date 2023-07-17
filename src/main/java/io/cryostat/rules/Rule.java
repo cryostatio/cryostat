@@ -56,6 +56,7 @@ import org.jboss.logging.Logger;
 @Entity
 @EntityListeners(Rule.Listener.class)
 public class Rule extends PanacheEntity {
+    public static final String RULE_ADDRESS = "io.cryostat.rules.Rule";
 
     @Column(unique = true, nullable = false, updatable = false)
     public String name;
@@ -89,7 +90,7 @@ public class Rule extends PanacheEntity {
     }
 
     public static Rule getByName(String name) {
-        return find("name", name).singleResult();
+        return find("name", name).firstResult();
     }
 
     @ApplicationScoped
@@ -101,19 +102,19 @@ public class Rule extends PanacheEntity {
         @PostPersist
         public void postPersist(Rule rule) {
             // we cannot directly access EntityManager queries here
-            bus.publish(RuleService.RULE_ADDRESS, new RuleEvent(RuleEventCategory.CREATED, rule));
+            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.CREATED, rule));
             notify(RuleEventCategory.CREATED, rule);
         }
 
         @PostUpdate
         public void postUpdate(Rule rule) {
-            bus.publish(RuleService.RULE_ADDRESS, new RuleEvent(RuleEventCategory.UPDATED, rule));
+            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.UPDATED, rule));
             notify(RuleEventCategory.UPDATED, rule);
         }
 
         @PostRemove
         public void postRemove(Rule rule) {
-            bus.publish(RuleService.RULE_ADDRESS, new RuleEvent(RuleEventCategory.DELETED, rule));
+            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.DELETED, rule));
             notify(RuleEventCategory.DELETED, rule);
         }
 
@@ -124,23 +125,7 @@ public class Rule extends PanacheEntity {
         }
     }
 
-    static class RuleEvent {
-        public final RuleEventCategory category;
-        public final Rule rule;
-
-        RuleEvent(RuleEventCategory category, Rule rule) {
-            this.category = category;
-            this.rule = rule;
-        }
-
-        public RuleEventCategory getCategory() {
-            return category;
-        }
-
-        public Rule getRule() {
-            return rule;
-        }
-    }
+    public record RuleEvent(RuleEventCategory category, Rule rule) {}
 
     public enum RuleEventCategory {
         CREATED("RuleCreated"),

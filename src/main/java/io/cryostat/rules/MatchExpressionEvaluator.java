@@ -37,88 +37,72 @@
  */
 package io.cryostat.rules;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletionException;
 
-import javax.script.Bindings;
-import javax.script.ScriptEngine;
-import javax.script.ScriptException;
-
+import io.cryostat.rules.Rule.RuleEvent;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.Target.Annotations;
 
-import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
+import io.quarkus.cache.Cache;
+import io.quarkus.cache.CacheInvalidate;
+import io.quarkus.cache.CacheManager;
+import io.quarkus.cache.CacheResult;
+import io.quarkus.cache.CaffeineCache;
+import io.quarkus.cache.CompositeCacheKey;
+import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
-import org.apache.commons.lang3.tuple.Pair;
 import org.jboss.logging.Logger;
+import org.projectnessie.cel.checker.Decls;
+import org.projectnessie.cel.tools.Script;
+import org.projectnessie.cel.tools.ScriptCreateException;
+import org.projectnessie.cel.tools.ScriptException;
+import org.projectnessie.cel.tools.ScriptHost;
 
 @ApplicationScoped
 public class MatchExpressionEvaluator {
 
-    private final ScriptEngine scriptEngine;
-    private final LoadingCache<Pair<String, Target>, Boolean> cache;
-    private final Logger logger;
+    private static final String CACHE_NAME = "match-expression-cache";
 
-    @Inject
-    MatchExpressionEvaluator(ScriptEngine scriptEngine, Logger logger) {
-        this.scriptEngine = scriptEngine;
-        this.logger = logger;
-        this.cache =
-                Caffeine.newBuilder()
-                        .maximumSize(1024) // should this be configurable?
-                        .build(k -> compute(k.getKey(), k.getValue()));
-    }
+    @Inject ScriptHost scriptHost;
+    @Inject Logger logger;
+    @Inject CacheManager cacheManager;
 
-    private boolean compute(String matchExpression, Target serviceRef) throws ScriptException {
-        Object r = this.scriptEngine.eval(matchExpression, createBindings(serviceRef));
-        if (r == null) {
-            throw new ScriptException(
-                    String.format(
-                            "Null match expression evaluation result: %s (%s)",
-                            matchExpression, serviceRef));
-        } else if (r instanceof Boolean) {
-            return (Boolean) r;
-        } else {
-            throw new ScriptException(
-                    String.format(
-                            "Non-boolean match expression evaluation result: %s (%s) -> %s",
-                            matchExpression, serviceRef, r));
+    @Transactional
+    @Blocking
+    @ConsumeEvent(Rule.RULE_ADDRESS)
+    void onMessage(RuleEvent event) {
+        switch (event.category()) {
+            case CREATED:
+                break;
+            case DELETED:
+                invalidate(event.rule().matchExpression);
+                break;
+            case UPDATED:
+                break;
+            default:
+                break;
         }
     }
 
-    private void invalidate(String matchExpression) {
-        var it = cache.asMap().keySet().iterator();
-        while (it.hasNext()) {
-            Pair<String, Target> entry = it.next();
-            if (Objects.equals(matchExpression, entry.getKey())) {
-                cache.invalidate(entry);
-            }
-        }
-    }
-
-    public boolean applies(String matchExpression, Target target) throws ScriptException {
-        Pair<String, Target> key = Pair.of(matchExpression, target);
-        MatchExpressionAppliesEvent evt = new MatchExpressionAppliesEvent(matchExpression);
+    private Script createScript(String matchExpression) throws ScriptCreateException {
+        ScriptCreationEvent evt = new ScriptCreationEvent();
         try {
             evt.begin();
-            Boolean result = cache.get(key);
-            if (result == null) {
-                throw new IllegalStateException();
-            }
-            return result;
-        } catch (CompletionException e) {
-            if (e.getCause() instanceof ScriptException) {
-                throw (ScriptException) e.getCause();
-            }
-            throw e;
+            return scriptHost
+                    .buildScript(matchExpression)
+                    .withDeclarations(
+                            Decls.newVar("target", Decls.newObjectType(Target.class.getName())))
+                    .withTypes(Target.class)
+                    .build();
         } finally {
             evt.end();
             if (evt.shouldCommit()) {
@@ -127,22 +111,55 @@ public class MatchExpressionEvaluator {
         }
     }
 
-    Bindings createBindings(Target target) {
-        BindingsCreationEvent evt = new BindingsCreationEvent();
+    @CacheResult(cacheName = CACHE_NAME)
+    boolean load(String matchExpression, Target serviceRef) throws ScriptException {
+        Script script = createScript(matchExpression);
+        return script.execute(Boolean.class, Map.of("target", serviceRef));
+    }
+
+    @CacheInvalidate(cacheName = CACHE_NAME)
+    void invalidate(String matchExpression, Target serviceRef) {}
+
+    void invalidate(String matchExpression) {
+        Optional<Cache> cache = cacheManager.getCache(CACHE_NAME);
+        if (cache.isPresent()) {
+            var it = cache.get().as(CaffeineCache.class).keySet().iterator();
+            while (it.hasNext()) {
+                CompositeCacheKey entry = (CompositeCacheKey) it.next();
+                String matchExpressionKey = (String) entry.getKeyElements()[0];
+                if (Objects.equals(matchExpression, matchExpressionKey)) {
+                    cache.get()
+                            .invalidate(entry)
+                            .invoke(
+                                    () -> {
+                                        logger.debugv(
+                                                "Expression {0} invalidated in cache {1}",
+                                                matchExpression, CACHE_NAME);
+                                    })
+                            .subscribe()
+                            .with(
+                                    (v) -> {},
+                                    (e) -> {
+                                        logger.errorv(
+                                                "Error invalidating expression {0} in cache {1}:"
+                                                        + " {2}",
+                                                matchExpression, CACHE_NAME, e);
+                                    });
+                }
+            }
+        }
+    }
+
+    public boolean applies(String matchExpression, Target target) throws ScriptException {
+        MatchExpressionAppliesEvent evt = new MatchExpressionAppliesEvent(matchExpression);
         try {
             evt.begin();
-            Bindings bindings = this.scriptEngine.createBindings();
-            Annotations annotations = target.annotations;
-            Map<String, Object> targetBinding = new HashMap<>();
-            targetBinding.put("connectUrl", target.connectUrl);
-            targetBinding.put("jvmId", target.jvmId);
-            targetBinding.put("alias", target.alias);
-            targetBinding.put("labels", target.labels);
-            targetBinding.put(
-                    "annotations",
-                    Map.of("platform", annotations.platform, "cryostat", annotations.cryostat));
-            bindings.put("target", target);
-            return bindings;
+            return load(matchExpression, target);
+        } catch (CompletionException e) {
+            if (e.getCause() instanceof ScriptException) {
+                throw (ScriptException) e.getCause();
+            }
+            throw e;
         } finally {
             evt.end();
             if (evt.shouldCommit()) {
@@ -167,12 +184,12 @@ public class MatchExpressionEvaluator {
         }
     }
 
-    @Name("io.cryostat.rules.MatchExpressionEvaluator.BindingsCreationEvent")
-    @Label("Match Expression Binding Creation")
+    @Name("io.cryostat.rules.MatchExpressionEvaluator.ScriptCreationEvent")
+    @Label("Match Expression Script Creation")
     @Category("Cryostat")
     // @SuppressFBWarnings(
     //         value = "URF_UNREAD_FIELD",
     //         justification = "The event fields are recorded with JFR instead of accessed
     // directly")
-    public static class BindingsCreationEvent extends Event {}
+    public static class ScriptCreationEvent extends Event {}
 }

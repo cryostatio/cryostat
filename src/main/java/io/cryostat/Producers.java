@@ -41,9 +41,6 @@ import java.net.URI;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-import javax.script.ScriptEngine;
-import javax.script.ScriptEngineManager;
-
 import io.cryostat.core.sys.Clock;
 
 import io.quarkus.arc.DefaultBean;
@@ -52,6 +49,8 @@ import io.vertx.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.projectnessie.cel.tools.ScriptHost;
+import org.projectnessie.cel.types.jackson.JacksonRegistry;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -105,7 +104,7 @@ public class Producers {
     @Produces
     @ApplicationScoped
     @DefaultBean
-    public static ScriptEngine provideScriptEngine() {
-        return new ScriptEngineManager().getEngineByName("nashorn");
+    public static ScriptHost provideScriptHost() {
+        return ScriptHost.newBuilder().registry(JacksonRegistry.newRegistry()).build();
     }
 }
