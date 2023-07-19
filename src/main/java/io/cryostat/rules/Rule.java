@@ -50,6 +50,9 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.PositiveOrZero;
 import org.jboss.logging.Logger;
 
 // TODO add quarkus-quartz dependency to store Rules and make them into persistent recurring tasks
@@ -64,16 +67,28 @@ public class Rule extends PanacheEntity {
     public String description;
 
     @Column(nullable = false)
+    @NotBlank(message = "matchExpression cannot be blank")
     public String matchExpression;
 
     @Column(nullable = false)
+    @NotBlank(message = "eventSpecifier cannot be blank")
     public String eventSpecifier;
 
+    @PositiveOrZero(message = "archivalPeriodSeconds must be positive or zero")
     public int archivalPeriodSeconds;
+
+    @PositiveOrZero(message = "initialDelaySeconds must be positive or zero")
     public int initialDelaySeconds;
+
+    @PositiveOrZero(message = "archivalPeriodSeconds must be positive or zero")
     public int preservedArchives;
+
+    @Min(message = "maxAgeSeconds must be greater than 0 or -1", value = -1)
     public int maxAgeSeconds;
+
+    @Min(message = "maxAgeSeconds must be greater than 0 or -1", value = -1)
     public int maxSizeBytes;
+
     public boolean enabled;
 
     public String getName() {
@@ -86,7 +101,7 @@ public class Rule extends PanacheEntity {
     }
 
     public boolean isArchiver() {
-        return preservedArchives > 0;
+        return preservedArchives > 0 && archivalPeriodSeconds > 0;
     }
 
     public static Rule getByName(String name) {

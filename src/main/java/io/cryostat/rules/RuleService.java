@@ -220,13 +220,16 @@ public class RuleService {
     }
 
     private void scheduleArchival(Rule rule, Target target, ActiveRecording recording) {
+        int initialDelay = rule.initialDelaySeconds;
+        int archivalPeriodSeconds = rule.archivalPeriodSeconds;
+        if (initialDelay <= 0) {
+            initialDelay = archivalPeriodSeconds;
+        }
+
         ScheduledArchiveTask task = scheduledTaskBuilderFactory.build(rule, target, recording);
         ScheduledFuture<?> future =
                 executor.scheduleAtFixedRate(
-                        task,
-                        rule.initialDelaySeconds,
-                        rule.archivalPeriodSeconds,
-                        TimeUnit.SECONDS);
+                        task, initialDelay, archivalPeriodSeconds, TimeUnit.SECONDS);
 
         List<RuleRecording> ruleRecordings = ruleMap.get(rule.id);
         ruleRecordings.add(new RuleRecording(recording, future));

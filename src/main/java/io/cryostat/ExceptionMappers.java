@@ -53,4 +53,9 @@ public class ExceptionMappers {
     public RestResponse<Void> mapNoResultException(ConstraintViolationException ex) {
         return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
     }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapValidationException(jakarta.validation.ValidationException ex) {
+        return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
+    }
 }

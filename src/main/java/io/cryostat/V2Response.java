@@ -38,8 +38,8 @@
 package io.cryostat;
 
 public record V2Response(Meta meta, Data data) {
-    public static V2Response json(Object payload) {
-        return new V2Response(new Meta("application/json", "OK"), new Data(payload));
+    public static V2Response json(Object payload, String status) {
+        return new V2Response(new Meta("application/json", status), new Data(payload));
     }
 
     public record Meta(String type, String status) {}

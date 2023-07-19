@@ -41,6 +41,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import io.cryostat.util.HttpMimeType;
 
@@ -97,7 +98,8 @@ class RulesPostJsonIT extends StandardSelfTest {
                             assertRequestStatus(ar, response);
                         });
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> response.get());
+                Assertions.assertThrows(
+                        ExecutionException.class, () -> response.get(10, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(400));
         MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Bad Request"));
@@ -118,7 +120,8 @@ class RulesPostJsonIT extends StandardSelfTest {
                             assertRequestStatus(ar, response);
                         });
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> response.get());
+                Assertions.assertThrows(
+                        ExecutionException.class, () -> response.get(10, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(415));
         MatcherAssert.assertThat(
@@ -140,7 +143,8 @@ class RulesPostJsonIT extends StandardSelfTest {
                             assertRequestStatus(ar, response);
                         });
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> response.get());
+                Assertions.assertThrows(
+                        ExecutionException.class, () -> response.get(10, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(500));
         MatcherAssert.assertThat(
@@ -173,11 +177,10 @@ class RulesPostJsonIT extends StandardSelfTest {
                                                     "type",
                                                     HttpMimeType.JSON.mime(),
                                                     "status",
-                                                    "OK"),
+                                                    "Created"),
                                     "data", Map.of("result", TEST_RULE_NAME)));
-            System.out.println(response.get().encodePrettily());
-            System.out.println(expectedresponse.encodePrettily());
-            MatcherAssert.assertThat(response.get(), Matchers.equalTo(expectedresponse));
+            MatcherAssert.assertThat(
+                    response.get(10, TimeUnit.SECONDS), Matchers.equalTo(expectedresponse));
 
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();
             webClient
@@ -192,7 +195,8 @@ class RulesPostJsonIT extends StandardSelfTest {
 
             ExecutionException ex =
                     Assertions.assertThrows(
-                            ExecutionException.class, () -> duplicatePostResponse.get());
+                            ExecutionException.class,
+                            () -> duplicatePostResponse.get(10, TimeUnit.SECONDS));
             MatcherAssert.assertThat(
                     ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(409));
             MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Conflict"));
@@ -222,7 +226,8 @@ class RulesPostJsonIT extends StandardSelfTest {
                                     NULL_RESULT));
             try {
                 MatcherAssert.assertThat(
-                        deleteResponse.get(), Matchers.equalTo(expectedDeleteResponse));
+                        deleteResponse.get(10, TimeUnit.SECONDS),
+                        Matchers.equalTo(expectedDeleteResponse));
             } catch (InterruptedException | ExecutionException e) {
                 throw new ITestCleanupFailedException(
                         String.format("Failed to delete rule %s", TEST_RULE_NAME), e);
@@ -237,19 +242,24 @@ class RulesPostJsonIT extends StandardSelfTest {
 
         testRule.put("archivalPeriodSeconds", -60);
         testRule.put("preservedArchives", -3);
-
-        webClient
-                .post("/api/v2/rules")
-                .basicAuthentication("user", "pass")
-                .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
-                .sendJsonObject(
-                        testRule,
-                        ar -> {
-                            assertRequestStatus(ar, response);
-                        });
-
+        try {
+            webClient
+                    .post("/api/v2/rules")
+                    .basicAuthentication("user", "pass")
+                    .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
+                    .sendJsonObject(
+                            testRule,
+                            ar -> {
+                                assertRequestStatus(ar, response);
+                                response.complete(ar.result().bodyAsJsonObject());
+                            });
+        } finally {
+            testRule.put("archivalPeriodSeconds", 60);
+            testRule.put("preservedArchives", 3);
+        }
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> response.get());
+                Assertions.assertThrows(
+                        ExecutionException.class, () -> response.get(10, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(400));
         MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Bad Request"));
