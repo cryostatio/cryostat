@@ -50,7 +50,6 @@ import io.cryostat.targets.Target;
 import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import software.amazon.awssdk.services.s3.S3Client;
 
 class ScheduledArchiveTask implements Runnable {
 
@@ -61,7 +60,6 @@ class ScheduledArchiveTask implements Runnable {
     private final Target target;
     private final ActiveRecording recording;
     private final Queue<String> previousRecordings;
-    private final S3Client storage;
     private final RecordingHelper recordingHelper;
     private final Logger logger;
 
@@ -69,13 +67,11 @@ class ScheduledArchiveTask implements Runnable {
     String archiveBucket;
 
     ScheduledArchiveTask(
-            S3Client storage,
             RecordingHelper recordingHelper,
             Logger logger,
             Rule rule,
             Target target,
             ActiveRecording recording) {
-        this.storage = storage;
         this.recordingHelper = recordingHelper;
         this.logger = logger;
         this.rule = rule;

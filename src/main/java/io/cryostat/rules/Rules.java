@@ -45,46 +45,57 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
+import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
 @Path("/api/v2/rules")
 public class Rules {
 
     @Inject EventBus bus;
 
+    // @ServerExceptionMapper
+    // public RestResponse<String> mapE()
+
     @GET
     @RolesAllowed("read")
-    public V2Response list() {
-        return V2Response.json(Rule.listAll());
+    public RestResponse<V2Response> list() {
+        return RestResponse.ok(V2Response.json(Rule.listAll()));
     }
 
     @GET
     @RolesAllowed("read")
     @Path("/{name}")
-    public V2Response get(@RestPath String name) {
-        return V2Response.json(Rule.getByName(name));
+    public RestResponse<V2Response> get(@RestPath String name) {
+        return RestResponse.ok(V2Response.json(Rule.getByName(name)));
     }
 
     @Transactional
     @POST
     @RolesAllowed("write")
-    @Consumes("application/json")
-    public V2Response create(Rule rule) {
+    @Consumes({MediaType.APPLICATION_JSON})
+    public RestResponse<V2Response> create(Rule rule) {
         // TODO validate the incoming rule
+        if (rule == null) {
+            throw new BadRequestException("POST body was null");
+        }
         boolean ruleExists = Rule.getByName(rule.name) != null;
         if (ruleExists) {
-            throw new BadRequestException("Rule with name " + rule.name + " already exists");
+            throw new RuleExistsException(rule.name);
         }
         rule.persist();
-        return V2Response.json(rule);
+        return ResponseBuilder.create(Response.Status.CREATED, V2Response.json(rule.name)).build();
     }
 
     @Transactional
@@ -92,7 +103,8 @@ public class Rules {
     @RolesAllowed("write")
     @Path("/{name}")
     @Consumes("application/json")
-    public V2Response update(@RestPath String name, @RestQuery boolean clean, JsonObject body) {
+    public RestResponse<V2Response> update(
+            @RestPath String name, @RestQuery boolean clean, JsonObject body) {
         Rule rule = Rule.getByName(name);
         boolean enabled = body.getBoolean("enabled");
         // order matters here, we want to clean before we disable
@@ -102,13 +114,14 @@ public class Rules {
         rule.enabled = enabled;
         rule.persist();
 
-        return V2Response.json(rule);
+        return ResponseBuilder.ok(V2Response.json(rule)).build();
     }
 
     @Transactional
     @POST
     @RolesAllowed("write")
-    public V2Response create(
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
+    public RestResponse<V2Response> create(
             @RestForm String name,
             @RestForm String description,
             @RestForm String matchExpression,
@@ -137,12 +150,18 @@ public class Rules {
     @DELETE
     @RolesAllowed("write")
     @Path("/{name}")
-    public V2Response delete(@RestPath String name, @RestQuery boolean clean) {
+    public RestResponse<V2Response> delete(@RestPath String name, @RestQuery boolean clean) {
         Rule rule = Rule.getByName(name);
         if (clean) {
             bus.send(Rule.RULE_ADDRESS + "?clean", rule);
         }
         rule.delete();
-        return V2Response.json(rule);
+        return RestResponse.ok(V2Response.json(null));
+    }
+
+    static class RuleExistsException extends ClientErrorException {
+        RuleExistsException(String ruleName) {
+            super("Rule with name " + ruleName + " already exists", Response.Status.CONFLICT);
+        }
     }
 }

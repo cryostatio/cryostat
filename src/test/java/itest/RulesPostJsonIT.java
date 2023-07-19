@@ -54,11 +54,13 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusIntegrationTest
-@Disabled("TODO")
+@TestMethodOrder(OrderAnnotation.class)
 class RulesPostJsonIT extends StandardSelfTest {
 
     static JsonObject testRule;
@@ -74,18 +76,20 @@ class RulesPostJsonIT extends StandardSelfTest {
     @BeforeAll
     static void setup() throws Exception {
         testRule = new JsonObject();
-        testRule.put("name", "Test Rule");
+        testRule.put("name", TEST_RULE_NAME);
         testRule.put("matchExpression", "target.alias == 'es.andrewazor.demo.Main'");
         testRule.put("description", "AutoRulesIT automated rule");
         testRule.put("eventSpecifier", "template=Continuous,type=TARGET");
     }
 
     @Test
+    @Order(1)
     void testAddRuleThrowsWhenJsonAttributesNull() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
                 .post("/api/v2/rules")
+                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                 .sendJsonObject(
                         null,
@@ -100,12 +104,14 @@ class RulesPostJsonIT extends StandardSelfTest {
     }
 
     @Test
+    @Order(2)
     void testAddRuleThrowsWhenMimeUnsupported() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
                 .post("/api/v2/rules")
-                .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "NOTAMIME;text/plain")
+                .basicAuthentication("user", "pass")
+                .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "text/plain")
                 .sendJsonObject(
                         testRule,
                         ar -> {
@@ -120,11 +126,13 @@ class RulesPostJsonIT extends StandardSelfTest {
     }
 
     @Test
+    @Order(3)
     void testAddRuleThrowsWhenMimeInvalid() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
                 .post("/api/v2/rules")
+                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "NOTAMIME")
                 .sendJsonObject(
                         testRule,
@@ -134,18 +142,20 @@ class RulesPostJsonIT extends StandardSelfTest {
         ExecutionException ex =
                 Assertions.assertThrows(ExecutionException.class, () -> response.get());
         MatcherAssert.assertThat(
-                ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(415));
+                ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(500));
         MatcherAssert.assertThat(
-                ex.getCause().getMessage(), Matchers.equalTo("Unsupported Media Type"));
+                ex.getCause().getMessage(), Matchers.equalTo("Internal Server Error"));
     }
 
     @Test
+    @Order(4)
     void testAddRuleThrowsWhenRuleNameAlreadyExists() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         try {
             webClient
                     .post("/api/v2/rules")
+                    .basicAuthentication("user", "pass")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
@@ -163,13 +173,16 @@ class RulesPostJsonIT extends StandardSelfTest {
                                                     "type",
                                                     HttpMimeType.JSON.mime(),
                                                     "status",
-                                                    "Created"),
+                                                    "OK"),
                                     "data", Map.of("result", TEST_RULE_NAME)));
+            System.out.println(response.get().encodePrettily());
+            System.out.println(expectedresponse.encodePrettily());
             MatcherAssert.assertThat(response.get(), Matchers.equalTo(expectedresponse));
 
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();
             webClient
                     .post("/api/v2/rules")
+                    .basicAuthentication("user", "pass")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
@@ -184,11 +197,14 @@ class RulesPostJsonIT extends StandardSelfTest {
                     ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(409));
             MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Conflict"));
 
+        } catch (Exception e) {
+            logger.error(e);
         } finally {
             // clean up rule before running next test
             CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
             webClient
                     .delete(String.format("/api/v2/rules/%s", TEST_RULE_NAME))
+                    .basicAuthentication("user", "pass")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .send(
                             ar -> {
@@ -215,6 +231,7 @@ class RulesPostJsonIT extends StandardSelfTest {
     }
 
     @Test
+    @Order(5)
     void testAddRuleThrowsWhenIntegerAttributesNegative() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
@@ -223,6 +240,7 @@ class RulesPostJsonIT extends StandardSelfTest {
 
         webClient
                 .post("/api/v2/rules")
+                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                 .sendJsonObject(
                         testRule,

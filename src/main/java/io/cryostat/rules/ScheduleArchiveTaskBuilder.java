@@ -44,16 +44,14 @@ import io.cryostat.targets.Target;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
-import software.amazon.awssdk.services.s3.S3Client;
 
 @ApplicationScoped
 public class ScheduleArchiveTaskBuilder {
 
     @Inject RecordingHelper recordingHelper;
-    @Inject S3Client storage;
     @Inject Logger logger;
 
     ScheduledArchiveTask build(Rule rule, Target target, ActiveRecording recording) {
-        return new ScheduledArchiveTask(storage, recordingHelper, logger, rule, target, recording);
+        return new ScheduledArchiveTask(recordingHelper, logger, rule, target, recording);
     }
 }
