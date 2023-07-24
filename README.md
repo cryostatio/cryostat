@@ -147,7 +147,13 @@ $ LD_PRELOAD=$HOME/bin/libuserhosts.so firefox http://cryostat:8181
 
 ## Smoketesting in K8s
 
-The next testing step is to run this same container setup in k8s, which will require the installation of Kompose and the multiforward plugin with Krew.
+The next testing step is to run this same container setup in k8s, which will require the installation of yq, Kompose and the multiforward plugin with Krew.
+
+Installing yq:
+```bash
+$ sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
+$ sudo chmod +x /usr/bin/yq
+```
 
 Installing Kompose:
 ```bash
