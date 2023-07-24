@@ -49,6 +49,7 @@ import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -153,6 +154,9 @@ public class Rules {
     @Path("/{name}")
     public RestResponse<V2Response> delete(@RestPath String name, @RestQuery boolean clean) {
         Rule rule = Rule.getByName(name);
+        if (rule == null) {
+            throw new NotFoundException("Rule with name " + name + " not found");
+        }
         if (clean) {
             bus.send(Rule.RULE_ADDRESS + "?clean", rule);
         }
