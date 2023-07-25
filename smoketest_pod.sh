@@ -4,7 +4,7 @@ set -x
 set -e
 
 cleanup() {
-    podman-compose \
+    podman-compose --in-pod=1 \
         -f ./smoketest/compose/db.yml \
         -f ./smoketest/compose/s3-minio.yml \
         -f ./smoketest/compose/sample-apps.yml \
