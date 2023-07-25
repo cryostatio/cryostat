@@ -64,6 +64,7 @@ import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
+import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpStatusCodeIdentifier;
@@ -498,7 +499,7 @@ public class Recordings {
             @RestPath long id,
             @RestForm String recordingName,
             @RestForm String events,
-            @RestForm Optional<Boolean> restart,
+            @RestForm Optional<String> replace,
             @RestForm Optional<Long> duration,
             @RestForm Optional<Boolean> toDisk,
             @RestForm Optional<Long> maxAge,
@@ -550,7 +551,7 @@ public class Recordings {
                                     template.getRight(),
                                     new Metadata(labels),
                                     archiveOnStop.orElse(false),
-                                    restart.orElse(false),
+                                    RecordingReplace.fromString(replace.orElse("always")),
                                     connection);
                         });
 

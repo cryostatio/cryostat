@@ -129,8 +129,30 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
 
+    boolean shouldRestartRecording(
+            RecordingReplace replace, RecordingState state, String recordingName)
+            throws BadRequestException {
+        switch (replace) {
+            case ALWAYS:
+                return true;
+            case NEVER:
+                return false;
+            case STOPPED:
+                if (state == RecordingState.RUNNING) {
+                    throw new BadRequestException(
+                            String.format(
+                                    "replace=='STOPPED' but recording with name \"%s\" is already"
+                                            + " running",
+                                    recordingName));
+                }
+                return state == RecordingState.STOPPED;
+            default:
+                return true;
+        }
+    }
+
     @Blocking
-    @Transactional
+    @Transactional(Transactional.TxType.REQUIRES_NEW)
     public LinkedRecordingDescriptor startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
@@ -138,7 +160,7 @@ public class RecordingHelper {
             TemplateType templateType,
             Metadata metadata,
             boolean archiveOnStop,
-            boolean restart,
+            RecordingReplace replace,
             JFRConnection connection)
             throws Exception {
         String recordingName = (String) recordingOptions.get(RecordingOptionsBuilder.KEY_NAME);
@@ -146,11 +168,16 @@ public class RecordingHelper {
                 getPreferredTemplateType(connection, templateName, templateType);
         Optional<IRecordingDescriptor> previous = getDescriptorByName(connection, recordingName);
         if (previous.isPresent()) {
+            RecordingState previousState = mapState(previous.get());
+            boolean restart = shouldRestartRecording(replace, previousState, recordingName);
             if (!restart) {
                 throw new BadRequestException(
                         String.format("Recording with name \"%s\" already exists", recordingName));
-            } else {
-                ActiveRecording.deleteByName(recordingName);
+            }
+            if (!ActiveRecording.deleteFromTarget(target, recordingName)) {
+                logger.warnf(
+                        "Could not delete recording %s from target %s",
+                        recordingName, target.alias);
             }
         }
 
@@ -466,7 +493,18 @@ public class RecordingHelper {
                 .build();
     }
 
-    enum Replace {
+    public enum RecordingReplace {
+        ALWAYS,
+        NEVER,
+        STOPPED;
 
+        public static RecordingReplace fromString(String replace) {
+            for (RecordingReplace r : RecordingReplace.values()) {
+                if (r.name().equalsIgnoreCase(replace)) {
+                    return r;
+                }
+            }
+            throw new IllegalArgumentException("Invalid recording replace value: " + replace);
+        }
     }
 }

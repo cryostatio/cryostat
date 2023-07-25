@@ -38,5 +38,5 @@
 package io.cryostat;
 
 public class ConfigProperties {
-  public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
+    public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
 }
