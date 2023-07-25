@@ -7,8 +7,8 @@ services:
       QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed for Minio, but if the specific S3 impl supports DNS subdomain style access then that should be preferred
       QUARKUS_S3_AWS_REGION: us-east-1
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: default
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-minioroot}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-minioroot}
+      AWS_ACCESS_KEY_ID: minioroot
+      AWS_SECRET_ACCESS_KEY: minioroot
   s3:
     image: docker.io/minio/minio:latest
     hostname: minio
@@ -17,15 +17,15 @@ services:
       - "9000:9000"
     command: server /data --console-address ":9001"
     environment:
-      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioroot}
-      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-minioroot}
+      MINIO_ROOT_USER: minioroot
+      MINIO_ROOT_PASSWORD: minioroot
       MINIO_DEFAULT_BUCKETS: archivedrecordings
     volumes:
       - minio_data:/data
       - minio_certs:/certs
     labels:
       kompose.service.expose: "minio"
-    restart: unless-stopped
+    restart: always
     healthcheck:
       test: curl --fail http://localhost:9001 || exit 1
       interval: 10s
@@ -38,3 +38,4 @@ volumes:
     driver: local
   minio_certs:
     driver: local
+    

@@ -2,12 +2,16 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
-    kompose.version: 1.27.0 (b0ed6a2c9)
+    io.cryostat.discovery: "true"
+    io.cryostat.jmxHost: sample-app
+    io.cryostat.jmxPort: "9093"
+    kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
+    kompose.version: 1.30.0 (9d8dcb518)
   creationTimestamp: null
   labels:
     io.kompose.service: sample-app
   name: sample-app
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -17,22 +21,55 @@ spec:
   template:
     metadata:
       annotations:
-        kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
-        kompose.version: 1.27.0 (b0ed6a2c9)
+        io.cryostat.discovery: "true"
+        io.cryostat.jmxHost: sample-app
+        io.cryostat.jmxPort: "9093"
+        kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
+        kompose.version: 1.30.0 (9d8dcb518)
       creationTimestamp: null
       labels:
+        io.kompose.network/compose-default: "true"
         io.kompose.service: sample-app
     spec:
       containers:
         - env:
+            - name: CRYOSTAT_AGENT_APP_NAME
+              value: vertx-fib-demo-1
+            - name: CRYOSTAT_AGENT_AUTHORIZATION
+              value: Basic dXNlcjpwYXNz
+            - name: CRYOSTAT_AGENT_BASEURI
+              value: http://cryostat:8181/
+            - name: CRYOSTAT_AGENT_CALLBACK
+              value: http://sample-app:8910/
+            - name: CRYOSTAT_AGENT_TRUST_ALL
+              value: "true"
+            - name: CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL
+              value: "true"
+            - name: CRYOSTAT_AGENT_WEBCLIENT_SSL_VERIFY_HOSTNAME
+              value: "false"
+            - name: CRYOSTAT_AGENT_WEBSERVER_HOST
+              value: sample-app
+            - name: CRYOSTAT_AGENT_WEBSERVER_PORT
+              value: "8910"
             - name: HTTP_PORT
               value: "8081"
             - name: JMX_PORT
               value: "9093"
-          image: quay.io/andrewazores/vertx-fib-demo:0.9.1
+          image: quay.io/andrewazores/vertx-fib-demo:0.12.3
+          livenessProbe:
+            exec:
+              command:
+                - curl --fail http://localhost:8081 || exit 1
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
           name: sample-app
           ports:
             - containerPort: 8081
+              hostPort: 8081
+              protocol: TCP
           resources: {}
+      hostname: vertx-fib-demo-1
       restartPolicy: Always
 status: {}

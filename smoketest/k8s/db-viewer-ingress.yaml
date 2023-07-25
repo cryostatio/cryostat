@@ -2,28 +2,24 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   annotations:
-    io.cryostat.discovery: "true"
-    io.cryostat.jmxHost: localhost
-    io.cryostat.jmxPort: "0"
-    io.cryostat.jmxUrl: service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi
     kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
-    kompose.service.expose: cryostat3
+    kompose.service.expose: pgadmin
     kompose.version: 1.30.0 (9d8dcb518)
   creationTimestamp: null
   labels:
-    io.kompose.service: cryostat
-  name: cryostat
+    io.kompose.service: db-viewer
+  name: db-viewer
   namespace: default
 spec:
   rules:
-    - host: cryostat3
+    - host: pgadmin
       http:
         paths:
           - backend:
               service:
-                name: cryostat
+                name: db-viewer
                 port:
-                  number: 8181
+                  number: 8989
             path: /
             pathType: Prefix
 status:

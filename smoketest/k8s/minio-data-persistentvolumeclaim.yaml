@@ -5,6 +5,7 @@ metadata:
   labels:
     io.kompose.service: minio-data
   name: minio-data
+  namespace: default
 spec:
   accessModes:
     - ReadWriteOnce

@@ -2,12 +2,14 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
-    kompose.version: 1.27.0 (b0ed6a2c9)
+    kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
+    kompose.service.expose: pgadmin
+    kompose.version: 1.30.0 (9d8dcb518)
   creationTimestamp: null
   labels:
     io.kompose.service: db-viewer
   name: db-viewer
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -18,10 +20,12 @@ spec:
   template:
     metadata:
       annotations:
-        kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
-        kompose.version: 1.27.0 (b0ed6a2c9)
+        kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
+        kompose.service.expose: pgadmin
+        kompose.version: 1.30.0 (9d8dcb518)
       creationTimestamp: null
       labels:
+        io.kompose.network/compose-default: "true"
         io.kompose.service: db-viewer
     spec:
       containers:
@@ -33,22 +37,36 @@ spec:
             - name: PGADMIN_LISTEN_PORT
               value: "8989"
           image: docker.io/dpage/pgadmin4:6
+          livenessProbe:
+            exec:
+              command:
+                - wget --no-verbose --tries=1 --spider http://localhost:8989 || exit 1
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
           name: db-viewer
           ports:
             - containerPort: 8989
+              hostPort: 8989
+              protocol: TCP
           resources: {}
           volumeMounts:
             - mountPath: /var/lib/pgadmin
               name: pgadmin
             - mountPath: /pgadmin4/servers.json
-              name: db-viewer-claim1
+              name: serverjson
+              subPath: servers.json
       hostname: db-viewer
       restartPolicy: Always
       volumes:
         - name: pgadmin
           persistentVolumeClaim:
             claimName: pgadmin
-        - name: db-viewer-claim1
-          persistentVolumeClaim:
-            claimName: db-viewer-claim1
+        - name: serverjson
+          configMap:
+            name: pgadmin-config
+            items:
+              - key: servers.json
+                path: servers.json
 status: {}

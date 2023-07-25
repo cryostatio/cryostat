@@ -145,11 +145,54 @@ $ LD_PRELOAD=$HOME/bin/libuserhosts.so curl http://cryostat:8181
 $ LD_PRELOAD=$HOME/bin/libuserhosts.so firefox http://cryostat:8181
 ```
 
-The next testing step is to run this same container setup in k8s.
+## Smoketesting in K8s
+
+The next testing step is to run this same container setup in k8s, which will require the installation of yq, Kompose and the multiforward plugin with Krew.
+
+Installing yq:
+```bash
+$ curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o yq
+$ chmod +x yq
+$ sudo mv -i ./yq /usr/local/bin/yq
+```
+
+Installing Kompose:
+```bash
+$ curl -L https://github.com/kubernetes/kompose/releases/download/v1.30.0/kompose-linux-amd64 -o kompose
+$ chmod +x kompose
+$ sudo mv -i ./kompose /usr/local/bin/kompose
+```
+
+Installing Krew:
+```bash
+$ cd "$(mktemp -d)"
+$ OS="$(uname | tr '[:upper:]' '[:lower:]')"
+$ ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')"
+$ KREW="krew-${OS}_${ARCH}"
+$ curl -L "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz"
+$ tar zxvf "${KREW}.tar.gz"
+$ ./"${KREW}" install krew
+```
+
+`~/.bashrc` (or equivalent shell configuration)
+```bash
+$ export PATH="${KREW_ROOT:-$HOME/.krew}/bin:$PATH"
+```
+
+Installing multiforward:
+```bash
+$ kubectl krew install multiforward
+```
+
+The steps for testing:
 
 ```bash
 $ cd smoketest/k8s
 $ sh smoketest.sh kind # if you use `kind` and want to spin up a cluster, otherwise skip this if you have another cluster accessible via `kubectl`
-$ IMAGE_REPOSITORY=$QUAY_USERNAME sh smoketest.sh generate apply
+```
+If you get an error during the 'ensuring node image' step while creating cluster "kind", manually pull the podman image by running the command `podman pull docker.io/kindest/node@IMAGE_DIGEST` where IMAGE_DIGEST is the sha256 of the image. Then rerun `sh smoketest.sh kind`.
+
+```bash
+$ sh smoketest.sh generate apply
 $ sh smoketest.sh forward # if you need to use port-forwarding to get access to the cluster's services
 ```

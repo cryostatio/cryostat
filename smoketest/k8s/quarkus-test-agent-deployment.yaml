@@ -2,12 +2,13 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   annotations:
-    kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
-    kompose.version: 1.27.0 (b0ed6a2c9)
+    kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
+    kompose.version: 1.30.0 (9d8dcb518)
   creationTimestamp: null
   labels:
     io.kompose.service: quarkus-test-agent
   name: quarkus-test-agent
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -17,10 +18,11 @@ spec:
   template:
     metadata:
       annotations:
-        kompose.cmd: kompose convert -o /home/andrew/workspace/cryostat3/smoketest/k8s -f /home/andrew/workspace/cryostat3/smoketest/k8s/../../container-compose.yml
-        kompose.version: 1.27.0 (b0ed6a2c9)
+        kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
+        kompose.version: 1.30.0 (9d8dcb518)
       creationTimestamp: null
       labels:
+        io.kompose.network/compose-default: "true"
         io.kompose.service: quarkus-test-agent
     spec:
       containers:
@@ -55,11 +57,23 @@ spec:
               value: "false"
             - name: QUARKUS_HTTP_PORT
               value: "10010"
-          image: quay.io/andrewazores/quarkus-test:latest
+          image: quay.io/andrewazores/quarkus-test:0.0.11
+          livenessProbe:
+            exec:
+              command:
+                - curl --fail http://localhost:10010 || exit 1
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
           name: quarkus-test-agent
           ports:
             - containerPort: 9977
+              hostPort: 9977
+              protocol: TCP
             - containerPort: 10010
+              hostPort: 10010
+              protocol: TCP
           resources: {}
       hostname: quarkus-test-agent
       restartPolicy: Always
