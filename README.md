@@ -153,23 +153,23 @@ Installing yq:
 ```bash
 $ curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o yq
 $ chmod +x yq
-$ sudo mv ./yq /usr/local/bin/yq
+$ sudo mv -i ./yq /usr/local/bin/yq
 ```
 
 Installing Kompose:
 ```bash
 $ curl -L https://github.com/kubernetes/kompose/releases/download/v1.30.0/kompose-linux-amd64 -o kompose
 $ chmod +x kompose
-$ sudo mv ./kompose /usr/local/bin/kompose
+$ sudo mv -i ./kompose /usr/local/bin/kompose
 ```
 
 Installing Krew:
 ```bash
-$ set -x; cd "$(mktemp -d)"
+$ cd "$(mktemp -d)"
 $ OS="$(uname | tr '[:upper:]' '[:lower:]')"
 $ ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')"
 $ KREW="krew-${OS}_${ARCH}"
-$ curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz"
+$ curl -L "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz"
 $ tar zxvf "${KREW}.tar.gz"
 $ ./"${KREW}" install krew
 ```
