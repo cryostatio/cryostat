@@ -62,6 +62,7 @@ import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBu
 import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.Template;
@@ -125,7 +126,7 @@ public class RecordingHelper {
     @Inject ObjectMapper mapper;
     @Inject S3Client storage;
 
-    @ConfigProperty(name = "storage.buckets.archives.name")
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
 
     @Blocking
@@ -136,8 +137,8 @@ public class RecordingHelper {
             String templateName,
             TemplateType templateType,
             Metadata metadata,
-            Boolean archiveOnStop,
-            Boolean restart,
+            boolean archiveOnStop,
+            boolean restart,
             JFRConnection connection)
             throws Exception {
         String recordingName = (String) recordingOptions.get(RecordingOptionsBuilder.KEY_NAME);
@@ -293,6 +294,7 @@ public class RecordingHelper {
         }
     }
 
+    @Blocking
     public List<S3Object> listArchivedRecordingObjects() {
         return storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
                 .contents();
@@ -462,5 +464,9 @@ public class RecordingHelper {
                                                         .build())
                                 .toList())
                 .build();
+    }
+
+    enum Replace {
+
     }
 }

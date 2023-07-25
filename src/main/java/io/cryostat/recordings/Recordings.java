@@ -59,6 +59,7 @@ import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.TemplateType;
@@ -134,7 +135,7 @@ public class Recordings {
     @Inject RecordingHelper recordingHelper;
     private final Base64 base64Url = new Base64(0, null, true);
 
-    @ConfigProperty(name = "storage.buckets.archives.name")
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
 
     void onStart(@Observes StartupEvent evt) {
