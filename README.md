@@ -151,8 +151,9 @@ The next testing step is to run this same container setup in k8s, which will req
 
 Installing yq:
 ```bash
-$ sudo wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/bin/yq
-$ sudo chmod +x /usr/bin/yq
+$ curl -L https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -o yq
+$ chmod +x yq
+$ sudo mv ./yq /usr/local/bin/yq
 ```
 
 Installing Kompose:
@@ -164,16 +165,13 @@ $ sudo mv ./kompose /usr/local/bin/kompose
 
 Installing Krew:
 ```bash
-(
-  set -x; cd "$(mktemp -d)" &&
-  OS="$(uname | tr '[:upper:]' '[:lower:]')" &&
-  ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')" &&
-  KREW="krew-${OS}_${ARCH}" &&
-  curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz" &&
-  tar zxvf "${KREW}.tar.gz" &&
-  ./"${KREW}" install krew
-)
-
+$ set -x; cd "$(mktemp -d)"
+$ OS="$(uname | tr '[:upper:]' '[:lower:]')"
+$ ARCH="$(uname -m | sed -e 's/x86_64/amd64/' -e 's/\(arm\)\(64\)\?.*/\1\2/' -e 's/aarch64$/arm64/')"
+$ KREW="krew-${OS}_${ARCH}"
+$ curl -fsSLO "https://github.com/kubernetes-sigs/krew/releases/latest/download/${KREW}.tar.gz"
+$ tar zxvf "${KREW}.tar.gz"
+$ ./"${KREW}" install krew
 ```
 
 `~/.bashrc` (or equivalent shell configuration)
@@ -192,7 +190,7 @@ The steps for testing:
 $ cd smoketest/k8s
 $ sh smoketest.sh kind # if you use `kind` and want to spin up a cluster, otherwise skip this if you have another cluster accessible via `kubectl`
 ```
-If you get an error during the 'ensuring node image' step while creating cluster "kind", manually pull the podman image by running the command `podman pull docker.io/kindest/node@IMAGE_DIGEST` were IMAGE_DIGEST is the sha256 of the image. Then rerun `sh smoketest.sh kind`.
+If you get an error during the 'ensuring node image' step while creating cluster "kind", manually pull the podman image by running the command `podman pull docker.io/kindest/node@IMAGE_DIGEST` where IMAGE_DIGEST is the sha256 of the image. Then rerun `sh smoketest.sh kind`.
 
 ```bash
 $ sh smoketest.sh generate apply

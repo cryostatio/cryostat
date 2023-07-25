@@ -3,11 +3,12 @@ kind: Deployment
 metadata:
   annotations:
     kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
-    kompose.version: 1.28.0 (c4137012e)
+    kompose.version: 1.30.0 (9d8dcb518)
   creationTimestamp: null
   labels:
     io.kompose.service: db
   name: db
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -19,7 +20,7 @@ spec:
     metadata:
       annotations:
         kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
-        kompose.version: 1.28.0 (c4137012e)
+        kompose.version: 1.30.0 (9d8dcb518)
       creationTimestamp: null
       labels:
         io.kompose.network/compose-default: "true"
@@ -51,6 +52,8 @@ spec:
           name: db
           ports:
             - containerPort: 5432
+              hostPort: 5432
+              protocol: TCP
           resources: {}
           volumeMounts:
             - mountPath: /var/lib/postgresql/data

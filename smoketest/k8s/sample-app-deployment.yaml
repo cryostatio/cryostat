@@ -6,11 +6,12 @@ metadata:
     io.cryostat.jmxHost: sample-app
     io.cryostat.jmxPort: "9093"
     kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
-    kompose.version: 1.28.0 (c4137012e)
+    kompose.version: 1.30.0 (9d8dcb518)
   creationTimestamp: null
   labels:
     io.kompose.service: sample-app
   name: sample-app
+  namespace: default
 spec:
   replicas: 1
   selector:
@@ -24,7 +25,7 @@ spec:
         io.cryostat.jmxHost: sample-app
         io.cryostat.jmxPort: "9093"
         kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
-        kompose.version: 1.28.0 (c4137012e)
+        kompose.version: 1.30.0 (9d8dcb518)
       creationTimestamp: null
       labels:
         io.kompose.network/compose-default: "true"
@@ -66,6 +67,8 @@ spec:
           name: sample-app
           ports:
             - containerPort: 8081
+              hostPort: 8081
+              protocol: TCP
           resources: {}
       hostname: vertx-fib-demo-1
       restartPolicy: Always
