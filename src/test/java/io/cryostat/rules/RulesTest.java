@@ -38,9 +38,8 @@ import org.mockito.Mockito;
 @TestHTTPEndpoint(Rules.class)
 public class RulesTest {
 
-    private static final String EXPR_1 = "true == false";
-
-    private static final String EXPR_2 = "false != true";
+    private static final String EXPR_1 = "true";
+    private static final String EXPR_2 = "false";
 
     @InjectSpy(convertScopes = true)
     EventBus bus;

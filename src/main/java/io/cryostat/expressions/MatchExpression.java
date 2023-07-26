@@ -37,39 +37,52 @@
  */
 package io.cryostat.expressions;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.PrePersist;
-import org.projectnessie.cel.tools.ScriptCreateException;
+import jakarta.validation.ValidationException;
+import jakarta.validation.constraints.NotBlank;
+import org.jboss.logging.Logger;
 
 @Entity
 @EntityListeners(MatchExpression.Listener.class)
 public class MatchExpression extends PanacheEntity {
 
+    @Column(updatable = false, nullable = false)
+    @NotBlank
     // when serializing matchExpressions (ex. as a field of Rules), just use the script as the
     // serialized form of the expression object.
-    @JsonValue public String script;
+    @JsonValue
+    public String script;
 
-    public MatchExpression() {
+    MatchExpression() {
         this.script = null;
     }
 
+    @JsonCreator
     public MatchExpression(String script) {
         this.script = script;
     }
 
     @ApplicationScoped
     static class Listener {
-
         @Inject MatchExpressionEvaluator evaluator;
+        @Inject Logger logger;
 
         @PrePersist
-        public void prePersist(MatchExpression expr) throws ScriptCreateException {
-            evaluator.createScript(expr.script);
+        public void prePersist(MatchExpression expr) throws ValidationException {
+            try {
+                evaluator.createScript(expr.script);
+            } catch (Exception e) {
+                logger.error("Invalid match expression", e);
+                throw new ValidationException(e);
+            }
         }
     }
 }
