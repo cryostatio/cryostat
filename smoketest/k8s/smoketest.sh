@@ -54,7 +54,7 @@ while [ "$#" -ne 0 ]; do
             fi
             ;;
         *)
-            echo "Usage: $0 [clean|generate]"
+            echo "Usage: $0 [clean|generate|apply|kind|unkind|forward]"
             exit 1
             ;;
     esac
