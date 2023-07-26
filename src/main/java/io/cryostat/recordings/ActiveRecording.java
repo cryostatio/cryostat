@@ -77,14 +77,18 @@ import org.jboss.logging.Logger;
 
 @Entity
 @EntityListeners(ActiveRecording.Listener.class)
-@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"target_id", "name"}))
+@Table(
+        uniqueConstraints = {
+            @UniqueConstraint(columnNames = {"target_id", "name"}),
+            @UniqueConstraint(columnNames = {"target_id", "remoteId"})
+        })
 public class ActiveRecording extends PanacheEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")
     private Target target;
 
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     public String name;
 
     public long remoteId;
