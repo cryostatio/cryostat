@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.cryostat.rules;
+package io.cryostat.expressions;
 
 import java.util.List;
 import java.util.Map;
@@ -23,6 +23,7 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import io.cryostat.rules.Rule;
 import io.cryostat.rules.Rule.RuleEvent;
 import io.cryostat.targets.Target;
 
@@ -65,7 +66,7 @@ public class MatchExpressionEvaluator {
             case CREATED:
                 break;
             case DELETED:
-                invalidate(event.rule().matchExpression);
+                invalidate(event.rule().matchExpression.script);
                 break;
             case UPDATED:
                 break;
@@ -74,7 +75,7 @@ public class MatchExpressionEvaluator {
         }
     }
 
-    private Script createScript(String matchExpression) throws ScriptCreateException {
+    Script createScript(String matchExpression) throws ScriptCreateException {
         ScriptCreationEvent evt = new ScriptCreationEvent();
         try {
             evt.begin();

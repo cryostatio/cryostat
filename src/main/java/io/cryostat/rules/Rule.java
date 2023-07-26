@@ -15,6 +15,8 @@
  */
 package io.cryostat.rules;
 
+import io.cryostat.expressions.MatchExpression;
+import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -22,9 +24,13 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
@@ -42,9 +48,9 @@ public class Rule extends PanacheEntity {
 
     public String description;
 
-    @Column(nullable = false)
-    @NotBlank(message = "matchExpression cannot be blank")
-    public String matchExpression;
+    @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+    @JoinColumn(name = "matchExpression")
+    public MatchExpression matchExpression;
 
     @Column(nullable = false)
     @NotBlank(message = "eventSpecifier cannot be blank")

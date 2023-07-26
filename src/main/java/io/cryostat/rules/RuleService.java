@@ -33,6 +33,7 @@ import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.templates.TemplateType;
+import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
@@ -192,7 +193,7 @@ public class RuleService {
             targets.filter(
                             target -> {
                                 try {
-                                    return evaluator.applies(rule.matchExpression, target);
+                                    return evaluator.applies(rule.matchExpression.script, target);
                                 } catch (ScriptException e) {
                                     logger.error(e);
                                     return false;

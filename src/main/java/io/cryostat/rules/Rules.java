@@ -16,6 +16,7 @@
 package io.cryostat.rules;
 
 import io.cryostat.V2Response;
+import io.cryostat.expressions.MatchExpression;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -112,10 +113,12 @@ public class Rules {
             @RestForm int maxAgeSeconds,
             @RestForm int maxSizeBytes,
             @RestForm boolean enabled) {
+        MatchExpression expr = new MatchExpression(matchExpression);
+        expr.persist();
         Rule rule = new Rule();
         rule.name = name;
         rule.description = description;
-        rule.matchExpression = matchExpression;
+        rule.matchExpression = expr;
         rule.eventSpecifier = eventSpecifier;
         rule.archivalPeriodSeconds = archivalPeriodSeconds;
         rule.initialDelaySeconds = initialDelaySeconds;
