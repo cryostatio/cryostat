@@ -50,6 +50,8 @@ import org.projectnessie.cel.tools.ScriptCreateException;
 @EntityListeners(MatchExpression.Listener.class)
 public class MatchExpression extends PanacheEntity {
 
+    // when serializing matchExpressions (ex. as a field of Rules), just use the script as the
+    // serialized form of the expression object.
     @JsonValue public String script;
 
     public MatchExpression() {
