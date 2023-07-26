@@ -57,7 +57,7 @@ spec:
               value: "false"
             - name: QUARKUS_HTTP_PORT
               value: "10010"
-          image: quay.io/andrewazores/quarkus-test:0.0.11
+          image: quay.io/andrewazores/quarkus-test:latest
           livenessProbe:
             exec:
               command:
