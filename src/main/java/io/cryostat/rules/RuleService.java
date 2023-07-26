@@ -60,6 +60,7 @@ import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingOptionsBuilderFactory;
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
@@ -163,7 +164,7 @@ public class RuleService {
                                     template.getRight(),
                                     meta,
                                     false,
-                                    true,
+                                    RecordingReplace.STOPPED,
                                     connection);
                         });
         Target attachedTarget = entityManager.merge(target);
