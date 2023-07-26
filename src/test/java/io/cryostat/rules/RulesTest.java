@@ -38,6 +38,10 @@ import org.mockito.Mockito;
 @TestHTTPEndpoint(Rules.class)
 public class RulesTest {
 
+    private static final String EXPR_1 = "true == false";
+
+    private static final String EXPR_2 = "false != true";
+
     @InjectSpy(convertScopes = true)
     EventBus bus;
 
@@ -49,7 +53,7 @@ public class RulesTest {
     public void setup() {
         rule = new JsonObject();
         rule.put("name", RULE_NAME);
-        rule.put("matchExpression", "my_match_expression");
+        rule.put("matchExpression", EXPR_1);
         rule.put("eventSpecifier", "my_event_specifier");
         rule.put("enabled", true);
     }
@@ -96,7 +100,7 @@ public class RulesTest {
                         "meta.status", is("OK"),
                         "data.result", Matchers.hasSize(1),
                         "data.result[0].name", is(RULE_NAME),
-                        "data.result[0].matchExpression", is("my_match_expression"),
+                        "data.result[0].matchExpression", is(EXPR_1),
                         "data.result[0].eventSpecifier", is("my_event_specifier"));
     }
 
@@ -178,7 +182,7 @@ public class RulesTest {
         // Try to create again
         var conflictRule = new JsonObject();
         conflictRule.put("name", RULE_NAME);
-        conflictRule.put("matchExpression", "some_other_match_expression");
+        conflictRule.put("matchExpression", EXPR_2);
         conflictRule.put("eventSpecifier", "some_other_event_specifier");
 
         givenBasicAuth()
@@ -198,7 +202,7 @@ public class RulesTest {
     public void testCreateThrowsWhenMandatoryFieldsUnspecified() {
         var badRule = new JsonObject();
         badRule.put("name", RULE_NAME);
-        badRule.put("matchExpression", "some_other_match_expression");
+        badRule.put("matchExpression", EXPR_2);
         // MISSING: badRule.put("eventSpecifier", "some_other_event_specifier");
         givenBasicAuth()
                 .body(badRule.toString())
