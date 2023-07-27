@@ -43,66 +43,57 @@ import java.util.Queue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
-import org.eclipse.microprofile.config.ConfigProvider;
+import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.quartz.Job;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
 
-class ScheduledArchiveTask implements Runnable {
+class ScheduledArchiveJob implements Job {
 
     private static final Pattern RECORDING_FILENAME_PATTERN =
             Pattern.compile(
                     "([A-Za-z\\d\\.-]*)_([A-Za-z\\d-_]*)_([\\d]*T[\\d]*Z)(\\.[\\d]+)?(\\.jfr)?");
-    private final Rule rule;
-    private final Target target;
-    private final ActiveRecording recording;
-    private final Queue<String> previousRecordings;
-    private final RecordingHelper recordingHelper;
-    private final Logger logger;
 
-    @ConfigProperty(name = "storage.buckets.archives.name")
+    @Inject RecordingHelper recordingHelper;
+    @Inject Logger logger;
+
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
 
-    ScheduledArchiveTask(
-            RecordingHelper recordingHelper,
-            Logger logger,
-            Rule rule,
-            Target target,
-            ActiveRecording recording) {
-        this.recordingHelper = recordingHelper;
-        this.logger = logger;
-        this.rule = rule;
-        this.target = target;
-        this.recording = recording;
-        this.previousRecordings = new ArrayDeque<>(rule.preservedArchives);
-        this.archiveBucket =
-                ConfigProvider.getConfig().getValue("storage.buckets.archives.name", String.class);
-    }
-
     @Override
-    public void run() {
+    public void execute(JobExecutionContext context) throws JobExecutionException {
         try {
-            logger.infov("Archival task for rule {0} on {1}", rule.name, target.alias);
+            Rule rule = (Rule) context.getJobDetail().getJobDataMap().get("rule");
+            Target target = (Target) context.getJobDetail().getJobDataMap().get("target");
+            ActiveRecording recording =
+                    (ActiveRecording) context.getJobDetail().getJobDataMap().get("recording");
+            Queue<String> previousRecordings = new ArrayDeque<>(rule.preservedArchives);
+
             // If there are no previous recordings, either this is the first time this rule is being
             // archived or the Cryostat instance was restarted. Since it could be the latter,
             // populate the array with any previously archived recordings for this rule.
             if (previousRecordings.isEmpty()) {
-                initPreviousRecordings();
+                initPreviousRecordings(target, rule, previousRecordings);
             }
             while (previousRecordings.size() >= rule.preservedArchives) {
-                pruneArchive(previousRecordings.remove());
+                pruneArchive(target, previousRecordings, previousRecordings.remove());
             }
-            performArchival();
+            performArchival(target, recording, previousRecordings);
         } catch (Exception e) {
             logger.error(e);
             // TODO: Handle JMX/SSL errors
         }
     }
 
-    private void initPreviousRecordings() {
+    private void initPreviousRecordings(
+            Target target, Rule rule, Queue<String> previousRecordings) {
         recordingHelper.listArchivedRecordingObjects().parallelStream()
                 .forEach(
                         item -> {
@@ -122,12 +113,15 @@ class ScheduledArchiveTask implements Runnable {
                         });
     }
 
-    private void performArchival() throws Exception {
+    private void performArchival(
+            Target target, ActiveRecording recording, Queue<String> previousRecordings)
+            throws Exception {
         String filename = recordingHelper.saveRecording(target, recording);
         previousRecordings.add(filename);
     }
 
-    private void pruneArchive(String filename) throws Exception {
+    private void pruneArchive(Target target, Queue<String> previousRecordings, String filename)
+            throws Exception {
         recordingHelper.deleteArchivedRecording(target.jvmId, filename);
         previousRecordings.remove(filename);
     }

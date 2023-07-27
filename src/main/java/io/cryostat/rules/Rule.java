@@ -55,7 +55,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
 import org.jboss.logging.Logger;
 
-// TODO add quarkus-quartz dependency to store Rules and make them into persistent recurring tasks
 @Entity
 @EntityListeners(Rule.Listener.class)
 public class Rule extends PanacheEntity {

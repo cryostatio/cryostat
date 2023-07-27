@@ -39,15 +39,13 @@
 package io.cryostat.rules;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
@@ -68,9 +66,11 @@ import io.cryostat.rules.Rule.RuleEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
+import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
@@ -78,6 +78,13 @@ import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.tuple.Pair;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
+import org.quartz.JobBuilder;
+import org.quartz.JobDetail;
+import org.quartz.JobKey;
+import org.quartz.SchedulerException;
+import org.quartz.SimpleScheduleBuilder;
+import org.quartz.Trigger;
+import org.quartz.TriggerBuilder;
 
 @ApplicationScoped
 public class RuleService {
@@ -88,37 +95,47 @@ public class RuleService {
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
     @Inject RecordingHelper recordingHelper;
     @Inject EntityManager entityManager;
-    @Inject ScheduledExecutorService executor;
-    @Inject ScheduleArchiveTaskBuilder scheduledTaskBuilderFactory;
+    @Inject org.quartz.Scheduler quartz;
 
-    Map<Long, CopyOnWriteArrayList<RuleRecording>> ruleMap = new ConcurrentHashMap<>();
+    List<JobKey> jobs = new CopyOnWriteArrayList<>();
+    Map<Long, CopyOnWriteArrayList<ActiveRecording>> ruleRecordingMap = new ConcurrentHashMap<>();
+
+    void onStart(@Observes StartupEvent ev) {
+        logger.trace("RuleService started");
+        try (Stream<Rule> rules = Rule.streamAll()) {
+            rules.forEach(
+                    rule -> {
+                        if (rule.enabled) {
+                            applyRuleToMatchingTargets(rule);
+                        }
+                    });
+        }
+    }
 
     @ConsumeEvent(Rule.RULE_ADDRESS)
     @Blocking
     public void handleRuleModification(RuleEvent event) {
         Rule rule = event.rule();
-        List<RuleRecording> ruleRecordings = ruleMap.get(rule.id);
+        var relatedRecordings =
+                ruleRecordingMap.computeIfAbsent(rule.id, k -> new CopyOnWriteArrayList<>());
         switch (event.category()) {
             case CREATED:
-                if (!ruleMap.containsKey(rule.id)) {
-                    ruleMap.put(rule.id, new CopyOnWriteArrayList<>());
-                }
                 if (rule.enabled) {
                     applyRuleToMatchingTargets(rule);
                 }
                 break;
             case UPDATED:
                 if (rule.enabled) {
-                    ruleRecordings.clear();
                     applyRuleToMatchingTargets(rule);
                 } else {
-                    cancelTasks(ruleRecordings);
+                    cancelTasksForRule(rule);
+                    relatedRecordings.clear();
                 }
                 break;
             case DELETED:
-                cancelTasks(ruleRecordings);
-                ruleRecordings.clear();
-                ruleMap.remove(rule.id);
+                cancelTasksForRule(rule);
+                relatedRecordings.clear();
+                ruleRecordingMap.remove(rule.id);
                 break;
             default:
                 break;
@@ -129,13 +146,13 @@ public class RuleService {
     @Blocking
     @Transactional
     public void handleRuleRecordingCleanup(Rule rule) {
-        List<RuleRecording> ruleRecordings = ruleMap.get(rule.id);
-        if (ruleRecordings == null) {
+        var relatedRecordings = ruleRecordingMap.get(rule.id);
+        if (relatedRecordings == null) {
             throw new IllegalStateException("No tasks associated with rule " + rule.id);
         }
-        ruleRecordings.forEach(
-                p -> {
-                    ActiveRecording attachedRecoding = entityManager.merge(p.getRecording());
+        relatedRecordings.forEach(
+                rec -> {
+                    ActiveRecording attachedRecoding = entityManager.merge(rec);
                     attachedRecoding.state = RecordingState.STOPPED;
                     attachedRecoding.persist();
                     // the RULE_ADDRESS will handle the task cancellations + removal
@@ -174,11 +191,11 @@ public class RuleService {
         attachedTarget.activeRecordings.add(recording);
         attachedTarget.persist();
 
+        var relatedRecordings = ruleRecordingMap.get(rule.id);
+        relatedRecordings.add(recording);
+
         if (rule.isArchiver()) {
             scheduleArchival(rule, attachedTarget, recording);
-        } else {
-            List<RuleRecording> ruleRecordings = ruleMap.get(rule.id);
-            ruleRecordings.add(new RuleRecording(recording));
         }
     }
 
@@ -221,50 +238,69 @@ public class RuleService {
     }
 
     private void scheduleArchival(Rule rule, Target target, ActiveRecording recording) {
+        JobDetail jobDetail =
+                JobBuilder.newJob(ScheduledArchiveJob.class)
+                        .withIdentity(rule.name, target.jvmId)
+                        .build();
+        logger.info("archival scheduled.");
+
+        if (jobs.contains(jobDetail.getKey())) {
+            return;
+        }
+
         int initialDelay = rule.initialDelaySeconds;
         int archivalPeriodSeconds = rule.archivalPeriodSeconds;
         if (initialDelay <= 0) {
             initialDelay = archivalPeriodSeconds;
         }
 
-        ScheduledArchiveTask task = scheduledTaskBuilderFactory.build(rule, target, recording);
-        ScheduledFuture<?> future =
-                executor.scheduleAtFixedRate(
-                        task, initialDelay, archivalPeriodSeconds, TimeUnit.SECONDS);
+        Map<String, Object> data = jobDetail.getJobDataMap();
+        data.put("rule", rule);
+        data.put("target", target);
+        data.put("recording", recording);
 
-        List<RuleRecording> ruleRecordings = ruleMap.get(rule.id);
-        ruleRecordings.add(new RuleRecording(recording, future));
+        Trigger trigger =
+                TriggerBuilder.newTrigger()
+                        .withIdentity("archivalTrigger", "cryostat")
+                        .usingJobData(jobDetail.getJobDataMap())
+                        .withSchedule(
+                                SimpleScheduleBuilder.simpleSchedule()
+                                        .withIntervalInSeconds(archivalPeriodSeconds)
+                                        .repeatForever())
+                        .startAt(new Date(System.currentTimeMillis() + initialDelay * 1000))
+                        .build();
+        try {
+            quartz.scheduleJob(jobDetail, trigger);
+        } catch (SchedulerException e) {
+            logger.infov("Failed to schedule archival job for rule {}: {}" + rule.name, e);
+        }
+        jobs.add(jobDetail.getKey());
     }
 
-    private void cancelTasks(List<RuleRecording> ruleRecordings) {
-        ruleRecordings.forEach(
-                rr -> {
-                    if (rr.getFuture().isPresent()) {
-                        rr.getFuture().get().cancel(true);
-                    }
-                });
-    }
-
-    static class RuleRecording {
-        private ActiveRecording recording;
-        private Optional<ScheduledFuture<?>> future;
-
-        RuleRecording(ActiveRecording recording, ScheduledFuture<?> future) {
-            this.recording = recording;
-            this.future = Optional.ofNullable(future);
-        }
-
-        RuleRecording(ActiveRecording recording) {
-            this.recording = recording;
-            this.future = Optional.empty();
-        }
-
-        public ActiveRecording getRecording() {
-            return recording;
-        }
-
-        public Optional<ScheduledFuture<?>> getFuture() {
-            return future;
+    private void cancelTasksForRule(Rule rule) {
+        if (rule.isArchiver()) {
+            List<String> targets =
+                    evaluator.getMatchedTargets(rule.matchExpression).stream()
+                            .map(t -> t.jvmId)
+                            .collect(Collectors.toList());
+            jobs.forEach(
+                    jk -> {
+                        if (targets.contains(jk.getGroup())) {
+                            try {
+                                quartz.deleteJob(jk);
+                            } catch (SchedulerException e) {
+                                logger.error(
+                                        "Failed to delete job "
+                                                + jk.getName()
+                                                + " for rule "
+                                                + rule.name);
+                            } finally {
+                                jobs.remove(jk);
+                            }
+                        }
+                    });
         }
     }
+
+    public record RuleRecording(Rule rule, ActiveRecording recording) {}
 }

@@ -37,10 +37,13 @@
  */
 package io.cryostat.rules;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import io.cryostat.rules.Rule.RuleEvent;
 import io.cryostat.targets.Target;
@@ -165,6 +168,23 @@ public class MatchExpressionEvaluator {
             if (evt.shouldCommit()) {
                 evt.commit();
             }
+        }
+    }
+
+    public List<Target> getMatchedTargets(String matchExpression) {
+        try (Stream<Target> targets = Target.streamAll()) {
+            return targets.filter(
+                            target -> {
+                                try {
+                                    return applies(matchExpression, target);
+                                } catch (ScriptException e) {
+                                    logger.error(
+                                            "Error while processing expression: " + matchExpression,
+                                            e);
+                                    return false;
+                                }
+                            })
+                    .collect(Collectors.toList());
         }
     }
 
