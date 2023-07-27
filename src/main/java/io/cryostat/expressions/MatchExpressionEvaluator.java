@@ -132,11 +132,11 @@ public class MatchExpressionEvaluator {
         }
     }
 
-    public boolean applies(String matchExpression, Target target) throws ScriptException {
+    public boolean applies(MatchExpression matchExpression, Target target) throws ScriptException {
         MatchExpressionAppliesEvent evt = new MatchExpressionAppliesEvent(matchExpression);
         try {
             evt.begin();
-            return load(matchExpression, target);
+            return load(matchExpression.script, target);
         } catch (CompletionException e) {
             if (e.getCause() instanceof ScriptException) {
                 throw (ScriptException) e.getCause();
@@ -150,7 +150,7 @@ public class MatchExpressionEvaluator {
         }
     }
 
-    public List<Target> getMatchedTargets(String matchExpression) {
+    public List<Target> getMatchedTargets(MatchExpression matchExpression) {
         try (Stream<Target> targets = Target.streamAll()) {
             return targets.filter(
                             target -> {
@@ -178,8 +178,8 @@ public class MatchExpressionEvaluator {
 
         String matchExpression;
 
-        MatchExpressionAppliesEvent(String matchExpression) {
-            this.matchExpression = matchExpression;
+        MatchExpressionAppliesEvent(MatchExpression matchExpression) {
+            this.matchExpression = matchExpression.script;
         }
     }
 

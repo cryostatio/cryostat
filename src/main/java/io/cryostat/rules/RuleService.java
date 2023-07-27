@@ -193,7 +193,7 @@ public class RuleService {
             targets.filter(
                             target -> {
                                 try {
-                                    return evaluator.applies(rule.matchExpression.script, target);
+                                    return evaluator.applies(rule.matchExpression, target);
                                 } catch (ScriptException e) {
                                     logger.error(e);
                                     return false;
