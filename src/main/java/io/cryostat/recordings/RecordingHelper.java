@@ -332,7 +332,7 @@ public class RecordingHelper {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
         String transformedAlias =
-                URLDecoder.decode(target.alias, StandardCharsets.UTF_8).replaceAll("/", "-");
+                URLDecoder.decode(target.alias, StandardCharsets.UTF_8).replaceAll("[_/]", "-");
         String timestamp =
                 clock.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =

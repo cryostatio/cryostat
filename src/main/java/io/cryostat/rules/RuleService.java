@@ -181,7 +181,7 @@ public class RuleService {
                                     template.getRight(),
                                     meta,
                                     false,
-                                    RecordingReplace.STOPPED,
+                                    RecordingReplace.ALWAYS,
                                     connection);
                         });
         Target attachedTarget = entityManager.merge(target);
@@ -242,7 +242,6 @@ public class RuleService {
                 JobBuilder.newJob(ScheduledArchiveJob.class)
                         .withIdentity(rule.name, target.jvmId)
                         .build();
-        logger.info("archival scheduled.");
 
         if (jobs.contains(jobDetail.getKey())) {
             return;
@@ -261,18 +260,22 @@ public class RuleService {
 
         Trigger trigger =
                 TriggerBuilder.newTrigger()
-                        .withIdentity("archivalTrigger", "cryostat")
+                        .withIdentity(rule.name, target.jvmId)
                         .usingJobData(jobDetail.getJobDataMap())
                         .withSchedule(
                                 SimpleScheduleBuilder.simpleSchedule()
                                         .withIntervalInSeconds(archivalPeriodSeconds)
-                                        .repeatForever())
+                                        .repeatForever()
+                                        .withMisfireHandlingInstructionNowWithExistingCount())
                         .startAt(new Date(System.currentTimeMillis() + initialDelay * 1000))
                         .build();
         try {
             quartz.scheduleJob(jobDetail, trigger);
         } catch (SchedulerException e) {
-            logger.infov("Failed to schedule archival job for rule {}: {}" + rule.name, e);
+            logger.infov(
+                    "Failed to schedule archival job for rule {} in target {}" + rule.name,
+                    target.alias);
+            logger.error(e);
         }
         jobs.add(jobDetail.getKey());
     }

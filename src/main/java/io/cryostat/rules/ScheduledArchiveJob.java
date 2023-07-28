@@ -68,20 +68,16 @@ class ScheduledArchiveJob implements Job {
     String archiveBucket;
 
     @Override
-    public void execute(JobExecutionContext context) throws JobExecutionException {
+    public void execute(JobExecutionContext ctx) throws JobExecutionException {
         try {
-            Rule rule = (Rule) context.getJobDetail().getJobDataMap().get("rule");
-            Target target = (Target) context.getJobDetail().getJobDataMap().get("target");
-            ActiveRecording recording =
-                    (ActiveRecording) context.getJobDetail().getJobDataMap().get("recording");
+            var rule = (Rule) ctx.getJobDetail().getJobDataMap().get("rule");
+            var target = (Target) ctx.getJobDetail().getJobDataMap().get("target");
+            var recording = (ActiveRecording) ctx.getJobDetail().getJobDataMap().get("recording");
+
             Queue<String> previousRecordings = new ArrayDeque<>(rule.preservedArchives);
 
-            // If there are no previous recordings, either this is the first time this rule is being
-            // archived or the Cryostat instance was restarted. Since it could be the latter,
-            // populate the array with any previously archived recordings for this rule.
-            if (previousRecordings.isEmpty()) {
-                initPreviousRecordings(target, rule, previousRecordings);
-            }
+            initPreviousRecordings(target, rule, previousRecordings);
+
             while (previousRecordings.size() >= rule.preservedArchives) {
                 pruneArchive(target, previousRecordings, previousRecordings.remove());
             }
