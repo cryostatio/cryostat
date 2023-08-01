@@ -54,6 +54,7 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
+import org.jboss.resteasy.reactive.RestResponse.Status;
 
 @Path("/api/v2.2/credentials")
 public class Credentials {
@@ -62,7 +63,8 @@ public class Credentials {
     @RolesAllowed("read")
     public V2Response list() {
         List<Credential> credentials = Credential.listAll();
-        return V2Response.json(credentials.stream().map(Credentials::safeResult).toList());
+        return V2Response.json(
+                credentials.stream().map(Credentials::safeResult).toList(), Status.OK.toString());
     }
 
     @GET
@@ -70,7 +72,7 @@ public class Credentials {
     @Path("/{id}")
     public V2Response get(@RestPath long id) {
         Credential credential = Credential.find("id", id).singleResult();
-        return V2Response.json(safeMatchedResult(credential));
+        return V2Response.json(safeMatchedResult(credential), Status.OK.toString());
     }
 
     @Transactional

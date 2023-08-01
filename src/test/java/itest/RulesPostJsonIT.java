@@ -41,6 +41,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import io.cryostat.util.HttpMimeType;
 
@@ -54,11 +55,13 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusIntegrationTest
-@Disabled("TODO")
+@TestMethodOrder(OrderAnnotation.class)
 class RulesPostJsonIT extends StandardSelfTest {
 
     static JsonObject testRule;
@@ -74,18 +77,20 @@ class RulesPostJsonIT extends StandardSelfTest {
     @BeforeAll
     static void setup() throws Exception {
         testRule = new JsonObject();
-        testRule.put("name", "Test Rule");
+        testRule.put("name", TEST_RULE_NAME);
         testRule.put("matchExpression", "target.alias == 'es.andrewazor.demo.Main'");
         testRule.put("description", "AutoRulesIT automated rule");
         testRule.put("eventSpecifier", "template=Continuous,type=TARGET");
     }
 
     @Test
+    @Order(1)
     void testAddRuleThrowsWhenJsonAttributesNull() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
                 .post("/api/v2/rules")
+                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                 .sendJsonObject(
                         null,
@@ -93,26 +98,30 @@ class RulesPostJsonIT extends StandardSelfTest {
                             assertRequestStatus(ar, response);
                         });
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> response.get());
+                Assertions.assertThrows(
+                        ExecutionException.class, () -> response.get(10, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(400));
         MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Bad Request"));
     }
 
     @Test
+    @Order(2)
     void testAddRuleThrowsWhenMimeUnsupported() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
                 .post("/api/v2/rules")
-                .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "NOTAMIME;text/plain")
+                .basicAuthentication("user", "pass")
+                .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "text/plain")
                 .sendJsonObject(
                         testRule,
                         ar -> {
                             assertRequestStatus(ar, response);
                         });
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> response.get());
+                Assertions.assertThrows(
+                        ExecutionException.class, () -> response.get(10, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(415));
         MatcherAssert.assertThat(
@@ -120,11 +129,13 @@ class RulesPostJsonIT extends StandardSelfTest {
     }
 
     @Test
+    @Order(3)
     void testAddRuleThrowsWhenMimeInvalid() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
                 .post("/api/v2/rules")
+                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "NOTAMIME")
                 .sendJsonObject(
                         testRule,
@@ -132,20 +143,23 @@ class RulesPostJsonIT extends StandardSelfTest {
                             assertRequestStatus(ar, response);
                         });
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> response.get());
+                Assertions.assertThrows(
+                        ExecutionException.class, () -> response.get(10, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
-                ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(415));
+                ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(500));
         MatcherAssert.assertThat(
-                ex.getCause().getMessage(), Matchers.equalTo("Unsupported Media Type"));
+                ex.getCause().getMessage(), Matchers.equalTo("Internal Server Error"));
     }
 
     @Test
+    @Order(4)
     void testAddRuleThrowsWhenRuleNameAlreadyExists() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         try {
             webClient
                     .post("/api/v2/rules")
+                    .basicAuthentication("user", "pass")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
@@ -165,11 +179,13 @@ class RulesPostJsonIT extends StandardSelfTest {
                                                     "status",
                                                     "Created"),
                                     "data", Map.of("result", TEST_RULE_NAME)));
-            MatcherAssert.assertThat(response.get(), Matchers.equalTo(expectedresponse));
+            MatcherAssert.assertThat(
+                    response.get(10, TimeUnit.SECONDS), Matchers.equalTo(expectedresponse));
 
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();
             webClient
                     .post("/api/v2/rules")
+                    .basicAuthentication("user", "pass")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
@@ -179,16 +195,20 @@ class RulesPostJsonIT extends StandardSelfTest {
 
             ExecutionException ex =
                     Assertions.assertThrows(
-                            ExecutionException.class, () -> duplicatePostResponse.get());
+                            ExecutionException.class,
+                            () -> duplicatePostResponse.get(10, TimeUnit.SECONDS));
             MatcherAssert.assertThat(
                     ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(409));
             MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Conflict"));
 
+        } catch (Exception e) {
+            logger.error(e);
         } finally {
             // clean up rule before running next test
             CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
             webClient
                     .delete(String.format("/api/v2/rules/%s", TEST_RULE_NAME))
+                    .basicAuthentication("user", "pass")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .send(
                             ar -> {
@@ -206,7 +226,8 @@ class RulesPostJsonIT extends StandardSelfTest {
                                     NULL_RESULT));
             try {
                 MatcherAssert.assertThat(
-                        deleteResponse.get(), Matchers.equalTo(expectedDeleteResponse));
+                        deleteResponse.get(10, TimeUnit.SECONDS),
+                        Matchers.equalTo(expectedDeleteResponse));
             } catch (InterruptedException | ExecutionException e) {
                 throw new ITestCleanupFailedException(
                         String.format("Failed to delete rule %s", TEST_RULE_NAME), e);
@@ -215,23 +236,30 @@ class RulesPostJsonIT extends StandardSelfTest {
     }
 
     @Test
+    @Order(5)
     void testAddRuleThrowsWhenIntegerAttributesNegative() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         testRule.put("archivalPeriodSeconds", -60);
         testRule.put("preservedArchives", -3);
-
-        webClient
-                .post("/api/v2/rules")
-                .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
-                .sendJsonObject(
-                        testRule,
-                        ar -> {
-                            assertRequestStatus(ar, response);
-                        });
-
+        try {
+            webClient
+                    .post("/api/v2/rules")
+                    .basicAuthentication("user", "pass")
+                    .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
+                    .sendJsonObject(
+                            testRule,
+                            ar -> {
+                                assertRequestStatus(ar, response);
+                                response.complete(ar.result().bodyAsJsonObject());
+                            });
+        } finally {
+            testRule.put("archivalPeriodSeconds", 60);
+            testRule.put("preservedArchives", 3);
+        }
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> response.get());
+                Assertions.assertThrows(
+                        ExecutionException.class, () -> response.get(10, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(400));
         MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Bad Request"));

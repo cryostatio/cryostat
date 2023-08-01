@@ -60,7 +60,8 @@ public class RemoteRecordingInputStreamFactory {
                         target,
                         conn -> {
                             IRecordingDescriptor desc =
-                                    Recordings.getDescriptor(conn, activeRecording).orElseThrow();
+                                    RecordingHelper.getDescriptor(conn, activeRecording)
+                                            .orElseThrow();
                             return conn.getService().openStream(desc, false);
                         });
         return new ProgressInputStream(

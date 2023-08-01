@@ -37,25 +37,12 @@
  */
 package io.cryostat;
 
-import io.netty.handler.codec.http.HttpResponseStatus;
-import jakarta.persistence.NoResultException;
-import org.hibernate.exception.ConstraintViolationException;
-import org.jboss.resteasy.reactive.RestResponse;
-import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
+import static io.restassured.RestAssured.given;
 
-public class ExceptionMappers {
-    @ServerExceptionMapper
-    public RestResponse<Void> mapNoResultException(NoResultException ex) {
-        return RestResponse.notFound();
-    }
+import io.restassured.specification.RequestSpecification;
 
-    @ServerExceptionMapper
-    public RestResponse<Void> mapNoResultException(ConstraintViolationException ex) {
-        return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
-    }
-
-    @ServerExceptionMapper
-    public RestResponse<Void> mapValidationException(jakarta.validation.ValidationException ex) {
-        return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
+public class TestUtils {
+    public static RequestSpecification givenBasicAuth() {
+        return given().auth().preemptive().basic("user", "pass");
     }
 }

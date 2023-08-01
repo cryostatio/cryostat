@@ -31,11 +31,13 @@
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
     <io.cryostat.core.version>2.21.0</io.cryostat.core.version>
+    
     <org.apache.commons.codec.version>1.15</org.apache.commons.codec.version>
     <org.apache.commons.io.version>2.11.0</org.apache.commons.io.version>
     <org.apache.httpcomponents.version>4.5.14</org.apache.httpcomponents.version>
     <org.apache.commons.lang3.version>3.12.0</org.apache.commons.lang3.version>
     <org.apache.commons.validator.version>1.7</org.apache.commons.validator.version>
+    <org.projectnessie.cel.bom.version>0.3.21</org.projectnessie.cel.bom.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.1.1.Final</quarkus.platform.version>
@@ -60,6 +62,13 @@
         <groupId>${quarkus.platform.group-id}</groupId>
         <artifactId>quarkus-amazon-services-bom</artifactId>
         <version>${quarkus.platform.version}</version>
+        <type>pom</type>
+        <scope>import</scope>
+      </dependency>
+      <dependency>
+        <groupId>org.projectnessie.cel</groupId>
+        <artifactId>cel-bom</artifactId>
+        <version>${org.projectnessie.cel.bom.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -114,6 +123,10 @@
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
+    <artifactId>quarkus-hibernate-validator</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
       <artifactId>quarkus-jdbc-postgresql</artifactId>
     </dependency>
     <dependency>
@@ -145,6 +158,14 @@
       <version>${org.apache.httpcomponents.version}</version>
     </dependency>
     <dependency>
+      <groupId>org.projectnessie.cel</groupId>
+      <artifactId>cel-tools</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.projectnessie.cel</groupId>
+      <artifactId>cel-jackson</artifactId>
+    </dependency>
+    <dependency>
       <groupId>commons-validator</groupId>
       <artifactId>commons-validator</artifactId>
       <version>${org.apache.commons.validator.version}</version>
@@ -152,6 +173,14 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-rest-client-reactive-jackson</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-cache</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-quartz</artifactId>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
@@ -168,6 +197,11 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-junit5-mockito</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

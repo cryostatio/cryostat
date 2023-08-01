@@ -37,25 +37,6 @@
  */
 package io.cryostat;
 
-import io.netty.handler.codec.http.HttpResponseStatus;
-import jakarta.persistence.NoResultException;
-import org.hibernate.exception.ConstraintViolationException;
-import org.jboss.resteasy.reactive.RestResponse;
-import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
-
-public class ExceptionMappers {
-    @ServerExceptionMapper
-    public RestResponse<Void> mapNoResultException(NoResultException ex) {
-        return RestResponse.notFound();
-    }
-
-    @ServerExceptionMapper
-    public RestResponse<Void> mapNoResultException(ConstraintViolationException ex) {
-        return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
-    }
-
-    @ServerExceptionMapper
-    public RestResponse<Void> mapValidationException(jakarta.validation.ValidationException ex) {
-        return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
-    }
+public class ConfigProperties {
+    public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
 }

@@ -130,7 +130,7 @@ public class TargetEventsGetIT extends StandardSelfTest {
                 Matchers.startsWith(HttpMimeType.JSON.mime()));
 
         LinkedHashMap<String, Object> expectedResults = new LinkedHashMap<String, Object>();
-        expectedResults.put("name", "Target Connection Status");
+        expectedResults.put("name", "Target Connection Opened");
         expectedResults.put(
                 "typeId", "io.cryostat.net.TargetConnectionManager.TargetConnectionOpened");
         expectedResults.put("description", null);

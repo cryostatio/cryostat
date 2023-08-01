@@ -68,6 +68,8 @@ import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PreRemove;
 import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jdk.jfr.RecordingState;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -75,14 +77,21 @@ import org.jboss.logging.Logger;
 
 @Entity
 @EntityListeners(ActiveRecording.Listener.class)
+@Table(
+        uniqueConstraints = {
+            @UniqueConstraint(columnNames = {"target_id", "name"}),
+            @UniqueConstraint(columnNames = {"target_id", "remoteId"})
+        })
 public class ActiveRecording extends PanacheEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")
     private Target target;
 
-    public long remoteId;
+    @Column(nullable = false)
     public String name;
+
+    public long remoteId;
     public RecordingState state;
     public long duration;
     public long startTime;
@@ -151,8 +160,19 @@ public class ActiveRecording extends PanacheEntity {
         return find("name", name).singleResult();
     }
 
+    // Default implementation of delete is bulk so does not trigger lifecycle events
     public static boolean deleteByName(String name) {
         return delete("name", name) > 0;
+    }
+
+    public static boolean deleteFromTarget(Target target, String name) {
+        ActiveRecording recordingToDelete =
+                find("target = ?1 and name = ?2", target, name).firstResult();
+        if (recordingToDelete != null) {
+            recordingToDelete.delete();
+            return true;
+        }
+        return false; // Recording not found or already deleted.
     }
 
     public LinkedRecordingDescriptor toExternalForm() {
@@ -189,7 +209,7 @@ public class ActiveRecording extends PanacheEntity {
                 connectionManager.executeConnectedTask(
                         activeRecording.target,
                         conn -> {
-                            Recordings.getDescriptorById(conn, activeRecording.remoteId)
+                            RecordingHelper.getDescriptorById(conn, activeRecording.remoteId)
                                     .ifPresent(
                                             d -> {
                                                 try {
@@ -219,7 +239,7 @@ public class ActiveRecording extends PanacheEntity {
             connectionManager.executeConnectedTask(
                     activeRecording.target,
                     conn -> {
-                        Recordings.getDescriptor(conn, activeRecording)
+                        RecordingHelper.getDescriptor(conn, activeRecording)
                                 .ifPresent(rec -> Recordings.safeCloseRecording(conn, rec, logger));
                         return null;
                     });

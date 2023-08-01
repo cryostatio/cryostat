@@ -63,6 +63,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -159,6 +160,7 @@ public class TargetConnectionManager {
                                         executor));
     }
 
+    @Blocking
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) throws Exception {
         synchronized (targetLocks.computeIfAbsent(target.connectUrl, k -> new Object())) {
             return task.execute(connections.get(target.connectUrl).get());
@@ -285,7 +287,7 @@ public class TargetConnectionManager {
     }
 
     @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionOpened")
-    @Label("Target Connection Status")
+    @Label("Target Connection Opened")
     @Category("Cryostat")
     // @SuppressFBWarnings(
     //         value = "URF_UNREAD_FIELD",
@@ -306,7 +308,7 @@ public class TargetConnectionManager {
     }
 
     @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionClosed")
-    @Label("Target Connection Status")
+    @Label("Target Connection Closed")
     @Category("Cryostat")
     // @SuppressFBWarnings(
     //         value = "URF_UNREAD_FIELD",

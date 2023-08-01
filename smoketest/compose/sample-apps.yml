@@ -4,7 +4,7 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: quay.io/andrewazores/vertx-fib-demo:0.12.3
+    image: quay.io/andrewazores/vertx-fib-demo:0.13.0
     hostname: vertx-fib-demo-1
     environment:
       HTTP_PORT: 8081
@@ -32,7 +32,7 @@ services:
       start_period: 10s
       timeout: 5s
   quarkus-test-agent:
-    image: quay.io/andrewazores/quarkus-test:0.0.11
+    image: quay.io/andrewazores/quarkus-test:latest
     # do not add a depends_on:cryostat here, so that we can test that the agent is tolerant of that state
     hostname: quarkus-test-agent
     ports:

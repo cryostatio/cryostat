@@ -41,6 +41,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 
 import io.cryostat.util.HttpMimeType;
 
@@ -55,11 +56,13 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusIntegrationTest
-@Disabled("TODO")
+@TestMethodOrder(OrderAnnotation.class)
 class RulesPostFormIT extends StandardSelfTest {
 
     static MultiMap testRule;
@@ -82,11 +85,13 @@ class RulesPostFormIT extends StandardSelfTest {
     }
 
     @Test
+    @Order(1)
     void testAddRuleThrowsWhenFormAttributesNull() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
                 .post("/api/v2/rules")
+                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.URLENCODED_FORM.mime())
                 .sendForm(
                         MultiMap.caseInsensitiveMultiMap(),
@@ -94,19 +99,22 @@ class RulesPostFormIT extends StandardSelfTest {
                             assertRequestStatus(ar, response);
                         });
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> response.get());
+                Assertions.assertThrows(
+                        ExecutionException.class, () -> response.get(10, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(400));
         MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Bad Request"));
     }
 
     @Test
+    @Order(2)
     void testAddRuleThrowsWhenRuleNameAlreadyExists() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         try {
             webClient
                     .post("/api/v2/rules")
+                    .basicAuthentication("user", "pass")
                     .putHeader(
                             HttpHeaders.CONTENT_TYPE.toString(),
                             HttpMimeType.URLENCODED_FORM.mime())
@@ -128,11 +136,13 @@ class RulesPostFormIT extends StandardSelfTest {
                                                     "status",
                                                     "Created"),
                                     "data", Map.of("result", TEST_RULE_NAME)));
-            MatcherAssert.assertThat(response.get(), Matchers.equalTo(expectedResponse));
+            MatcherAssert.assertThat(
+                    response.get(10, TimeUnit.SECONDS), Matchers.equalTo(expectedResponse));
 
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();
             webClient
                     .post("/api/v2/rules")
+                    .basicAuthentication("user", "pass")
                     .putHeader(
                             HttpHeaders.CONTENT_TYPE.toString(),
                             HttpMimeType.URLENCODED_FORM.mime())
@@ -144,7 +154,8 @@ class RulesPostFormIT extends StandardSelfTest {
 
             ExecutionException ex =
                     Assertions.assertThrows(
-                            ExecutionException.class, () -> duplicatePostResponse.get());
+                            ExecutionException.class,
+                            () -> duplicatePostResponse.get(10, TimeUnit.SECONDS));
             MatcherAssert.assertThat(
                     ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(409));
             MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Conflict"));
@@ -154,6 +165,7 @@ class RulesPostFormIT extends StandardSelfTest {
             CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
             webClient
                     .delete(String.format("/api/v2/rules/%s", TEST_RULE_NAME))
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteResponse)) {
@@ -170,7 +182,8 @@ class RulesPostFormIT extends StandardSelfTest {
                                     NULL_RESULT));
             try {
                 MatcherAssert.assertThat(
-                        deleteResponse.get(), Matchers.equalTo(expectedDeleteResponse));
+                        deleteResponse.get(10, TimeUnit.SECONDS),
+                        Matchers.equalTo(expectedDeleteResponse));
             } catch (InterruptedException | ExecutionException e) {
                 throw new ITestCleanupFailedException(
                         String.format("Failed to delete rule %s", TEST_RULE_NAME), e);
@@ -179,6 +192,7 @@ class RulesPostFormIT extends StandardSelfTest {
     }
 
     @Test
+    @Order(3)
     void testAddRuleThrowsWhenIntegerAttributesNegative() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
@@ -187,6 +201,7 @@ class RulesPostFormIT extends StandardSelfTest {
 
         webClient
                 .post("/api/v2/rules")
+                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.URLENCODED_FORM.mime())
                 .sendForm(
                         testRule,
@@ -195,7 +210,8 @@ class RulesPostFormIT extends StandardSelfTest {
                         });
 
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> response.get());
+                Assertions.assertThrows(
+                        ExecutionException.class, () -> response.get(10, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(400));
         MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Bad Request"));

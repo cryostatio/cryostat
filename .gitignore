@@ -44,3 +44,4 @@ truststore/
 certs/*.p12
 certs/*.pass
 *.jfr
+.quarkus/

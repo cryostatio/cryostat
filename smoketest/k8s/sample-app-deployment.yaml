@@ -55,7 +55,7 @@ spec:
               value: "8081"
             - name: JMX_PORT
               value: "9093"
-          image: quay.io/andrewazores/vertx-fib-demo:0.12.3
+          image: quay.io/andrewazores/vertx-fib-demo:0.13.0
           livenessProbe:
             exec:
               command:

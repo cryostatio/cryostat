@@ -49,6 +49,8 @@ import io.vertx.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.projectnessie.cel.tools.ScriptHost;
+import org.projectnessie.cel.types.jackson.JacksonRegistry;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Configuration;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
@@ -97,5 +99,12 @@ public class Producers {
         }
 
         return builder.build();
+    }
+
+    @Produces
+    @ApplicationScoped
+    @DefaultBean
+    public static ScriptHost provideScriptHost() {
+        return ScriptHost.newBuilder().registry(JacksonRegistry.newRegistry()).build();
     }
 }

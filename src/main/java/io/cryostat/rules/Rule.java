@@ -50,11 +50,14 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.PositiveOrZero;
 
-// TODO add quarkus-quartz dependency to store Rules and make them into persistent recurring tasks
 @Entity
 @EntityListeners(Rule.Listener.class)
 public class Rule extends PanacheEntity {
+    public static final String RULE_ADDRESS = "io.cryostat.rules.Rule";
 
     @Column(unique = true, nullable = false, updatable = false)
     public String name;
@@ -62,44 +65,92 @@ public class Rule extends PanacheEntity {
     public String description;
 
     @Column(nullable = false)
+    @NotBlank(message = "matchExpression cannot be blank")
     public String matchExpression;
 
     @Column(nullable = false)
+    @NotBlank(message = "eventSpecifier cannot be blank")
     public String eventSpecifier;
 
+    @PositiveOrZero(message = "archivalPeriodSeconds must be positive or zero")
     public int archivalPeriodSeconds;
+
+    @PositiveOrZero(message = "initialDelaySeconds must be positive or zero")
     public int initialDelaySeconds;
+
+    @PositiveOrZero(message = "archivalPeriodSeconds must be positive or zero")
     public int preservedArchives;
+
+    @Min(message = "maxAgeSeconds must be greater than 0 or -1", value = -1)
     public int maxAgeSeconds;
+
+    @Min(message = "maxAgeSeconds must be greater than 0 or -1", value = -1)
     public int maxSizeBytes;
+
     public boolean enabled;
 
+    public String getName() {
+        return this.name;
+    }
+
+    public String getRecordingName() {
+        // FIXME do something other than simply prepending "auto_"
+        return String.format("auto_%s", name);
+    }
+
+    public boolean isArchiver() {
+        return preservedArchives > 0 && archivalPeriodSeconds > 0;
+    }
+
     public static Rule getByName(String name) {
-        return find("name", name).singleResult();
+        return find("name", name).firstResult();
     }
 
     @ApplicationScoped
     static class Listener {
-
         @Inject EventBus bus;
 
         @PostPersist
         public void postPersist(Rule rule) {
-            notify("RuleCreated", rule);
+            // we cannot directly access EntityManager queries here
+            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.CREATED, rule));
+            notify(RuleEventCategory.CREATED, rule);
         }
 
         @PostUpdate
         public void postUpdate(Rule rule) {
-            notify("RuleUpdated", rule);
+            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.UPDATED, rule));
+            notify(RuleEventCategory.UPDATED, rule);
         }
 
         @PostRemove
         public void postRemove(Rule rule) {
-            notify("RuleDeleted", rule);
+            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.DELETED, rule));
+            notify(RuleEventCategory.DELETED, rule);
         }
 
-        private void notify(String category, Rule rule) {
-            bus.publish(MessagingServer.class.getName(), new Notification(category, rule));
+        private void notify(RuleEventCategory category, Rule rule) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(category.getCategory(), rule));
+        }
+    }
+
+    public record RuleEvent(RuleEventCategory category, Rule rule) {}
+
+    public enum RuleEventCategory {
+        CREATED("RuleCreated"),
+        UPDATED("RuleUpdated"),
+        DELETED("RuleDeleted");
+
+        private final String name;
+
+        RuleEventCategory(String name) {
+            this.name = name;
+        }
+
+        public String getCategory() {
+            return name;
         }
     }
 }

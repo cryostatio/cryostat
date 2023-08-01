@@ -39,11 +39,8 @@ package io.cryostat.recordings;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -53,25 +50,21 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
-import org.openjdk.jmc.common.unit.UnitLookup;
-import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
 import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
-import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
 import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
-import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
+import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpStatusCodeIdentifier;
@@ -94,7 +87,6 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.Response;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
@@ -108,12 +100,7 @@ import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
-import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
-import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
-import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
-import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
@@ -126,7 +113,6 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
-import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
@@ -135,8 +121,6 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 public class Recordings {
 
     private static final String JFR_MIME = "application/jfr";
-    private static final Pattern TEMPLATE_PATTERN =
-            Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
 
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
@@ -149,9 +133,10 @@ public class Recordings {
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ScheduledExecutorService scheduler;
     @Inject ObjectMapper mapper;
+    @Inject RecordingHelper recordingHelper;
     private final Base64 base64Url = new Base64(0, null, true);
 
-    @ConfigProperty(name = "storage.buckets.archives.name")
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
 
     void onStart(@Observes StartupEvent evt) {
@@ -478,110 +463,10 @@ public class Recordings {
                 activeRecording.persist();
                 return null;
             case "save":
-                return saveRecording(target, activeRecording);
+                return recordingHelper.saveRecording(target, activeRecording);
             default:
                 throw new BadRequestException(body);
         }
-    }
-
-    @Blocking
-    String saveRecording(Target target, ActiveRecording activeRecording) throws Exception {
-        String timestamp =
-                clock.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
-        String filename =
-                String.format("%s_%s_%s.jfr", target.alias, activeRecording.name, timestamp);
-        int mib = 1024 * 1024;
-        String key = String.format("%s/%s", target.jvmId, filename);
-        String multipartId = null;
-        List<Pair<Integer, String>> parts = new ArrayList<>();
-        try (var stream = remoteRecordingStreamFactory.open(target, activeRecording);
-                var ch = Channels.newChannel(stream)) {
-            ByteBuffer buf = ByteBuffer.allocate(20 * mib);
-            multipartId =
-                    storage.createMultipartUpload(
-                                    CreateMultipartUploadRequest.builder()
-                                            .bucket(archiveBucket)
-                                            .key(key)
-                                            .contentType(JFR_MIME)
-                                            .tagging(
-                                                    createMetadataTagging(activeRecording.metadata))
-                                            .build())
-                            .uploadId();
-            int read = 0;
-            long accum = 0;
-            for (int i = 1; i <= 10_000; i++) {
-                read = ch.read(buf);
-                accum += read;
-                if (read == -1) {
-                    logger.infov("Completed upload of {0} chunks ({1} bytes)", i - 1, accum);
-                    break;
-                }
-                logger.infov("Writing chunk {0} of {1} bytes", i, read);
-                String eTag =
-                        storage.uploadPart(
-                                        UploadPartRequest.builder()
-                                                .bucket(archiveBucket)
-                                                .key(key)
-                                                .uploadId(multipartId)
-                                                .partNumber(i)
-                                                .build(),
-                                        RequestBody.fromByteBuffer(buf))
-                                .eTag();
-                parts.add(Pair.of(i, eTag));
-                // S3 API limit
-                if (i == 10_000) {
-                    throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Could not upload recording to S3 storage", e);
-            try {
-                if (multipartId != null) {
-                    storage.abortMultipartUpload(
-                            AbortMultipartUploadRequest.builder()
-                                    .bucket(archiveBucket)
-                                    .key(key)
-                                    .uploadId(multipartId)
-                                    .build());
-                }
-            } catch (Exception e2) {
-                logger.error("Could not abort S3 multipart upload", e2);
-            }
-            throw e;
-        }
-        storage.completeMultipartUpload(
-                CompleteMultipartUploadRequest.builder()
-                        .bucket(archiveBucket)
-                        .key(key)
-                        .uploadId(multipartId)
-                        .multipartUpload(
-                                CompletedMultipartUpload.builder()
-                                        .parts(
-                                                parts.stream()
-                                                        .map(
-                                                                part ->
-                                                                        CompletedPart.builder()
-                                                                                .partNumber(
-                                                                                        part
-                                                                                                .getLeft())
-                                                                                .eTag(
-                                                                                        part
-                                                                                                .getRight())
-                                                                                .build())
-                                                        .toList())
-                                        .build())
-                        .build());
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(
-                        "ActiveRecordingSaved",
-                        new RecordingEvent(target.connectUrl, activeRecording.toExternalForm())));
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(
-                        "ArchivedRecordingCreated",
-                        new RecordingEvent(target.connectUrl, activeRecording.toExternalForm())));
-        return filename;
     }
 
     @PATCH
@@ -593,7 +478,7 @@ public class Recordings {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         Optional<IRecordingDescriptor> recording =
                 connectionManager.executeConnectedTask(
-                        target, conn -> getDescriptorByName(conn, recordingName));
+                        target, conn -> RecordingHelper.getDescriptorByName(conn, recordingName));
         if (recording.isEmpty()) {
             throw new NotFoundException();
         }
@@ -614,6 +499,7 @@ public class Recordings {
             @RestPath long id,
             @RestForm String recordingName,
             @RestForm String events,
+            @RestForm Optional<String> replace,
             @RestForm Optional<Long> duration,
             @RestForm Optional<Boolean> toDisk,
             @RestForm Optional<Long> maxAge,
@@ -629,19 +515,13 @@ public class Recordings {
         }
 
         Target target = Target.find("id", id).singleResult();
+
+        Pair<String, TemplateType> template = recordingHelper.parseEventSpecifierToTemplate(events);
+
         LinkedRecordingDescriptor descriptor =
                 connectionManager.executeConnectedTask(
                         target,
                         connection -> {
-                            Optional<IRecordingDescriptor> previous =
-                                    getDescriptorByName(connection, recordingName);
-                            if (previous.isPresent()) {
-                                throw new BadRequestException(
-                                        String.format(
-                                                "Recording with name \"%s\" already exists",
-                                                recordingName));
-                            }
-
                             RecordingOptionsBuilder optionsBuilder =
                                     recordingOptionsBuilderFactory
                                             .create(connection.getService())
@@ -664,41 +544,15 @@ public class Recordings {
                                         mapper.readValue(rawMetadata.get(), Metadata.class).labels);
                             }
                             IConstrainedMap<String> recordingOptions = optionsBuilder.build();
-
-                            Pair<String, TemplateType> template =
-                                    parseEventSpecifierToTemplate(events);
-                            String templateName = template.getKey();
-                            TemplateType templateType = template.getValue();
-                            TemplateType preferredTemplateType =
-                                    getPreferredTemplateType(
-                                            connection, templateName, templateType);
-
-                            IRecordingDescriptor desc =
-                                    connection
-                                            .getService()
-                                            .start(
-                                                    recordingOptions,
-                                                    enableEvents(
-                                                            connection,
-                                                            templateName,
-                                                            preferredTemplateType));
-
-                            labels.put("template.name", templateName);
-                            labels.put("template.type", preferredTemplateType.name());
-                            Metadata meta = new Metadata(labels);
-                            return new LinkedRecordingDescriptor(
-                                    desc.getId(),
-                                    mapState(desc),
-                                    TimeUnit.SECONDS.toMillis(duration.orElse(0L)),
-                                    desc.getStartTime().in(UnitLookup.EPOCH_MS).longValue(),
-                                    desc.isContinuous(),
-                                    desc.getToDisk(),
-                                    desc.getMaxSize().in(UnitLookup.BYTE).longValue(),
-                                    desc.getMaxAge().in(UnitLookup.MILLISECOND).longValue(),
-                                    desc.getName(),
-                                    "TODO",
-                                    "TODO",
-                                    meta);
+                            return recordingHelper.startRecording(
+                                    target,
+                                    recordingOptions,
+                                    template.getLeft(),
+                                    template.getRight(),
+                                    new Metadata(labels),
+                                    archiveOnStop.orElse(false),
+                                    RecordingReplace.fromString(replace.orElse("always")),
+                                    connection);
                         });
 
         ActiveRecording recording = ActiveRecording.from(target, descriptor);
@@ -723,37 +577,11 @@ public class Recordings {
             recording.state = RecordingState.STOPPED;
             recording.persist();
             if (archive) {
-                saveRecording(Target.find("id", targetId).singleResult(), recording);
+                recordingHelper.saveRecording(
+                        Target.find("id", targetId).singleResult(), recording);
             }
         } catch (Exception e) {
             logger.error("couldn't update recording", e);
-        }
-    }
-
-    static Optional<IRecordingDescriptor> getDescriptorById(
-            JFRConnection connection, long remoteId) {
-        try {
-            return connection.getService().getAvailableRecordings().stream()
-                    .filter(r -> remoteId == r.getId())
-                    .findFirst();
-        } catch (Exception e) {
-            throw new ServerErrorException(500, e);
-        }
-    }
-
-    static Optional<IRecordingDescriptor> getDescriptor(
-            JFRConnection connection, ActiveRecording activeRecording) {
-        return getDescriptorById(connection, activeRecording.remoteId);
-    }
-
-    static Optional<IRecordingDescriptor> getDescriptorByName(
-            JFRConnection connection, String recordingName) {
-        try {
-            return connection.getService().getAvailableRecordings().stream()
-                    .filter(r -> Objects.equals(r.getName(), recordingName))
-                    .findFirst();
-        } catch (Exception e) {
-            throw new ServerErrorException(500, e);
         }
     }
 
@@ -765,6 +593,7 @@ public class Recordings {
             @RestPath URI connectUrl,
             @RestForm String recordingName,
             @RestForm String events,
+            @RestForm Optional<Boolean> restart,
             @RestForm Optional<Long> duration,
             @RestForm Optional<Boolean> toDisk,
             @RestForm Optional<Long> maxAge,
@@ -982,91 +811,6 @@ public class Recordings {
             return Long.valueOf(((Number) value).longValue());
         }
         return null;
-    }
-
-    private RecordingState mapState(IRecordingDescriptor desc) {
-        switch (desc.getState()) {
-            case CREATED:
-                return RecordingState.NEW;
-            case RUNNING:
-                return RecordingState.RUNNING;
-            case STOPPING:
-                return RecordingState.RUNNING;
-            case STOPPED:
-                return RecordingState.STOPPED;
-            default:
-                logger.warnv("Unrecognized recording state: {0}", desc.getState());
-                return RecordingState.CLOSED;
-        }
-    }
-
-    private static Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier) {
-        if (TEMPLATE_PATTERN.matcher(eventSpecifier).matches()) {
-            Matcher m = TEMPLATE_PATTERN.matcher(eventSpecifier);
-            m.find();
-            String templateName = m.group(1);
-            String typeName = m.group(2);
-            TemplateType templateType = null;
-            if (StringUtils.isNotBlank(typeName)) {
-                templateType = TemplateType.valueOf(typeName.toUpperCase());
-            }
-            return Pair.of(templateName, templateType);
-        }
-        throw new BadRequestException(eventSpecifier);
-    }
-
-    private static TemplateType getPreferredTemplateType(
-            JFRConnection connection, String templateName, TemplateType templateType)
-            throws Exception {
-        if (templateType != null) {
-            return templateType;
-        }
-        if (templateName.equals("ALL")) {
-            // special case for the ALL meta-template
-            return TemplateType.TARGET;
-        }
-        List<Template> matchingNameTemplates =
-                connection.getTemplateService().getTemplates().stream()
-                        .filter(t -> t.getName().equals(templateName))
-                        .toList();
-        boolean custom =
-                matchingNameTemplates.stream()
-                        .anyMatch(t -> t.getType().equals(TemplateType.CUSTOM));
-        if (custom) {
-            return TemplateType.CUSTOM;
-        }
-        boolean target =
-                matchingNameTemplates.stream()
-                        .anyMatch(t -> t.getType().equals(TemplateType.TARGET));
-        if (target) {
-            return TemplateType.TARGET;
-        }
-        throw new BadRequestException(
-                String.format("Invalid/unknown event template %s", templateName));
-    }
-
-    private IConstrainedMap<EventOptionID> enableEvents(
-            JFRConnection connection, String templateName, TemplateType templateType)
-            throws Exception {
-        if (templateName.equals("ALL")) {
-            return enableAllEvents(connection);
-        }
-        // if template type not specified, try to find a Custom template by that name. If none,
-        // fall back on finding a Target built-in template by the name. If not, throw an
-        // exception and bail out.
-        TemplateType type = getPreferredTemplateType(connection, templateName, templateType);
-        return connection.getTemplateService().getEvents(templateName, type).get();
-    }
-
-    private IConstrainedMap<EventOptionID> enableAllEvents(JFRConnection connection)
-            throws Exception {
-        EventOptionsBuilder builder = eventOptionsBuilderFactory.create(connection);
-
-        for (IEventTypeInfo eventTypeInfo : connection.getService().getAvailableEventTypes()) {
-            builder.addEvent(eventTypeInfo.getEventTypeID().getFullKey(), "enabled", "true");
-        }
-
-        return builder.build();
     }
 
     public record LinkedRecordingDescriptor(
