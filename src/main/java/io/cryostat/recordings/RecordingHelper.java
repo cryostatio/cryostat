@@ -61,10 +61,7 @@ import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.common.annotation.Blocking;
-import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import io.vertx.mutiny.ext.web.client.HttpResponse;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -492,13 +489,13 @@ public class RecordingHelper {
     }
 
     // jfr-datasource handling
-    public Uni<Response> doPost(Target target, String recordingName, URL uploadUrl)
+    public Response doPost(long targetEntityId, String recordingName, URL uploadUrl)
             throws Exception {
+        Target target = Target.findById(targetEntityId);
         Path recordingPath =
                 connectionManager.executeConnectedTask(
                         target,
                         connection -> {
-                            logger.info("HELLO!");
                             return getRecordingCopyPath(
                                             connection, target.targetId(), recordingName)
                                     .orElseThrow(
@@ -517,7 +514,7 @@ public class RecordingHelper {
 
         try {
             ResponseBuilder builder = new ResponseBuilderImpl();
-            Uni<HttpResponse<Buffer>> asyncRequest =
+            var asyncRequest =
                     webClient
                             .postAbs(uploadUrl.toURI().resolve("/load").normalize().toString())
                             .addQueryParam("overwrite", "true")
@@ -531,7 +528,14 @@ public class RecordingHelper {
                                             .entity(r.bodyAsString())
                                             .build())
                     .onFailure()
-                    .recoverWithItem(Response.serverError().build());
+                    .recoverWithItem(
+                            (failure) -> {
+                                logger.error(failure);
+                                return Response.serverError().build();
+                            })
+                    .await()
+                    .indefinitely(); // The timeout in from the webClient request should be
+            // sufficient
         } finally {
             fs.deleteIfExists(recordingPath);
         }
@@ -545,7 +549,6 @@ public class RecordingHelper {
                 .map(
                         descriptor -> {
                             try {
-                                logger.info("here");
                                 Path tempFile = fs.createTempFile(null, null);
                                 try (InputStream stream =
                                         connection.getService().openStream(descriptor, false)) {

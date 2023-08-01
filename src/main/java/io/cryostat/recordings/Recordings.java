@@ -55,7 +55,6 @@ import com.arjuna.ats.jta.exceptions.NotImplementedException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
-import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
@@ -686,6 +685,7 @@ public class Recordings {
     @POST
     @Path("/api/v3/targets/{id}/recordings/{recordingName}/upload")
     @RolesAllowed("write")
+    @Blocking
     public Response uploadToGrafana(@RestPath long id, @RestPath String recordingName)
             throws Exception {
         try {
@@ -705,9 +705,7 @@ public class Recordings {
                                 ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
             }
 
-            Uni<Response> resp =
-                    recordingHelper.doPost(Target.findById(id), recordingName, uploadUrl);
-            return resp.await().atMost(Duration.ofSeconds(10)); // double the timeout in doPost
+            return recordingHelper.doPost(id, recordingName, uploadUrl);
         } catch (MalformedURLException e) {
             throw new NotImplementedException(e);
         }

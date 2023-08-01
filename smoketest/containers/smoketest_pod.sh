@@ -7,6 +7,8 @@ cleanup() {
     podman-compose --in-pod=1 \
         -f ./smoketest/compose/db.yml \
         -f ./smoketest/compose/s3-minio.yml \
+        -f ./smoketest/compose/cryostat-grafana.yml \
+        -f ./smoketest/compose/jfr-datasource.yml \
         -f ./smoketest/compose/sample-apps.yml \
         -f ./smoketest/compose/cryostat.yml \
         down --volumes --remove-orphans
@@ -44,6 +46,8 @@ setupUserHosts
 podman-compose --in-pod=1 \
     -f ./smoketest/compose/db.yml \
     -f ./smoketest/compose/s3-minio.yml \
+    -f ./smoketest/compose/cryostat-grafana.yml \
+    -f ./smoketest/compose/jfr-datasource.yml \
     -f ./smoketest/compose/sample-apps.yml \
     -f ./smoketest/compose/cryostat.yml \
     up

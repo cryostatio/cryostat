@@ -7,6 +7,8 @@ cleanup() {
     docker-compose \
         -f ./smoketest/compose/db.yml \
         -f ./smoketest/compose/s3-minio.yml \
+        -f ./smoketest/compose/cryostat-grafana.yml \
+        -f ./smoketest/compose/jfr-datasource.yml \
         -f ./smoketest/compose/sample-apps.yml \
         -f ./smoketest/compose/cryostat.yml \
         down --volumes --remove-orphans
@@ -35,6 +37,8 @@ setupUserHosts() {
     echo "localhost db" >> ~/.hosts
     echo "localhost db-viewer" >> ~/.hosts
     echo "localhost cryostat" >> ~/.hosts
+    echo "localhost jfr-datasource" >> ~/.hosts
+    echo "localhost grafana" >> ~/.hosts 
     echo "localhost vertx-fib-demo-1" >> ~/.hosts
     echo "localhost quarkus-test-agent" >> ~/.hosts
 }

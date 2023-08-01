@@ -29,6 +29,7 @@ import io.vertx.mutiny.ext.web.client.HttpRequest;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -60,6 +61,9 @@ class Health {
 
     @ConfigProperty(name = ConfigProperties.GRAFANA_DASHBOARD_URL)
     Optional<String> dashboardURL;
+
+    @ConfigProperty(name = ConfigProperties.GRAFANA_DASHBOARD_EXT_URL)
+    Optional<String> dashboardExternalURL;
 
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> datasourceURL;
@@ -141,7 +145,11 @@ class Health {
     @PermitAll
     @Produces({MediaType.APPLICATION_JSON})
     public Response grafanaDashboardUrl() {
-        return Response.ok(Map.of("grafanaDashboardUrl", dashboardURL))
+        String url =
+                dashboardExternalURL.orElseGet(
+                        () -> dashboardURL.orElseThrow(() -> new BadRequestException()));
+
+        return Response.ok(Map.of("grafanaDashboardUrl", url))
                 .header("Access-Control-Allow-Origin", "http://localhost:9000")
                 .header(
                         "Access-Control-Allow-Headers",
