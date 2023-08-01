@@ -29,7 +29,7 @@ import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 
 import io.quarkus.runtime.StartupEvent;
-import io.vertx.core.eventbus.EventBus;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;

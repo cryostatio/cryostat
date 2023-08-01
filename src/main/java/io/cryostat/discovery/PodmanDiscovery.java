@@ -47,11 +47,11 @@ import com.sun.security.auth.module.UnixSystem;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
-import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpMethod;
-import io.vertx.core.net.SocketAddress;
-import io.vertx.ext.web.client.WebClient;
-import io.vertx.ext.web.codec.BodyCodec;
+import io.vertx.mutiny.core.Vertx;
+import io.vertx.mutiny.core.net.SocketAddress;
+import io.vertx.mutiny.ext.web.client.WebClient;
+import io.vertx.mutiny.ext.web.codec.BodyCodec;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -162,26 +162,24 @@ public class PodmanDiscovery {
                             mapper.writeValueAsString(Map.of("label", List.of(DISCOVERY_LABEL))))
                     .timeout(2_000L)
                     .as(BodyCodec.string())
-                    .send(
-                            ar -> {
-                                if (ar.failed()) {
-                                    Throwable t = ar.cause();
-                                    logger.error("Podman API request failed", t);
-                                    return;
-                                }
+                    .send()
+                    .subscribe()
+                    .with(
+                            item -> {
                                 try {
                                     successHandler.accept(
                                             mapper.readValue(
-                                                    ar.result().body(),
+                                                    item.body(),
                                                     new TypeReference<List<ContainerSpec>>() {}));
                                 } catch (JsonProcessingException e) {
                                     logger.error("Json processing error");
-                                    return;
                                 }
+                            },
+                            failure -> {
+                                logger.error("Podman API request failed", failure);
                             });
         } catch (JsonProcessingException e) {
             logger.error("Json processing error");
-            return;
         }
     }
 
@@ -194,22 +192,21 @@ public class PodmanDiscovery {
                 .request(HttpMethod.GET, getSocket(), 80, "localhost", requestPath.toString())
                 .timeout(2_000L)
                 .as(BodyCodec.string())
-                .send(
-                        ar -> {
-                            if (ar.failed()) {
-                                Throwable t = ar.cause();
-                                logger.error("Podman API request failed", t);
-                                result.completeExceptionally(t);
-                                return;
-                            }
+                .send()
+                .subscribe()
+                .with(
+                        item -> {
                             try {
                                 result.complete(
-                                        mapper.readValue(
-                                                ar.result().body(), ContainerDetails.class));
+                                        mapper.readValue(item.body(), ContainerDetails.class));
                             } catch (JsonProcessingException e) {
                                 logger.error("Json processing error");
-                                return;
+                                result.completeExceptionally(e);
                             }
+                        },
+                        failure -> {
+                            logger.error("Podman API request failed", failure);
+                            result.completeExceptionally(failure);
                         });
         return result;
     }

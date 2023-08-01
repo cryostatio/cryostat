@@ -32,7 +32,7 @@ import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
 import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
-import io.vertx.ext.web.client.WebClient;
+import io.vertx.mutiny.ext.web.client.WebClient;
 
 class AgentJFRService implements IFlightRecorderService {
 

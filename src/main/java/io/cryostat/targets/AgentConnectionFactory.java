@@ -19,8 +19,8 @@ import java.net.URI;
 
 import io.cryostat.core.sys.Clock;
 
-import io.vertx.core.Vertx;
-import io.vertx.ext.web.client.WebClient;
+import io.vertx.mutiny.core.Vertx;
+import io.vertx.mutiny.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 

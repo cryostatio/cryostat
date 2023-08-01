@@ -44,6 +44,9 @@ setupUserHosts
 docker-compose \
     -f ./smoketest/compose/db.yml \
     -f ./smoketest/compose/s3-minio.yml \
+    -f ./smoketest/compose/cryostat-grafana.yml \
+    -f ./smoketest/compose/jfr-datasource.yml \
     -f ./smoketest/compose/sample-apps.yml \
     -f ./smoketest/compose/cryostat.yml \
     up
+

@@ -20,10 +20,11 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import io.cryostat.core.sys.Clock;
+import io.cryostat.core.sys.FileSystem;
 
 import io.quarkus.arc.DefaultBean;
-import io.vertx.core.Vertx;
-import io.vertx.ext.web.client.WebClient;
+import io.vertx.mutiny.core.Vertx;
+import io.vertx.mutiny.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -41,6 +42,13 @@ public class Producers {
     @DefaultBean
     public static Clock produceClock() {
         return new Clock();
+    }
+
+    @Produces
+    @ApplicationScoped
+    @DefaultBean
+    public static FileSystem produceFileSystem() {
+        return new FileSystem();
     }
 
     @Produces
