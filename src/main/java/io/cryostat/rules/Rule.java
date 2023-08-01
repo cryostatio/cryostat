@@ -53,7 +53,6 @@ import jakarta.persistence.PostUpdate;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.PositiveOrZero;
-import org.jboss.logging.Logger;
 
 @Entity
 @EntityListeners(Rule.Listener.class)
@@ -110,8 +109,6 @@ public class Rule extends PanacheEntity {
     @ApplicationScoped
     static class Listener {
         @Inject EventBus bus;
-        @Inject Logger logger;
-        @Inject MatchExpressionEvaluator evaluator;
 
         @PostPersist
         public void postPersist(Rule rule) {

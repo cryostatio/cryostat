@@ -97,8 +97,9 @@ public class RuleService {
     @Inject EntityManager entityManager;
     @Inject org.quartz.Scheduler quartz;
 
-    List<JobKey> jobs = new CopyOnWriteArrayList<>();
-    Map<Long, CopyOnWriteArrayList<ActiveRecording>> ruleRecordingMap = new ConcurrentHashMap<>();
+    private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
+    private final Map<Long, CopyOnWriteArrayList<ActiveRecording>> ruleRecordingMap =
+            new ConcurrentHashMap<>();
 
     void onStart(@Observes StartupEvent ev) {
         logger.trace("RuleService started");
