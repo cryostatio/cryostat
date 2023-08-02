@@ -1,4 +1,3 @@
-package itest.resources;
 /*
  * Copyright The Cryostat Authors
  *
@@ -36,6 +35,8 @@ package itest.resources;
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+package io.cryostat.resources;
+
 import java.util.Map;
 import java.util.Optional;
 
@@ -44,10 +45,12 @@ import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 
-public class GrafanaResource
+public class JFRDatasourceResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
-    private static String IMAGE_NAME = "quay.io/cryostat/cryostat-grafana-dashboard:latest";
+    private static int JFR_DATASOURCE_PORT = 8080;
+    private static String IMAGE_NAME = "quay.io/cryostat/jfr-datasource:latest";
+    private static Map<String, String> envMap = Map.of();
 
     private Optional<String> containerNetworkId;
     private GenericContainer<?> container;
@@ -56,12 +59,20 @@ public class GrafanaResource
     public Map<String, String> start() {
         container =
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
+                        .withExposedPorts(JFR_DATASOURCE_PORT)
+                        .withEnv(envMap)
                         .withLogConsumer(outputFrame -> {});
         containerNetworkId.ifPresent(container::withNetworkMode);
 
         container.start();
 
-        return Map.of();
+        String networkHostPort =
+                "http://"
+                        + container.getHost()
+                        + ":"
+                        + container.getMappedPort(JFR_DATASOURCE_PORT);
+
+        return Map.of("grafana-datasource.url", networkHostPort);
     }
 
     @Override
