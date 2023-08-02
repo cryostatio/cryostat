@@ -15,6 +15,7 @@
  */
 package io.cryostat.credentials;
 
+import io.cryostat.expressions.MatchExpression;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -22,9 +23,13 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
@@ -34,8 +39,9 @@ import org.hibernate.annotations.ColumnTransformer;
 @EntityListeners(Credential.Listener.class)
 public class Credential extends PanacheEntity {
 
-    @Column(nullable = false, updatable = false)
-    public String matchExpression;
+    @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+    @JoinColumn(name = "matchExpression")
+    public MatchExpression matchExpression;
 
     @ColumnTransformer(
             read = "pgp_sym_decrypt(username, current_setting('encrypt.key'))",
@@ -53,8 +59,6 @@ public class Credential extends PanacheEntity {
     static class Listener {
 
         @Inject EventBus bus;
-
-        // TODO prePersist validate the matchExpression syntax
 
         @PostPersist
         public void postPersist(Credential credential) {

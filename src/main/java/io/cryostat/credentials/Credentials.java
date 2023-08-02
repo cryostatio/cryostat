@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 
 import io.cryostat.V2Response;
+import io.cryostat.expressions.MatchExpression;
 
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.transaction.Transactional;
@@ -60,8 +61,10 @@ public class Credentials {
             @RestForm String matchExpression,
             @RestForm String username,
             @RestForm String password) {
+        MatchExpression expr = new MatchExpression(matchExpression);
+        expr.persist();
         Credential credential = new Credential();
-        credential.matchExpression = matchExpression;
+        credential.matchExpression = expr;
         credential.username = username;
         credential.password = password;
         credential.persist();
