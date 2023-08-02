@@ -38,6 +38,7 @@
     <org.apache.commons.lang3.version>3.12.0</org.apache.commons.lang3.version>
     <org.apache.commons.validator.version>1.7</org.apache.commons.validator.version>
     <org.projectnessie.cel.bom.version>0.3.21</org.projectnessie.cel.bom.version>
+    <org.testcontainers.bom.version>1.18.3</org.testcontainers.bom.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.1.1.Final</quarkus.platform.version>
@@ -75,7 +76,7 @@
       <dependency>
         <groupId>org.testcontainers</groupId>
         <artifactId>testcontainers-bom</artifactId>
-        <version>1.18.3</version>
+        <version>${org.testcontainers.bom.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -223,15 +224,13 @@
       <scope>test</scope>
     </dependency>
     <dependency>
-    <groupId>org.testcontainers</groupId>
+      <groupId>org.testcontainers</groupId>
       <artifactId>testcontainers</artifactId>
-      <version>1.18.3</version>
       <scope>test</scope>
-  </dependency>
+    </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
       <artifactId>junit-jupiter</artifactId>
-      <version>1.18.3</version>
       <scope>test</scope>
     </dependency>
 
