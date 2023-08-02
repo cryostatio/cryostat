@@ -16,7 +16,6 @@
 package io.cryostat.rules;
 
 import io.cryostat.expressions.MatchExpression;
-import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
