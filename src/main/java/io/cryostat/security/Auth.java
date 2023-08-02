@@ -38,6 +38,7 @@
 package io.cryostat.security;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 
 import io.quarkus.vertx.http.runtime.security.HttpAuthenticator;
@@ -58,7 +59,27 @@ public class Auth {
 
     @POST
     @Path("/api/v2.1/logout")
-    public void logout() {}
+    @PermitAll
+    @Produces("application/json")
+    public Response logout(@Context RoutingContext context) {
+        HttpAuthenticator authenticator = context.get(HttpAuthenticator.class.getName());
+        return authenticator
+                .attemptAuthentication(context)
+                .onItemOrFailure()
+                .transform(
+                        (id, t) -> {
+                            if (id == null) {
+                                return unauthorizedResponse(context);
+                            }
+                            if (t != null) {
+                                logger.error("Internal authentication failure", t);
+                                return unauthorizedResponse(context);
+                            }
+                            return okResponse(context, null);
+                        })
+                .await()
+                .atMost(Duration.ofSeconds(20));
+    }
 
     @POST
     @Path("/api/v2.1/auth")
@@ -72,53 +93,49 @@ public class Auth {
                 .transform(
                         (id, t) -> {
                             if (id == null) {
-                                var cd = authenticator.getChallenge(context).await().indefinitely();
-                                return Response.status(cd.status)
-                                        .header(cd.headerName.toString(), cd.headerContent)
-                                        .entity(
-                                                Map.of(
-                                                        "meta",
-                                                        Map.of(
-                                                                "status", "Unauthorized",
-                                                                "type", "text/plain"),
-                                                        "data",
-                                                        Map.of(
-                                                                "reason",
-                                                                "HTTP Authorization Failure")))
-                                        .build();
+                                return unauthorizedResponse(context);
                             }
                             if (t != null) {
-                                var cd = authenticator.getChallenge(context).await().indefinitely();
                                 logger.error("Internal authentication failure", t);
-                                return Response.status(cd.status)
-                                        .header(cd.headerName.toString(), cd.headerContent)
-                                        .entity(
-                                                Map.of(
-                                                        "meta",
-                                                        Map.of(
-                                                                "status", "Unauthorized",
-                                                                "type", "text/plain"),
-                                                        "data",
-                                                        Map.of(
-                                                                "reason",
-                                                                "HTTP Authorization Failure")))
-                                        .build();
+                                return unauthorizedResponse(context);
                             }
-                            return Response.ok(
-                                            Map.of(
-                                                    "meta",
-                                                    Map.of(
-                                                            "status", "OK",
-                                                            "type", "application/json"),
-                                                    "data",
-                                                    Map.of(
-                                                            "result",
-                                                            Map.of(
-                                                                    "username",
-                                                                    id.getPrincipal().getName()))))
-                                    .build();
+                            return okResponse(
+                                    context, Map.of("username", id.getPrincipal().getName()));
                         })
                 .await()
                 .atMost(Duration.ofSeconds(20));
+    }
+
+    private Response unauthorizedResponse(RoutingContext context) {
+        HttpAuthenticator authenticator = context.get(HttpAuthenticator.class.getName());
+        var challengeData = authenticator.getChallenge(context).await().indefinitely();
+        return Response.status(challengeData.status)
+                .header(challengeData.headerName.toString(), challengeData.headerContent)
+                .entity(
+                        Map.of(
+                                "meta",
+                                Map.of(
+                                        "status", "Unauthorized",
+                                        "type", "text/plain"),
+                                "data",
+                                Map.of("reason", "HTTP Authorization Failure")))
+                .build();
+    }
+
+    private Response okResponse(RoutingContext context, Object result) {
+        HttpAuthenticator authenticator = context.get(HttpAuthenticator.class.getName());
+        var challengeData = authenticator.getChallenge(context).await().indefinitely();
+        var data = new HashMap<String, Object>();
+        data.put("result", result);
+        return Response.ok(
+                        Map.of(
+                                "meta",
+                                Map.of(
+                                        "status", "OK",
+                                        "type", "application/json"),
+                                "data",
+                                data))
+                .header(challengeData.headerName.toString(), challengeData.headerContent)
+                .build();
     }
 }
