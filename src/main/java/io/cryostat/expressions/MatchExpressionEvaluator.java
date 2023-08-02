@@ -82,8 +82,10 @@ public class MatchExpressionEvaluator {
             return scriptHost
                     .buildScript(matchExpression)
                     .withDeclarations(
-                            Decls.newVar("target", Decls.newObjectType(Target.class.getName())))
-                    .withTypes(Target.class)
+                            Decls.newVar(
+                                    "target",
+                                    Decls.newObjectType(SimplifiedTarget.class.getName())))
+                    .withTypes(SimplifiedTarget.class)
                     .build();
         } finally {
             evt.end();
@@ -94,13 +96,13 @@ public class MatchExpressionEvaluator {
     }
 
     @CacheResult(cacheName = CACHE_NAME)
-    boolean load(String matchExpression, Target serviceRef) throws ScriptException {
+    boolean load(String matchExpression, Target target) throws ScriptException {
         Script script = createScript(matchExpression);
-        return script.execute(Boolean.class, Map.of("target", serviceRef));
+        return script.execute(Boolean.class, Map.of("target", SimplifiedTarget.from(target)));
     }
 
     @CacheInvalidate(cacheName = CACHE_NAME)
-    void invalidate(String matchExpression, Target serviceRef) {}
+    void invalidate(String matchExpression, Target target) {}
 
     void invalidate(String matchExpression) {
         Optional<Cache> cache = cacheManager.getCache(CACHE_NAME);
@@ -191,4 +193,24 @@ public class MatchExpressionEvaluator {
     //         justification = "The event fields are recorded with JFR instead of accessed
     // directly")
     public static class ScriptCreationEvent extends Event {}
+
+    /**
+     * Restricted view of a {@link io.cryostat.targets.Target} with only particular
+     * expression-relevant fields exposed, connection URI exposed as a String, etc.
+     */
+    private static record SimplifiedTarget(
+            String connectUrl,
+            String alias,
+            String jvmId,
+            Map<String, String> labels,
+            Target.Annotations annotations) {
+        static SimplifiedTarget from(Target target) {
+            return new SimplifiedTarget(
+                    target.connectUrl.toString(),
+                    target.alias,
+                    target.jvmId,
+                    target.labels,
+                    target.annotations);
+        }
+    }
 }
