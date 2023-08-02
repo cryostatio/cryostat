@@ -489,6 +489,7 @@ public class RecordingHelper {
     }
 
     // jfr-datasource handling
+    @Blocking
     public Response doPost(long targetEntityId, String recordingName, URL uploadUrl)
             throws Exception {
         Target target = Target.findById(targetEntityId);

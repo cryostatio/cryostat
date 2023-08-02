@@ -1,3 +1,4 @@
+package itest.resources;
 /*
  * Copyright The Cryostat Authors
  *
