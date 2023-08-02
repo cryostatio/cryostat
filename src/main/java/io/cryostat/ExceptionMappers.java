@@ -20,6 +20,7 @@ import jakarta.persistence.NoResultException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
+import org.projectnessie.cel.tools.ScriptCreateException;
 
 public class ExceptionMappers {
     @ServerExceptionMapper
@@ -34,6 +35,11 @@ public class ExceptionMappers {
 
     @ServerExceptionMapper
     public RestResponse<Void> mapValidationException(jakarta.validation.ValidationException ex) {
+        return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapScriptCreateException(ScriptCreateException ex) {
         return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
     }
 }
