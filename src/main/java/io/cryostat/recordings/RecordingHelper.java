@@ -16,7 +16,6 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -490,19 +489,20 @@ public class RecordingHelper {
 
     // jfr-datasource handling
     @Blocking
-    public Response doPost(long targetEntityId, String recordingName, URL uploadUrl)
-            throws Exception {
+    public Response doPost(long targetEntityId, long remoteId, URL uploadUrl) throws Exception {
         Target target = Target.findById(targetEntityId);
+        Objects.requireNonNull(target, "Target from targetId not found");
+        ActiveRecording recording = ActiveRecording.findById(remoteId);
+        Objects.requireNonNull(recording, "ActiveRecording from remoteId not found");
         Path recordingPath =
                 connectionManager.executeConnectedTask(
                         target,
                         connection -> {
-                            return getRecordingCopyPath(
-                                            connection, target.targetId(), recordingName)
+                            return getRecordingCopyPath(connection, target, recording.name)
                                     .orElseThrow(
                                             () ->
                                                     new RecordingNotFoundException(
-                                                            target.targetId(), recordingName));
+                                                            target.targetId(), recording.name));
                         });
 
         MultipartForm form =
@@ -543,7 +543,7 @@ public class RecordingHelper {
     }
 
     Optional<Path> getRecordingCopyPath(
-            JFRConnection connection, String targetId, String recordingName) throws Exception {
+            JFRConnection connection, Target target, String recordingName) throws Exception {
         return connection.getService().getAvailableRecordings().stream()
                 .filter(recording -> recording.getName().equals(recordingName))
                 .findFirst()
@@ -551,8 +551,9 @@ public class RecordingHelper {
                         descriptor -> {
                             try {
                                 Path tempFile = fs.createTempFile(null, null);
-                                try (InputStream stream =
-                                        connection.getService().openStream(descriptor, false)) {
+                                try (var stream =
+                                        remoteRecordingStreamFactory.open(
+                                                connection, target, descriptor)) {
                                     fs.copy(stream, tempFile, StandardCopyOption.REPLACE_EXISTING);
                                 }
                                 return tempFile;

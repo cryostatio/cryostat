@@ -673,21 +673,26 @@ public class Recordings {
     @RolesAllowed("write")
     public Response uploadToGrafanaV1(@RestPath URI connectUrl, @RestPath String recordingName) {
         Target target = Target.getTargetByConnectUrl(connectUrl);
+        long remoteId =
+                target.activeRecordings.stream()
+                        .filter(r -> Objects.equals(r.name, recordingName))
+                        .findFirst()
+                        .map(r -> r.remoteId)
+                        .orElseThrow(() -> new NotFoundException());
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/targets/%d/recordings/%s/upload",
-                                        target.id, recordingName)))
+                                        "/api/v3/targets/%d/recordings/%d/upload",
+                                        target.id, remoteId)))
                 .build();
     }
 
     @POST
-    @Path("/api/v3/targets/{id}/recordings/{recordingName}/upload")
+    @Path("/api/v3/targets/{targetId}/recordings/{remoteId}/upload")
     @RolesAllowed("write")
     @Blocking
-    public Response uploadToGrafana(@RestPath long id, @RestPath String recordingName)
-            throws Exception {
+    public Response uploadToGrafana(@RestPath long id, @RestPath long remoteId) throws Exception {
         try {
             URL uploadUrl =
                     new URL(
@@ -705,7 +710,7 @@ public class Recordings {
                                 ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
             }
 
-            return recordingHelper.doPost(id, recordingName, uploadUrl);
+            return recordingHelper.doPost(id, remoteId, uploadUrl);
         } catch (MalformedURLException e) {
             throw new NotImplementedException(e);
         }

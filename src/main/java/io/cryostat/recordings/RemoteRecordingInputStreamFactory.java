@@ -20,6 +20,7 @@ import java.io.InputStream;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ProgressInputStream;
+import io.cryostat.core.net.JFRConnection;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -33,15 +34,18 @@ public class RemoteRecordingInputStreamFactory {
 
     public ProgressInputStream open(Target target, ActiveRecording activeRecording)
             throws Exception {
-        InputStream bareStream =
-                connectionManager.executeConnectedTask(
-                        target,
-                        conn -> {
-                            IRecordingDescriptor desc =
-                                    RecordingHelper.getDescriptor(conn, activeRecording)
-                                            .orElseThrow();
-                            return conn.getService().openStream(desc, false);
-                        });
+        return connectionManager.executeConnectedTask(
+                target,
+                conn -> {
+                    IRecordingDescriptor desc =
+                            RecordingHelper.getDescriptor(conn, activeRecording).orElseThrow();
+                    return open(conn, target, desc);
+                });
+    }
+
+    public ProgressInputStream open(JFRConnection conn, Target target, IRecordingDescriptor desc)
+            throws Exception {
+        InputStream bareStream = conn.getService().openStream(desc, false);
         return new ProgressInputStream(
                 bareStream, n -> connectionManager.markConnectionInUse(target));
     }
