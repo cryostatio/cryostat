@@ -692,7 +692,8 @@ public class Recordings {
     @Path("/api/v3/targets/{targetId}/recordings/{remoteId}/upload")
     @RolesAllowed("write")
     @Blocking
-    public Response uploadToGrafana(@RestPath long id, @RestPath long remoteId) throws Exception {
+    public Response uploadToGrafana(@RestPath long targetId, @RestPath long remoteId)
+            throws Exception {
         try {
             URL uploadUrl =
                     new URL(
@@ -710,7 +711,7 @@ public class Recordings {
                                 ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
             }
 
-            return recordingHelper.doPost(id, remoteId, uploadUrl);
+            return recordingHelper.doPost(targetId, remoteId, uploadUrl);
         } catch (MalformedURLException e) {
             throw new NotImplementedException(e);
         }
