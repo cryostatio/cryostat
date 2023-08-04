@@ -100,12 +100,23 @@ public class Target extends PanacheEntity {
         return this.connectUrl.toString();
     }
 
+    public static Target getTargetById(long targetId) {
+        return Target.find("id", targetId).singleResult();
+    }
+
     public static Target getTargetByConnectUrl(URI connectUrl) {
         return find("connectUrl", connectUrl).singleResult();
     }
 
     public static boolean deleteByConnectUrl(URI connectUrl) {
         return delete("connectUrl", connectUrl) > 0;
+    }
+
+    public ActiveRecording getRecordingById(long remoteId) {
+        return activeRecordings.stream()
+                .filter(rec -> rec.remoteId == remoteId)
+                .findFirst()
+                .orElse(null);
     }
 
     public static class Annotations {

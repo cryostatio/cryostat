@@ -6,5 +6,7 @@ services:
   jfr-datasource:
     image: quay.io/cryostat/jfr-datasource:latest
     restart: unless-stopped
+    ports:
+      - "8080:8080"
     expose:
       - "8080"

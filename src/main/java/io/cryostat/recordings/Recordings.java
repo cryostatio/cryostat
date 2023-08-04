@@ -711,7 +711,7 @@ public class Recordings {
                                 ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
             }
 
-            return recordingHelper.doPost(targetId, remoteId, uploadUrl);
+            return recordingHelper.uploadToJFRDatasource(targetId, remoteId, uploadUrl);
         } catch (MalformedURLException e) {
             throw new NotImplementedException(e);
         }

@@ -143,9 +143,9 @@ public class ActiveRecording extends PanacheEntity {
         return delete("name", name) > 0;
     }
 
-    public static boolean deleteFromTarget(Target target, String name) {
+    public static boolean deleteFromTarget(Target target, String recordingName) {
         ActiveRecording recordingToDelete =
-                find("target = ?1 and name = ?2", target, name).firstResult();
+                find("target = ?1 and name = ?2", target, recordingName).firstResult();
         if (recordingToDelete != null) {
             recordingToDelete.delete();
             return true;

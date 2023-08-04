@@ -489,10 +489,11 @@ public class RecordingHelper {
 
     // jfr-datasource handling
     @Blocking
-    public Response doPost(long targetEntityId, long remoteId, URL uploadUrl) throws Exception {
-        Target target = Target.findById(targetEntityId);
+    public Response uploadToJFRDatasource(long targetEntityId, long remoteId, URL uploadUrl)
+            throws Exception {
+        Target target = Target.getTargetById(targetEntityId);
         Objects.requireNonNull(target, "Target from targetId not found");
-        ActiveRecording recording = ActiveRecording.findById(remoteId);
+        ActiveRecording recording = target.getRecordingById(remoteId);
         Objects.requireNonNull(recording, "ActiveRecording from remoteId not found");
         Path recordingPath =
                 connectionManager.executeConnectedTask(
@@ -535,8 +536,7 @@ public class RecordingHelper {
                                 return Response.serverError().build();
                             })
                     .await()
-                    .indefinitely(); // The timeout in from the webClient request should be
-            // sufficient
+                    .indefinitely(); // The timeout from the request should be sufficient
         } finally {
             fs.deleteIfExists(recordingPath);
         }
