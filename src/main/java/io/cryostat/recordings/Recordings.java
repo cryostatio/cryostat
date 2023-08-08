@@ -15,8 +15,10 @@
  */
 package io.cryostat.recordings;
 
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -49,11 +51,12 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import com.arjuna.ats.jta.exceptions.NotImplementedException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
-import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.json.JsonObject;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -61,6 +64,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
@@ -70,6 +74,7 @@ import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.validator.routines.UrlValidator;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -116,6 +121,9 @@ public class Recordings {
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
+
+    @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
+    Optional<String> grafanaDatasourceURL;
 
     void onStart(@Observes StartupEvent evt) {
         boolean exists = false;
@@ -657,6 +665,55 @@ public class Recordings {
             logger.error("Failed to stop remote recording", e);
         } catch (Exception e) {
             logger.error("Unexpected exception", e);
+        }
+    }
+
+    @POST
+    @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}/upload")
+    @RolesAllowed("write")
+    public Response uploadToGrafanaV1(@RestPath URI connectUrl, @RestPath String recordingName) {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        long remoteId =
+                target.activeRecordings.stream()
+                        .filter(r -> Objects.equals(r.name, recordingName))
+                        .findFirst()
+                        .map(r -> r.remoteId)
+                        .orElseThrow(() -> new NotFoundException());
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/recordings/%d/upload",
+                                        target.id, remoteId)))
+                .build();
+    }
+
+    @POST
+    @Path("/api/v3/targets/{targetId}/recordings/{remoteId}/upload")
+    @RolesAllowed("write")
+    @Blocking
+    public Response uploadToGrafana(@RestPath long targetId, @RestPath long remoteId)
+            throws Exception {
+        try {
+            URL uploadUrl =
+                    new URL(
+                            grafanaDatasourceURL.orElseThrow(
+                                    () ->
+                                            new InternalServerErrorException(
+                                                    "GRAFANA_DATASOURCE_URL environment variable"
+                                                            + " does not exist")));
+            boolean isValidUploadUrl =
+                    new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS).isValid(uploadUrl.toString());
+            if (!isValidUploadUrl) {
+                throw new NotImplementedException(
+                        String.format(
+                                "$%s=%s is an invalid datasource URL",
+                                ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
+            }
+
+            return recordingHelper.uploadToJFRDatasource(targetId, remoteId, uploadUrl);
+        } catch (MalformedURLException e) {
+            throw new NotImplementedException(e);
         }
     }
 

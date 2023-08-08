@@ -17,11 +17,14 @@ package io.cryostat.recordings;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,6 +32,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -42,6 +46,7 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
+import io.cryostat.core.sys.FileSystem;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
@@ -49,23 +54,29 @@ import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import io.vertx.mutiny.ext.web.client.WebClient;
+import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ServerErrorException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.server.jaxrs.ResponseBuilderImpl;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -89,6 +100,9 @@ public class RecordingHelper {
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     private final Base64 base64Url = new Base64(0, null, true);
+    public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
+
+    private final long httpTimeoutSeconds = 5; // TODO: configurable client timeout
 
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
@@ -102,6 +116,9 @@ public class RecordingHelper {
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ObjectMapper mapper;
     @Inject S3Client storage;
+    @Inject FileSystem fs;
+
+    @Inject WebClient webClient;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
@@ -470,6 +487,83 @@ public class RecordingHelper {
                 .build();
     }
 
+    // jfr-datasource handling
+    @Blocking
+    public Response uploadToJFRDatasource(long targetEntityId, long remoteId, URL uploadUrl)
+            throws Exception {
+        Target target = Target.getTargetById(targetEntityId);
+        Objects.requireNonNull(target, "Target from targetId not found");
+        ActiveRecording recording = target.getRecordingById(remoteId);
+        Objects.requireNonNull(recording, "ActiveRecording from remoteId not found");
+        Path recordingPath =
+                connectionManager.executeConnectedTask(
+                        target,
+                        connection -> {
+                            return getRecordingCopyPath(connection, target, recording.name)
+                                    .orElseThrow(
+                                            () ->
+                                                    new RecordingNotFoundException(
+                                                            target.targetId(), recording.name));
+                        });
+
+        MultipartForm form =
+                MultipartForm.create()
+                        .binaryFileUpload(
+                                "file",
+                                DATASOURCE_FILENAME,
+                                recordingPath.toString(),
+                                HttpMimeType.OCTET_STREAM.toString());
+
+        try {
+            ResponseBuilder builder = new ResponseBuilderImpl();
+            var asyncRequest =
+                    webClient
+                            .postAbs(uploadUrl.toURI().resolve("/load").normalize().toString())
+                            .addQueryParam("overwrite", "true")
+                            .timeout(TimeUnit.SECONDS.toMillis(httpTimeoutSeconds))
+                            .sendMultipartForm(form);
+            return asyncRequest
+                    .onItem()
+                    .transform(
+                            r ->
+                                    builder.status(r.statusCode(), r.statusMessage())
+                                            .entity(r.bodyAsString())
+                                            .build())
+                    .onFailure()
+                    .recoverWithItem(
+                            (failure) -> {
+                                logger.error(failure);
+                                return Response.serverError().build();
+                            })
+                    .await()
+                    .indefinitely(); // The timeout from the request should be sufficient
+        } finally {
+            fs.deleteIfExists(recordingPath);
+        }
+    }
+
+    Optional<Path> getRecordingCopyPath(
+            JFRConnection connection, Target target, String recordingName) throws Exception {
+        return connection.getService().getAvailableRecordings().stream()
+                .filter(recording -> recording.getName().equals(recordingName))
+                .findFirst()
+                .map(
+                        descriptor -> {
+                            try {
+                                Path tempFile = fs.createTempFile(null, null);
+                                try (var stream =
+                                        remoteRecordingStreamFactory.open(
+                                                connection, target, descriptor)) {
+                                    fs.copy(stream, tempFile, StandardCopyOption.REPLACE_EXISTING);
+                                }
+                                return tempFile;
+                            } catch (Exception e) {
+                                logger.error(e);
+                                throw new BadRequestException(e);
+                            }
+                        });
+    }
+
     public enum RecordingReplace {
         ALWAYS,
         NEVER,
@@ -482,6 +576,19 @@ public class RecordingHelper {
                 }
             }
             throw new IllegalArgumentException("Invalid recording replace value: " + replace);
+        }
+    }
+
+    static class RecordingNotFoundException extends Exception {
+        public RecordingNotFoundException(String targetId, String recordingName) {
+            super(
+                    String.format(
+                            "Recording %s was not found in the target [%s].",
+                            recordingName, targetId));
+        }
+
+        public RecordingNotFoundException(Pair<String, String> key) {
+            this(key.getLeft(), key.getRight());
         }
     }
 }

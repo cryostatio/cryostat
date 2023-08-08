@@ -1,0 +1,12 @@
+version: "3"
+services:
+  cryostat:
+    environment:
+      - GRAFANA_DATASOURCE_URL=http://jfr-datasource:8080
+  jfr-datasource:
+    image: quay.io/cryostat/jfr-datasource:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    expose:
+      - "8080"

@@ -46,7 +46,7 @@ import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateService;
 import io.cryostat.core.templates.TemplateType;
 
-import io.vertx.ext.web.client.WebClient;
+import io.vertx.mutiny.ext.web.client.WebClient;
 import org.jsoup.nodes.Document;
 
 class AgentConnection implements JFRConnection {

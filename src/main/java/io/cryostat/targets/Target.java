@@ -36,7 +36,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
-import io.vertx.core.eventbus.EventBus;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.CascadeType;
@@ -96,12 +96,27 @@ public class Target extends PanacheEntity {
         return Set.of("http", "https", "cryostat-agent").contains(connectUrl.getScheme());
     }
 
+    public String targetId() {
+        return this.connectUrl.toString();
+    }
+
+    public static Target getTargetById(long targetId) {
+        return Target.find("id", targetId).singleResult();
+    }
+
     public static Target getTargetByConnectUrl(URI connectUrl) {
         return find("connectUrl", connectUrl).singleResult();
     }
 
     public static boolean deleteByConnectUrl(URI connectUrl) {
         return delete("connectUrl", connectUrl) > 0;
+    }
+
+    public ActiveRecording getRecordingById(long remoteId) {
+        return activeRecordings.stream()
+                .filter(rec -> rec.remoteId == remoteId)
+                .findFirst()
+                .orElse(null);
     }
 
     public static class Annotations {

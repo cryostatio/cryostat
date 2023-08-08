@@ -32,7 +32,7 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import io.vertx.core.eventbus.EventBus;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.Column;
@@ -143,9 +143,9 @@ public class ActiveRecording extends PanacheEntity {
         return delete("name", name) > 0;
     }
 
-    public static boolean deleteFromTarget(Target target, String name) {
+    public static boolean deleteFromTarget(Target target, String recordingName) {
         ActiveRecording recordingToDelete =
-                find("target = ?1 and name = ?2", target, name).firstResult();
+                find("target = ?1 and name = ?2", target, recordingName).firstResult();
         if (recordingToDelete != null) {
             recordingToDelete.delete();
             return true;
