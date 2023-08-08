@@ -58,6 +58,7 @@ public class MatchExpressionEvaluator {
     @Inject Logger logger;
     @Inject CacheManager cacheManager;
 
+    // TODO refactor this to listen for expression events, not rule events
     @Transactional
     @Blocking
     @ConsumeEvent(Rule.RULE_ADDRESS)
