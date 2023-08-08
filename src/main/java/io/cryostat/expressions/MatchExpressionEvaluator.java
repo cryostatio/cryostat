@@ -23,8 +23,7 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import io.cryostat.rules.Rule;
-import io.cryostat.rules.Rule.RuleEvent;
+import io.cryostat.expressions.MatchExpression.ExpressionEvent;
 import io.cryostat.targets.Target;
 
 import io.quarkus.cache.Cache;
@@ -37,7 +36,6 @@ import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.Label;
@@ -58,16 +56,14 @@ public class MatchExpressionEvaluator {
     @Inject Logger logger;
     @Inject CacheManager cacheManager;
 
-    // TODO refactor this to listen for expression events, not rule events
-    @Transactional
     @Blocking
-    @ConsumeEvent(Rule.RULE_ADDRESS)
-    void onMessage(RuleEvent event) {
+    @ConsumeEvent(MatchExpression.EXPRESSION_ADDRESS)
+    void onMessage(ExpressionEvent event) {
         switch (event.category()) {
             case CREATED:
                 break;
             case DELETED:
-                invalidate(event.rule().matchExpression.script);
+                invalidate(event.expression().script);
                 break;
             case UPDATED:
                 break;

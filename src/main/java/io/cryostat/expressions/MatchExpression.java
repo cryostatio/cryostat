@@ -20,16 +20,22 @@ import java.util.HashSet;
 import java.util.Set;
 
 import io.cryostat.targets.Target;
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.PostPersist;
+import jakarta.persistence.PostRemove;
+import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.NotBlank;
@@ -39,6 +45,7 @@ import org.projectnessie.cel.tools.ScriptException;
 @Entity
 @EntityListeners(MatchExpression.Listener.class)
 public class MatchExpression extends PanacheEntity {
+    public static final String EXPRESSION_ADDRESS = "io.cryostat.expressions.MatchExpression";
 
     @Column(updatable = false, nullable = false)
     @NotBlank
@@ -88,6 +95,7 @@ public class MatchExpression extends PanacheEntity {
 
     @ApplicationScoped
     static class Listener {
+        @Inject EventBus bus;
         @Inject MatchExpressionEvaluator evaluator;
         @Inject Logger logger;
 
@@ -99,6 +107,51 @@ public class MatchExpression extends PanacheEntity {
                 logger.error("Invalid match expression", e);
                 throw new ValidationException(e);
             }
+        }
+
+        @PostPersist
+        public void postPersist(MatchExpression expr) {
+            bus.publish(
+                    EXPRESSION_ADDRESS, new ExpressionEvent(ExpressionEventCategory.CREATED, expr));
+            notify(ExpressionEventCategory.CREATED, expr);
+        }
+
+        @PostUpdate
+        public void postUpdate(MatchExpression expr) {
+            bus.publish(
+                    EXPRESSION_ADDRESS, new ExpressionEvent(ExpressionEventCategory.UPDATED, expr));
+            notify(ExpressionEventCategory.UPDATED, expr);
+        }
+
+        @PostRemove
+        public void postRemove(MatchExpression expr) {
+            bus.publish(
+                    EXPRESSION_ADDRESS, new ExpressionEvent(ExpressionEventCategory.DELETED, expr));
+            notify(ExpressionEventCategory.DELETED, expr);
+        }
+
+        private void notify(ExpressionEventCategory category, MatchExpression expr) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(category.getCategory(), expr));
+        }
+    }
+
+    public record ExpressionEvent(ExpressionEventCategory category, MatchExpression expression) {}
+
+    public enum ExpressionEventCategory {
+        CREATED("ExpressionCreated"),
+        UPDATED("ExpressionUpdated"),
+        DELETED("ExpressionDeleted");
+
+        private final String name;
+
+        ExpressionEventCategory(String name) {
+            this.name = name;
+        }
+
+        public String getCategory() {
+            return name;
         }
     }
 }
