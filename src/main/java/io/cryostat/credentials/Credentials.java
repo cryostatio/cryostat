@@ -19,39 +19,60 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import io.cryostat.V2Response;
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.expressions.MatchExpression.TargetMatcher;
 
+import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.security.RolesAllowed;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.RestResponse.Status;
+import org.projectnessie.cel.tools.ScriptException;
 
 @Path("/api/v2.2/credentials")
 public class Credentials {
+
+    @Inject TargetMatcher targetMatcher;
+    @Inject Logger logger;
 
     @GET
     @RolesAllowed("read")
     public V2Response list() {
         List<Credential> credentials = Credential.listAll();
         return V2Response.json(
-                credentials.stream().map(Credentials::safeResult).toList(), Status.OK.toString());
+                credentials.stream()
+                        .map(
+                                c -> {
+                                    try {
+                                        return Credentials.safeResult(c, targetMatcher);
+                                    } catch (ScriptException e) {
+                                        logger.warn(e);
+                                        return null;
+                                    }
+                                })
+                        .filter(Objects::nonNull)
+                        .toList(),
+                Status.OK.toString());
     }
 
     @GET
     @RolesAllowed("read")
     @Path("/{id}")
-    public V2Response get(@RestPath long id) {
+    public V2Response get(@RestPath long id) throws ScriptException {
         Credential credential = Credential.find("id", id).singleResult();
-        return V2Response.json(safeMatchedResult(credential), Status.OK.toString());
+        return V2Response.json(safeMatchedResult(credential, targetMatcher), Status.OK.toString());
     }
 
     @Transactional
@@ -81,7 +102,7 @@ public class Credentials {
         credential.delete();
     }
 
-    static Map<String, Object> safeResult(Credential credential) {
+    static Map<String, Object> notificationResult(Credential credential) throws ScriptException {
         Map<String, Object> result = new HashMap<>();
         result.put("id", credential.id);
         result.put("matchExpression", credential.matchExpression);
@@ -90,10 +111,23 @@ public class Credentials {
         return result;
     }
 
-    static Map<String, Object> safeMatchedResult(Credential credential) {
+    @Blocking
+    static Map<String, Object> safeResult(Credential credential, TargetMatcher matcher)
+            throws ScriptException {
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", credential.id);
+        result.put("matchExpression", credential.matchExpression);
+        result.put(
+                "numMatchingTargets", matcher.match(credential.matchExpression).targets().size());
+        return result;
+    }
+
+    @Blocking
+    static Map<String, Object> safeMatchedResult(Credential credential, TargetMatcher matcher)
+            throws ScriptException {
         Map<String, Object> result = new HashMap<>();
         result.put("matchExpression", credential.matchExpression);
-        result.put("targets", List.of());
+        result.put("targets", matcher.match(credential.matchExpression).targets());
         return result;
     }
 }

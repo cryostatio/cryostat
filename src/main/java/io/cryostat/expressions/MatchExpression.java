@@ -58,11 +58,11 @@ public class MatchExpression extends PanacheEntity {
     }
 
     @ApplicationScoped
-    static class TargetMatcher {
+    public static class TargetMatcher {
         @Inject MatchExpressionEvaluator evaluator;
         @Inject Logger logger;
 
-        MatchedExpression match(MatchExpression expr, Collection<Target> targets)
+        public MatchedExpression match(MatchExpression expr, Collection<Target> targets)
                 throws ScriptException {
             Set<Target> matches = new HashSet<>(targets);
             var it = matches.iterator();
@@ -74,7 +74,7 @@ public class MatchExpression extends PanacheEntity {
             return new MatchedExpression(expr, matches);
         }
 
-        MatchedExpression match(MatchExpression expr) throws ScriptException {
+        public MatchedExpression match(MatchExpression expr) throws ScriptException {
             return match(expr, Target.listAll());
         }
     }

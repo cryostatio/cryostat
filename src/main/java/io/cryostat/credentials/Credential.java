@@ -34,6 +34,7 @@ import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import org.hibernate.annotations.ColumnTransformer;
+import org.projectnessie.cel.tools.ScriptException;
 
 @Entity
 @EntityListeners(Credential.Listener.class)
@@ -59,26 +60,30 @@ public class Credential extends PanacheEntity {
     static class Listener {
 
         @Inject EventBus bus;
+        @Inject MatchExpression.TargetMatcher targetMatcher;
 
         @PostPersist
-        public void postPersist(Credential credential) {
+        public void postPersist(Credential credential) throws ScriptException {
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification("CredentialsStored", Credentials.safeResult(credential)));
+                    new Notification(
+                            "CredentialsStored", Credentials.notificationResult(credential)));
         }
 
         @PostUpdate
-        public void postUpdate(Credential credential) {
+        public void postUpdate(Credential credential) throws ScriptException {
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification("CredentialsUpdated", Credentials.safeResult(credential)));
+                    new Notification(
+                            "CredentialsUpdated", Credentials.notificationResult(credential)));
         }
 
         @PostRemove
-        public void postRemove(Credential credential) {
+        public void postRemove(Credential credential) throws ScriptException {
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification("CredentialsDeleted", Credentials.safeResult(credential)));
+                    new Notification(
+                            "CredentialsDeleted", Credentials.notificationResult(credential)));
         }
     }
 }
