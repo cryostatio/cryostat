@@ -106,7 +106,10 @@ public class Credentials {
         Map<String, Object> result = new HashMap<>();
         result.put("id", credential.id);
         result.put("matchExpression", credential.matchExpression);
-        // TODO
+        // TODO populating this on the credential post-persist hook leads to a database validation
+        // error because the expression ends up getting defined twice with the same ID, somehow.
+        // Populating this field with 0 means the UI is inaccurate when a new credential is first
+        // defined, but after a refresh the data correctly updates.
         result.put("numMatchingTargets", 0);
         return result;
     }
