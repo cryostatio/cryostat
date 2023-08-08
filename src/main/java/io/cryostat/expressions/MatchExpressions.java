@@ -15,52 +15,64 @@
  */
 package io.cryostat.expressions;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import io.cryostat.V2Response;
+import io.cryostat.expressions.MatchExpression.MatchedExpression;
 import io.cryostat.targets.Target;
 
+import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Multi;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response.Status;
 import org.jboss.logging.Logger;
-import org.projectnessie.cel.tools.ScriptCreateException;
+import org.jboss.resteasy.reactive.RestPath;
 import org.projectnessie.cel.tools.ScriptException;
 
 @Path("/api/beta/matchExpressions")
 public class MatchExpressions {
 
-    @Inject MatchExpressionEvaluator evaluator;
+    @Inject MatchExpression.TargetMatcher targetMatcher;
     @Inject Logger logger;
 
     @POST
     @RolesAllowed("read")
-    public V2Response test(RequestData requestData) throws ScriptCreateException {
-        MatchExpression expr = new MatchExpression(requestData.matchExpression);
-        var targets = requestData.targets;
-        if (requestData.targets == null) {
-            targets = Target.listAll();
+    @Blocking
+    public V2Response test(RequestData requestData) throws ScriptException {
+        var expr = new MatchExpression(requestData.matchExpression);
+        var matched = targetMatcher.match(expr);
+        return V2Response.json(matched, Status.OK.toString());
+    }
+
+    @GET
+    @RolesAllowed("read")
+    @Blocking
+    public Multi<Map<String, Object>> list() {
+        List<MatchExpression> exprs = MatchExpression.listAll();
+        // FIXME hack so that this endpoint renders the response as the entity object with id and
+        // script fields, rather than allowing Jackson serialization to handle it normally where it
+        // will be encoded as only the script as a raw string
+        return Multi.createFrom()
+                .items(exprs.stream().map(expr -> Map.of("id", expr.id, "script", expr.script)));
+    }
+
+    @GET
+    @Path("/{id}")
+    @RolesAllowed("read")
+    @Blocking
+    public MatchedExpression get(@RestPath long id) throws ScriptException {
+        MatchExpression expr = MatchExpression.findById(id);
+        if (expr == null) {
+            throw new NotFoundException();
         }
-        List<Target> matches = new ArrayList<>(targets.size());
-        for (Target t : targets) {
-            try {
-                if (evaluator.applies(expr, t)) {
-                    matches.add(t);
-                }
-            } catch (IllegalArgumentException | ScriptException e) {
-                throw new BadRequestException(e);
-            }
-        }
-        return V2Response.json(
-                new MatchedMatchExpression(requestData.matchExpression, matches),
-                Status.OK.toString());
+        return targetMatcher.match(expr);
     }
 
     static record RequestData(String matchExpression, List<Target> targets) {}
-
-    static record MatchedMatchExpression(String expression, List<Target> targets) {}
 }

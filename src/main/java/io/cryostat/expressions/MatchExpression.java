@@ -15,9 +15,16 @@
  */
 package io.cryostat.expressions;
 
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
+
+import io.cryostat.targets.Target;
+
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.Column;
@@ -27,6 +34,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.NotBlank;
 import org.jboss.logging.Logger;
+import org.projectnessie.cel.tools.ScriptException;
 
 @Entity
 @EntityListeners(MatchExpression.Listener.class)
@@ -34,8 +42,9 @@ public class MatchExpression extends PanacheEntity {
 
     @Column(updatable = false, nullable = false)
     @NotBlank
+    // TODO
     // when serializing matchExpressions (ex. as a field of Rules), just use the script as the
-    // serialized form of the expression object.
+    // serialized form of the expression object. This is for 2.x compat only
     @JsonValue
     public String script;
 
@@ -46,6 +55,35 @@ public class MatchExpression extends PanacheEntity {
     @JsonCreator
     public MatchExpression(String script) {
         this.script = script;
+    }
+
+    @ApplicationScoped
+    static class TargetMatcher {
+        @Inject MatchExpressionEvaluator evaluator;
+        @Inject Logger logger;
+
+        MatchedExpression match(MatchExpression expr, Collection<Target> targets)
+                throws ScriptException {
+            Set<Target> matches = new HashSet<>(targets);
+            var it = matches.iterator();
+            while (it.hasNext()) {
+                if (!evaluator.applies(expr, it.next())) {
+                    it.remove();
+                }
+            }
+            return new MatchedExpression(expr, matches);
+        }
+
+        MatchedExpression match(MatchExpression expr) throws ScriptException {
+            return match(expr, Target.listAll());
+        }
+    }
+
+    public static record MatchedExpression(
+            @Nullable Long id, String expression, Collection<Target> targets) {
+        MatchedExpression(MatchExpression expr, Collection<Target> targets) {
+            this(expr.id, expr.script, targets);
+        }
     }
 
     @ApplicationScoped
