@@ -35,6 +35,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.ResponseBuilder;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -83,30 +84,23 @@ class Health {
         checkUri(datasourceURL, "/", datasourceAvailable);
         reportsAvailable.complete(false);
 
-        return Response.ok(
-                        Map.of(
-                                "cryostatVersion",
-                                String.format("v%s", version),
-                                "dashboardConfigured",
-                                dashboardURL.isPresent(),
-                                "dashboardAvailable",
-                                dashboardAvailable.join(),
-                                "datasourceConfigured",
-                                datasourceURL.isPresent(),
-                                "datasourceAvailable",
-                                datasourceAvailable.join(),
-                                "reportsConfigured",
-                                false,
-                                "reportsAvailable",
-                                false))
-                .header("Access-Control-Allow-Origin", "http://localhost:9000")
-                .header(
-                        "Access-Control-Allow-Headers",
-                        "accept, origin, authorization, content-type,"
-                                + " x-requested-with, x-jmx-authorization")
-                .header("Access-Control-Expose-Headers", "x-www-authenticate, x-jmx-authenticate")
-                .header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-                .header("Access-Control-Allow-Credentials", "true")
+        return new PermittedResponseBuilder(
+                        Response.ok(
+                                Map.of(
+                                        "cryostatVersion",
+                                        String.format("v%s", version),
+                                        "dashboardConfigured",
+                                        dashboardURL.isPresent(),
+                                        "dashboardAvailable",
+                                        dashboardAvailable.join(),
+                                        "datasourceConfigured",
+                                        datasourceURL.isPresent(),
+                                        "datasourceAvailable",
+                                        datasourceAvailable.join(),
+                                        "reportsConfigured",
+                                        false,
+                                        "reportsAvailable",
+                                        false)))
                 .build();
     }
 
@@ -119,24 +113,14 @@ class Health {
     @Path("/api/v1/notifications_url")
     @PermitAll
     public Response notificationsUrl() {
-        // TODO @PermitAll annotation seems to skip the CORS filter, so these headers don't get
-        // added. We shouldn't need to add them manually like this and they should not be added in
-        // prod builds.
         boolean ssl = sslPass.isPresent();
-        return Response.ok(
-                        Map.of(
-                                "notificationsUrl",
-                                String.format(
-                                        "%s://%s:%d/api/v1/notifications",
-                                        ssl ? "wss" : "ws", host, ssl ? sslPort : port)))
-                .header("Access-Control-Allow-Origin", "http://localhost:9000")
-                .header(
-                        "Access-Control-Allow-Headers",
-                        "accept, origin, authorization, content-type,"
-                                + " x-requested-with, x-jmx-authorization")
-                .header("Access-Control-Expose-Headers", "x-www-authenticate, x-jmx-authenticate")
-                .header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-                .header("Access-Control-Allow-Credentials", "true")
+        return new PermittedResponseBuilder(
+                        Response.ok(
+                                Map.of(
+                                        "notificationsUrl",
+                                        String.format(
+                                                "%s://%s:%d/api/v1/notifications",
+                                                ssl ? "wss" : "ws", host, ssl ? sslPort : port))))
                 .build();
     }
 
@@ -149,15 +133,7 @@ class Health {
                 dashboardExternalURL.orElseGet(
                         () -> dashboardURL.orElseThrow(() -> new BadRequestException()));
 
-        return Response.ok(Map.of("grafanaDashboardUrl", url))
-                .header("Access-Control-Allow-Origin", "http://localhost:9000")
-                .header(
-                        "Access-Control-Allow-Headers",
-                        "accept, origin, authorization, content-type,"
-                                + " x-requested-with, x-jmx-authorization")
-                .header("Access-Control-Expose-Headers", "x-www-authenticate, x-jmx-authenticate")
-                .header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-                .header("Access-Control-Allow-Credentials", "true")
+        return new PermittedResponseBuilder(Response.ok(Map.of("grafanaDashboardUrl", url)))
                 .build();
     }
 
@@ -166,15 +142,9 @@ class Health {
     @PermitAll
     @Produces({MediaType.APPLICATION_JSON})
     public Response grafanaDatasourceUrl() {
-        return Response.ok(Map.of("grafanaDatasourceUrl", datasourceURL))
-                .header("Access-Control-Allow-Origin", "http://localhost:9000")
-                .header(
-                        "Access-Control-Allow-Headers",
-                        "accept, origin, authorization, content-type,"
-                                + " x-requested-with, x-jmx-authorization")
-                .header("Access-Control-Expose-Headers", "x-www-authenticate, x-jmx-authenticate")
-                .header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
-                .header("Access-Control-Allow-Credentials", "true")
+        return new PermittedResponseBuilder(
+                        Response.ok(Map.of("grafanaDatasourceUrl", datasourceURL)))
+                .corsSkippedHeaders()
                 .build();
     }
 
@@ -209,6 +179,36 @@ class Health {
                             });
         } else {
             future.complete(false);
+        }
+    }
+
+    static class PermittedResponseBuilder {
+        private ResponseBuilder builder;
+
+        public PermittedResponseBuilder(ResponseBuilder builder) {
+            this.builder = builder;
+        }
+
+        public ResponseBuilder corsSkippedHeaders() {
+            // TODO @PermitAll annotation seems to skip the CORS filter, so these headers don't get
+            // added. We shouldn't need to add them manually like this and they should not be added
+            // in
+            // prod builds.
+            return this.builder
+                    .header("Access-Control-Allow-Origin", "http://localhost:9000")
+                    .header(
+                            "Access-Control-Allow-Headers",
+                            "accept, origin, authorization, content-type,"
+                                    + " x-requested-with, x-jmx-authorization")
+                    .header(
+                            "Access-Control-Expose-Headers",
+                            "x-www-authenticate, x-jmx-authenticate")
+                    .header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
+                    .header("Access-Control-Allow-Credentials", "true");
+        }
+
+        public Response build() {
+            return builder.build();
         }
     }
 }
