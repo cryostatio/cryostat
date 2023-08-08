@@ -29,7 +29,7 @@ public class ExceptionMappers {
     }
 
     @ServerExceptionMapper
-    public RestResponse<Void> mapNoResultException(ConstraintViolationException ex) {
+    public RestResponse<Void> mapConstraintViolationException(ConstraintViolationException ex) {
         return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
     }
 
