@@ -17,6 +17,7 @@ package io.cryostat.credentials;
 
 import java.net.URI;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -49,8 +50,9 @@ public class Credentials {
     @GET
     @RolesAllowed("read")
     public V2Response list() {
+        List<Credential> credentials = Credential.listAll();
         return V2Response.json(
-                Credential.<Credential>streamAll()
+                credentials.stream()
                         .map(
                                 c -> {
                                     try {
