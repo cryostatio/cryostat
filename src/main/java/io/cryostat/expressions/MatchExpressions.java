@@ -54,12 +54,13 @@ public class MatchExpressions {
     @RolesAllowed("read")
     @Blocking
     public Multi<Map<String, Object>> list() {
-        List<MatchExpression> exprs = MatchExpression.listAll();
         // FIXME hack so that this endpoint renders the response as the entity object with id and
         // script fields, rather than allowing Jackson serialization to handle it normally where it
         // will be encoded as only the script as a raw string
         return Multi.createFrom()
-                .items(exprs.stream().map(expr -> Map.of("id", expr.id, "script", expr.script)));
+                .items(
+                        MatchExpression.<MatchExpression>streamAll()
+                                .map(expr -> Map.of("id", expr.id, "script", expr.script)));
     }
 
     @GET
