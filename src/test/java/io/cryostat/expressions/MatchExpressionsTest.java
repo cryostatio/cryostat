@@ -19,6 +19,7 @@ import static io.cryostat.TestUtils.givenBasicAuth;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -49,6 +50,10 @@ public class MatchExpressionsTest {
 
     @Test
     public void testPostWithoutTargets() {
+        var expectation = new HashMap<>();
+        expectation.put("id", null);
+        expectation.put("expression", "true");
+        expectation.put("targets", List.of());
         givenBasicAuth()
                 .contentType(ContentType.JSON)
                 .body(ALL_MATCHING_EXPRESSION)
@@ -62,9 +67,6 @@ public class MatchExpressionsTest {
                 .and()
                 .body("meta.type", Matchers.equalTo("application/json"))
                 .body("meta.status", Matchers.equalTo("OK"))
-                .body(
-                        "data.result",
-                        Matchers.equalTo(
-                                Map.of("id", null, "expression", "true", "targets", List.of())));
+                .body("data.result", Matchers.equalTo(expectation));
     }
 }
