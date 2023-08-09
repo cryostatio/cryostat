@@ -64,6 +64,7 @@ public class MatchExpressionsTest {
                 .body("meta.status", Matchers.equalTo("OK"))
                 .body(
                         "data.result",
-                        Matchers.equalTo(Map.of("expression", "true", "targets", List.of())));
+                        Matchers.equalTo(
+                                Map.of("id", null, "expression", "true", "targets", List.of())));
     }
 }
