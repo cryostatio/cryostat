@@ -44,14 +44,12 @@ jobs:
     - name: maven-settings
       uses: s4u/maven-settings-action@v2
       with:
-        servers: '[{"id": "github", "username": "dummy", "password": "${env.GITHUB_TOKEN_REF}"}]'
+        servers: '[{"id": "github", "username": "dummy", "password": "${secrets.GHCR_PR_TOKEN}"}]'
         githubServer: false
     - uses: skjolber/maven-cache-github-action@v1
       with:
         step: restore
     - run: mvn -B -U clean verify
-      env:
-        GITHUB_TOKEN_REF: ${{ secrets.GH_PKGS_READ_TOKEN }}
     - uses: skjolber/maven-cache-github-action@v1
       with:
         step: save
