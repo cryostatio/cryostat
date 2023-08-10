@@ -17,6 +17,8 @@ package io.cryostat.expressions;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import io.cryostat.targets.Target;
@@ -71,7 +73,8 @@ public class MatchExpression extends PanacheEntity {
 
         public MatchedExpression match(MatchExpression expr, Collection<Target> targets)
                 throws ScriptException {
-            Set<Target> matches = new HashSet<>(targets);
+            Set<Target> matches =
+                    new HashSet<>(Optional.ofNullable(targets).orElseGet(() -> Set.of()));
             var it = matches.iterator();
             while (it.hasNext()) {
                 if (!evaluator.applies(expr, it.next())) {

@@ -15,8 +15,10 @@
  */
 package io.cryostat.expressions;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import io.cryostat.V2Response;
 import io.cryostat.expressions.MatchExpression.MatchedExpression;
@@ -45,8 +47,9 @@ public class MatchExpressions {
     @RolesAllowed("read")
     @Blocking
     public V2Response test(RequestData requestData) throws ScriptException {
-        var expr = new MatchExpression(requestData.matchExpression);
-        var matched = targetMatcher.match(expr);
+        var matched =
+                targetMatcher.match(
+                        new MatchExpression(requestData.matchExpression), requestData.targets);
         return V2Response.json(matched, Status.OK.toString());
     }
 
@@ -74,5 +77,12 @@ public class MatchExpressions {
         return targetMatcher.match(expr);
     }
 
-    static record RequestData(String matchExpression, List<Target> targets) {}
+    static record RequestData(String matchExpression, List<Target> targets) {
+        RequestData {
+            Objects.requireNonNull(matchExpression);
+            if (targets == null) {
+                targets = Collections.emptyList();
+            }
+        }
+    }
 }
