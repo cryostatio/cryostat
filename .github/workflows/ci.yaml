@@ -1,8 +1,5 @@
 name: CI build and push
 
-permissions:
-  packages: write
-
 concurrency:
   group: ci-${{ github.run_id }}
   cancel-in-progress: true
@@ -34,6 +31,8 @@ jobs:
       matrix:
         java: [ '14', '17', '21' ]
     name: Build and test Java ${{ matrix.java }}
+    permissions:
+      packages: write
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
     # - name: Fail if PR and safe-to-test label NOT applied
