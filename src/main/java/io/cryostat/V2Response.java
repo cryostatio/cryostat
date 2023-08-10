@@ -15,13 +15,23 @@
  */
 package io.cryostat;
 
+import java.util.Objects;
+
+import jakarta.annotation.Nullable;
+
 public record V2Response(Meta meta, Data data) {
     public static V2Response json(Object payload, String status) {
         return new V2Response(new Meta("application/json", status), new Data(payload));
     }
 
-    public record Meta(String type, String status) {}
+    // FIXME the type and status should both come from an enum and be non-null
+    public record Meta(String type, String status) {
+        public Meta {
+            Objects.requireNonNull(type);
+            Objects.requireNonNull(status);
+        }
+    }
 
-    public record Data(Object result) {}
+    public record Data(@Nullable Object result) {}
 }
     // {"meta":{"type":"application/json","status":"OK"},"data":{"result":{"name":"Test_Rule","description":"This is a rule for testing","matchExpression":"target.alias=='io.cryostat.Cryostat'","eventSpecifier":"template=Continuous,type=TARGET","archivalPeriodSeconds":30,"preservedArchives":1,"maxAgeSeconds":30,"maxSizeBytes":-1}}}

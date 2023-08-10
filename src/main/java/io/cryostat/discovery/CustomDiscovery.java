@@ -103,7 +103,7 @@ public class CustomDiscovery {
             target.activeRecordings = new ArrayList<>();
             target.labels = Map.of();
             target.annotations = new Annotations();
-            target.annotations.cryostat.putAll(Map.of("REALM", REALM));
+            target.annotations.cryostat().putAll(Map.of("REALM", REALM));
 
             DiscoveryNode node = DiscoveryNode.target(target);
             target.discoveryNode = node;
