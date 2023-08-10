@@ -1,5 +1,8 @@
 name: CI build and push
 
+permissions:
+  packages: write
+
 concurrency:
   group: ci-${{ github.run_id }}
   cancel-in-progress: true
@@ -25,31 +28,30 @@ on:
       - cryostat-v[0-9]+.[0-9]+
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java: [ '14', '17', '21' ]
+    name: Build and test Java ${{ matrix.java }}
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
     # - name: Fail if PR and safe-to-test label NOT applied
     #   if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
     #   run: exit 1
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         repository: ${{ github.event.pull_request.head.repo.full_name }}
         ref: ${{ github.event.pull_request.head.ref }}
         submodules: true
-    - uses: actions/setup-java@v2
+    - uses: actions/setup-java@v3
       with:
-        java-version: '11'
+        java-version: ${{ matrix.java }}
         distribution: 'temurin'
+        cache: 'maven'
     - name: maven-settings
       uses: s4u/maven-settings-action@v2
       with:
-        servers: '[{"id": "github", "username": "dummy", "password": "${secrets.GHCR_PR_TOKEN}"}]'
+        servers: '[{"id": "github", "username": "dummy", "password": "${GITHUB_TOKEN}"}]'
         githubServer: false
-    - uses: skjolber/maven-cache-github-action@v1
-      with:
-        step: restore
     - run: mvn -B -U clean verify
-    - uses: skjolber/maven-cache-github-action@v1
-      with:
-        step: save
