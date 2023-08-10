@@ -46,6 +46,9 @@ public class MatchExpressions {
     @POST
     @RolesAllowed("read")
     @Blocking
+    // FIXME in a later API version this request should not accept full target objects from the
+    // client but instead only a list of IDs, which will then be pulled from the target discovery
+    // database for testing
     public V2Response test(RequestData requestData) throws ScriptException {
         var matched =
                 targetMatcher.match(
