@@ -33,6 +33,7 @@ jobs:
     name: Build and test Java ${{ matrix.java }}
     permissions:
       packages: write
+      contents: read
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
     # - name: Fail if PR and safe-to-test label NOT applied
