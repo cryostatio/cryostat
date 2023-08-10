@@ -20,6 +20,7 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
@@ -278,5 +279,10 @@ public class RuleService {
         }
     }
 
-    public record RuleRecording(Rule rule, ActiveRecording recording) {}
+    public record RuleRecording(Rule rule, ActiveRecording recording) {
+        public RuleRecording {
+            Objects.requireNonNull(rule);
+            Objects.requireNonNull(recording);
+        }
+    }
 }

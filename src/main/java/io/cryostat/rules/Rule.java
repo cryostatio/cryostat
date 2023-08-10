@@ -15,6 +15,8 @@
  */
 package io.cryostat.rules;
 
+import java.util.Objects;
+
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
@@ -119,7 +121,12 @@ public class Rule extends PanacheEntity {
         }
     }
 
-    public record RuleEvent(RuleEventCategory category, Rule rule) {}
+    public record RuleEvent(RuleEventCategory category, Rule rule) {
+        public RuleEvent {
+            Objects.requireNonNull(category);
+            Objects.requireNonNull(rule);
+        }
+    }
 
     public enum RuleEventCategory {
         CREATED("RuleCreated"),

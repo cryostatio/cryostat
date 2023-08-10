@@ -91,6 +91,11 @@ public class MatchExpression extends PanacheEntity {
 
     public static record MatchedExpression(
             @Nullable Long id, String expression, Collection<Target> targets) {
+        public MatchedExpression {
+            Objects.requireNonNull(expression);
+            Objects.requireNonNull(targets);
+        }
+
         MatchedExpression(MatchExpression expr, Collection<Target> targets) {
             this(expr.id, expr.script, targets);
         }
@@ -140,7 +145,12 @@ public class MatchExpression extends PanacheEntity {
         }
     }
 
-    public record ExpressionEvent(ExpressionEventCategory category, MatchExpression expression) {}
+    public record ExpressionEvent(ExpressionEventCategory category, MatchExpression expression) {
+        public ExpressionEvent {
+            Objects.requireNonNull(category);
+            Objects.requireNonNull(expression);
+        }
+    }
 
     public enum ExpressionEventCategory {
         CREATED("ExpressionCreated"),
