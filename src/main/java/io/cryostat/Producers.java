@@ -18,6 +18,7 @@ package io.cryostat;
 import java.net.URI;
 import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator;
@@ -78,7 +79,7 @@ public class Producers {
     @DefaultBean
     public static InterruptibleReportGenerator produceInterruptibleReportGenerator() {
         return new InterruptibleReportGenerator(
-                io.cryostat.core.log.Logger.INSTANCE, Set.of(), Executors.newCachedThreadPool());
+                io.cryostat.core.log.Logger.INSTANCE, Set.of(), ForkJoinPool.commonPool());
     }
 
     @Produces
