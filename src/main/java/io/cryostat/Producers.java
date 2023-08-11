@@ -75,6 +75,8 @@ public class Producers {
     }
 
     @Produces
+    // RequestScoped so that each individual report generation request has its own interruptible
+    // generator with an independent task queueing thread which dispatches to the shared common pool
     @RequestScoped
     @DefaultBean
     public static InterruptibleReportGenerator produceInterruptibleReportGenerator() {
