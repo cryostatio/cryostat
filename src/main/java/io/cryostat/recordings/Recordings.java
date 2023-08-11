@@ -92,7 +92,6 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -158,8 +157,8 @@ public class Recordings {
     @RolesAllowed("read")
     public List<ArchivedRecording> listArchivesV1() {
         var result = new ArrayList<ArchivedRecording>();
-        storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
-                .contents()
+        recordingHelper
+                .listArchivedRecordingObjects()
                 .forEach(
                         item -> {
                             String path = item.key().strip();
@@ -170,8 +169,10 @@ public class Recordings {
                             result.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "/api/v3/download/" + encodedKey(jvmId, filename),
-                                            "/api/v3/reports/" + encodedKey(jvmId, filename),
+                                            "/api/v3/download/"
+                                                    + recordingHelper.encodedKey(jvmId, filename),
+                                            "/api/v3/reports/"
+                                                    + recordingHelper.encodedKey(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -216,11 +217,7 @@ public class Recordings {
                 "recording:{0}, labels:{1}, maxFiles:{2}", recording.fileName(), labels, maxFiles);
         doUpload(recording, metadata, jvmId);
         var objs = new ArrayList<S3Object>();
-        storage.listObjectsV2(
-                        ListObjectsV2Request.builder().bucket(archiveBucket).prefix(jvmId).build())
-                .contents()
-                .iterator()
-                .forEachRemaining(objs::add);
+        recordingHelper.listArchivedRecordingObjects(jvmId).iterator().forEachRemaining(objs::add);
         var toRemove =
                 objs.stream()
                         .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
@@ -241,9 +238,11 @@ public class Recordings {
                                 new ArchivedRecording(
                                         recording.fileName(),
                                         "/api/v3/download/"
-                                                + encodedKey(jvmId, recording.fileName()),
+                                                + recordingHelper.encodedKey(
+                                                        jvmId, recording.fileName()),
                                         "/api/v3/reports/"
-                                                + encodedKey(jvmId, recording.fileName()),
+                                                + recordingHelper.encodedKey(
+                                                        jvmId, recording.fileName()),
                                         metadata,
                                         0 /*filesize*/,
                                         clock.getMonotonicTime()))));
@@ -278,9 +277,8 @@ public class Recordings {
     @RolesAllowed("read")
     public List<ArchivedRecording> agentGet(@RestPath String jvmId) {
         var result = new ArrayList<ArchivedRecording>();
-        storage.listObjectsV2(
-                        ListObjectsV2Request.builder().bucket(archiveBucket).prefix(jvmId).build())
-                .contents()
+        recordingHelper
+                .listArchivedRecordingObjects(jvmId)
                 .forEach(
                         item -> {
                             String objectName = item.key().strip();
@@ -289,8 +287,10 @@ public class Recordings {
                             result.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "/api/v3/download" + encodedKey(jvmId, filename),
-                                            "/api/v3/reports/" + encodedKey(jvmId, filename),
+                                            "/api/v3/download"
+                                                    + recordingHelper.encodedKey(jvmId, filename),
+                                            "/api/v3/reports/"
+                                                    + recordingHelper.encodedKey(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -345,9 +345,9 @@ public class Recordings {
                                 new ArchivedRecording(
                                         filename,
                                         "/api/v3/download/"
-                                                + base64Url.encodeAsString(
-                                                        key.getBytes(StandardCharsets.UTF_8)),
-                                        "/api/v3/reports/" + encodedKey(jvmId, filename),
+                                                + recordingHelper.encodedKey(jvmId, filename),
+                                        "/api/v3/reports/"
+                                                + recordingHelper.encodedKey(jvmId, filename),
                                         metadata,
                                         0 /*filesize*/,
                                         clock.getMonotonicTime()))));
@@ -372,8 +372,8 @@ public class Recordings {
     @RolesAllowed("read")
     public Collection<ArchivedRecordingDirectory> listFsArchives() {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
-        storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
-                .contents()
+        recordingHelper
+                .listArchivedRecordingObjects()
                 .forEach(
                         item -> {
                             String path = item.key().strip();
@@ -396,9 +396,9 @@ public class Recordings {
                                     new ArchivedRecording(
                                             filename,
                                             "/api/v3/download/"
-                                                    + base64Url.encodeAsString(
-                                                            path.getBytes(StandardCharsets.UTF_8)),
-                                            "/api/v3/reports/" + encodedKey(jvmId, filename),
+                                                    + recordingHelper.encodedKey(jvmId, filename),
+                                            "/api/v3/reports/"
+                                                    + recordingHelper.encodedKey(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -756,11 +756,6 @@ public class Recordings {
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(presignedRequest.url().toURI())
                 .build();
-    }
-
-    public String encodedKey(String jvmId, String filename) {
-        return base64Url.encodeAsString(
-                (jvmId + "/" + filename.strip()).getBytes(StandardCharsets.UTF_8));
     }
 
     private Tagging createMetadataTagging(Metadata metadata) {

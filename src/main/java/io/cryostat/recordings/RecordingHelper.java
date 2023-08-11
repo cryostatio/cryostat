@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -88,6 +89,7 @@ import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
@@ -328,6 +330,13 @@ public class RecordingHelper {
     }
 
     @Blocking
+    public List<S3Object> listArchivedRecordingObjects(String jvmId) {
+        return storage.listObjectsV2(
+                        ListObjectsV2Request.builder().bucket(archiveBucket).prefix(jvmId).build())
+                .contents();
+    }
+
+    @Blocking
     public String saveRecording(Target target, ActiveRecording activeRecording) throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
@@ -436,6 +445,39 @@ public class RecordingHelper {
                         "ActiveRecordingSaved",
                         new RecordingEvent(target.connectUrl, activeRecording.toExternalForm())));
         return filename;
+    }
+
+    public String encodedKey(String jvmId, String filename) {
+        return base64Url.encodeAsString(
+                (jvmId + "/" + filename.strip()).getBytes(StandardCharsets.UTF_8));
+    }
+
+    @Blocking
+    public InputStream getActiveInputStream(ActiveRecording recording) throws Exception {
+        return remoteRecordingStreamFactory.open(recording.target, recording);
+    }
+
+    @Blocking
+    public InputStream getActiveInputStream(long targetId, long remoteId) throws Exception {
+        var target = Target.<Target>findById(targetId);
+        var recording = target.getRecordingById(remoteId);
+        var stream = remoteRecordingStreamFactory.open(target, recording);
+        return stream;
+    }
+
+    @Blocking
+    public InputStream getArchivedRecordingStream(String jvmId, String recordingName) {
+        return getArchivedRecordingStream(encodedKey(jvmId, recordingName));
+    }
+
+    @Blocking
+    public InputStream getArchivedRecordingStream(String encodedKey) {
+        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
+
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder().bucket(archiveBucket).key(key).build();
+
+        return storage.getObject(getRequest);
     }
 
     private int retryRead(ReadableByteChannel channel, ByteBuffer buffer) throws IOException {

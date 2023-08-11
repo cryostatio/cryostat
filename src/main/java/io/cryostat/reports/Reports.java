@@ -18,7 +18,6 @@ package io.cryostat.reports;
 import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -28,6 +27,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
+import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RemoteRecordingInputStreamFactory;
 import io.cryostat.targets.Target;
 
@@ -49,8 +49,6 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 
 @Path("")
 public class Reports {
@@ -66,6 +64,7 @@ public class Reports {
     Base64 base64Url;
 
     @Inject S3Client storage;
+    @Inject RecordingHelper helper;
     @Inject RemoteRecordingInputStreamFactory remoteStreamFactory;
     @Inject InterruptibleReportGenerator reportGenerator;
     @Inject Logger logger;
@@ -78,8 +77,7 @@ public class Reports {
     @Deprecated(since = "3.0", forRemoval = true)
     public Response getV1(@RestPath String recordingName) {
         var result = new HashMap<String, String>();
-        storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
-                .contents()
+        helper.listArchivedRecordingObjects()
                 .forEach(
                         item -> {
                             String objectName = item.key().strip();
@@ -108,16 +106,13 @@ public class Reports {
     @RolesAllowed("read")
     public Uni<Map<String, RuleEvaluation>> get(@RestPath String encodedKey)
             throws IOException, CouldNotLoadRecordingException {
-        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
-
-        GetObjectRequest getRequest =
-                GetObjectRequest.builder().bucket(archiveBucket).key(key).build();
-        var stream = storage.getObject(getRequest);
         // TODO implement query parameter for evaluation predicate
         return Uni.createFrom()
                 .future(
                         reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(stream), r -> true));
+                                new BufferedInputStream(
+                                        helper.getArchivedRecordingStream(encodedKey)),
+                                r -> true));
     }
 
     @Blocking
@@ -154,11 +149,11 @@ public class Reports {
             @RestPath long targetId, @RestPath long recordingId) throws Exception {
         var target = Target.<Target>findById(targetId);
         var recording = target.getRecordingById(recordingId);
-        var stream = remoteStreamFactory.open(target, recording);
         // TODO implement query parameter for evaluation predicate
         return Uni.createFrom()
                 .future(
                         reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(stream), r -> true));
+                                new BufferedInputStream(helper.getActiveInputStream(recording)),
+                                r -> true));
     }
 }
