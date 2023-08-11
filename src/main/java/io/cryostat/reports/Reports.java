@@ -37,6 +37,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
@@ -85,8 +86,11 @@ public class Reports {
                             String filename = objectName.split("/")[1];
                             result.put(jvmId, filename);
                         });
-        if (result.size() != 1) {
+        if (result.size() == 0) {
             throw new NotFoundException();
+        }
+        if (result.size() > 1) {
+            throw new ClientErrorException(Response.Status.CONFLICT);
         }
         var entry = result.entrySet().iterator().next();
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
