@@ -128,8 +128,7 @@ public class ActiveRecording extends PanacheEntity {
         recording.toDisk = descriptor.getToDisk();
         recording.maxSize = descriptor.getMaxSize().in(UnitLookup.BYTE).longValue();
         recording.maxAge = descriptor.getMaxAge().in(UnitLookup.MILLISECOND).longValue();
-        // TODO is there any metadata we can or should attach?
-        recording.metadata = new Metadata(metadata.labels());
+        recording.metadata = new Metadata(metadata);
 
         return recording;
     }

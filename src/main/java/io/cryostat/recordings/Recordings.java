@@ -852,5 +852,13 @@ public class Recordings {
     public record ArchivedRecordingDirectory(
             String connectUrl, String jvmId, List<ArchivedRecording> recordings) {}
 
-    public record Metadata(Map<String, String> labels) {}
+    public record Metadata(Map<String, String> labels) {
+        public Metadata {
+            Objects.requireNonNull(labels);
+        }
+
+        public Metadata(Metadata other) {
+            this(new HashMap<>((other.labels)));
+        }
+    }
 }
