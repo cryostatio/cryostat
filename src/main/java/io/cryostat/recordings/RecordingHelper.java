@@ -480,6 +480,23 @@ public class RecordingHelper {
         return storage.getObject(getRequest);
     }
 
+    public String downloadUrl(ActiveRecording recording) {
+        return "TODO";
+    }
+
+    public String downloadUrl(String jvmId, String filename) {
+        return String.format("/api/v3/download/%s", encodedKey(jvmId, filename));
+    }
+
+    public String reportUrl(ActiveRecording recording) {
+        return String.format(
+                "/api/v3/targets/%d/reports/%d", recording.target.id, recording.remoteId);
+    }
+
+    public String reportUrl(String jvmId, String filename) {
+        return String.format("/api/v3/reports/%s", encodedKey(jvmId, filename));
+    }
+
     private int retryRead(ReadableByteChannel channel, ByteBuffer buffer) throws IOException {
         int attempts = 30;
         int read = 0;

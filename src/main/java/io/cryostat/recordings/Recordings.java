@@ -169,10 +169,8 @@ public class Recordings {
                             result.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "/api/v3/download/"
-                                                    + recordingHelper.encodedKey(jvmId, filename),
-                                            "/api/v3/reports/"
-                                                    + recordingHelper.encodedKey(jvmId, filename),
+                                            recordingHelper.downloadUrl(jvmId, filename),
+                                            recordingHelper.reportUrl(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -237,12 +235,8 @@ public class Recordings {
                                 URI.create(jvmId),
                                 new ArchivedRecording(
                                         recording.fileName(),
-                                        "/api/v3/download/"
-                                                + recordingHelper.encodedKey(
-                                                        jvmId, recording.fileName()),
-                                        "/api/v3/reports/"
-                                                + recordingHelper.encodedKey(
-                                                        jvmId, recording.fileName()),
+                                        recordingHelper.downloadUrl(jvmId, recording.fileName()),
+                                        recordingHelper.reportUrl(jvmId, recording.fileName()),
                                         metadata,
                                         0 /*filesize*/,
                                         clock.getMonotonicTime()))));
@@ -287,10 +281,8 @@ public class Recordings {
                             result.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "/api/v3/download"
-                                                    + recordingHelper.encodedKey(jvmId, filename),
-                                            "/api/v3/reports/"
-                                                    + recordingHelper.encodedKey(jvmId, filename),
+                                            recordingHelper.downloadUrl(jvmId, filename),
+                                            recordingHelper.reportUrl(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -344,10 +336,8 @@ public class Recordings {
                                 URI.create(jvmId),
                                 new ArchivedRecording(
                                         filename,
-                                        "/api/v3/download/"
-                                                + recordingHelper.encodedKey(jvmId, filename),
-                                        "/api/v3/reports/"
-                                                + recordingHelper.encodedKey(jvmId, filename),
+                                        recordingHelper.downloadUrl(jvmId, filename),
+                                        recordingHelper.reportUrl(jvmId, filename),
                                         metadata,
                                         0 /*filesize*/,
                                         clock.getMonotonicTime()))));
@@ -395,10 +385,8 @@ public class Recordings {
                             dir.recordings.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "/api/v3/download/"
-                                                    + recordingHelper.encodedKey(jvmId, filename),
-                                            "/api/v3/reports/"
-                                                    + recordingHelper.encodedKey(jvmId, filename),
+                                            recordingHelper.downloadUrl(jvmId, filename),
+                                            recordingHelper.reportUrl(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -856,25 +844,7 @@ public class Recordings {
             String name,
             String downloadUrl,
             String reportUrl,
-            Metadata metadata) {
-        public static LinkedRecordingDescriptor from(ActiveRecording recording) {
-            return new LinkedRecordingDescriptor(
-                    recording.remoteId,
-                    recording.state,
-                    recording.duration,
-                    recording.startTime,
-                    recording.continuous,
-                    recording.toDisk,
-                    recording.maxSize,
-                    recording.maxAge,
-                    recording.name,
-                    "TODO",
-                    String.format(
-                            "/api/v3/targets/%d/reports/%d",
-                            recording.target.id, recording.remoteId),
-                    recording.metadata);
-        }
-    }
+            Metadata metadata) {}
 
     public record ArchivedRecording(
             String name,
