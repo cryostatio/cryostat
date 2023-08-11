@@ -44,6 +44,7 @@ import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.Producers;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;
@@ -65,6 +66,7 @@ import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ServerErrorException;
@@ -99,7 +101,6 @@ public class RecordingHelper {
     private static final String JFR_MIME = "application/jfr";
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
-    private final Base64 base64Url = new Base64(0, null, true);
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
     private final long httpTimeoutSeconds = 5; // TODO: configurable client timeout
@@ -113,6 +114,11 @@ public class RecordingHelper {
 
     @Inject Clock clock;
     @Inject S3Presigner presigner;
+
+    @Inject
+    @Named(Producers.BASE64_URL)
+    Base64 base64Url;
+
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ObjectMapper mapper;
     @Inject S3Client storage;

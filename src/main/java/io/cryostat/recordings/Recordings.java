@@ -40,6 +40,7 @@ import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.Producers;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.TemplateType;
@@ -60,6 +61,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
@@ -117,7 +119,10 @@ public class Recordings {
     @Inject ScheduledExecutorService scheduler;
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper recordingHelper;
-    private final Base64 base64Url = new Base64(0, null, true);
+
+    @Inject
+    @Named(Producers.BASE64_URL)
+    Base64 base64Url;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
@@ -753,8 +758,7 @@ public class Recordings {
                 .build();
     }
 
-    public static String encodedKey(String jvmId, String filename) {
-        final Base64 base64Url = new Base64(0, null, true);
+    public String encodedKey(String jvmId, String filename) {
         return base64Url.encodeAsString(
                 (jvmId + "/" + filename.strip()).getBytes(StandardCharsets.UTF_8));
     }

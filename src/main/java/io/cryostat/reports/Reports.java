@@ -29,6 +29,7 @@ import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.ProgressInputStream;
+import io.cryostat.Producers;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
 import io.cryostat.recordings.RemoteRecordingInputStreamFactory;
@@ -59,6 +60,10 @@ public class Reports {
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
+
+    @Inject
+    @Named(Producers.BASE64_URL)
+    Base64 base64Url;
 
     @Inject S3Client storage;
     @Inject RemoteRecordingInputStreamFactory remoteStreamFactory;

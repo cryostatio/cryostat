@@ -30,6 +30,8 @@ import io.vertx.mutiny.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Named;
+import org.apache.commons.codec.binary.Base64;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.projectnessie.cel.tools.ScriptHost;
 import org.projectnessie.cel.types.jackson.JacksonRegistry;
@@ -39,6 +41,8 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.utils.StringUtils;
 
 public class Producers {
+
+    public static final String BASE64_URL = "BASE64_URL";
 
     @Produces
     @ApplicationScoped
@@ -52,6 +56,14 @@ public class Producers {
     @DefaultBean
     public static FileSystem produceFileSystem() {
         return new FileSystem();
+    }
+
+    @Produces
+    @ApplicationScoped
+    @DefaultBean
+    @Named(BASE64_URL)
+    public static Base64 produceBase64Url() {
+        return new Base64(0, null, true);
     }
 
     @Produces
