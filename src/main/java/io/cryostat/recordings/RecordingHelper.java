@@ -38,7 +38,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
-import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
 import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
@@ -155,7 +154,7 @@ public class RecordingHelper {
 
     @Blocking
     @Transactional(Transactional.TxType.REQUIRES_NEW)
-    public LinkedRecordingDescriptor startRecording(
+    public ActiveRecording startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
             String templateName,
@@ -191,24 +190,32 @@ public class RecordingHelper {
                                 enableEvents(connection, templateName, preferredTemplateType));
 
         Map<String, String> labels = metadata.labels();
-
         labels.put("template.name", templateName);
         labels.put("template.type", preferredTemplateType.name());
-
         Metadata meta = new Metadata(labels);
+
+        ActiveRecording recording = ActiveRecording.from(target, desc, meta);
+        recording.persist();
+        target.activeRecordings.add(recording);
+        target.persist();
+
+        return recording;
+    }
+
+    public LinkedRecordingDescriptor toExternalForm(ActiveRecording recording) {
         return new LinkedRecordingDescriptor(
-                desc.getId(),
-                mapState(desc),
-                desc.getDuration().in(UnitLookup.MILLISECOND).longValue(),
-                desc.getStartTime().in(UnitLookup.EPOCH_MS).longValue(),
-                desc.isContinuous(),
-                desc.getToDisk(),
-                desc.getMaxSize().in(UnitLookup.BYTE).longValue(),
-                desc.getMaxAge().in(UnitLookup.MILLISECOND).longValue(),
-                desc.getName(),
-                "TODO",
-                String.format("/api/v3/targets/%d/reports/%d", target.id, desc.getId()),
-                meta);
+                recording.remoteId,
+                recording.state,
+                recording.duration,
+                recording.startTime,
+                recording.continuous,
+                recording.toDisk,
+                recording.maxSize,
+                recording.maxAge,
+                recording.name,
+                downloadUrl(recording),
+                reportUrl(recording),
+                recording.metadata);
     }
 
     public Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier) {
@@ -443,7 +450,7 @@ public class RecordingHelper {
                 MessagingServer.class.getName(),
                 new Notification(
                         "ActiveRecordingSaved",
-                        new RecordingEvent(target.connectUrl, activeRecording.toExternalForm())));
+                        new RecordingEvent(target.connectUrl, toExternalForm(activeRecording))));
         return filename;
     }
 

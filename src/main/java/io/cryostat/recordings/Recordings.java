@@ -399,7 +399,7 @@ public class Recordings {
     @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
-        return target.activeRecordings.stream().map(ActiveRecording::toExternalForm).toList();
+        return target.activeRecordings.stream().map(recordingHelper::toExternalForm).toList();
     }
 
     @GET
@@ -488,7 +488,7 @@ public class Recordings {
 
         Pair<String, TemplateType> template = recordingHelper.parseEventSpecifierToTemplate(events);
 
-        LinkedRecordingDescriptor descriptor =
+        ActiveRecording recording =
                 connectionManager.executeConnectedTask(
                         target,
                         connection -> {
@@ -525,11 +525,6 @@ public class Recordings {
                                     connection);
                         });
 
-        ActiveRecording recording = ActiveRecording.from(target, descriptor);
-        recording.persist();
-        target.activeRecordings.add(recording);
-        target.persist();
-
         if (recording.duration > 0) {
             scheduler.schedule(
                     () -> stopRecording(target.id, recording.remoteId, archiveOnStop.orElse(false)),
@@ -537,7 +532,7 @@ public class Recordings {
                     TimeUnit.MILLISECONDS);
         }
 
-        return descriptor;
+        return recordingHelper.toExternalForm(recording);
     }
 
     @Transactional

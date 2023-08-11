@@ -29,6 +29,7 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -206,7 +207,9 @@ public class Target extends PanacheEntity {
                                 connectionManager.executeConnectedTask(
                                         target, conn -> conn.getService().getAvailableRecordings());
                         for (var descriptor : descriptors) {
-                            ActiveRecording.from(target, descriptor).persist();
+                            // TODO is there any metadata to attach here?
+                            ActiveRecording.from(target, descriptor, new Metadata(Map.of()))
+                                    .persist();
                         }
                     } catch (Exception e) {
                         logger.error("Failure to synchronize existing target recording state", e);
