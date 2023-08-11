@@ -64,10 +64,10 @@ public abstract class StandardSelfTest {
     public static void waitForJdp() {
         Logger logger = Logger.getLogger(StandardSelfTest.class);
         boolean found = false;
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        String selfURL = getSelfReferenceConnectUrl();
         while (!found && System.nanoTime() < deadline) {
-            logger.infov(
-                    "Waiting for self-discovery at {0} via JDP...", getSelfReferenceConnectUrl());
+            logger.infov("Waiting for self-discovery at {0} via JDP...", selfURL);
             CompletableFuture<Boolean> queryFound = new CompletableFuture<>();
             ForkJoinPool.commonPool()
                     .submit(
@@ -90,11 +90,11 @@ public abstract class StandardSelfTest {
                                                                             arr.getJsonObject(0)
                                                                                     .getString(
                                                                                             "connectUrl"),
-                                                                            getSelfReferenceConnectUrl()));
+                                                                            selfURL));
                                                 });
                             });
             try {
-                found |= queryFound.get(500, TimeUnit.MILLISECONDS);
+                found |= queryFound.get(1000, TimeUnit.MILLISECONDS);
                 Thread.sleep(1000);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
                 logger.warn(e);
@@ -169,7 +169,7 @@ public abstract class StandardSelfTest {
                                                                     });
                                                 });
                             });
-            String hostname = hostnameFuture.get(2, TimeUnit.SECONDS);
+            String hostname = hostnameFuture.get(5, TimeUnit.SECONDS);
 
             return String.format("service:jmx:rmi:///jndi/rmi://%s:%d/jmxrmi", hostname, 9091);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
