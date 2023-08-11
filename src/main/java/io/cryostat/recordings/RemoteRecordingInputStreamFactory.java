@@ -32,21 +32,6 @@ public class RemoteRecordingInputStreamFactory {
 
     @Inject TargetConnectionManager connectionManager;
 
-    @Deprecated
-    /**
-     * @deprecated {@link ActiveRecording} carries a reference to the source {@link Target}
-     */
-    public ProgressInputStream open(Target target, ActiveRecording activeRecording)
-            throws Exception {
-        return connectionManager.executeConnectedTask(
-                target,
-                conn -> {
-                    IRecordingDescriptor desc =
-                            RecordingHelper.getDescriptor(conn, activeRecording).orElseThrow();
-                    return open(conn, target, desc);
-                });
-    }
-
     public ProgressInputStream open(ActiveRecording recording) throws Exception {
         return connectionManager.executeConnectedTask(
                 recording.target,

@@ -357,7 +357,7 @@ public class RecordingHelper {
         String key = String.format("%s/%s", target.jvmId, filename);
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
-        try (var stream = remoteRecordingStreamFactory.open(target, activeRecording);
+        try (var stream = remoteRecordingStreamFactory.open(activeRecording);
                 var ch = Channels.newChannel(stream)) {
             ByteBuffer buf = ByteBuffer.allocate(20 * mib);
             multipartId =
@@ -461,14 +461,14 @@ public class RecordingHelper {
 
     @Blocking
     public InputStream getActiveInputStream(ActiveRecording recording) throws Exception {
-        return remoteRecordingStreamFactory.open(recording.target, recording);
+        return remoteRecordingStreamFactory.open(recording);
     }
 
     @Blocking
     public InputStream getActiveInputStream(long targetId, long remoteId) throws Exception {
         var target = Target.<Target>findById(targetId);
         var recording = target.getRecordingById(remoteId);
-        var stream = remoteRecordingStreamFactory.open(target, recording);
+        var stream = remoteRecordingStreamFactory.open(recording);
         return stream;
     }
 
