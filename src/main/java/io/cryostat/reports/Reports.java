@@ -17,28 +17,26 @@ package io.cryostat.reports;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ExecutionException;
 
 import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.ProgressInputStream;
 import io.cryostat.Producers;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
 import io.cryostat.recordings.RemoteRecordingInputStreamFactory;
 import io.cryostat.targets.Target;
 
-import com.fasterxml.jackson.annotation.JsonValue;
+import io.quarkus.cache.CacheResult;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
@@ -46,7 +44,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.io.FileUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
@@ -57,6 +54,9 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 
 @Path("")
 public class Reports {
+
+    static final String ACTIVE_CACHE = "active-reports";
+    static final String ARCHIVED_CACHE = "archived-reports";
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
@@ -73,7 +73,7 @@ public class Reports {
     @Blocking
     @GET
     @Path("/api/v1/reports/{recordingName}")
-    @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_HTML, MediaType.TEXT_PLAIN})
+    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
     @Deprecated(since = "3.0", forRemoval = true)
     public Response getV1(@RestPath String recordingName) {
@@ -100,26 +100,24 @@ public class Reports {
     }
 
     @Blocking
+    // TODO proactively invalidate cache when recording is deleted
+    @CacheResult(cacheName = ARCHIVED_CACHE)
     @GET
     @Path("/api/v3/reports/{encodedKey}")
-    @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_HTML, MediaType.TEXT_PLAIN})
+    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
-    public Report get(@RestPath String encodedKey)
+    public Uni<Map<String, RuleEvaluation>> get(@RestPath String encodedKey)
             throws IOException, CouldNotLoadRecordingException {
-        final Base64 base64Url = new Base64(0, null, true);
         String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
 
         GetObjectRequest getRequest =
                 GetObjectRequest.builder().bucket(archiveBucket).key(key).build();
         var stream = storage.getObject(getRequest);
-        var progress =
-                new ProgressInputStream(
-                        stream,
-                        n ->
-                                logger.infov(
-                                        "Streamed {0} of JFR data from S3...",
-                                        FileUtils.byteCountToDisplaySize(n)));
-        return new Report(reportGenerator, new BufferedInputStream(progress), logger);
+        // TODO implement query parameter for evaluation predicate
+        return Uni.createFrom()
+                .future(
+                        reportGenerator.generateEvalMapInterruptibly(
+                                new BufferedInputStream(stream), r -> true));
     }
 
     @Blocking
@@ -145,48 +143,22 @@ public class Reports {
     }
 
     @Blocking
+    // TODO proactively invalidate cache when recording is deleted or target disappears
+    @CacheResult(cacheName = ACTIVE_CACHE)
     @GET
     @Path("/api/v3/targets/{targetId}/reports/{recordingId}")
-    @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_HTML, MediaType.TEXT_PLAIN})
+    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
     @Deprecated(since = "3.0", forRemoval = true)
-    public Report getActive(@RestPath long targetId, @RestPath long recordingId) throws Exception {
+    public Uni<Map<String, RuleEvaluation>> getActive(
+            @RestPath long targetId, @RestPath long recordingId) throws Exception {
         var target = Target.<Target>findById(targetId);
         var recording = target.getRecordingById(recordingId);
         var stream = remoteStreamFactory.open(target, recording);
-        var progress =
-                new ProgressInputStream(
-                        stream,
-                        n ->
-                                logger.infov(
-                                        "Streamed {0} of JFR data from target...",
-                                        FileUtils.byteCountToDisplaySize(n)));
-        return new Report(reportGenerator, new BufferedInputStream(progress), logger);
-    }
-
-    private record Report(
-            InterruptibleReportGenerator generator, InputStream stream, Logger logger) {
-        Report {
-            Objects.requireNonNull(generator);
-            Objects.requireNonNull(stream);
-            Objects.requireNonNull(logger);
-        }
-
-        @JsonValue
-        Map<String, RuleEvaluation> asJson()
-                throws IOException, InterruptedException, ExecutionException {
-            try (stream) {
-                return generator.generateEvalMapInterruptibly(stream, r -> true).get();
-            }
-        }
-
-        @Override
-        public String toString() {
-            try (stream) {
-                return generator.generateReportInterruptibly(stream).get().getHtml();
-            } catch (IOException | InterruptedException | ExecutionException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        // TODO implement query parameter for evaluation predicate
+        return Uni.createFrom()
+                .future(
+                        reportGenerator.generateEvalMapInterruptibly(
+                                new BufferedInputStream(stream), r -> true));
     }
 }
