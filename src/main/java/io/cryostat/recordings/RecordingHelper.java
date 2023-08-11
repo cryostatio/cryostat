@@ -199,7 +199,7 @@ public class RecordingHelper {
                 desc.getMaxAge().in(UnitLookup.MILLISECOND).longValue(),
                 desc.getName(),
                 "TODO",
-                "TODO",
+                String.format("/api/v3/targets/%d/reports/%d", target.id, desc.getId()),
                 meta);
     }
 

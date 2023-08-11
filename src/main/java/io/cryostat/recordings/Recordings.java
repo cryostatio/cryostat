@@ -103,7 +103,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 @Path("")
 public class Recordings {
 
-    private static final String JFR_MIME = "application/jfr";
+    public static final String JFR_MIME = "application/jfr";
 
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
@@ -165,13 +165,8 @@ public class Recordings {
                             result.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "/api/v3/download/"
-                                                    + base64Url.encodeAsString(
-                                                            (jvmId + "/" + filename)
-                                                                    .getBytes(
-                                                                            StandardCharsets
-                                                                                    .UTF_8)),
-                                            "TODO",
+                                            "/api/v3/download/" + encodedKey(jvmId, filename),
+                                            "/api/v3/reports/" + encodedKey(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -230,6 +225,8 @@ public class Recordings {
             return;
         }
         logger.infov("Removing {0}", toRemove);
+        // FIXME this notification should be emitted in the deletion operation stream so that there
+        // is one notification per deleted object
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(
@@ -239,10 +236,9 @@ public class Recordings {
                                 new ArchivedRecording(
                                         recording.fileName(),
                                         "/api/v3/download/"
-                                                + base64Url.encodeAsString(
-                                                        (jvmId + "/" + recording.fileName().strip())
-                                                                .getBytes(StandardCharsets.UTF_8)),
-                                        "TODO",
+                                                + encodedKey(jvmId, recording.fileName()),
+                                        "/api/v3/reports/"
+                                                + encodedKey(jvmId, recording.fileName()),
                                         metadata,
                                         0 /*filesize*/,
                                         clock.getMonotonicTime()))));
@@ -288,13 +284,8 @@ public class Recordings {
                             result.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "/api/v3/download"
-                                                    + base64Url.encodeAsString(
-                                                            (jvmId + "/" + filename)
-                                                                    .getBytes(
-                                                                            StandardCharsets
-                                                                                    .UTF_8)),
-                                            "TODO",
+                                            "/api/v3/download" + encodedKey(jvmId, filename),
+                                            "/api/v3/reports/" + encodedKey(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -351,7 +342,7 @@ public class Recordings {
                                         "/api/v3/download/"
                                                 + base64Url.encodeAsString(
                                                         key.getBytes(StandardCharsets.UTF_8)),
-                                        "TODO",
+                                        "/api/v3/reports/" + encodedKey(jvmId, filename),
                                         metadata,
                                         0 /*filesize*/,
                                         clock.getMonotonicTime()))));
@@ -402,7 +393,7 @@ public class Recordings {
                                             "/api/v3/download/"
                                                     + base64Url.encodeAsString(
                                                             path.getBytes(StandardCharsets.UTF_8)),
-                                            "TODO",
+                                            "/api/v3/reports/" + encodedKey(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -762,6 +753,12 @@ public class Recordings {
                 .build();
     }
 
+    public static String encodedKey(String jvmId, String filename) {
+        final Base64 base64Url = new Base64(0, null, true);
+        return base64Url.encodeAsString(
+                (jvmId + "/" + filename.strip()).getBytes(StandardCharsets.UTF_8));
+    }
+
     private Tagging createMetadataTagging(Metadata metadata) {
         // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
         return Tagging.builder()
@@ -873,7 +870,9 @@ public class Recordings {
                     recording.maxAge,
                     recording.name,
                     "TODO",
-                    "TODO",
+                    String.format(
+                            "/api/v3/targets/%d/reports/%d",
+                            recording.target.id, recording.remoteId),
                     recording.metadata);
         }
     }

@@ -64,7 +64,7 @@ public class ActiveRecording extends PanacheEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")
-    private Target target;
+    public Target target;
 
     @Column(nullable = false)
     public String name;
@@ -165,7 +165,7 @@ public class ActiveRecording extends PanacheEntity {
                 this.maxAge,
                 this.name,
                 "TODO",
-                "TODO",
+                String.format("/api/v3/targets/%d/reports/%d", this.target.id, this.remoteId),
                 this.metadata);
     }
 

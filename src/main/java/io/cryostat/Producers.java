@@ -16,9 +16,11 @@
 package io.cryostat;
 
 import java.net.URI;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
+import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;
 
@@ -26,6 +28,7 @@ import io.quarkus.arc.DefaultBean;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.projectnessie.cel.tools.ScriptHost;
@@ -59,8 +62,16 @@ public class Producers {
     }
 
     @Produces
+    @RequestScoped
     @DefaultBean
-    public WebClient provideWebClient(Vertx vertx) {
+    public static InterruptibleReportGenerator produceInterruptibleReportGenerator() {
+        return new InterruptibleReportGenerator(
+                io.cryostat.core.log.Logger.INSTANCE, Set.of(), Executors.newCachedThreadPool());
+    }
+
+    @Produces
+    @DefaultBean
+    public WebClient produceWebClient(Vertx vertx) {
         return WebClient.create(vertx);
     }
 
@@ -90,7 +101,7 @@ public class Producers {
     @Produces
     @ApplicationScoped
     @DefaultBean
-    public static ScriptHost provideScriptHost() {
+    public static ScriptHost produceScriptHost() {
         return ScriptHost.newBuilder().registry(JacksonRegistry.newRegistry()).build();
     }
 }
