@@ -30,6 +30,9 @@ jobs:
     strategy:
       matrix:
         java: [ '17', '20' ]
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: true
+      cache-name: cache-yarn
     name: Build and test Java ${{ matrix.java }}
     permissions:
       packages: write
@@ -56,6 +59,15 @@ jobs:
         servers: '[{"id": "github", "username": "dummy", "password": "${{ secrets.GITHUB_TOKEN }}"}]'
         githubServer: false
     - run: git submodule init && git submodule update
+    - name: Cache yarn packages
+      uses: actions/cache@v3
+      with: 
+        path: "./src/main/webui/.yarn/cache"
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
     - name: Initialize web assets
       run: |
         cd src/main/webui
