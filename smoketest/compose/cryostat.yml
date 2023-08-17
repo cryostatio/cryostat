@@ -6,6 +6,11 @@ services:
         condition: service_healthy
       s3:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512m
     image: quay.io/cryostat/cryostat3:dev
     volumes:
       - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/user/0/podman/podman.sock:Z 

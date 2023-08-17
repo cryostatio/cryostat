@@ -6,6 +6,11 @@ services:
   jfr-datasource:
     image: quay.io/cryostat/jfr-datasource:latest
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.4'
+          memory: 512m
     ports:
       - "8080:8080"
     expose:
