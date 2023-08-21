@@ -8,6 +8,11 @@ services:
     image: quay.io/cryostat/cryostat-grafana-dashboard:latest
     hostname: grafana
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 256m
     environment:
       - GF_INSTALL_PLUGINS=grafana-simple-json-datasource
       - GF_AUTH_ANONYMOUS_ENABLED=true
