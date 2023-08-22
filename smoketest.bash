@@ -15,7 +15,7 @@ FILES=(
 
 display_usage() {
     echo "Usage:"
-    echo -e "\t-s [minio|localstack]"
+    echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up. (default \"minio\")"
 }
 
 s3=minio
