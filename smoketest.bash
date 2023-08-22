@@ -13,27 +13,33 @@ FILES=(
     ./smoketest/compose/cryostat.yml
 )
 
+display_usage() {
+    echo "Usage:"
+    echo -e "\t-s [minio|localstack]"
+}
+
 s3=minio
 while getopts "s:" opt; do
     case $opt in
         s)
             s3="${OPTARG}"
             ;;
-        /?)
-            echo "Invalid option: -$OPTARG"
+        *)
             display_usage
             exit 1
             ;;
     esac
 done
+
 if [ "${s3}" = "minio" ]; then
     FILES+=('./smoketest/compose/s3-minio.yml')
 elif [ "${s3}" = "localstack" ]; then
     FILES+=('./smoketest/compose/s3-localstack.yml')
 else
     echo "Unknown S3 selection: ${s3}"
+    display_usage
+    exit 2
 fi
-
 
 set -xe
 
