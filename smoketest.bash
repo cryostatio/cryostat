@@ -5,18 +5,39 @@ if ! command -v yq; then
     exit 1
 fi
 
-set -x
-set -e
-
-# TODO add switches for picking S3 backend, sample apps, etc.
 FILES=(
     ./smoketest/compose/db.yml
-    ./smoketest/compose/s3-minio.yml
     ./smoketest/compose/cryostat-grafana.yml
     ./smoketest/compose/jfr-datasource.yml
     ./smoketest/compose/sample-apps.yml
     ./smoketest/compose/cryostat.yml
 )
+
+s3=minio
+while getopts "s:" opt; do
+    case $opt in
+        s)
+            s3="${OPTARG}"
+            ;;
+        /?)
+            echo "Invalid option: -$OPTARG"
+            display_usage
+            exit 1
+            ;;
+    esac
+done
+if [ "${s3}" = "minio" ]; then
+    FILES+=('./smoketest/compose/s3-minio.yml')
+elif [ "${s3}" = "localstack" ]; then
+    FILES+=('./smoketest/compose/s3-localstack.yml')
+else
+    echo "Unknown S3 selection: ${s3}"
+fi
+
+
+set -x
+set -e
+
 CMD=()
 for file in "${FILES[@]}"; do
     CMD+=(-f "${file}")
