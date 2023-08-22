@@ -462,6 +462,7 @@ public class Recordings {
     }
 
     @Transactional
+    @Blocking
     @POST
     @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed("write")

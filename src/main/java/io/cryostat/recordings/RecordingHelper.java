@@ -60,14 +60,13 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import jakarta.transaction.Transactional;
+import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.Response;
@@ -107,6 +106,7 @@ public class RecordingHelper {
     private final long httpTimeoutSeconds = 5; // TODO: configurable client timeout
 
     @Inject Logger logger;
+    @Inject EntityManager entityManager;
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
@@ -152,8 +152,6 @@ public class RecordingHelper {
         }
     }
 
-    @Blocking
-    @Transactional(Transactional.TxType.REQUIRES_NEW)
     public ActiveRecording startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
@@ -196,6 +194,7 @@ public class RecordingHelper {
 
         ActiveRecording recording = ActiveRecording.from(target, desc, meta);
         recording.persist();
+
         target.activeRecordings.add(recording);
         target.persist();
 
@@ -330,20 +329,17 @@ public class RecordingHelper {
         }
     }
 
-    @Blocking
     public List<S3Object> listArchivedRecordingObjects() {
         return storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
                 .contents();
     }
 
-    @Blocking
     public List<S3Object> listArchivedRecordingObjects(String jvmId) {
         return storage.listObjectsV2(
                         ListObjectsV2Request.builder().bucket(archiveBucket).prefix(jvmId).build())
                 .contents();
     }
 
-    @Blocking
     public String saveRecording(Target target, ActiveRecording activeRecording) throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
@@ -459,12 +455,10 @@ public class RecordingHelper {
                 (jvmId + "/" + filename.strip()).getBytes(StandardCharsets.UTF_8));
     }
 
-    @Blocking
     public InputStream getActiveInputStream(ActiveRecording recording) throws Exception {
         return remoteRecordingStreamFactory.open(recording);
     }
 
-    @Blocking
     public InputStream getActiveInputStream(long targetId, long remoteId) throws Exception {
         var target = Target.<Target>findById(targetId);
         var recording = target.getRecordingById(remoteId);
@@ -472,12 +466,10 @@ public class RecordingHelper {
         return stream;
     }
 
-    @Blocking
     public InputStream getArchivedRecordingStream(String jvmId, String recordingName) {
         return getArchivedRecordingStream(encodedKey(jvmId, recordingName));
     }
 
-    @Blocking
     public InputStream getArchivedRecordingStream(String encodedKey) {
         String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
 
@@ -560,7 +552,6 @@ public class RecordingHelper {
     }
 
     // jfr-datasource handling
-    @Blocking
     public Response uploadToJFRDatasource(long targetEntityId, long remoteId, URL uploadUrl)
             throws Exception {
         Target target = Target.getTargetById(targetEntityId);
