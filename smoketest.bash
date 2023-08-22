@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 set -x
 set -e
@@ -43,6 +43,20 @@ setupUserHosts() {
     echo "localhost quarkus-test-agent" >> ~/.hosts
 }
 setupUserHosts
+
+FILES=(
+    ./smoketest/compose/db.yml
+    ./smoketest/compose/s3-minio.yml
+    ./smoketest/compose/cryostat-grafana.yml
+    ./smoketest/compose/jfr-datasource.yml
+    ./smoketest/compose/sample-apps.yml
+    ./smoketest/compose/cryostat.yml
+)
+
+sh db/build.sh
+for file in "${FILES[@]}" ; do
+    grep 'image:' "${file}" | tr -d ' ' | cut -d: -f2 | xargs docker pull || true
+done
 
 # TODO add switches for picking S3 backend, sample apps, etc.
 docker-compose \
