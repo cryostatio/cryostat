@@ -7,8 +7,8 @@ services:
       QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed in smoketest, but if the environment and specific S3 impl supports DNS subdomain style access then that should be preferred
       QUARKUS_S3_AWS_REGION: us-east-1
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
-      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: test-key
-      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: test-secret
+      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: unused
+      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: unused
   s3:
     image: docker.io/localstack/localstack:1.4.0
     hostname: s3
@@ -18,8 +18,6 @@ services:
     environment:
       SERVICES: s3
       START_WEB: 1
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-aws_access_key_id}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-aws_secret_access_key}
       DEFAULT_REGION: us-east-1
       PORT_WEB_UI: 4577
     volumes:
