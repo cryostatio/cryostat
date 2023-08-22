@@ -1,49 +1,14 @@
 #!/usr/bin/env bash
 
+if ! command -v yq; then
+    echo "No 'yq' found"
+    exit 1
+fi
+
 set -x
 set -e
 
-cleanup() {
-    docker-compose \
-        -f ./smoketest/compose/db.yml \
-        -f ./smoketest/compose/s3-minio.yml \
-        -f ./smoketest/compose/cryostat-grafana.yml \
-        -f ./smoketest/compose/jfr-datasource.yml \
-        -f ./smoketest/compose/sample-apps.yml \
-        -f ./smoketest/compose/cryostat.yml \
-        down --volumes --remove-orphans
-    # podman kill hoster || true
-    > ~/.hosts
-}
-trap cleanup EXIT
-cleanup
-
-# FIXME this is broken: it puts the containers' bridge-internal IP addresses
-# into the user hosts file, but these IPs in a subnet not reachable from the host.
-# This requires https://github.com/figiel/hosts to work. See README.
-# podman run \
-#     --detach \
-#     --rm  \
-#     --name hoster \
-#     --user=0 \
-#     --security-opt label=disable \
-#     -v "${XDG_RUNTIME_DIR}/podman/podman.sock:/tmp/docker.sock:Z" \
-#     -v "${HOME}/.hosts:/tmp/hosts" \
-#     dvdarias/docker-hoster
-
-setupUserHosts() {
-    > ~/.hosts
-    echo "localhost s3" >> ~/.hosts
-    echo "localhost db" >> ~/.hosts
-    echo "localhost db-viewer" >> ~/.hosts
-    echo "localhost cryostat" >> ~/.hosts
-    echo "localhost jfr-datasource" >> ~/.hosts
-    echo "localhost grafana" >> ~/.hosts 
-    echo "localhost vertx-fib-demo-1" >> ~/.hosts
-    echo "localhost quarkus-test-agent" >> ~/.hosts
-}
-setupUserHosts
-
+# TODO add switches for picking S3 backend, sample apps, etc.
 FILES=(
     ./smoketest/compose/db.yml
     ./smoketest/compose/s3-minio.yml
@@ -52,19 +17,49 @@ FILES=(
     ./smoketest/compose/sample-apps.yml
     ./smoketest/compose/cryostat.yml
 )
+CMD=()
+for file in "${FILES[@]}"; do
+    CMD+=(-f "${file}")
+done
+
+cleanup() {
+    docker-compose \
+        "${CMD[@]}" \
+        down --volumes --remove-orphans
+    # podman kill hoster || true
+    > ~/.hosts
+}
+trap cleanup EXIT
+cleanup
+
+setupUserHosts() {
+    # FIXME this is broken: it puts the containers' bridge-internal IP addresses
+    # into the user hosts file, but these IPs are in a subnet not reachable from the host.
+    # This requires https://github.com/figiel/hosts to work. See README.
+    # podman run \
+    #     --detach \
+    #     --rm  \
+    #     --name hoster \
+    #     --user=0 \
+    #     --security-opt label=disable \
+    #     -v "${XDG_RUNTIME_DIR}/podman/podman.sock:/tmp/docker.sock:Z" \
+    #     -v "${HOME}/.hosts:/tmp/hosts" \
+    #     dvdarias/docker-hoster
+    > ~/.hosts
+    for file in "${FILES[@]}" ; do
+        hosts="$(yq '.services.*.hostname' "${file}" | grep -v null | sed -e 's/^/localhost /')"
+        echo "${hosts}" >> ~/.hosts
+    done
+}
+setupUserHosts
 
 sh db/build.sh
 for file in "${FILES[@]}" ; do
-    grep 'image:' "${file}" | tr -d ' ' | cut -d: -f2 | xargs docker pull || true
+    images="$(yq '.services.*.image' "${file}" | grep -v null)"
+    echo "${images}" | xargs docker pull || true
 done
 
-# TODO add switches for picking S3 backend, sample apps, etc.
 docker-compose \
-    -f ./smoketest/compose/db.yml \
-    -f ./smoketest/compose/s3-minio.yml \
-    -f ./smoketest/compose/cryostat-grafana.yml \
-    -f ./smoketest/compose/jfr-datasource.yml \
-    -f ./smoketest/compose/sample-apps.yml \
-    -f ./smoketest/compose/cryostat.yml \
+    "${CMD[@]}" \
     up
 

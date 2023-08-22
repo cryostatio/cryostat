@@ -124,7 +124,7 @@ The next testing step is to build and package Cryostat into a container and run 
 
 ```bash
 $ quarkus build ; podman image prune -f
-$ sh smoketest.sh
+$ bash smoketest.bash
 ```
 
 This will build the container image, then spin it up along with required services within a Podman pod.
@@ -141,7 +141,7 @@ $ echo 'export LD_PRELOAD=$HOME/bin/libuserhosts.so' >> ~/.bashrc
 $ export LD_PRELOAD=$HOME/bin/libuserhosts.so
 ```
 
-You can verify that this setup works by running `smoketest.sh`, and then in another terminal:
+You can verify that this setup works by running `smoketest.bash`, and then in another terminal:
 ```bash
 $ LD_PRELOAD=$HOME/bin/libuserhosts.so ping cryostat
 $ LD_PRELOAD=$HOME/bin/libuserhosts.so curl http://cryostat:8181
