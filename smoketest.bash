@@ -35,8 +35,7 @@ else
 fi
 
 
-set -x
-set -e
+set -xe
 
 CMD=()
 for file in "${FILES[@]}"; do
