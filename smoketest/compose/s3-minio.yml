@@ -4,7 +4,7 @@ services:
     environment:
       STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
       QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:9000
-      QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed for Minio, but if the specific S3 impl supports DNS subdomain style access then that should be preferred
+      QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed for Minio, but if the environment and specific S3 impl supports DNS subdomain style access then that should be preferred
       QUARKUS_S3_AWS_REGION: us-east-1
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: default
       AWS_ACCESS_KEY_ID: minioroot
