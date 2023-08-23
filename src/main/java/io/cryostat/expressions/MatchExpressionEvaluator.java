@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.cryostat.rules;
+package io.cryostat.expressions;
 
 import java.util.List;
 import java.util.Map;
@@ -23,7 +23,7 @@ import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import io.cryostat.rules.Rule.RuleEvent;
+import io.cryostat.expressions.MatchExpression.ExpressionEvent;
 import io.cryostat.targets.Target;
 
 import io.quarkus.cache.Cache;
@@ -36,7 +36,6 @@ import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.Label;
@@ -57,15 +56,14 @@ public class MatchExpressionEvaluator {
     @Inject Logger logger;
     @Inject CacheManager cacheManager;
 
-    @Transactional
     @Blocking
-    @ConsumeEvent(Rule.RULE_ADDRESS)
-    void onMessage(RuleEvent event) {
+    @ConsumeEvent(MatchExpression.EXPRESSION_ADDRESS)
+    void onMessage(ExpressionEvent event) {
         switch (event.category()) {
             case CREATED:
                 break;
             case DELETED:
-                invalidate(event.rule().matchExpression);
+                invalidate(event.expression().script);
                 break;
             case UPDATED:
                 break;
@@ -74,15 +72,17 @@ public class MatchExpressionEvaluator {
         }
     }
 
-    private Script createScript(String matchExpression) throws ScriptCreateException {
+    Script createScript(String matchExpression) throws ScriptCreateException {
         ScriptCreationEvent evt = new ScriptCreationEvent();
         try {
             evt.begin();
             return scriptHost
                     .buildScript(matchExpression)
                     .withDeclarations(
-                            Decls.newVar("target", Decls.newObjectType(Target.class.getName())))
-                    .withTypes(Target.class)
+                            Decls.newVar(
+                                    "target",
+                                    Decls.newObjectType(SimplifiedTarget.class.getName())))
+                    .withTypes(SimplifiedTarget.class)
                     .build();
         } finally {
             evt.end();
@@ -93,13 +93,13 @@ public class MatchExpressionEvaluator {
     }
 
     @CacheResult(cacheName = CACHE_NAME)
-    boolean load(String matchExpression, Target serviceRef) throws ScriptException {
+    boolean load(String matchExpression, Target target) throws ScriptException {
         Script script = createScript(matchExpression);
-        return script.execute(Boolean.class, Map.of("target", serviceRef));
+        return script.execute(Boolean.class, Map.of("target", SimplifiedTarget.from(target)));
     }
 
     @CacheInvalidate(cacheName = CACHE_NAME)
-    void invalidate(String matchExpression, Target serviceRef) {}
+    void invalidate(String matchExpression, Target target) {}
 
     void invalidate(String matchExpression) {
         Optional<Cache> cache = cacheManager.getCache(CACHE_NAME);
@@ -131,11 +131,11 @@ public class MatchExpressionEvaluator {
         }
     }
 
-    public boolean applies(String matchExpression, Target target) throws ScriptException {
+    public boolean applies(MatchExpression matchExpression, Target target) throws ScriptException {
         MatchExpressionAppliesEvent evt = new MatchExpressionAppliesEvent(matchExpression);
         try {
             evt.begin();
-            return load(matchExpression, target);
+            return load(matchExpression.script, target);
         } catch (CompletionException e) {
             if (e.getCause() instanceof ScriptException) {
                 throw (ScriptException) e.getCause();
@@ -149,7 +149,7 @@ public class MatchExpressionEvaluator {
         }
     }
 
-    public List<Target> getMatchedTargets(String matchExpression) {
+    public List<Target> getMatchedTargets(MatchExpression matchExpression) {
         try (Stream<Target> targets = Target.streamAll()) {
             return targets.filter(
                             target -> {
@@ -177,8 +177,8 @@ public class MatchExpressionEvaluator {
 
         String matchExpression;
 
-        MatchExpressionAppliesEvent(String matchExpression) {
-            this.matchExpression = matchExpression;
+        MatchExpressionAppliesEvent(MatchExpression matchExpression) {
+            this.matchExpression = matchExpression.script;
         }
     }
 
@@ -190,4 +190,24 @@ public class MatchExpressionEvaluator {
     //         justification = "The event fields are recorded with JFR instead of accessed
     // directly")
     public static class ScriptCreationEvent extends Event {}
+
+    /**
+     * Restricted view of a {@link io.cryostat.targets.Target} with only particular
+     * expression-relevant fields exposed, connection URI exposed as a String, etc.
+     */
+    private static record SimplifiedTarget(
+            String connectUrl,
+            String alias,
+            String jvmId,
+            Map<String, String> labels,
+            Target.Annotations annotations) {
+        static SimplifiedTarget from(Target target) {
+            return new SimplifiedTarget(
+                    target.connectUrl.toString(),
+                    target.alias,
+                    target.jvmId,
+                    target.labels,
+                    target.annotations);
+        }
+    }
 }
