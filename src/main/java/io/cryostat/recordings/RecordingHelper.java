@@ -389,10 +389,12 @@ public class RecordingHelper {
                                                 .key(key)
                                                 .uploadId(multipartId)
                                                 .partNumber(i)
+                                                .contentLength(Long.valueOf(read))
                                                 .build(),
-                                        RequestBody.fromByteBuffer(buf))
+                                        RequestBody.fromByteBuffer(buf.slice(0, read)))
                                 .eTag();
                 parts.add(Pair.of(i, eTag));
+                buf.clear();
                 // S3 API limit
                 if (i == 10_000) {
                     throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
