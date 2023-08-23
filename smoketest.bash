@@ -80,10 +80,14 @@ setupUserHosts() {
 setupUserHosts
 
 sh db/build.sh
+IMAGES=()
 for file in "${FILES[@]}" ; do
     images="$(yq '.services.*.image' "${file}" | grep -v null)"
-    echo "${images}" | xargs docker pull || true
+    for img in ${images}; do
+      IMAGES+=("${img}")
+    done
 done
+docker pull "${IMAGES[@]}" || true
 
 docker-compose \
     "${CMD[@]}" \
