@@ -15,6 +15,8 @@
 #
 # If you want to include the debug port into your docker image
 # you will have to expose the debug port (default 5005) like this :  EXPOSE 8080 5005
+# Additionally you will have to set -e JAVA_DEBUG=true and -e JAVA_DEBUG_PORT=*:5005
+# when running the container
 #
 # Then run the container using :
 #
@@ -75,23 +77,24 @@
 #   accessed directly. (example: "foo.example.com,bar.example.com")
 #
 ###
-FROM registry.access.redhat.com/ubi8/openjdk-17:1.14
+FROM registry.access.redhat.com/ubi8/openjdk-17-runtime:1.16-2
 
 ENV LANGUAGE='en_US:en'
-
-
-# We make four distinct layers so if there are application changes the library layers can be re-used
-COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
-COPY --chown=185 target/quarkus-app/*.jar /deployments/
-COPY --chown=185 target/quarkus-app/app/ /deployments/app/
-COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
-
-COPY src/main/docker/include/cryostat.jfc /usr/lib/jvm/jre/lib/jfr/
 
 EXPOSE 8181
 USER 185
 LABEL io.cryostat.component=cryostat3
+
 ENV JAVA_OPTS="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
 ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 # TODO remove this, should not be hardcoded into image, but for now it's done this way to ensure these options are enabled for integration tests
 ENV JAVA_OPTS_APPEND="-Dcom.sun.management.jmxremote.autodiscovery=true -Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=9091 -Dcom.sun.management.jmxremote.rmi.port=9091 -Djava.rmi.server.hostname=127.0.0.1 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.local.only=false"
+
+ENTRYPOINT [ "/opt/jboss/container/java/run/run-java.sh" ]
+
+# We make distinct layers so if there are application changes the library layers can be re-used
+COPY --chown=185 src/main/docker/include/cryostat.jfc /usr/lib/jvm/jre/lib/jfr/
+COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
+COPY --chown=185 target/quarkus-app/*.jar /deployments/
+COPY --chown=185 target/quarkus-app/app/ /deployments/app/
+COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
