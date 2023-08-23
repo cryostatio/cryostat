@@ -9,9 +9,11 @@ services:
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
       QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: minioroot
       QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: minioroot
+      AWS_ACCESS_KEY_ID: minioroot
+      AWS_SECRET_ACCESS_KEY: minioroot
   s3:
     image: docker.io/minio/minio:latest
-    hostname: minio
+    hostname: s3
     ports:
       - "9001:9001"
       - "9000:9000"
