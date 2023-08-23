@@ -17,7 +17,6 @@ package io.cryostat.recordings;
 
 import java.io.IOException;
 import java.net.URI;
-import java.util.Map;
 
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
@@ -64,7 +63,7 @@ public class ActiveRecording extends PanacheEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")
-    private Target target;
+    public Target target;
 
     @Column(nullable = false)
     public String name;
@@ -100,7 +99,8 @@ public class ActiveRecording extends PanacheEntity {
         return recording;
     }
 
-    public static ActiveRecording from(Target target, IRecordingDescriptor descriptor) {
+    public static ActiveRecording from(
+            Target target, IRecordingDescriptor descriptor, Metadata metadata) {
         ActiveRecording recording = new ActiveRecording();
 
         recording.target = target;
@@ -128,8 +128,7 @@ public class ActiveRecording extends PanacheEntity {
         recording.toDisk = descriptor.getToDisk();
         recording.maxSize = descriptor.getMaxSize().in(UnitLookup.BYTE).longValue();
         recording.maxAge = descriptor.getMaxAge().in(UnitLookup.MILLISECOND).longValue();
-        // TODO is there any metadata we can or should attach?
-        recording.metadata = new Metadata(Map.of());
+        recording.metadata = new Metadata(metadata);
 
         return recording;
     }
@@ -153,28 +152,13 @@ public class ActiveRecording extends PanacheEntity {
         return false; // Recording not found or already deleted.
     }
 
-    public LinkedRecordingDescriptor toExternalForm() {
-        return new LinkedRecordingDescriptor(
-                this.remoteId,
-                this.state,
-                this.duration,
-                this.startTime,
-                this.continuous,
-                this.toDisk,
-                this.maxSize,
-                this.maxAge,
-                this.name,
-                "TODO",
-                "TODO",
-                this.metadata);
-    }
-
     @ApplicationScoped
     static class Listener {
 
         @Inject Logger logger;
         @Inject EventBus bus;
         @Inject TargetConnectionManager connectionManager;
+        @Inject RecordingHelper recordingHelper;
 
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
@@ -234,7 +218,8 @@ public class ActiveRecording extends PanacheEntity {
                     new Notification(
                             category,
                             new RecordingEvent(
-                                    recording.target.connectUrl, recording.toExternalForm())));
+                                    recording.target.connectUrl,
+                                    recordingHelper.toExternalForm(recording))));
         }
 
         public record RecordingEvent(URI target, Object recording) {}

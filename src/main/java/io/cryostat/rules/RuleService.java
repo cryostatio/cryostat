@@ -37,7 +37,6 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingOptionsBuilderFactory;
-import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.rules.Rule.RuleEvent;
 import io.cryostat.targets.Target;
@@ -139,7 +138,7 @@ public class RuleService {
 
     @Transactional
     public void activate(Rule rule, Target target) throws Exception {
-        LinkedRecordingDescriptor descriptor =
+        ActiveRecording recording =
                 connectionManager.executeConnectedTask(
                         target,
                         connection -> {
@@ -163,11 +162,6 @@ public class RuleService {
                                     connection);
                         });
         Target attachedTarget = entityManager.merge(target);
-
-        ActiveRecording recording = ActiveRecording.from(target, descriptor);
-        recording.persist();
-        attachedTarget.activeRecordings.add(recording);
-        attachedTarget.persist();
 
         var relatedRecordings = ruleRecordingMap.get(rule.id);
         relatedRecordings.add(recording);

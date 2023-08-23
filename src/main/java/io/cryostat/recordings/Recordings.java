@@ -40,6 +40,7 @@ import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.Producers;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.TemplateType;
@@ -60,6 +61,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
@@ -90,7 +92,6 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -103,7 +104,7 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 @Path("")
 public class Recordings {
 
-    private static final String JFR_MIME = "application/jfr";
+    public static final String JFR_MIME = "application/jfr";
 
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
@@ -117,7 +118,10 @@ public class Recordings {
     @Inject ScheduledExecutorService scheduler;
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper recordingHelper;
-    private final Base64 base64Url = new Base64(0, null, true);
+
+    @Inject
+    @Named(Producers.BASE64_URL)
+    Base64 base64Url;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
@@ -153,8 +157,8 @@ public class Recordings {
     @RolesAllowed("read")
     public List<ArchivedRecording> listArchivesV1() {
         var result = new ArrayList<ArchivedRecording>();
-        storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
-                .contents()
+        recordingHelper
+                .listArchivedRecordingObjects()
                 .forEach(
                         item -> {
                             String path = item.key().strip();
@@ -165,13 +169,8 @@ public class Recordings {
                             result.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "/api/v3/download/"
-                                                    + base64Url.encodeAsString(
-                                                            (jvmId + "/" + filename)
-                                                                    .getBytes(
-                                                                            StandardCharsets
-                                                                                    .UTF_8)),
-                                            "TODO",
+                                            recordingHelper.downloadUrl(jvmId, filename),
+                                            recordingHelper.reportUrl(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -216,11 +215,7 @@ public class Recordings {
                 "recording:{0}, labels:{1}, maxFiles:{2}", recording.fileName(), labels, maxFiles);
         doUpload(recording, metadata, jvmId);
         var objs = new ArrayList<S3Object>();
-        storage.listObjectsV2(
-                        ListObjectsV2Request.builder().bucket(archiveBucket).prefix(jvmId).build())
-                .contents()
-                .iterator()
-                .forEachRemaining(objs::add);
+        recordingHelper.listArchivedRecordingObjects(jvmId).iterator().forEachRemaining(objs::add);
         var toRemove =
                 objs.stream()
                         .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
@@ -230,6 +225,8 @@ public class Recordings {
             return;
         }
         logger.infov("Removing {0}", toRemove);
+        // FIXME this notification should be emitted in the deletion operation stream so that there
+        // is one notification per deleted object
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(
@@ -238,11 +235,8 @@ public class Recordings {
                                 URI.create(jvmId),
                                 new ArchivedRecording(
                                         recording.fileName(),
-                                        "/api/v3/download/"
-                                                + base64Url.encodeAsString(
-                                                        (jvmId + "/" + recording.fileName().strip())
-                                                                .getBytes(StandardCharsets.UTF_8)),
-                                        "TODO",
+                                        recordingHelper.downloadUrl(jvmId, recording.fileName()),
+                                        recordingHelper.reportUrl(jvmId, recording.fileName()),
                                         metadata,
                                         0 /*filesize*/,
                                         clock.getMonotonicTime()))));
@@ -277,9 +271,8 @@ public class Recordings {
     @RolesAllowed("read")
     public List<ArchivedRecording> agentGet(@RestPath String jvmId) {
         var result = new ArrayList<ArchivedRecording>();
-        storage.listObjectsV2(
-                        ListObjectsV2Request.builder().bucket(archiveBucket).prefix(jvmId).build())
-                .contents()
+        recordingHelper
+                .listArchivedRecordingObjects(jvmId)
                 .forEach(
                         item -> {
                             String objectName = item.key().strip();
@@ -288,13 +281,8 @@ public class Recordings {
                             result.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "/api/v3/download"
-                                                    + base64Url.encodeAsString(
-                                                            (jvmId + "/" + filename)
-                                                                    .getBytes(
-                                                                            StandardCharsets
-                                                                                    .UTF_8)),
-                                            "TODO",
+                                            recordingHelper.downloadUrl(jvmId, filename),
+                                            recordingHelper.reportUrl(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -348,10 +336,8 @@ public class Recordings {
                                 URI.create(jvmId),
                                 new ArchivedRecording(
                                         filename,
-                                        "/api/v3/download/"
-                                                + base64Url.encodeAsString(
-                                                        key.getBytes(StandardCharsets.UTF_8)),
-                                        "TODO",
+                                        recordingHelper.downloadUrl(jvmId, filename),
+                                        recordingHelper.reportUrl(jvmId, filename),
                                         metadata,
                                         0 /*filesize*/,
                                         clock.getMonotonicTime()))));
@@ -376,8 +362,8 @@ public class Recordings {
     @RolesAllowed("read")
     public Collection<ArchivedRecordingDirectory> listFsArchives() {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
-        storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
-                .contents()
+        recordingHelper
+                .listArchivedRecordingObjects()
                 .forEach(
                         item -> {
                             String path = item.key().strip();
@@ -399,10 +385,8 @@ public class Recordings {
                             dir.recordings.add(
                                     new ArchivedRecording(
                                             filename,
-                                            "/api/v3/download/"
-                                                    + base64Url.encodeAsString(
-                                                            path.getBytes(StandardCharsets.UTF_8)),
-                                            "TODO",
+                                            recordingHelper.downloadUrl(jvmId, filename),
+                                            recordingHelper.reportUrl(jvmId, filename),
                                             metadata,
                                             item.size(),
                                             item.lastModified().getEpochSecond()));
@@ -415,7 +399,7 @@ public class Recordings {
     @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
-        return target.activeRecordings.stream().map(ActiveRecording::toExternalForm).toList();
+        return target.activeRecordings.stream().map(recordingHelper::toExternalForm).toList();
     }
 
     @GET
@@ -478,6 +462,7 @@ public class Recordings {
     }
 
     @Transactional
+    @Blocking
     @POST
     @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed("write")
@@ -504,7 +489,7 @@ public class Recordings {
 
         Pair<String, TemplateType> template = recordingHelper.parseEventSpecifierToTemplate(events);
 
-        LinkedRecordingDescriptor descriptor =
+        ActiveRecording recording =
                 connectionManager.executeConnectedTask(
                         target,
                         connection -> {
@@ -541,11 +526,6 @@ public class Recordings {
                                     connection);
                         });
 
-        ActiveRecording recording = ActiveRecording.from(target, descriptor);
-        recording.persist();
-        target.activeRecordings.add(recording);
-        target.persist();
-
         if (recording.duration > 0) {
             scheduler.schedule(
                     () -> stopRecording(target.id, recording.remoteId, archiveOnStop.orElse(false)),
@@ -553,7 +533,7 @@ public class Recordings {
                     TimeUnit.MILLISECONDS);
         }
 
-        return descriptor;
+        return recordingHelper.toExternalForm(recording);
     }
 
     @Transactional
@@ -860,23 +840,7 @@ public class Recordings {
             String name,
             String downloadUrl,
             String reportUrl,
-            Metadata metadata) {
-        public static LinkedRecordingDescriptor from(ActiveRecording recording) {
-            return new LinkedRecordingDescriptor(
-                    recording.remoteId,
-                    recording.state,
-                    recording.duration,
-                    recording.startTime,
-                    recording.continuous,
-                    recording.toDisk,
-                    recording.maxSize,
-                    recording.maxAge,
-                    recording.name,
-                    "TODO",
-                    "TODO",
-                    recording.metadata);
-        }
-    }
+            Metadata metadata) {}
 
     public record ArchivedRecording(
             String name,
@@ -889,5 +853,13 @@ public class Recordings {
     public record ArchivedRecordingDirectory(
             String connectUrl, String jvmId, List<ArchivedRecording> recordings) {}
 
-    public record Metadata(Map<String, String> labels) {}
+    public record Metadata(Map<String, String> labels) {
+        public Metadata {
+            Objects.requireNonNull(labels);
+        }
+
+        public Metadata(Metadata other) {
+            this(new HashMap<>((other.labels)));
+        }
+    }
 }

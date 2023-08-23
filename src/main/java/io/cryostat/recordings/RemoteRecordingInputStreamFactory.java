@@ -32,14 +32,13 @@ public class RemoteRecordingInputStreamFactory {
 
     @Inject TargetConnectionManager connectionManager;
 
-    public ProgressInputStream open(Target target, ActiveRecording activeRecording)
-            throws Exception {
+    public ProgressInputStream open(ActiveRecording recording) throws Exception {
         return connectionManager.executeConnectedTask(
-                target,
+                recording.target,
                 conn -> {
                     IRecordingDescriptor desc =
-                            RecordingHelper.getDescriptor(conn, activeRecording).orElseThrow();
-                    return open(conn, target, desc);
+                            RecordingHelper.getDescriptor(conn, recording).orElseThrow();
+                    return open(conn, recording.target, desc);
                 });
     }
 

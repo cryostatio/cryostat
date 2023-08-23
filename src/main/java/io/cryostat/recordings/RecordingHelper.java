@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -37,13 +38,13 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
-import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
 import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.Producers;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;
@@ -59,13 +60,13 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
+import jakarta.inject.Named;
+import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.Response;
@@ -86,6 +87,7 @@ import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
@@ -99,12 +101,12 @@ public class RecordingHelper {
     private static final String JFR_MIME = "application/jfr";
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
-    private final Base64 base64Url = new Base64(0, null, true);
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
     private final long httpTimeoutSeconds = 5; // TODO: configurable client timeout
 
     @Inject Logger logger;
+    @Inject EntityManager entityManager;
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
@@ -113,6 +115,11 @@ public class RecordingHelper {
 
     @Inject Clock clock;
     @Inject S3Presigner presigner;
+
+    @Inject
+    @Named(Producers.BASE64_URL)
+    Base64 base64Url;
+
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ObjectMapper mapper;
     @Inject S3Client storage;
@@ -145,9 +152,7 @@ public class RecordingHelper {
         }
     }
 
-    @Blocking
-    @Transactional(Transactional.TxType.REQUIRES_NEW)
-    public LinkedRecordingDescriptor startRecording(
+    public ActiveRecording startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
             String templateName,
@@ -183,24 +188,33 @@ public class RecordingHelper {
                                 enableEvents(connection, templateName, preferredTemplateType));
 
         Map<String, String> labels = metadata.labels();
-
         labels.put("template.name", templateName);
         labels.put("template.type", preferredTemplateType.name());
-
         Metadata meta = new Metadata(labels);
+
+        ActiveRecording recording = ActiveRecording.from(target, desc, meta);
+        recording.persist();
+
+        target.activeRecordings.add(recording);
+        target.persist();
+
+        return recording;
+    }
+
+    public LinkedRecordingDescriptor toExternalForm(ActiveRecording recording) {
         return new LinkedRecordingDescriptor(
-                desc.getId(),
-                mapState(desc),
-                desc.getDuration().in(UnitLookup.MILLISECOND).longValue(),
-                desc.getStartTime().in(UnitLookup.EPOCH_MS).longValue(),
-                desc.isContinuous(),
-                desc.getToDisk(),
-                desc.getMaxSize().in(UnitLookup.BYTE).longValue(),
-                desc.getMaxAge().in(UnitLookup.MILLISECOND).longValue(),
-                desc.getName(),
-                "TODO",
-                "TODO",
-                meta);
+                recording.remoteId,
+                recording.state,
+                recording.duration,
+                recording.startTime,
+                recording.continuous,
+                recording.toDisk,
+                recording.maxSize,
+                recording.maxAge,
+                recording.name,
+                downloadUrl(recording),
+                reportUrl(recording),
+                recording.metadata);
     }
 
     public Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier) {
@@ -315,13 +329,17 @@ public class RecordingHelper {
         }
     }
 
-    @Blocking
     public List<S3Object> listArchivedRecordingObjects() {
         return storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
                 .contents();
     }
 
-    @Blocking
+    public List<S3Object> listArchivedRecordingObjects(String jvmId) {
+        return storage.listObjectsV2(
+                        ListObjectsV2Request.builder().bucket(archiveBucket).prefix(jvmId).build())
+                .contents();
+    }
+
     public String saveRecording(Target target, ActiveRecording activeRecording) throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
@@ -335,7 +353,7 @@ public class RecordingHelper {
         String key = String.format("%s/%s", target.jvmId, filename);
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
-        try (var stream = remoteRecordingStreamFactory.open(target, activeRecording);
+        try (var stream = remoteRecordingStreamFactory.open(activeRecording);
                 var ch = Channels.newChannel(stream)) {
             ByteBuffer buf = ByteBuffer.allocate(20 * mib);
             multipartId =
@@ -371,10 +389,12 @@ public class RecordingHelper {
                                                 .key(key)
                                                 .uploadId(multipartId)
                                                 .partNumber(i)
+                                                .contentLength(Long.valueOf(read))
                                                 .build(),
-                                        RequestBody.fromByteBuffer(buf))
+                                        RequestBody.fromByteBuffer(buf.slice(0, read)))
                                 .eTag();
                 parts.add(Pair.of(i, eTag));
+                buf.clear();
                 // S3 API limit
                 if (i == 10_000) {
                     throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
@@ -428,8 +448,54 @@ public class RecordingHelper {
                 MessagingServer.class.getName(),
                 new Notification(
                         "ActiveRecordingSaved",
-                        new RecordingEvent(target.connectUrl, activeRecording.toExternalForm())));
+                        new RecordingEvent(target.connectUrl, toExternalForm(activeRecording))));
         return filename;
+    }
+
+    public String encodedKey(String jvmId, String filename) {
+        return base64Url.encodeAsString(
+                (jvmId + "/" + filename.strip()).getBytes(StandardCharsets.UTF_8));
+    }
+
+    public InputStream getActiveInputStream(ActiveRecording recording) throws Exception {
+        return remoteRecordingStreamFactory.open(recording);
+    }
+
+    public InputStream getActiveInputStream(long targetId, long remoteId) throws Exception {
+        var target = Target.<Target>findById(targetId);
+        var recording = target.getRecordingById(remoteId);
+        var stream = remoteRecordingStreamFactory.open(recording);
+        return stream;
+    }
+
+    public InputStream getArchivedRecordingStream(String jvmId, String recordingName) {
+        return getArchivedRecordingStream(encodedKey(jvmId, recordingName));
+    }
+
+    public InputStream getArchivedRecordingStream(String encodedKey) {
+        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
+
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder().bucket(archiveBucket).key(key).build();
+
+        return storage.getObject(getRequest);
+    }
+
+    public String downloadUrl(ActiveRecording recording) {
+        return "TODO";
+    }
+
+    public String downloadUrl(String jvmId, String filename) {
+        return String.format("/api/v3/download/%s", encodedKey(jvmId, filename));
+    }
+
+    public String reportUrl(ActiveRecording recording) {
+        return String.format(
+                "/api/v3/targets/%d/reports/%d", recording.target.id, recording.remoteId);
+    }
+
+    public String reportUrl(String jvmId, String filename) {
+        return String.format("/api/v3/reports/%s", encodedKey(jvmId, filename));
     }
 
     private int retryRead(ReadableByteChannel channel, ByteBuffer buffer) throws IOException {
@@ -488,7 +554,6 @@ public class RecordingHelper {
     }
 
     // jfr-datasource handling
-    @Blocking
     public Response uploadToJFRDatasource(long targetEntityId, long remoteId, URL uploadUrl)
             throws Exception {
         Target target = Target.getTargetById(targetEntityId);

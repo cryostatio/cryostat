@@ -16,9 +16,12 @@
 package io.cryostat;
 
 import java.net.URI;
+import java.util.Set;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 
+import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;
 
@@ -26,7 +29,10 @@ import io.quarkus.arc.DefaultBean;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Named;
+import org.apache.commons.codec.binary.Base64;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.projectnessie.cel.tools.ScriptHost;
 import org.projectnessie.cel.types.jackson.JacksonRegistry;
@@ -36,6 +42,8 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.utils.StringUtils;
 
 public class Producers {
+
+    public static final String BASE64_URL = "BASE64_URL";
 
     @Produces
     @ApplicationScoped
@@ -54,13 +62,31 @@ public class Producers {
     @Produces
     @ApplicationScoped
     @DefaultBean
+    @Named(BASE64_URL)
+    public static Base64 produceBase64Url() {
+        return new Base64(0, null, true);
+    }
+
+    @Produces
+    @ApplicationScoped
+    @DefaultBean
     public static ScheduledExecutorService produceScheduledExecutorService() {
         return Executors.newSingleThreadScheduledExecutor();
     }
 
     @Produces
+    // RequestScoped so that each individual report generation request has its own interruptible
+    // generator with an independent task queueing thread which dispatches to the shared common pool
+    @RequestScoped
     @DefaultBean
-    public WebClient provideWebClient(Vertx vertx) {
+    public static InterruptibleReportGenerator produceInterruptibleReportGenerator() {
+        return new InterruptibleReportGenerator(
+                io.cryostat.core.log.Logger.INSTANCE, Set.of(), ForkJoinPool.commonPool());
+    }
+
+    @Produces
+    @DefaultBean
+    public WebClient produceWebClient(Vertx vertx) {
         return WebClient.create(vertx);
     }
 
@@ -90,7 +116,7 @@ public class Producers {
     @Produces
     @ApplicationScoped
     @DefaultBean
-    public static ScriptHost provideScriptHost() {
+    public static ScriptHost produceScriptHost() {
         return ScriptHost.newBuilder().registry(JacksonRegistry.newRegistry()).build();
     }
 }
