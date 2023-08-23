@@ -139,18 +139,17 @@ To make containers' names DNS-resolvable from the host machine, do:
 ```bash
 $ git clone https://github.com/figiel/hosts libuserhosts
 $ cd libuserhosts
-$ make
-$ mkdir -p ~/bin
-$ cp libuserhosts.so ~/bin
-$ echo 'export LD_PRELOAD=$HOME/bin/libuserhosts.so' >> ~/.bashrc
-$ export LD_PRELOAD=$HOME/bin/libuserhosts.so
+$ make PREFIX=$HOME/bin all install
+$ echo 'export LD_PRELOAD=$HOME/bin/lib/libuserhosts.so' >> ~/.bashrc
+$ export LD_PRELOAD=$HOME/bin/lib/libuserhosts.so
 ```
+(this will require a C compiler toolchain present on your development machine)
 
 You can verify that this setup works by running `smoketest.bash`, and then in another terminal:
 ```bash
-$ LD_PRELOAD=$HOME/bin/libuserhosts.so ping cryostat
-$ LD_PRELOAD=$HOME/bin/libuserhosts.so curl http://cryostat:8181
-$ LD_PRELOAD=$HOME/bin/libuserhosts.so firefox http://cryostat:8181
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so ping cryostat3
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so curl http://cryostat3:8181
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so firefox http://cryostat3:8181
 ```
 
 ## Smoketesting in K8s
