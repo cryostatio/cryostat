@@ -21,6 +21,7 @@ import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import org.projectnessie.cel.tools.ScriptException;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 public class ExceptionMappers {
     @ServerExceptionMapper
@@ -41,5 +42,10 @@ public class ExceptionMappers {
     @ServerExceptionMapper
     public RestResponse<Void> mapScriptException(ScriptException ex) {
         return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapNoSuchKeyException(NoSuchKeyException ex) {
+        return RestResponse.status(HttpResponseStatus.NOT_FOUND.code());
     }
 }
