@@ -75,6 +75,7 @@ import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jdk.jfr.RecordingState;
+import org.apache.commons.codec.binary.Base32;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -121,6 +122,8 @@ public class RecordingHelper {
 
     @Inject Clock clock;
     @Inject S3Presigner presigner;
+
+    @Inject Base32 base32;
 
     @Inject
     @Named(Producers.BASE64_URL)
@@ -369,7 +372,7 @@ public class RecordingHelper {
         String filename =
                 String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
         int mib = 1024 * 1024;
-        String key = String.format("%s/%s", recording.target.jvmId, filename);
+        String key = archivedRecordingKey(recording.target.jvmId, filename);
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
         try (var stream = remoteRecordingStreamFactory.open(recording);
@@ -467,12 +470,17 @@ public class RecordingHelper {
             throw e;
         }
         if (expiry == null) {
+            LinkedRecordingDescriptor serializedRecording = toExternalForm(recording);
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
                             "ActiveRecordingSaved",
-                            new RecordingEvent(
-                                    recording.target.connectUrl, toExternalForm(recording))));
+                            new RecordingEvent(recording.target.connectUrl, serializedRecording)));
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            "ArchivedRecordingCreated",
+                            new RecordingEvent(recording.target.connectUrl, serializedRecording)));
         }
         return filename;
     }
@@ -497,7 +505,11 @@ public class RecordingHelper {
         }
     }
 
-    private String decodeBase64(String encoded) {
+    String decodeBase32(String encoded) {
+        return new String(base32.decode(encoded), StandardCharsets.UTF_8);
+    }
+
+    String decodeBase64(String encoded) {
         return new String(base64Url.decode(encoded), StandardCharsets.UTF_8);
     }
 
@@ -588,7 +600,7 @@ public class RecordingHelper {
         storage.deleteObject(
                 DeleteObjectRequest.builder()
                         .bucket(archiveBucket)
-                        .key(String.format("%s/%s", jvmId, filename))
+                        .key(archivedRecordingKey(jvmId, filename))
                         .build());
         bus.publish(
                 MessagingServer.class.getName(),
@@ -598,7 +610,7 @@ public class RecordingHelper {
     }
 
     // Metadata
-    private Tagging createMetadataTagging(Metadata metadata) {
+    Tagging createMetadataTagging(Metadata metadata) {
         // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
         var tags = new ArrayList<Tag>();
         tags.addAll(
@@ -722,6 +734,14 @@ public class RecordingHelper {
                                 throw new BadRequestException(e);
                             }
                         });
+    }
+
+    private Tagging createActiveRecordingTagging(ActiveRecording recording) {
+        Map<String, String> labels = new HashMap<>(recording.metadata.labels());
+        labels.put("connectUrl", recording.target.connectUrl.toString());
+        labels.put("jvmId", recording.target.jvmId);
+        Metadata metadata = new Metadata(labels);
+        return createMetadataTagging(metadata);
     }
 
     public enum RecordingReplace {
