@@ -74,6 +74,7 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base32;
@@ -800,6 +801,9 @@ public class Recordings {
                         Instant.now().plusSeconds(60)); // TODO make expiry configurable
         String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        String.format("attachment; filename=\"%s\"", filename))
                 .location(URI.create(String.format("/api/v3/download/%s", encodedKey)))
                 .build();
     }
