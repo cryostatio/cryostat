@@ -59,6 +59,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
@@ -75,6 +76,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 import jdk.jfr.RecordingState;
+import org.apache.commons.codec.binary.Base32;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -94,6 +96,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -105,8 +108,6 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 
 @Path("")
 public class Recordings {
-
-    public static final String JFR_MIME = "application/jfr";
 
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
@@ -120,6 +121,8 @@ public class Recordings {
     @Inject ScheduledExecutorService scheduler;
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper recordingHelper;
+
+    @Inject Base32 base32;
 
     @Inject
     @Named(Producers.BASE64_URL)
@@ -155,6 +158,7 @@ public class Recordings {
     }
 
     @GET
+    @Blocking
     @Path("/api/v1/recordings")
     @RolesAllowed("read")
     public List<ArchivedRecording> listArchivesV1() {
@@ -167,7 +171,9 @@ public class Recordings {
                             String[] parts = path.split("/");
                             String jvmId = parts[0];
                             String filename = parts[1];
-                            Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
+                            Metadata metadata =
+                                    getArchivedRecordingMetadata(jvmId, filename)
+                                            .orElseGet(Metadata::empty);
                             result.add(
                                     new ArchivedRecording(
                                             filename,
@@ -181,6 +187,7 @@ public class Recordings {
     }
 
     @POST
+    @Blocking
     @Path("/api/v1/recordings")
     @RolesAllowed("write")
     public Map<String, Object> upload(
@@ -195,6 +202,7 @@ public class Recordings {
     }
 
     @POST
+    @Blocking
     @Path("/api/beta/recordings/{jvmId}")
     @RolesAllowed("write")
     public void agentPush(
@@ -279,7 +287,9 @@ public class Recordings {
                         item -> {
                             String objectName = item.key().strip();
                             String filename = objectName.split("/")[1];
-                            Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
+                            Metadata metadata =
+                                    getArchivedRecordingMetadata(jvmId, filename)
+                                            .orElseGet(Metadata::empty);
                             result.add(
                                     new ArchivedRecording(
                                             filename,
@@ -293,6 +303,7 @@ public class Recordings {
     }
 
     @DELETE
+    @Blocking
     @Path("/api/beta/recordings/{jvmId}/{filename}")
     @RolesAllowed("write")
     public void agentDelete(
@@ -301,11 +312,29 @@ public class Recordings {
             @RestForm("recording") FileUpload recording,
             @RestForm("labels") JsonObject rawLabels)
             throws Exception {
-        storage.deleteObject(
-                DeleteObjectRequest.builder()
-                        .bucket(archiveBucket)
-                        .key(recordingHelper.archivedRecordingKey(jvmId, filename))
-                        .build());
+        var metadata = getArchivedRecordingMetadata(jvmId, filename).orElseGet(Metadata::empty);
+        var connectUrl =
+                Target.getTargetByJvmId(jvmId)
+                        .map(t -> t.connectUrl)
+                        .map(c -> c.toString())
+                        .orElseGet(() -> metadata.labels.computeIfAbsent("connectUrl", k -> jvmId));
+        var resp =
+                storage.deleteObject(
+                        DeleteObjectRequest.builder()
+                                .bucket(archiveBucket)
+                                .key(recordingHelper.archivedRecordingKey(jvmId, filename))
+                                .build());
+        if (resp.sdkHttpResponse().isSuccessful()) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            "ArchivedRecordingDeleted",
+                            new RecordingEvent(URI.create(connectUrl), Map.of("name", filename))));
+        } else {
+            throw new HttpException(
+                    resp.sdkHttpResponse().statusCode(),
+                    resp.sdkHttpResponse().statusText().orElse(""));
+        }
     }
 
     @Blocking
@@ -325,7 +354,7 @@ public class Recordings {
                 PutObjectRequest.builder()
                         .bucket(archiveBucket)
                         .key(key)
-                        .contentType(JFR_MIME)
+                        .contentType(RecordingHelper.JFR_MIME)
                         .tagging(createMetadataTagging(metadata))
                         .build(),
                 RequestBody.fromFile(recording.filePath()));
@@ -348,10 +377,11 @@ public class Recordings {
     }
 
     @DELETE
+    @Blocking
     @Path("/api/v1/recordings/{filename}")
     @RolesAllowed("write")
-    @Blocking
     public void delete(@RestPath String filename) throws Exception {
+        // TODO scan all prefixes for matching filename? This is an old v1 API problem.
         storage.deleteObject(
                 DeleteObjectRequest.builder()
                         .bucket(archiveBucket)
@@ -360,6 +390,7 @@ public class Recordings {
     }
 
     @GET
+    @Blocking
     @Path("/api/beta/fs/recordings")
     @RolesAllowed("read")
     public Collection<ArchivedRecordingDirectory> listFsArchives() {
@@ -373,11 +404,12 @@ public class Recordings {
                             String jvmId = parts[0];
                             String filename = parts[1];
 
-                            Metadata metadata = getArchivedRecordingMetadata(jvmId, filename);
+                            Metadata metadata =
+                                    getArchivedRecordingMetadata(jvmId, filename)
+                                            .orElseGet(Metadata::empty);
 
                             String connectUrl =
-                                    metadata.labels.computeIfAbsent(
-                                            "connectUrl", k -> "lost-" + jvmId);
+                                    metadata.labels.computeIfAbsent("connectUrl", k -> jvmId);
                             var dir =
                                     map.computeIfAbsent(
                                             jvmId,
@@ -416,6 +448,7 @@ public class Recordings {
 
     @PATCH
     @Transactional
+    @Blocking
     @Path("/api/v3/targets/{targetId}/recordings/{remoteId}")
     @RolesAllowed("write")
     public String patch(@RestPath long targetId, @RestPath long remoteId, String body)
@@ -443,6 +476,7 @@ public class Recordings {
 
     @PATCH
     @Transactional
+    @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
     @RolesAllowed("write")
     public Response patchV1(@RestPath URI connectUrl, @RestPath String recordingName, String body)
@@ -463,9 +497,9 @@ public class Recordings {
                 .build();
     }
 
+    @POST
     @Transactional
     @Blocking
-    @POST
     @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed("write")
     public LinkedRecordingDescriptor createRecording(
@@ -553,8 +587,9 @@ public class Recordings {
         }
     }
 
-    @Transactional
     @POST
+    @Transactional
+    @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings")
     @RolesAllowed("write")
     public Response createRecordingV1(
@@ -578,8 +613,9 @@ public class Recordings {
                 .build();
     }
 
-    @Transactional
     @DELETE
+    @Transactional
+    @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
     @RolesAllowed("write")
     public Response deleteRecordingV1(@RestPath URI connectUrl, @RestPath String recordingName)
@@ -602,8 +638,9 @@ public class Recordings {
                 .build();
     }
 
-    @Transactional
     @DELETE
+    @Transactional
+    @Blocking
     @Path("/api/v3/targets/{targetId}/recordings/{remoteId}")
     @RolesAllowed("write")
     public void deleteRecording(@RestPath long targetId, @RestPath long remoteId) throws Exception {
@@ -618,26 +655,46 @@ public class Recordings {
                         });
     }
 
-    @Blocking
     @DELETE
-    @Path("/api/beta/fs/recordings/{jvmId}/{filename}")
+    @Blocking
+    @Path("/api/beta/fs/recordings/{encodedJvmId}/{filename}")
     @RolesAllowed("write")
-    public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
+    public void deleteArchivedRecording(@RestPath String encodedJvmId, @RestPath String filename)
             throws Exception {
+        var jvmId = decodeBase32(encodedJvmId);
+        logger.infov("Handling archived recording deletion: {0} / {1}", jvmId, filename);
+        var metadata = getArchivedRecordingMetadata(jvmId, filename).orElseGet(Metadata::empty);
 
-        var metadata = getArchivedRecordingMetadata(jvmId, filename);
-
-        String connectUrl = metadata.labels.computeIfAbsent("connectUrl", k -> "lost-" + jvmId);
-        storage.deleteObject(
-                DeleteObjectRequest.builder()
-                        .bucket(archiveBucket)
-                        .key(String.format("%s/%s", jvmId, filename))
-                        .build());
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(
-                        "ArchivedRecordingDeleted",
-                        new RecordingEvent(URI.create(connectUrl), Map.of("name", filename))));
+        var connectUrl =
+                Target.getTargetByJvmId(jvmId)
+                        .map(t -> t.connectUrl)
+                        .map(c -> c.toString())
+                        .orElseGet(() -> metadata.labels.computeIfAbsent("connectUrl", k -> jvmId));
+        logger.infov(
+                "Archived recording from connectUrl {1} has metadata: {1}", connectUrl, metadata);
+        logger.infov(
+                "Sending S3 deletion request for {0} {1}",
+                archiveBucket, recordingHelper.archivedRecordingKey(jvmId, filename));
+        var resp =
+                storage.deleteObject(
+                        DeleteObjectRequest.builder()
+                                .bucket(archiveBucket)
+                                .key(recordingHelper.archivedRecordingKey(jvmId, filename))
+                                .build());
+        logger.infov(
+                "Got SDK response {0} {1}",
+                resp.sdkHttpResponse().statusCode(), resp.sdkHttpResponse().statusText());
+        if (resp.sdkHttpResponse().isSuccessful()) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            "ArchivedRecordingDeleted",
+                            new RecordingEvent(URI.create(connectUrl), Map.of("name", filename))));
+        } else {
+            throw new HttpException(
+                    resp.sdkHttpResponse().statusCode(),
+                    resp.sdkHttpResponse().statusText().orElse(""));
+        }
     }
 
     static void safeCloseRecording(JFRConnection conn, IRecordingDescriptor rec, Logger logger) {
@@ -651,6 +708,7 @@ public class Recordings {
     }
 
     @POST
+    @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}/upload")
     @RolesAllowed("write")
     public Response uploadToGrafanaV1(@RestPath URI connectUrl, @RestPath String recordingName) {
@@ -671,9 +729,9 @@ public class Recordings {
     }
 
     @POST
+    @Blocking
     @Path("/api/v3/targets/{targetId}/recordings/{remoteId}/upload")
     @RolesAllowed("write")
-    @Blocking
     public Response uploadToGrafana(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
         try {
@@ -700,6 +758,7 @@ public class Recordings {
     }
 
     @GET
+    @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordingOptions")
     @RolesAllowed("read")
     public Response getRecordingOptionsV1(@RestPath URI connectUrl) throws Exception {
@@ -711,6 +770,7 @@ public class Recordings {
     }
 
     @GET
+    @Blocking
     @Path("/api/v3/targets/{id}/recordingOptions")
     @RolesAllowed("read")
     public Map<String, Object> getRecordingOptions(@RestPath long id) throws Exception {
@@ -725,6 +785,7 @@ public class Recordings {
     }
 
     @GET
+    @Blocking
     @Path("/api/v3/activedownload/{id}")
     @RolesAllowed("read")
     public Response createAndRedirectPresignedDownload(@RestPath long id) throws Exception {
@@ -744,6 +805,7 @@ public class Recordings {
     }
 
     @GET
+    @Blocking
     @Path("/api/v3/download/{encodedKey}")
     @RolesAllowed("read")
     public Response redirectPresignedDownload(@RestPath String encodedKey)
@@ -777,7 +839,6 @@ public class Recordings {
                                                         .key(
                                                                 base64Url.encodeAsString(
                                                                         e.getKey().getBytes()))
-                                                        // e.getKey())
                                                         .value(
                                                                 base64Url.encodeAsString(
                                                                         e.getValue().getBytes()))
@@ -790,27 +851,34 @@ public class Recordings {
         // TODO parse out other metadata than labels
         return new Metadata(
                 tagSet.stream()
-                        .map(
-                                tag ->
-                                        Pair.of(
-                                                new String(
-                                                        base64Url.decode(tag.key()),
-                                                        StandardCharsets.UTF_8),
-                                                // tag.key(),
-                                                new String(
-                                                        base64Url.decode(tag.value()),
-                                                        StandardCharsets.UTF_8)))
+                        .map(tag -> Pair.of(decodeBase64(tag.key()), decodeBase64(tag.value())))
                         .collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
     }
 
-    private Metadata getArchivedRecordingMetadata(String jvmId, String filename) {
-        return taggingToMetadata(
-                storage.getObjectTagging(
-                                GetObjectTaggingRequest.builder()
-                                        .bucket(archiveBucket)
-                                        .key(recordingHelper.archivedRecordingKey(jvmId, filename))
-                                        .build())
-                        .tagSet());
+    private String decodeBase32(String encoded) {
+        return new String(base32.decode(encoded), StandardCharsets.UTF_8);
+    }
+
+    private String decodeBase64(String encoded) {
+        return new String(base64Url.decode(encoded), StandardCharsets.UTF_8);
+    }
+
+    private Optional<Metadata> getArchivedRecordingMetadata(String jvmId, String filename) {
+        try {
+            return Optional.of(
+                    taggingToMetadata(
+                            storage.getObjectTagging(
+                                            GetObjectTaggingRequest.builder()
+                                                    .bucket(archiveBucket)
+                                                    .key(
+                                                            recordingHelper.archivedRecordingKey(
+                                                                    jvmId, filename))
+                                                    .build())
+                                    .tagSet()));
+        } catch (NoSuchKeyException nske) {
+            logger.warn(nske);
+            return Optional.empty();
+        }
     }
 
     private static Map<String, Object> getRecordingOptions(
@@ -923,6 +991,10 @@ public class Recordings {
 
         public Metadata(Metadata other) {
             this(new HashMap<>((other.labels)));
+        }
+
+        public static Metadata empty() {
+            return new Metadata(new HashMap<>());
         }
     }
 }
