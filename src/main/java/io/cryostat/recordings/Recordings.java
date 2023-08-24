@@ -304,7 +304,7 @@ public class Recordings {
         storage.deleteObject(
                 DeleteObjectRequest.builder()
                         .bucket(archiveBucket)
-                        .key(String.format("%s/%s", jvmId, filename))
+                        .key(recordingHelper.archivedRecordingKey(jvmId, filename))
                         .build());
     }
 
@@ -320,7 +320,7 @@ public class Recordings {
         if (!filename.endsWith(".jfr")) {
             filename = filename + ".jfr";
         }
-        String key = String.format("%s/%s", jvmId, filename);
+        String key = recordingHelper.archivedRecordingKey(jvmId, filename);
         storage.putObject(
                 PutObjectRequest.builder()
                         .bucket(archiveBucket)
@@ -748,10 +748,13 @@ public class Recordings {
     @RolesAllowed("read")
     public Response redirectPresignedDownload(@RestPath String encodedKey)
             throws URISyntaxException {
-        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
-        logger.infov("Handling presigned download request for {0}", key);
+        Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
+        logger.infov("Handling presigned download request for {0}", pair);
         GetObjectRequest getRequest =
-                GetObjectRequest.builder().bucket(archiveBucket).key(key).build();
+                GetObjectRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(recordingHelper.archivedRecordingKey(pair))
+                        .build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()
                         .signatureDuration(Duration.ofMinutes(1))
@@ -805,7 +808,7 @@ public class Recordings {
                 storage.getObjectTagging(
                                 GetObjectTaggingRequest.builder()
                                         .bucket(archiveBucket)
-                                        .key(String.format("%s/%s", jvmId, filename))
+                                        .key(recordingHelper.archivedRecordingKey(jvmId, filename))
                                         .build())
                         .tagSet());
     }

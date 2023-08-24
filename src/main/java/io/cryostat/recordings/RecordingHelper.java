@@ -459,9 +459,24 @@ public class RecordingHelper {
         return filename;
     }
 
+    public String archivedRecordingKey(String jvmId, String filename) {
+        return (jvmId + "/" + filename).strip();
+    }
+
+    public String archivedRecordingKey(Pair<String, String> pair) {
+        return archivedRecordingKey(pair.getKey(), pair.getValue());
+    }
+
     public String encodedKey(String jvmId, String filename) {
         return base64Url.encodeAsString(
-                (jvmId + "/" + filename.strip()).getBytes(StandardCharsets.UTF_8));
+                (archivedRecordingKey(jvmId, filename)).getBytes(StandardCharsets.UTF_8));
+    }
+
+    // TODO refactor this and encapsulate archived recording keys as a record with override toString
+    public Pair<String, String> decodedKey(String encodedKey) {
+        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
+        String[] parts = key.split("/");
+        return Pair.of(parts[0], parts[1]);
     }
 
     public InputStream getActiveInputStream(ActiveRecording recording) throws Exception {
