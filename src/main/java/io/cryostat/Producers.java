@@ -32,6 +32,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Named;
+import org.apache.commons.codec.binary.Base32;
 import org.apache.commons.codec.binary.Base64;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.projectnessie.cel.tools.ScriptHost;
@@ -57,6 +58,12 @@ public class Producers {
     @DefaultBean
     public static FileSystem produceFileSystem() {
         return new FileSystem();
+    }
+
+    @Produces
+    @ApplicationScoped
+    public static Base32 produceBase32() {
+        return new Base32();
     }
 
     @Produces

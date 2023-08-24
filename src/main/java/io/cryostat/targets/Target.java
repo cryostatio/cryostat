@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
@@ -107,6 +108,10 @@ public class Target extends PanacheEntity {
 
     public static Target getTargetByConnectUrl(URI connectUrl) {
         return find("connectUrl", connectUrl).singleResult();
+    }
+
+    public static Optional<Target> getTargetByJvmId(String jvmId) {
+        return find("jvmId", jvmId).firstResultOptional();
     }
 
     public static boolean deleteByConnectUrl(URI connectUrl) {

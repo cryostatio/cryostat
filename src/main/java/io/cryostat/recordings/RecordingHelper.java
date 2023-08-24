@@ -99,7 +99,8 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 @ApplicationScoped
 public class RecordingHelper {
 
-    private static final String JFR_MIME = "application/jfr";
+    public static final String JFR_MIME = HttpMimeType.JFR.mime();
+
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
@@ -596,10 +597,7 @@ public class RecordingHelper {
         MultipartForm form =
                 MultipartForm.create()
                         .binaryFileUpload(
-                                "file",
-                                DATASOURCE_FILENAME,
-                                recordingPath.toString(),
-                                HttpMimeType.OCTET_STREAM.toString());
+                                "file", DATASOURCE_FILENAME, recordingPath.toString(), JFR_MIME);
 
         try {
             ResponseBuilder builder = new ResponseBuilderImpl();

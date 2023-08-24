@@ -223,6 +223,10 @@ public class ActiveRecording extends PanacheEntity {
                                     recordingHelper.toExternalForm(recording))));
         }
 
+        // FIXME the target connectUrl URI may no longer be known if the target
+        // has disappeared and we are emitting an event regarding an archived recording originally
+        // sourced from that target.
+        // This should embed the target jvmId and optionally the database ID.
         public record RecordingEvent(URI target, Object recording) {
             public RecordingEvent {
                 Objects.requireNonNull(target);
