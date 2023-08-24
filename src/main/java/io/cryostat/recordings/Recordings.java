@@ -21,6 +21,7 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -721,6 +722,25 @@ public class Recordings {
                             recordingOptionsBuilderFactory.create(connection.getService());
                     return getRecordingOptions(connection.getService(), builder);
                 });
+    }
+
+    @GET
+    @Path("/api/v3/activedownload/{id}")
+    @RolesAllowed("read")
+    public Response createAndRedirectPresignedDownload(@RestPath long id) throws Exception {
+        ActiveRecording recording = ActiveRecording.findById(id);
+        if (recording == null) {
+            throw new NotFoundException();
+        }
+        String filename =
+                recordingHelper.saveRecording(
+                        recording.target,
+                        recording,
+                        Instant.now().plusSeconds(60)); // TODO make expiry configurable
+        String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create(String.format("/api/v3/download/%s", encodedKey)))
+                .build();
     }
 
     @GET

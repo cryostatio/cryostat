@@ -26,6 +26,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -341,6 +342,11 @@ public class RecordingHelper {
     }
 
     public String saveRecording(Target target, ActiveRecording activeRecording) throws Exception {
+        return saveRecording(target, activeRecording, null);
+    }
+
+    public String saveRecording(Target target, ActiveRecording activeRecording, Instant expiry)
+            throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
         String transformedAlias =
@@ -356,16 +362,17 @@ public class RecordingHelper {
         try (var stream = remoteRecordingStreamFactory.open(activeRecording);
                 var ch = Channels.newChannel(stream)) {
             ByteBuffer buf = ByteBuffer.allocate(20 * mib);
-            multipartId =
-                    storage.createMultipartUpload(
-                                    CreateMultipartUploadRequest.builder()
-                                            .bucket(archiveBucket)
-                                            .key(key)
-                                            .contentType(JFR_MIME)
-                                            .tagging(
-                                                    createMetadataTagging(activeRecording.metadata))
-                                            .build())
-                            .uploadId();
+            CreateMultipartUploadRequest.Builder builder =
+                    CreateMultipartUploadRequest.builder()
+                            .bucket(archiveBucket)
+                            .key(key)
+                            .contentType(JFR_MIME)
+                            .tagging(createMetadataTagging(activeRecording.metadata));
+            if (expiry != null && expiry.isAfter(Instant.now())) {
+                builder = builder.expires(expiry);
+            }
+            CreateMultipartUploadRequest request = builder.build();
+            multipartId = storage.createMultipartUpload(request).uploadId();
             int read = 0;
             long accum = 0;
             for (int i = 1; i <= 10_000; i++) {
@@ -482,7 +489,7 @@ public class RecordingHelper {
     }
 
     public String downloadUrl(ActiveRecording recording) {
-        return "TODO";
+        return String.format("/api/v3/activedownload/%d", recording.id);
     }
 
     public String downloadUrl(String jvmId, String filename) {
