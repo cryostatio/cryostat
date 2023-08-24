@@ -95,6 +95,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -860,6 +861,10 @@ public class Recordings {
 
     private String decodeBase32(String encoded) {
         return new String(base32.decode(encoded), StandardCharsets.UTF_8);
+    }
+
+    private String decodeBase64(String encoded) {
+        return new String(base64Url.decode(encoded), StandardCharsets.UTF_8);
     }
 
     private static Map<String, Object> getRecordingOptions(
