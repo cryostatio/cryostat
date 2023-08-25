@@ -29,6 +29,8 @@ import org.jboss.logging.Logger;
 
 class MemoryCachingReportsService implements ReportsService {
 
+    static final String MEMORY_CACHE_ENABLED_CONFIG_PROPERTY =
+            "cryostat.services.reports.memory-cache.enabled";
     static final String ACTIVE_CACHE_NAME = "activereports";
     static final String ARCHIVED_CACHE_NAME = "archivedreports";
 

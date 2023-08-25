@@ -34,7 +34,7 @@
     
     <org.apache.commons.codec.version>1.15</org.apache.commons.codec.version>
     <org.apache.commons.io.version>2.11.0</org.apache.commons.io.version>
-    <org.apache.httpcomponents.version>4.5.14</org.apache.httpcomponents.version>
+    <org.apache.httpcomponents.version>5.2.1</org.apache.httpcomponents.version>
     <org.apache.commons.lang3.version>3.12.0</org.apache.commons.lang3.version>
     <org.apache.commons.validator.version>1.7</org.apache.commons.validator.version>
     <org.projectnessie.cel.bom.version>0.3.21</org.projectnessie.cel.bom.version>
@@ -131,7 +131,7 @@
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
-    <artifactId>quarkus-hibernate-validator</artifactId>
+      <artifactId>quarkus-hibernate-validator</artifactId>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
@@ -161,8 +161,8 @@
       <version>${org.apache.commons.io.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.httpcomponents</groupId>
-      <artifactId>httpclient</artifactId>
+      <groupId>org.apache.httpcomponents.client5</groupId>
+      <artifactId>httpclient5</artifactId>
       <version>${org.apache.httpcomponents.version}</version>
     </dependency>
     <dependency>
