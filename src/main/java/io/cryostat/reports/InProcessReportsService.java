@@ -44,7 +44,7 @@ class InProcessReportsService implements ReportsService {
     public Uni<Map<String, RuleEvaluation>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
         try {
-            logger.infov(
+            logger.tracev(
                     "inprocess reportFor active recording {0} {1}",
                     recording.target.jvmId, recording.remoteId);
             return Uni.createFrom()
@@ -69,7 +69,7 @@ class InProcessReportsService implements ReportsService {
     @Override
     public Uni<Map<String, RuleEvaluation>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {
-        logger.infov("inprocess reportFor archived recording {0} {1}", jvmId, filename);
+        logger.tracev("inprocess reportFor archived recording {0} {1}", jvmId, filename);
         return Uni.createFrom()
                 .future(
                         reportGenerator.generateEvalMapInterruptibly(

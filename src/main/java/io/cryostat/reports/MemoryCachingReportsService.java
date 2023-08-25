@@ -20,7 +20,6 @@ import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
 
-import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
 import io.cryostat.recordings.ActiveRecording;
 
 import io.quarkus.cache.Cache;
@@ -48,11 +47,11 @@ class MemoryCachingReportsService implements ReportsService {
     @Override
     public Uni<Map<String, RuleEvaluation>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
-        logger.infov("reportFor {0}", key(recording));
+        logger.tracev("reportFor {0}", key(recording));
         return activeCache.getAsync(
                 key(recording),
                 key -> {
-                    logger.infov("reportFor {0} cache miss", key(recording));
+                    logger.tracev("reportFor {0} cache miss", key(recording));
                     return delegate.reportFor(recording);
                 });
     }
@@ -60,11 +59,11 @@ class MemoryCachingReportsService implements ReportsService {
     @Override
     public Uni<Map<String, RuleEvaluation>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {
-        logger.infov("reportFor {0}", key(jvmId, filename));
+        logger.tracev("reportFor {0}", key(jvmId, filename));
         return archivedCache.getAsync(
                 key(jvmId, filename),
                 key -> {
-                    logger.infov("reportFor {0} cache miss", key(jvmId, filename));
+                    logger.tracev("reportFor {0} cache miss", key(jvmId, filename));
                     return delegate.reportFor(jvmId, filename);
                 });
     }
