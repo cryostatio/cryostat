@@ -19,6 +19,9 @@ import java.io.BufferedInputStream;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Future;
+import java.util.function.Predicate;
+
+import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
@@ -37,19 +40,21 @@ public class InProcessReportsService implements ReportsService {
     @Inject Logger logger;
 
     @Override
-    public Future<Map<String, RuleEvaluation>> reportFor(ActiveRecording recording) {
+    public Future<Map<String, RuleEvaluation>> reportFor(
+            ActiveRecording recording, Predicate<IRule> predicate) {
         try {
             return reportGenerator.generateEvalMapInterruptibly(
-                    new BufferedInputStream(helper.getActiveInputStream(recording)), r -> true);
+                    new BufferedInputStream(helper.getActiveInputStream(recording)), predicate);
         } catch (Exception e) {
             return CompletableFuture.failedFuture(e);
         }
     }
 
     @Override
-    public Future<Map<String, RuleEvaluation>> reportFor(String jvmId, String filename) {
+    public Future<Map<String, RuleEvaluation>> reportFor(
+            String jvmId, String filename, Predicate<IRule> predicate) {
         return reportGenerator.generateEvalMapInterruptibly(
                 new BufferedInputStream(helper.getArchivedRecordingStream(jvmId, filename)),
-                r -> true);
+                predicate);
     }
 }
