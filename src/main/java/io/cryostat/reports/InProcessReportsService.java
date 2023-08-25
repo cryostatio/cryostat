@@ -18,11 +18,11 @@ package io.cryostat.reports;
 import java.io.BufferedInputStream;
 import java.util.Map;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator;
-import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 
@@ -51,7 +51,16 @@ class InProcessReportsService implements ReportsService {
                     .future(
                             reportGenerator.generateEvalMapInterruptibly(
                                     new BufferedInputStream(helper.getActiveInputStream(recording)),
-                                    predicate));
+                                    predicate))
+                    .map(
+                            result ->
+                                    result.entrySet().stream()
+                                            .collect(
+                                                    Collectors.toMap(
+                                                            Map.Entry::getKey,
+                                                            e ->
+                                                                    RuleEvaluation.from(
+                                                                            e.getValue()))));
         } catch (Exception e) {
             return Uni.createFrom().failure(e);
         }
@@ -66,6 +75,13 @@ class InProcessReportsService implements ReportsService {
                         reportGenerator.generateEvalMapInterruptibly(
                                 new BufferedInputStream(
                                         helper.getArchivedRecordingStream(jvmId, filename)),
-                                predicate));
+                                predicate))
+                .map(
+                        result ->
+                                result.entrySet().stream()
+                                        .collect(
+                                                Collectors.toMap(
+                                                        Map.Entry::getKey,
+                                                        e -> RuleEvaluation.from(e.getValue()))));
     }
 }

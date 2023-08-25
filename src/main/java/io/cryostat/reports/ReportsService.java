@@ -20,7 +20,6 @@ import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
 
-import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
 import io.cryostat.recordings.ActiveRecording;
 
 import io.smallrye.mutiny.Uni;
@@ -38,5 +37,18 @@ public interface ReportsService {
 
     default Uni<Map<String, RuleEvaluation>> reportFor(String jvmId, String filename) {
         return reportFor(jvmId, filename, r -> true);
+    }
+
+    // FIXME remove this definition, just make the type from -core deserializable by Jackson
+    public static record RuleEvaluation(
+            double score, String name, String topic, String description) {
+        public static RuleEvaluation from(
+                io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation evaluation) {
+            return new RuleEvaluation(
+                    evaluation.getScore(),
+                    evaluation.getName(),
+                    evaluation.getTopic(),
+                    evaluation.getDescription());
+        }
     }
 }

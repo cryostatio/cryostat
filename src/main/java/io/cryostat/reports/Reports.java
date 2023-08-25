@@ -22,8 +22,8 @@ import java.util.Map;
 
 import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
 
-import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.reports.ReportsService.RuleEvaluation;
 import io.cryostat.targets.Target;
 
 import io.smallrye.common.annotation.Blocking;

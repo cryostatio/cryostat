@@ -15,6 +15,7 @@
  */
 package io.cryostat.reports;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.Optional;
 import java.util.Set;
@@ -22,15 +23,25 @@ import java.util.concurrent.ForkJoinPool;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.reports.ReportsService.RuleEvaluation;
 
+import com.fasterxml.jackson.core.JacksonException;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
 import io.quarkus.arc.DefaultBean;
 import io.quarkus.cache.Cache;
 import io.quarkus.cache.CacheManager;
 import io.quarkus.cache.CacheName;
+import io.quarkus.jackson.ObjectMapperCustomizer;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Singleton;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 public class Producers {
 
@@ -48,7 +59,6 @@ public class Producers {
     @RequestScoped
     @DefaultBean
     public static ReportsService produceReportsService(
-            @ConfigProperty(name = SidecarReportsService.URL_CONFIG_PROPERTY) String reportsUrl,
             @ConfigProperty(name = "quarkus.cache.enabled") boolean quarkusCache,
             @ConfigProperty(name = MemoryCachingReportsService.MEMORY_CACHE_ENABLED_CONFIG_PROPERTY)
                     boolean memoryCache,
@@ -69,5 +79,31 @@ public class Producers {
             svc = new MemoryCachingReportsService(svc, activeCache, archivedCache);
         }
         return svc;
+    }
+
+    @Singleton
+    public static class ObjectMapperCustomization implements ObjectMapperCustomizer {
+        @Override
+        public void customize(ObjectMapper mapper) {
+            var module = new SimpleModule();
+            module.addDeserializer(RuleEvaluation.class, new RuleEvaluationDeserializer());
+            mapper.registerModule(module);
+        }
+    }
+
+    static class RuleEvaluationDeserializer extends JsonDeserializer<RuleEvaluation> {
+        static final Logger logger = Logger.getLogger(RuleEvaluationDeserializer.class);
+
+        @Override
+        public RuleEvaluation deserialize(JsonParser p, DeserializationContext ctx)
+                throws IOException, JacksonException {
+            JsonNode node = p.readValueAsTree();
+            logger.info(node.toString());
+            var score = node.get("score").asDouble(-1);
+            var name = node.get("name").asText();
+            var topic = node.get("topic").asText();
+            var description = node.get("description").asText();
+            return new RuleEvaluation(score, name, topic, description);
+        }
     }
 }
