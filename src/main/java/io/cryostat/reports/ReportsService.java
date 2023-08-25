@@ -17,12 +17,25 @@ package io.cryostat.reports;
 
 import java.util.Map;
 import java.util.concurrent.Future;
+import java.util.function.Predicate;
+
+import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
 import io.cryostat.recordings.ActiveRecording;
 
 public interface ReportsService {
-    Future<Map<String, RuleEvaluation>> reportFor(ActiveRecording activeRecording);
+    Future<Map<String, RuleEvaluation>> reportFor(
+            ActiveRecording recording, Predicate<IRule> predicate);
 
-    Future<Map<String, RuleEvaluation>> reportFor(String jvmId, String filename);
+    default Future<Map<String, RuleEvaluation>> reportFor(ActiveRecording recording) {
+        return reportFor(recording, r -> true);
+    }
+
+    Future<Map<String, RuleEvaluation>> reportFor(
+            String jvmId, String filename, Predicate<IRule> predicate);
+
+    default Future<Map<String, RuleEvaluation>> reportFor(String jvmId, String filename) {
+        return reportFor(jvmId, filename, r -> true);
+    }
 }
