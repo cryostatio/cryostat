@@ -17,7 +17,6 @@ package io.cryostat.recordings;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
@@ -53,7 +52,10 @@ import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
-import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
+import io.cryostat.recordings.ActiveRecording.Listener.ActiveRecordingEvent;
+import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
+import io.cryostat.recordings.ActiveRecording.Listener.RecordingEventCategory;
+import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
@@ -467,12 +469,14 @@ public class RecordingHelper {
             throw e;
         }
         if (expiry == null) {
+            var event =
+                    new ActiveRecordingEvent(
+                            RecordingEventCategory.ACTIVE_SAVED,
+                            ActiveRecordingEvent.Payload.of(this, recording));
+            bus.publish(ActiveRecording.ACTIVE_RECORDING_ADDRESS, event);
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(
-                            "ActiveRecordingSaved",
-                            new RecordingEvent(
-                                    recording.target.connectUrl, toExternalForm(recording))));
+                    new Notification(event.category().category(), event.payload()));
         }
         return filename;
     }
@@ -590,11 +594,25 @@ public class RecordingHelper {
                         .bucket(archiveBucket)
                         .key(String.format("%s/%s", jvmId, filename))
                         .build());
+
+        var metadata = Metadata.empty(); // TODO
+        var target = Target.getTargetByJvmId(jvmId);
+        var event =
+                new ArchivedRecordingEvent(
+                        RecordingEventCategory.ARCHIVED_DELETED,
+                        ArchivedRecordingEvent.Payload.of(
+                                target.map(t -> t.connectUrl).orElse(null),
+                                new ArchivedRecording(
+                                        filename,
+                                        downloadUrl(jvmId, filename),
+                                        reportUrl(jvmId, filename),
+                                        metadata,
+                                        0,
+                                        0)));
+        bus.publish(ActiveRecording.ARCHIVED_RECORDING_ADDRESS, event);
         bus.publish(
                 MessagingServer.class.getName(),
-                new Notification(
-                        "ArchivedRecordingDeleted",
-                        new RecordingEvent(URI.create("localhost:0"), Map.of("name", filename))));
+                new Notification(event.category().category(), event.payload()));
     }
 
     // Metadata

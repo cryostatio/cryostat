@@ -97,27 +97,24 @@ public class Rule extends PanacheEntity {
 
         @PostPersist
         public void postPersist(Rule rule) {
-            // we cannot directly access EntityManager queries here
-            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.CREATED, rule));
-            notify(RuleEventCategory.CREATED, rule);
+            notify(new RuleEvent(RuleEventCategory.CREATED, rule));
         }
 
         @PostUpdate
         public void postUpdate(Rule rule) {
-            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.UPDATED, rule));
-            notify(RuleEventCategory.UPDATED, rule);
+            notify(new RuleEvent(RuleEventCategory.UPDATED, rule));
         }
 
         @PostRemove
         public void postRemove(Rule rule) {
-            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.DELETED, rule));
-            notify(RuleEventCategory.DELETED, rule);
+            notify(new RuleEvent(RuleEventCategory.DELETED, rule));
         }
 
-        private void notify(RuleEventCategory category, Rule rule) {
+        private void notify(RuleEvent event) {
+            bus.publish(RULE_ADDRESS, event);
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(category.getCategory(), rule));
+                    new Notification(event.category().category(), event.rule()));
         }
     }
 
@@ -135,11 +132,11 @@ public class Rule extends PanacheEntity {
 
         private final String name;
 
-        RuleEventCategory(String name) {
+        private RuleEventCategory(String name) {
             this.name = name;
         }
 
-        public String getCategory() {
+        public String category() {
             return name;
         }
     }
