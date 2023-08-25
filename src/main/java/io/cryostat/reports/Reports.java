@@ -15,7 +15,6 @@
  */
 package io.cryostat.reports;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
@@ -25,10 +24,8 @@ import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
-import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
 import io.cryostat.recordings.RecordingHelper;
-import io.cryostat.recordings.RemoteRecordingInputStreamFactory;
 import io.cryostat.targets.Target;
 
 import io.quarkus.cache.CacheResult;
@@ -66,8 +63,7 @@ public class Reports {
 
     @Inject S3Client storage;
     @Inject RecordingHelper helper;
-    @Inject RemoteRecordingInputStreamFactory remoteStreamFactory;
-    @Inject InterruptibleReportGenerator reportGenerator;
+    @Inject ReportsService reportsService;
     @Inject Logger logger;
 
     @Blocking
@@ -101,26 +97,22 @@ public class Reports {
                 .build();
     }
 
+    @GET
     @Blocking
     // TODO proactively invalidate cache when recording is deleted
     @CacheResult(cacheName = ARCHIVED_CACHE)
-    @GET
     @Path("/api/v3/reports/{encodedKey}")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
     public Uni<Map<String, RuleEvaluation>> get(@RestPath String encodedKey)
             throws IOException, CouldNotLoadRecordingException {
         // TODO implement query parameter for evaluation predicate
-        return Uni.createFrom()
-                .future(
-                        reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(
-                                        helper.getArchivedRecordingStream(encodedKey)),
-                                r -> true));
+        var pair = helper.decodedKey(encodedKey);
+        return Uni.createFrom().future(reportsService.reportFor(pair.getKey(), pair.getValue()));
     }
 
-    @Blocking
     @GET
+    @Blocking
     @Path("/api/v1/targets/{targetId}/reports/{recordingName}")
     @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_HTML, MediaType.TEXT_PLAIN})
     @RolesAllowed("read")
@@ -141,10 +133,10 @@ public class Reports {
                 .build();
     }
 
+    @GET
     @Blocking
     // TODO proactively invalidate cache when recording is deleted or target disappears
     @CacheResult(cacheName = ACTIVE_CACHE)
-    @GET
     @Path("/api/v3/targets/{targetId}/reports/{recordingId}")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
@@ -154,10 +146,6 @@ public class Reports {
         var target = Target.<Target>findById(targetId);
         var recording = target.getRecordingById(recordingId);
         // TODO implement query parameter for evaluation predicate
-        return Uni.createFrom()
-                .future(
-                        reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(helper.getActiveInputStream(recording)),
-                                r -> true));
+        return Uni.createFrom().future(reportsService.reportFor(recording));
     }
 }
