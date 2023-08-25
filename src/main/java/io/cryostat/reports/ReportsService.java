@@ -15,6 +15,7 @@
  */
 package io.cryostat.reports;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.function.Predicate;
 
@@ -22,7 +23,16 @@ import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.recordings.ActiveRecording;
 
+import com.fasterxml.jackson.core.JacksonException;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import io.quarkus.jackson.ObjectMapperCustomizer;
 import io.smallrye.mutiny.Uni;
+import jakarta.inject.Singleton;
 
 public interface ReportsService {
     Uni<Map<String, RuleEvaluation>> reportFor(
@@ -49,6 +59,29 @@ public interface ReportsService {
                     evaluation.getName(),
                     evaluation.getTopic(),
                     evaluation.getDescription());
+        }
+    }
+
+    @Singleton
+    public static class ObjectMapperCustomization implements ObjectMapperCustomizer {
+        @Override
+        public void customize(ObjectMapper mapper) {
+            var module = new SimpleModule();
+            module.addDeserializer(RuleEvaluation.class, new RuleEvaluationDeserializer());
+            mapper.registerModule(module);
+        }
+    }
+
+    static class RuleEvaluationDeserializer extends JsonDeserializer<RuleEvaluation> {
+        @Override
+        public RuleEvaluation deserialize(JsonParser p, DeserializationContext ctx)
+                throws IOException, JacksonException {
+            JsonNode node = p.readValueAsTree();
+            var score = node.get("score").asDouble(-1);
+            var name = node.get("name").asText();
+            var topic = node.get("topic").asText();
+            var description = node.get("description").asText();
+            return new RuleEvaluation(score, name, topic, description);
         }
     }
 }

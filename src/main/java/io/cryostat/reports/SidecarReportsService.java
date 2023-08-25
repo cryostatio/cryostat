@@ -53,7 +53,7 @@ class SidecarReportsService implements ReportsService {
     @Override
     public Uni<Map<String, RuleEvaluation>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
-        logger.infov(
+        logger.tracev(
                 "sidecar reportFor active recording {0} {1}",
                 recording.target.jvmId, recording.remoteId);
         var cf = new CompletableFuture<Map<String, RuleEvaluation>>();
@@ -68,7 +68,7 @@ class SidecarReportsService implements ReportsService {
     @Override
     public Uni<Map<String, RuleEvaluation>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {
-        logger.infov("sidecar reportFor archived recording {0} {1}", jvmId, filename);
+        logger.tracev("sidecar reportFor archived recording {0} {1}", jvmId, filename);
         var cf = new CompletableFuture<Map<String, RuleEvaluation>>();
         try {
             fireRequest(cf, helper.getArchivedRecordingStream(jvmId, filename));
