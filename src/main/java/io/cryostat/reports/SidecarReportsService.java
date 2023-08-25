@@ -23,7 +23,6 @@ import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
 
-import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.util.HttpStatusCodeIdentifier;
