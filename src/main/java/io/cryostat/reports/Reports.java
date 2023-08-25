@@ -23,16 +23,16 @@ import java.util.Map;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
+
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
-import io.quarkus.cache.CacheResult;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -40,27 +40,13 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.apache.commons.codec.binary.Base64;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
-import software.amazon.awssdk.services.s3.S3Client;
 
 @Path("")
 public class Reports {
 
-    static final String ACTIVE_CACHE = "active-reports";
-    static final String ARCHIVED_CACHE = "archived-reports";
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
-    String archiveBucket;
-
-    @Inject
-    @Named(Producers.BASE64_URL)
-    Base64 base64Url;
-
-    @Inject S3Client storage;
     @Inject RecordingHelper helper;
     @Inject ReportsService reportsService;
     @Inject Logger logger;
@@ -98,15 +84,13 @@ public class Reports {
 
     @GET
     @Blocking
-    // TODO proactively invalidate cache when recording is deleted
-    @CacheResult(cacheName = ARCHIVED_CACHE)
     @Path("/api/v3/reports/{encodedKey}")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
     public Uni<Map<String, AnalysisResult>> get(@RestPath String encodedKey) {
         // TODO implement query parameter for evaluation predicate
         var pair = helper.decodedKey(encodedKey);
-        return Uni.createFrom().future(reportsService.reportFor(pair.getKey(), pair.getValue()));
+        return reportsService.reportFor(pair.getKey(), pair.getValue());
     }
 
     @GET
@@ -133,8 +117,6 @@ public class Reports {
 
     @GET
     @Blocking
-    // TODO proactively invalidate cache when recording is deleted or target disappears
-    @CacheResult(cacheName = ACTIVE_CACHE)
     @Path("/api/v3/targets/{targetId}/reports/{recordingId}")
     @Produces({MediaType.APPLICATION_JSON})
     @RolesAllowed("read")
@@ -144,6 +126,6 @@ public class Reports {
         var target = Target.<Target>findById(targetId);
         var recording = target.getRecordingById(recordingId);
         // TODO implement query parameter for evaluation predicate
-        return Uni.createFrom().future(reportsService.reportFor(recording));
+        return reportsService.reportFor(recording);
     }
 }
