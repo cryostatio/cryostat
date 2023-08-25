@@ -49,7 +49,8 @@ import io.cryostat.core.RecordingOptionsCustomizer;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.TemplateType;
-import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
+import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
+import io.cryostat.recordings.ActiveRecording.Listener.RecordingEventCategory;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
@@ -236,21 +237,26 @@ public class Recordings {
             return;
         }
         logger.infov("Removing {0}", toRemove);
+
         // FIXME this notification should be emitted in the deletion operation stream so that there
         // is one notification per deleted object
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(
-                        "ArchivedRecordingDeleted",
-                        new RecordingEvent(
-                                URI.create(jvmId),
+        var target = Target.getTargetByJvmId(jvmId);
+        var event =
+                new ArchivedRecordingEvent(
+                        RecordingEventCategory.ARCHIVED_DELETED,
+                        ArchivedRecordingEvent.Payload.of(
+                                target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
                                         recording.fileName(),
                                         recordingHelper.downloadUrl(jvmId, recording.fileName()),
                                         recordingHelper.reportUrl(jvmId, recording.fileName()),
                                         metadata,
-                                        0 /*filesize*/,
-                                        clock.getMonotonicTime()))));
+                                        0,
+                                        clock.getMonotonicTime())));
+        bus.publish(ActiveRecording.ARCHIVED_RECORDING_ADDRESS, event);
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
         storage.deleteObjects(
                         DeleteObjectsRequest.builder()
                                 .bucket(archiveBucket)
@@ -322,11 +328,23 @@ public class Recordings {
                                 .key(recordingHelper.archivedRecordingKey(target.jvmId, filename))
                                 .build());
         if (resp.sdkHttpResponse().isSuccessful()) {
+            var event =
+                    new ArchivedRecordingEvent(
+                            RecordingEventCategory.ARCHIVED_DELETED,
+                            ArchivedRecordingEvent.Payload.of(
+                                    URI.create(connectUrl),
+                                    new ArchivedRecording(
+                                            recording.fileName(),
+                                            recordingHelper.downloadUrl(
+                                                    jvmId, recording.fileName()),
+                                            recordingHelper.reportUrl(jvmId, recording.fileName()),
+                                            metadata,
+                                            0,
+                                            clock.getMonotonicTime())));
+            bus.publish(ActiveRecording.ARCHIVED_RECORDING_ADDRESS, event);
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(
-                            "ArchivedRecordingDeleted",
-                            new RecordingEvent(URI.create(connectUrl), Map.of("name", filename))));
+                    new Notification(event.category().category(), event.payload()));
         } else {
             throw new HttpException(
                     resp.sdkHttpResponse().statusCode(),
@@ -358,19 +376,24 @@ public class Recordings {
                         .build(),
                 RequestBody.fromFile(recording.filePath()));
         logger.info("Upload complete");
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(
-                        "ArchivedRecordingCreated",
-                        new RecordingEvent(
-                                URI.create(jvmId),
+
+        var target = Target.getTargetByJvmId(jvmId);
+        var event =
+                new ArchivedRecordingEvent(
+                        RecordingEventCategory.ARCHIVED_CREATED,
+                        ArchivedRecordingEvent.Payload.of(
+                                target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
                                         filename,
                                         recordingHelper.downloadUrl(jvmId, filename),
                                         recordingHelper.reportUrl(jvmId, filename),
                                         metadata,
                                         0 /*filesize*/,
-                                        clock.getMonotonicTime()))));
+                                        clock.getMonotonicTime())));
+        bus.publish(ActiveRecording.ARCHIVED_RECORDING_ADDRESS, event);
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
 
         return Map.of("name", filename, "metadata", Map.of("labels", metadata.labels));
     }
@@ -761,11 +784,22 @@ public class Recordings {
                 "Got SDK response {0} {1}",
                 resp.sdkHttpResponse().statusCode(), resp.sdkHttpResponse().statusText());
         if (resp.sdkHttpResponse().isSuccessful()) {
+            var event =
+                    new ArchivedRecordingEvent(
+                            RecordingEventCategory.ARCHIVED_DELETED,
+                            ArchivedRecordingEvent.Payload.of(
+                                    URI.create(connectUrl),
+                                    new ArchivedRecording(
+                                            filename,
+                                            recordingHelper.downloadUrl(jvmId, filename),
+                                            recordingHelper.reportUrl(jvmId, filename),
+                                            metadata,
+                                            0 /*filesize*/,
+                                            clock.getMonotonicTime())));
+            bus.publish(ActiveRecording.ARCHIVED_RECORDING_ADDRESS, event);
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(
-                            "ArchivedRecordingDeleted",
-                            new RecordingEvent(URI.create(connectUrl), Map.of("name", filename))));
+                    new Notification(event.category().category(), event.payload()));
         } else {
             throw new HttpException(
                     resp.sdkHttpResponse().statusCode(),
@@ -1045,6 +1079,7 @@ public class Recordings {
         }
     }
 
+    // TODO include jvmId and filename
     public record ArchivedRecording(
             String name,
             String downloadUrl,

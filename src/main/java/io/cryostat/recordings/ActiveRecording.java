@@ -25,6 +25,7 @@ import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
 import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
+import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
@@ -63,6 +64,9 @@ import org.jboss.logging.Logger;
             @UniqueConstraint(columnNames = {"target_id", "remoteId"})
         })
 public class ActiveRecording extends PanacheEntity {
+
+    public static final String ACTIVE_RECORDING_ADDRESS = ActiveRecording.class.getName();
+    public static final String ARCHIVED_RECORDING_ADDRESS = ArchivedRecording.class.getName();
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")
@@ -111,7 +115,7 @@ public class ActiveRecording extends PanacheEntity {
         recording.name = descriptor.getName();
         switch (descriptor.getState()) {
             case CREATED:
-                recording.state = RecordingState.NEW;
+                recording.state = RecordingState.DELAYED;
                 break;
             case RUNNING:
                 recording.state = RecordingState.RUNNING;
@@ -123,6 +127,7 @@ public class ActiveRecording extends PanacheEntity {
                 recording.state = RecordingState.STOPPED;
                 break;
             default:
+                recording.state = RecordingState.NEW;
                 break;
         }
         recording.duration = descriptor.getDuration().in(UnitLookup.MILLISECOND).longValue();
@@ -171,7 +176,10 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
-            notify("ActiveRecordingCreated", activeRecording);
+            notify(
+                    new ActiveRecordingEvent(
+                            RecordingEventCategory.ACTIVE_CREATED,
+                            ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
         }
 
         @PreUpdate
@@ -206,7 +214,10 @@ public class ActiveRecording extends PanacheEntity {
         @PostUpdate
         public void postUpdate(ActiveRecording activeRecording) {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
-                notify("ActiveRecordingStopped", activeRecording);
+                notify(
+                        new ActiveRecordingEvent(
+                                RecordingEventCategory.ACTIVE_STOPPED,
+                                ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
             }
         }
 
@@ -224,27 +235,79 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostRemove
         public void postRemove(ActiveRecording activeRecording) {
-            notify("ActiveRecordingDeleted", activeRecording);
+            notify(
+                    new ActiveRecordingEvent(
+                            RecordingEventCategory.ACTIVE_DELETED,
+                            ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
         }
 
-        private void notify(String category, ActiveRecording recording) {
+        private void notify(ActiveRecordingEvent event) {
+            bus.publish(ACTIVE_RECORDING_ADDRESS, event);
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(
-                            category,
-                            new RecordingEvent(
-                                    recording.target.connectUrl,
-                                    recordingHelper.toExternalForm(recording))));
+                    new Notification(event.category().category(), event.payload()));
         }
 
-        // FIXME the target connectUrl URI may no longer be known if the target
-        // has disappeared and we are emitting an event regarding an archived recording originally
-        // sourced from that target.
-        // This should embed the target jvmId and optionally the database ID.
-        public record RecordingEvent(URI target, Object recording) {
-            public RecordingEvent {
-                Objects.requireNonNull(target);
-                Objects.requireNonNull(recording);
+        public record ActiveRecordingEvent(RecordingEventCategory category, Payload payload) {
+            public ActiveRecordingEvent {
+                Objects.requireNonNull(category);
+                Objects.requireNonNull(payload);
+            }
+
+            public record Payload(String target, LinkedRecordingDescriptor recording) {
+                public Payload {
+                    Objects.requireNonNull(target);
+                    Objects.requireNonNull(recording);
+                }
+
+                public static Payload of(RecordingHelper helper, ActiveRecording recording) {
+                    return new Payload(
+                            recording.target.connectUrl.toString(),
+                            helper.toExternalForm(recording));
+                }
+            }
+        }
+
+        public record ArchivedRecordingEvent(RecordingEventCategory category, Payload payload) {
+            public ArchivedRecordingEvent {
+                Objects.requireNonNull(category);
+                Objects.requireNonNull(payload);
+            }
+
+            // FIXME the target connectUrl URI may no longer be known if the target
+            // has disappeared and we are emitting an event regarding an archived recording
+            // originally
+            // sourced from that target.
+            // This should embed the target jvmId and optionally the database ID.
+            public record Payload(String target, ArchivedRecording recording) {
+                public Payload {
+                    Objects.requireNonNull(target);
+                    Objects.requireNonNull(recording);
+                }
+
+                public static Payload of(URI connectUrl, ArchivedRecording recording) {
+                    return new Payload(connectUrl.toString(), recording);
+                }
+            }
+        }
+
+        public enum RecordingEventCategory {
+            ACTIVE_CREATED("ActiveRecordingCreated"),
+            ACTIVE_STOPPED("ActiveRecordingStopped"),
+            ACTIVE_SAVED("ActiveRecordingSaved"),
+            ACTIVE_DELETED("ActiveRecordingDeleted"),
+            ARCHIVED_CREATED("ArchivedRecordingCreated"),
+            ARCHIVED_DELETED("ArchivedRecordingDeleted"),
+            ;
+
+            private final String category;
+
+            private RecordingEventCategory(String category) {
+                this.category = category;
+            }
+
+            String category() {
+                return category;
             }
         }
     }
