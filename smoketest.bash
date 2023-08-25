@@ -26,6 +26,7 @@ display_usage() {
     echo -e "\t-p\t\t\t\t\t\tDisable auth Proxy."
     echo -e "\t-s [minio|seaweed|cloudserver|localstack]\tS3 implementation to spin up (default \"minio\")."
     echo -e "\t-g\t\t\t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
+    echo -e "\t-r\t\t\t\t\t\tconfigure a cryostat-Reports sidecar instance"
     echo -e "\t-t\t\t\t\t\t\tinclude sample applications for Testing."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
@@ -35,7 +36,7 @@ display_usage() {
 
 s3=minio
 ce=podman
-while getopts "hs:pgtOVXcb" opt; do
+while getopts "hs:prgtOVXcb" opt; do
     case $opt in
         h)
             display_usage
@@ -67,6 +68,9 @@ while getopts "hs:pgtOVXcb" opt; do
             ;;
         b)
             OPEN_TABS=true
+            ;;
+        r)
+            FILES+=('./smoketest/compose/reports.yml')
             ;;
         *)
             display_usage
