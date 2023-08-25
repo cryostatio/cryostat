@@ -23,6 +23,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -840,7 +841,31 @@ public class Recordings {
             String name,
             String downloadUrl,
             String reportUrl,
-            Metadata metadata) {}
+            Metadata metadata) {
+        public LinkedRecordingDescriptor {
+            Objects.requireNonNull(state);
+            Objects.requireNonNull(name);
+            Objects.requireNonNull(downloadUrl);
+            Objects.requireNonNull(reportUrl);
+            Objects.requireNonNull(metadata);
+        }
+
+        public static LinkedRecordingDescriptor from(ActiveRecording recording) {
+            return new LinkedRecordingDescriptor(
+                    recording.remoteId,
+                    recording.state,
+                    recording.duration,
+                    recording.startTime,
+                    recording.continuous,
+                    recording.toDisk,
+                    recording.maxSize,
+                    recording.maxAge,
+                    recording.name,
+                    "TODO",
+                    "TODO",
+                    recording.metadata);
+        }
+    }
 
     public record ArchivedRecording(
             String name,
@@ -848,10 +873,25 @@ public class Recordings {
             String reportUrl,
             Metadata metadata,
             long size,
-            long archivedTime) {}
+            long archivedTime) {
+        public ArchivedRecording {
+            Objects.requireNonNull(name);
+            Objects.requireNonNull(downloadUrl);
+            Objects.requireNonNull(reportUrl);
+            Objects.requireNonNull(metadata);
+        }
+    }
 
     public record ArchivedRecordingDirectory(
-            String connectUrl, String jvmId, List<ArchivedRecording> recordings) {}
+            String connectUrl, String jvmId, List<ArchivedRecording> recordings) {
+        public ArchivedRecordingDirectory {
+            Objects.requireNonNull(connectUrl);
+            Objects.requireNonNull(jvmId);
+            if (recordings == null) {
+                recordings = Collections.emptyList();
+            }
+        }
+    }
 
     public record Metadata(Map<String, String> labels) {
         public Metadata {

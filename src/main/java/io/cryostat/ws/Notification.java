@@ -15,4 +15,11 @@
  */
 package io.cryostat.ws;
 
-public record Notification(String category, Object message) {}
+import java.util.Objects;
+
+// FIXME the category should come from an enum and be non-null
+public record Notification(String category, Object message) {
+    public Notification {
+        Objects.requireNonNull(category);
+    }
+}

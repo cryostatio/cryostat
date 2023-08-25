@@ -15,6 +15,7 @@
  */
 package io.cryostat.expressions;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -25,6 +26,7 @@ import java.util.stream.Stream;
 
 import io.cryostat.expressions.MatchExpression.ExpressionEvent;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.Target.Annotations;
 
 import io.quarkus.cache.Cache;
 import io.quarkus.cache.CacheInvalidate;
@@ -201,6 +203,18 @@ public class MatchExpressionEvaluator {
             String jvmId,
             Map<String, String> labels,
             Target.Annotations annotations) {
+        SimplifiedTarget {
+            Objects.requireNonNull(connectUrl);
+            Objects.requireNonNull(alias);
+            Objects.requireNonNull(jvmId);
+            if (labels == null) {
+                labels = Collections.emptyMap();
+            }
+            if (annotations == null) {
+                annotations = new Annotations();
+            }
+        }
+
         static SimplifiedTarget from(Target target) {
             return new SimplifiedTarget(
                     target.connectUrl.toString(),

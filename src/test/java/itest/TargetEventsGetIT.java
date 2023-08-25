@@ -111,7 +111,7 @@ public class TargetEventsGetIT extends StandardSelfTest {
         expectedResults.put("name", "Target Connection Opened");
         expectedResults.put(
                 "typeId", "io.cryostat.net.TargetConnectionManager.TargetConnectionOpened");
-        expectedResults.put("description", null);
+        expectedResults.put("description", "");
         expectedResults.put("category", List.of("Cryostat"));
         expectedResults.put(
                 "options",

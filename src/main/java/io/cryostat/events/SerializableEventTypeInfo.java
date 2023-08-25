@@ -15,7 +15,7 @@
  */
 package io.cryostat.events;
 
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -29,6 +29,20 @@ public record SerializableEventTypeInfo(
         String description,
         String[] category,
         Map<String, SerializableOptionDescriptor> options) {
+
+    public SerializableEventTypeInfo {
+        Objects.requireNonNull(name);
+        Objects.requireNonNull(typeId);
+        if (description == null) {
+            description = "";
+        }
+        if (category == null) {
+            category = new String[0];
+        }
+        if (options == null) {
+            options = Collections.emptyMap();
+        }
+    }
 
     public static SerializableEventTypeInfo fromEventTypeInfo(IEventTypeInfo info) {
         var name = info.getName();
@@ -45,33 +59,5 @@ public record SerializableEventTypeInfo(
         }
 
         return new SerializableEventTypeInfo(name, typeId, description, category, options);
-    }
-
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + Arrays.hashCode(category);
-        result = prime * result + Objects.hash(description, name, options, typeId);
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        SerializableEventTypeInfo other = (SerializableEventTypeInfo) obj;
-        return Arrays.equals(category, other.category)
-                && Objects.equals(description, other.description)
-                && Objects.equals(name, other.name)
-                && Objects.equals(options, other.options)
-                && Objects.equals(typeId, other.typeId);
     }
 }

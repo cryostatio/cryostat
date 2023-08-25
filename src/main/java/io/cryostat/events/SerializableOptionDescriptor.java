@@ -15,9 +15,16 @@
  */
 package io.cryostat.events;
 
+import java.util.Objects;
+
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
 
 public record SerializableOptionDescriptor(String name, String description, String defaultValue) {
+    public SerializableOptionDescriptor {
+        Objects.requireNonNull(name);
+        Objects.requireNonNull(description);
+        Objects.requireNonNull(defaultValue);
+    }
 
     public static SerializableOptionDescriptor fromOptionDescriptor(IOptionDescriptor<?> desc) {
         var name = desc.getName();

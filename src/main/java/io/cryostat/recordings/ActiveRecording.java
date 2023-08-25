@@ -17,6 +17,7 @@ package io.cryostat.recordings;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Objects;
 
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
@@ -222,6 +223,11 @@ public class ActiveRecording extends PanacheEntity {
                                     recordingHelper.toExternalForm(recording))));
         }
 
-        public record RecordingEvent(URI target, Object recording) {}
+        public record RecordingEvent(URI target, Object recording) {
+            public RecordingEvent {
+                Objects.requireNonNull(target);
+                Objects.requireNonNull(recording);
+            }
+        }
     }
 }

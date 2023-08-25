@@ -120,34 +120,18 @@ public class Target extends PanacheEntity {
                 .orElse(null);
     }
 
-    public static class Annotations {
-        public Map<String, String> platform;
-        public Map<String, String> cryostat;
+    public static record Annotations(Map<String, String> platform, Map<String, String> cryostat) {
+        public Annotations {
+            if (platform == null) {
+                platform = new HashMap<>();
+            }
+            if (cryostat == null) {
+                cryostat = new HashMap<>();
+            }
+        }
 
         public Annotations() {
-            this.platform = new HashMap<>();
-            this.cryostat = new HashMap<>();
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(cryostat, platform);
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null) {
-                return false;
-            }
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
-            Annotations other = (Annotations) obj;
-            return Objects.equals(cryostat, other.cryostat)
-                    && Objects.equals(platform, other.platform);
+            this(new HashMap<>(), new HashMap<>());
         }
     }
 
@@ -182,7 +166,12 @@ public class Target extends PanacheEntity {
         ;
     }
 
-    public record TargetDiscovery(EventKind kind, Target serviceRef) {}
+    public record TargetDiscovery(EventKind kind, Target serviceRef) {
+        public TargetDiscovery {
+            Objects.requireNonNull(kind);
+            Objects.requireNonNull(serviceRef);
+        }
+    }
 
     @ApplicationScoped
     static class Listener {
@@ -269,6 +258,10 @@ public class Target extends PanacheEntity {
             bus.publish(TARGET_JVM_DISCOVERY, new TargetDiscovery(eventKind, target));
         }
 
-        public record TargetDiscoveryEvent(TargetDiscovery event) {}
+        public record TargetDiscoveryEvent(TargetDiscovery event) {
+            public TargetDiscoveryEvent {
+                Objects.requireNonNull(event);
+            }
+        }
     }
 }

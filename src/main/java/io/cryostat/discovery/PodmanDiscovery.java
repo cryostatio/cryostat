@@ -270,14 +270,16 @@ public class PodmanDiscovery {
             target.alias = Optional.ofNullable(desc.Names.get(0)).orElse(desc.Id);
             target.labels = desc.Labels;
             target.annotations = new Annotations();
-            target.annotations.cryostat.putAll(
-                    Map.of(
-                            "REALM", // AnnotationKey.REALM,
-                            REALM,
-                            "HOST", // AnnotationKey.HOST,
-                            hostname,
-                            "PORT", // "AnnotationKey.PORT,
-                            Integer.toString(jmxPort)));
+            target.annotations
+                    .cryostat()
+                    .putAll(
+                            Map.of(
+                                    "REALM", // AnnotationKey.REALM,
+                                    REALM,
+                                    "HOST", // AnnotationKey.HOST,
+                                    hostname,
+                                    "PORT", // "AnnotationKey.PORT,
+                                    Integer.toString(jmxPort)));
 
             DiscoveryNode node = DiscoveryNode.target(target);
             target.discoveryNode = node;
