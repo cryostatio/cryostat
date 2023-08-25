@@ -17,8 +17,6 @@ package io.cryostat.reports;
 
 import java.io.BufferedInputStream;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
 import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
@@ -28,33 +26,46 @@ import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 
-import jakarta.inject.Inject;
-import jakarta.inject.Singleton;
+import io.smallrye.mutiny.Uni;
 import org.jboss.logging.Logger;
 
-@Singleton
-public class InProcessReportsService implements ReportsService {
+class InProcessReportsService implements ReportsService {
 
-    @Inject RecordingHelper helper;
-    @Inject InterruptibleReportGenerator reportGenerator;
-    @Inject Logger logger;
+    private final RecordingHelper helper;
+    private final InterruptibleReportGenerator reportGenerator;
+    private final Logger logger = Logger.getLogger(InProcessReportsService.class.getName());
+
+    InProcessReportsService(RecordingHelper helper, InterruptibleReportGenerator reportGenerator) {
+        this.helper = helper;
+        this.reportGenerator = reportGenerator;
+    }
 
     @Override
-    public Future<Map<String, RuleEvaluation>> reportFor(
+    public Uni<Map<String, RuleEvaluation>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
         try {
-            return reportGenerator.generateEvalMapInterruptibly(
-                    new BufferedInputStream(helper.getActiveInputStream(recording)), predicate);
+            logger.infov(
+                    "inprocess reportFor active recording {0} {1}",
+                    recording.target.jvmId, recording.remoteId);
+            return Uni.createFrom()
+                    .future(
+                            reportGenerator.generateEvalMapInterruptibly(
+                                    new BufferedInputStream(helper.getActiveInputStream(recording)),
+                                    predicate));
         } catch (Exception e) {
-            return CompletableFuture.failedFuture(e);
+            return Uni.createFrom().failure(e);
         }
     }
 
     @Override
-    public Future<Map<String, RuleEvaluation>> reportFor(
+    public Uni<Map<String, RuleEvaluation>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {
-        return reportGenerator.generateEvalMapInterruptibly(
-                new BufferedInputStream(helper.getArchivedRecordingStream(jvmId, filename)),
-                predicate);
+        logger.infov("inprocess reportFor archived recording {0} {1}", jvmId, filename);
+        return Uni.createFrom()
+                .future(
+                        reportGenerator.generateEvalMapInterruptibly(
+                                new BufferedInputStream(
+                                        helper.getArchivedRecordingStream(jvmId, filename)),
+                                predicate));
     }
 }

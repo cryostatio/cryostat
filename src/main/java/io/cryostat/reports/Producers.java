@@ -19,8 +19,12 @@ import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator;
+import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.arc.DefaultBean;
+import io.quarkus.cache.Cache;
+import io.quarkus.cache.CacheManager;
+import io.quarkus.cache.CacheName;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -28,6 +32,8 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 public class Producers {
 
     public static final String URL_CONFIG_PROPERTY = "cryostat.services.reports.url";
+    public static final String MEMORY_CACHE_ENABLED_CONFIG_PROPERTY =
+            "cryostat.services.reports.memory-cache.enabled";
 
     @Produces
     // RequestScoped so that each individual report generation request has its own interruptible
@@ -44,8 +50,18 @@ public class Producers {
     @DefaultBean
     public static ReportsService produceReportsService(
             @ConfigProperty(name = URL_CONFIG_PROPERTY) String reportsUrl,
-            InProcessReportsService inProcessReportsService) {
-        // TODO switch inProcess vs remote, add caching wrappers
-        return inProcessReportsService;
+            @ConfigProperty(name = "quarkus.cache.enabled") boolean quarkusCache,
+            @ConfigProperty(name = MEMORY_CACHE_ENABLED_CONFIG_PROPERTY) boolean memoryCache,
+            @CacheName(MemoryCachingReportsService.ACTIVE_CACHE_NAME) Cache activeCache,
+            @CacheName(MemoryCachingReportsService.ARCHIVED_CACHE_NAME) Cache archivedCache,
+            RecordingHelper helper,
+            InterruptibleReportGenerator reportGenerator,
+            CacheManager cacheManager) {
+        // TODO switch inProcess vs remote, add s3 caching wrapper for archives
+        ReportsService svc = new InProcessReportsService(helper, reportGenerator);
+        if (quarkusCache && memoryCache) {
+            svc = new MemoryCachingReportsService(svc, activeCache, archivedCache);
+        }
+        return svc;
     }
 }
