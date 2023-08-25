@@ -1,10 +1,5 @@
 #!/usr/bin/env bash
 
-if ! command -v yq; then
-    echo "No 'yq' found"
-    exit 1
-fi
-
 FILES=(
     ./smoketest/compose/db.yml
     ./smoketest/compose/cryostat.yml
@@ -18,14 +13,19 @@ display_usage() {
     echo -e "\t-O \t\t\t\tOffline mode, do not attempt to pull container images."
     echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up. (default \"minio\")"
     echo -e "\t-g \t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
+    echo -e "\t-r\t\t\t\tconfigure a cryostat-reports sidecar instance"
     echo -e "\t-t \t\t\t\tinclude sample applications for Testing."
     echo -e "\t-V \t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X \t\t\t\tdeploy additional development aid tools."
 }
 
 s3=minio
-while getopts "s:gtOVX" opt; do
+while getopts "hs:rgtOVX" opt; do
     case $opt in
+        h)
+            display_usage
+            exit
+            ;;
         s)
             s3="${OPTARG}"
             ;;
@@ -44,12 +44,20 @@ while getopts "s:gtOVX" opt; do
         X)
             FILES+=('./smoketest/compose/db-viewer.yml')
             ;;
+        r)
+            FILES+=('./smoketest/compose/reports.yml')
+            ;;
         *)
             display_usage
             exit 1
             ;;
     esac
 done
+
+if ! command -v yq; then
+    echo "No 'yq' found"
+    exit 1
+fi
 
 if [ "${s3}" = "minio" ]; then
     FILES+=('./smoketest/compose/s3-minio.yml')
