@@ -481,7 +481,7 @@ public class RecordingHelper {
         return getArchivedRecordingMetadata(archivedRecordingKey(jvmId, filename));
     }
 
-    private Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
+    public Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
         try {
             return Optional.of(
                     taggingToMetadata(
@@ -489,6 +489,22 @@ public class RecordingHelper {
                                             GetObjectTaggingRequest.builder()
                                                     .bucket(archiveBucket)
                                                     .key(storageKey)
+                                                    .build())
+                                    .tagSet()));
+        } catch (NoSuchKeyException nske) {
+            logger.warn(nske);
+            return Optional.empty();
+        }
+    }
+
+    public Optional<Metadata> getArchivedRecordingMetadata(String jvmId, String filename) {
+        try {
+            return Optional.of(
+                    taggingToMetadata(
+                            storage.getObjectTagging(
+                                            GetObjectTaggingRequest.builder()
+                                                    .bucket(archiveBucket)
+                                                    .key(archivedRecordingKey(jvmId, filename))
                                                     .build())
                                     .tagSet()));
         } catch (NoSuchKeyException nske) {
@@ -617,7 +633,7 @@ public class RecordingHelper {
         if (metadata.expiry() != null) {
             tags.add(
                     Tag.builder()
-                            .key(objectExpirationLabel)
+                            .key(base64Url.encodeAsString(objectExpirationLabel.getBytes()))
                             .value(
                                     base64Url.encodeAsString(
                                             metadata.expiry()
@@ -634,12 +650,12 @@ public class RecordingHelper {
         Instant expiry = null;
         var labels = new HashMap<String, String>();
         for (var tag : tagSet) {
-            var decodedValue = decodeBase64(tag.value());
-            if (tag.key().equals(objectExpirationLabel)) {
-                expiry = Instant.parse(decodedValue);
+            var key = decodeBase64(tag.key());
+            var value = decodeBase64(tag.value());
+            if (key.equals(objectExpirationLabel)) {
+                expiry = Instant.parse(value);
             } else {
-                var decodedKey = decodeBase64(tag.key());
-                labels.put(decodedKey, decodedValue);
+                labels.put(key, value);
             }
         }
         return new Metadata(labels, expiry);
