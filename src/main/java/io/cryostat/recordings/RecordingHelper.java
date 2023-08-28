@@ -480,7 +480,11 @@ public class RecordingHelper {
         return filename;
     }
 
-    public Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
+    public Optional<Metadata> getArchivedRecordingMetadata(String jvmId, String filename) {
+        return getArchivedRecordingMetadata(archivedRecordingKey(jvmId, filename));
+    }
+
+    private Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
         try {
             return Optional.of(
                     taggingToMetadata(
@@ -488,22 +492,6 @@ public class RecordingHelper {
                                             GetObjectTaggingRequest.builder()
                                                     .bucket(archiveBucket)
                                                     .key(storageKey)
-                                                    .build())
-                                    .tagSet()));
-        } catch (NoSuchKeyException nske) {
-            logger.warn(nske);
-            return Optional.empty();
-        }
-    }
-
-    public Optional<Metadata> getArchivedRecordingMetadata(String jvmId, String filename) {
-        try {
-            return Optional.of(
-                    taggingToMetadata(
-                            storage.getObjectTagging(
-                                            GetObjectTaggingRequest.builder()
-                                                    .bucket(archiveBucket)
-                                                    .key(archivedRecordingKey(jvmId, filename))
                                                     .build())
                                     .tagSet()));
         } catch (NoSuchKeyException nske) {
