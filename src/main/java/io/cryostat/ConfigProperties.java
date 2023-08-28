@@ -17,6 +17,8 @@ package io.cryostat;
 
 public class ConfigProperties {
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
+    public static final String AWS_OBJECT_EXPIRATION_LABELS =
+            "storage.buckets.archives.expiration-label";
 
     public static final String GRAFANA_DASHBOARD_URL = "grafana-dashboard.url";
     public static final String GRAFANA_DASHBOARD_EXT_URL = "grafana-dashboard-ext.url";

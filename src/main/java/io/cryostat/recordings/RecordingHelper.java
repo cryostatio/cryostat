@@ -27,8 +27,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -89,7 +91,9 @@ import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
@@ -131,6 +135,9 @@ public class RecordingHelper {
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
+
+    @ConfigProperty(name = ConfigProperties.AWS_OBJECT_EXPIRATION_LABELS)
+    String objectExpirationLabel;
 
     boolean shouldRestartRecording(
             RecordingReplace replace, RecordingState state, String recordingName)
@@ -332,14 +339,22 @@ public class RecordingHelper {
     }
 
     public List<S3Object> listArchivedRecordingObjects() {
-        return storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
-                .contents();
+        return listArchivedRecordingObjects(null);
     }
 
     public List<S3Object> listArchivedRecordingObjects(String jvmId) {
-        return storage.listObjectsV2(
-                        ListObjectsV2Request.builder().bucket(archiveBucket).prefix(jvmId).build())
-                .contents();
+        var builder = ListObjectsV2Request.builder().bucket(archiveBucket);
+        if (StringUtils.isNotBlank(jvmId)) {
+            builder = builder.prefix(jvmId);
+        }
+        return storage.listObjectsV2(builder.build()).contents().stream()
+                .filter(
+                        o -> {
+                            var metadata = getArchivedRecordingMetadata(o.key());
+                            var temporary = metadata.map(m -> m.expiry() != null).orElse(false);
+                            return !temporary;
+                        })
+                .toList();
     }
 
     public String saveRecording(Target target, ActiveRecording activeRecording) throws Exception {
@@ -368,7 +383,9 @@ public class RecordingHelper {
                             .bucket(archiveBucket)
                             .key(key)
                             .contentType(JFR_MIME)
-                            .tagging(createMetadataTagging(activeRecording.metadata));
+                            .tagging(
+                                    createMetadataTagging(
+                                            new Metadata(activeRecording.metadata, expiry)));
             if (expiry != null && expiry.isAfter(Instant.now())) {
                 builder = builder.expires(expiry);
             }
@@ -452,12 +469,51 @@ public class RecordingHelper {
             // couldn't parse the response from Amazon S3.
             throw e;
         }
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(
-                        "ActiveRecordingSaved",
-                        new RecordingEvent(target.connectUrl, toExternalForm(activeRecording))));
+        if (expiry == null) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            "ActiveRecordingSaved",
+                            new RecordingEvent(
+                                    target.connectUrl, toExternalForm(activeRecording))));
+        }
         return filename;
+    }
+
+    public Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
+        try {
+            return Optional.of(
+                    taggingToMetadata(
+                            storage.getObjectTagging(
+                                            GetObjectTaggingRequest.builder()
+                                                    .bucket(archiveBucket)
+                                                    .key(storageKey)
+                                                    .build())
+                                    .tagSet()));
+        } catch (NoSuchKeyException nske) {
+            logger.warn(nske);
+            return Optional.empty();
+        }
+    }
+
+    public Optional<Metadata> getArchivedRecordingMetadata(String jvmId, String filename) {
+        try {
+            return Optional.of(
+                    taggingToMetadata(
+                            storage.getObjectTagging(
+                                            GetObjectTaggingRequest.builder()
+                                                    .bucket(archiveBucket)
+                                                    .key(archivedRecordingKey(jvmId, filename))
+                                                    .build())
+                                    .tagSet()));
+        } catch (NoSuchKeyException nske) {
+            logger.warn(nske);
+            return Optional.empty();
+        }
+    }
+
+    private String decodeBase64(String encoded) {
+        return new String(base64Url.decode(encoded), StandardCharsets.UTF_8);
     }
 
     public String archivedRecordingKey(String jvmId, String filename) {
@@ -559,21 +615,49 @@ public class RecordingHelper {
     // Metadata
     private Tagging createMetadataTagging(Metadata metadata) {
         // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
-        return Tagging.builder()
-                .tagSet(
-                        metadata.labels().entrySet().stream()
-                                .map(
-                                        e ->
-                                                Tag.builder()
-                                                        .key(
-                                                                base64Url.encodeAsString(
-                                                                        e.getKey().getBytes()))
-                                                        .value(
-                                                                base64Url.encodeAsString(
-                                                                        e.getValue().getBytes()))
-                                                        .build())
-                                .toList())
-                .build();
+        var tags = new ArrayList<Tag>();
+        tags.addAll(
+                metadata.labels().entrySet().stream()
+                        .map(
+                                e ->
+                                        Tag.builder()
+                                                .key(
+                                                        base64Url.encodeAsString(
+                                                                e.getKey().getBytes()))
+                                                .value(
+                                                        base64Url.encodeAsString(
+                                                                e.getValue().getBytes()))
+                                                .build())
+                        .toList());
+        if (metadata.expiry() != null) {
+            tags.add(
+                    Tag.builder()
+                            .key(base64Url.encodeAsString(objectExpirationLabel.getBytes()))
+                            .value(
+                                    base64Url.encodeAsString(
+                                            metadata.expiry()
+                                                    .atOffset(ZoneOffset.UTC)
+                                                    .toString()
+                                                    .getBytes()))
+                            .build());
+        }
+        return Tagging.builder().tagSet(tags).build();
+    }
+
+    private Metadata taggingToMetadata(List<Tag> tagSet) {
+        // TODO parse out other metadata than labels
+        Instant expiry = null;
+        var labels = new HashMap<String, String>();
+        for (var tag : tagSet) {
+            var key = decodeBase64(tag.key());
+            var value = decodeBase64(tag.value());
+            if (key.equals(objectExpirationLabel)) {
+                expiry = Instant.parse(value);
+            } else {
+                labels.put(key, value);
+            }
+        }
+        return new Metadata(labels, expiry);
     }
 
     // jfr-datasource handling

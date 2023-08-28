@@ -32,7 +32,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
@@ -95,9 +94,7 @@ import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -173,7 +170,8 @@ public class Recordings {
                             String jvmId = parts[0];
                             String filename = parts[1];
                             Metadata metadata =
-                                    getArchivedRecordingMetadata(jvmId, filename)
+                                    recordingHelper
+                                            .getArchivedRecordingMetadata(jvmId, filename)
                                             .orElseGet(Metadata::empty);
                             result.add(
                                     new ArchivedRecording(
@@ -289,7 +287,8 @@ public class Recordings {
                             String objectName = item.key().strip();
                             String filename = objectName.split("/")[1];
                             Metadata metadata =
-                                    getArchivedRecordingMetadata(jvmId, filename)
+                                    recordingHelper
+                                            .getArchivedRecordingMetadata(jvmId, filename)
                                             .orElseGet(Metadata::empty);
                             result.add(
                                     new ArchivedRecording(
@@ -313,7 +312,10 @@ public class Recordings {
             @RestForm("recording") FileUpload recording,
             @RestForm("labels") JsonObject rawLabels)
             throws Exception {
-        var metadata = getArchivedRecordingMetadata(jvmId, filename).orElseGet(Metadata::empty);
+        var metadata =
+                recordingHelper
+                        .getArchivedRecordingMetadata(jvmId, filename)
+                        .orElseGet(Metadata::empty);
         var connectUrl =
                 Target.getTargetByJvmId(jvmId)
                         .map(t -> t.connectUrl)
@@ -406,7 +408,8 @@ public class Recordings {
                             String filename = parts[1];
 
                             Metadata metadata =
-                                    getArchivedRecordingMetadata(jvmId, filename)
+                                    recordingHelper
+                                            .getArchivedRecordingMetadata(jvmId, filename)
                                             .orElseGet(Metadata::empty);
 
                             String connectUrl =
@@ -664,7 +667,10 @@ public class Recordings {
             throws Exception {
         var jvmId = decodeBase32(encodedJvmId);
         logger.infov("Handling archived recording deletion: {0} / {1}", jvmId, filename);
-        var metadata = getArchivedRecordingMetadata(jvmId, filename).orElseGet(Metadata::empty);
+        var metadata =
+                recordingHelper
+                        .getArchivedRecordingMetadata(jvmId, filename)
+                        .orElseGet(Metadata::empty);
 
         var connectUrl =
                 Target.getTargetByJvmId(jvmId)
@@ -851,38 +857,8 @@ public class Recordings {
                 .build();
     }
 
-    private Metadata taggingToMetadata(List<Tag> tagSet) {
-        // TODO parse out other metadata than labels
-        return new Metadata(
-                tagSet.stream()
-                        .map(tag -> Pair.of(decodeBase64(tag.key()), decodeBase64(tag.value())))
-                        .collect(Collectors.toMap(Pair::getKey, Pair::getValue)));
-    }
-
     private String decodeBase32(String encoded) {
         return new String(base32.decode(encoded), StandardCharsets.UTF_8);
-    }
-
-    private String decodeBase64(String encoded) {
-        return new String(base64Url.decode(encoded), StandardCharsets.UTF_8);
-    }
-
-    private Optional<Metadata> getArchivedRecordingMetadata(String jvmId, String filename) {
-        try {
-            return Optional.of(
-                    taggingToMetadata(
-                            storage.getObjectTagging(
-                                            GetObjectTaggingRequest.builder()
-                                                    .bucket(archiveBucket)
-                                                    .key(
-                                                            recordingHelper.archivedRecordingKey(
-                                                                    jvmId, filename))
-                                                    .build())
-                                    .tagSet()));
-        } catch (NoSuchKeyException nske) {
-            logger.warn(nske);
-            return Optional.empty();
-        }
     }
 
     private static Map<String, Object> getRecordingOptions(
@@ -988,13 +964,21 @@ public class Recordings {
         }
     }
 
-    public record Metadata(Map<String, String> labels) {
+    public record Metadata(Map<String, String> labels, Instant expiry) {
         public Metadata {
             Objects.requireNonNull(labels);
         }
 
+        public Metadata(Map<String, String> labels) {
+            this(labels, null);
+        }
+
         public Metadata(Metadata other) {
             this(new HashMap<>((other.labels)));
+        }
+
+        public Metadata(Metadata other, Instant expiry) {
+            this(new HashMap<>((other.labels)), expiry);
         }
 
         public static Metadata empty() {
