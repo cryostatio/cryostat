@@ -497,22 +497,6 @@ public class RecordingHelper {
         }
     }
 
-    public Optional<Metadata> getArchivedRecordingMetadata(String jvmId, String filename) {
-        try {
-            return Optional.of(
-                    taggingToMetadata(
-                            storage.getObjectTagging(
-                                            GetObjectTaggingRequest.builder()
-                                                    .bucket(archiveBucket)
-                                                    .key(archivedRecordingKey(jvmId, filename))
-                                                    .build())
-                                    .tagSet()));
-        } catch (NoSuchKeyException nske) {
-            logger.warn(nske);
-            return Optional.empty();
-        }
-    }
-
     private String decodeBase64(String encoded) {
         return new String(base64Url.decode(encoded), StandardCharsets.UTF_8);
     }
