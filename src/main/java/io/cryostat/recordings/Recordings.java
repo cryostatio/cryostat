@@ -50,9 +50,9 @@ import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
-import io.cryostat.recordings.ActiveRecording.Listener.RecordingEventCategory;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
+import io.cryostat.recordings.Recordings.RecordingEventCategory;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpStatusCodeIdentifier;
@@ -243,7 +243,7 @@ public class Recordings {
         var target = Target.getTargetByJvmId(jvmId);
         var event =
                 new ArchivedRecordingEvent(
-                        RecordingEventCategory.ARCHIVED_DELETED,
+                        Recordings.RecordingEventCategory.ARCHIVED_DELETED,
                         ArchivedRecordingEvent.Payload.of(
                                 target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
@@ -253,7 +253,7 @@ public class Recordings {
                                         metadata,
                                         0,
                                         clock.getMonotonicTime())));
-        bus.publish(ActiveRecording.ARCHIVED_RECORDING_ADDRESS, event);
+        bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
@@ -330,7 +330,7 @@ public class Recordings {
         if (resp.sdkHttpResponse().isSuccessful()) {
             var event =
                     new ArchivedRecordingEvent(
-                            RecordingEventCategory.ARCHIVED_DELETED,
+                            Recordings.RecordingEventCategory.ARCHIVED_DELETED,
                             ArchivedRecordingEvent.Payload.of(
                                     URI.create(connectUrl),
                                     new ArchivedRecording(
@@ -341,7 +341,7 @@ public class Recordings {
                                             metadata,
                                             0,
                                             clock.getMonotonicTime())));
-            bus.publish(ActiveRecording.ARCHIVED_RECORDING_ADDRESS, event);
+            bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(event.category().category(), event.payload()));
@@ -380,7 +380,7 @@ public class Recordings {
         var target = Target.getTargetByJvmId(jvmId);
         var event =
                 new ArchivedRecordingEvent(
-                        RecordingEventCategory.ARCHIVED_CREATED,
+                        Recordings.RecordingEventCategory.ARCHIVED_CREATED,
                         ArchivedRecordingEvent.Payload.of(
                                 target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
@@ -390,7 +390,7 @@ public class Recordings {
                                         metadata,
                                         0 /*filesize*/,
                                         clock.getMonotonicTime())));
-        bus.publish(ActiveRecording.ARCHIVED_RECORDING_ADDRESS, event);
+        bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
@@ -767,7 +767,11 @@ public class Recordings {
                 Target.getTargetByJvmId(jvmId)
                         .map(t -> t.connectUrl)
                         .map(c -> c.toString())
-                        .orElseGet(() -> metadata.labels.computeIfAbsent("connectUrl", k -> jvmId));
+                        .filter(StringUtils::isNotBlank)
+                        .orElseGet(
+                                () ->
+                                        metadata.labels.computeIfAbsent(
+                                                "connectUrl", k -> "lost-" + jvmId));
         logger.infov(
                 "Archived recording from connectUrl \"{0}\" has metadata: {1}",
                 connectUrl, metadata);
@@ -786,7 +790,7 @@ public class Recordings {
         if (resp.sdkHttpResponse().isSuccessful()) {
             var event =
                     new ArchivedRecordingEvent(
-                            RecordingEventCategory.ARCHIVED_DELETED,
+                            Recordings.RecordingEventCategory.ARCHIVED_DELETED,
                             ArchivedRecordingEvent.Payload.of(
                                     URI.create(connectUrl),
                                     new ArchivedRecording(
@@ -796,7 +800,7 @@ public class Recordings {
                                             metadata,
                                             0 /*filesize*/,
                                             clock.getMonotonicTime())));
-            bus.publish(ActiveRecording.ARCHIVED_RECORDING_ADDRESS, event);
+            bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(event.category().category(), event.payload()));
@@ -1127,6 +1131,33 @@ public class Recordings {
 
         public static Metadata empty() {
             return new Metadata(new HashMap<>());
+        }
+    }
+
+    public static final String ACTIVE_RECORDING_CREATED = "ActiveRecordingCreated";
+    public static final String ACTIVE_RECORDING_STOPPED = "ActiveRecordingStopped";
+    public static final String ARCHIVED_RECORDING_DELETED = "ArchivedRecordingDeleted";
+    public static final String ARCHIVED_RECORDING_CREATED = "ArchivedRecordingCreated";
+    public static final String ACTIVE_RECORDING_DELETED = "ActiveRecordingDeleted";
+    public static final String ACTIVE_RECORDING_SAVED = "ActiveRecordingSaved";
+
+    public enum RecordingEventCategory {
+        ACTIVE_CREATED(ACTIVE_RECORDING_CREATED),
+        ACTIVE_STOPPED(ACTIVE_RECORDING_STOPPED),
+        ACTIVE_SAVED(ACTIVE_RECORDING_SAVED),
+        ACTIVE_DELETED(ACTIVE_RECORDING_DELETED),
+        ARCHIVED_CREATED(ARCHIVED_RECORDING_CREATED),
+        ARCHIVED_DELETED(ARCHIVED_RECORDING_DELETED),
+        ;
+
+        private final String category;
+
+        private RecordingEventCategory(String category) {
+            this.category = category;
+        }
+
+        public String category() {
+            return category;
         }
     }
 }

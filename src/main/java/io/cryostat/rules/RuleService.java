@@ -47,7 +47,6 @@ import io.cryostat.targets.TargetConnectionManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -92,8 +91,7 @@ public class RuleService {
         }
     }
 
-    @ConsumeEvent(Rule.RULE_ADDRESS)
-    @Blocking
+    @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true)
     public void handleRuleModification(RuleEvent event) {
         Rule rule = event.rule();
         var relatedRecordings =
@@ -122,8 +120,7 @@ public class RuleService {
         }
     }
 
-    @ConsumeEvent(Rule.RULE_ADDRESS + "?clean")
-    @Blocking
+    @ConsumeEvent(value = Rule.RULE_ADDRESS + "?clean", blocking = true)
     @Transactional
     public void handleRuleRecordingCleanup(Rule rule) {
         var relatedRecordings = ruleRecordingMap.get(rule.id);

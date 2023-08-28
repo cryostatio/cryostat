@@ -65,9 +65,6 @@ import org.jboss.logging.Logger;
         })
 public class ActiveRecording extends PanacheEntity {
 
-    public static final String ACTIVE_RECORDING_ADDRESS = ActiveRecording.class.getName();
-    public static final String ARCHIVED_RECORDING_ADDRESS = ArchivedRecording.class.getName();
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")
     public Target target;
@@ -176,9 +173,11 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
+            bus.publish(
+                    Recordings.RecordingEventCategory.ACTIVE_CREATED.category(), activeRecording);
             notify(
                     new ActiveRecordingEvent(
-                            RecordingEventCategory.ACTIVE_CREATED,
+                            Recordings.RecordingEventCategory.ACTIVE_CREATED,
                             ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
         }
 
@@ -214,9 +213,12 @@ public class ActiveRecording extends PanacheEntity {
         @PostUpdate
         public void postUpdate(ActiveRecording activeRecording) {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
+                bus.publish(
+                        Recordings.RecordingEventCategory.ACTIVE_STOPPED.category(),
+                        activeRecording);
                 notify(
                         new ActiveRecordingEvent(
-                                RecordingEventCategory.ACTIVE_STOPPED,
+                                Recordings.RecordingEventCategory.ACTIVE_STOPPED,
                                 ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
             }
         }
@@ -235,20 +237,22 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostRemove
         public void postRemove(ActiveRecording activeRecording) {
+            bus.publish(
+                    Recordings.RecordingEventCategory.ACTIVE_DELETED.category(), activeRecording);
             notify(
                     new ActiveRecordingEvent(
-                            RecordingEventCategory.ACTIVE_DELETED,
+                            Recordings.RecordingEventCategory.ACTIVE_DELETED,
                             ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
         }
 
         private void notify(ActiveRecordingEvent event) {
-            bus.publish(ACTIVE_RECORDING_ADDRESS, event);
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(event.category().category(), event.payload()));
         }
 
-        public record ActiveRecordingEvent(RecordingEventCategory category, Payload payload) {
+        public record ActiveRecordingEvent(
+                Recordings.RecordingEventCategory category, Payload payload) {
             public ActiveRecordingEvent {
                 Objects.requireNonNull(category);
                 Objects.requireNonNull(payload);
@@ -268,7 +272,8 @@ public class ActiveRecording extends PanacheEntity {
             }
         }
 
-        public record ArchivedRecordingEvent(RecordingEventCategory category, Payload payload) {
+        public record ArchivedRecordingEvent(
+                Recordings.RecordingEventCategory category, Payload payload) {
             public ArchivedRecordingEvent {
                 Objects.requireNonNull(category);
                 Objects.requireNonNull(payload);
@@ -288,26 +293,6 @@ public class ActiveRecording extends PanacheEntity {
                 public static Payload of(URI connectUrl, ArchivedRecording recording) {
                     return new Payload(connectUrl.toString(), recording);
                 }
-            }
-        }
-
-        public enum RecordingEventCategory {
-            ACTIVE_CREATED("ActiveRecordingCreated"),
-            ACTIVE_STOPPED("ActiveRecordingStopped"),
-            ACTIVE_SAVED("ActiveRecordingSaved"),
-            ACTIVE_DELETED("ActiveRecordingDeleted"),
-            ARCHIVED_CREATED("ArchivedRecordingCreated"),
-            ARCHIVED_DELETED("ArchivedRecordingDeleted"),
-            ;
-
-            private final String category;
-
-            private RecordingEventCategory(String category) {
-                this.category = category;
-            }
-
-            String category() {
-                return category;
             }
         }
     }

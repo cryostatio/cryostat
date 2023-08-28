@@ -60,8 +60,7 @@ public class MatchExpressionEvaluator {
     @Inject Logger logger;
     @Inject CacheManager cacheManager;
 
-    @Blocking
-    @ConsumeEvent(MatchExpression.EXPRESSION_ADDRESS)
+    @ConsumeEvent(value = MatchExpression.EXPRESSION_ADDRESS, blocking = true)
     void onMessage(ExpressionEvent event) {
         switch (event.category()) {
             case CREATED:

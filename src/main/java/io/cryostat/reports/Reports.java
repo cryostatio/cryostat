@@ -124,7 +124,13 @@ public class Reports {
     public Uni<Map<String, AnalysisResult>> getActive(
             @RestPath long targetId, @RestPath long recordingId) throws Exception {
         var target = Target.<Target>findById(targetId);
+        if (target == null) {
+            throw new NotFoundException();
+        }
         var recording = target.getRecordingById(recordingId);
+        if (recording == null) {
+            throw new NotFoundException();
+        }
         // TODO implement query parameter for evaluation predicate
         return reportsService.reportFor(recording);
     }
