@@ -62,14 +62,14 @@ class MemoryCachingReportsService implements ReportsService {
     public Uni<Map<String, RuleEvaluation>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
         if (!quarkusCache || !memoryCache) {
-            logger.info("cache disabled, delegating...");
+            logger.trace("cache disabled, delegating...");
             return delegate.reportFor(recording, predicate);
         }
-        logger.infov("reportFor {0}", key(recording));
+        logger.tracev("reportFor {0}", key(recording));
         return activeCache.getAsync(
                 key(recording),
                 key -> {
-                    logger.infov("reportFor {0} cache miss", key(recording));
+                    logger.tracev("reportFor {0} cache miss", key(recording));
                     return delegate.reportFor(recording);
                 });
     }
@@ -78,14 +78,14 @@ class MemoryCachingReportsService implements ReportsService {
     public Uni<Map<String, RuleEvaluation>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {
         if (!quarkusCache || !memoryCache) {
-            logger.info("cache disabled, delegating...");
+            logger.trace("cache disabled, delegating...");
             return delegate.reportFor(jvmId, filename, predicate);
         }
-        logger.infov("reportFor {0}", key(jvmId, filename));
+        logger.tracev("reportFor {0}", key(jvmId, filename));
         return archivedCache.getAsync(
                 key(jvmId, filename),
                 key -> {
-                    logger.infov("reportFor {0} cache miss", key(jvmId, filename));
+                    logger.tracev("reportFor {0} cache miss", key(jvmId, filename));
                     return delegate.reportFor(jvmId, filename);
                 });
     }
