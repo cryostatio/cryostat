@@ -54,7 +54,7 @@ class MemoryCachingReportsListener {
         String key =
                 MemoryCachingReportsService.key(
                         recording.metadata().labels().get("connectUrl"), recording.name());
-        logger.infov("Picked up deletion of archived recording: {0}", key);
+        logger.tracev("Picked up deletion of archived recording: {0}", key);
         archivedCache.invalidate(key);
     }
 
@@ -63,7 +63,7 @@ class MemoryCachingReportsListener {
         // TODO verify that target lost cascades and causes active recording deletion events that we
         // observe here
         String key = MemoryCachingReportsService.key(recording);
-        logger.infov(
+        logger.tracev(
                 "Picked up deletion of active recording: {0} / {1} ({2})",
                 recording.target.alias, recording.name, key);
         activeCache.invalidate(key);

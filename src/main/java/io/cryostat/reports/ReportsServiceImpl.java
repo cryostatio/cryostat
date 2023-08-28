@@ -62,7 +62,7 @@ class ReportsServiceImpl implements ReportsService {
         return sidecarUri
                 .map(
                         uri -> {
-                            logger.infov(
+                            logger.tracev(
                                     "sidecar reportFor active recording {0} {1}",
                                     recording.target.jvmId, recording.remoteId);
                             try {
@@ -73,7 +73,7 @@ class ReportsServiceImpl implements ReportsService {
                         })
                 .orElseGet(
                         () -> {
-                            logger.infov(
+                            logger.tracev(
                                     "inprocess reportFor active recording {0} {1}",
                                     recording.target.jvmId, recording.remoteId);
                             try {
@@ -90,7 +90,7 @@ class ReportsServiceImpl implements ReportsService {
         return sidecarUri
                 .map(
                         uri -> {
-                            logger.infov(
+                            logger.tracev(
                                     "sidecar reportFor archived recording {0} {1}",
                                     jvmId, filename);
                             return fireRequest(
@@ -98,7 +98,7 @@ class ReportsServiceImpl implements ReportsService {
                         })
                 .orElseGet(
                         () -> {
-                            logger.infov(
+                            logger.tracev(
                                     "inprocess reportFor archived recording {0} {1}",
                                     jvmId, filename);
                             return process(
