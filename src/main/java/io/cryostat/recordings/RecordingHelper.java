@@ -54,7 +54,6 @@ import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.ActiveRecordingEvent;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
-import io.cryostat.recordings.ActiveRecording.Listener.RecordingEventCategory;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
@@ -471,9 +470,9 @@ public class RecordingHelper {
         if (expiry == null) {
             var event =
                     new ActiveRecordingEvent(
-                            RecordingEventCategory.ACTIVE_SAVED,
+                            Recordings.RecordingEventCategory.ACTIVE_SAVED,
                             ActiveRecordingEvent.Payload.of(this, recording));
-            bus.publish(ActiveRecording.ACTIVE_RECORDING_ADDRESS, event);
+            bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(event.category().category(), event.payload()));
@@ -599,7 +598,7 @@ public class RecordingHelper {
         var target = Target.getTargetByJvmId(jvmId);
         var event =
                 new ArchivedRecordingEvent(
-                        RecordingEventCategory.ARCHIVED_DELETED,
+                        Recordings.RecordingEventCategory.ARCHIVED_DELETED,
                         ArchivedRecordingEvent.Payload.of(
                                 target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
@@ -609,7 +608,7 @@ public class RecordingHelper {
                                         metadata,
                                         0,
                                         0)));
-        bus.publish(ActiveRecording.ARCHIVED_RECORDING_ADDRESS, event);
+        bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));

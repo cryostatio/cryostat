@@ -35,7 +35,6 @@ import io.quarkus.cache.CacheResult;
 import io.quarkus.cache.CaffeineCache;
 import io.quarkus.cache.CompositeCacheKey;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jdk.jfr.Category;
@@ -58,8 +57,7 @@ public class MatchExpressionEvaluator {
     @Inject Logger logger;
     @Inject CacheManager cacheManager;
 
-    @Blocking
-    @ConsumeEvent(MatchExpression.EXPRESSION_ADDRESS)
+    @ConsumeEvent(value = MatchExpression.EXPRESSION_ADDRESS, blocking = true)
     void onMessage(ExpressionEvent event) {
         switch (event.category()) {
             case CREATED:
