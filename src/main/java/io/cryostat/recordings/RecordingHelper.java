@@ -158,10 +158,6 @@ public class RecordingHelper {
                             RecordingState previousState = mapState(previous);
                             boolean restart =
                                     shouldRestartRecording(replace, previousState, recordingName);
-                            logger.infov(
-                                    "Found existing {1} recording named {0}. Replacement requested:"
-                                            + " {3}. Restarting? {2}",
-                                    recordingName, previousState, restart, replace);
                             if (!restart) {
                                 throw new BadRequestException(
                                         String.format(
@@ -205,13 +201,6 @@ public class RecordingHelper {
             case NEVER:
                 return false;
             case STOPPED:
-                if (state == RecordingState.RUNNING) {
-                    throw new BadRequestException(
-                            String.format(
-                                    "replace=='STOPPED' but recording with name \"%s\" is already"
-                                            + " running",
-                                    recordingName));
-                }
                 return state == RecordingState.STOPPED;
             default:
                 return true;
