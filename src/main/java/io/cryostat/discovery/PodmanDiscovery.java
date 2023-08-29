@@ -152,7 +152,7 @@ public class PodmanDiscovery {
     }
 
     private void doPodmanListRequest(Consumer<List<ContainerSpec>> successHandler) {
-        logger.info("Starting Podman client");
+        logger.trace("Querying Podman socket");
         URI requestPath = URI.create("http://d/v3.0.0/libpod/containers/json");
         try {
             webClient
