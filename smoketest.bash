@@ -71,7 +71,7 @@ done
 cleanup() {
     DOWN_FLAGS=('--remove-orphans')
     if [ "${CLEAN_VOLUMES}" = "true" ]; then
-        DOWN_FLAGS+=(--volumes)
+        DOWN_FLAGS+=('--volumes')
     fi
     docker-compose \
         "${CMD[@]}" \
