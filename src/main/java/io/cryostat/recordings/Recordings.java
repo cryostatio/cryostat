@@ -538,7 +538,7 @@ public class Recordings {
                                             .create(connection.getService())
                                             .name(recordingName);
                             if (duration.isPresent()) {
-                                optionsBuilder.duration(duration.get());
+                                optionsBuilder.duration(TimeUnit.SECONDS.toMillis(duration.get()));
                             }
                             if (toDisk.isPresent()) {
                                 optionsBuilder.toDisk(toDisk.get());
