@@ -620,7 +620,7 @@ public class RecordingHelper {
         if (metadata.expiry() != null) {
             tags.add(
                     Tag.builder()
-                            .key(base64Url.encodeAsString(objectExpirationLabel.getBytes()))
+                            .key(objectExpirationLabel)
                             .value(
                                     base64Url.encodeAsString(
                                             metadata.expiry()
@@ -637,12 +637,12 @@ public class RecordingHelper {
         Instant expiry = null;
         var labels = new HashMap<String, String>();
         for (var tag : tagSet) {
-            var key = decodeBase64(tag.key());
-            var value = decodeBase64(tag.value());
-            if (key.equals(objectExpirationLabel)) {
-                expiry = Instant.parse(value);
+            var decodedValue = decodeBase64(tag.value());
+            if (tag.key().equals(objectExpirationLabel)) {
+                expiry = Instant.parse(decodedValue);
             } else {
-                labels.put(key, value);
+                var decodedKey = decodeBase64(tag.key());
+                labels.put(decodedKey, decodedValue);
             }
         }
         return new Metadata(labels, expiry);
