@@ -596,18 +596,7 @@ public class Recordings {
     @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings")
     @RolesAllowed("write")
-    public Response createRecordingV1(
-            @RestPath URI connectUrl,
-            @RestForm String recordingName,
-            @RestForm String events,
-            @RestForm Optional<Boolean> restart,
-            @RestForm Optional<Long> duration,
-            @RestForm Optional<Boolean> toDisk,
-            @RestForm Optional<Long> maxAge,
-            @RestForm Optional<Long> maxSize,
-            @RestForm Optional<String> metadata,
-            @RestForm Optional<Boolean> archiveOnStop)
-            throws Exception {
+    public Response createRecordingV1(@RestPath URI connectUrl) throws Exception {
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(
                         URI.create(
