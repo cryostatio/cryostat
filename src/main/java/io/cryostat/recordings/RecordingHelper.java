@@ -139,28 +139,6 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.AWS_OBJECT_EXPIRATION_LABELS)
     String objectExpirationLabel;
 
-    boolean shouldRestartRecording(
-            RecordingReplace replace, RecordingState state, String recordingName)
-            throws BadRequestException {
-        switch (replace) {
-            case ALWAYS:
-                return true;
-            case NEVER:
-                return false;
-            case STOPPED:
-                if (state == RecordingState.RUNNING) {
-                    throw new BadRequestException(
-                            String.format(
-                                    "replace=='STOPPED' but recording with name \"%s\" is already"
-                                            + " running",
-                                    recordingName));
-                }
-                return state == RecordingState.STOPPED;
-            default:
-                return true;
-        }
-    }
-
     public ActiveRecording startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
@@ -174,20 +152,28 @@ public class RecordingHelper {
         String recordingName = (String) recordingOptions.get(RecordingOptionsBuilder.KEY_NAME);
         TemplateType preferredTemplateType =
                 getPreferredTemplateType(connection, templateName, templateType);
-        Optional<IRecordingDescriptor> previous = getDescriptorByName(connection, recordingName);
-        if (previous.isPresent()) {
-            RecordingState previousState = mapState(previous.get());
-            boolean restart = shouldRestartRecording(replace, previousState, recordingName);
-            if (!restart) {
-                throw new BadRequestException(
-                        String.format("Recording with name \"%s\" already exists", recordingName));
-            }
-            if (!ActiveRecording.deleteFromTarget(target, recordingName)) {
-                logger.warnf(
-                        "Could not delete recording %s from target %s",
-                        recordingName, target.alias);
-            }
-        }
+        getDescriptorByName(connection, recordingName)
+                .ifPresent(
+                        previous -> {
+                            RecordingState previousState = mapState(previous);
+                            boolean restart =
+                                    shouldRestartRecording(replace, previousState, recordingName);
+                            logger.infov(
+                                    "Found existing {1} recording named {0}. Replacement requested:"
+                                            + " {3}. Restarting? {2}",
+                                    recordingName, previousState, restart, replace);
+                            if (!restart) {
+                                throw new BadRequestException(
+                                        String.format(
+                                                "Recording with name \"%s\" already exists",
+                                                recordingName));
+                            }
+                            if (!ActiveRecording.deleteFromTarget(target, recordingName)) {
+                                logger.warnf(
+                                        "Could not delete recording %s from target %s",
+                                        recordingName, target.alias);
+                            }
+                        });
 
         IRecordingDescriptor desc =
                 connection
@@ -208,6 +194,28 @@ public class RecordingHelper {
         target.persist();
 
         return recording;
+    }
+
+    private boolean shouldRestartRecording(
+            RecordingReplace replace, RecordingState state, String recordingName)
+            throws BadRequestException {
+        switch (replace) {
+            case ALWAYS:
+                return true;
+            case NEVER:
+                return false;
+            case STOPPED:
+                if (state == RecordingState.RUNNING) {
+                    throw new BadRequestException(
+                            String.format(
+                                    "replace=='STOPPED' but recording with name \"%s\" is already"
+                                            + " running",
+                                    recordingName));
+                }
+                return state == RecordingState.STOPPED;
+            default:
+                return true;
+        }
     }
 
     public LinkedRecordingDescriptor toExternalForm(ActiveRecording recording) {
