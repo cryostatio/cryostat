@@ -59,7 +59,7 @@ class ScheduledArchiveJob implements Job {
             while (previousRecordings.size() >= rule.preservedArchives) {
                 pruneArchive(target, previousRecordings, previousRecordings.remove());
             }
-            performArchival(target, recording, previousRecordings);
+            performArchival(recording, previousRecordings);
         } catch (Exception e) {
             logger.error(e);
             // TODO: Handle JMX/SSL errors
@@ -87,10 +87,9 @@ class ScheduledArchiveJob implements Job {
                         });
     }
 
-    private void performArchival(
-            Target target, ActiveRecording recording, Queue<String> previousRecordings)
+    private void performArchival(ActiveRecording recording, Queue<String> previousRecordings)
             throws Exception {
-        String filename = recordingHelper.saveRecording(target, recording);
+        String filename = recordingHelper.saveRecording(recording);
         previousRecordings.add(filename);
     }
 

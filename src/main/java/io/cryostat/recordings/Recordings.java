@@ -472,7 +472,7 @@ public class Recordings {
                 activeRecording.persist();
                 return null;
             case "save":
-                return recordingHelper.saveRecording(target, activeRecording);
+                return recordingHelper.saveRecording(activeRecording);
             default:
                 throw new BadRequestException(body);
         }
@@ -582,7 +582,7 @@ public class Recordings {
             recording.state = RecordingState.STOPPED;
             recording.persist();
             if (archive) {
-                recordingHelper.saveRecording(recording.target, recording);
+                recordingHelper.saveRecording(recording);
             }
         } catch (Exception e) {
             logger.error("couldn't update recording", e);
@@ -789,9 +789,7 @@ public class Recordings {
         }
         String filename =
                 recordingHelper.saveRecording(
-                        recording.target,
-                        recording,
-                        Instant.now().plusSeconds(60)); // TODO make expiry configurable
+                        recording, Instant.now().plusSeconds(60)); // TODO make expiry configurable
         String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .header(

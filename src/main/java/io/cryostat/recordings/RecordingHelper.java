@@ -357,25 +357,25 @@ public class RecordingHelper {
                 .toList();
     }
 
-    public String saveRecording(Target target, ActiveRecording activeRecording) throws Exception {
-        return saveRecording(target, activeRecording, null);
+    public String saveRecording(ActiveRecording recording) throws Exception {
+        return saveRecording(recording, null);
     }
 
-    public String saveRecording(Target target, ActiveRecording activeRecording, Instant expiry)
-            throws Exception {
+    public String saveRecording(ActiveRecording recording, Instant expiry) throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
         String transformedAlias =
-                URLDecoder.decode(target.alias, StandardCharsets.UTF_8).replaceAll("[\\._/]+", "-");
+                URLDecoder.decode(recording.target.alias, StandardCharsets.UTF_8)
+                        .replaceAll("[\\._/]+", "-");
         String timestamp =
                 clock.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =
-                String.format("%s_%s_%s.jfr", transformedAlias, activeRecording.name, timestamp);
+                String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
         int mib = 1024 * 1024;
-        String key = String.format("%s/%s", target.jvmId, filename);
+        String key = String.format("%s/%s", recording.target.jvmId, filename);
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
-        try (var stream = remoteRecordingStreamFactory.open(activeRecording);
+        try (var stream = remoteRecordingStreamFactory.open(recording);
                 var ch = Channels.newChannel(stream)) {
             ByteBuffer buf = ByteBuffer.allocate(20 * mib);
             CreateMultipartUploadRequest.Builder builder =
@@ -385,7 +385,7 @@ public class RecordingHelper {
                             .contentType(JFR_MIME)
                             .tagging(
                                     createMetadataTagging(
-                                            new Metadata(activeRecording.metadata, expiry)));
+                                            new Metadata(recording.metadata, expiry)));
             if (expiry != null && expiry.isAfter(Instant.now())) {
                 builder = builder.expires(expiry);
             }
@@ -475,7 +475,7 @@ public class RecordingHelper {
                     new Notification(
                             "ActiveRecordingSaved",
                             new RecordingEvent(
-                                    target.connectUrl, toExternalForm(activeRecording))));
+                                    recording.target.connectUrl, toExternalForm(recording))));
         }
         return filename;
     }
