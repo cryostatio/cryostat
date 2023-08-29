@@ -557,7 +557,7 @@ public class Recordings {
                                 labels.putAll(
                                         mapper.readValue(rawMetadata.get(), Metadata.class).labels);
                             }
-                            RecordingReplace replacement = RecordingReplace.ALWAYS;
+                            RecordingReplace replacement = RecordingReplace.NEVER;
                             if (replace.isPresent()) {
                                 replacement = RecordingReplace.fromString(replace.get());
                             } else if (restart.isPresent()) {
