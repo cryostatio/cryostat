@@ -511,6 +511,9 @@ public class Recordings {
             @RestForm String recordingName,
             @RestForm String events,
             @RestForm Optional<String> replace,
+            // restart param is deprecated, only 'replace' should be used and takes priority if both
+            // are provided
+            @RestForm Optional<Boolean> restart,
             @RestForm Optional<Long> duration,
             @RestForm Optional<Boolean> toDisk,
             @RestForm Optional<Long> maxAge,
@@ -554,6 +557,15 @@ public class Recordings {
                                 labels.putAll(
                                         mapper.readValue(rawMetadata.get(), Metadata.class).labels);
                             }
+                            RecordingReplace replacement = RecordingReplace.ALWAYS;
+                            if (replace.isPresent()) {
+                                replacement = RecordingReplace.fromString(replace.get());
+                            } else if (restart.isPresent()) {
+                                replacement =
+                                        restart.get()
+                                                ? RecordingReplace.ALWAYS
+                                                : RecordingReplace.NEVER;
+                            }
                             IConstrainedMap<String> recordingOptions = optionsBuilder.build();
                             return recordingHelper.startRecording(
                                     target,
@@ -562,7 +574,7 @@ public class Recordings {
                                     template.getRight(),
                                     new Metadata(labels),
                                     archiveOnStop.orElse(false),
-                                    RecordingReplace.fromString(replace.orElse("always")),
+                                    replacement,
                                     connection);
                         });
 
