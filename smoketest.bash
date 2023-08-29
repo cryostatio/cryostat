@@ -11,7 +11,7 @@ FILES=(
 )
 
 PULL_IMAGES=true
-CLEAN_VOLUMES=false
+KEEP_VOLUMES=false
 
 display_usage() {
     echo "Usage:"
@@ -19,8 +19,8 @@ display_usage() {
     echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up. (default \"minio\")"
     echo -e "\t-g \t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
     echo -e "\t-t \t\t\t\tinclude sample applications for Testing."
-    echo -e "\t-V \t\t\t\tdelete data storage Volumes on exit."
-    echo -e "\t-X \t\t\t\tdeploy additional debugging tools."
+    echo -e "\t-V \t\t\t\tdo not discard data storage Volumes on exit."
+    echo -e "\t-X \t\t\t\tdeploy additional development aid tools."
 }
 
 s3=minio
@@ -39,7 +39,7 @@ while getopts "s:gtOVX" opt; do
             PULL_IMAGES=false
             ;;
         V)
-            CLEAN_VOLUMES=true
+            KEEP_VOLUMES=true
             ;;
         X)
             FILES+=('./smoketest/compose/db-viewer.yml')
@@ -70,7 +70,7 @@ done
 
 cleanup() {
     DOWN_FLAGS=('--remove-orphans')
-    if [ "${CLEAN_VOLUMES}" = "true" ]; then
+    if [ "${KEEP_VOLUMES}" != "true" ]; then
         DOWN_FLAGS+=('--volumes')
     fi
     docker-compose \
