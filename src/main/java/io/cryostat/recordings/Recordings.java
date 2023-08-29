@@ -568,7 +568,7 @@ public class Recordings {
 
         if (recording.duration > 0) {
             scheduler.schedule(
-                    () -> stopRecording(recording, archiveOnStop.orElse(false)),
+                    () -> stopRecording(recording.id, archiveOnStop.orElse(false)),
                     recording.duration,
                     TimeUnit.MILLISECONDS);
         }
@@ -577,16 +577,20 @@ public class Recordings {
     }
 
     @Transactional
-    void stopRecording(ActiveRecording recording, boolean archive) {
-        try {
-            recording.state = RecordingState.STOPPED;
-            recording.persist();
-            if (archive) {
-                recordingHelper.saveRecording(recording);
-            }
-        } catch (Exception e) {
-            logger.error("couldn't update recording", e);
-        }
+    void stopRecording(long id, boolean archive) {
+        ActiveRecording.<ActiveRecording>findByIdOptional(id)
+                .ifPresent(
+                        recording -> {
+                            try {
+                                recording.state = RecordingState.STOPPED;
+                                recording.persist();
+                                if (archive) {
+                                    recordingHelper.saveRecording(recording);
+                                }
+                            } catch (Exception e) {
+                                logger.error("couldn't update recording", e);
+                            }
+                        });
     }
 
     @POST
