@@ -7,22 +7,42 @@ fi
 
 FILES=(
     ./smoketest/compose/db.yml
-    ./smoketest/compose/cryostat-grafana.yml
-    ./smoketest/compose/jfr-datasource.yml
-    ./smoketest/compose/sample-apps.yml
     ./smoketest/compose/cryostat.yml
 )
 
+PULL_IMAGES=true
+CLEAN_VOLUMES=false
+
 display_usage() {
     echo "Usage:"
+    echo -e "\t-O \t\t\t\tOffline mode, do not attempt to pull container images."
     echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up. (default \"minio\")"
+    echo -e "\t-g \t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
+    echo -e "\t-t \t\t\t\tinclude sample applications for Testing."
+    echo -e "\t-V \t\t\t\tdelete data storage Volumes on exit."
+    echo -e "\t-X \t\t\t\tdeploy additional debugging tools."
 }
 
 s3=minio
-while getopts "s:" opt; do
+while getopts "s:gtOVX" opt; do
     case $opt in
         s)
             s3="${OPTARG}"
+            ;;
+        g)
+            FILES+=('./smoketest/compose/cryostat-grafana.yml' './smoketest/compose/jfr-datasource.yml')
+            ;;
+        t)
+            FILES+=('./smoketest/compose/sample-apps.yml')
+            ;;
+        O)
+            PULL_IMAGES=false
+            ;;
+        V)
+            CLEAN_VOLUMES=true
+            ;;
+        X)
+            FILES+=('./smoketest/compose/db-viewer.yml')
             ;;
         *)
             display_usage
@@ -49,9 +69,13 @@ for file in "${FILES[@]}"; do
 done
 
 cleanup() {
+    DOWN_FLAGS=('--remove-orphans')
+    if [ "${CLEAN_VOLUMES}" = "true" ]; then
+        DOWN_FLAGS+=(--volumes)
+    fi
     docker-compose \
         "${CMD[@]}" \
-        down --volumes --remove-orphans
+        down "${DOWN_FLAGS[@]}"
     # podman kill hoster || true
     > ~/.hosts
 }
@@ -79,15 +103,17 @@ setupUserHosts() {
 }
 setupUserHosts
 
-sh db/build.sh
-IMAGES=()
-for file in "${FILES[@]}" ; do
-    images="$(yq '.services.*.image' "${file}" | grep -v null)"
-    for img in ${images}; do
-      IMAGES+=("${img}")
+if [ "${PULL_IMAGES}" = "true" ]; then
+    sh db/build.sh
+    IMAGES=()
+    for file in "${FILES[@]}" ; do
+        images="$(yq '.services.*.image' "${file}" | grep -v null)"
+        for img in ${images}; do
+          IMAGES+=("${img}")
+        done
     done
-done
-docker pull "${IMAGES[@]}" || true
+    docker pull "${IMAGES[@]}" || true
+fi
 
 docker-compose \
     "${CMD[@]}" \
