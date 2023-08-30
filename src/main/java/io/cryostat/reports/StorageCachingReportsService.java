@@ -19,7 +19,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 
@@ -33,6 +33,7 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.decorator.Decorator;
@@ -68,6 +69,7 @@ class StorageCachingReportsService implements ReportsService {
 
     @Inject Logger logger;
 
+    @Blocking
     @Override
     public Uni<Map<String, RuleEvaluation>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
@@ -76,6 +78,7 @@ class StorageCachingReportsService implements ReportsService {
         return delegate.reportFor(recording, predicate);
     }
 
+    @Blocking
     @Override
     public Uni<Map<String, RuleEvaluation>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {
@@ -100,76 +103,55 @@ class StorageCachingReportsService implements ReportsService {
 
     private Uni<Boolean> checkStorage(String key) {
         return Uni.createFrom()
-                .completionStage(
-                        CompletableFuture.supplyAsync(
-                                () -> {
-                                    var req =
-                                            HeadObjectRequest.builder()
-                                                    .bucket(bucket)
-                                                    .key(key)
-                                                    .build();
-                                    try {
-                                        return storage.headObject(req)
-                                                .sdkHttpResponse()
-                                                .isSuccessful();
-                                    } catch (NoSuchKeyException nske) {
-                                        return false;
-                                    }
-                                },
-                                worker));
+                .item(
+                        () -> {
+                            var req = HeadObjectRequest.builder().bucket(bucket).key(key).build();
+                            try {
+                                return storage.headObject(req).sdkHttpResponse().isSuccessful();
+                            } catch (NoSuchKeyException nske) {
+                                return false;
+                            }
+                        });
     }
 
     private Uni<Map<String, RuleEvaluation>> putStorage(
             String key, Uni<Map<String, RuleEvaluation>> payload) {
-        var cf = new CompletableFuture<Map<String, RuleEvaluation>>();
-        worker.submit(
-                () -> {
-                    payload.subscribe()
-                            .with(
-                                    map -> {
-                                        try {
-                                            var str = mapper.writeValueAsString(map);
-                                            var req =
-                                                    PutObjectRequest.builder()
-                                                            .bucket(bucket)
-                                                            .key(key)
-                                                            .contentType(HttpMimeType.JSON.mime())
-                                                            .expires(Instant.now().plus(Duration.ofDays(1)))
-                                                            .build();
-                                            var res =
-                                                    storage.putObject(
-                                                            req, RequestBody.fromString(str));
-                                            var sc = res.sdkHttpResponse().statusCode();
-                                            if (HttpStatusCodeIdentifier.isSuccessCode(sc)) {
-                                                cf.complete(map);
-                                            } else {
-                                                cf.completeExceptionally(
-                                                        new RuntimeException(
-                                                                String.format(
-                                                                        "Bad S3 response: %d",
-                                                                        sc)));
-                                            }
-                                        } catch (JsonProcessingException jpe) {
-                                            cf.completeExceptionally(jpe);
-                                        }
-                                    });
-                });
-        return Uni.createFrom().completionStage(cf);
+        return payload.onItem()
+                .invoke(
+                        map -> {
+                            try {
+                                var str = mapper.writeValueAsString(map);
+                                var req =
+                                        PutObjectRequest.builder()
+                                                .bucket(bucket)
+                                                .key(key)
+                                                .contentType(HttpMimeType.JSON.mime())
+                                                .expires(Instant.now().plus(Duration.ofDays(1)))
+                                                .build();
+                                var res = storage.putObject(req, RequestBody.fromString(str));
+                                var sc = res.sdkHttpResponse().statusCode();
+                                if (!HttpStatusCodeIdentifier.isSuccessCode(sc)) {
+                                    throw new CompletionException(
+                                            String.format("Bad S3 report storage response: %d", sc),
+                                            null);
+                                }
+                            } catch (JsonProcessingException jpe) {
+                                throw new CompletionException(jpe);
+                            }
+                        });
     }
 
     private Uni<Map<String, RuleEvaluation>> getStorage(String key) {
-        var cf = new CompletableFuture<Map<String, RuleEvaluation>>();
-        worker.execute(
-                () -> {
-                    var req = GetObjectRequest.builder().bucket(bucket).key(key).build();
-                    try (var res = storage.getObject(req)) {
-                        cf.complete(
-                                mapper.readValue(
-                                        res, new TypeReference<Map<String, RuleEvaluation>>() {}));
-                    } catch (IOException ioe) {
-                        cf.completeExceptionally(ioe);
-                    }
-                });
-        return Uni.createFrom().completionStage(cf);
+        return Uni.createFrom()
+                .item(
+                        () -> {
+                            var req = GetObjectRequest.builder().bucket(bucket).key(key).build();
+                            try (var res = storage.getObject(req)) {
+                                return mapper.readValue(
+                                        res, new TypeReference<Map<String, RuleEvaluation>>() {});
+                            } catch (IOException ioe) {
+                                throw new CompletionException(ioe);
+                            }
+                        });
     }
 }
