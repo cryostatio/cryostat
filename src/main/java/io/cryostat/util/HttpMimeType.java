@@ -23,6 +23,7 @@ public enum HttpMimeType {
     JSON("application/json"),
     JSON_RAW("application/json"),
     OCTET_STREAM("application/octet-stream"),
+    JFR("binary/octet-stream"),
     JFC("application/jfc+xml"),
     XML("application/xml"),
     MULTIPART_FORM("multipart/form-data"),

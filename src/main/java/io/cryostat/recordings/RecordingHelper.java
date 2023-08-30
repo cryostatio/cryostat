@@ -26,8 +26,11 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -88,7 +91,9 @@ import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
@@ -98,7 +103,8 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 @ApplicationScoped
 public class RecordingHelper {
 
-    private static final String JFR_MIME = "application/jfr";
+    public static final String JFR_MIME = HttpMimeType.JFR.mime();
+
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
@@ -130,27 +136,8 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
 
-    boolean shouldRestartRecording(
-            RecordingReplace replace, RecordingState state, String recordingName)
-            throws BadRequestException {
-        switch (replace) {
-            case ALWAYS:
-                return true;
-            case NEVER:
-                return false;
-            case STOPPED:
-                if (state == RecordingState.RUNNING) {
-                    throw new BadRequestException(
-                            String.format(
-                                    "replace=='STOPPED' but recording with name \"%s\" is already"
-                                            + " running",
-                                    recordingName));
-                }
-                return state == RecordingState.STOPPED;
-            default:
-                return true;
-        }
-    }
+    @ConfigProperty(name = ConfigProperties.AWS_OBJECT_EXPIRATION_LABELS)
+    String objectExpirationLabel;
 
     public ActiveRecording startRecording(
             Target target,
@@ -165,20 +152,24 @@ public class RecordingHelper {
         String recordingName = (String) recordingOptions.get(RecordingOptionsBuilder.KEY_NAME);
         TemplateType preferredTemplateType =
                 getPreferredTemplateType(connection, templateName, templateType);
-        Optional<IRecordingDescriptor> previous = getDescriptorByName(connection, recordingName);
-        if (previous.isPresent()) {
-            RecordingState previousState = mapState(previous.get());
-            boolean restart = shouldRestartRecording(replace, previousState, recordingName);
-            if (!restart) {
-                throw new BadRequestException(
-                        String.format("Recording with name \"%s\" already exists", recordingName));
-            }
-            if (!ActiveRecording.deleteFromTarget(target, recordingName)) {
-                logger.warnf(
-                        "Could not delete recording %s from target %s",
-                        recordingName, target.alias);
-            }
-        }
+        getDescriptorByName(connection, recordingName)
+                .ifPresent(
+                        previous -> {
+                            RecordingState previousState = mapState(previous);
+                            boolean restart =
+                                    shouldRestartRecording(replace, previousState, recordingName);
+                            if (!restart) {
+                                throw new BadRequestException(
+                                        String.format(
+                                                "Recording with name \"%s\" already exists",
+                                                recordingName));
+                            }
+                            if (!ActiveRecording.deleteFromTarget(target, recordingName)) {
+                                logger.warnf(
+                                        "Could not delete recording %s from target %s",
+                                        recordingName, target.alias);
+                            }
+                        });
 
         IRecordingDescriptor desc =
                 connection
@@ -199,6 +190,21 @@ public class RecordingHelper {
         target.persist();
 
         return recording;
+    }
+
+    private boolean shouldRestartRecording(
+            RecordingReplace replace, RecordingState state, String recordingName)
+            throws BadRequestException {
+        switch (replace) {
+            case ALWAYS:
+                return true;
+            case NEVER:
+                return false;
+            case STOPPED:
+                return state == RecordingState.STOPPED;
+            default:
+                return true;
+        }
     }
 
     public LinkedRecordingDescriptor toExternalForm(ActiveRecording recording) {
@@ -330,42 +336,58 @@ public class RecordingHelper {
     }
 
     public List<S3Object> listArchivedRecordingObjects() {
-        return storage.listObjectsV2(ListObjectsV2Request.builder().bucket(archiveBucket).build())
-                .contents();
+        return listArchivedRecordingObjects(null);
     }
 
     public List<S3Object> listArchivedRecordingObjects(String jvmId) {
-        return storage.listObjectsV2(
-                        ListObjectsV2Request.builder().bucket(archiveBucket).prefix(jvmId).build())
-                .contents();
+        var builder = ListObjectsV2Request.builder().bucket(archiveBucket);
+        if (StringUtils.isNotBlank(jvmId)) {
+            builder = builder.prefix(jvmId);
+        }
+        return storage.listObjectsV2(builder.build()).contents().stream()
+                .filter(
+                        o -> {
+                            var metadata = getArchivedRecordingMetadata(o.key());
+                            var temporary = metadata.map(m -> m.expiry() != null).orElse(false);
+                            return !temporary;
+                        })
+                .toList();
     }
 
-    public String saveRecording(Target target, ActiveRecording activeRecording) throws Exception {
+    public String saveRecording(ActiveRecording recording) throws Exception {
+        return saveRecording(recording, null);
+    }
+
+    public String saveRecording(ActiveRecording recording, Instant expiry) throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
         String transformedAlias =
-                URLDecoder.decode(target.alias, StandardCharsets.UTF_8).replaceAll("[\\._/]+", "-");
+                URLDecoder.decode(recording.target.alias, StandardCharsets.UTF_8)
+                        .replaceAll("[\\._/]+", "-");
         String timestamp =
                 clock.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =
-                String.format("%s_%s_%s.jfr", transformedAlias, activeRecording.name, timestamp);
+                String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
         int mib = 1024 * 1024;
-        String key = String.format("%s/%s", target.jvmId, filename);
+        String key = String.format("%s/%s", recording.target.jvmId, filename);
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
-        try (var stream = remoteRecordingStreamFactory.open(activeRecording);
+        try (var stream = remoteRecordingStreamFactory.open(recording);
                 var ch = Channels.newChannel(stream)) {
             ByteBuffer buf = ByteBuffer.allocate(20 * mib);
-            multipartId =
-                    storage.createMultipartUpload(
-                                    CreateMultipartUploadRequest.builder()
-                                            .bucket(archiveBucket)
-                                            .key(key)
-                                            .contentType(JFR_MIME)
-                                            .tagging(
-                                                    createMetadataTagging(activeRecording.metadata))
-                                            .build())
-                            .uploadId();
+            CreateMultipartUploadRequest.Builder builder =
+                    CreateMultipartUploadRequest.builder()
+                            .bucket(archiveBucket)
+                            .key(key)
+                            .contentType(JFR_MIME)
+                            .tagging(
+                                    createMetadataTagging(
+                                            new Metadata(recording.metadata, expiry)));
+            if (expiry != null && expiry.isAfter(Instant.now())) {
+                builder = builder.expires(expiry);
+            }
+            CreateMultipartUploadRequest request = builder.build();
+            multipartId = storage.createMultipartUpload(request).uploadId();
             int read = 0;
             long accum = 0;
             for (int i = 1; i <= 10_000; i++) {
@@ -444,17 +466,59 @@ public class RecordingHelper {
             // couldn't parse the response from Amazon S3.
             throw e;
         }
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(
-                        "ActiveRecordingSaved",
-                        new RecordingEvent(target.connectUrl, toExternalForm(activeRecording))));
+        if (expiry == null) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            "ActiveRecordingSaved",
+                            new RecordingEvent(
+                                    recording.target.connectUrl, toExternalForm(recording))));
+        }
         return filename;
+    }
+
+    public Optional<Metadata> getArchivedRecordingMetadata(String jvmId, String filename) {
+        return getArchivedRecordingMetadata(archivedRecordingKey(jvmId, filename));
+    }
+
+    private Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
+        try {
+            return Optional.of(
+                    taggingToMetadata(
+                            storage.getObjectTagging(
+                                            GetObjectTaggingRequest.builder()
+                                                    .bucket(archiveBucket)
+                                                    .key(storageKey)
+                                                    .build())
+                                    .tagSet()));
+        } catch (NoSuchKeyException nske) {
+            logger.warn(nske);
+            return Optional.empty();
+        }
+    }
+
+    private String decodeBase64(String encoded) {
+        return new String(base64Url.decode(encoded), StandardCharsets.UTF_8);
+    }
+
+    public String archivedRecordingKey(String jvmId, String filename) {
+        return (jvmId + "/" + filename).strip();
+    }
+
+    public String archivedRecordingKey(Pair<String, String> pair) {
+        return archivedRecordingKey(pair.getKey(), pair.getValue());
     }
 
     public String encodedKey(String jvmId, String filename) {
         return base64Url.encodeAsString(
-                (jvmId + "/" + filename.strip()).getBytes(StandardCharsets.UTF_8));
+                (archivedRecordingKey(jvmId, filename)).getBytes(StandardCharsets.UTF_8));
+    }
+
+    // TODO refactor this and encapsulate archived recording keys as a record with override toString
+    public Pair<String, String> decodedKey(String encodedKey) {
+        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
+        String[] parts = key.split("/");
+        return Pair.of(parts[0], parts[1]);
     }
 
     public InputStream getActiveInputStream(ActiveRecording recording) throws Exception {
@@ -482,7 +546,7 @@ public class RecordingHelper {
     }
 
     public String downloadUrl(ActiveRecording recording) {
-        return "TODO";
+        return String.format("/api/v3/activedownload/%d", recording.id);
     }
 
     public String downloadUrl(String jvmId, String filename) {
@@ -536,21 +600,49 @@ public class RecordingHelper {
     // Metadata
     private Tagging createMetadataTagging(Metadata metadata) {
         // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
-        return Tagging.builder()
-                .tagSet(
-                        metadata.labels().entrySet().stream()
-                                .map(
-                                        e ->
-                                                Tag.builder()
-                                                        .key(
-                                                                base64Url.encodeAsString(
-                                                                        e.getKey().getBytes()))
-                                                        .value(
-                                                                base64Url.encodeAsString(
-                                                                        e.getValue().getBytes()))
-                                                        .build())
-                                .toList())
-                .build();
+        var tags = new ArrayList<Tag>();
+        tags.addAll(
+                metadata.labels().entrySet().stream()
+                        .map(
+                                e ->
+                                        Tag.builder()
+                                                .key(
+                                                        base64Url.encodeAsString(
+                                                                e.getKey().getBytes()))
+                                                .value(
+                                                        base64Url.encodeAsString(
+                                                                e.getValue().getBytes()))
+                                                .build())
+                        .toList());
+        if (metadata.expiry() != null) {
+            tags.add(
+                    Tag.builder()
+                            .key(objectExpirationLabel)
+                            .value(
+                                    base64Url.encodeAsString(
+                                            metadata.expiry()
+                                                    .atOffset(ZoneOffset.UTC)
+                                                    .toString()
+                                                    .getBytes()))
+                            .build());
+        }
+        return Tagging.builder().tagSet(tags).build();
+    }
+
+    private Metadata taggingToMetadata(List<Tag> tagSet) {
+        // TODO parse out other metadata than labels
+        Instant expiry = null;
+        var labels = new HashMap<String, String>();
+        for (var tag : tagSet) {
+            var decodedValue = decodeBase64(tag.value());
+            if (tag.key().equals(objectExpirationLabel)) {
+                expiry = Instant.parse(decodedValue);
+            } else {
+                var decodedKey = decodeBase64(tag.key());
+                labels.put(decodedKey, decodedValue);
+            }
+        }
+        return new Metadata(labels, expiry);
     }
 
     // jfr-datasource handling
@@ -574,10 +666,7 @@ public class RecordingHelper {
         MultipartForm form =
                 MultipartForm.create()
                         .binaryFileUpload(
-                                "file",
-                                DATASOURCE_FILENAME,
-                                recordingPath.toString(),
-                                HttpMimeType.OCTET_STREAM.toString());
+                                "file", DATASOURCE_FILENAME, recordingPath.toString(), JFR_MIME);
 
         try {
             ResponseBuilder builder = new ResponseBuilderImpl();

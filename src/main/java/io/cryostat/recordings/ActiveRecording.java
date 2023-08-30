@@ -18,6 +18,7 @@ package io.cryostat.recordings;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
@@ -48,6 +49,7 @@ import jakarta.persistence.PreRemove;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -138,19 +140,25 @@ public class ActiveRecording extends PanacheEntity {
         return find("name", name).singleResult();
     }
 
-    // Default implementation of delete is bulk so does not trigger lifecycle events
-    public static boolean deleteByName(String name) {
-        return delete("name", name) > 0;
-    }
-
+    @Transactional
     public static boolean deleteFromTarget(Target target, String recordingName) {
-        ActiveRecording recordingToDelete =
-                find("target = ?1 and name = ?2", target, recordingName).firstResult();
-        if (recordingToDelete != null) {
-            recordingToDelete.delete();
-            return true;
+        Optional<ActiveRecording> recording =
+                target.activeRecordings.stream()
+                        .filter(r -> r.name.equals(recordingName))
+                        .findFirst();
+        boolean found = recording.isPresent();
+        if (found) {
+            Logger.getLogger(ActiveRecording.class)
+                    .infov("Found and deleting match: {0} / {1}", target.alias, recording.get());
+            recording.get().delete();
+            getEntityManager().flush();
+        } else {
+            Logger.getLogger(ActiveRecording.class)
+                    .infov(
+                            "No match found for recording {0} in target {1}",
+                            recordingName, target.alias);
         }
-        return false; // Recording not found or already deleted.
+        return found;
     }
 
     @ApplicationScoped
@@ -176,7 +184,13 @@ public class ActiveRecording extends PanacheEntity {
                                     .ifPresent(
                                             d -> {
                                                 try {
-                                                    conn.getService().stop(d);
+                                                    if (!d.getState()
+                                                            .equals(
+                                                                    IRecordingDescriptor
+                                                                            .RecordingState
+                                                                            .STOPPED)) {
+                                                        conn.getService().stop(d);
+                                                    }
                                                 } catch (FlightRecorderException
                                                         | IOException
                                                         | ServiceNotAvailableException e) {
@@ -223,6 +237,10 @@ public class ActiveRecording extends PanacheEntity {
                                     recordingHelper.toExternalForm(recording))));
         }
 
+        // FIXME the target connectUrl URI may no longer be known if the target
+        // has disappeared and we are emitting an event regarding an archived recording originally
+        // sourced from that target.
+        // This should embed the target jvmId and optionally the database ID.
         public record RecordingEvent(URI target, Object recording) {
             public RecordingEvent {
                 Objects.requireNonNull(target);
