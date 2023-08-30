@@ -49,17 +49,22 @@ class MemoryCachingReportsListener {
 
     @ConsumeEvent(value = Recordings.ARCHIVED_RECORDING_DELETED)
     public void handleArchivedRecordingDeletion(ArchivedRecording recording) {
+        if (!quarkusCache || !memoryCache) {
+            return;
+        }
         // FIXME if the jvmId is not properly persisted with the recording metadata then we cannot
         // clear the cache for that entry
         String key =
-                ReportsService.key(
-                        recording.metadata().labels().get("connectUrl"), recording.name());
+                ReportsService.key(recording.metadata().labels().get("jvmId"), recording.name());
         logger.tracev("Picked up deletion of archived recording: {0}", key);
         archivedCache.invalidate(key);
     }
 
     @ConsumeEvent(value = Recordings.ACTIVE_RECORDING_DELETED)
     public void handleActiveRecordingDeletion(ActiveRecording recording) {
+        if (!quarkusCache || !memoryCache) {
+            return;
+        }
         // TODO verify that target lost cascades and causes active recording deletion events that we
         // observe here
         String key = ReportsService.key(recording);

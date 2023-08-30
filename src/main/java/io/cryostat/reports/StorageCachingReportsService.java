@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
@@ -62,7 +61,6 @@ class StorageCachingReportsService implements ReportsService {
     String bucket;
 
     @Inject S3Client storage;
-    @Inject ExecutorService worker;
     @Inject ObjectMapper mapper;
 
     @Inject @Delegate @Any ReportsService delegate;
