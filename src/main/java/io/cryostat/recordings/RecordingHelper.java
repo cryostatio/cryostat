@@ -63,7 +63,6 @@ import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.multipart.MultipartForm;
@@ -128,7 +127,6 @@ public class RecordingHelper {
     Base64 base64Url;
 
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
-    @Inject ObjectMapper mapper;
     @Inject S3Client storage;
     @Inject FileSystem fs;
 

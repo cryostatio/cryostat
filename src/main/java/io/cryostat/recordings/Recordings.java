@@ -965,22 +965,6 @@ public class Recordings {
             Objects.requireNonNull(reportUrl);
             Objects.requireNonNull(metadata);
         }
-
-        public static LinkedRecordingDescriptor from(ActiveRecording recording) {
-            return new LinkedRecordingDescriptor(
-                    recording.remoteId,
-                    recording.state,
-                    recording.duration,
-                    recording.startTime,
-                    recording.continuous,
-                    recording.toDisk,
-                    recording.maxSize,
-                    recording.maxAge,
-                    recording.name,
-                    "TODO",
-                    "TODO",
-                    recording.metadata);
-        }
     }
 
     // TODO include jvmId and filename

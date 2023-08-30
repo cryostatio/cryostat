@@ -26,6 +26,7 @@ import java.util.stream.Collectors;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
@@ -46,9 +47,7 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 class ReportsServiceImpl implements ReportsService {
 
-    static final String URL_CONFIG_PROPERTY = "cryostat.services.reports.url";
-
-    @ConfigProperty(name = URL_CONFIG_PROPERTY)
+    @ConfigProperty(name = ConfigProperties.REPORTS_SIDECAR_URL)
     Optional<URI> sidecarUri;
 
     @Inject ObjectMapper mapper;

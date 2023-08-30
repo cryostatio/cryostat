@@ -11,7 +11,7 @@ KEEP_VOLUMES=false
 display_usage() {
     echo "Usage:"
     echo -e "\t-O \t\t\t\tOffline mode, do not attempt to pull container images."
-    echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up. (default \"minio\")"
+    echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up. Minio has a nice UI and implements more features, localstack has nice log messages. (default \"minio\")"
     echo -e "\t-g \t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
     echo -e "\t-r\t\t\t\tconfigure a cryostat-reports sidecar instance"
     echo -e "\t-t \t\t\t\tinclude sample applications for Testing."

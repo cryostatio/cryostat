@@ -49,6 +49,14 @@ public interface ReportsService {
         return reportFor(jvmId, filename, r -> true);
     }
 
+    static String key(ActiveRecording recording) {
+        return String.format("%s/%d", recording.target.jvmId, recording.remoteId);
+    }
+
+    static String key(String jvmId, String filename) {
+        return String.format("%s/%s", jvmId, filename);
+    }
+
     // FIXME remove this definition, just make the type from -core deserializable by Jackson
     public static record RuleEvaluation(
             double score, String name, String topic, String description) {
