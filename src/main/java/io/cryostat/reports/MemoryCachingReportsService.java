@@ -43,15 +43,15 @@ class MemoryCachingReportsService implements ReportsService {
     @ConfigProperty(name = "quarkus.cache.enabled")
     boolean quarkusCache;
 
-    @ConfigProperty(name = ConfigProperties.MEMORY_CACHE_ENABLED_CONFIG_PROPERTY)
+    @ConfigProperty(name = ConfigProperties.MEMORY_CACHE_ENABLED)
     boolean memoryCache;
 
     @Inject
-    @CacheName(ConfigProperties.ACTIVE_REPORTS_CACHE_NAME)
+    @CacheName(ConfigProperties.ACTIVE_REPORTS_MEMORY_CACHE_NAME)
     Cache activeCache;
 
     @Inject
-    @CacheName(ConfigProperties.ARCHIVED_REPORTS_CACHE_NAME)
+    @CacheName(ConfigProperties.ARCHIVED_REPORTS_MEMORY_CACHE_NAME)
     Cache archivedCache;
 
     @Inject @Delegate @Any ReportsService delegate;
@@ -65,11 +65,12 @@ class MemoryCachingReportsService implements ReportsService {
             logger.trace("cache disabled, delegating...");
             return delegate.reportFor(recording, predicate);
         }
-        logger.tracev("reportFor {0}", key(recording));
+        String key = ReportsService.key(recording);
+        logger.tracev("reportFor {0}", key);
         return activeCache.getAsync(
-                key(recording),
-                key -> {
-                    logger.tracev("reportFor {0} cache miss", key(recording));
+                key,
+                k -> {
+                    logger.tracev("reportFor {0} cache miss", k);
                     return delegate.reportFor(recording);
                 });
     }
@@ -81,20 +82,13 @@ class MemoryCachingReportsService implements ReportsService {
             logger.trace("cache disabled, delegating...");
             return delegate.reportFor(jvmId, filename, predicate);
         }
-        logger.tracev("reportFor {0}", key(jvmId, filename));
+        String key = ReportsService.key(jvmId, filename);
+        logger.tracev("reportFor {0}", key);
         return archivedCache.getAsync(
-                key(jvmId, filename),
-                key -> {
-                    logger.tracev("reportFor {0} cache miss", key(jvmId, filename));
+                key,
+                k -> {
+                    logger.tracev("reportFor {0} cache miss", k);
                     return delegate.reportFor(jvmId, filename);
                 });
-    }
-
-    static String key(ActiveRecording recording) {
-        return String.format("%s/%d", recording.target.jvmId, recording.remoteId);
-    }
-
-    static String key(String jvmId, String filename) {
-        return String.format("%s/%s", jvmId, filename);
     }
 }

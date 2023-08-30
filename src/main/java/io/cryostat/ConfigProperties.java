@@ -20,12 +20,17 @@ public class ConfigProperties {
     public static final String AWS_OBJECT_EXPIRATION_LABELS =
             "storage.buckets.archives.expiration-label";
 
-    public static final String MEMORY_CACHE_ENABLED_CONFIG_PROPERTY =
+    public static final String REPORTS_SIDECAR_URL = "cryostat.services.reports.url";
+    public static final String MEMORY_CACHE_ENABLED =
             "cryostat.services.reports.memory-cache.enabled";
-    public static final String ACTIVE_REPORTS_CACHE_NAME =
+    public static final String ACTIVE_REPORTS_MEMORY_CACHE_NAME =
             "cryostat.services.reports.memory-cache.active.name";
-    public static final String ARCHIVED_REPORTS_CACHE_NAME =
+    public static final String ARCHIVED_REPORTS_MEMORY_CACHE_NAME =
             "cryostat.services.reports.memory-cache.archived.name";
+    public static final String STORAGE_CACHE_ENABLED =
+            "cryostat.services.reports.storage-cache.enabled";
+    public static final String ARCHIVED_REPORTS_STORAGE_CACHE_NAME =
+            "cryostat.services.reports.storage-cache.name";
 
     public static final String GRAFANA_DASHBOARD_URL = "grafana-dashboard.url";
     public static final String GRAFANA_DASHBOARD_EXT_URL = "grafana-dashboard-ext.url";

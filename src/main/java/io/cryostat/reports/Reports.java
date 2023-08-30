@@ -25,13 +25,17 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
+import io.cryostat.util.HttpStatusCodeIdentifier;
 
+import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.GET;
@@ -40,9 +44,13 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
+import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
 @Path("")
 public class Reports {
@@ -50,6 +58,39 @@ public class Reports {
     @Inject RecordingHelper helper;
     @Inject ReportsService reportsService;
     @Inject Logger logger;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_CACHE_ENABLED)
+    boolean storageCacheEnabled;
+
+    @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_STORAGE_CACHE_NAME)
+    String bucket;
+
+    @Inject S3Client storage;
+
+    // FIXME this observer cannot be declared on the StorageCachingReportsService decorator.
+    // Refactor to put this somewhere more sensible
+    void onStart(@Observes StartupEvent evt) {
+        if (storageCacheEnabled) {
+            boolean exists = false;
+            try {
+                exists =
+                        HttpStatusCodeIdentifier.isSuccessCode(
+                                storage.headBucket(
+                                                HeadBucketRequest.builder().bucket(bucket).build())
+                                        .sdkHttpResponse()
+                                        .statusCode());
+            } catch (Exception e) {
+                logger.info(e);
+            }
+            if (!exists) {
+                try {
+                    storage.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
+                } catch (Exception e) {
+                    logger.error(e);
+                }
+            }
+        }
+    }
 
     @Blocking
     @GET

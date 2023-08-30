@@ -21,7 +21,6 @@ public enum HttpMimeType {
     PLAINTEXT("text/plain"),
     HTML("text/html"),
     JSON("application/json"),
-    JSON_RAW("application/json"),
     OCTET_STREAM("application/octet-stream"),
     JFR("binary/octet-stream"),
     JFC("application/jfc+xml"),

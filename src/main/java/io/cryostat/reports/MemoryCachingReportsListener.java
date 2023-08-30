@@ -34,15 +34,15 @@ class MemoryCachingReportsListener {
     @ConfigProperty(name = "quarkus.cache.enabled")
     boolean quarkusCache;
 
-    @ConfigProperty(name = ConfigProperties.MEMORY_CACHE_ENABLED_CONFIG_PROPERTY)
+    @ConfigProperty(name = ConfigProperties.MEMORY_CACHE_ENABLED)
     boolean memoryCache;
 
     @Inject
-    @CacheName(ConfigProperties.ACTIVE_REPORTS_CACHE_NAME)
+    @CacheName(ConfigProperties.ACTIVE_REPORTS_MEMORY_CACHE_NAME)
     Cache activeCache;
 
     @Inject
-    @CacheName(ConfigProperties.ARCHIVED_REPORTS_CACHE_NAME)
+    @CacheName(ConfigProperties.ARCHIVED_REPORTS_MEMORY_CACHE_NAME)
     Cache archivedCache;
 
     @Inject Logger logger;
@@ -52,7 +52,7 @@ class MemoryCachingReportsListener {
         // FIXME if the jvmId is not properly persisted with the recording metadata then we cannot
         // clear the cache for that entry
         String key =
-                MemoryCachingReportsService.key(
+                ReportsService.key(
                         recording.metadata().labels().get("connectUrl"), recording.name());
         logger.tracev("Picked up deletion of archived recording: {0}", key);
         archivedCache.invalidate(key);
@@ -62,7 +62,7 @@ class MemoryCachingReportsListener {
     public void handleActiveRecordingDeletion(ActiveRecording recording) {
         // TODO verify that target lost cascades and causes active recording deletion events that we
         // observe here
-        String key = MemoryCachingReportsService.key(recording);
+        String key = ReportsService.key(recording);
         logger.tracev(
                 "Picked up deletion of active recording: {0} / {1} ({2})",
                 recording.target.alias, recording.name, key);
