@@ -28,11 +28,10 @@ import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-@Disabled("TODO")
+// @Disabled("TODO")
 public class TemplatePostDeleteIT extends StandardSelfTest {
     static final String INVALID_TEMPLATE_FILE_NAME = "invalidTemplate.xml";
     static final String SANITIZE_TEMPLATE_FILE_NAME = "TemplateToSanitize.jfc";
@@ -57,6 +56,7 @@ public class TemplatePostDeleteIT extends StandardSelfTest {
 
         webClient
                 .post(REQ_URL)
+                .basicAuthentication("user", "pass")
                 .sendMultipartForm(
                         form,
                         ar -> {
@@ -86,6 +86,7 @@ public class TemplatePostDeleteIT extends StandardSelfTest {
 
         webClient
                 .post(REQ_URL)
+                .basicAuthentication("user", "pass")
                 .sendMultipartForm(
                         form,
                         ar -> {
@@ -105,6 +106,7 @@ public class TemplatePostDeleteIT extends StandardSelfTest {
 
         webClient
                 .delete(String.format("%s/%s", REQ_URL, INVALID_TEMPLATE_FILE_NAME))
+                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             assertRequestStatus(ar, response);
@@ -142,6 +144,7 @@ public class TemplatePostDeleteIT extends StandardSelfTest {
             CompletableFuture<JsonArray> getResponse = new CompletableFuture<>();
             webClient
                     .get("/api/v1/targets/localhost:0/templates")
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 assertRequestStatus(ar, getResponse);
@@ -160,6 +163,7 @@ public class TemplatePostDeleteIT extends StandardSelfTest {
             CompletableFuture<Integer> deleteResponse = new CompletableFuture<>();
             webClient
                     .delete(REQ_URL + "/Template_To_Sanitize")
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 assertRequestStatus(ar, deleteResponse);
