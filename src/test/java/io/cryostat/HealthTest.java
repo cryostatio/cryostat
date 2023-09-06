@@ -17,7 +17,6 @@ package io.cryostat;
 
 import static io.restassured.RestAssured.when;
 import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.Matchers.*;
 
 import java.util.Optional;
 
