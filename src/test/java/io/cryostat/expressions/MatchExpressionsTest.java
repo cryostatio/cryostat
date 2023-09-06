@@ -17,7 +17,6 @@ package io.cryostat.expressions;
 
 import static io.cryostat.TestUtils.givenBasicAuth;
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
 
 import java.util.HashMap;
 import java.util.List;
