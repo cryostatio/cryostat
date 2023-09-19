@@ -7,23 +7,24 @@ fi
 
 FILES=(
     ./smoketest/compose/db.yml
-    ./smoketest/compose/cryostat.yml
 )
 
-PULL_IMAGES=true
-KEEP_VOLUMES=false
+PULL_IMAGES=${PULL_IMAGES:-true}
+KEEP_VOLUMES=${KEEP_VOLUMES:-false}
 
 display_usage() {
     echo "Usage:"
     echo -e "\t-O \t\t\t\tOffline mode, do not attempt to pull container images."
-    echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up. (default \"minio\")"
+    echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up (default \"minio\")."
     echo -e "\t-g \t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
     echo -e "\t-t \t\t\t\tinclude sample applications for Testing."
     echo -e "\t-V \t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X \t\t\t\tdeploy additional development aid tools."
+    echo -e "\t--api [podman|docker]\t\tUse Podman libpod or Docker API (default \"podman\")."
 }
 
 s3=minio
+api=podman
 while getopts "s:gtOVX" opt; do
     case $opt in
         s)
@@ -44,6 +45,9 @@ while getopts "s:gtOVX" opt; do
         X)
             FILES+=('./smoketest/compose/db-viewer.yml')
             ;;
+        api)
+            api="${OPTARG}"
+            ;;
         *)
             display_usage
             exit 1
@@ -57,6 +61,16 @@ elif [ "${s3}" = "localstack" ]; then
     FILES+=('./smoketest/compose/s3-localstack.yml')
 else
     echo "Unknown S3 selection: ${s3}"
+    display_usage
+    exit 2
+fi
+
+if [ "${api}" = "podman" ]; then
+    FILES+=('./smoketest/compose/cryostat.yml')
+elif [ "${api}" = "docker" ]; then
+    FILES+=('./smoketest/compose/cryostat_docker.yml')
+else
+    echo "Unknown API selection: ${api}"
     display_usage
     exit 2
 fi
@@ -118,4 +132,3 @@ fi
 docker-compose \
     "${CMD[@]}" \
     up
-

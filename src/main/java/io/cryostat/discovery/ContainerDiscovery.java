@@ -61,16 +61,74 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
-public class PodmanDiscovery {
+class PodmanDiscovery extends ContainerDiscovery {
+    @ConfigProperty(name = "cryostat.discovery.podman.enabled")
+    boolean enabled;
 
-    private static final String REALM = "Podman";
+    @Override
+    public String getRealm() {
+        return "Podman";
+    }
+
+    @Override
+    protected SocketAddress getSocket() {
+        long uid = new UnixSystem().getUid();
+        return SocketAddress.domainSocketAddress(
+                String.format("/run/user/%d/podman/podman.sock", uid));
+    }
+
+    @Override
+    protected String getContainersQueryURL() {
+        return "http://d/v3.0.0/libpod/containers/json";
+    }
+
+    @Override
+    protected String getContainerQueryURL(ContainerSpec spec) {
+        return String.format("http://d/v3.0.0/libpod/containers/%s/json", spec.Id());
+    }
+
+    @Override
+    protected boolean enabled() {
+        return enabled;
+    }
+}
+
+@ApplicationScoped
+class DockerDiscovery extends ContainerDiscovery {
+    @ConfigProperty(name = "cryostat.discovery.docker.enabled")
+    boolean enabled;
+
+    @Override
+    public String getRealm() {
+        return "Docker";
+    }
+
+    @Override
+    protected SocketAddress getSocket() {
+        return SocketAddress.domainSocketAddress(String.format("/var/run/docker.sock"));
+    }
+
+    @Override
+    protected String getContainersQueryURL() {
+        return "http://d/v1.42/containers/json";
+    }
+
+    @Override
+    protected String getContainerQueryURL(ContainerSpec spec) {
+        return String.format("http://d/v1.42/containers/%s/json", spec.Id());
+    }
+
+    @Override
+    protected boolean enabled() {
+        return enabled;
+    }
+}
+
+public abstract class ContainerDiscovery {
     public static final String DISCOVERY_LABEL = "io.cryostat.discovery";
     public static final String JMX_URL_LABEL = "io.cryostat.jmxUrl";
     public static final String JMX_HOST_LABEL = "io.cryostat.jmxHost";
     public static final String JMX_PORT_LABEL = "io.cryostat.jmxPort";
-
-    private long timerId;
-    private final CopyOnWriteArrayList<ContainerSpec> containers = new CopyOnWriteArrayList<>();
 
     @Inject Logger logger;
     @Inject Vertx vertx;
@@ -78,19 +136,20 @@ public class PodmanDiscovery {
     @Inject JFRConnectionToolkit connectionToolkit;
     @Inject ObjectMapper mapper;
 
-    @ConfigProperty(name = "cryostat.discovery.podman.enabled")
-    boolean enabled;
+    protected long timerId;
+
+    protected final CopyOnWriteArrayList<ContainerSpec> containers = new CopyOnWriteArrayList<>();
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
-        if (!enabled) {
+        if (!enabled()) {
             return;
         }
 
         DiscoveryNode universe = DiscoveryNode.getUniverse();
-        if (DiscoveryNode.getRealm(REALM).isEmpty()) {
+        if (DiscoveryNode.getRealm(getRealm()).isEmpty()) {
             DiscoveryPlugin plugin = new DiscoveryPlugin();
-            DiscoveryNode node = DiscoveryNode.environment(REALM, DiscoveryNode.REALM);
+            DiscoveryNode node = DiscoveryNode.environment(getRealm(), DiscoveryNode.REALM);
             plugin.realm = node;
             plugin.builtin = true;
             universe.children.add(node);
@@ -103,15 +162,15 @@ public class PodmanDiscovery {
     }
 
     void onStop(@Observes ShutdownEvent evt) {
-        if (!enabled) {
+        if (!enabled()) {
             return;
         }
-        logger.info("Shutting down Podman client");
+        logger.info(String.format("Shutting down %s client", getRealm()));
         vertx.cancelTimer(timerId);
     }
 
     private void queryContainers() {
-        doPodmanListRequest(
+        doContainerListRequest(
                 current -> {
                     Set<ContainerSpec> previous = new HashSet<>(containers);
                     Set<ContainerSpec> updated = new HashSet<>(current);
@@ -133,7 +192,7 @@ public class PodmanDiscovery {
                                                     .filter(Objects::nonNull)
                                                     .forEach(
                                                             container ->
-                                                                    handlePodmanEvent(
+                                                                    handleContainerEvent(
                                                                             container,
                                                                             EventKind.LOST)));
 
@@ -145,15 +204,15 @@ public class PodmanDiscovery {
                                                     .filter(Objects::nonNull)
                                                     .forEach(
                                                             container ->
-                                                                    handlePodmanEvent(
+                                                                    handleContainerEvent(
                                                                             container,
                                                                             EventKind.FOUND)));
                 });
     }
 
-    private void doPodmanListRequest(Consumer<List<ContainerSpec>> successHandler) {
-        logger.trace("Querying Podman socket");
-        URI requestPath = URI.create("http://d/v3.0.0/libpod/containers/json");
+    private void doContainerListRequest(Consumer<List<ContainerSpec>> successHandler) {
+        logger.trace(String.format("Shutting down %s client", getRealm()));
+        URI requestPath = URI.create(getContainersQueryURL());
         try {
             webClient
                     .request(HttpMethod.GET, getSocket(), 80, "localhost", requestPath.toString())
@@ -176,18 +235,18 @@ public class PodmanDiscovery {
                                 }
                             },
                             failure -> {
-                                logger.error("Podman API request failed", failure);
+                                logger.error(
+                                        String.format("%s API request failed", getRealm()),
+                                        failure);
                             });
         } catch (JsonProcessingException e) {
             logger.error("Json processing error");
         }
     }
 
-    private CompletableFuture<ContainerDetails> doPodmanInspectRequest(ContainerSpec container) {
+    private CompletableFuture<ContainerDetails> doContainerInspectRequest(ContainerSpec container) {
         CompletableFuture<ContainerDetails> result = new CompletableFuture<>();
-        URI requestPath =
-                URI.create(
-                        String.format("http://d/v3.0.0/libpod/containers/%s/json", container.Id));
+        URI requestPath = URI.create(getContainerQueryURL(container));
         webClient
                 .request(HttpMethod.GET, getSocket(), 80, "localhost", requestPath.toString())
                 .timeout(2_000L)
@@ -205,20 +264,15 @@ public class PodmanDiscovery {
                             }
                         },
                         failure -> {
-                            logger.error("Podman API request failed", failure);
+                            logger.error(
+                                    String.format("%s API request failed", getRealm()), failure);
                             result.completeExceptionally(failure);
                         });
         return result;
     }
 
-    private static SocketAddress getSocket() {
-        long uid = new UnixSystem().getUid();
-        String socketPath = String.format("/run/user/%d/podman/podman.sock", uid);
-        return SocketAddress.domainSocketAddress(socketPath);
-    }
-
     @Transactional
-    public void handlePodmanEvent(ContainerSpec desc, EventKind evtKind) {
+    public void handleContainerEvent(ContainerSpec desc, EventKind evtKind) {
         URI connectUrl;
         String hostname;
         int jmxPort;
@@ -242,13 +296,13 @@ public class PodmanDiscovery {
                 if (hostname == null) {
                     try {
                         hostname =
-                                doPodmanInspectRequest(desc)
+                                doContainerInspectRequest(desc)
                                         .get(2, TimeUnit.SECONDS)
                                         .Config
                                         .Hostname;
                     } catch (InterruptedException | TimeoutException | ExecutionException e) {
                         containers.remove(desc);
-                        logger.warn("Invalid Podman target observed", e);
+                        logger.warn(String.format("Invalid %s target observed", getRealm()), e);
                         return;
                     }
                 }
@@ -257,11 +311,11 @@ public class PodmanDiscovery {
             connectUrl = URI.create(serviceUrl.toString());
         } catch (MalformedURLException | URISyntaxException e) {
             containers.remove(desc);
-            logger.warn("Invalid Podman target observed", e);
+            logger.warn(String.format("Invalid %s target observed", getRealm()), e);
             return;
         }
 
-        DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
+        DiscoveryNode realm = DiscoveryNode.getRealm(getRealm()).orElseThrow();
 
         if (evtKind == EventKind.FOUND) {
             Target target = new Target();
@@ -275,7 +329,7 @@ public class PodmanDiscovery {
                     .putAll(
                             Map.of(
                                     "REALM", // AnnotationKey.REALM,
-                                    REALM,
+                                    getRealm(),
                                     "HOST", // AnnotationKey.HOST,
                                     hostname,
                                     "PORT", // "AnnotationKey.PORT,
@@ -321,6 +375,16 @@ public class PodmanDiscovery {
         }
     }
 
+    protected abstract SocketAddress getSocket();
+
+    protected abstract String getRealm();
+
+    protected abstract String getContainersQueryURL();
+
+    protected abstract String getContainerQueryURL(ContainerSpec spec);
+
+    protected abstract boolean enabled();
+
     static record PortSpec(
             long container_port, String host_ip, long host_port, String protocol, long range) {}
 
@@ -340,4 +404,3 @@ public class PodmanDiscovery {
 
     static record Config(String Hostname) {}
 }
-/* */
