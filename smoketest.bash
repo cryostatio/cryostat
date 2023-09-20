@@ -20,7 +20,7 @@ display_usage() {
     echo -e "\t-t \t\t\t\tinclude sample applications for Testing."
     echo -e "\t-V \t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X \t\t\t\tdeploy additional development aid tools."
-    echo -e "\t--ce [podman|docker]\t\tUse Podman libpod or Docker API (default \"podman\")."
+    echo -e "\t--ce [podman|docker]\t\tUse Podman or Docker Container Engine (default \"podman\")."
 }
 
 s3=minio
@@ -70,7 +70,7 @@ if [ "${ce}" = "podman" ]; then
 elif [ "${ce}" = "docker" ]; then
     FILES+=('./smoketest/compose/cryostat_docker.yml')
 else
-    echo "Unknown API selection: ${ce}"
+    echo "Unknown Container Engine selection: ${ce}"
     display_usage
     exit 2
 fi
@@ -126,7 +126,7 @@ if [ "${PULL_IMAGES}" = "true" ]; then
           IMAGES+=("${img}")
         done
     done
-    docker pull "${IMAGES[@]}" || true
+    $(ce) pull "${IMAGES[@]}" || true
 fi
 
 docker-compose \
