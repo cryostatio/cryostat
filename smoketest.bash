@@ -20,11 +20,11 @@ display_usage() {
     echo -e "\t-t \t\t\t\tinclude sample applications for Testing."
     echo -e "\t-V \t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X \t\t\t\tdeploy additional development aid tools."
-    echo -e "\t--api [podman|docker]\t\tUse Podman libpod or Docker API (default \"podman\")."
+    echo -e "\t--ce [podman|docker]\t\tUse Podman libpod or Docker API (default \"podman\")."
 }
 
 s3=minio
-api=podman
+ce=podman
 while getopts "s:gtOVX" opt; do
     case $opt in
         s)
@@ -45,8 +45,8 @@ while getopts "s:gtOVX" opt; do
         X)
             FILES+=('./smoketest/compose/db-viewer.yml')
             ;;
-        api)
-            api="${OPTARG}"
+        ce)
+            ce="${OPTARG}"
             ;;
         *)
             display_usage
@@ -65,12 +65,12 @@ else
     exit 2
 fi
 
-if [ "${api}" = "podman" ]; then
+if [ "${ce}" = "podman" ]; then
     FILES+=('./smoketest/compose/cryostat.yml')
-elif [ "${api}" = "docker" ]; then
+elif [ "${ce}" = "docker" ]; then
     FILES+=('./smoketest/compose/cryostat_docker.yml')
 else
-    echo "Unknown API selection: ${api}"
+    echo "Unknown API selection: ${ce}"
     display_usage
     exit 2
 fi
