@@ -80,10 +80,10 @@ Development on this project is primarily done using `podman`, though things shou
 $ systemctl --user enable --now podman.socket
 ```
 
-`~/.bashrc` (or equivalent shell configuration)
+`$HOME/.bashrc` (or equivalent shell configuration)
 ```bash
-$ export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
-$ export TESTCONTAINERS_RYUK_DISABLED=true
+export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
+export TESTCONTAINERS_RYUK_DISABLED=true
 ```
 
 Build the container image and run smoketests. This will spin up the cryostat container and its required services.
