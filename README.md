@@ -7,6 +7,12 @@ This project uses Quarkus, the Supersonic Subatomic Java Framework.
 
 If you want to learn more about Quarkus, please visit its website: https://quarkus.io/ .
 
+## PREVIEW
+
+This repository is in an active development, early preview state, and will eventually be used for `3.x` release
+versions of Cryostat. See [cryostatio/cryostat](https://github.com/cryostatio/cryostat) for the old repository
+containing the `< 3.0` codebase.
+
 ## REQUIREMENTS
 
 Build Requirements:
