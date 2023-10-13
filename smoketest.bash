@@ -20,12 +20,12 @@ display_usage() {
     echo -e "\t-t \t\t\t\tinclude sample applications for Testing."
     echo -e "\t-V \t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X \t\t\t\tdeploy additional development aid tools."
-    echo -e "\t--ce [podman|docker]\t\tUse Podman or Docker Container Engine (default \"podman\")."
+    echo -e "\t-c [podman|docker]\t\tUse Podman or Docker Container Engine (default \"podman\")."
 }
 
 s3=minio
 ce=podman
-while getopts "s:gtOVX" opt; do
+while getopts "s:gtOVXc" opt; do
     case $opt in
         s)
             s3="${OPTARG}"
@@ -45,7 +45,7 @@ while getopts "s:gtOVX" opt; do
         X)
             FILES+=('./smoketest/compose/db-viewer.yml')
             ;;
-        ce)
+        c)
             ce="${OPTARG}"
             ;;
         *)
@@ -126,7 +126,7 @@ if [ "${PULL_IMAGES}" = "true" ]; then
           IMAGES+=("${img}")
         done
     done
-    $(ce) pull "${IMAGES[@]}" || true
+    ${ce} pull "${IMAGES[@]}" || true
 fi
 
 docker-compose \
