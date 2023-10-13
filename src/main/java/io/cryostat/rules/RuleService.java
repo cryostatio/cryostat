@@ -174,7 +174,9 @@ public class RuleService {
     }
 
     private IConstrainedMap<String> createRecordingOptions(Rule rule, JFRConnection connection)
-            throws ConnectionException, QuantityConversionException, IOException,
+            throws ConnectionException,
+                    QuantityConversionException,
+                    IOException,
                     ServiceNotAvailableException {
         RecordingOptionsBuilder optionsBuilder =
                 recordingOptionsBuilderFactory
