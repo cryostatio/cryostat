@@ -26,7 +26,7 @@ import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
-import io.cryostat.core.reports.InterruptibleReportGenerator.RuleEvaluation;
+import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RemoteRecordingInputStreamFactory;
 import io.cryostat.targets.Target;
@@ -108,7 +108,7 @@ public class Reports {
     @Path("/api/v3/reports/{encodedKey}")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
-    public Uni<Map<String, RuleEvaluation>> get(@RestPath String encodedKey)
+    public Uni<Map<String, AnalysisResult>> get(@RestPath String encodedKey)
             throws IOException, CouldNotLoadRecordingException {
         // TODO implement query parameter for evaluation predicate
         return Uni.createFrom()
@@ -149,7 +149,7 @@ public class Reports {
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
     @Deprecated(since = "3.0", forRemoval = true)
-    public Uni<Map<String, RuleEvaluation>> getActive(
+    public Uni<Map<String, AnalysisResult>> getActive(
             @RestPath long targetId, @RestPath long recordingId) throws Exception {
         var target = Target.<Target>findById(targetId);
         var recording = target.getRecordingById(recordingId);
