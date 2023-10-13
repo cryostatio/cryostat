@@ -15,6 +15,7 @@
  */
 package io.cryostat.targets;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.Collection;
 import java.util.List;
@@ -24,17 +25,24 @@ import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IDescribedMap;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
 import org.openjdk.jmc.common.unit.IQuantity;
+import org.openjdk.jmc.common.unit.QuantityConversionException;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 import org.openjdk.jmc.flightrecorder.configuration.events.IEventTypeID;
 import org.openjdk.jmc.flightrecorder.configuration.internal.DefaultValueMap;
+import org.openjdk.jmc.rjmx.ConnectionException;
+import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
 import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
-import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
+
+import io.cryostat.core.EventOptionsBuilder.EventOptionException;
+import io.cryostat.core.EventOptionsBuilder.EventTypeException;
+import io.cryostat.core.net.CryostatFlightRecorderService;
+import io.cryostat.core.templates.TemplateType;
 
 import io.vertx.mutiny.ext.web.client.WebClient;
 
-class AgentJFRService implements IFlightRecorderService {
+class AgentJFRService implements CryostatFlightRecorderService {
 
     private final WebClient webClient;
 
@@ -191,4 +199,19 @@ class AgentJFRService implements IFlightRecorderService {
     }
 
     public static class UnimplementedException extends IllegalStateException {}
+
+    @Override
+    public IRecordingDescriptor start(IConstrainedMap<String> arg0, String arg1, TemplateType arg2)
+            throws io.cryostat.core.FlightRecorderException,
+                    FlightRecorderException,
+                    ConnectionException,
+                    IOException,
+                    FlightRecorderException,
+                    ServiceNotAvailableException,
+                    QuantityConversionException,
+                    EventOptionException,
+                    EventTypeException {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'start'");
+    }
 }
