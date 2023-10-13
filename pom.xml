@@ -201,7 +201,12 @@
       <artifactId>netty-transport-native-kqueue</artifactId>
       <classifier>osx-x86_64</classifier>
     </dependency>
-
+    <dependency>
+      <groupId>com.google.googlejavaformat</groupId>
+      <artifactId>google-java-format</artifactId>
+      <version>${com.google.java-format.version}</version>
+      <scope>provided</scope>
+    </dependency>
 
     <dependency>
       <groupId>io.quarkus</groupId>
