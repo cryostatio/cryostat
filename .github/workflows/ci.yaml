@@ -24,6 +24,10 @@ on:
       - v[0-9]+.[0-9]+
       - cryostat-v[0-9]+.[0-9]+
 
+env:
+    OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/Release.key"
+    OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
+
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
@@ -73,27 +77,25 @@ jobs:
         cd src/main/webui
         yarn install && yarn yarn:frzinstall
         cd -
-    - name: Update podman
+    - name: Install podman v4
       run: |
-        sudo apt-get -y purge podman
-        sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL https://download.opensuse.org/repositories/devel:kubic:libcontainers:unstable/xUbuntu_$(lsb_release -rs)/Release.key | gpg --dearmor | sudo tee /etc/apt/keyrings/devel_kubic_libcontainers_unstable.gpg > /dev/null
-        echo \
-          "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/devel_kubic_libcontainers_unstable.gpg] \
-          https://download.opensuse.org/repositories/devel:kubic:libcontainers:unstable/xUbuntu_$(lsb_release -rs)/ /" \
-          | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list > /dev/null
-        sudo apt-get update -qq
-        sudo apt-get -qq -y install podman
-    - name: Install podman-docker
+        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
+        sudo apt -y purge podman
+        sudo apt update && sudo apt -y install podman
+    - name: Emulate docker with podman
       run: |
-          sudo apt-get -y purge moby-cli
-          sudo apt install -y podman-docker
-    - name: Setup docker host
-      run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
+        mkdir -p $HOME/.bin
+        cat <(echo '#!/usr/bin/env bash') <(echo 'exec podman "$@"') > $HOME/.bin/docker
+        chmod +x $HOME/.bin/docker
+        export PATH="$HOME/.bin:$PATH"
+        docker --version
     - name: Set up testcontainers for podman
-      run:  |
-        echo ryuk.container.privileged=true > ~/.testcontainers.properties
-    - run: systemctl --user enable --now podman.socket
+      run:  echo ryuk.container.privileged=true > ~/.testcontainers.properties
+    - name: Start Podman API
+      run: systemctl --user enable --now podman.socket
+    - name: Set DOCKER_HOST environment variable
+      run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
     - name: Build db image
       run: sh db/build.sh
     - name: Run tests
