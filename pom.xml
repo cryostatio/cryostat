@@ -45,6 +45,7 @@
     <quarkus-quinoa.version>2.0.4</quarkus-quinoa.version>
 
     <com.diffplug.spotless.maven.plugin.version>2.40.0</com.diffplug.spotless.maven.plugin.version>
+    <com.google.java-format.version>1.18.1</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>4.1</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.0.0-M7</surefire-plugin.version>
     <failsafe-plugin.version>3.0.0-M7</failsafe-plugin.version>
@@ -288,7 +289,7 @@
         <configuration>
           <java>
             <googleJavaFormat>
-              <version>1.15.0</version>
+              <version>${com.google.java-format.version}</version>
               <style>AOSP</style>
               <reflowLongStrings>true</reflowLongStrings>
             </googleJavaFormat>
