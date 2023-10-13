@@ -143,8 +143,11 @@ class AgentConnection implements JFRConnection {
 
     @Override
     public MBeanMetrics getMBeanMetrics()
-            throws ConnectionException, IOException, InstanceNotFoundException,
-                    IntrospectionException, ReflectionException {
+            throws ConnectionException,
+                    IOException,
+                    InstanceNotFoundException,
+                    IntrospectionException,
+                    ReflectionException {
         // TODO
         RuntimeMetrics runtime = new RuntimeMetrics(Map.of());
         MemoryMetrics memory = new MemoryMetrics(Map.of());
