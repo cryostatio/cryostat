@@ -84,13 +84,11 @@ jobs:
         sudo apt -y purge podman
         sudo apt update && sudo apt -y install podman
     - name: Emulate docker with podman
-      env:
-        HOME_BIN: "~/.bin"
       run: |
-        mkdir -p $HOME_BIN
-        cat <(echo '#!/usr/bin/env bash') <(echo 'exec podman "$@"') > $HOME_BIN/docker
-        chmod +x $HOME_BIN/docker
-        export PATH="$HOME_BIN:$PATH"
+        mkdir -p $HOME/.bin
+        cat <(echo '#!/usr/bin/env bash') <(echo 'exec podman "$@"') > $HOME/.bin/docker
+        chmod +x $HOME/.bin/docker
+        export PATH="$HOME/.bin:$PATH"
         docker --version
     - name: Set up testcontainers for podman
       run:  echo ryuk.container.privileged=true > ~/.testcontainers.properties
