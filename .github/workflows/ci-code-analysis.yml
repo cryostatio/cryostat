@@ -45,7 +45,7 @@ jobs:
         servers: '[{"id": "github", "username": "dummy", "password": "${env.GITHUB_TOKEN_REF}"}]'
         githubServer: false
     - name: Run spotbugs
-      run: mvn -B -U -Dheadless=true compile spotbugs:check
+      run: mvn -B -U -Dquarkus.quinoa=false compile spotbugs:check
       env:
         GITHUB_TOKEN_REF: ${{ secrets.GITHUB_TOKEN }}
 

@@ -1,2 +1,2 @@
 pom.xml @andrewazores @ebaron
-src/container/ @andrewazores @ebaron
+src/main/docker/ @andrewazores @ebaron
