@@ -1,0 +1,19 @@
+name: Request Review
+
+on:
+  issue_comment:
+    types:
+      - created
+
+jobs:
+  request-review:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    permissions:
+      pull-requests: write
+    if: github.repository_owner == 'cryostatio' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/request_review')
+    steps:
+      - run: |
+          # Adding label 'review-requested' to the PR. Mergify will add reviewers.
+          gh pr edit ${{ github.event.issue.number }} --add-label "review-requested" --repo ${{ github.event.repository.full_name }}
