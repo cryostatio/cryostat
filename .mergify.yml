@@ -1,14 +1,14 @@
 pull_request_rules:
-  - name: backport patches to cryostat-v2.4 branch
-    conditions:
-      - base=main
-      - label=backport
-    actions:
-      backport:
-        branches:
-          - cryostat-v2.4
-        assignees:
-          - "{{ author }}"
+  #- name: backport patches to cryostat-v3.0 branch
+  #  conditions:
+  #   - base=main
+  #   - label=backport
+  #  actions:
+  #    backport:
+  #      branches:
+  #        - cryostat-v3.0
+  #      assignees:
+  #        - "{{ author }}"
 
   - name: auto label PRs from reviewers
     conditions:
@@ -35,8 +35,8 @@ pull_request_rules:
       review:
         type: REQUEST_CHANGES
         message: >-
-            Pull Request blocked. `web-client` submodule updates are performed automatically by CI when that repository
-            is updated. Please revert or drop all changes to the `web-client` submodule from this PR and perform any
+            Pull Request blocked. `webui` submodule updates are performed automatically by CI when that repository
+            is updated. Please revert or drop all changes to the `webui` submodule from this PR and perform any
             required frontend work by opening and merging a PR against
             [cryostat-web](https://github.com/cryostatio/cryostat-web).
 
