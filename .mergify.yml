@@ -1,0 +1,60 @@
+pull_request_rules:
+  - name: backport patches to cryostat-v2.4 branch
+    conditions:
+      - base=main
+      - label=backport
+    actions:
+      backport:
+        branches:
+          - cryostat-v2.4
+        assignees:
+          - "{{ author }}"
+
+  - name: auto label PRs from reviewers
+    conditions:
+      - author=@reviewers
+    actions:
+      label:
+        add:
+          - safe-to-test
+
+  - name: dismiss stale reviews
+    conditions:
+      - base=main
+    actions:
+      dismiss_reviews:
+        approved: [ 'mergify', 'Mergifyio' ]
+        changes_requested: [ 'mergify', 'Mergifyio' ]
+
+  - name: block pull requests that manually update web-client submodule
+    conditions:
+      - or:
+        - files=src/main/webui
+        - files~=src/main/webui/
+    actions:
+      review:
+        type: REQUEST_CHANGES
+        message: >-
+            Pull Request blocked. `web-client` submodule updates are performed automatically by CI when that repository
+            is updated. Please revert or drop all changes to the `web-client` submodule from this PR and perform any
+            required frontend work by opening and merging a PR against
+            [cryostat-web](https://github.com/cryostatio/cryostat-web).
+
+  - name: request reviews from the reviewers team
+    conditions:
+      - label=review-requested
+    actions:
+      request_reviews:
+        teams:
+          - "@cryostatio/reviewers"
+
+  - name: remove review-requested label upon reviewing
+    conditions:
+      - or:
+        - "#approved-reviews-by>0"
+        - "#changes-requested-reviews-by>0"
+        - "#commented-reviews-by>0"
+    actions:
+      label:
+        remove:
+          - review-requested
