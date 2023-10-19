@@ -13,6 +13,12 @@ This repository is in an active development, early preview state, and will event
 versions of Cryostat. See [cryostatio/cryostat](https://github.com/cryostatio/cryostat) for the old repository
 containing the `< 3.0` codebase.
 
+## CONTRIBUTING
+
+We welcome and appreciate any contributions from our community. Please visit our guide on how you can take part in improving Cryostat3.
+
+[See contribution guide →](./CONTRIBUTING.md)
+
 ## REQUIREMENTS
 
 Build Requirements:
@@ -31,10 +37,6 @@ Run Requirements:
 - [kubectl multi-forward](https://github.com/njnygaard/kubectl-multiforward) (requires [Krew](https://krew.sigs.k8s.io/docs/user-guide/setup/install/)) (Optional)
 - [kind](https://kind.sigs.k8s.io/docs/user/quick-start) v0.20.0+ (Optional)
 
-## CONTRIBUTING
-
-All types of contributions are encouraged and valued.
-- If you wish to contribute, please take a look at [contributing guidelines](https://github.com/cryostatio/cryostat3/blob/main/CONTRIBUTING.md)
 
 ## BUILD
 
