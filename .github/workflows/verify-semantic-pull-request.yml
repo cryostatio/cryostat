@@ -1,4 +1,4 @@
-name: semantic-pull-request
+name: verify semantic-pull-request
 
 on:
   pull_request_target:

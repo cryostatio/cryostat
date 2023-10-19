@@ -31,6 +31,11 @@ Run Requirements:
 - [kubectl multi-forward](https://github.com/njnygaard/kubectl-multiforward) (requires [Krew](https://krew.sigs.k8s.io/docs/user-guide/setup/install/)) (Optional)
 - [kind](https://kind.sigs.k8s.io/docs/user/quick-start) v0.20.0+ (Optional)
 
+## CONTRIBUTING
+
+All types of contributions are encouraged and valued.
+- If you wish to contribute, please take a look at [contributing guidelines](https://github.com/cryostatio/cryostat3/blob/main/CONTRIBUTING.md)
+
 ## BUILD
 
 ### Setup Dependencies

@@ -1,5 +1,5 @@
 blank_issues_enabled: enabled
 contact_links:
   - name: Cryostat Community Support
-    url: https://github.com/cryostatio/cryostat/discussions
+    url: https://github.com/cryostatio/cryostat3/discussions
     about: Ask general questions about Cryostat here!
