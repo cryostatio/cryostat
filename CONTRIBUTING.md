@@ -94,7 +94,7 @@ Visit upstream repository and open a PR.
 Compare changes across forks (your branch in fork to the upstream main).
 
 to do once re-forked
-<!--![select-compare-across-forks](https://user-images.githubusercontent.com/68053619/193328282-79d45b5e-097f-4995-ae21-51592dcf0bd4.jpg) -->
+![select-compare-across-forks](https://user-images.githubusercontent.com/68053619/193328282-79d45b5e-097f-4995-ae21-51592dcf0bd4.jpg)
 
 
 Add:
@@ -106,7 +106,7 @@ Add:
 **Note**: You might not be able to add reviewers and labels. Don't worry! The project team will add them accordingly.
 
 to do once re-forked
-<!--![prepare-pull-requests](https://user-images.githubusercontent.com/68053619/193328096-9df163d8-18ae-4978-b3c2-928ba4ad7872.jpg) -->
+![prepare-pull-requests](https://user-images.githubusercontent.com/68053619/193328096-9df163d8-18ae-4978-b3c2-928ba4ad7872.jpg)
 
 Once its done, you can click `Create Pull Request` and wait for approval.
 
