@@ -88,13 +88,11 @@ $ git push -f origin some-task-branch # If already pushed to origin remote
 
 Visit upstream repository and open a PR.
 
-
-![visit-upstream](https://github.com/cryostatio/cryostat3/assets/56743004/5576c796-74b0-43f8-923f-5eb3f1a56e06)
+![visit-upstream](https://github.com/cryostatio/cryostat3/assets/56743004/41bd424e-77be-4c30-8416-eb0a5d1c328f)
 
 Compare changes across forks (your branch in fork to the upstream main).
 
-to do once re-forked
-<!--![select-compare-across-forks](https://user-images.githubusercontent.com/68053619/193328282-79d45b5e-097f-4995-ae21-51592dcf0bd4.jpg) -->
+![select-compare-across-forks](https://github.com/cryostatio/cryostat3/assets/56743004/bbf311b6-98a7-47e3-a3c7-77b101ee4d3f)
 
 
 Add:
@@ -105,8 +103,7 @@ Add:
 
 **Note**: You might not be able to add reviewers and labels. Don't worry! The project team will add them accordingly.
 
-to do once re-forked
-<!--![prepare-pull-requests](https://user-images.githubusercontent.com/68053619/193328096-9df163d8-18ae-4978-b3c2-928ba4ad7872.jpg) -->
+![prepare-pull-requests](https://github.com/cryostatio/cryostat3/assets/56743004/44019e86-1544-4cb0-ae58-61bd2ed6bb1b)
 
 Once its done, you can click `Create Pull Request` and wait for approval.
 
@@ -114,7 +111,7 @@ Once its done, you can click `Create Pull Request` and wait for approval.
 
 #### Result
 
-Your changes will be get squashed into a single commit on `main` with the message including your PR title, and branch commit messages. From there, you can safely delete your branch.
+Your changes will be squashed into a single commit on `main` with the message including your PR title, and branch commit messages. From there, you can safely delete your branch.
 
 To delete:
 ```bash
