@@ -850,10 +850,16 @@ public class Recordings {
                                                 Tag.builder()
                                                         .key(
                                                                 base64Url.encodeAsString(
-                                                                        e.getKey().getBytes()))
+                                                                        e.getKey()
+                                                                                .getBytes(
+                                                                                        StandardCharsets
+                                                                                                .UTF_8)))
                                                         .value(
                                                                 base64Url.encodeAsString(
-                                                                        e.getValue().getBytes()))
+                                                                        e.getValue()
+                                                                                .getBytes(
+                                                                                        StandardCharsets
+                                                                                                .UTF_8)))
                                                         .build())
                                 .toList())
                 .build();
