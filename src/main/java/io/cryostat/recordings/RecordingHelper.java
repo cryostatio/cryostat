@@ -109,7 +109,7 @@ public class RecordingHelper {
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
-    private final long httpTimeoutSeconds = 5; // TODO: configurable client timeout
+    private static final long httpTimeoutSeconds = 5; // TODO: configurable client timeout
 
     @Inject Logger logger;
     @Inject EntityManager entityManager;
