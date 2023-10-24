@@ -55,10 +55,10 @@ import org.jboss.logging.Logger;
 @EntityListeners(DiscoveryNode.Listener.class)
 public class DiscoveryNode extends PanacheEntity {
 
-    public static String NODE_TYPE = "nodeType";
-    public static String UNIVERSE = "Universe";
-    public static String REALM = "Realm";
-    public static String POD = "Pod";
+    public static final String NODE_TYPE = "nodeType";
+    public static final String UNIVERSE = "Universe";
+    public static final String REALM = "Realm";
+    public static final String POD = "Pod";
 
     @Column(unique = false, nullable = false, updatable = false)
     @JsonView(Views.Flat.class)
