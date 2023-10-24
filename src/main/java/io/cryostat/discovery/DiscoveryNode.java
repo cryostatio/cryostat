@@ -24,14 +24,11 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 import io.cryostat.targets.Target;
-import io.cryostat.targets.Target.TargetDiscovery;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -46,7 +43,6 @@ import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
-import jakarta.transaction.Transactional;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
@@ -151,20 +147,20 @@ public class DiscoveryNode extends PanacheEntity {
         @Inject Logger logger;
         @Inject EventBus bus;
 
-        @Transactional
-        @Blocking
-        @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
-        void onMessage(TargetDiscovery event) {
-            switch (event.kind()) {
-                case LOST:
-                    break;
-                case FOUND:
-                    break;
-                default:
-                    // no-op
-                    break;
-            }
-        }
+        // @Transactional
+        // @Blocking
+        // @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
+        // void onMessage(TargetDiscovery event) {
+        //     switch (event.kind()) {
+        //         case LOST:
+        //             break;
+        //         case FOUND:
+        //             break;
+        //         default:
+        //             // no-op
+        //             break;
+        //     }
+        // }
 
         @PrePersist
         void prePersist(DiscoveryNode node) {}
