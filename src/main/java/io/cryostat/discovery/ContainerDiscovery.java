@@ -338,9 +338,8 @@ public abstract class ContainerDiscovery {
             DiscoveryNode node = DiscoveryNode.target(target);
             target.discoveryNode = node;
             String podName = desc.PodName;
-            DiscoveryNode pod = new DiscoveryNode();
             if (StringUtils.isNotBlank(podName)) {
-                pod = DiscoveryNode.environment(podName, DiscoveryNode.POD);
+                DiscoveryNode pod = DiscoveryNode.environment(podName, DiscoveryNode.POD);
                 if (!realm.children.contains(pod)) {
                     pod.children.add(node);
                     realm.children.add(pod);
