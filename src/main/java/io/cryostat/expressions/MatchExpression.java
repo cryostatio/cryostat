@@ -27,6 +27,7 @@ import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
@@ -89,6 +90,7 @@ public class MatchExpression extends PanacheEntity {
         }
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record MatchedExpression(
             @Nullable Long id, String expression, Collection<Target> targets) {
         public MatchedExpression {
@@ -145,6 +147,7 @@ public class MatchExpression extends PanacheEntity {
         }
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ExpressionEvent(ExpressionEventCategory category, MatchExpression expression) {
         public ExpressionEvent {
             Objects.requireNonNull(category);

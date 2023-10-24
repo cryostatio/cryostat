@@ -23,6 +23,9 @@ import java.util.Objects;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
 import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+@SuppressFBWarnings("EI_EXPOSE_REP")
 public record SerializableEventTypeInfo(
         String name,
         String typeId,

@@ -55,6 +55,7 @@ import io.cryostat.ws.Notification;
 
 import com.arjuna.ats.jta.exceptions.NotImplementedException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
@@ -954,6 +955,7 @@ public class Recordings {
         }
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ArchivedRecordingDirectory(
             String connectUrl, String jvmId, List<ArchivedRecording> recordings) {
         public ArchivedRecordingDirectory {
@@ -965,6 +967,7 @@ public class Recordings {
         }
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record Metadata(Map<String, String> labels, Instant expiry) {
         public Metadata {
             Objects.requireNonNull(labels);

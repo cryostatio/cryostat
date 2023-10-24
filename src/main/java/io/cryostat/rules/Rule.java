@@ -21,6 +21,7 @@ import io.cryostat.expressions.MatchExpression;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -121,6 +122,7 @@ public class Rule extends PanacheEntity {
         }
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record RuleEvent(RuleEventCategory category, Rule rule) {
         public RuleEvent {
             Objects.requireNonNull(category);

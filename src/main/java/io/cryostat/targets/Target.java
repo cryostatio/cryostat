@@ -35,6 +35,7 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
@@ -125,6 +126,7 @@ public class Target extends PanacheEntity {
                 .orElse(null);
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record Annotations(Map<String, String> platform, Map<String, String> cryostat) {
         public Annotations {
             if (platform == null) {
@@ -171,6 +173,7 @@ public class Target extends PanacheEntity {
         ;
     }
 
+    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
     public record TargetDiscovery(EventKind kind, Target serviceRef) {
         public TargetDiscovery {
             Objects.requireNonNull(kind);

@@ -28,6 +28,7 @@ import io.cryostat.expressions.MatchExpression.ExpressionEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.cache.Cache;
 import io.quarkus.cache.CacheInvalidate;
 import io.quarkus.cache.CacheManager;
@@ -171,10 +172,7 @@ public class MatchExpressionEvaluator {
     @Name("io.cryostat.rules.MatchExpressionEvaluator.MatchExpressionAppliesEvent")
     @Label("Match Expression Evaluation")
     @Category("Cryostat")
-    // @SuppressFBWarnings(
-    //         value = "URF_UNREAD_FIELD",
-    //         justification = "The event fields are recorded with JFR instead of accessed
-    // directly")
+    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "URF_UNREAD_FIELD"})
     public static class MatchExpressionAppliesEvent extends Event {
 
         String matchExpression;

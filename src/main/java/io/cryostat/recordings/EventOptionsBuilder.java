@@ -32,6 +32,8 @@ import org.openjdk.jmc.rjmx.services.jfr.internal.FlightRecorderServiceV2;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.tui.ClientWriter;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 public class EventOptionsBuilder {
 
     private final boolean isV2;
@@ -82,7 +84,7 @@ public class EventOptionsBuilder {
         return (V) t;
     }
 
-    // @SuppressFBWarnings(value = "EI_EXPOSE_REP", justification = "Field is never mutated")
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public IConstrainedMap<EventOptionID> build() {
         if (!isV2) {
             return null;
