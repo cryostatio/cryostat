@@ -18,6 +18,7 @@ package io.cryostat.discovery;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.UUID;
 
@@ -142,7 +143,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                                                         (credential.username
                                                                         + ":"
                                                                         + credential.password)
-                                                                .getBytes()));
+                                                                .getBytes(StandardCharsets.UTF_8)));
             }
         }
     }
