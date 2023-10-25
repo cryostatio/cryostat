@@ -9,4 +9,4 @@ if [ -z "${PG_ENCRYPT_KEY}" ]; then
     exit 1
 fi
 
-exec /usr/local/bin/docker-entrypoint.sh postgres -c encrypt.key="${PG_ENCRYPT_KEY}" "$@"
+exec /usr/local/bin/postgres-entrypoint.sh postgres -c encrypt.key="${PG_ENCRYPT_KEY}" "$@"
