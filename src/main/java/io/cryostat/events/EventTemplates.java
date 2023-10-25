@@ -22,7 +22,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.Optional;
 
+import org.jsoup.nodes.Document;
+import org.openjdk.jmc.common.unit.IConstrainedMap;
+import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 import org.openjdk.jmc.flightrecorder.controlpanel.ui.configuration.model.xml.JFCGrammar;
 import org.openjdk.jmc.flightrecorder.controlpanel.ui.configuration.model.xml.XMLAttributeInstance;
 import org.openjdk.jmc.flightrecorder.controlpanel.ui.configuration.model.xml.XMLModel;
@@ -32,7 +36,10 @@ import org.openjdk.jmc.flightrecorder.controlpanel.ui.model.EventConfiguration;
 
 import io.cryostat.core.templates.MutableTemplateService.InvalidEventTemplateException;
 import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
+import io.cryostat.ConfigProperties;
+import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.templates.Template;
+import io.cryostat.core.templates.TemplateService;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
@@ -56,6 +63,9 @@ import org.jboss.resteasy.reactive.RestForm;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -80,8 +90,8 @@ public class EventTemplates {
     @Inject S3Client storage;
     @Inject Logger logger;
 
-    @ConfigProperty(name = "storage.buckets.event-templates.name")
-    String eventTemplatesBucket;
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
+    static String eventTemplatesBucket;
 
     void onStart(@Observes StartupEvent evt) {
         boolean exists = false;
@@ -193,28 +203,29 @@ public class EventTemplates {
                                 .toString());
     }
 
-    // static class S3TemplateService implements TemplateService {
-    //     S3Client s3;
+    static class S3TemplateService implements TemplateService {
+        S3Client s3;
 
-    //     @Override
-    //     public Optional<IConstrainedMap<EventOptionID>> getEvents(String arg0, TemplateType arg1)
-    //             throws FlightRecorderException {
-    //         return Optional.empty();
-    //     }
+        @Override
+        public Optional<IConstrainedMap<EventOptionID>> getEvents(String templateName, TemplateType templateType)
+                throws FlightRecorderException {
+            return Optional.empty();
+        }
 
-    //     @Override
-    //     public List<Template> getTemplates() throws FlightRecorderException {
-    //         var objects = s3.listObjectsV2();
-    //         var templates = convertObjects(objects);
-    //         return templates;
-    //     }
+        @Override
+        public List<Template> getTemplates() throws FlightRecorderException {
+            var builder = ListObjectsV2Request.builder().bucket(eventTemplatesBucket);
+            var objects = s3.listObjectsV2(builder.build());
+            var templates = convertObjects(objects);
+            return templates;
+        }
 
-    //     @Override
-    //     public Optional<Document> getXml(String arg0, TemplateType arg1)
-    //             throws FlightRecorderException {
-    //         return Optional.empty();
-    //     }
-    // }
+        @Override
+        public Optional<Document> getXml(String templateName, TemplateType templateType)
+                throws FlightRecorderException {
+            return Optional.empty();
+        }
+    }
 
     @Blocking
     public Template addTemplate(String templateText)
