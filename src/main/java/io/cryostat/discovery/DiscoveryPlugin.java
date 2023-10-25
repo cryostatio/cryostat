@@ -18,6 +18,7 @@ package io.cryostat.discovery;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.UUID;
 
@@ -36,6 +37,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.client.ClientRequestContext;
@@ -119,30 +121,39 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                     return;
                 }
 
-                Credential credential = null;
                 if (StringUtils.isNotBlank(userInfo) && userInfo.contains(":")) {
                     String[] parts = userInfo.split(":");
-                    if ("storedcredentials".equals(parts[0])) {
+                    if (parts.length == 2 && "storedcredentials".equals(parts[0])) {
                         logger.infov(
                                 "Using stored credentials id:{0} referenced in ping callback"
                                         + " userinfo",
                                 parts[1]);
 
-                        credential = Credential.find("id", Long.parseLong(parts[1])).singleResult();
-                    }
-                }
+                        Credential credential =
+                                Credential.find("id", Long.parseLong(parts[1])).singleResult();
 
-                requestContext
-                        .getHeaders()
-                        .add(
-                                HttpHeaders.AUTHORIZATION,
-                                "Basic "
-                                        + Base64.getEncoder()
-                                                .encodeToString(
-                                                        (credential.username
-                                                                        + ":"
-                                                                        + credential.password)
-                                                                .getBytes()));
+                        requestContext
+                                .getHeaders()
+                                .add(
+                                        HttpHeaders.AUTHORIZATION,
+                                        "Basic "
+                                                + Base64.getEncoder()
+                                                        .encodeToString(
+                                                                (credential.username
+                                                                                + ":"
+                                                                                + credential
+                                                                                        .password)
+                                                                        .getBytes(
+                                                                                StandardCharsets
+                                                                                        .UTF_8)));
+                    } else {
+                        throw new IllegalStateException("Unexpected credential format");
+                    }
+                } else {
+                    throw new IOException(
+                            new BadRequestException(
+                                    "No credentials provided and none found in storage"));
+                }
             }
         }
     }

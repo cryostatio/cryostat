@@ -55,6 +55,7 @@ import io.cryostat.ws.Notification;
 
 import com.arjuna.ats.jta.exceptions.NotImplementedException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
@@ -849,10 +850,16 @@ public class Recordings {
                                                 Tag.builder()
                                                         .key(
                                                                 base64Url.encodeAsString(
-                                                                        e.getKey().getBytes()))
+                                                                        e.getKey()
+                                                                                .getBytes(
+                                                                                        StandardCharsets
+                                                                                                .UTF_8)))
                                                         .value(
                                                                 base64Url.encodeAsString(
-                                                                        e.getValue().getBytes()))
+                                                                        e.getValue()
+                                                                                .getBytes(
+                                                                                        StandardCharsets
+                                                                                                .UTF_8)))
                                                         .build())
                                 .toList())
                 .build();
@@ -954,6 +961,7 @@ public class Recordings {
         }
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ArchivedRecordingDirectory(
             String connectUrl, String jvmId, List<ArchivedRecording> recordings) {
         public ArchivedRecordingDirectory {
@@ -965,6 +973,7 @@ public class Recordings {
         }
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record Metadata(Map<String, String> labels, Instant expiry) {
         public Metadata {
             Objects.requireNonNull(labels);

@@ -109,7 +109,7 @@ public class RecordingHelper {
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
-    private final long httpTimeoutSeconds = 5; // TODO: configurable client timeout
+    private static final long httpTimeoutSeconds = 5; // TODO: configurable client timeout
 
     @Inject Logger logger;
     @Inject EntityManager entityManager;
@@ -608,10 +608,16 @@ public class RecordingHelper {
                                         Tag.builder()
                                                 .key(
                                                         base64Url.encodeAsString(
-                                                                e.getKey().getBytes()))
+                                                                e.getKey()
+                                                                        .getBytes(
+                                                                                StandardCharsets
+                                                                                        .UTF_8)))
                                                 .value(
                                                         base64Url.encodeAsString(
-                                                                e.getValue().getBytes()))
+                                                                e.getValue()
+                                                                        .getBytes(
+                                                                                StandardCharsets
+                                                                                        .UTF_8)))
                                                 .build())
                         .toList());
         if (metadata.expiry() != null) {
@@ -623,7 +629,7 @@ public class RecordingHelper {
                                             metadata.expiry()
                                                     .atOffset(ZoneOffset.UTC)
                                                     .toString()
-                                                    .getBytes()))
+                                                    .getBytes(StandardCharsets.UTF_8)))
                             .build());
         }
         return Tagging.builder().tagSet(tags).build();

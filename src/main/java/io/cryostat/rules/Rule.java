@@ -21,6 +21,7 @@ import io.cryostat.expressions.MatchExpression;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -41,6 +42,11 @@ import jakarta.validation.constraints.PositiveOrZero;
 
 @Entity
 @EntityListeners(Rule.Listener.class)
+@SuppressFBWarnings(
+        value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD",
+        justification =
+                "rule.description is not used directly anywhere, but it is serialized and may be"
+                        + " displayed by clients")
 public class Rule extends PanacheEntity {
     public static final String RULE_ADDRESS = "io.cryostat.rules.Rule";
 
@@ -121,6 +127,7 @@ public class Rule extends PanacheEntity {
         }
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record RuleEvent(RuleEventCategory category, Rule rule) {
         public RuleEvent {
             Objects.requireNonNull(category);

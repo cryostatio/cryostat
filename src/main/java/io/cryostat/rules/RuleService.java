@@ -44,6 +44,7 @@ import io.cryostat.rules.Rule.RuleEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
@@ -281,6 +282,7 @@ public class RuleService {
         }
     }
 
+    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
     public record RuleRecording(Rule rule, ActiveRecording recording) {
         public RuleRecording {
             Objects.requireNonNull(rule);
