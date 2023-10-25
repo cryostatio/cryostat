@@ -9,13 +9,6 @@ services:
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://db:5432/cryostat3
   db:
     image: quay.io/cryostat/cryostat3-db:dev
-    build: ../../db
-    entrypoint:
-      - /usr/local/bin/docker-entrypoint.sh
-    command:
-      - postgres
-      - -c
-      - encrypt.key=REPLACEME
     hostname: db
     expose:
       - "5432"
