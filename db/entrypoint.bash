@@ -9,4 +9,8 @@ if [ -z "${PG_ENCRYPT_KEY}" ]; then
     exit 1
 fi
 
+if [ "$1" = "postgres" ]; then
+    shift
+fi
+
 exec /usr/local/bin/postgres-entrypoint.sh postgres -c encrypt.key="${PG_ENCRYPT_KEY}" "$@"
