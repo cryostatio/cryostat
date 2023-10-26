@@ -17,6 +17,7 @@ services:
       POSTGRES_USER: cryostat3
       POSTGRES_PASSWORD: cryostat3
       PG_ENCRYPT_KEY: REPLACEME
+      DEBUG: "true"
     volumes:
       - postgresql:/var/lib/postgresql/data
     restart: always
