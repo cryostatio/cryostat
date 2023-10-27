@@ -24,9 +24,14 @@ while [ "$#" -ne 0 ]; do
             cleanKind
             ;;
         generate)
-            sh "./../../db/build.sh"
-            kompose convert -o "./" -f "./../compose/db_k8s.yml" -f "./../compose/s3-minio.yml" -f "./../compose/cryostat_k8s.yml" -f "./../compose/sample-apps.yml" --build local
-            sh generate.sh
+            sh "${DIR}/../../db/build.sh"
+            kompose convert -o "${DIR}" \
+                -f "${DIR}/../compose/db_k8s.yml" \
+                -f "${DIR}/../compose/s3-minio.yml" \
+                -f "${DIR}/../compose/cryostat_k8s.yml" \
+                -f "${DIR}/../compose/sample-apps.yml" \
+                --build local
+            bash "${DIR}/generate.bash"
             ;;
         apply)
             kubectl apply -f "./*.yaml"
