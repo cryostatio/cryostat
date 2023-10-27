@@ -3,7 +3,6 @@ services:
   cryostat:
     environment:
       QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION: drop-and-create
-      QUARKUS_DATASOURCE_DB_KIND: postgresql
       QUARKUS_DATASOURCE_USERNAME: cryostat3
       QUARKUS_DATASOURCE_PASSWORD: cryostat3
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://db:5432/cryostat3
