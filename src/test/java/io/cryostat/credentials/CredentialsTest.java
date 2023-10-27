@@ -30,6 +30,14 @@ public class CredentialsTest {
 
     @Test
     public void testHealth() {
-        givenBasicAuth().when().get().then().statusCode(200).body(Matchers.equalTo(List.of()));
+        givenBasicAuth()
+                .when()
+                .get()
+                .then()
+                .statusCode(200)
+                .body(
+                        "meta.type", Matchers.equalTo("application/json"),
+                        "meta.status", Matchers.equalTo("OK"),
+                        "data.result", Matchers.equalTo(List.of()));
     }
 }
