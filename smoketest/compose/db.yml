@@ -14,12 +14,12 @@ services:
     expose:
       - "5432"
     environment:
-      POSTGRES_USER: cryostat3
-      POSTGRES_PASSWORD: cryostat3
+      POSTGRESQL_USER: cryostat3
+      POSTGRESQL_PASSWORD: cryostat3
+      POSTGRESQL_DATABASE: cryostat3
       PG_ENCRYPT_KEY: REPLACEME
-      DEBUG: "true"
     volumes:
-      - postgresql:/var/lib/postgresql/data
+      - postgresql:/var/lib/pgsql/data
     restart: always
     healthcheck:
       test: pg_isready -U cryostat3 -d cryostat3 || exit 1

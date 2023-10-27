@@ -1,9 +1,8 @@
-# FROM registry.redhat.io/rhel8/postgresql-15:latest
-FROM docker.io/library/postgres:15
-
-RUN ln -s /usr/local/bin/docker-entrypoint.sh /usr/local/bin/postgres-entrypoint.sh
+FROM quay.io/sclorg/postgresql-15-c8s:latest
 
 ENTRYPOINT ["/usr/local/bin/cryostat-db-entrypoint.bash"]
 
-COPY ./pgcrypto.sql /docker-entrypoint-initdb.d/pgcrypto.sql
+ENV POSTGRESQL_LOG_DESTINATION=/dev/stderr
+
 COPY ./entrypoint.bash /usr/local/bin/cryostat-db-entrypoint.bash
+COPY ./include /opt/app-root/src/
