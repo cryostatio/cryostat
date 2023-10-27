@@ -57,8 +57,12 @@ spec:
               value: cryostat3
             - name: QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION
               value: drop-and-create
+            - name: QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID
+              value: minioroot
+            - name: QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY
+              value: minioroot
             - name: QUARKUS_S3_AWS_CREDENTIALS_TYPE
-              value: default
+              value: static
             - name: QUARKUS_S3_AWS_REGION
               value: us-east-1
             - name: QUARKUS_S3_ENDPOINT_OVERRIDE
