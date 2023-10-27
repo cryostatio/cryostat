@@ -25,7 +25,9 @@ while [ "$#" -ne 0 ]; do
             ;;
         generate)
             sh "${DIR}/../../db/build.sh"
-            kompose convert -o "${DIR}" \
+            kompose convert \
+                --with-kompose-annotation=false \
+                -o "${DIR}" \
                 -f "${DIR}/../compose/db_k8s.yml" \
                 -f "${DIR}/../compose/s3-minio.yml" \
                 -f "${DIR}/../compose/cryostat_k8s.yml" \
