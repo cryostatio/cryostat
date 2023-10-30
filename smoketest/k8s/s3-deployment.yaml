@@ -64,7 +64,7 @@ spec:
               name: minio-data
             - mountPath: /certs
               name: minio-certs
-      hostname: minio
+      hostname: s3
       restartPolicy: Always
       volumes:
         - name: minio-data
