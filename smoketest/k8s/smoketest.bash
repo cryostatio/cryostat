@@ -24,7 +24,6 @@ while [ "$#" -ne 0 ]; do
             cleanKind
             ;;
         generate)
-            sh "${DIR}/../../db/build.sh"
             kompose convert \
                 --with-kompose-annotation=false \
                 -o "${DIR}" \

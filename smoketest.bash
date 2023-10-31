@@ -118,7 +118,6 @@ setupUserHosts() {
 setupUserHosts
 
 if [ "${PULL_IMAGES}" = "true" ]; then
-    sh db/build.sh
     IMAGES=()
     for file in "${FILES[@]}" ; do
         images="$(yq '.services.*.image' "${file}" | grep -v null)"

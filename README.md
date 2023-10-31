@@ -51,12 +51,6 @@ $ yarn install && yarn yarn:frzinstall
 $ cd -
 ```
 
-### Build the custom database container image
-
-```bash
-$ sh db/build.sh
-```
-
 ### Build the application container image
 
 The application image can be created using:
