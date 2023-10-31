@@ -18,7 +18,7 @@ while [ "$#" -ne 0 ]; do
             cleanKind
             kind create cluster
             kind load docker-image "quay.io/${IMAGE_REPOSITORY}/cryostat3:dev"
-            kind load docker-image "quay.io/${IMAGE_REPOSITORY}/cryostat3-db:dev" 
+            kind load docker-image "quay.io/${IMAGE_REPOSITORY}/cryostat-db:latest"
             ;;
         unkind)
             cleanKind
@@ -37,7 +37,7 @@ while [ "$#" -ne 0 ]; do
             ;;
         apply)
             kubectl apply -f "./*.yaml"
-            kubectl patch -p "{\"spec\":{\"template\":{\"spec\":{\"\$setElementOrder/containers\":[{\"name\":\"db\"}],\"containers\":[{\"image\":\"quay.io/$IMAGE_REPOSITORY/cryostat3-db:dev\",\"name\":\"db\"}]}}}}" deployment/db
+            kubectl patch -p "{\"spec\":{\"template\":{\"spec\":{\"\$setElementOrder/containers\":[{\"name\":\"db\"}],\"containers\":[{\"image\":\"quay.io/$IMAGE_REPOSITORY/cryostat-db:latest\",\"name\":\"db\"}]}}}}" deployment/db
             kubectl wait \
                 --for condition=available \
                 --timeout=5m \

@@ -34,7 +34,7 @@ spec:
               value: cryostat3
             - name: POSTGRES_USER
               value: cryostat3
-          image: quay.io/cryostat/cryostat3-db:dev
+          image: quay.io/cryostat/cryostat-db:latest
           livenessProbe:
             exec:
               command:
