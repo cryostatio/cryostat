@@ -41,7 +41,7 @@ spec:
           livenessProbe:
             exec:
               command:
-                - curl --fail http://localhost:9001 || exit 1
+                - timeout 5s bash -c ':> /dev/tcp/127.0.0.1/9001' || exit 1
             failureThreshold: 3
             initialDelaySeconds: 10
             periodSeconds: 10
