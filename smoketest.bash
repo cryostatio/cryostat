@@ -82,7 +82,7 @@ for file in "${FILES[@]}"; do
     CMD+=(-f "${file}")
 done
 
-HOSTSFILE="${HOSTSFILE:-~/.hosts}"
+HOSTSFILE="${HOSTSFILE:-$HOME/.hosts}"
 
 cleanup() {
     DOWN_FLAGS=('--remove-orphans')
@@ -114,7 +114,7 @@ setupUserHosts() {
     truncate -s 0 "${HOSTSFILE}"
     for file in "${FILES[@]}" ; do
         hosts="$(yq '.services.*.hostname' "${file}" | grep -v null | sed -e 's/^/localhost /')"
-        echo "${hosts}" >> ~/.hosts
+        echo "${hosts}" >> "${HOSTSFILE}"
     done
 }
 setupUserHosts
