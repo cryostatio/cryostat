@@ -62,7 +62,11 @@ spec:
           name: quarkus-test-agent
           ports:
             - containerPort: 9977
+              hostPort: 9977
+              protocol: TCP
             - containerPort: 10010
+              hostPort: 10010
+              protocol: TCP
           resources: {}
       hostname: quarkus-test-agent
       restartPolicy: Always

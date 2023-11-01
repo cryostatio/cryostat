@@ -78,7 +78,10 @@ spec:
           name: cryostat
           ports:
             - containerPort: 8181
+              hostPort: 8181
+              protocol: TCP
             - containerPort: 9091
+              protocol: TCP
           resources: {}
           securityContext:
             runAsUser: 0

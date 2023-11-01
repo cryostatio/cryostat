@@ -43,6 +43,8 @@ spec:
           name: db-viewer
           ports:
             - containerPort: 8989
+              hostPort: 8989
+              protocol: TCP
           resources: {}
           volumeMounts:
             - mountPath: /var/lib/pgadmin
