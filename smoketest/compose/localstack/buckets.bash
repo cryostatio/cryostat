@@ -1,3 +1,3 @@
-#!/usr/bin/sh
+#!/usr/bin/env bash
 
 awslocal s3 mb s3://archivedrecordings

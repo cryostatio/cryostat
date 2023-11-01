@@ -24,7 +24,7 @@ services:
       PORT_WEB_UI: 4577
     volumes:
       - localstack_data:/etc/localstack/init/ready.d:z
-      # this buckets.sh hook script isn't working for some reason. In the meantime, after spinning up the localstack instance, do:
+      # this buckets.bash hook script isn't working for some reason. In the meantime, after spinning up the localstack instance, do:
       # $ podman exec -it cryostat3_s3_1 /bin/bash
       # $ awslocal s3 mb s3://archivedrecordings
     labels:

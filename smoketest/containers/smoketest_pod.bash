@@ -1,7 +1,9 @@
-#!/bin/sh
+#!/usr/bin/env bash
 
 set -x
 set -e
+
+HOSTSFILE="${HOSTSFILE:-~/.hosts}"
 
 cleanup() {
     podman-compose --in-pod=1 \
@@ -13,7 +15,7 @@ cleanup() {
         -f ./smoketest/compose/cryostat.yml \
         down --volumes --remove-orphans
     # podman kill hoster || true
-    > ~/.hosts
+    truncate -s 0 "${HOSTSFILE}"
 }
 trap cleanup EXIT
 cleanup
@@ -32,13 +34,10 @@ cleanup
 #     dvdarias/docker-hoster
 
 setupUserHosts() {
-    > ~/.hosts
-    echo "localhost s3" >> ~/.hosts
-    echo "localhost db" >> ~/.hosts
-    echo "localhost db-viewer" >> ~/.hosts
-    echo "localhost cryostat" >> ~/.hosts
-    echo "localhost vertx-fib-demo-1" >> ~/.hosts
-    echo "localhost quarkus-test-agent" >> ~/.hosts
+    truncate -s 0 "${HOSTSFILE}"
+    for svc in s3 db db-viewer cryostat vertx-fib-demo-1 quarkus-test-agent; do
+        echo "localhost ${svc}" >> "${HOSTSFILE}"
+    done
 }
 setupUserHosts
 

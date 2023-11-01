@@ -5,8 +5,6 @@ metadata:
     io.cryostat.discovery: "true"
     io.cryostat.jmxHost: sample-app
     io.cryostat.jmxPort: "9093"
-    kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
-    kompose.version: 1.30.0 (9d8dcb518)
   creationTimestamp: null
   labels:
     io.kompose.service: sample-app
@@ -24,8 +22,6 @@ spec:
         io.cryostat.discovery: "true"
         io.cryostat.jmxHost: sample-app
         io.cryostat.jmxPort: "9093"
-        kompose.cmd: kompose convert -o ./ -f ./../compose/db_k8s.yml -f ./../compose/s3-minio.yml -f ./../compose/cryostat_k8s.yml -f ./../compose/sample-apps.yml --build local
-        kompose.version: 1.30.0 (9d8dcb518)
       creationTimestamp: null
       labels:
         io.kompose.network/compose-default: "true"

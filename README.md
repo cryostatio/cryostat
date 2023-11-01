@@ -131,14 +131,14 @@ To run similar smoketest scenarios in a Kubernetes/OpenShift cluster, do:
 
 ```bash
 $ cd smoketest/k8s
-$ sh smoketest.sh kind # This launches a kind k8s cluster, otherwise skip this if you have another cluster accessible via kubectl/oc.
+$ bash smoketest.bash kind # This launches a kind k8s cluster, otherwise skip this if you have another cluster accessible via kubectl/oc.
 ```
 
-If you get an error during the 'ensuring node image' step while creating cluster "kind", manually pull the podman image by running the command `podman pull docker.io/kindest/node@IMAGE_DIGEST` where IMAGE_DIGEST is the sha256 of the image. Then rerun `sh smoketest.sh kind`.
+If you get an error during the 'ensuring node image' step while creating cluster "kind", manually pull the podman image by running the command `podman pull docker.io/kindest/node@IMAGE_DIGEST` where IMAGE_DIGEST is the sha256 of the image. Then rerun `bash smoketest.bash kind`.
 
 Generate k8s yaml configurations and apply them to create k8s objects. You can optionally port-forward to the cluster's services to access the Cryostat application from `localhost`.
 
 ```bash
-$ sh smoketest.sh generate apply
-$ sh smoketest.sh forward # if you need to use port-forwarding to get access to the cluster's services
+$ bash smoketest.bash generate apply
+$ bash smoketest.bash forward # if you need to use port-forwarding to get access to the cluster's services
 ```
