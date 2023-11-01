@@ -35,7 +35,7 @@ while [ "$#" -ne 0 ]; do
             bash "${DIR}/generate.bash"
             ;;
         apply)
-            kubectl apply -f "./*.yaml"
+            kubectl apply -f "${DIR}/*.yaml"
             kubectl patch -p "{\"spec\":{\"template\":{\"spec\":{\"\$setElementOrder/containers\":[{\"name\":\"db\"}],\"containers\":[{\"image\":\"quay.io/$IMAGE_REPOSITORY/cryostat-db:latest\",\"name\":\"db\"}]}}}}" deployment/db
             kubectl wait \
                 --for condition=available \
