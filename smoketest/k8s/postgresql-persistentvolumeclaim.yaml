@@ -5,7 +5,6 @@ metadata:
   labels:
     io.kompose.service: postgresql
   name: postgresql
-  namespace: default
 spec:
   accessModes:
     - ReadWriteOnce

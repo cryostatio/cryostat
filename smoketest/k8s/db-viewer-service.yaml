@@ -7,7 +7,6 @@ metadata:
   labels:
     io.kompose.service: db-viewer
   name: db-viewer
-  namespace: default
 spec:
   ports:
     - name: "8989"

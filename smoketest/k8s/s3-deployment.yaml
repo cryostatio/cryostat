@@ -7,7 +7,6 @@ metadata:
   labels:
     io.kompose.service: s3
   name: s3
-  namespace: default
 spec:
   replicas: 1
   selector:
@@ -51,11 +50,7 @@ spec:
           name: s3
           ports:
             - containerPort: 9001
-              hostPort: 9001
-              protocol: TCP
             - containerPort: 9000
-              hostPort: 9000
-              protocol: TCP
           resources: {}
           volumeMounts:
             - mountPath: /data

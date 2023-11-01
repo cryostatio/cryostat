@@ -7,7 +7,6 @@ metadata:
   labels:
     io.kompose.service: db-viewer
   name: db-viewer
-  namespace: default
 spec:
   replicas: 1
   selector:
@@ -44,8 +43,6 @@ spec:
           name: db-viewer
           ports:
             - containerPort: 8989
-              hostPort: 8989
-              protocol: TCP
           resources: {}
           volumeMounts:
             - mountPath: /var/lib/pgadmin

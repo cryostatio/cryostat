@@ -9,7 +9,6 @@ metadata:
   labels:
     io.kompose.service: sample-app
   name: sample-app
-  namespace: default
 spec:
   replicas: 1
   selector:
@@ -63,8 +62,6 @@ spec:
           name: sample-app
           ports:
             - containerPort: 8081
-              hostPort: 8081
-              protocol: TCP
           resources: {}
       hostname: vertx-fib-demo-1
       restartPolicy: Always
