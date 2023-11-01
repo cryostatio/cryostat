@@ -52,7 +52,7 @@ while [ "$#" -ne 0 ]; do
             ;;
         forward)
             sh -c '(sleep 1 ; xdg-open http://localhost:9001 ; xdg-open http://localhost:8181 ; xdg-open http://localhost:8989)&'
-            if ! kubectl multiforward smoketest; then
+            if ! ( pushd "${DIR}" ; sc=$(kubectl multiforward smoketest) ; popd ; exit "${sc}" ); then
                 echo "Run the following to expose the applications:"
                 echo "kubectl port-forward svc/cryostat 8181"
                 echo "kubectl port-forward svc/s3 9001"
