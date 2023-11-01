@@ -31,7 +31,7 @@ spec:
               value: admin
             - name: PGADMIN_LISTEN_PORT
               value: "8989"
-          image: docker.io/dpage/pgadmin4:6
+          image: docker.io/dpage/pgadmin4:7
           livenessProbe:
             exec:
               command:
