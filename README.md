@@ -30,7 +30,7 @@ Build Requirements:
 
 Run Requirements:
 - [`yq`](https://github.com/mikefarah/yq) v4.35.1+
-- [`kompose`](https://kompose.io/installation/) v1.30.0+
+- [`kompose`](https://kompose.io/installation/) v1.31.2+
 - [docker-compose](https://docs.docker.com/compose/install/) v1.29.2
 - [podman-docker](https://packages.fedoraproject.org/pkgs/podman/podman-docker/) (Optional)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/) / [oc](https://docs.openshift.com/container-platform/latest/cli_reference/openshift_cli/getting-started-cli.html)
