@@ -29,7 +29,11 @@ services:
       kompose.service.expose: "minio"
     restart: always
     healthcheck:
-      test: mc ready local
+      test:
+        - CMD-SHELL
+        - mc
+        - ready
+        - local
       interval: 10s
       retries: 3
       start_period: 10s

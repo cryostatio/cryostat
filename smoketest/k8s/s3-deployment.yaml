@@ -41,7 +41,9 @@ spec:
           livenessProbe:
             exec:
               command:
-                - mc ready local
+                - mc
+                - ready
+                - local
             failureThreshold: 3
             initialDelaySeconds: 10
             periodSeconds: 10
