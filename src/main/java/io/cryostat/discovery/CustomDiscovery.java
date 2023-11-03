@@ -76,7 +76,7 @@ public class CustomDiscovery {
 
     @Transactional(rollbackOn = {JvmIdException.class})
     @POST
-    @Path("v2/targets")
+    @Path("/api/v2/targets")
     @Consumes("application/json")
     @RolesAllowed("write")
     public Response create(Target target, @RestQuery boolean dryrun) {
@@ -127,7 +127,7 @@ public class CustomDiscovery {
 
     @Transactional
     @POST
-    @Path("v2/targets")
+    @Path("/api/v2/targets")
     @Consumes("multipart/form-data")
     @RolesAllowed("write")
     public Response create(
@@ -141,7 +141,7 @@ public class CustomDiscovery {
 
     @Transactional
     @DELETE
-    @Path("v2/targets/{connectUrl}")
+    @Path("/api/v2/targets/{connectUrl}")
     @RolesAllowed("write")
     public Response delete(@RestPath URI connectUrl) throws URISyntaxException {
         Target target = Target.getTargetByConnectUrl(connectUrl);
@@ -152,7 +152,7 @@ public class CustomDiscovery {
 
     @Transactional
     @DELETE
-    @Path("v3/targets/{id}")
+    @Path("/api/v3/targets/{id}")
     @RolesAllowed("write")
     public Response delete(@RestPath long id) throws URISyntaxException {
         Target target = Target.find("id", id).singleResult();
