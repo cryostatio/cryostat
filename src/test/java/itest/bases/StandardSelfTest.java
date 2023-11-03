@@ -15,10 +15,8 @@
  */
 package itest.bases;
 
-import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
@@ -30,14 +28,12 @@ import java.util.concurrent.TimeoutException;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.security.auth.module.UnixSystem;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.file.FileSystem;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.WebSocket;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -55,19 +51,17 @@ import org.junit.jupiter.api.BeforeAll;
 
 public abstract class StandardSelfTest {
 
-    public final Logger logger = Logger.getLogger(StandardSelfTest.class);
+    public static final Logger logger = Logger.getLogger(StandardSelfTest.class);
     public static final ObjectMapper mapper = new ObjectMapper();
     public static final int REQUEST_TIMEOUT_SECONDS = 30;
     public static final WebClient webClient = Utils.getWebClient();
 
     @BeforeAll
-    public static void waitForJdp() {
-        Logger logger = Logger.getLogger(StandardSelfTest.class);
+    public static void waitForDiscovery() {
         boolean found = false;
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
-        String selfURL = getSelfReferenceConnectUrl();
         while (!found && System.nanoTime() < deadline) {
-            logger.infov("Waiting for self-discovery at {0} via JDP...", selfURL);
+            logger.infov("Waiting for discovery to see at least one target...");
             CompletableFuture<Boolean> queryFound = new CompletableFuture<>();
             ForkJoinPool.commonPool()
                     .submit(
@@ -84,96 +78,87 @@ public abstract class StandardSelfTest {
                                                         return;
                                                     }
                                                     JsonArray arr = ar.result().body();
-                                                    queryFound.complete(
-                                                            arr.size() == 1
-                                                                    && Objects.equals(
-                                                                            arr.getJsonObject(0)
-                                                                                    .getString(
-                                                                                            "connectUrl"),
-                                                                            selfURL));
+                                                    queryFound.complete(arr.size() >= 1);
                                                 });
                             });
             try {
-                found |= queryFound.get(1000, TimeUnit.MILLISECONDS);
-                Thread.sleep(1000);
-            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                found |= queryFound.get(500, TimeUnit.MILLISECONDS);
+                if (!found) {
+                    tryDefineSelfCustomTarget();
+                }
+                Thread.sleep(2000);
+            } catch (Exception e) {
                 logger.warn(e);
             }
         }
         if (!found) {
-            throw new RuntimeException();
+            throw new RuntimeException("Timed out waiting for discovery");
         }
     }
 
-    public static String getSelfReferenceConnectUrl() {
-        URI listPath = URI.create("http://d/v3.0.0/libpod/containers/json");
-        String query = "";
+    private static void tryDefineSelfCustomTarget() {
+        logger.info("Trying to define self-referential custom target...");
         try {
-
-            query =
-                    mapper.writeValueAsString(
-                            Map.of("label", List.of("io.cryostat.component=cryostat3")));
-        } catch (JsonProcessingException jpe) {
-            throw new RuntimeException(jpe);
-        }
-        final String filter = query;
-        try {
-            CompletableFuture<String> hostnameFuture = new CompletableFuture<>();
+            JsonObject self =
+                    new JsonObject(
+                            Map.of(
+                                    "connectUrl",
+                                    "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi",
+                                    "alias",
+                                    "self"));
             ForkJoinPool.commonPool()
                     .submit(
                             () -> {
                                 webClient
-                                        .request(
-                                                HttpMethod.GET,
-                                                getSocket(),
-                                                80,
-                                                "localhost",
-                                                listPath.toString())
-                                        .addQueryParam("filters", filter)
+                                        .post("/api/v2/targets")
+                                        .basicAuthentication("user", "pass")
                                         .timeout(500)
-                                        .as(BodyCodec.jsonArray())
-                                        .send()
-                                        .onSuccess(
+                                        .sendJson(
+                                                self,
                                                 ar -> {
-                                                    JsonArray response = ar.body();
-                                                    JsonObject obj = response.getJsonObject(0);
-                                                    // containerFuture.complete(obj);
-                                                    String id = obj.getString("Id");
-                                                    URI inspectPath =
-                                                            URI.create(
-                                                                    String.format(
-                                                                            "http://d/v3.0.0/libpod/containers/%s/json",
-                                                                            id));
-                                                    webClient
-                                                            .request(
-                                                                    HttpMethod.GET,
-                                                                    getSocket(),
-                                                                    80,
-                                                                    "localhost",
-                                                                    inspectPath.toString())
-                                                            .timeout(500)
-                                                            .as(BodyCodec.jsonObject())
-                                                            .send()
-                                                            .onSuccess(
-                                                                    ar2 -> {
-                                                                        JsonObject json =
-                                                                                ar2.body();
-                                                                        JsonObject config =
-                                                                                json.getJsonObject(
-                                                                                        "Config");
-                                                                        String hostname =
-                                                                                config.getString(
-                                                                                        "Hostname");
-                                                                        hostnameFuture.complete(
-                                                                                hostname);
-                                                                    });
+                                                    if (ar.failed()) {
+                                                        logger.error(ar.cause());
+                                                        return;
+                                                    }
+                                                    HttpResponse<Buffer> resp = ar.result();
+                                                    logger.infov(
+                                                            "HTTP {0} {1}: {2} [{3}]",
+                                                            resp.statusCode(),
+                                                            resp.statusMessage(),
+                                                            resp.bodyAsString(),
+                                                            resp.headers());
                                                 });
                             });
-            String hostname = hostnameFuture.get(5, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            logger.warn(e);
+        }
+    }
 
-            return String.format("service:jmx:rmi:///jndi/rmi://%s:%d/jmxrmi", hostname, 9091);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new RuntimeException(e);
+    public static String getSelfReferenceConnectUrl() {
+        CompletableFuture<JsonObject> future = new CompletableFuture<>();
+        ForkJoinPool.commonPool()
+                .submit(
+                        () -> {
+                            webClient
+                                    .get("/api/v3/targets")
+                                    .basicAuthentication("user", "pass")
+                                    .as(BodyCodec.jsonArray())
+                                    .timeout(500)
+                                    .send(
+                                            ar -> {
+                                                if (ar.failed()) {
+                                                    logger.error(ar.cause());
+                                                    return;
+                                                }
+                                                JsonArray arr = ar.result().body();
+                                                future.complete(arr.getJsonObject(0));
+                                            });
+                        });
+        try {
+            JsonObject obj = future.get(1000, TimeUnit.MILLISECONDS);
+            return obj.getString("connectUrl");
+        } catch (Exception e) {
+            throw new RuntimeException("Could not determine own connectUrl", e);
         }
     }
 
