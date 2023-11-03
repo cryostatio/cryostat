@@ -18,6 +18,10 @@ package itest;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import io.cryostat.resources.GrafanaResource;
+import io.cryostat.resources.JFRDatasourceResource;
+
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
@@ -30,6 +34,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
+@QuarkusTestResource(GrafanaResource.class)
+@QuarkusTestResource(JFRDatasourceResource.class)
 public class HealthIT extends StandardSelfTest {
 
     HttpRequest<Buffer> req;
