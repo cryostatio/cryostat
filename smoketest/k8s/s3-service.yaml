@@ -7,7 +7,6 @@ metadata:
   labels:
     io.kompose.service: s3
   name: s3
-  namespace: default
 spec:
   ports:
     - name: "9001"

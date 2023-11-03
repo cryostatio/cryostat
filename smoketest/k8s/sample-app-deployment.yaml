@@ -9,7 +9,6 @@ metadata:
   labels:
     io.kompose.service: sample-app
   name: sample-app
-  namespace: default
 spec:
   replicas: 1
   selector:

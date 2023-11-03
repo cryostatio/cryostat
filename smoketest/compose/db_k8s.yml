@@ -8,23 +8,17 @@ services:
       QUARKUS_DATASOURCE_PASSWORD: cryostat3
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://db:5432/cryostat3
   db:
-    image: quay.io/cryostat/cryostat3-db:dev
-    build: ../../db
-    entrypoint:
-      - /usr/local/bin/docker-entrypoint.sh
-    command:
-      - postgres
-      - -c
-      - encrypt.key=REPLACEME
+    image: quay.io/cryostat/cryostat-db:latest
     hostname: db
     expose:
       - "5432"
     environment:
-      POSTGRES_USER: cryostat3
-      POSTGRES_PASSWORD: cryostat3
+      POSTGRESQL_USER: cryostat3
+      POSTGRESQL_PASSWORD: cryostat3
+      POSTGRESQL_DATABASE: cryostat3
       PG_ENCRYPT_KEY: REPLACEME
     volumes:
-      - postgresql:/var/lib/postgresql/data
+      - postgresql:/var/lib/pgsql/data
     restart: always
     healthcheck:
       test: pg_isready -U cryostat3 -d cryostat3 || exit 1

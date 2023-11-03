@@ -18,13 +18,11 @@ while [ "$#" -ne 0 ]; do
             cleanKind
             kind create cluster
             kind load docker-image "quay.io/${IMAGE_REPOSITORY}/cryostat3:dev"
-            kind load docker-image "quay.io/${IMAGE_REPOSITORY}/cryostat3-db:dev" 
             ;;
         unkind)
             cleanKind
             ;;
         generate)
-            sh "${DIR}/../../db/build.sh"
             kompose convert \
                 --with-kompose-annotation=false \
                 -o "${DIR}" \
@@ -36,8 +34,8 @@ while [ "$#" -ne 0 ]; do
             bash "${DIR}/generate.bash"
             ;;
         apply)
-            kubectl apply -f "./*.yaml"
-            kubectl patch -p "{\"spec\":{\"template\":{\"spec\":{\"\$setElementOrder/containers\":[{\"name\":\"db\"}],\"containers\":[{\"image\":\"quay.io/$IMAGE_REPOSITORY/cryostat3-db:dev\",\"name\":\"db\"}]}}}}" deployment/db
+            kubectl apply -f "${DIR}/*.yaml"
+            kubectl patch -p "{\"spec\":{\"template\":{\"spec\":{\"\$setElementOrder/containers\":[{\"name\":\"db\"}],\"containers\":[{\"image\":\"quay.io/$IMAGE_REPOSITORY/cryostat-db:latest\",\"name\":\"db\"}]}}}}" deployment/db
             kubectl wait \
                 --for condition=available \
                 --timeout=5m \
@@ -53,7 +51,7 @@ while [ "$#" -ne 0 ]; do
             ;;
         forward)
             sh -c '(sleep 1 ; xdg-open http://localhost:9001 ; xdg-open http://localhost:8181 ; xdg-open http://localhost:8989)&'
-            if ! kubectl multiforward smoketest; then
+            if ! ( pushd "${DIR}" ; sc=$(kubectl multiforward smoketest) ; popd ; exit "${sc}" ); then
                 echo "Run the following to expose the applications:"
                 echo "kubectl port-forward svc/cryostat 8181"
                 echo "kubectl port-forward svc/s3 9001"

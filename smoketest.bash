@@ -82,6 +82,8 @@ for file in "${FILES[@]}"; do
     CMD+=(-f "${file}")
 done
 
+HOSTSFILE="${HOSTSFILE:-$HOME/.hosts}"
+
 cleanup() {
     DOWN_FLAGS=('--remove-orphans')
     if [ "${KEEP_VOLUMES}" != "true" ]; then
@@ -91,7 +93,7 @@ cleanup() {
         "${CMD[@]}" \
         down "${DOWN_FLAGS[@]}"
     # podman kill hoster || true
-    > ~/.hosts
+    truncate -s 0 "${HOSTSFILE}"
 }
 trap cleanup EXIT
 cleanup
@@ -109,16 +111,15 @@ setupUserHosts() {
     #     -v "${XDG_RUNTIME_DIR}/podman/podman.sock:/tmp/docker.sock:Z" \
     #     -v "${HOME}/.hosts:/tmp/hosts" \
     #     dvdarias/docker-hoster
-    > ~/.hosts
+    truncate -s 0 "${HOSTSFILE}"
     for file in "${FILES[@]}" ; do
         hosts="$(yq '.services.*.hostname' "${file}" | grep -v null | sed -e 's/^/localhost /')"
-        echo "${hosts}" >> ~/.hosts
+        echo "${hosts}" >> "${HOSTSFILE}"
     done
 }
 setupUserHosts
 
 if [ "${PULL_IMAGES}" = "true" ]; then
-    sh db/build.sh
     IMAGES=()
     for file in "${FILES[@]}" ; do
         images="$(yq '.services.*.image' "${file}" | grep -v null)"

@@ -5,7 +5,6 @@ metadata:
   labels:
     io.kompose.service: db
   name: db
-  namespace: default
 spec:
   replicas: 1
   selector:
@@ -21,20 +20,16 @@ spec:
         io.kompose.service: db
     spec:
       containers:
-        - args:
-            - postgres
-            - -c
-            - encrypt.key=REPLACEME
-          command:
-            - /usr/local/bin/docker-entrypoint.sh
-          env:
+        - env:
             - name: PG_ENCRYPT_KEY
               value: REPLACEME
-            - name: POSTGRES_PASSWORD
+            - name: POSTGRESQL_DATABASE
               value: cryostat3
-            - name: POSTGRES_USER
+            - name: POSTGRESQL_PASSWORD
               value: cryostat3
-          image: quay.io/cryostat/cryostat3-db:dev
+            - name: POSTGRESQL_USER
+              value: cryostat3
+          image: quay.io/cryostat/cryostat-db:latest
           livenessProbe:
             exec:
               command:
@@ -46,11 +41,10 @@ spec:
           name: db
           ports:
             - containerPort: 5432
-              hostPort: 5432
               protocol: TCP
           resources: {}
           volumeMounts:
-            - mountPath: /var/lib/postgresql/data
+            - mountPath: /var/lib/pgsql/data
               name: postgresql
       hostname: db
       restartPolicy: Always

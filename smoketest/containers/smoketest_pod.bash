@@ -3,7 +3,7 @@
 set -x
 set -e
 
-HOSTSFILE="${HOSTSFILE:-~/.hosts}"
+HOSTSFILE="${HOSTSFILE:-$HOME/.hosts}"
 
 cleanup() {
     podman-compose --in-pod=1 \
@@ -30,7 +30,7 @@ cleanup
 #     --user=0 \
 #     --security-opt label=disable \
 #     -v "${XDG_RUNTIME_DIR}/podman/podman.sock:/tmp/docker.sock:Z" \
-#     -v "${HOME}/.hosts:/tmp/hosts" \
+#     -v "${HOSTSFILE}:/tmp/hosts" \
 #     dvdarias/docker-hoster
 
 setupUserHosts() {

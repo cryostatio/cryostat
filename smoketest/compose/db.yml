@@ -7,8 +7,7 @@ services:
       QUARKUS_DATASOURCE_PASSWORD: cryostat3
       QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://db:5432/cryostat3
   db:
-    image: quay.io/cryostat/cryostat3-db:dev
-    build: ../../db
+    image: quay.io/andrewazores/cryostat-db:latest
     hostname: db
     expose:
       - "5432"

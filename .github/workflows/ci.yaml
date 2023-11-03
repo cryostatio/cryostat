@@ -95,8 +95,6 @@ jobs:
       run: systemctl --user enable --now podman.socket
     - name: Set DOCKER_HOST environment variable
       run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
-    - name: Build db image
-      run: sh db/build.sh
     - name: Run tests
       run: ./mvnw -B -U clean verify
       continue-on-error: ${{ matrix.java != '17' }}
