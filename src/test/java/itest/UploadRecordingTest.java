@@ -64,6 +64,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                                 "/api/v1/targets/%s/recordings",
                                 getSelfReferenceConnectUrlEncoded()))
                 .basicAuthentication("user", "pass")
+                .followRedirects(true)
                 .sendForm(
                         form,
                         ar -> {
@@ -88,6 +89,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                                 "/api/v1/targets/%s/recordings/%s",
                                 getSelfReferenceConnectUrlEncoded(), RECORDING_NAME))
                 .basicAuthentication("user", "pass")
+                .followRedirects(true)
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, deleteRespFuture)) {
@@ -113,6 +115,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                                 "/api/v1/targets/%s/recordings/%s/upload",
                                 getSelfReferenceConnectUrlEncoded(), RECORDING_NAME))
                 .basicAuthentication("user", "pass")
+                .followRedirects(true)
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, uploadRespFuture)) {
