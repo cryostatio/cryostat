@@ -250,8 +250,8 @@ public class RuleService {
             quartz.scheduleJob(jobDetail, trigger);
         } catch (SchedulerException e) {
             logger.infov(
-                    "Failed to schedule archival job for rule {} in target {}" + rule.name,
-                    target.alias);
+                    "Failed to schedule archival job for rule {0} in target {1}",
+                    rule.name, target.alias);
             logger.error(e);
         }
         jobs.add(jobDetail.getKey());

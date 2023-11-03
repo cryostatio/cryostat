@@ -682,7 +682,7 @@ public class Recordings {
                         .map(c -> c.toString())
                         .orElseGet(() -> metadata.labels.computeIfAbsent("connectUrl", k -> jvmId));
         logger.infov(
-                "Archived recording from connectUrl {1} has metadata: {1}", connectUrl, metadata);
+                "Archived recording from connectUrl {0} has metadata: {1}", connectUrl, metadata);
         logger.infov(
                 "Sending S3 deletion request for {0} {1}",
                 archiveBucket, recordingHelper.archivedRecordingKey(jvmId, filename));
