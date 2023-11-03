@@ -44,6 +44,7 @@ import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.codec.BodyCodec;
 import io.vertx.ext.web.handler.HttpException;
 import itest.util.Utils;
+import jakarta.ws.rs.NotFoundException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.jboss.logging.Logger;
@@ -51,6 +52,7 @@ import org.junit.jupiter.api.BeforeAll;
 
 public abstract class StandardSelfTest {
 
+    private static final String SELFTEST_ALIAS = "selftest";
     public static final Logger logger = Logger.getLogger(StandardSelfTest.class);
     public static final ObjectMapper mapper = new ObjectMapper();
     public static final int REQUEST_TIMEOUT_SECONDS = 30;
@@ -105,7 +107,7 @@ public abstract class StandardSelfTest {
                                     "connectUrl",
                                     "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi",
                                     "alias",
-                                    "self"));
+                                    SELFTEST_ALIAS));
             ForkJoinPool.commonPool()
                     .submit(
                             () -> {
@@ -151,7 +153,20 @@ public abstract class StandardSelfTest {
                                                     return;
                                                 }
                                                 JsonArray arr = ar.result().body();
-                                                future.complete(arr.getJsonObject(0));
+                                                boolean found = false;
+                                                for (int i = 0; i < arr.size(); i++) {
+                                                    JsonObject obj = arr.getJsonObject(i);
+                                                    if (SELFTEST_ALIAS.equals(
+                                                            obj.getString("alias"))) {
+                                                        future.complete(obj);
+                                                        found = true;
+                                                        break;
+                                                    }
+                                                }
+                                                if (!found) {
+                                                    future.completeExceptionally(
+                                                            new NotFoundException());
+                                                }
                                             });
                         });
         try {
