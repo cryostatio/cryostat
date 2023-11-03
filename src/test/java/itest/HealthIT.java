@@ -38,16 +38,12 @@ import org.junit.jupiter.api.Test;
 @QuarkusTestResource(JFRDatasourceResource.class)
 public class HealthIT extends StandardSelfTest {
 
-    HttpRequest<Buffer> req;
+    JsonObject response;
 
     @BeforeEach
-    void createRequest() {
-        req = webClient.get("/health");
-    }
-
-    @Test
-    void shouldIncludeApplicationVersion() throws Exception {
+    void createRequest() throws Exception {
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
+        HttpRequest<Buffer> req = webClient.get("/health");
         req.send(
                 ar -> {
                     if (ar.failed()) {
@@ -56,12 +52,38 @@ public class HealthIT extends StandardSelfTest {
                     }
                     future.complete(ar.result().bodyAsJsonObject());
                 });
-        JsonObject response = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        response = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
 
+    @Test
+    void shouldIncludeApplicationVersion() {
         Assertions.assertTrue(response.containsKey("cryostatVersion"));
         MatcherAssert.assertThat(
                 response.getString("cryostatVersion"), Matchers.not(Matchers.emptyOrNullString()));
         MatcherAssert.assertThat(
                 response.getString("cryostatVersion"), Matchers.not(Matchers.equalTo("unknown")));
+        MatcherAssert.assertThat(
+                response.getString("cryostatVersion"),
+                Matchers.matchesRegex("^v[\\d]\\.[\\d]\\.[\\d](?:-SNAPSHOT)?"));
+    }
+
+    @Test
+    void shouldHaveAvailableDatasource() {
+        Assertions.assertTrue(response.containsKey("datasourceConfigured"));
+        MatcherAssert.assertThat(
+                response.getString("datasourceConfigured"), Matchers.equalTo("true"));
+        Assertions.assertTrue(response.containsKey("datasourceAvailable"));
+        MatcherAssert.assertThat(
+                response.getString("datasourceAvailable"), Matchers.equalTo("true"));
+    }
+
+    @Test
+    void shouldHaveAvailableDashboard() {
+        Assertions.assertTrue(response.containsKey("dashboardConfigured"));
+        MatcherAssert.assertThat(
+                response.getString("dashboardConfigured"), Matchers.equalTo("true"));
+        Assertions.assertTrue(response.containsKey("dashboardAvailable"));
+        MatcherAssert.assertThat(
+                response.getString("dashboardAvailable"), Matchers.equalTo("true"));
     }
 }
