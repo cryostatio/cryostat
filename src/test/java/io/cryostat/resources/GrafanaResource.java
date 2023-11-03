@@ -31,7 +31,7 @@ public class GrafanaResource
     private static Map<String, String> envMap =
             Map.of(
                     "GF_INSTALL_PLUGINS", "grafana-simple-json-datasource",
-                    "GF_AUTH_ANONYMOUS_ENABLED", "tru",
+                    "GF_AUTH_ANONYMOUS_ENABLED", "true",
                     "JFR_DATASOURCE_URL", "http://jfr-datasource:8080");
 
     private Optional<String> containerNetworkId;
