@@ -59,7 +59,10 @@ public class UploadRecordingTest extends StandardSelfTest {
         form.add("duration", String.valueOf(RECORDING_DURATION_SECONDS));
         form.add("events", "template=ALL");
         webClient
-                .post(String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl()))
+                .post(
+                        String.format(
+                                "/api/v1/targets/%s/recordings",
+                                getSelfReferenceConnectUrlEncoded()))
                 .sendForm(
                         form,
                         ar -> {
@@ -82,7 +85,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                 .delete(
                         String.format(
                                 "/api/v1/targets/%s/recordings/%s",
-                                getSelfReferenceConnectUrl(), RECORDING_NAME))
+                                getSelfReferenceConnectUrlEncoded(), RECORDING_NAME))
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, deleteRespFuture)) {
@@ -106,7 +109,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                 .post(
                         String.format(
                                 "/api/v1/targets/%s/recordings/%s/upload",
-                                getSelfReferenceConnectUrl(), RECORDING_NAME))
+                                getSelfReferenceConnectUrlEncoded(), RECORDING_NAME))
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, uploadRespFuture)) {
