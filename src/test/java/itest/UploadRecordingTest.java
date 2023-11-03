@@ -63,6 +63,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                         String.format(
                                 "/api/v1/targets/%s/recordings",
                                 getSelfReferenceConnectUrlEncoded()))
+                .basicAuthentication("user", "pass")
                 .sendForm(
                         form,
                         ar -> {
@@ -86,6 +87,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                         String.format(
                                 "/api/v1/targets/%s/recordings/%s",
                                 getSelfReferenceConnectUrlEncoded(), RECORDING_NAME))
+                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, deleteRespFuture)) {
@@ -110,6 +112,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                         String.format(
                                 "/api/v1/targets/%s/recordings/%s/upload",
                                 getSelfReferenceConnectUrlEncoded(), RECORDING_NAME))
+                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, uploadRespFuture)) {
