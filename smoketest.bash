@@ -8,6 +8,9 @@ fi
 FILES=(
     ./smoketest/compose/db.yml
 )
+URLS=(
+    "http://localhost:8181"
+)
 
 PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
@@ -32,6 +35,7 @@ while getopts "s:gtOVXc" opt; do
             ;;
         g)
             FILES+=('./smoketest/compose/cryostat-grafana.yml' './smoketest/compose/jfr-datasource.yml')
+            URLS+=("http://grafana:3000")
             ;;
         t)
             FILES+=('./smoketest/compose/sample-apps.yml')
@@ -44,6 +48,7 @@ while getopts "s:gtOVXc" opt; do
             ;;
         X)
             FILES+=('./smoketest/compose/db-viewer.yml')
+            URLS+=("http://db-viewer:8989")
             ;;
         c)
             ce="${OPTARG}"
@@ -57,6 +62,7 @@ done
 
 if [ "${s3}" = "minio" ]; then
     FILES+=('./smoketest/compose/s3-minio.yml')
+    URLS+=("http://s3:9001")
 elif [ "${s3}" = "localstack" ]; then
     FILES+=('./smoketest/compose/s3-localstack.yml')
 else
@@ -82,9 +88,12 @@ for file in "${FILES[@]}"; do
     CMD+=(-f "${file}")
 done
 
+PIDS=()
+
 HOSTSFILE="${HOSTSFILE:-$HOME/.hosts}"
 
 cleanup() {
+    set +xe
     DOWN_FLAGS=('--remove-orphans')
     if [ "${KEEP_VOLUMES}" != "true" ]; then
         DOWN_FLAGS+=('--volumes')
@@ -94,6 +103,10 @@ cleanup() {
         down "${DOWN_FLAGS[@]}"
     # podman kill hoster || true
     truncate -s 0 "${HOSTSFILE}"
+    for i in "${PIDS[@]}"; do
+        kill -0 "${i}" && kill "${i}"
+    done
+    set -xe
 }
 trap cleanup EXIT
 cleanup
@@ -101,7 +114,6 @@ cleanup
 setupUserHosts() {
     # FIXME this is broken: it puts the containers' bridge-internal IP addresses
     # into the user hosts file, but these IPs are in a subnet not reachable from the host.
-    # This requires https://github.com/figiel/hosts to work. See README.
     # podman run \
     #     --detach \
     #     --rm  \
@@ -111,6 +123,8 @@ setupUserHosts() {
     #     -v "${XDG_RUNTIME_DIR}/podman/podman.sock:/tmp/docker.sock:Z" \
     #     -v "${HOME}/.hosts:/tmp/hosts" \
     #     dvdarias/docker-hoster
+    #
+    # This requires https://github.com/figiel/hosts to work. See README.
     truncate -s 0 "${HOSTSFILE}"
     for file in "${FILES[@]}" ; do
         hosts="$(yq '.services.*.hostname' "${file}" | grep -v null | sed -e 's/^/localhost /')"
@@ -118,6 +132,21 @@ setupUserHosts() {
     done
 }
 setupUserHosts
+
+openBrowserTabs() {
+    for i in "${URLS[@]}"; do
+        (
+            until timeout 1s curl -s -f -o /dev/null "${i}"
+            do
+                sleep 5
+            done
+            xdg-open "${i}"
+            echo "Opened '${i}' in default browser."
+        ) &
+        PIDS+=($!)
+    done
+}
+openBrowserTabs
 
 if [ "${PULL_IMAGES}" = "true" ]; then
     IMAGES=()
