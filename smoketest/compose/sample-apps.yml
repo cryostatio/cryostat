@@ -36,8 +36,9 @@ services:
     # do not add a depends_on:cryostat here, so that we can test that the agent is tolerant of that state
     hostname: quarkus-test-agent
     ports:
-      - "9977:9977"
       - "10010:10010"
+    expose:
+      - "9977"
     environment:
       JAVA_OPTS: "-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -javaagent:/deployments/app/cryostat-agent.jar"
       QUARKUS_HTTP_PORT: 10010
