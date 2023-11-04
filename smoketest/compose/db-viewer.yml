@@ -8,6 +8,8 @@ services:
     hostname: db-viewer
     ports:
       - "8989:8989"
+    expose:
+      - "8989"
     environment:
       PGADMIN_DEFAULT_EMAIL: admin@cryostat.io
       PGADMIN_DEFAULT_PASSWORD: admin

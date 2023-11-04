@@ -12,8 +12,6 @@ services:
         limits:
           cpus: '0.4'
           memory: 512m
-    ports:
-      - "8080:8080"
     expose:
       - "8080"
     labels:
