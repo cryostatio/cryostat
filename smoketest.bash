@@ -8,9 +8,6 @@ fi
 FILES=(
     ./smoketest/compose/db.yml
 )
-URLS=(
-    "http://localhost:8181"
-)
 
 PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
@@ -35,7 +32,6 @@ while getopts "s:gtOVXc" opt; do
             ;;
         g)
             FILES+=('./smoketest/compose/cryostat-grafana.yml' './smoketest/compose/jfr-datasource.yml')
-            URLS+=("http://grafana:3000")
             ;;
         t)
             FILES+=('./smoketest/compose/sample-apps.yml')
@@ -48,7 +44,6 @@ while getopts "s:gtOVXc" opt; do
             ;;
         X)
             FILES+=('./smoketest/compose/db-viewer.yml')
-            URLS+=("http://db-viewer:8989")
             ;;
         c)
             ce="${OPTARG}"
@@ -62,7 +57,6 @@ done
 
 if [ "${s3}" = "minio" ]; then
     FILES+=('./smoketest/compose/s3-minio.yml')
-    URLS+=("http://s3:9001")
 elif [ "${s3}" = "localstack" ]; then
     FILES+=('./smoketest/compose/s3-localstack.yml')
 else
@@ -134,14 +128,31 @@ setupUserHosts() {
 setupUserHosts
 
 openBrowserTabs() {
-    for i in "${URLS[@]}"; do
+    # TODO find a way to use 'podman wait --condition=healthy $containerId' instead of polling with curl
+    set +xe
+    local urls=()
+    for file in "${FILES[@]}"; do
+        yaml="$(yq '.services.* | [{"host": .hostname, "ports": .ports}]' "${file}")"
+        length="$(echo "${yaml}" | yq 'length')"
+        for (( i=0; i<"${length}"; i+=1 ))
+        do
+            host="$(echo "${yaml}" | yq ".[${i}].host" | grep -v null)"
+            port="$(echo "${yaml}" | yq ".[${i}].ports[0]" | grep -v null | cut -d: -f1)"
+            if [ -n "${host}" ] && [ -n "${port}" ]; then
+                urls+=("http://${host}:${port}")
+            fi
+        done
+    done
+    set -xe
+    echo "Service URLs:" "${urls[@]}"
+    for url in "${urls[@]}"; do
         (
-            until timeout 1s curl -s -f -o /dev/null "${i}"
+            until timeout 1s curl -s -f -o /dev/null "${url}"
             do
                 sleep 5
             done
-            xdg-open "${i}"
-            echo "Opened '${i}' in default browser."
+            xdg-open "${url}"
+            echo "Opened ${url} in default browser."
         ) &
         PIDS+=($!)
     done
