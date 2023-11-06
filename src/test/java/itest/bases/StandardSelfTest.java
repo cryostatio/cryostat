@@ -137,6 +137,7 @@ public abstract class StandardSelfTest {
     }
 
     public static String getSelfReferenceConnectUrl() {
+        waitForDiscovery();
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
         WORKER.submit(
                 () -> {
