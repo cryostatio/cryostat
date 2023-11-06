@@ -121,8 +121,18 @@ public abstract class StandardSelfTest {
                                                 logger.error(ar.cause());
                                                 return;
                                             }
-                                            JsonArray arr = ar.result().body();
-                                            logger.infov("Discovered {0} targets.", arr.size());
+                                            HttpResponse<JsonArray> resp = ar.result();
+                                            JsonArray arr = resp.body();
+                                            logger.infov(
+                                                    "GET /api/v3/targets -> HTTP {1} {2}: [{3}] ->"
+                                                            + " {4}",
+                                                    selfCustomTargetLocation,
+                                                    resp.statusCode(),
+                                                    resp.statusMessage(),
+                                                    resp.headers(),
+                                                    arr);
+                                            logger.infov(
+                                                    "Discovered {0} targets: {1}", arr.size(), arr);
                                             queryFound.complete(arr.size() >= totalTargets);
                                         });
                     });
@@ -164,11 +174,15 @@ public abstract class StandardSelfTest {
                                 }
                                 HttpResponse<Buffer> resp = ar.result();
                                 logger.infov(
-                                        "HTTP {0} {1}: [{2}] -> {3}",
+                                        "POST /api/v2/targets -> HTTP {0} {1}: [{2}] -> {3}",
                                         resp.statusCode(),
                                         resp.statusMessage(),
                                         resp.headers(),
                                         resp.bodyAsString());
+                                if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
+                                    selfCustomTargetLocation =
+                                            resp.headers().get(HttpHeaders.LOCATION);
+                                }
                             });
         } catch (Exception e) {
             logger.warn(e);
@@ -191,7 +205,14 @@ public abstract class StandardSelfTest {
                                             logger.error(ar.cause());
                                             return;
                                         }
-                                        JsonArray arr = ar.result().body();
+                                        HttpResponse<JsonArray> resp = ar.result();
+                                        logger.infov(
+                                                "GET /api/v3/targets -> HTTP {0} {1}: [{2}] -> {3}",
+                                                resp.statusCode(),
+                                                resp.statusMessage(),
+                                                resp.headers(),
+                                                resp.bodyAsString());
+                                        JsonArray arr = resp.body();
                                         boolean found = false;
                                         for (int i = 0; i < arr.size(); i++) {
                                             JsonObject obj = arr.getJsonObject(i);
@@ -281,10 +302,16 @@ public abstract class StandardSelfTest {
                 .send(
                         ar -> {
                             if (ar.succeeded()) {
+                                HttpResponse<Buffer> resp = ar.result();
+                                logger.infov(
+                                        "GET /api/v1/notifications_url -> HTTP {0} {1}: [{2}] ->"
+                                                + " {3}",
+                                        resp.statusCode(),
+                                        resp.statusMessage(),
+                                        resp.headers(),
+                                        resp.bodyAsString());
                                 future.complete(
-                                        ar.result()
-                                                .bodyAsJsonObject()
-                                                .getString("notificationsUrl"));
+                                        resp.bodyAsJsonObject().getString("notificationsUrl"));
                             } else {
                                 future.completeExceptionally(ar.cause());
                             }
@@ -320,6 +347,13 @@ public abstract class StandardSelfTest {
                                 return;
                             }
                             HttpResponse<Buffer> resp = ar.result();
+                            logger.infov(
+                                    "GET {0} -> HTTP {1} {2}: [{3}] -> {4}",
+                                    request.uri(),
+                                    resp.statusCode(),
+                                    resp.statusMessage(),
+                                    resp.headers(),
+                                    resp.bodyAsString());
                             if (resp.statusCode() != 200) {
                                 future.completeExceptionally(
                                         new Exception(String.format("HTTP %d", resp.statusCode())));
