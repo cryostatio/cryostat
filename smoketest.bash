@@ -11,21 +11,23 @@ FILES=(
 
 PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
+OPEN_TABS=${OPEN_TABS:-false}
 
 display_usage() {
     echo "Usage:"
-    echo -e "\t-O \t\t\t\tOffline mode, do not attempt to pull container images."
+    echo -e "\t-O\t\t\t\tOffline mode, do not attempt to pull container images."
     echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up (default \"minio\")."
-    echo -e "\t-g \t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
-    echo -e "\t-t \t\t\t\tinclude sample applications for Testing."
-    echo -e "\t-V \t\t\t\tdo not discard data storage Volumes on exit."
-    echo -e "\t-X \t\t\t\tdeploy additional development aid tools."
+    echo -e "\t-g\t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
+    echo -e "\t-t\t\t\t\tinclude sample applications for Testing."
+    echo -e "\t-V\t\t\t\tdo not discard data storage Volumes on exit."
+    echo -e "\t-X\t\t\t\tdeploy additional development aid tools."
     echo -e "\t-c [podman|docker]\t\tUse Podman or Docker Container Engine (default \"podman\")."
+    echo -e "\t-b\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. Cryostat web client, Minio console)"
 }
 
 s3=minio
 ce=podman
-while getopts "s:gtOVXc" opt; do
+while getopts "s:gtOVXcb" opt; do
     case $opt in
         s)
             s3="${OPTARG}"
@@ -47,6 +49,9 @@ while getopts "s:gtOVXc" opt; do
             ;;
         c)
             ce="${OPTARG}"
+            ;;
+        b)
+            OPEN_TABS=true
             ;;
         *)
             display_usage
@@ -157,7 +162,9 @@ openBrowserTabs() {
         PIDS+=($!)
     done
 }
-openBrowserTabs
+if [ "${OPEN_TABS}" = "true" ]; then
+    openBrowserTabs
+fi
 
 if [ "${PULL_IMAGES}" = "true" ]; then
     IMAGES=()
