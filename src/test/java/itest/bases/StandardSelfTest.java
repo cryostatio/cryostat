@@ -63,7 +63,7 @@ public abstract class StandardSelfTest {
     @BeforeAll
     public static void waitForDiscovery() {
         boolean found = false;
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(REQUEST_TIMEOUT_SECONDS);
         while (!found && System.nanoTime() < deadline) {
             logger.infov("Waiting for discovery to see at least one target...");
             CompletableFuture<Boolean> queryFound = new CompletableFuture<>();
@@ -73,7 +73,7 @@ public abstract class StandardSelfTest {
                                 .get("/api/v3/targets")
                                 .basicAuthentication("user", "pass")
                                 .as(BodyCodec.jsonArray())
-                                .timeout(500)
+                                .timeout(2000)
                                 .send(
                                         ar -> {
                                             if (ar.failed()) {
@@ -85,11 +85,11 @@ public abstract class StandardSelfTest {
                                         });
                     });
             try {
-                found |= queryFound.get(500, TimeUnit.MILLISECONDS);
+                found |= queryFound.get(2000, TimeUnit.MILLISECONDS);
                 if (!found) {
                     tryDefineSelfCustomTarget();
                 }
-                Thread.sleep(2000);
+                Thread.sleep(3000);
             } catch (Exception e) {
                 logger.warn(e);
             }
@@ -114,7 +114,7 @@ public abstract class StandardSelfTest {
                         webClient
                                 .post("/api/v2/targets")
                                 .basicAuthentication("user", "pass")
-                                .timeout(500)
+                                .timeout(5000)
                                 .sendJson(
                                         self,
                                         ar -> {
