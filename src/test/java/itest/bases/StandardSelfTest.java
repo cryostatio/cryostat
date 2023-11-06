@@ -57,6 +57,7 @@ import org.junit.jupiter.api.BeforeAll;
 
 public abstract class StandardSelfTest {
 
+    private static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
     private static final String SELFTEST_ALIAS = "selftest";
     private static final ExecutorService WORKER = Executors.newCachedThreadPool();
     public static final Logger logger = Logger.getLogger(StandardSelfTest.class);
@@ -151,12 +152,7 @@ public abstract class StandardSelfTest {
         logger.info("Trying to define self-referential custom target...");
         try {
             JsonObject self =
-                    new JsonObject(
-                            Map.of(
-                                    "connectUrl",
-                                    "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi",
-                                    "alias",
-                                    SELFTEST_ALIAS));
+                    new JsonObject(Map.of("connectUrl", SELF_JMX_URL, "alias", SELFTEST_ALIAS));
             webClient
                     .post("/api/v2/targets")
                     .basicAuthentication("user", "pass")
