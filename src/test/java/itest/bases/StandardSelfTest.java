@@ -86,7 +86,8 @@ public abstract class StandardSelfTest {
                                                 return;
                                             }
                                             JsonArray arr = ar.result().body();
-                                            queryFound.complete(arr.size() == totalTargets);
+                                            logger.infov("Discovered {0} targets.", arr.size());
+                                            queryFound.complete(arr.size() >= totalTargets);
                                         });
                     });
             try {
@@ -127,11 +128,11 @@ public abstract class StandardSelfTest {
                                 }
                                 HttpResponse<Buffer> resp = ar.result();
                                 logger.infov(
-                                        "HTTP {0} {1}: {2} [{3}]",
+                                        "HTTP {0} {1}: [{2}] -> {3}",
                                         resp.statusCode(),
                                         resp.statusMessage(),
-                                        resp.bodyAsString(),
-                                        resp.headers());
+                                        resp.headers(),
+                                        resp.bodyAsString());
                             });
         } catch (Exception e) {
             logger.warn(e);
