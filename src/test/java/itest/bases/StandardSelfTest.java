@@ -89,12 +89,8 @@ public abstract class StandardSelfTest {
                             }
                             HttpResponse<Buffer> resp = ar.result();
                             logger.infov(
-                                    "DELETE {0} -> HTTP {1} {2}: [{3}] -> {4}",
-                                    path,
-                                    resp.statusCode(),
-                                    resp.statusMessage(),
-                                    resp.headers(),
-                                    resp.bodyAsString());
+                                    "DELETE {0} -> HTTP {1} {2}: [{3}]",
+                                    path, resp.statusCode(), resp.statusMessage(), resp.headers());
                             if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
                                 selfCustomTargetLocation = resp.headers().get(HttpHeaders.LOCATION);
                             }
@@ -174,11 +170,8 @@ public abstract class StandardSelfTest {
                                 }
                                 HttpResponse<Buffer> resp = ar.result();
                                 logger.infov(
-                                        "POST /api/v2/targets -> HTTP {0} {1}: [{2}] -> {3}",
-                                        resp.statusCode(),
-                                        resp.statusMessage(),
-                                        resp.headers(),
-                                        resp.bodyAsString());
+                                        "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
+                                        resp.statusCode(), resp.statusMessage(), resp.headers());
                                 if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
                                     selfCustomTargetLocation =
                                             resp.headers().get(HttpHeaders.LOCATION);
@@ -304,12 +297,8 @@ public abstract class StandardSelfTest {
                             if (ar.succeeded()) {
                                 HttpResponse<Buffer> resp = ar.result();
                                 logger.infov(
-                                        "GET /api/v1/notifications_url -> HTTP {0} {1}: [{2}] ->"
-                                                + " {3}",
-                                        resp.statusCode(),
-                                        resp.statusMessage(),
-                                        resp.headers(),
-                                        resp.bodyAsString());
+                                        "GET /api/v1/notifications_url -> HTTP {0} {1}: [{2}]",
+                                        resp.statusCode(), resp.statusMessage(), resp.headers());
                                 future.complete(
                                         resp.bodyAsJsonObject().getString("notificationsUrl"));
                             } else {
@@ -348,12 +337,11 @@ public abstract class StandardSelfTest {
                             }
                             HttpResponse<Buffer> resp = ar.result();
                             logger.infov(
-                                    "GET {0} -> HTTP {1} {2}: [{3}] -> {4}",
+                                    "GET {0} -> HTTP {1} {2}: [{3}]",
                                     request.uri(),
                                     resp.statusCode(),
                                     resp.statusMessage(),
-                                    resp.headers(),
-                                    resp.bodyAsString());
+                                    resp.headers());
                             if (resp.statusCode() != 200) {
                                 future.completeExceptionally(
                                         new Exception(String.format("HTTP %d", resp.statusCode())));
