@@ -21,7 +21,8 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -53,6 +54,7 @@ import org.junit.jupiter.api.BeforeAll;
 public abstract class StandardSelfTest {
 
     private static final String SELFTEST_ALIAS = "selftest";
+    private static final ExecutorService WORKER = Executors.newCachedThreadPool();
     public static final Logger logger = Logger.getLogger(StandardSelfTest.class);
     public static final ObjectMapper mapper = new ObjectMapper();
     public static final int REQUEST_TIMEOUT_SECONDS = 30;
@@ -65,24 +67,23 @@ public abstract class StandardSelfTest {
         while (!found && System.nanoTime() < deadline) {
             logger.infov("Waiting for discovery to see at least one target...");
             CompletableFuture<Boolean> queryFound = new CompletableFuture<>();
-            ForkJoinPool.commonPool()
-                    .submit(
-                            () -> {
-                                webClient
-                                        .get("/api/v3/targets")
-                                        .basicAuthentication("user", "pass")
-                                        .as(BodyCodec.jsonArray())
-                                        .timeout(500)
-                                        .send(
-                                                ar -> {
-                                                    if (ar.failed()) {
-                                                        logger.error(ar.cause());
-                                                        return;
-                                                    }
-                                                    JsonArray arr = ar.result().body();
-                                                    queryFound.complete(arr.size() >= 1);
-                                                });
-                            });
+            WORKER.submit(
+                    () -> {
+                        webClient
+                                .get("/api/v3/targets")
+                                .basicAuthentication("user", "pass")
+                                .as(BodyCodec.jsonArray())
+                                .timeout(500)
+                                .send(
+                                        ar -> {
+                                            if (ar.failed()) {
+                                                logger.error(ar.cause());
+                                                return;
+                                            }
+                                            JsonArray arr = ar.result().body();
+                                            queryFound.complete(arr.size() >= 1);
+                                        });
+                    });
             try {
                 found |= queryFound.get(500, TimeUnit.MILLISECONDS);
                 if (!found) {
@@ -108,29 +109,28 @@ public abstract class StandardSelfTest {
                                     "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi",
                                     "alias",
                                     SELFTEST_ALIAS));
-            ForkJoinPool.commonPool()
-                    .submit(
-                            () -> {
-                                webClient
-                                        .post("/api/v2/targets")
-                                        .basicAuthentication("user", "pass")
-                                        .timeout(500)
-                                        .sendJson(
-                                                self,
-                                                ar -> {
-                                                    if (ar.failed()) {
-                                                        logger.error(ar.cause());
-                                                        return;
-                                                    }
-                                                    HttpResponse<Buffer> resp = ar.result();
-                                                    logger.infov(
-                                                            "HTTP {0} {1}: {2} [{3}]",
-                                                            resp.statusCode(),
-                                                            resp.statusMessage(),
-                                                            resp.bodyAsString(),
-                                                            resp.headers());
-                                                });
-                            });
+            WORKER.submit(
+                    () -> {
+                        webClient
+                                .post("/api/v2/targets")
+                                .basicAuthentication("user", "pass")
+                                .timeout(500)
+                                .sendJson(
+                                        self,
+                                        ar -> {
+                                            if (ar.failed()) {
+                                                logger.error(ar.cause());
+                                                return;
+                                            }
+                                            HttpResponse<Buffer> resp = ar.result();
+                                            logger.infov(
+                                                    "HTTP {0} {1}: {2} [{3}]",
+                                                    resp.statusCode(),
+                                                    resp.statusMessage(),
+                                                    resp.bodyAsString(),
+                                                    resp.headers());
+                                        });
+                    });
         } catch (Exception e) {
             logger.warn(e);
         }
@@ -138,37 +138,34 @@ public abstract class StandardSelfTest {
 
     public static String getSelfReferenceConnectUrl() {
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
-        ForkJoinPool.commonPool()
-                .submit(
-                        () -> {
-                            webClient
-                                    .get("/api/v3/targets")
-                                    .basicAuthentication("user", "pass")
-                                    .as(BodyCodec.jsonArray())
-                                    .timeout(5000)
-                                    .send(
-                                            ar -> {
-                                                if (ar.failed()) {
-                                                    logger.error(ar.cause());
-                                                    return;
-                                                }
-                                                JsonArray arr = ar.result().body();
-                                                boolean found = false;
-                                                for (int i = 0; i < arr.size(); i++) {
-                                                    JsonObject obj = arr.getJsonObject(i);
-                                                    if (SELFTEST_ALIAS.equals(
-                                                            obj.getString("alias"))) {
-                                                        future.complete(obj);
-                                                        found = true;
-                                                        break;
-                                                    }
-                                                }
-                                                if (!found) {
-                                                    future.completeExceptionally(
-                                                            new NotFoundException());
-                                                }
-                                            });
-                        });
+        WORKER.submit(
+                () -> {
+                    webClient
+                            .get("/api/v3/targets")
+                            .basicAuthentication("user", "pass")
+                            .as(BodyCodec.jsonArray())
+                            .timeout(5000)
+                            .send(
+                                    ar -> {
+                                        if (ar.failed()) {
+                                            logger.error(ar.cause());
+                                            return;
+                                        }
+                                        JsonArray arr = ar.result().body();
+                                        boolean found = false;
+                                        for (int i = 0; i < arr.size(); i++) {
+                                            JsonObject obj = arr.getJsonObject(i);
+                                            if (SELFTEST_ALIAS.equals(obj.getString("alias"))) {
+                                                future.complete(obj);
+                                                found = true;
+                                                break;
+                                            }
+                                        }
+                                        if (!found) {
+                                            future.completeExceptionally(new NotFoundException());
+                                        }
+                                    });
+                });
         try {
             JsonObject obj = future.get(5000, TimeUnit.MILLISECONDS);
             return obj.getString("connectUrl");

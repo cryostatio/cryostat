@@ -21,7 +21,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -51,7 +51,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 @TestMethodOrder(OrderAnnotation.class)
 public class CustomTargetsIT extends StandardSelfTest {
 
-    private final ExecutorService worker = ForkJoinPool.commonPool();
+    private final ExecutorService worker = Executors.newCachedThreadPool();
     static final Map<String, String> NULL_RESULT = new HashMap<>();
     private String itestJvmId;
     private static StoredCredential storedCredential;
