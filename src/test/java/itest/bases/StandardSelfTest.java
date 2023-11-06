@@ -15,6 +15,7 @@
  */
 package itest.bases;
 
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -46,9 +47,12 @@ import io.vertx.ext.web.codec.BodyCodec;
 import io.vertx.ext.web.handler.HttpException;
 import itest.util.Utils;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.core.HttpHeaders;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
 public abstract class StandardSelfTest {
@@ -59,10 +63,42 @@ public abstract class StandardSelfTest {
     public static final ObjectMapper mapper = new ObjectMapper();
     public static final int REQUEST_TIMEOUT_SECONDS = 30;
     public static final WebClient webClient = Utils.getWebClient();
+    public static String selfCustomTargetLocation;
 
     @BeforeAll
     public static void waitForDiscovery() {
         waitForDiscovery(0);
+    }
+
+    @AfterAll
+    public static void deleteSelfCustomTarget() {
+        if (StringUtils.isBlank(selfCustomTargetLocation)) {
+            return;
+        }
+        logger.infov("Deleting self custom target at {0}", selfCustomTargetLocation);
+        String path = URI.create(selfCustomTargetLocation).getPath();
+        webClient
+                .delete(path)
+                .basicAuthentication("user", "pass")
+                .timeout(2000)
+                .send(
+                        ar -> {
+                            if (ar.failed()) {
+                                logger.error(ar.cause());
+                                return;
+                            }
+                            HttpResponse<Buffer> resp = ar.result();
+                            logger.infov(
+                                    "DELETE {0} -> HTTP {1} {2}: [{3}] -> {4}",
+                                    path,
+                                    resp.statusCode(),
+                                    resp.statusMessage(),
+                                    resp.headers(),
+                                    resp.bodyAsString());
+                            if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
+                                selfCustomTargetLocation = resp.headers().get(HttpHeaders.LOCATION);
+                            }
+                        });
     }
 
     public static void waitForDiscovery(int otherTargetsCount) {
