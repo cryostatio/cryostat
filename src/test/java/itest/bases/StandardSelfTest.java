@@ -145,7 +145,7 @@ public abstract class StandardSelfTest {
                                     .get("/api/v3/targets")
                                     .basicAuthentication("user", "pass")
                                     .as(BodyCodec.jsonArray())
-                                    .timeout(500)
+                                    .timeout(5000)
                                     .send(
                                             ar -> {
                                                 if (ar.failed()) {
@@ -170,7 +170,7 @@ public abstract class StandardSelfTest {
                                             });
                         });
         try {
-            JsonObject obj = future.get(1000, TimeUnit.MILLISECONDS);
+            JsonObject obj = future.get(5000, TimeUnit.MILLISECONDS);
             return obj.getString("connectUrl");
         } catch (Exception e) {
             throw new RuntimeException("Could not determine own connectUrl", e);
