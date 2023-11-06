@@ -15,6 +15,7 @@ OPEN_TABS=${OPEN_TABS:-false}
 
 display_usage() {
     echo "Usage:"
+    echo -e "\t-h\t\t\t\tprint this Help text."
     echo -e "\t-O\t\t\t\tOffline mode, do not attempt to pull container images."
     echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up (default \"minio\")."
     echo -e "\t-g\t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
@@ -27,8 +28,12 @@ display_usage() {
 
 s3=minio
 ce=podman
-while getopts "s:gtOVXcb" opt; do
+while getopts "hs:gtOVXcb" opt; do
     case $opt in
+        h)
+            display_usage
+            exit 0
+            ;;
         s)
             s3="${OPTARG}"
             ;;
