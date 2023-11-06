@@ -196,11 +196,10 @@ public abstract class StandardSelfTest {
                                         }
                                         HttpResponse<JsonArray> resp = ar.result();
                                         logger.infov(
-                                                "GET /api/v3/targets -> HTTP {0} {1}: [{2}] -> {3}",
+                                                "GET /api/v3/targets -> HTTP {0} {1}: [{2}]",
                                                 resp.statusCode(),
                                                 resp.statusMessage(),
-                                                resp.headers(),
-                                                resp.bodyAsString());
+                                                resp.headers());
                                         JsonArray arr = resp.body();
                                         boolean found = false;
                                         for (int i = 0; i < arr.size(); i++) {
