@@ -31,21 +31,28 @@ import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
 public class TargetEventsGetIT extends StandardSelfTest {
 
-    static final String EVENT_REQ_URL =
-            String.format("/api/v1/targets/%s/events", getSelfReferenceConnectUrlEncoded());
-    static final String SEARCH_REQ_URL =
-            String.format("/api/v2/targets/%s/events", getSelfReferenceConnectUrlEncoded());
+    String eventReqUrl;
+    String searchReqUrl;
+
+    @BeforeEach
+    void setup() {
+        eventReqUrl =
+                String.format("/api/v1/targets/%s/events", getSelfReferenceConnectUrlEncoded());
+        searchReqUrl =
+                String.format("/api/v2/targets/%s/events", getSelfReferenceConnectUrlEncoded());
+    }
 
     @Test
     public void testGetTargetEventsReturnsListOfEvents() throws Exception {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
-                .get(EVENT_REQ_URL)
+                .get(eventReqUrl)
                 .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
@@ -67,7 +74,7 @@ public class TargetEventsGetIT extends StandardSelfTest {
     public void testGetTargetEventsV2WithNoQueryReturnsListOfEvents() throws Exception {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
-                .get(SEARCH_REQ_URL)
+                .get(searchReqUrl)
                 .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
@@ -92,7 +99,7 @@ public class TargetEventsGetIT extends StandardSelfTest {
     public void testGetTargetEventsV2WithQueryReturnsRequestedEvents() throws Exception {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
-                .get(String.format("%s?q=TargetConnectionOpened", SEARCH_REQ_URL))
+                .get(String.format("%s?q=TargetConnectionOpened", searchReqUrl))
                 .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
@@ -155,7 +162,7 @@ public class TargetEventsGetIT extends StandardSelfTest {
     public void testGetTargetEventsV2WithQueryReturnsEmptyListWhenNoEventsMatch() throws Exception {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
-                .get(String.format("%s?q=thisEventDoesNotExist", SEARCH_REQ_URL))
+                .get(String.format("%s?q=thisEventDoesNotExist", searchReqUrl))
                 .basicAuthentication("user", "pass")
                 .send(
                         ar -> {

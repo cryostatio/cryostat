@@ -137,8 +137,8 @@ public abstract class StandardSelfTest {
                 found |= queryFound.get(2000, TimeUnit.MILLISECONDS);
                 if (!found) {
                     tryDefineSelfCustomTarget();
+                    Thread.sleep(3000);
                 }
-                Thread.sleep(3000);
             } catch (Exception e) {
                 logger.warn(e);
             }
