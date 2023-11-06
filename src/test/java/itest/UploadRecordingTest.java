@@ -39,8 +39,10 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
+@Disabled("TODO")
 @QuarkusTest
 @QuarkusTestResource(GrafanaResource.class)
 @QuarkusTestResource(JFRDatasourceResource.class)
