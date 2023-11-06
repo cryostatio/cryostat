@@ -62,10 +62,15 @@ public abstract class StandardSelfTest {
 
     @BeforeAll
     public static void waitForDiscovery() {
+        waitForDiscovery(0);
+    }
+
+    public static void waitForDiscovery(int otherTargetsCount) {
+        final int totalTargets = otherTargetsCount + 1;
         boolean found = false;
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(REQUEST_TIMEOUT_SECONDS);
         while (!found && System.nanoTime() < deadline) {
-            logger.infov("Waiting for discovery to see at least one target...");
+            logger.infov("Waiting for discovery to see at least {0} target(s)...", totalTargets);
             CompletableFuture<Boolean> queryFound = new CompletableFuture<>();
             WORKER.submit(
                     () -> {
@@ -81,7 +86,7 @@ public abstract class StandardSelfTest {
                                                 return;
                                             }
                                             JsonArray arr = ar.result().body();
-                                            queryFound.complete(arr.size() >= 1);
+                                            queryFound.complete(arr.size() == totalTargets);
                                         });
                     });
             try {
@@ -109,28 +114,25 @@ public abstract class StandardSelfTest {
                                     "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi",
                                     "alias",
                                     SELFTEST_ALIAS));
-            WORKER.submit(
-                    () -> {
-                        webClient
-                                .post("/api/v2/targets")
-                                .basicAuthentication("user", "pass")
-                                .timeout(5000)
-                                .sendJson(
-                                        self,
-                                        ar -> {
-                                            if (ar.failed()) {
-                                                logger.error(ar.cause());
-                                                return;
-                                            }
-                                            HttpResponse<Buffer> resp = ar.result();
-                                            logger.infov(
-                                                    "HTTP {0} {1}: {2} [{3}]",
-                                                    resp.statusCode(),
-                                                    resp.statusMessage(),
-                                                    resp.bodyAsString(),
-                                                    resp.headers());
-                                        });
-                    });
+            webClient
+                    .post("/api/v2/targets")
+                    .basicAuthentication("user", "pass")
+                    .timeout(5000)
+                    .sendJson(
+                            self,
+                            ar -> {
+                                if (ar.failed()) {
+                                    logger.error(ar.cause());
+                                    return;
+                                }
+                                HttpResponse<Buffer> resp = ar.result();
+                                logger.infov(
+                                        "HTTP {0} {1}: {2} [{3}]",
+                                        resp.statusCode(),
+                                        resp.statusMessage(),
+                                        resp.bodyAsString(),
+                                        resp.headers());
+                            });
         } catch (Exception e) {
             logger.warn(e);
         }
