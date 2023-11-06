@@ -114,7 +114,7 @@ public class CustomDiscovery {
             node.persist();
             realm.persist();
 
-            return Response.created(URI.create("v3/targets/" + target.id)).build();
+            return Response.created(URI.create("/api/v3/targets/" + target.id)).build();
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
