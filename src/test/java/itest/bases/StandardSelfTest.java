@@ -46,7 +46,6 @@ import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.codec.BodyCodec;
 import io.vertx.ext.web.handler.HttpException;
 import itest.util.Utils;
-import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.HttpHeaders;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -64,7 +63,7 @@ public abstract class StandardSelfTest {
     public static final ObjectMapper mapper = new ObjectMapper();
     public static final int REQUEST_TIMEOUT_SECONDS = 30;
     public static final WebClient webClient = Utils.getWebClient();
-    public static String selfCustomTargetLocation;
+    public static volatile String selfCustomTargetLocation;
 
     @BeforeAll
     public static void waitForDiscovery() {
@@ -92,9 +91,7 @@ public abstract class StandardSelfTest {
                             logger.infov(
                                     "DELETE {0} -> HTTP {1} {2}: [{3}]",
                                     path, resp.statusCode(), resp.statusMessage(), resp.headers());
-                            if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
-                                selfCustomTargetLocation = resp.headers().get(HttpHeaders.LOCATION);
-                            }
+                            selfCustomTargetLocation = null;
                         });
     }
 
@@ -149,7 +146,11 @@ public abstract class StandardSelfTest {
     }
 
     private static void tryDefineSelfCustomTarget() {
+        if (StringUtils.isNotBlank(selfCustomTargetLocation)) {
+            return;
+        }
         logger.info("Trying to define self-referential custom target...");
+        CompletableFuture<String> future = new CompletableFuture<>();
         try {
             JsonObject self =
                     new JsonObject(Map.of("connectUrl", SELF_JMX_URL, "alias", SELFTEST_ALIAS));
@@ -162,6 +163,7 @@ public abstract class StandardSelfTest {
                             ar -> {
                                 if (ar.failed()) {
                                     logger.error(ar.cause());
+                                    future.completeExceptionally(ar.cause());
                                     return;
                                 }
                                 HttpResponse<Buffer> resp = ar.result();
@@ -169,50 +171,54 @@ public abstract class StandardSelfTest {
                                         "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
                                         resp.statusCode(), resp.statusMessage(), resp.headers());
                                 if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
-                                    selfCustomTargetLocation =
-                                            resp.headers().get(HttpHeaders.LOCATION);
+                                    future.complete(resp.headers().get(HttpHeaders.LOCATION));
+                                } else {
+                                    future.completeExceptionally(
+                                            new IllegalStateException(
+                                                    Integer.toString(resp.statusCode())));
                                 }
                             });
+            selfCustomTargetLocation = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
             logger.warn(e);
         }
     }
 
     public static String getSelfReferenceConnectUrl() {
-        waitForDiscovery();
+        tryDefineSelfCustomTarget();
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
         WORKER.submit(
                 () -> {
+                    String path = URI.create(selfCustomTargetLocation).getPath();
                     webClient
-                            .get("/api/v3/targets")
+                            .get(path)
                             .basicAuthentication("user", "pass")
-                            .as(BodyCodec.jsonArray())
+                            .as(BodyCodec.jsonObject())
                             .timeout(5000)
                             .send(
                                     ar -> {
                                         if (ar.failed()) {
                                             logger.error(ar.cause());
+                                            future.completeExceptionally(ar.cause());
                                             return;
                                         }
-                                        HttpResponse<JsonArray> resp = ar.result();
+                                        HttpResponse<JsonObject> resp = ar.result();
+                                        JsonObject body = resp.body();
                                         logger.infov(
-                                                "GET /api/v3/targets -> HTTP {0} {1}: [{2}]",
+                                                "GET {0} -> HTTP {1} {2}: [{3}] = {4}",
+                                                path,
                                                 resp.statusCode(),
                                                 resp.statusMessage(),
-                                                resp.headers());
-                                        JsonArray arr = resp.body();
-                                        boolean found = false;
-                                        for (int i = 0; i < arr.size(); i++) {
-                                            JsonObject obj = arr.getJsonObject(i);
-                                            if (SELFTEST_ALIAS.equals(obj.getString("alias"))) {
-                                                future.complete(obj);
-                                                found = true;
-                                                break;
-                                            }
+                                                resp.headers(),
+                                                body);
+                                        if (!HttpStatusCodeIdentifier.isSuccessCode(
+                                                resp.statusCode())) {
+                                            future.completeExceptionally(
+                                                    new IllegalStateException(
+                                                            Integer.toString(resp.statusCode())));
+                                            return;
                                         }
-                                        if (!found) {
-                                            future.completeExceptionally(new NotFoundException());
-                                        }
+                                        future.complete(body);
                                     });
                 });
         try {
@@ -254,6 +260,10 @@ public abstract class StandardSelfTest {
                                             ws.close();
                                         }
                                     })
+                            // FIXME in the cryostat3 itests we DO use auth. The message below is
+                            // copy-pasted from the old codebase, however cryostat3 does not yet
+                            // perform authentication when websocket clients connect.
+
                             // just to initialize the connection - Cryostat expects
                             // clients to send a message after the connection opens
                             // to authenticate themselves, but in itests we don't
@@ -337,7 +347,9 @@ public abstract class StandardSelfTest {
                                     resp.statusCode(),
                                     resp.statusMessage(),
                                     resp.headers());
-                            if (resp.statusCode() != 200) {
+                            if (!(HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())
+                                    || HttpStatusCodeIdentifier.isRedirectCode(
+                                            resp.statusCode()))) {
                                 future.completeExceptionally(
                                         new Exception(String.format("HTTP %d", resp.statusCode())));
                                 return;
