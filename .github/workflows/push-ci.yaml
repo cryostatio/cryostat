@@ -103,7 +103,7 @@ jobs:
     - name: Set DOCKER_HOST environment variable
       run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
     - name: Build application
-      run: ./mvnw -B -U -Dquarkus.container-image.build=false clean verify
+      run: ./mvnw -B -U clean verify
       continue-on-error: ${{ matrix.java != '17' }}
     - name: Build container images and manifest
       id: buildah-build
