@@ -108,9 +108,8 @@ jobs:
       continue-on-error: ${{ matrix.java != '17' }}
     - name: Delete local integration test image
       run: |
-        podman rmi ${{ env.CI_IMG }}:latest
-        podman rmi ${{ env.CI_IMG }}:dev
-        podman rmi ${{ env.CI_IMG }}:${{ env.IMAGE_VERSION }}
+        podman rmi ${{ env.CI_IMG }}:latest ${{ env.CI_IMG }}:dev ${{ env.CI_IMG }}:${{ env.IMAGE_VERSION }}
+      continue-on-error: true
     - name: Build container images and manifest
       # if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
       if: ${{ matrix.java == '17' }}
