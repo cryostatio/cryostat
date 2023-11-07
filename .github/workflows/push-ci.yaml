@@ -18,17 +18,12 @@ env:
   CI_USER: cryostat+bot
   CI_REGISTRY: quay.io/cryostat
   CI_IMG: quay.io/cryostat/cryostat
-  REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-  REF: ${{ github.event.pull_request.head.ref }}
 
 jobs:
   get-pom-properties:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-      with:
-        repository: ${{ env.REPOSITORY }}
-        ref: ${{ env.REF }}
     - id: query-pom
       name: Get properties from POM
       # Query POM image version and save as output parameter
@@ -56,8 +51,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
       with:
-        repository: ${{ env.REPOSITORY }}
-        ref: ${{ env.REF }}
         submodules: true
         fetch-depth: 0
     - uses: actions/setup-java@v3
