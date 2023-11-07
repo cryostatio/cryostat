@@ -18,26 +18,24 @@ package itest.bases;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.security.auth.module.UnixSystem;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.file.FileSystem;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.WebSocket;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -48,6 +46,8 @@ import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.codec.BodyCodec;
 import io.vertx.ext.web.handler.HttpException;
 import itest.util.Utils;
+import jakarta.ws.rs.core.HttpHeaders;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.jboss.logging.Logger;
@@ -55,125 +55,190 @@ import org.junit.jupiter.api.BeforeAll;
 
 public abstract class StandardSelfTest {
 
-    public final Logger logger = Logger.getLogger(StandardSelfTest.class);
+    private static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
+    private static final String SELFTEST_ALIAS = "selftest";
+    private static final ExecutorService WORKER = Executors.newCachedThreadPool();
+    public static final Logger logger = Logger.getLogger(StandardSelfTest.class);
     public static final ObjectMapper mapper = new ObjectMapper();
     public static final int REQUEST_TIMEOUT_SECONDS = 30;
     public static final WebClient webClient = Utils.getWebClient();
+    public static volatile String selfCustomTargetLocation;
 
     @BeforeAll
-    public static void waitForJdp() {
-        Logger logger = Logger.getLogger(StandardSelfTest.class);
+    public static void waitForDiscovery() {
+        waitForDiscovery(0);
+    }
+
+    // @AfterAll
+    public static void deleteSelfCustomTarget() {
+        if (StringUtils.isBlank(selfCustomTargetLocation)) {
+            return;
+        }
+        logger.infov("Deleting self custom target at {0}", selfCustomTargetLocation);
+        String path = URI.create(selfCustomTargetLocation).getPath();
+        WORKER.submit(
+                () -> {
+                    webClient
+                            .delete(path)
+                            .basicAuthentication("user", "pass")
+                            .timeout(2000)
+                            .send(
+                                    ar -> {
+                                        if (ar.failed()) {
+                                            logger.error(ar.cause());
+                                            return;
+                                        }
+                                        HttpResponse<Buffer> resp = ar.result();
+                                        logger.infov(
+                                                "DELETE {0} -> HTTP {1} {2}: [{3}]",
+                                                path,
+                                                resp.statusCode(),
+                                                resp.statusMessage(),
+                                                resp.headers());
+                                        selfCustomTargetLocation = null;
+                                    });
+                });
+    }
+
+    public static void waitForDiscovery(int otherTargetsCount) {
+        final int totalTargets = otherTargetsCount + 1;
         boolean found = false;
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(30);
-        String selfURL = getSelfReferenceConnectUrl();
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(REQUEST_TIMEOUT_SECONDS);
         while (!found && System.nanoTime() < deadline) {
-            logger.infov("Waiting for self-discovery at {0} via JDP...", selfURL);
+            logger.infov("Waiting for discovery to see at least {0} target(s)...", totalTargets);
             CompletableFuture<Boolean> queryFound = new CompletableFuture<>();
-            ForkJoinPool.commonPool()
-                    .submit(
-                            () -> {
-                                webClient
-                                        .get("/api/v3/targets")
-                                        .basicAuthentication("user", "pass")
-                                        .as(BodyCodec.jsonArray())
-                                        .timeout(500)
-                                        .send(
-                                                ar -> {
-                                                    if (ar.failed()) {
-                                                        logger.error(ar.cause());
-                                                        return;
-                                                    }
-                                                    JsonArray arr = ar.result().body();
-                                                    queryFound.complete(
-                                                            arr.size() == 1
-                                                                    && Objects.equals(
-                                                                            arr.getJsonObject(0)
-                                                                                    .getString(
-                                                                                            "connectUrl"),
-                                                                            selfURL));
-                                                });
-                            });
+            WORKER.submit(
+                    () -> {
+                        webClient
+                                .get("/api/v3/targets")
+                                .basicAuthentication("user", "pass")
+                                .as(BodyCodec.jsonArray())
+                                .timeout(2000)
+                                .send(
+                                        ar -> {
+                                            if (ar.failed()) {
+                                                logger.error(ar.cause());
+                                                return;
+                                            }
+                                            HttpResponse<JsonArray> resp = ar.result();
+                                            JsonArray arr = resp.body();
+                                            logger.infov(
+                                                    "GET /api/v3/targets -> HTTP {1} {2}: [{3}] ->"
+                                                            + " {4}",
+                                                    selfCustomTargetLocation,
+                                                    resp.statusCode(),
+                                                    resp.statusMessage(),
+                                                    resp.headers(),
+                                                    arr);
+                                            logger.infov(
+                                                    "Discovered {0} targets: {1}", arr.size(), arr);
+                                            queryFound.complete(arr.size() >= totalTargets);
+                                        });
+                    });
             try {
-                found |= queryFound.get(1000, TimeUnit.MILLISECONDS);
-                Thread.sleep(1000);
-            } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                found |= queryFound.get(2000, TimeUnit.MILLISECONDS);
+                if (!found) {
+                    tryDefineSelfCustomTarget();
+                    Thread.sleep(3000);
+                }
+            } catch (Exception e) {
                 logger.warn(e);
             }
         }
         if (!found) {
-            throw new RuntimeException();
+            throw new RuntimeException("Timed out waiting for discovery");
+        }
+    }
+
+    private static void tryDefineSelfCustomTarget() {
+        if (StringUtils.isNotBlank(selfCustomTargetLocation)) {
+            return;
+        }
+        logger.info("Trying to define self-referential custom target...");
+        CompletableFuture<String> future = new CompletableFuture<>();
+        try {
+            JsonObject self =
+                    new JsonObject(Map.of("connectUrl", SELF_JMX_URL, "alias", SELFTEST_ALIAS));
+            WORKER.submit(
+                    () -> {
+                        webClient
+                                .post("/api/v2/targets")
+                                .basicAuthentication("user", "pass")
+                                .timeout(5000)
+                                .sendJson(
+                                        self,
+                                        ar -> {
+                                            if (ar.failed()) {
+                                                logger.error(ar.cause());
+                                                future.completeExceptionally(ar.cause());
+                                                return;
+                                            }
+                                            HttpResponse<Buffer> resp = ar.result();
+                                            logger.infov(
+                                                    "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
+                                                    resp.statusCode(),
+                                                    resp.statusMessage(),
+                                                    resp.headers());
+                                            if (HttpStatusCodeIdentifier.isSuccessCode(
+                                                    resp.statusCode())) {
+                                                future.complete(
+                                                        resp.headers().get(HttpHeaders.LOCATION));
+                                            } else {
+                                                future.completeExceptionally(
+                                                        new IllegalStateException(
+                                                                Integer.toString(
+                                                                        resp.statusCode())));
+                                            }
+                                        });
+                    });
+            selfCustomTargetLocation = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            logger.warn(e);
         }
     }
 
     public static String getSelfReferenceConnectUrl() {
-        URI listPath = URI.create("http://d/v3.0.0/libpod/containers/json");
-        String query = "";
+        tryDefineSelfCustomTarget();
+        CompletableFuture<JsonObject> future = new CompletableFuture<>();
+        WORKER.submit(
+                () -> {
+                    String path = URI.create(selfCustomTargetLocation).getPath();
+                    webClient
+                            .get(path)
+                            .basicAuthentication("user", "pass")
+                            .as(BodyCodec.jsonObject())
+                            .timeout(5000)
+                            .send(
+                                    ar -> {
+                                        if (ar.failed()) {
+                                            logger.error(ar.cause());
+                                            future.completeExceptionally(ar.cause());
+                                            return;
+                                        }
+                                        HttpResponse<JsonObject> resp = ar.result();
+                                        JsonObject body = resp.body();
+                                        logger.infov(
+                                                "GET {0} -> HTTP {1} {2}: [{3}] = {4}",
+                                                path,
+                                                resp.statusCode(),
+                                                resp.statusMessage(),
+                                                resp.headers(),
+                                                body);
+                                        if (!HttpStatusCodeIdentifier.isSuccessCode(
+                                                resp.statusCode())) {
+                                            future.completeExceptionally(
+                                                    new IllegalStateException(
+                                                            Integer.toString(resp.statusCode())));
+                                            return;
+                                        }
+                                        future.complete(body);
+                                    });
+                });
         try {
-
-            query =
-                    mapper.writeValueAsString(
-                            Map.of("label", List.of("io.cryostat.component=cryostat3")));
-        } catch (JsonProcessingException jpe) {
-            throw new RuntimeException(jpe);
-        }
-        final String filter = query;
-        try {
-            CompletableFuture<String> hostnameFuture = new CompletableFuture<>();
-            ForkJoinPool.commonPool()
-                    .submit(
-                            () -> {
-                                webClient
-                                        .request(
-                                                HttpMethod.GET,
-                                                getSocket(),
-                                                80,
-                                                "localhost",
-                                                listPath.toString())
-                                        .addQueryParam("filters", filter)
-                                        .timeout(500)
-                                        .as(BodyCodec.jsonArray())
-                                        .send()
-                                        .onSuccess(
-                                                ar -> {
-                                                    JsonArray response = ar.body();
-                                                    JsonObject obj = response.getJsonObject(0);
-                                                    // containerFuture.complete(obj);
-                                                    String id = obj.getString("Id");
-                                                    URI inspectPath =
-                                                            URI.create(
-                                                                    String.format(
-                                                                            "http://d/v3.0.0/libpod/containers/%s/json",
-                                                                            id));
-                                                    webClient
-                                                            .request(
-                                                                    HttpMethod.GET,
-                                                                    getSocket(),
-                                                                    80,
-                                                                    "localhost",
-                                                                    inspectPath.toString())
-                                                            .timeout(500)
-                                                            .as(BodyCodec.jsonObject())
-                                                            .send()
-                                                            .onSuccess(
-                                                                    ar2 -> {
-                                                                        JsonObject json =
-                                                                                ar2.body();
-                                                                        JsonObject config =
-                                                                                json.getJsonObject(
-                                                                                        "Config");
-                                                                        String hostname =
-                                                                                config.getString(
-                                                                                        "Hostname");
-                                                                        hostnameFuture.complete(
-                                                                                hostname);
-                                                                    });
-                                                });
-                            });
-            String hostname = hostnameFuture.get(5, TimeUnit.SECONDS);
-
-            return String.format("service:jmx:rmi:///jndi/rmi://%s:%d/jmxrmi", hostname, 9091);
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new RuntimeException(e);
+            JsonObject obj = future.get(5000, TimeUnit.MILLISECONDS);
+            return obj.getString("connectUrl");
+        } catch (Exception e) {
+            throw new RuntimeException("Could not determine own connectUrl", e);
         }
     }
 
@@ -208,6 +273,10 @@ public abstract class StandardSelfTest {
                                             ws.close();
                                         }
                                     })
+                            // FIXME in the cryostat3 itests we DO use auth. The message below is
+                            // copy-pasted from the old codebase, however cryostat3 does not yet
+                            // perform authentication when websocket clients connect.
+
                             // just to initialize the connection - Cryostat expects
                             // clients to send a message after the connection opens
                             // to authenticate themselves, but in itests we don't
@@ -239,19 +308,28 @@ public abstract class StandardSelfTest {
 
     private static Future<String> getNotificationsUrl() {
         CompletableFuture<String> future = new CompletableFuture<>();
-        webClient
-                .get("/api/v1/notifications_url")
-                .send(
-                        ar -> {
-                            if (ar.succeeded()) {
-                                future.complete(
-                                        ar.result()
-                                                .bodyAsJsonObject()
-                                                .getString("notificationsUrl"));
-                            } else {
-                                future.completeExceptionally(ar.cause());
-                            }
-                        });
+        WORKER.submit(
+                () -> {
+                    webClient
+                            .get("/api/v1/notifications_url")
+                            .send(
+                                    ar -> {
+                                        if (ar.succeeded()) {
+                                            HttpResponse<Buffer> resp = ar.result();
+                                            logger.infov(
+                                                    "GET /api/v1/notifications_url -> HTTP {0} {1}:"
+                                                            + " [{2}]",
+                                                    resp.statusCode(),
+                                                    resp.statusMessage(),
+                                                    resp.headers());
+                                            future.complete(
+                                                    resp.bodyAsJsonObject()
+                                                            .getString("notificationsUrl"));
+                                        } else {
+                                            future.completeExceptionally(ar.cause());
+                                        }
+                                    });
+                });
         return future;
     }
 
@@ -273,26 +351,39 @@ public abstract class StandardSelfTest {
     private static CompletableFuture<Path> fireDownloadRequest(
             HttpRequest<Buffer> request, String filename, String fileSuffix, MultiMap headers) {
         CompletableFuture<Path> future = new CompletableFuture<>();
-        request.putHeaders(headers)
-                .basicAuthentication("user", "pass")
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (ar.failed()) {
-                                future.completeExceptionally(ar.cause());
-                                return;
-                            }
-                            HttpResponse<Buffer> resp = ar.result();
-                            if (resp.statusCode() != 200) {
-                                future.completeExceptionally(
-                                        new Exception(String.format("HTTP %d", resp.statusCode())));
-                                return;
-                            }
-                            FileSystem fs = Utils.getFileSystem();
-                            String file = fs.createTempFileBlocking(filename, fileSuffix);
-                            fs.writeFileBlocking(file, ar.result().body());
-                            future.complete(Paths.get(file));
-                        });
+        WORKER.submit(
+                () -> {
+                    request.putHeaders(headers)
+                            .basicAuthentication("user", "pass")
+                            .followRedirects(true)
+                            .send(
+                                    ar -> {
+                                        if (ar.failed()) {
+                                            future.completeExceptionally(ar.cause());
+                                            return;
+                                        }
+                                        HttpResponse<Buffer> resp = ar.result();
+                                        logger.infov(
+                                                "GET {0} -> HTTP {1} {2}: [{3}]",
+                                                request.uri(),
+                                                resp.statusCode(),
+                                                resp.statusMessage(),
+                                                resp.headers());
+                                        if (!(HttpStatusCodeIdentifier.isSuccessCode(
+                                                resp.statusCode()))) {
+                                            future.completeExceptionally(
+                                                    new Exception(
+                                                            String.format(
+                                                                    "HTTP %d", resp.statusCode())));
+                                            return;
+                                        }
+                                        FileSystem fs = Utils.getFileSystem();
+                                        String file =
+                                                fs.createTempFileBlocking(filename, fileSuffix);
+                                        fs.writeFileBlocking(file, ar.result().body());
+                                        future.complete(Paths.get(file));
+                                    });
+                });
         return future;
     }
 

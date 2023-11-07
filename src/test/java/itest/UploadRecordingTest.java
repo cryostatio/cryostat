@@ -23,9 +23,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.resources.GrafanaResource;
+import io.cryostat.resources.JFRDatasourceResource;
 import io.cryostat.util.HttpMimeType;
 
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonArray;
@@ -39,9 +42,11 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-@QuarkusIntegrationTest
 @Disabled("TODO")
-public class UploadRecordingIT extends StandardSelfTest {
+@QuarkusTest
+@QuarkusTestResource(GrafanaResource.class)
+@QuarkusTestResource(JFRDatasourceResource.class)
+public class UploadRecordingTest extends StandardSelfTest {
 
     // TODO this should be a constant somewhere in the server sources
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
@@ -56,7 +61,12 @@ public class UploadRecordingIT extends StandardSelfTest {
         form.add("duration", String.valueOf(RECORDING_DURATION_SECONDS));
         form.add("events", "template=ALL");
         webClient
-                .post(String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl()))
+                .post(
+                        String.format(
+                                "/api/v1/targets/%s/recordings",
+                                getSelfReferenceConnectUrlEncoded()))
+                .basicAuthentication("user", "pass")
+                .followRedirects(true)
                 .sendForm(
                         form,
                         ar -> {
@@ -79,7 +89,9 @@ public class UploadRecordingIT extends StandardSelfTest {
                 .delete(
                         String.format(
                                 "/api/v1/targets/%s/recordings/%s",
-                                getSelfReferenceConnectUrl(), RECORDING_NAME))
+                                getSelfReferenceConnectUrlEncoded(), RECORDING_NAME))
+                .basicAuthentication("user", "pass")
+                .followRedirects(true)
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, deleteRespFuture)) {
@@ -103,7 +115,9 @@ public class UploadRecordingIT extends StandardSelfTest {
                 .post(
                         String.format(
                                 "/api/v1/targets/%s/recordings/%s/upload",
-                                getSelfReferenceConnectUrl(), RECORDING_NAME))
+                                getSelfReferenceConnectUrlEncoded(), RECORDING_NAME))
+                .basicAuthentication("user", "pass")
+                .followRedirects(true)
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, uploadRespFuture)) {
