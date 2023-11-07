@@ -9,6 +9,7 @@ FILES=(
     ./smoketest/compose/db.yml
 )
 
+USE_USERHOSTS=${USE_USERHOSTS:-true}
 PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
 OPEN_TABS=${OPEN_TABS:-false}
@@ -98,13 +99,13 @@ HOSTSFILE="${HOSTSFILE:-$HOME/.hosts}"
 
 cleanup() {
     set +xe
-    DOWN_FLAGS=('--remove-orphans')
+    local downFlags=('--remove-orphans')
     if [ "${KEEP_VOLUMES}" != "true" ]; then
-        DOWN_FLAGS+=('--volumes')
+        downFlags=('--volumes')
     fi
     docker-compose \
         "${CMD[@]}" \
-        down "${DOWN_FLAGS[@]}"
+        down "${downFlags[@]}"
     # podman kill hoster || true
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
@@ -131,22 +132,33 @@ setupUserHosts() {
     # This requires https://github.com/figiel/hosts to work. See README.
     truncate -s 0 "${HOSTSFILE}"
     for file in "${FILES[@]}" ; do
+        local hosts
         hosts="$(yq '.services.*.hostname' "${file}" | grep -v null | sed -e 's/^/localhost /')"
         echo "${hosts}" >> "${HOSTSFILE}"
     done
 }
-setupUserHosts
+if [ "${USE_USERHOSTS}" = "true" ]; then
+    setupUserHosts
+fi
 
 openBrowserTabs() {
     # TODO find a way to use 'podman wait --condition=healthy $containerId' instead of polling with curl
     set +xe
     local urls=()
     for file in "${FILES[@]}"; do
+        local yaml
         yaml="$(yq '.services.* | [{"host": .hostname, "ports": .ports}]' "${file}")"
+        local length
         length="$(echo "${yaml}" | yq 'length')"
         for (( i=0; i<"${length}"; i+=1 ))
         do
-            host="$(echo "${yaml}" | yq ".[${i}].host" | grep -v null)"
+            local host
+            local port
+            if [ "${USE_USERHOSTS}" = "true" ]; then
+                host="$(echo "${yaml}" | yq ".[${i}].host" | grep -v null)"
+            else
+                host="localhost"
+            fi
             port="$(echo "${yaml}" | yq ".[${i}].ports[0]" | grep -v null | cut -d: -f1)"
             if [ -n "${host}" ] && [ -n "${port}" ]; then
                 urls+=("http://${host}:${port}")
