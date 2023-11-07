@@ -106,6 +106,8 @@ jobs:
       run: ./mvnw -B -U clean verify
       continue-on-error: ${{ matrix.java != '17' }}
     - name: Build container images and manifest
+      # if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
+      if: ${{ matrix.java == '17' }}
       id: buildah-build
       uses: redhat-actions/buildah-build@v2
       env:
@@ -126,7 +128,9 @@ jobs:
         registry: ${{ env.CI_REGISTRY }}
         username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
+      if: ${{ matrix.java == '17' }}
       # if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+      if: ${{ matrix.java == '17' }}
       # if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
