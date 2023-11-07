@@ -25,9 +25,6 @@ jobs:
   get-pom-properties:
     runs-on: ubuntu-latest
     steps:
-    - name: Fail if PR and safe-to-test label NOT applied
-      if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
-      run: exit 1
     - uses: actions/checkout@v3
       with:
         repository: ${{ env.REPOSITORY }}
@@ -55,9 +52,6 @@ jobs:
       contents: read
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
-    - name: Fail if PR and safe-to-test label NOT applied
-      if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
-      run: exit 1
     - uses: actions/checkout@v3
       with:
         repository: ${{ env.REPOSITORY }}
