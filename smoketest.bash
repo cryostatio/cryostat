@@ -9,24 +9,32 @@ FILES=(
     ./smoketest/compose/db.yml
 )
 
+USE_USERHOSTS=${USE_USERHOSTS:-true}
 PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
+OPEN_TABS=${OPEN_TABS:-false}
 
 display_usage() {
     echo "Usage:"
-    echo -e "\t-O \t\t\t\tOffline mode, do not attempt to pull container images."
+    echo -e "\t-h\t\t\t\tprint this Help text."
+    echo -e "\t-O\t\t\t\tOffline mode, do not attempt to pull container images."
     echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up (default \"minio\")."
-    echo -e "\t-g \t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
-    echo -e "\t-t \t\t\t\tinclude sample applications for Testing."
-    echo -e "\t-V \t\t\t\tdo not discard data storage Volumes on exit."
-    echo -e "\t-X \t\t\t\tdeploy additional development aid tools."
+    echo -e "\t-g\t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
+    echo -e "\t-t\t\t\t\tinclude sample applications for Testing."
+    echo -e "\t-V\t\t\t\tdo not discard data storage Volumes on exit."
+    echo -e "\t-X\t\t\t\tdeploy additional development aid tools."
     echo -e "\t-c [podman|docker]\t\tUse Podman or Docker Container Engine (default \"podman\")."
+    echo -e "\t-b\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. Cryostat web client, Minio console)"
 }
 
 s3=minio
 ce=podman
-while getopts "s:gtOVXc" opt; do
+while getopts "hs:gtOVXcb" opt; do
     case $opt in
+        h)
+            display_usage
+            exit 0
+            ;;
         s)
             s3="${OPTARG}"
             ;;
@@ -47,6 +55,9 @@ while getopts "s:gtOVXc" opt; do
             ;;
         c)
             ce="${OPTARG}"
+            ;;
+        b)
+            OPEN_TABS=true
             ;;
         *)
             display_usage
@@ -82,18 +93,25 @@ for file in "${FILES[@]}"; do
     CMD+=(-f "${file}")
 done
 
+PIDS=()
+
 HOSTSFILE="${HOSTSFILE:-$HOME/.hosts}"
 
 cleanup() {
-    DOWN_FLAGS=('--remove-orphans')
+    set +xe
+    local downFlags=('--remove-orphans')
     if [ "${KEEP_VOLUMES}" != "true" ]; then
-        DOWN_FLAGS+=('--volumes')
+        downFlags=('--volumes')
     fi
     docker-compose \
         "${CMD[@]}" \
-        down "${DOWN_FLAGS[@]}"
+        down "${downFlags[@]}"
     # podman kill hoster || true
     truncate -s 0 "${HOSTSFILE}"
+    for i in "${PIDS[@]}"; do
+        kill -0 "${i}" && kill "${i}"
+    done
+    set -xe
 }
 trap cleanup EXIT
 cleanup
@@ -101,7 +119,6 @@ cleanup
 setupUserHosts() {
     # FIXME this is broken: it puts the containers' bridge-internal IP addresses
     # into the user hosts file, but these IPs are in a subnet not reachable from the host.
-    # This requires https://github.com/figiel/hosts to work. See README.
     # podman run \
     #     --detach \
     #     --rm  \
@@ -111,13 +128,60 @@ setupUserHosts() {
     #     -v "${XDG_RUNTIME_DIR}/podman/podman.sock:/tmp/docker.sock:Z" \
     #     -v "${HOME}/.hosts:/tmp/hosts" \
     #     dvdarias/docker-hoster
+    #
+    # This requires https://github.com/figiel/hosts to work. See README.
     truncate -s 0 "${HOSTSFILE}"
     for file in "${FILES[@]}" ; do
+        local hosts
         hosts="$(yq '.services.*.hostname' "${file}" | grep -v null | sed -e 's/^/localhost /')"
         echo "${hosts}" >> "${HOSTSFILE}"
     done
 }
-setupUserHosts
+if [ "${USE_USERHOSTS}" = "true" ]; then
+    setupUserHosts
+fi
+
+openBrowserTabs() {
+    # TODO find a way to use 'podman wait --condition=healthy $containerId' instead of polling with curl
+    set +xe
+    local urls=()
+    for file in "${FILES[@]}"; do
+        local yaml
+        yaml="$(yq '.services.* | [{"host": .hostname, "ports": .ports}]' "${file}")"
+        local length
+        length="$(echo "${yaml}" | yq 'length')"
+        for (( i=0; i<"${length}"; i+=1 ))
+        do
+            local host
+            local port
+            if [ "${USE_USERHOSTS}" = "true" ]; then
+                host="$(echo "${yaml}" | yq ".[${i}].host" | grep -v null)"
+            else
+                host="localhost"
+            fi
+            port="$(echo "${yaml}" | yq ".[${i}].ports[0]" | grep -v null | cut -d: -f1)"
+            if [ -n "${host}" ] && [ -n "${port}" ]; then
+                urls+=("http://${host}:${port}")
+            fi
+        done
+    done
+    set -xe
+    echo "Service URLs:" "${urls[@]}"
+    for url in "${urls[@]}"; do
+        (
+            until timeout 1s curl -s -f -o /dev/null "${url}"
+            do
+                sleep 5
+            done
+            xdg-open "${url}"
+            echo "Opened ${url} in default browser."
+        ) &
+        PIDS+=($!)
+    done
+}
+if [ "${OPEN_TABS}" = "true" ]; then
+    openBrowserTabs
+fi
 
 if [ "${PULL_IMAGES}" = "true" ]; then
     IMAGES=()
