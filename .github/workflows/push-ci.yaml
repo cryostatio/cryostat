@@ -1,0 +1,132 @@
+name: CI build and push
+
+concurrency:
+  group: ci-${{ github.run_id }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - main
+      - v[0-9]+
+      - v[0-9]+.[0-9]+
+      - cryostat-v[0-9]+.[0-9]+
+
+env:
+  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/Release.key"
+  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
+  CI_USER: cryostat+bot
+  CI_REGISTRY: quay.io/cryostat
+  CI_IMG: quay.io/cryostat/cryostat
+
+jobs:
+  get-pom-properties:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: true
+        fetch-depth: 0
+    - id: query-pom
+      name: Get properties from POM
+      # Query POM image version and save as output parameter
+      run: |
+        IMAGE_VERSION="$(mvn -q -DforceStdout validate help:evaluate -Dexpression=quarkus.application.version)"
+        echo "::set-output name=image-version::$IMAGE_VERSION"
+    outputs:
+      image-version: ${{ steps.query-pom.outputs.image-version }}
+
+  build-and-test:
+    runs-on: ubuntu-latest
+    needs: [get-pom-properties]
+    strategy:
+      matrix:
+        java: [ '17', '21' ]
+    env:
+      IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
+      TESTCONTAINERS_RYUK_DISABLED: true
+      cache-name: cache-yarn
+    name: Build and test Java ${{ matrix.java }}
+    permissions:
+      packages: write
+      contents: read
+    if: ${{ github.repository_owner == 'cryostatio' }}
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        submodules: true
+        fetch-depth: 0
+    - uses: actions/setup-java@v3
+      with:
+        java-version: ${{ matrix.java }}
+        distribution: 'temurin'
+        cache: 'maven'
+    - name: maven-settings
+      uses: s4u/maven-settings-action@v2
+      with:
+        servers: '[{"id": "github", "username": "dummy", "password": "${{ secrets.GITHUB_TOKEN }}"}]'
+        githubServer: false
+    - run: git submodule init && git submodule update
+    - name: Cache yarn packages
+      uses: actions/cache@v3
+      with:
+        path: "./src/main/webui/.yarn/cache"
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+    - name: Initialize web assets
+      run: |
+        cd src/main/webui
+        yarn install && yarn yarn:frzinstall
+        cd -
+    - name: Install podman v4
+      run: |
+        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
+        sudo apt -y purge podman
+        sudo apt update && sudo apt -y install podman
+    - name: Emulate docker with podman
+      run: |
+        mkdir -p $HOME/.bin
+        cat <(echo '#!/usr/bin/env bash') <(echo 'exec podman "$@"') > $HOME/.bin/docker
+        chmod +x $HOME/.bin/docker
+        echo "PATH=$HOME/.bin:$PATH" >> "$GITHUB_ENV"
+    - name: Set up testcontainers for podman
+      run:  echo ryuk.container.privileged=true > ~/.testcontainers.properties
+    - name: Start Podman API
+      run: systemctl --user enable --now podman.socket
+    - name: Set DOCKER_HOST environment variable
+      run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
+    - name: Build application
+      run: ./mvnw -B -U clean verify
+      continue-on-error: ${{ matrix.java != '17' }}
+    - name: Delete local integration test image
+      run: |
+        podman rmi ${{ env.CI_IMG }}:latest ${{ env.CI_IMG }}:dev ${{ env.CI_IMG }}:${{ env.IMAGE_VERSION }}
+      continue-on-error: true
+    - name: Build container images and manifest
+      if: ${{ matrix.java == '17' }} && ${{ github.repository_owner == 'cryostatio' }}
+      id: buildah-build
+      uses: redhat-actions/buildah-build@v2
+      with:
+        image: ${{ env.CI_IMG }}
+        archs: amd64, arm64
+        # tags: ${{ env.IMAGE_VERSION }} ${{ github.ref == 'refs/heads/main' && 'latest' || '' }}
+        tags: ${{ env.IMAGE_VERSION }}
+        containerfiles: |
+          ./src/main/docker/Dockerfile.jvm
+    - name: Push to quay.io
+      id: push-to-quay
+      uses: redhat-actions/push-to-registry@v2
+      with:
+        image: cryostat
+        tags: ${{ steps.buildah-build.outputs.tags }}
+        registry: ${{ env.CI_REGISTRY }}
+        username: ${{ env.CI_USER }}
+        password: ${{ secrets.REGISTRY_PASSWORD }}
+      if: ${{ matrix.java == '17' }} && ${{ github.repository_owner == 'cryostatio' }}
+    - name: Print image URL
+      run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+      if: ${{ matrix.java == '17' }} && ${{ github.repository_owner == 'cryostatio' }}
