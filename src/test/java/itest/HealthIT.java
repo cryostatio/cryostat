@@ -65,7 +65,7 @@ public class HealthIT extends StandardSelfTest {
                 response.getString("cryostatVersion"), Matchers.not(Matchers.equalTo("unknown")));
         MatcherAssert.assertThat(
                 response.getString("cryostatVersion"),
-                Matchers.matchesRegex("^v[\\d]\\.[\\d]\\.[\\d](?:-SNAPSHOT)?"));
+                Matchers.matchesRegex("^v[\\d]\\.[\\d]\\.[\\d](?:-snapshot)?"));
     }
 
     @Disabled("TODO")
