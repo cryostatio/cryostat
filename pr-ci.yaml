@@ -1,0 +1,96 @@
+name: CI build and push
+
+concurrency:
+  group: ci-${{ github.run_id }}
+  cancel-in-progress: true
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - labeled
+      - unlabeled
+    branches:
+      - main
+      - v[0-9]+
+      - v[0-9]+.[0-9]+
+      - cryostat-v[0-9]+.[0-9]+
+
+env:
+  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/Release.key"
+  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
+  REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+  REF: ${{ github.event.pull_request.head.ref }}
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        java: [ '17', '21' ]
+    env:
+      TESTCONTAINERS_RYUK_DISABLED: true
+      cache-name: cache-yarn
+    name: Build and test Java ${{ matrix.java }}
+    permissions:
+      packages: write
+      contents: read
+    if: ${{ github.repository_owner == 'cryostatio' }}
+    steps:
+    - name: Fail if PR and safe-to-test label NOT applied
+      if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
+      run: exit 1
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ env.REPOSITORY }}
+        ref: ${{ env.REF }}
+        submodules: true
+        fetch-depth: 0
+    - uses: actions/setup-java@v3
+      with:
+        java-version: ${{ matrix.java }}
+        distribution: 'temurin'
+        cache: 'maven'
+    - name: maven-settings
+      uses: s4u/maven-settings-action@v2
+      with:
+        servers: '[{"id": "github", "username": "dummy", "password": "${{ secrets.GITHUB_TOKEN }}"}]'
+        githubServer: false
+    - run: git submodule init && git submodule update
+    - name: Cache yarn packages
+      uses: actions/cache@v3
+      with:
+        path: "./src/main/webui/.yarn/cache"
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+    - name: Initialize web assets
+      run: |
+        cd src/main/webui
+        yarn install && yarn yarn:frzinstall
+        cd -
+    - name: Install podman v4
+      run: |
+        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
+        sudo apt -y purge podman
+        sudo apt update && sudo apt -y install podman
+    - name: Emulate docker with podman
+      run: |
+        mkdir -p $HOME/.bin
+        cat <(echo '#!/usr/bin/env bash') <(echo 'exec podman "$@"') > $HOME/.bin/docker
+        chmod +x $HOME/.bin/docker
+        echo "PATH=$HOME/.bin:$PATH" >> "$GITHUB_ENV"
+    - name: Set up testcontainers for podman
+      run:  echo ryuk.container.privileged=true > ~/.testcontainers.properties
+    - name: Start Podman API
+      run: systemctl --user enable --now podman.socket
+    - name: Set DOCKER_HOST environment variable
+      run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
+    - name: Build application
+      run: ./mvnw -B -U -Dquarkus.container-image.build=false clean verify
+      continue-on-error: ${{ matrix.java != '17' }}
