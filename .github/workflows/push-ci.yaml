@@ -45,6 +45,7 @@ jobs:
       matrix:
         java: [ '17', '21' ]
     env:
+      IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
       TESTCONTAINERS_RYUK_DISABLED: true
       cache-name: cache-yarn
     name: Build and test Java ${{ matrix.java }}
@@ -105,13 +106,16 @@ jobs:
     - name: Build application
       run: ./mvnw -B -U clean verify
       continue-on-error: ${{ matrix.java != '17' }}
+    - name: Delete local integration test image
+      run: |
+        podman rmi ${{ env.CI_IMG }}:latest
+        podman rmi ${{ env.CI_IMG }}:dev
+        podman rmi ${{ env.CI_IMG }}:${{ env.IMAGE_VERSION }}
     - name: Build container images and manifest
       # if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
       if: ${{ matrix.java == '17' }}
       id: buildah-build
       uses: redhat-actions/buildah-build@v2
-      env:
-        IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
       with:
         image: ${{ env.CI_IMG }}
         archs: amd64, arm64
