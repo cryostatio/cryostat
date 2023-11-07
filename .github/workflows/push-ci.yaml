@@ -50,7 +50,7 @@ jobs:
     permissions:
       packages: write
       contents: read
-    if: ${{ github.repository_owner == 'cryostatio' }}
+    # if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
     - uses: actions/checkout@v3
       with:
@@ -125,7 +125,7 @@ jobs:
         registry: ${{ env.CI_REGISTRY }}
         username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
-      if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
+      # if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
-      if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
+      # if: ${{ github.event_name == 'push' && github.repository_owner == 'cryostatio' }}
