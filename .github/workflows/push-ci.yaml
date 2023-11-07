@@ -24,6 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      with:
+        submodules: true
+        fetch-depth: 0
     - id: query-pom
       name: Get properties from POM
       # Query POM image version and save as output parameter
