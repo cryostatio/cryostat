@@ -51,7 +51,6 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.jboss.logging.Logger;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
 public abstract class StandardSelfTest {
@@ -70,29 +69,35 @@ public abstract class StandardSelfTest {
         waitForDiscovery(0);
     }
 
-    @AfterAll
+    // @AfterAll
     public static void deleteSelfCustomTarget() {
         if (StringUtils.isBlank(selfCustomTargetLocation)) {
             return;
         }
         logger.infov("Deleting self custom target at {0}", selfCustomTargetLocation);
         String path = URI.create(selfCustomTargetLocation).getPath();
-        webClient
-                .delete(path)
-                .basicAuthentication("user", "pass")
-                .timeout(2000)
-                .send(
-                        ar -> {
-                            if (ar.failed()) {
-                                logger.error(ar.cause());
-                                return;
-                            }
-                            HttpResponse<Buffer> resp = ar.result();
-                            logger.infov(
-                                    "DELETE {0} -> HTTP {1} {2}: [{3}]",
-                                    path, resp.statusCode(), resp.statusMessage(), resp.headers());
-                            selfCustomTargetLocation = null;
-                        });
+        WORKER.submit(
+                () -> {
+                    webClient
+                            .delete(path)
+                            .basicAuthentication("user", "pass")
+                            .timeout(2000)
+                            .send(
+                                    ar -> {
+                                        if (ar.failed()) {
+                                            logger.error(ar.cause());
+                                            return;
+                                        }
+                                        HttpResponse<Buffer> resp = ar.result();
+                                        logger.infov(
+                                                "DELETE {0} -> HTTP {1} {2}: [{3}]",
+                                                path,
+                                                resp.statusCode(),
+                                                resp.statusMessage(),
+                                                resp.headers());
+                                        selfCustomTargetLocation = null;
+                                    });
+                });
     }
 
     public static void waitForDiscovery(int otherTargetsCount) {
@@ -154,30 +159,38 @@ public abstract class StandardSelfTest {
         try {
             JsonObject self =
                     new JsonObject(Map.of("connectUrl", SELF_JMX_URL, "alias", SELFTEST_ALIAS));
-            webClient
-                    .post("/api/v2/targets")
-                    .basicAuthentication("user", "pass")
-                    .timeout(5000)
-                    .sendJson(
-                            self,
-                            ar -> {
-                                if (ar.failed()) {
-                                    logger.error(ar.cause());
-                                    future.completeExceptionally(ar.cause());
-                                    return;
-                                }
-                                HttpResponse<Buffer> resp = ar.result();
-                                logger.infov(
-                                        "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
-                                        resp.statusCode(), resp.statusMessage(), resp.headers());
-                                if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
-                                    future.complete(resp.headers().get(HttpHeaders.LOCATION));
-                                } else {
-                                    future.completeExceptionally(
-                                            new IllegalStateException(
-                                                    Integer.toString(resp.statusCode())));
-                                }
-                            });
+            WORKER.submit(
+                    () -> {
+                        webClient
+                                .post("/api/v2/targets")
+                                .basicAuthentication("user", "pass")
+                                .timeout(5000)
+                                .sendJson(
+                                        self,
+                                        ar -> {
+                                            if (ar.failed()) {
+                                                logger.error(ar.cause());
+                                                future.completeExceptionally(ar.cause());
+                                                return;
+                                            }
+                                            HttpResponse<Buffer> resp = ar.result();
+                                            logger.infov(
+                                                    "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
+                                                    resp.statusCode(),
+                                                    resp.statusMessage(),
+                                                    resp.headers());
+                                            if (HttpStatusCodeIdentifier.isSuccessCode(
+                                                    resp.statusCode())) {
+                                                future.complete(
+                                                        resp.headers().get(HttpHeaders.LOCATION));
+                                            } else {
+                                                future.completeExceptionally(
+                                                        new IllegalStateException(
+                                                                Integer.toString(
+                                                                        resp.statusCode())));
+                                            }
+                                        });
+                    });
             selfCustomTargetLocation = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
             logger.warn(e);
@@ -295,21 +308,28 @@ public abstract class StandardSelfTest {
 
     private static Future<String> getNotificationsUrl() {
         CompletableFuture<String> future = new CompletableFuture<>();
-        webClient
-                .get("/api/v1/notifications_url")
-                .send(
-                        ar -> {
-                            if (ar.succeeded()) {
-                                HttpResponse<Buffer> resp = ar.result();
-                                logger.infov(
-                                        "GET /api/v1/notifications_url -> HTTP {0} {1}: [{2}]",
-                                        resp.statusCode(), resp.statusMessage(), resp.headers());
-                                future.complete(
-                                        resp.bodyAsJsonObject().getString("notificationsUrl"));
-                            } else {
-                                future.completeExceptionally(ar.cause());
-                            }
-                        });
+        WORKER.submit(
+                () -> {
+                    webClient
+                            .get("/api/v1/notifications_url")
+                            .send(
+                                    ar -> {
+                                        if (ar.succeeded()) {
+                                            HttpResponse<Buffer> resp = ar.result();
+                                            logger.infov(
+                                                    "GET /api/v1/notifications_url -> HTTP {0} {1}:"
+                                                            + " [{2}]",
+                                                    resp.statusCode(),
+                                                    resp.statusMessage(),
+                                                    resp.headers());
+                                            future.complete(
+                                                    resp.bodyAsJsonObject()
+                                                            .getString("notificationsUrl"));
+                                        } else {
+                                            future.completeExceptionally(ar.cause());
+                                        }
+                                    });
+                });
         return future;
     }
 
@@ -331,34 +351,39 @@ public abstract class StandardSelfTest {
     private static CompletableFuture<Path> fireDownloadRequest(
             HttpRequest<Buffer> request, String filename, String fileSuffix, MultiMap headers) {
         CompletableFuture<Path> future = new CompletableFuture<>();
-        request.putHeaders(headers)
-                .basicAuthentication("user", "pass")
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (ar.failed()) {
-                                future.completeExceptionally(ar.cause());
-                                return;
-                            }
-                            HttpResponse<Buffer> resp = ar.result();
-                            logger.infov(
-                                    "GET {0} -> HTTP {1} {2}: [{3}]",
-                                    request.uri(),
-                                    resp.statusCode(),
-                                    resp.statusMessage(),
-                                    resp.headers());
-                            if (!(HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())
-                                    || HttpStatusCodeIdentifier.isRedirectCode(
-                                            resp.statusCode()))) {
-                                future.completeExceptionally(
-                                        new Exception(String.format("HTTP %d", resp.statusCode())));
-                                return;
-                            }
-                            FileSystem fs = Utils.getFileSystem();
-                            String file = fs.createTempFileBlocking(filename, fileSuffix);
-                            fs.writeFileBlocking(file, ar.result().body());
-                            future.complete(Paths.get(file));
-                        });
+        WORKER.submit(
+                () -> {
+                    request.putHeaders(headers)
+                            .basicAuthentication("user", "pass")
+                            .followRedirects(true)
+                            .send(
+                                    ar -> {
+                                        if (ar.failed()) {
+                                            future.completeExceptionally(ar.cause());
+                                            return;
+                                        }
+                                        HttpResponse<Buffer> resp = ar.result();
+                                        logger.infov(
+                                                "GET {0} -> HTTP {1} {2}: [{3}]",
+                                                request.uri(),
+                                                resp.statusCode(),
+                                                resp.statusMessage(),
+                                                resp.headers());
+                                        if (!(HttpStatusCodeIdentifier.isSuccessCode(
+                                                resp.statusCode()))) {
+                                            future.completeExceptionally(
+                                                    new Exception(
+                                                            String.format(
+                                                                    "HTTP %d", resp.statusCode())));
+                                            return;
+                                        }
+                                        FileSystem fs = Utils.getFileSystem();
+                                        String file =
+                                                fs.createTempFileBlocking(filename, fileSuffix);
+                                        fs.writeFileBlocking(file, ar.result().body());
+                                        future.complete(Paths.get(file));
+                                    });
+                });
         return future;
     }
 
