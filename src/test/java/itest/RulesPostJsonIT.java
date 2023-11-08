@@ -107,7 +107,9 @@ class RulesPostJsonIT extends StandardSelfTest {
                 ex.getCause().getMessage(), Matchers.equalTo("Unsupported Media Type"));
     }
 
-    @Disabled
+    @Disabled(
+            "The server 500 seems to cause issues for the next test in the suite, ex. HTTP"
+                    + " connection closed when attempting to POST the next rule definition")
     @Test
     @Order(3)
     void testAddRuleThrowsWhenMimeInvalid() throws Exception {
