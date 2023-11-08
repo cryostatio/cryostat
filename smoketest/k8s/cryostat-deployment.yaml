@@ -66,7 +66,7 @@ spec:
               value: "true"
             - name: STORAGE_BUCKETS_ARCHIVES_NAME
               value: archivedrecordings
-          image: quay.io/cryostat/cryostat3:dev
+          image: quay.io/cryostat/cryostat:3.0.0-snapshot
           livenessProbe:
             exec:
               command:
