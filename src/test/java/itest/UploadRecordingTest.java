@@ -86,8 +86,10 @@ public class UploadRecordingTest extends StandardSelfTest {
                             REQUEST_TIMEOUT_SECONDS);
             MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(204));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new ITestCleanupFailedException(
-                    String.format("Failed to delete target recording %s", RECORDING_NAME), e);
+            logger.error(
+                    new ITestCleanupFailedException(
+                            String.format("Failed to delete target recording %s", RECORDING_NAME),
+                            e));
         }
     }
 

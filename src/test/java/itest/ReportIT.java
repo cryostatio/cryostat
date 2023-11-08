@@ -235,9 +235,12 @@ public class ReportIT extends StandardSelfTest {
                         deleteActiveRecResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
                         Matchers.equalTo(null));
             } catch (ExecutionException | InterruptedException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete target recording %s", TEST_RECORDING_NAME),
-                        e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format(
+                                        "Failed to delete target recording %s",
+                                        TEST_RECORDING_NAME),
+                                e));
             }
 
             CompletableFuture<JsonObject> deleteArchivedRecResp = new CompletableFuture<>();
@@ -254,9 +257,12 @@ public class ReportIT extends StandardSelfTest {
             try {
                 deleteArchivedRecResp.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete archived recording %s", savedRecordingName),
-                        e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format(
+                                        "Failed to delete archived recording %s",
+                                        savedRecordingName),
+                                e));
             }
         }
     }

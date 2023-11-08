@@ -75,7 +75,9 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
         try {
             dumpResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new ITestCleanupFailedException("Failed to reset default recording options", e);
+            logger.error(
+                    new ITestCleanupFailedException(
+                            "Failed to reset default recording options", e));
         }
     }
 
@@ -231,8 +233,11 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
             try {
                 deleteRespFuture.get();
             } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete target recording %s", RECORDING_NAME), e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format(
+                                        "Failed to delete target recording %s", RECORDING_NAME),
+                                e));
             }
         }
     }
@@ -357,8 +362,11 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
             try {
                 deleteRespFuture.get();
             } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete target recording %s", recordingName), e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format(
+                                        "Failed to delete target recording %s", recordingName),
+                                e));
             }
 
             // Delete the archive
@@ -378,10 +386,12 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
             try {
                 deleteArchiveRespFuture.get();
             } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format(
-                                "Failed to delete target archive recording %s", archivedgName),
-                        e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format(
+                                        "Failed to delete target archive recording %s",
+                                        archivedgName),
+                                e));
             }
         }
     }

@@ -127,9 +127,12 @@ public class SnapshotIT extends StandardSelfTest {
             try {
                 deleteRecordingResponse.get();
             } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete target recording %s", TEST_RECORDING_NAME),
-                        e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format(
+                                        "Failed to delete target recording %s",
+                                        TEST_RECORDING_NAME),
+                                e));
             }
 
             CompletableFuture<JsonObject> deleteSnapshotResponse = new CompletableFuture<>();
@@ -146,8 +149,10 @@ public class SnapshotIT extends StandardSelfTest {
             try {
                 deleteSnapshotResponse.get();
             } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete snapshot %s", snapshotName.get()), e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format("Failed to delete snapshot %s", snapshotName.get()),
+                                e));
             }
         }
     }
@@ -343,9 +348,12 @@ public class SnapshotIT extends StandardSelfTest {
             try {
                 deleteRecordingResponse.get();
             } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete target recording %s", TEST_RECORDING_NAME),
-                        e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format(
+                                        "Failed to delete target recording %s",
+                                        TEST_RECORDING_NAME),
+                                e));
             }
 
             CompletableFuture<JsonObject> deleteSnapshotResponse = new CompletableFuture<>();
@@ -362,8 +370,10 @@ public class SnapshotIT extends StandardSelfTest {
             try {
                 deleteSnapshotResponse.get();
             } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete snapshot %s", snapshotName.get()), e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format("Failed to delete snapshot %s", snapshotName.get()),
+                                e));
             }
         }
     }

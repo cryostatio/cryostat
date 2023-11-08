@@ -179,8 +179,6 @@ class RulesPostJsonIT extends StandardSelfTest {
                     ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(409));
             MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Conflict"));
 
-        } catch (Exception e) {
-            logger.error(e);
         } finally {
             // clean up rule before running next test
             CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
@@ -207,8 +205,9 @@ class RulesPostJsonIT extends StandardSelfTest {
                         deleteResponse.get(10, TimeUnit.SECONDS),
                         Matchers.equalTo(expectedDeleteResponse));
             } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete rule %s", TEST_RULE_NAME), e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format("Failed to delete rule %s", TEST_RULE_NAME), e));
             }
         }
     }
