@@ -62,7 +62,8 @@ public abstract class StandardSelfTest {
     private static final ExecutorService WORKER = Executors.newCachedThreadPool();
     public static final Logger logger = Logger.getLogger(StandardSelfTest.class);
     public static final ObjectMapper mapper = new ObjectMapper();
-    public static final int REQUEST_TIMEOUT_SECONDS = 15;
+    public static final int REQUEST_TIMEOUT_SECONDS = 5;
+    public static final int DISCOVERY_DEADLINE_SECONDS = 10;
     public static final WebClient webClient = Utils.getWebClient();
     public static volatile String selfCustomTargetLocation;
 
@@ -112,7 +113,7 @@ public abstract class StandardSelfTest {
     public static void waitForDiscovery(int otherTargetsCount) {
         final int totalTargets = otherTargetsCount + 1;
         boolean found = false;
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(REQUEST_TIMEOUT_SECONDS);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(DISCOVERY_DEADLINE_SECONDS);
         while (!found && System.nanoTime() < deadline) {
             logger.infov("Waiting for discovery to see at least {0} target(s)...", totalTargets);
             CompletableFuture<Boolean> queryFound = new CompletableFuture<>();
@@ -146,10 +147,10 @@ public abstract class StandardSelfTest {
                                         });
                     });
             try {
-                found |= queryFound.get(2000, TimeUnit.MILLISECONDS);
+                found |= queryFound.get(5000, TimeUnit.MILLISECONDS);
                 if (!found) {
                     tryDefineSelfCustomTarget();
-                    Thread.sleep(3000);
+                    Thread.sleep(DISCOVERY_DEADLINE_SECONDS * 1000 / 4);
                 }
             } catch (Exception e) {
                 logger.warn(e);
