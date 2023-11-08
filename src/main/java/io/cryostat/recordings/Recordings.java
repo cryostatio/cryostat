@@ -507,7 +507,7 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed("write")
-    public LinkedRecordingDescriptor createRecording(
+    public Response createRecording(
             @RestPath long id,
             @RestForm String recordingName,
             @RestForm String events,
@@ -586,7 +586,9 @@ public class Recordings {
                     TimeUnit.MILLISECONDS);
         }
 
-        return recordingHelper.toExternalForm(recording);
+        return Response.status(Response.Status.CREATED)
+                .entity(recordingHelper.toExternalForm(recording).toString())
+                .build();
     }
 
     @Transactional
