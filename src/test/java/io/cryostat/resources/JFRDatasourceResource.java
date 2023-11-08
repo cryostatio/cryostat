@@ -40,7 +40,6 @@ public class JFRDatasourceResource
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .withExposedPorts(JFR_DATASOURCE_PORT)
                         .withEnv(envMap)
-                        .withLogConsumer(outputFrame -> {})
                         .waitingFor(Wait.forLogMessage(".*Listening on:.*", 1));
         containerNetworkId.ifPresent(container::withNetworkMode);
 
@@ -58,6 +57,7 @@ public class JFRDatasourceResource
     @Override
     public void stop() {
         container.stop();
+        container.close();
     }
 
     @Override

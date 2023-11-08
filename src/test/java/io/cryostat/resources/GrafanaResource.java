@@ -44,7 +44,6 @@ public class GrafanaResource
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .withExposedPorts(GRAFANA_PORT)
                         .withEnv(envMap)
-                        .withLogConsumer(outputFrame -> {})
                         .waitingFor(
                                 Wait.forLogMessage(
                                         ".*inserting datasource from configuration.*", 1));
@@ -61,6 +60,7 @@ public class GrafanaResource
     @Override
     public void stop() {
         container.stop();
+        container.close();
     }
 
     @Override
