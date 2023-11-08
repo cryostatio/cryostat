@@ -78,28 +78,35 @@ public abstract class StandardSelfTest {
         }
         logger.infov("Deleting self custom target at {0}", selfCustomTargetLocation);
         String path = URI.create(selfCustomTargetLocation).getPath();
-        WORKER.submit(
-                () -> {
-                    webClient
-                            .delete(path)
-                            .basicAuthentication("user", "pass")
-                            .timeout(5000)
-                            .send(
-                                    ar -> {
-                                        if (ar.failed()) {
-                                            logger.error(ar.cause());
-                                            return;
-                                        }
-                                        HttpResponse<Buffer> resp = ar.result();
-                                        logger.infov(
-                                                "DELETE {0} -> HTTP {1} {2}: [{3}]",
-                                                path,
-                                                resp.statusCode(),
-                                                resp.statusMessage(),
-                                                resp.headers());
-                                        selfCustomTargetLocation = null;
-                                    });
-                });
+        CompletableFuture<String> future = new CompletableFuture<>();
+        try {
+            WORKER.submit(
+                    () -> {
+                        webClient
+                                .delete(path)
+                                .basicAuthentication("user", "pass")
+                                .timeout(5000)
+                                .send(
+                                        ar -> {
+                                            if (ar.failed()) {
+                                                logger.error(ar.cause());
+                                                future.completeExceptionally(ar.cause());
+                                                return;
+                                            }
+                                            HttpResponse<Buffer> resp = ar.result();
+                                            logger.infov(
+                                                    "DELETE {0} -> HTTP {1} {2}: [{3}]",
+                                                    path,
+                                                    resp.statusCode(),
+                                                    resp.statusMessage(),
+                                                    resp.headers());
+                                            future.complete(null);
+                                        });
+                    });
+            selfCustomTargetLocation = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            logger.error(e);
+        }
     }
 
     public static void waitForDiscovery(int otherTargetsCount) {
@@ -120,6 +127,7 @@ public abstract class StandardSelfTest {
                                         ar -> {
                                             if (ar.failed()) {
                                                 logger.error(ar.cause());
+                                                queryFound.completeExceptionally(ar.cause());
                                                 return;
                                             }
                                             HttpResponse<JsonArray> resp = ar.result();
@@ -195,7 +203,7 @@ public abstract class StandardSelfTest {
                     });
             selfCustomTargetLocation = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
-            logger.warn(e);
+            logger.error(e);
         }
     }
 
