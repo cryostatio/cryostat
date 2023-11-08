@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.resources.GrafanaResource;
@@ -30,19 +29,20 @@ import io.cryostat.util.HttpMimeType;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-@Disabled("TODO")
 @QuarkusTest
 @QuarkusTestResource(GrafanaResource.class)
 @QuarkusTestResource(JFRDatasourceResource.class)
@@ -53,30 +53,22 @@ public class UploadRecordingTest extends StandardSelfTest {
     static final String RECORDING_NAME = "upload_recording_it_rec";
     static final int RECORDING_DURATION_SECONDS = 10;
 
+    static String CREATE_RECORDING_URL;
+    static String DELETE_RECORDING_URL;
+    static String UPLOAD_RECORDING_URL;
+
     @BeforeAll
     public static void createRecording() throws Exception {
-        CompletableFuture<JsonObject> dumpPostResponse = new CompletableFuture<>();
         MultiMap form = MultiMap.caseInsensitiveMultiMap();
         form.add("recordingName", RECORDING_NAME);
         form.add("duration", String.valueOf(RECORDING_DURATION_SECONDS));
         form.add("events", "template=ALL");
-        webClient
-                .post(
-                        String.format(
-                                "/api/v1/targets/%s/recordings",
-                                getSelfReferenceConnectUrlEncoded()))
-                .basicAuthentication("user", "pass")
-                .followRedirects(true)
-                .sendForm(
-                        form,
-                        ar -> {
-                            if (assertRequestStatus(ar, dumpPostResponse)) {
-                                MatcherAssert.assertThat(
-                                        ar.result().statusCode(), Matchers.equalTo(201));
-                                dumpPostResponse.complete(ar.result().bodyAsJsonObject());
-                            }
-                        });
-        dumpPostResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        CREATE_RECORDING_URL =
+                String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded());
+        HttpResponse<Buffer> resp =
+                post(CREATE_RECORDING_URL, true, form, RECORDING_DURATION_SECONDS);
+        MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(201));
         Thread.sleep(
                 Long.valueOf(
                         RECORDING_DURATION_SECONDS * 1000)); // Wait for the recording to finish
@@ -84,24 +76,15 @@ public class UploadRecordingTest extends StandardSelfTest {
 
     @AfterAll
     public static void deleteRecording() throws Exception {
-        CompletableFuture<Void> deleteRespFuture = new CompletableFuture<>();
-        webClient
-                .delete(
-                        String.format(
-                                "/api/v1/targets/%s/recordings/%s",
-                                getSelfReferenceConnectUrlEncoded(), RECORDING_NAME))
-                .basicAuthentication("user", "pass")
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, deleteRespFuture)) {
-                                MatcherAssert.assertThat(
-                                        ar.result().statusCode(), Matchers.equalTo(200));
-                                deleteRespFuture.complete(null);
-                            }
-                        });
         try {
-            deleteRespFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            HttpResponse<Buffer> resp =
+                    delete(
+                            String.format(
+                                    "/api/v1/targets/%s/recordings/%s",
+                                    getSelfReferenceConnectUrlEncoded(), RECORDING_NAME),
+                            true,
+                            REQUEST_TIMEOUT_SECONDS);
+            MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(204));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             throw new ITestCleanupFailedException(
                     String.format("Failed to delete target recording %s", RECORDING_NAME), e);
@@ -110,33 +93,41 @@ public class UploadRecordingTest extends StandardSelfTest {
 
     @Test
     public void shouldLoadRecordingToDatasource() throws Exception {
-        final CompletableFuture<String> uploadRespFuture = new CompletableFuture<>();
-        webClient
-                .post(
+
+        HttpResponse<Buffer> resp =
+                post(
                         String.format(
                                 "/api/v1/targets/%s/recordings/%s/upload",
-                                getSelfReferenceConnectUrlEncoded(), RECORDING_NAME))
-                .basicAuthentication("user", "pass")
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, uploadRespFuture)) {
-                                MatcherAssert.assertThat(
-                                        ar.result().statusCode(), Matchers.equalTo(200));
-                            }
-                            uploadRespFuture.complete(ar.result().bodyAsString());
-                        });
+                                getSelfReferenceConnectUrlEncoded(), RECORDING_NAME),
+                        true,
+                        null,
+                        0);
+
+        MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(200));
 
         final String expectedUploadResponse =
                 String.format("Uploaded: %s\nSet: %s", DATASOURCE_FILENAME, DATASOURCE_FILENAME);
 
         MatcherAssert.assertThat(
-                uploadRespFuture.get().trim(), Matchers.equalTo(expectedUploadResponse));
+                resp.bodyAsString().trim(), Matchers.equalTo(expectedUploadResponse));
+
+        HttpRequest<Buffer> req = webClient.get("/api/v1/grafana_datasource_url");
+        CompletableFuture<JsonObject> respFuture = new CompletableFuture<>();
+        req.send(
+                ar -> {
+                    if (assertRequestStatus(ar, respFuture)) {
+                        respFuture.complete(ar.result().bodyAsJsonObject());
+                    } else {
+                        respFuture.completeExceptionally(ar.cause());
+                    }
+                });
+
+        String DATASOURCEURL = respFuture.get().getString("grafanaDatasourceUrl");
 
         // Confirm recording is loaded in Data Source
         final CompletableFuture<String> getRespFuture = new CompletableFuture<>();
         webClient
-                .get(8080, "localhost", "/list")
+                .getAbs(DATASOURCEURL + "/list")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, getRespFuture)) {
@@ -195,7 +186,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                                 Map.entry("adhocFilters", List.of())));
 
         webClient
-                .post(8080, "localhost", "/query")
+                .postAbs(DATASOURCEURL + "/query")
                 .sendJsonObject(
                         query,
                         ar -> {
