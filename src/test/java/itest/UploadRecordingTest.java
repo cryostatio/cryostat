@@ -67,7 +67,7 @@ public class UploadRecordingTest extends StandardSelfTest {
         CREATE_RECORDING_URL =
                 String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded());
         HttpResponse<Buffer> resp =
-                post(CREATE_RECORDING_URL, true, form, RECORDING_DURATION_SECONDS);
+                webClient.post(CREATE_RECORDING_URL, true, form, RECORDING_DURATION_SECONDS);
         MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(201));
         Thread.sleep(
                 Long.valueOf(
@@ -78,7 +78,7 @@ public class UploadRecordingTest extends StandardSelfTest {
     public static void deleteRecording() throws Exception {
         try {
             HttpResponse<Buffer> resp =
-                    delete(
+                    webClient.delete(
                             String.format(
                                     "/api/v1/targets/%s/recordings/%s",
                                     getSelfReferenceConnectUrlEncoded(), RECORDING_NAME),
@@ -97,7 +97,7 @@ public class UploadRecordingTest extends StandardSelfTest {
     public void shouldLoadRecordingToDatasource() throws Exception {
 
         HttpResponse<Buffer> resp =
-                post(
+                webClient.post(
                         String.format(
                                 "/api/v1/targets/%s/recordings/%s/upload",
                                 getSelfReferenceConnectUrlEncoded(), RECORDING_NAME),

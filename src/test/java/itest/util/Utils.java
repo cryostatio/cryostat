@@ -15,14 +15,26 @@
  */
 package itest.util;
 
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 import io.cryostat.core.sys.Environment;
 
+import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;
 import io.vertx.core.VertxOptions;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.file.FileSystem;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientOptions;
-import io.vertx.ext.web.client.WebClient;
+import io.vertx.core.http.HttpMethod;
+import io.vertx.core.http.RequestOptions;
+import io.vertx.ext.web.client.HttpRequest;
+import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.client.WebClientOptions;
+import io.vertx.ext.web.client.impl.WebClientBase;
 
 public class Utils {
 
@@ -51,13 +63,85 @@ public class Utils {
     private static final Vertx VERTX =
             Vertx.vertx(new VertxOptions().setPreferNativeTransport(true));
     public static final HttpClient HTTP_CLIENT = VERTX.createHttpClient(HTTP_CLIENT_OPTIONS);
-    private static final WebClient WEB_CLIENT_INSTANCE = WebClient.wrap(HTTP_CLIENT);
 
-    public static WebClient getWebClient() {
+    private static TestWebClient WEB_CLIENT_INSTANCE;
+
+    public static TestWebClient getWebClient() {
+        if (WEB_CLIENT_INSTANCE == null) {
+            synchronized (Utils.class) {
+                if (WEB_CLIENT_INSTANCE == null) {
+                    WebClientOptions options = new WebClientOptions(HTTP_CLIENT_OPTIONS);
+                    WEB_CLIENT_INSTANCE = new TestWebClient(HTTP_CLIENT, options);
+                }
+            }
+        }
         return WEB_CLIENT_INSTANCE;
     }
 
     public static FileSystem getFileSystem() {
         return VERTX.fileSystem();
+    }
+
+    public static class TestWebClient extends WebClientBase {
+        public TestWebClient(HttpClient client, WebClientOptions options) {
+            super(client, options);
+        }
+
+        public HttpResponse<Buffer> post(
+                String url, boolean authentication, MultiMap form, int timeout)
+                throws InterruptedException, ExecutionException, TimeoutException {
+            CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
+            RequestOptions options = new RequestOptions().setURI(url);
+            HttpRequest<Buffer> req = this.request(HttpMethod.POST, options);
+            if (authentication) {
+                req.basicAuthentication("user", "pass");
+            }
+            if (form != null) {
+                req.sendForm(
+                        form,
+                        ar -> {
+                            if (ar.succeeded()) {
+                                future.complete(ar.result());
+                            } else {
+                                future.completeExceptionally(ar.cause());
+                            }
+                        });
+            } else {
+                req.send(
+                        ar -> {
+                            if (ar.succeeded()) {
+                                future.complete(ar.result());
+                            } else {
+                                future.completeExceptionally(ar.cause());
+                            }
+                        });
+            }
+            if (future.get().statusCode() == 308) {
+                return post(future.get().getHeader("Location"), true, form, timeout);
+            }
+            return future.get(timeout, TimeUnit.SECONDS);
+        }
+
+        public HttpResponse<Buffer> delete(String url, boolean authentication, int timeout)
+                throws InterruptedException, ExecutionException, TimeoutException {
+            CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
+            RequestOptions options = new RequestOptions().setURI(url);
+            HttpRequest<Buffer> req = this.request(HttpMethod.DELETE, options);
+            if (authentication) {
+                req.basicAuthentication("user", "pass");
+            }
+            req.send(
+                    ar -> {
+                        if (ar.succeeded()) {
+                            future.complete(ar.result());
+                        } else {
+                            future.completeExceptionally(ar.cause());
+                        }
+                    });
+            if (future.get().statusCode() == 308) {
+                return delete(future.get().getHeader("Location"), true, timeout);
+            }
+            return future.get(timeout, TimeUnit.SECONDS);
+        }
     }
 }

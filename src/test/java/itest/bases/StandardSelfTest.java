@@ -31,23 +31,19 @@ import java.util.concurrent.TimeoutException;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.sun.security.auth.module.UnixSystem;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.file.FileSystem;
-import io.vertx.core.http.HttpMethod;
-import io.vertx.core.http.RequestOptions;
 import io.vertx.core.http.WebSocket;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.core.net.SocketAddress;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.client.WebClient;
 import io.vertx.ext.web.codec.BodyCodec;
 import io.vertx.ext.web.handler.HttpException;
 import itest.util.Utils;
+import itest.util.Utils.TestWebClient;
 import jakarta.ws.rs.core.HttpHeaders;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -64,7 +60,7 @@ public abstract class StandardSelfTest {
     public static final ObjectMapper mapper = new ObjectMapper();
     public static final int REQUEST_TIMEOUT_SECONDS = 5;
     public static final int DISCOVERY_DEADLINE_SECONDS = 10;
-    public static final WebClient webClient = Utils.getWebClient();
+    public static final TestWebClient webClient = Utils.getWebClient();
     public static volatile String selfCustomTargetLocation;
 
     @BeforeAll
@@ -437,72 +433,5 @@ public abstract class StandardSelfTest {
                                     });
                 });
         return future;
-    }
-
-    private static String getSocketPath() {
-        long uid = new UnixSystem().getUid();
-        String socketPath = String.format("/run/user/%d/podman/podman.sock", uid);
-        return socketPath;
-    }
-
-    private static SocketAddress getSocket() {
-        return SocketAddress.domainSocketAddress(getSocketPath());
-    }
-
-    public static HttpResponse<Buffer> post(
-            String url, boolean authentication, MultiMap form, int timeout)
-            throws InterruptedException, ExecutionException, TimeoutException {
-        CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
-        RequestOptions options = new RequestOptions().setURI(url);
-        HttpRequest<Buffer> req = webClient.request(HttpMethod.POST, options);
-        if (authentication) {
-            req.basicAuthentication("user", "pass");
-        }
-        if (form != null) {
-            req.sendForm(
-                    form,
-                    ar -> {
-                        if (ar.succeeded()) {
-                            future.complete(ar.result());
-                        } else {
-                            future.completeExceptionally(ar.cause());
-                        }
-                    });
-        } else {
-            req.send(
-                    ar -> {
-                        if (ar.succeeded()) {
-                            future.complete(ar.result());
-                        } else {
-                            future.completeExceptionally(ar.cause());
-                        }
-                    });
-        }
-        if (future.get().statusCode() == 308) {
-            return post(future.get().getHeader("Location"), true, form, timeout);
-        }
-        return future.get(timeout, TimeUnit.SECONDS);
-    }
-
-    public static HttpResponse<Buffer> delete(String url, boolean authentication, int timeout)
-            throws InterruptedException, ExecutionException, TimeoutException {
-        CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
-        RequestOptions options = new RequestOptions().setURI(url);
-        HttpRequest<Buffer> req = webClient.request(HttpMethod.DELETE, options);
-        if (authentication) {
-            req.basicAuthentication("user", "pass");
-        }
-        req.send(
-                ar -> {
-                    if (ar.succeeded()) {
-                        future.complete(ar.result());
-                    } else {
-                        future.completeExceptionally(ar.cause());
-                    }
-                });
-        if (future.get().statusCode() == 308) {
-            return delete(future.get().getHeader("Location"), true, timeout);
-        }
-        return future.get(timeout, TimeUnit.SECONDS);
     }
 }
