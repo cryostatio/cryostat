@@ -153,7 +153,7 @@ public abstract class StandardSelfTest {
                     Thread.sleep(TimeUnit.SECONDS.toMillis(DISCOVERY_DEADLINE_SECONDS) / 4);
                 }
             } catch (Exception e) {
-                logger.warn(e);
+                throw new RuntimeException(e);
             }
         }
         if (!found) {
@@ -161,8 +161,49 @@ public abstract class StandardSelfTest {
         }
     }
 
+    private static boolean selfCustomTargetExists() {
+        if (StringUtils.isBlank(selfCustomTargetLocation)) {
+            return false;
+        }
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+        try {
+            WORKER.submit(
+                    () -> {
+                        webClient
+                                .getAbs(selfCustomTargetLocation)
+                                .basicAuthentication("user", "pass")
+                                .timeout(5000)
+                                .send(
+                                        ar -> {
+                                            if (ar.failed()) {
+                                                logger.error(ar.cause());
+                                                future.completeExceptionally(ar.cause());
+                                                return;
+                                            }
+                                            HttpResponse<Buffer> resp = ar.result();
+                                            logger.infov(
+                                                    "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
+                                                    resp.statusCode(),
+                                                    resp.statusMessage(),
+                                                    resp.headers());
+                                            future.complete(
+                                                    HttpStatusCodeIdentifier.isSuccessCode(
+                                                            resp.statusCode()));
+                                        });
+                    });
+            boolean result = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (!result) {
+                selfCustomTargetLocation = null;
+            }
+            return result;
+        } catch (Exception e) {
+            logger.error(e);
+            return false;
+        }
+    }
+
     private static void tryDefineSelfCustomTarget() {
-        if (StringUtils.isNotBlank(selfCustomTargetLocation)) {
+        if (selfCustomTargetExists()) {
             return;
         }
         logger.info("Trying to define self-referential custom target...");
