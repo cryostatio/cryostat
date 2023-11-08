@@ -93,6 +93,4 @@ jobs:
       run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
     - name: Build application
       run: ./mvnw -B -U -Dquarkus.container-image.build=false clean verify
-      env:
-        CI_ENVIRONMENT: github
       continue-on-error: ${{ matrix.java != '17' }}

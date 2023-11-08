@@ -108,8 +108,8 @@ class RulesPostJsonIT extends StandardSelfTest {
     }
 
     @DisabledIfEnvironmentVariable(
-            named = "CI_ENVIRONMENT",
-            matches = "github",
+            named = "CI",
+            matches = "true",
             disabledReason =
                     "The server 500 seems to cause issues for the next test in the suite, ex. HTTP"
                             + " connection closed when attempting to POST the next rule definition")

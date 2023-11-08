@@ -101,8 +101,6 @@ jobs:
       run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
     - name: Build application
       run: ./mvnw -B -U clean verify
-      env:
-        CI_ENVIRONMENT: github
       continue-on-error: ${{ matrix.java != '17' }}
     - name: Delete local integration test image
       run: podman rmi ${{ env.CI_IMG }}:latest ${{ env.CI_IMG }}:dev ${{ env.CI_IMG }}:${{ env.IMAGE_VERSION }}

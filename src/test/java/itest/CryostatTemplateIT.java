@@ -32,7 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
-@DisabledIfEnvironmentVariable(named = "CI_ENVIRONMENT", matches = "github")
+@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 @QuarkusIntegrationTest
 public class CryostatTemplateIT extends StandardSelfTest {
 
