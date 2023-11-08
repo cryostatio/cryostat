@@ -62,7 +62,7 @@ public abstract class StandardSelfTest {
     private static final ExecutorService WORKER = Executors.newCachedThreadPool();
     public static final Logger logger = Logger.getLogger(StandardSelfTest.class);
     public static final ObjectMapper mapper = new ObjectMapper();
-    public static final int REQUEST_TIMEOUT_SECONDS = 30;
+    public static final int REQUEST_TIMEOUT_SECONDS = 15;
     public static final WebClient webClient = Utils.getWebClient();
     public static volatile String selfCustomTargetLocation;
 
@@ -83,7 +83,7 @@ public abstract class StandardSelfTest {
                     webClient
                             .delete(path)
                             .basicAuthentication("user", "pass")
-                            .timeout(2000)
+                            .timeout(5000)
                             .send(
                                     ar -> {
                                         if (ar.failed()) {
@@ -115,7 +115,7 @@ public abstract class StandardSelfTest {
                                 .get("/api/v3/targets")
                                 .basicAuthentication("user", "pass")
                                 .as(BodyCodec.jsonArray())
-                                .timeout(2000)
+                                .timeout(5000)
                                 .send(
                                         ar -> {
                                             if (ar.failed()) {
@@ -237,7 +237,7 @@ public abstract class StandardSelfTest {
                                     });
                 });
         try {
-            JsonObject obj = future.get(5000, TimeUnit.MILLISECONDS);
+            JsonObject obj = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             return obj.getString("connectUrl");
         } catch (Exception e) {
             throw new RuntimeException("Could not determine own connectUrl", e);
