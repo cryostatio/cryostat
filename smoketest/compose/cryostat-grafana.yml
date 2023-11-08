@@ -21,3 +21,9 @@ services:
       - "3000:3000"
     expose:
       - "3000"
+    healthcheck:
+      test: curl --fail http://localhost:3000/ || exit 1
+      retries: 3
+      interval: 30s
+      start_period: 10s
+      timeout: 1s

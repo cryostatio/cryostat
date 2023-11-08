@@ -21,6 +21,7 @@ import java.util.Optional;
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 public class JFRDatasourceResource
@@ -39,7 +40,7 @@ public class JFRDatasourceResource
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .withExposedPorts(JFR_DATASOURCE_PORT)
                         .withEnv(envMap)
-                        .withLogConsumer(outputFrame -> {});
+                        .waitingFor(Wait.forLogMessage(".*Listening on:.*", 1));
         containerNetworkId.ifPresent(container::withNetworkMode);
 
         container.start();
@@ -56,6 +57,7 @@ public class JFRDatasourceResource
     @Override
     public void stop() {
         container.stop();
+        container.close();
     }
 
     @Override

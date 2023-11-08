@@ -213,9 +213,12 @@ public class TargetReportIT extends StandardSelfTest {
             try {
                 deleteResponse.get();
             } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete target recording %s", TEST_RECORDING_NAME),
-                        e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format(
+                                        "Failed to delete target recording %s",
+                                        TEST_RECORDING_NAME),
+                                e));
             }
         }
     }

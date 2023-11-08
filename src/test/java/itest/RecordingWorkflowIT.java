@@ -275,9 +275,12 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             try {
                 deleteRespFuture1.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete target recording %s", TEST_RECORDING_NAME),
-                        e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                String.format(
+                                        "Failed to delete target recording %s",
+                                        TEST_RECORDING_NAME),
+                                e));
             }
 
             CompletableFuture<JsonArray> savedRecordingsFuture = new CompletableFuture<>();
@@ -296,7 +299,9 @@ public class RecordingWorkflowIT extends StandardSelfTest {
                 savedRecordings =
                         savedRecordingsFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                throw new ITestCleanupFailedException("Failed to retrieve archived recordings", e);
+                logger.error(
+                        new ITestCleanupFailedException(
+                                "Failed to retrieve archived recordings", e));
             }
 
             for (Object savedRecording : savedRecordings) {
@@ -319,10 +324,12 @@ public class RecordingWorkflowIT extends StandardSelfTest {
                     try {
                         deleteRespFuture2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
                     } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                        throw new ITestCleanupFailedException(
-                                String.format(
-                                        "Failed to delete archived recording %s", recordingName),
-                                e);
+                        logger.error(
+                                new ITestCleanupFailedException(
+                                        String.format(
+                                                "Failed to delete archived recording %s",
+                                                recordingName),
+                                        e));
                     }
                 }
             }

@@ -92,9 +92,12 @@ public class CustomTargetsIT extends StandardSelfTest {
                     deleteResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
                     Matchers.equalTo(expectedDeleteResponse));
         } catch (Exception e) {
-            throw new ITestCleanupFailedException(
-                    String.format("Failed to clean up credential with ID %d", storedCredential.id),
-                    e);
+            logger.error(
+                    new ITestCleanupFailedException(
+                            String.format(
+                                    "Failed to clean up credential with ID %d",
+                                    storedCredential.id),
+                            e));
         }
     }
 

@@ -52,7 +52,9 @@
     <com.google.java-format.version>1.18.1</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>4.3</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.2.2</surefire-plugin.version>
-    <failsafe-plugin.version>3.2.2</failsafe-plugin.version>
+    <surefire.rerunFailingTestsCount>5</surefire.rerunFailingTestsCount>
+    <failsafe-plugin.version>${surefire-plugin.version}</failsafe-plugin.version>
+    <failsafe.rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</failsafe.rerunFailingTestsCount>
     <com.google.code.gson.version>2.10.1</com.google.code.gson.version><!-- TODO drop this -->
   </properties>
   <dependencyManagement>

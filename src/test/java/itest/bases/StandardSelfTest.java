@@ -62,7 +62,8 @@ public abstract class StandardSelfTest {
     private static final ExecutorService WORKER = Executors.newCachedThreadPool();
     public static final Logger logger = Logger.getLogger(StandardSelfTest.class);
     public static final ObjectMapper mapper = new ObjectMapper();
-    public static final int REQUEST_TIMEOUT_SECONDS = 30;
+    public static final int REQUEST_TIMEOUT_SECONDS = 5;
+    public static final int DISCOVERY_DEADLINE_SECONDS = 10;
     public static final WebClient webClient = Utils.getWebClient();
     public static volatile String selfCustomTargetLocation;
 
@@ -78,34 +79,41 @@ public abstract class StandardSelfTest {
         }
         logger.infov("Deleting self custom target at {0}", selfCustomTargetLocation);
         String path = URI.create(selfCustomTargetLocation).getPath();
-        WORKER.submit(
-                () -> {
-                    webClient
-                            .delete(path)
-                            .basicAuthentication("user", "pass")
-                            .timeout(2000)
-                            .send(
-                                    ar -> {
-                                        if (ar.failed()) {
-                                            logger.error(ar.cause());
-                                            return;
-                                        }
-                                        HttpResponse<Buffer> resp = ar.result();
-                                        logger.infov(
-                                                "DELETE {0} -> HTTP {1} {2}: [{3}]",
-                                                path,
-                                                resp.statusCode(),
-                                                resp.statusMessage(),
-                                                resp.headers());
-                                        selfCustomTargetLocation = null;
-                                    });
-                });
+        CompletableFuture<String> future = new CompletableFuture<>();
+        try {
+            WORKER.submit(
+                    () -> {
+                        webClient
+                                .delete(path)
+                                .basicAuthentication("user", "pass")
+                                .timeout(5000)
+                                .send(
+                                        ar -> {
+                                            if (ar.failed()) {
+                                                logger.error(ar.cause());
+                                                future.completeExceptionally(ar.cause());
+                                                return;
+                                            }
+                                            HttpResponse<Buffer> resp = ar.result();
+                                            logger.infov(
+                                                    "DELETE {0} -> HTTP {1} {2}: [{3}]",
+                                                    path,
+                                                    resp.statusCode(),
+                                                    resp.statusMessage(),
+                                                    resp.headers());
+                                            future.complete(null);
+                                        });
+                    });
+            selfCustomTargetLocation = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            logger.error(e);
+        }
     }
 
     public static void waitForDiscovery(int otherTargetsCount) {
         final int totalTargets = otherTargetsCount + 1;
         boolean found = false;
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(REQUEST_TIMEOUT_SECONDS);
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(DISCOVERY_DEADLINE_SECONDS);
         while (!found && System.nanoTime() < deadline) {
             logger.infov("Waiting for discovery to see at least {0} target(s)...", totalTargets);
             CompletableFuture<Boolean> queryFound = new CompletableFuture<>();
@@ -115,11 +123,12 @@ public abstract class StandardSelfTest {
                                 .get("/api/v3/targets")
                                 .basicAuthentication("user", "pass")
                                 .as(BodyCodec.jsonArray())
-                                .timeout(2000)
+                                .timeout(5000)
                                 .send(
                                         ar -> {
                                             if (ar.failed()) {
                                                 logger.error(ar.cause());
+                                                queryFound.completeExceptionally(ar.cause());
                                                 return;
                                             }
                                             HttpResponse<JsonArray> resp = ar.result();
@@ -138,13 +147,13 @@ public abstract class StandardSelfTest {
                                         });
                     });
             try {
-                found |= queryFound.get(2000, TimeUnit.MILLISECONDS);
+                found |= queryFound.get(5000, TimeUnit.MILLISECONDS);
                 if (!found) {
                     tryDefineSelfCustomTarget();
-                    Thread.sleep(3000);
+                    Thread.sleep(TimeUnit.SECONDS.toMillis(DISCOVERY_DEADLINE_SECONDS) / 4);
                 }
             } catch (Exception e) {
-                logger.warn(e);
+                throw new RuntimeException(e);
             }
         }
         if (!found) {
@@ -152,8 +161,49 @@ public abstract class StandardSelfTest {
         }
     }
 
+    private static boolean selfCustomTargetExists() {
+        if (StringUtils.isBlank(selfCustomTargetLocation)) {
+            return false;
+        }
+        CompletableFuture<Boolean> future = new CompletableFuture<>();
+        try {
+            WORKER.submit(
+                    () -> {
+                        webClient
+                                .getAbs(selfCustomTargetLocation)
+                                .basicAuthentication("user", "pass")
+                                .timeout(5000)
+                                .send(
+                                        ar -> {
+                                            if (ar.failed()) {
+                                                logger.error(ar.cause());
+                                                future.completeExceptionally(ar.cause());
+                                                return;
+                                            }
+                                            HttpResponse<Buffer> resp = ar.result();
+                                            logger.infov(
+                                                    "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
+                                                    resp.statusCode(),
+                                                    resp.statusMessage(),
+                                                    resp.headers());
+                                            future.complete(
+                                                    HttpStatusCodeIdentifier.isSuccessCode(
+                                                            resp.statusCode()));
+                                        });
+                    });
+            boolean result = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            if (!result) {
+                selfCustomTargetLocation = null;
+            }
+            return result;
+        } catch (Exception e) {
+            logger.error(e);
+            return false;
+        }
+    }
+
     private static void tryDefineSelfCustomTarget() {
-        if (StringUtils.isNotBlank(selfCustomTargetLocation)) {
+        if (selfCustomTargetExists()) {
             return;
         }
         logger.info("Trying to define self-referential custom target...");
@@ -195,7 +245,7 @@ public abstract class StandardSelfTest {
                     });
             selfCustomTargetLocation = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
-            logger.warn(e);
+            logger.error(e);
         }
     }
 
@@ -237,7 +287,7 @@ public abstract class StandardSelfTest {
                                     });
                 });
         try {
-            JsonObject obj = future.get(5000, TimeUnit.MILLISECONDS);
+            JsonObject obj = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             return obj.getString("connectUrl");
         } catch (Exception e) {
             throw new RuntimeException("Could not determine own connectUrl", e);
