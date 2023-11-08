@@ -33,11 +33,11 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @TestMethodOrder(OrderAnnotation.class)
@@ -107,9 +107,12 @@ class RulesPostJsonIT extends StandardSelfTest {
                 ex.getCause().getMessage(), Matchers.equalTo("Unsupported Media Type"));
     }
 
-    @Disabled(
-            "The server 500 seems to cause issues for the next test in the suite, ex. HTTP"
-                    + " connection closed when attempting to POST the next rule definition")
+    @DisabledIfEnvironmentVariable(
+            named = "CI_ENVIRONMENT",
+            matches = "github",
+            disabledReason =
+                    "The server 500 seems to cause issues for the next test in the suite, ex. HTTP"
+                            + " connection closed when attempting to POST the next rule definition")
     @Test
     @Order(3)
     void testAddRuleThrowsWhenMimeInvalid() throws Exception {
