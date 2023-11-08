@@ -21,6 +21,7 @@ import java.util.Optional;
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 public class GrafanaResource
@@ -43,7 +44,10 @@ public class GrafanaResource
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .withExposedPorts(GRAFANA_PORT)
                         .withEnv(envMap)
-                        .withLogConsumer(outputFrame -> {});
+                        .withLogConsumer(outputFrame -> {})
+                        .waitingFor(
+                                Wait.forLogMessage(
+                                        ".*inserting datasource from configuration.*", 1));
         containerNetworkId.ifPresent(container::withNetworkMode);
 
         container.start();
