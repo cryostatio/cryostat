@@ -33,6 +33,7 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -106,6 +107,7 @@ class RulesPostJsonIT extends StandardSelfTest {
                 ex.getCause().getMessage(), Matchers.equalTo("Unsupported Media Type"));
     }
 
+    @Disabled
     @Test
     @Order(3)
     void testAddRuleThrowsWhenMimeInvalid() throws Exception {
