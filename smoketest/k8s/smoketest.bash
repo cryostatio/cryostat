@@ -17,7 +17,6 @@ while [ "$#" -ne 0 ]; do
         kind)
             cleanKind
             kind create cluster
-            kind load docker-image "quay.io/${IMAGE_REPOSITORY}/cryostat3:dev"
             ;;
         unkind)
             cleanKind
