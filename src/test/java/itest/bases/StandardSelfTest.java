@@ -150,7 +150,7 @@ public abstract class StandardSelfTest {
                 found |= queryFound.get(5000, TimeUnit.MILLISECONDS);
                 if (!found) {
                     tryDefineSelfCustomTarget();
-                    Thread.sleep(DISCOVERY_DEADLINE_SECONDS * 1000 / 4);
+                    Thread.sleep(TimeUnit.SECONDS.toMillis(DISCOVERY_DEADLINE_SECONDS) / 4);
                 }
             } catch (Exception e) {
                 logger.warn(e);
