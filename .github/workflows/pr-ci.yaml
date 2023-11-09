@@ -5,27 +5,92 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  pull_request_target:
+  issue_comment:
     types:
-      - opened
-      - reopened
-      - synchronize
-      - labeled
-      - unlabeled
-    branches:
-      - main
-      - v[0-9]+
-      - v[0-9]+.[0-9]+
-      - cryostat-v[0-9]+.[0-9]+
+      - created
 
 env:
   OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/Release.key"
   OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
-  REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
-  REF: ${{ github.event.pull_request.head.ref }}
 
 jobs:
+  check-before-build:
+    runs-on: ubuntu-latest
+    if: github.repository.owner == 'cryostatio' && github.event.issue.pull_request && (startsWith(github.event.comment.body, '/build_test'))
+    permissions:
+      pull-requests: write
+    steps:
+    - name: Fail if needs-triage label applied
+      if: ${{ contains(github.event.issue.labels.*.name, 'needs-triage') }}
+      run: exit 1
+    - name: Show warning if permission is denied
+      if: |
+        !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
+        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
+      uses: thollander/actions-comment-pull-request@v2
+      with:
+        message: |-
+          You do not have permission to run the /build_test command. Please ask @cryostatio/reviewers
+          to resolve the issue.
+    - name: Fail if command permission is denied
+      if: |
+        !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
+        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
+      run: exit 1
+    - name: React to comment
+      uses: actions/github-script@v4
+      with:
+        script: |
+            const {owner, repo} = context.issue
+            github.reactions.createForIssueComment({
+              owner,
+              repo,
+              comment_id: context.payload.comment.id,
+              content: "+1",
+            });
+
+  checkout-branch:
+    runs-on: ubuntu-latest
+    needs: [check-before-build]
+    outputs:
+      PR_head_ref: ${{ fromJSON(steps.comment-branch.outputs.result).ref }}
+      PR_head_sha: ${{ fromJSON(steps.comment-branch.outputs.result).sha }}
+      PR_num: ${{ fromJSON(steps.comment-branch.outputs.result).num }}
+      PR_repo: ${{ fromJSON(steps.comment-branch.outputs.result).repo }}
+    permissions:
+      pull-requests: read
+    steps:
+    - uses: actions/github-script@v4
+      id: comment-branch
+      with:
+        script: |
+          const result = await github.pulls.get ({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.issue.number
+          })
+          return { repo: result.data.head.repo.full_name, num: result.data.number, sha: result.data.head.sha, ref: result.data.head.ref }
+
+  start-comment:
+    runs-on: ubuntu-latest
+    needs: [check-before-build]
+    steps:
+    - name: Leave Actions Run Comment
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const runURL = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${{ github.run_id }}`;
+          const currentTime = new Date().toLocaleString('en-US', { timeZone: 'America/Toronto' });
+          const commentBody = `Workflow started at ${currentTime}. [View Actions Run](${runURL}).`;
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });
+
   build-and-test:
+    needs: [checkout-branch]
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -37,15 +102,13 @@ jobs:
     permissions:
       packages: write
       contents: read
-    if: ${{ github.repository_owner == 'cryostatio' }}
+      pull-requests: write
+      statuses: write
     steps:
-    - name: Fail if PR and safe-to-test label NOT applied
-      if: ${{ github.event_name == 'pull_request_target' && !contains(github.event.pull_request.labels.*.name, 'safe-to-test') }}
-      run: exit 1
     - uses: actions/checkout@v3
       with:
-        repository: ${{ env.REPOSITORY }}
-        ref: ${{ env.REF }}
+        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
         submodules: true
         fetch-depth: 0
     - uses: actions/setup-java@v3
@@ -94,3 +157,28 @@ jobs:
     - name: Build application
       run: ./mvnw -B -U -Dquarkus.container-image.build=false clean verify
       continue-on-error: ${{ matrix.java != '17' }}
+
+    - name: Add workflow result as comment on PR
+      uses: actions/github-script@v6
+      if: always()
+      with:
+        script: |
+          const name = '${{github.workflow}}';
+          const url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
+          const success = '${{ job.status }}' === 'success';
+          const body = `${name}: ${success ? 'All tests pass ✅' : 'At least one test failed ❌'}\n${url}`;
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          })
+
+    - name: Set latest commit status as ${{ job.status }}
+      uses: myrotvorets/set-commit-status-action@master
+      if: always()
+      with:
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha}}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ job.status }}
+
