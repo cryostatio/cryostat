@@ -20,7 +20,7 @@ display_usage() {
     echo "Usage:"
     echo -e "\t-h\t\t\t\tprint this Help text."
     echo -e "\t-O\t\t\t\tOffline mode, do not attempt to pull container images."
-    echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up (default \"minio\")."
+    echo -e "\t-s [minio|cloudserver|localstack]\t\tS3 implementation to spin up (default \"minio\")."
     echo -e "\t-g\t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
     echo -e "\t-t\t\t\t\tinclude sample applications for Testing."
     echo -e "\t-V\t\t\t\tdo not discard data storage Volumes on exit."
