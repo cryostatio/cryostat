@@ -92,56 +92,38 @@ public class Utils {
 
     public static class TestWebClient extends WebClientBase {
 
+        private final RedirectExtensions extensions;
+
         public TestWebClient(HttpClient client, WebClientOptions options) {
             super(client, options);
+            this.extensions = new RedirectExtensionsImpl();
         }
 
         public RedirectExtensions extensions() {
-            return new RedirectExtensions() {
-                public HttpResponse<Buffer> post(
-                        String url, boolean authentication, MultiMap form, int timeout)
-                        throws InterruptedException, ExecutionException, TimeoutException {
-                    CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
-                    RequestOptions options = new RequestOptions().setURI(url);
-                    HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.POST, options);
-                    if (authentication) {
-                        req.basicAuthentication("user", "pass");
-                    }
-                    if (form != null) {
-                        req.sendForm(
-                                form,
-                                ar -> {
-                                    if (ar.succeeded()) {
-                                        future.complete(ar.result());
-                                    } else {
-                                        future.completeExceptionally(ar.cause());
-                                    }
-                                });
-                    } else {
-                        req.send(
-                                ar -> {
-                                    if (ar.succeeded()) {
-                                        future.complete(ar.result());
-                                    } else {
-                                        future.completeExceptionally(ar.cause());
-                                    }
-                                });
-                    }
-                    if (future.get().statusCode() == 308) {
-                        return post(future.get().getHeader("Location"), true, form, timeout);
-                    }
-                    return future.get(timeout, TimeUnit.SECONDS);
-                }
+            return extensions;
+        }
 
-                public HttpResponse<Buffer> delete(String url, boolean authentication, int timeout)
-                        throws InterruptedException, ExecutionException, TimeoutException {
-                    CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
-                    RequestOptions options = new RequestOptions().setURI(url);
-                    HttpRequest<Buffer> req =
-                            TestWebClient.this.request(HttpMethod.DELETE, options);
-                    if (authentication) {
-                        req.basicAuthentication("user", "pass");
-                    }
+        private class RedirectExtensionsImpl implements RedirectExtensions {
+            public HttpResponse<Buffer> post(
+                    String url, boolean authentication, MultiMap form, int timeout)
+                    throws InterruptedException, ExecutionException, TimeoutException {
+                CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
+                RequestOptions options = new RequestOptions().setURI(url);
+                HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.POST, options);
+                if (authentication) {
+                    req.basicAuthentication("user", "pass");
+                }
+                if (form != null) {
+                    req.sendForm(
+                            form,
+                            ar -> {
+                                if (ar.succeeded()) {
+                                    future.complete(ar.result());
+                                } else {
+                                    future.completeExceptionally(ar.cause());
+                                }
+                            });
+                } else {
                     req.send(
                             ar -> {
                                 if (ar.succeeded()) {
@@ -150,12 +132,34 @@ public class Utils {
                                     future.completeExceptionally(ar.cause());
                                 }
                             });
-                    if (future.get().statusCode() == 308) {
-                        return delete(future.get().getHeader("Location"), true, timeout);
-                    }
-                    return future.get(timeout, TimeUnit.SECONDS);
                 }
-            };
+                if (future.get().statusCode() == 308) {
+                    return post(future.get().getHeader("Location"), true, form, timeout);
+                }
+                return future.get(timeout, TimeUnit.SECONDS);
+            }
+
+            public HttpResponse<Buffer> delete(String url, boolean authentication, int timeout)
+                    throws InterruptedException, ExecutionException, TimeoutException {
+                CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
+                RequestOptions options = new RequestOptions().setURI(url);
+                HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.DELETE, options);
+                if (authentication) {
+                    req.basicAuthentication("user", "pass");
+                }
+                req.send(
+                        ar -> {
+                            if (ar.succeeded()) {
+                                future.complete(ar.result());
+                            } else {
+                                future.completeExceptionally(ar.cause());
+                            }
+                        });
+                if (future.get().statusCode() == 308) {
+                    return delete(future.get().getHeader("Location"), true, timeout);
+                }
+                return future.get(timeout, TimeUnit.SECONDS);
+            }
         }
     }
 }
