@@ -67,7 +67,9 @@ public class UploadRecordingTest extends StandardSelfTest {
         CREATE_RECORDING_URL =
                 String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded());
         HttpResponse<Buffer> resp =
-                post(CREATE_RECORDING_URL, true, form, RECORDING_DURATION_SECONDS);
+                webClient
+                        .extensions()
+                        .post(CREATE_RECORDING_URL, true, form, RECORDING_DURATION_SECONDS);
         MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(201));
         Thread.sleep(
                 Long.valueOf(
@@ -78,12 +80,14 @@ public class UploadRecordingTest extends StandardSelfTest {
     public static void deleteRecording() throws Exception {
         try {
             HttpResponse<Buffer> resp =
-                    delete(
-                            String.format(
-                                    "/api/v1/targets/%s/recordings/%s",
-                                    getSelfReferenceConnectUrlEncoded(), RECORDING_NAME),
-                            true,
-                            REQUEST_TIMEOUT_SECONDS);
+                    webClient
+                            .extensions()
+                            .delete(
+                                    String.format(
+                                            "/api/v1/targets/%s/recordings/%s",
+                                            getSelfReferenceConnectUrlEncoded(), RECORDING_NAME),
+                                    true,
+                                    REQUEST_TIMEOUT_SECONDS);
             MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(204));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             logger.error(
@@ -97,13 +101,15 @@ public class UploadRecordingTest extends StandardSelfTest {
     public void shouldLoadRecordingToDatasource() throws Exception {
 
         HttpResponse<Buffer> resp =
-                post(
-                        String.format(
-                                "/api/v1/targets/%s/recordings/%s/upload",
-                                getSelfReferenceConnectUrlEncoded(), RECORDING_NAME),
-                        true,
-                        null,
-                        0);
+                webClient
+                        .extensions()
+                        .post(
+                                String.format(
+                                        "/api/v1/targets/%s/recordings/%s/upload",
+                                        getSelfReferenceConnectUrlEncoded(), RECORDING_NAME),
+                                true,
+                                null,
+                                0);
 
         MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(200));
 
