@@ -122,7 +122,7 @@ public class Reports {
     @Blocking
     @GET
     @Path("/api/v1/targets/{targetId}/reports/{recordingName}")
-    @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_HTML, MediaType.TEXT_PLAIN})
+    @Produces({MediaType.APPLICATION_JSON})
     @RolesAllowed("read")
     @Deprecated(since = "3.0", forRemoval = true)
     public Response getActiveV1(@RestPath String targetId, @RestPath String recordingName) {
@@ -146,7 +146,7 @@ public class Reports {
     @CacheResult(cacheName = ACTIVE_CACHE)
     @GET
     @Path("/api/v3/targets/{targetId}/reports/{recordingId}")
-    @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_HTML, MediaType.TEXT_PLAIN})
+    @Produces({MediaType.APPLICATION_JSON})
     @RolesAllowed("read")
     @Deprecated(since = "3.0", forRemoval = true)
     public Uni<Map<String, AnalysisResult>> getActive(
