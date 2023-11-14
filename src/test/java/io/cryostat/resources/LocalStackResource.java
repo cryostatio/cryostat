@@ -21,45 +21,58 @@ import java.util.Optional;
 
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
-import org.testcontainers.containers.localstack.LocalStackContainer;
-import org.testcontainers.containers.localstack.LocalStackContainer.Service;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
 public class LocalStackResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
-    private static String IMAGE_NAME = "localstack/localstack:2.1.0";
-    private static final LocalStackContainer LOCAL_STACK_CONTAINER;
+    private static int S3_PORT = 4566;
+    private static final String IMAGE_NAME = "docker.io/localstack/localstack:latest";
+    private static final Map<String, String> envMap =
+            Map.of(
+                    "START_WEB", "0",
+                    "SERVICES", "s3",
+                    "EAGER_SERVICE_LOADING", "1",
+                    "SKIP_SSL_CERT_DOWNLOAD", "1",
+                    "SKIP_INFRA_DOWNLOADS", "1",
+                    "DISABLE_EVENTS", "1");
     private Optional<String> containerNetworkId;
-
-    static {
-        DockerImageName localstackImage = DockerImageName.parse(IMAGE_NAME);
-        LOCAL_STACK_CONTAINER = new LocalStackContainer(localstackImage).withServices(Service.S3);
-    }
+    private GenericContainer<?> container;
 
     @Override
     public Map<String, String> start() {
-        LOCAL_STACK_CONTAINER.start();
-        System.setProperty("aws.accessKeyId", LOCAL_STACK_CONTAINER.getAccessKey());
-        System.setProperty("aws.secretAccessKey", LOCAL_STACK_CONTAINER.getSecretKey());
-        Map<String, String> properties = new HashMap<String, String>();
-        properties.put("quarkus.ses.aws.region", "us-east-1");
-        properties.put(
-                "s3.url.override",
-                LOCAL_STACK_CONTAINER.getEndpointOverride(Service.S3).toString());
-        properties.put("quarkus.ses.aws.credentials.type", "static");
-        properties.put("aws.accessKeyId", LOCAL_STACK_CONTAINER.getAccessKey());
-        properties.put("aws.secretAccessKey", LOCAL_STACK_CONTAINER.getSecretKey());
+        container =
+                new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
+                        .withExposedPorts(S3_PORT)
+                        .withEnv(envMap)
+                        .waitingFor(Wait.forHealthcheck());
+        containerNetworkId.ifPresent(container::withNetworkMode);
 
-        containerNetworkId.ifPresent(LOCAL_STACK_CONTAINER::withNetworkMode);
+        container.start();
+
+        String networkHostPort =
+                "http://" + container.getHost() + ":" + container.getMappedPort(S3_PORT);
+
+        Map<String, String> properties = new HashMap<String, String>();
+        properties.put("quarkus.s3.aws.region", "us-east-1");
+        properties.put("s3.url.override", networkHostPort);
+        properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
+        properties.put("quarkus.s3.aws.region", "us-east-1");
+        properties.put("quarkus.s3.aws.credentials.type", "static");
+        properties.put("quarkus.s3.aws.credentials.static-provider.access-key-id", "unused");
+        properties.put("quarkus.s3.aws.credentials.static-provider.secret-access-key", "unused");
+        properties.put("aws.access-key-id", "unused");
+        properties.put("aws.secret-access-key", "unused");
 
         return properties;
     }
 
     @Override
     public void stop() {
-        LOCAL_STACK_CONTAINER.stop();
-        LOCAL_STACK_CONTAINER.close();
+        container.stop();
+        container.close();
     }
 
     @Override

@@ -27,9 +27,9 @@ import org.testcontainers.utility.DockerImageName;
 public class JFRDatasourceResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
-    private static int JFR_DATASOURCE_PORT = 8080;
-    private static String IMAGE_NAME = "quay.io/cryostat/jfr-datasource:latest";
-    private static Map<String, String> envMap = Map.of();
+    private static final int JFR_DATASOURCE_PORT = 8080;
+    private static final String IMAGE_NAME = "quay.io/cryostat/jfr-datasource:latest";
+    private static final Map<String, String> envMap = Map.of();
 
     private Optional<String> containerNetworkId;
     private GenericContainer<?> container;
