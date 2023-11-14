@@ -23,11 +23,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.resources.LocalStackResource;
 import io.cryostat.util.HttpMimeType;
 
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
-import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -37,19 +38,21 @@ import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordingFile;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.jboss.logging.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.select.Elements;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-@QuarkusIntegrationTest
-@Disabled("TODO")
-public class RecordingWorkflowIT extends StandardSelfTest {
+@QuarkusTest
+@QuarkusTestResource(LocalStackResource.class)
+public class RecordingWorkflowTest extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "workflow_itest";
-    static final String TARGET_ALIAS = "io-cryostat-Cryostat";
+    static final String TARGET_ALIAS = "selftest";
+
+    public static final Logger logger = Logger.getLogger(RecordingWorkflowTest.class);
 
     @Test
     public void testWorkflow() throws Exception {
@@ -61,6 +64,7 @@ public class RecordingWorkflowIT extends StandardSelfTest {
                                 "/api/v1/targets/%s/recordings",
                                 getSelfReferenceConnectUrlEncoded()))
                 .basicAuthentication("user", "pass")
+                .followRedirects(true)
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, listRespFuture1)) {
@@ -72,25 +76,19 @@ public class RecordingWorkflowIT extends StandardSelfTest {
 
         try {
             // create an in-memory recording
-            CompletableFuture<Void> dumpRespFuture = new CompletableFuture<>();
             MultiMap form = MultiMap.caseInsensitiveMultiMap();
             form.add("recordingName", TEST_RECORDING_NAME);
             form.add("duration", "5");
             form.add("events", "template=ALL");
             webClient
+                    .extensions()
                     .post(
                             String.format(
                                     "/api/v1/targets/%s/recordings",
-                                    getSelfReferenceConnectUrlEncoded()))
-                    .basicAuthentication("user", "pass")
-                    .sendForm(
+                                    getSelfReferenceConnectUrlEncoded()),
+                            true,
                             form,
-                            ar -> {
-                                if (assertRequestStatus(ar, dumpRespFuture)) {
-                                    dumpRespFuture.complete(null);
-                                }
-                            });
-            dumpRespFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                            REQUEST_TIMEOUT_SECONDS);
 
             // verify in-memory recording created
             CompletableFuture<JsonArray> listRespFuture2 = new CompletableFuture<>();
@@ -99,6 +97,7 @@ public class RecordingWorkflowIT extends StandardSelfTest {
                             String.format(
                                     "/api/v1/targets/%s/recordings",
                                     getSelfReferenceConnectUrlEncoded()))
+                    .followRedirects(true)
                     .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
@@ -120,22 +119,18 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             Thread.sleep(2_000L); // wait some time to save a portion of the recording
 
             // save a copy of the partial recording dump
-            CompletableFuture<Void> saveRespFuture = new CompletableFuture<>();
+            MultiMap saveHeaders = MultiMap.caseInsensitiveMultiMap();
+            saveHeaders.add(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.PLAINTEXT.mime());
             webClient
+                    .extensions()
                     .patch(
                             String.format(
                                     "/api/v1/targets/%s/recordings/%s",
-                                    getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME))
-                    .basicAuthentication("user", "pass")
-                    .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.PLAINTEXT.mime())
-                    .sendBuffer(
-                            Buffer.buffer("SAVE"),
-                            ar -> {
-                                if (assertRequestStatus(ar, saveRespFuture)) {
-                                    saveRespFuture.complete(null);
-                                }
-                            });
-            saveRespFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                                    getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME),
+                            true,
+                            saveHeaders,
+                            "SAVE",
+                            REQUEST_TIMEOUT_SECONDS);
 
             // check that the in-memory recording list hasn't changed
             CompletableFuture<JsonArray> listRespFuture3 = new CompletableFuture<>();
@@ -144,6 +139,7 @@ public class RecordingWorkflowIT extends StandardSelfTest {
                             String.format(
                                     "/api/v1/targets/%s/recordings",
                                     getSelfReferenceConnectUrlEncoded()))
+                    .followRedirects(true)
                     .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
@@ -167,6 +163,7 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             webClient
                     .get("/api/v1/recordings")
                     .basicAuthentication("user", "pass")
+                    .followRedirects(true)
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture4)) {
@@ -195,6 +192,7 @@ public class RecordingWorkflowIT extends StandardSelfTest {
                             String.format(
                                     "/api/v1/targets/%s/recordings",
                                     getSelfReferenceConnectUrlEncoded()))
+                    .followRedirects(true)
                     .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
@@ -218,10 +216,11 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             // the fully completed in-memory recording is larger than the saved partial copy
             String inMemoryDownloadUrl = recordingInfo.getString("downloadUrl");
             Path inMemoryDownloadPath =
-                    downloadFileAbs(inMemoryDownloadUrl, TEST_RECORDING_NAME, ".jfr")
+                    downloadFile(inMemoryDownloadUrl, TEST_RECORDING_NAME, ".jfr")
                             .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
             Path savedDownloadPath =
-                    downloadFileAbs(savedDownloadUrl, TEST_RECORDING_NAME + "_saved", ".jfr")
+                    downloadFile(savedDownloadUrl, TEST_RECORDING_NAME + "_saved", ".jfr")
                             .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             MatcherAssert.assertThat(
                     inMemoryDownloadPath.toFile().length(), Matchers.greaterThan(0L));
@@ -236,8 +235,9 @@ public class RecordingWorkflowIT extends StandardSelfTest {
             String reportUrl = recordingInfo.getString("reportUrl");
             MultiMap headers = MultiMap.caseInsensitiveMultiMap();
             headers.add(HttpHeaders.ACCEPT.toString(), HttpMimeType.HTML.mime());
+
             Path reportPath =
-                    downloadFileAbs(reportUrl, TEST_RECORDING_NAME + "_report", ".html", headers)
+                    downloadFile(reportUrl, TEST_RECORDING_NAME + "_report", ".html", headers)
                             .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             File reportFile = reportPath.toFile();
             MatcherAssert.assertThat(reportFile.length(), Matchers.greaterThan(0L));
@@ -258,22 +258,16 @@ public class RecordingWorkflowIT extends StandardSelfTest {
 
         } finally {
             // Clean up what we created
-            CompletableFuture<Void> deleteRespFuture1 = new CompletableFuture<>();
-            webClient
-                    .delete(
-                            String.format(
-                                    "/api/v1/targets/%s/recordings/%s",
-                                    getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME))
-                    .basicAuthentication("user", "pass")
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, deleteRespFuture1)) {
-                                    deleteRespFuture1.complete(null);
-                                }
-                            });
-
             try {
-                deleteRespFuture1.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+                webClient
+                        .extensions()
+                        .delete(
+                                String.format(
+                                        "/api/v1/targets/%s/recordings/%s",
+                                        getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME),
+                                true,
+                                REQUEST_TIMEOUT_SECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
                 logger.error(
                         new ITestCleanupFailedException(
@@ -308,21 +302,15 @@ public class RecordingWorkflowIT extends StandardSelfTest {
                 String recordingName = ((JsonObject) savedRecording).getString("name");
                 if (recordingName.matches(
                         TARGET_ALIAS + "_" + TEST_RECORDING_NAME + "_[\\d]{8}T[\\d]{6}Z.jfr")) {
-                    CompletableFuture<Void> deleteRespFuture2 = new CompletableFuture<>();
-                    webClient
-                            .delete(
-                                    String.format(
-                                            "/api/beta/recordings/%s/%s",
-                                            getSelfReferenceConnectUrlEncoded(), recordingName))
-                            .basicAuthentication("user", "pass")
-                            .send(
-                                    ar -> {
-                                        if (assertRequestStatus(ar, deleteRespFuture2)) {
-                                            deleteRespFuture2.complete(null);
-                                        }
-                                    });
                     try {
-                        deleteRespFuture2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                        webClient
+                                .extensions()
+                                .delete(
+                                        String.format(
+                                                "/api/beta/recordings/%s/%s",
+                                                getSelfReferenceConnectUrlEncoded(), recordingName),
+                                        true,
+                                        REQUEST_TIMEOUT_SECONDS);
                     } catch (InterruptedException | ExecutionException | TimeoutException e) {
                         logger.error(
                                 new ITestCleanupFailedException(

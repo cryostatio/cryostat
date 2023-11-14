@@ -146,7 +146,7 @@ public class Reports {
     @CacheResult(cacheName = ACTIVE_CACHE)
     @GET
     @Path("/api/v3/targets/{targetId}/reports/{recordingId}")
-    @Produces(MediaType.APPLICATION_JSON)
+    @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_HTML, MediaType.TEXT_PLAIN})
     @RolesAllowed("read")
     @Deprecated(since = "3.0", forRemoval = true)
     public Uni<Map<String, AnalysisResult>> getActive(

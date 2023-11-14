@@ -27,11 +27,9 @@ import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-@Disabled("TODO")
 public class NoopAuthV2IT extends StandardSelfTest {
 
     HttpRequest<Buffer> req;
@@ -44,23 +42,27 @@ public class NoopAuthV2IT extends StandardSelfTest {
     @Test
     public void shouldRespond200() throws Exception {
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
-        req.send(
-                ar -> {
-                    if (ar.succeeded()) {
-                        future.complete(ar.result().bodyAsJsonObject());
-                    } else {
-                        future.completeExceptionally(ar.cause());
-                    }
-                });
-        JsonObject expected =
-                new JsonObject(
-                        Map.of(
-                                "meta",
-                                        Map.of(
-                                                "status", "OK",
-                                                "type", "application/json"),
-                                "data", Map.of("result", Map.of("username", ""))));
+        req.basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (ar.succeeded()) {
+                                future.complete(ar.result().bodyAsJsonObject());
+                            } else {
+                                future.completeExceptionally(ar.cause());
+                            }
+                        });
+
+        JsonObject response = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        MatcherAssert.assertThat(response.getJsonObject("meta"), Matchers.notNullValue());
         MatcherAssert.assertThat(
-                future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS), Matchers.equalTo(expected));
+                response.getJsonObject("meta").getString("status"), Matchers.equalTo("OK"));
+        MatcherAssert.assertThat(
+                response.getJsonObject("meta").getString("type"),
+                Matchers.equalTo("application/json"));
+        MatcherAssert.assertThat(response.getJsonObject("data"), Matchers.notNullValue());
+        MatcherAssert.assertThat(
+                response.getJsonObject("data").getString("result"),
+                Matchers.equalTo(Map.of("username", "user").toString()));
     }
 }
