@@ -71,8 +71,10 @@ public class LocalStackResource
 
     @Override
     public void stop() {
-        container.stop();
-        container.close();
+        if (container != null) {
+            container.stop();
+            container.close();
+        }
     }
 
     @Override
