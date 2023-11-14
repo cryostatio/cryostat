@@ -16,6 +16,7 @@
 package itest;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -239,6 +240,8 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                     downloadFile(reportUrl, TEST_RECORDING_NAME + "_report", ".html", headers)
                             .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             File reportFile = reportPath.toFile();
+            MatcherAssert.assertThat(Files.readString(reportPath), Matchers.equalTo(""));
+
             MatcherAssert.assertThat(reportFile.length(), Matchers.greaterThan(0L));
 
             ObjectMapper mapper = new ObjectMapper();
