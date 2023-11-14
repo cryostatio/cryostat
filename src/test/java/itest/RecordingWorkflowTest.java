@@ -15,8 +15,6 @@
  */
 package itest;
 
-import java.io.File;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -28,13 +26,14 @@ import java.util.concurrent.TimeoutException;
 import io.cryostat.resources.LocalStackResource;
 import io.cryostat.util.HttpMimeType;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.HttpResponse;
+import io.vertx.ext.web.codec.BodyCodec;
 import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
 import jdk.jfr.consumer.RecordedEvent;
@@ -236,16 +235,21 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             MultiMap headers = MultiMap.caseInsensitiveMultiMap();
             headers.add(HttpHeaders.ACCEPT.toString(), HttpMimeType.HTML.mime());
 
-            Path reportPath =
-                    downloadFile(reportUrl, TEST_RECORDING_NAME + "_report", ".html", headers)
+            HttpResponse<JsonObject> reportResponse =
+                    webClient
+                            .get(reportUrl)
+                            .basicAuthentication("user", "pass")
+                            .as(BodyCodec.jsonObject())
+                            .send()
+                            .toCompletionStage()
+                            .toCompletableFuture()
                             .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            File reportFile = reportPath.toFile();
-            MatcherAssert.assertThat(Files.readString(reportPath), Matchers.equalTo(""));
+            MatcherAssert.assertThat(
+                    reportResponse.statusCode(),
+                    Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
+            JsonObject report = reportResponse.body();
 
-            MatcherAssert.assertThat(reportFile.length(), Matchers.greaterThan(0L));
-
-            ObjectMapper mapper = new ObjectMapper();
-            Map<?, ?> response = mapper.readValue(reportFile, Map.class);
+            Map<?, ?> response = report.getMap();
             MatcherAssert.assertThat(response, Matchers.notNullValue());
             MatcherAssert.assertThat(
                     response, Matchers.is(Matchers.aMapWithSize(Matchers.greaterThan(8))));
