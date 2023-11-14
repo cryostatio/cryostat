@@ -18,6 +18,7 @@ package itest;
 import java.io.File;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -26,6 +27,7 @@ import java.util.concurrent.TimeoutException;
 import io.cryostat.resources.LocalStackResource;
 import io.cryostat.util.HttpMimeType;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
@@ -39,9 +41,6 @@ import jdk.jfr.consumer.RecordingFile;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jboss.logging.Logger;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -241,21 +240,12 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                             .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             File reportFile = reportPath.toFile();
             MatcherAssert.assertThat(reportFile.length(), Matchers.greaterThan(0L));
-            Document doc = Jsoup.parse(reportFile, "UTF-8");
 
-            Elements head = doc.getElementsByTag("head");
-            Elements titles = head.first().getElementsByTag("title");
-            Elements body = doc.getElementsByTag("body");
-            Elements script = head.first().getElementsByTag("script");
-
-            MatcherAssert.assertThat("Expected one <head>", head.size(), Matchers.equalTo(1));
-            MatcherAssert.assertThat(titles.size(), Matchers.equalTo(1));
-            MatcherAssert.assertThat("Expected one <body>", body.size(), Matchers.equalTo(1));
+            ObjectMapper mapper = new ObjectMapper();
+            Map<?, ?> response = mapper.readValue(reportFile, Map.class);
+            MatcherAssert.assertThat(response, Matchers.notNullValue());
             MatcherAssert.assertThat(
-                    "Expected at least one <script>",
-                    script.size(),
-                    Matchers.greaterThanOrEqualTo(1));
-
+                    response, Matchers.is(Matchers.aMapWithSize(Matchers.greaterThan(8))));
         } finally {
             // Clean up what we created
             try {
