@@ -58,6 +58,7 @@ public class LocalStackResource
         properties.put("quarkus.s3.aws.region", "us-east-1");
         properties.put("s3.url.override", networkHostPort);
         properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
+        properties.put("quarkus.s3.path-style-access", "true");
         properties.put("quarkus.s3.aws.region", "us-east-1");
         properties.put("quarkus.s3.aws.credentials.type", "static");
         properties.put("quarkus.s3.aws.credentials.static-provider.access-key-id", "unused");
