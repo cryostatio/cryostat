@@ -36,7 +36,6 @@ public class LocalStackResource
                     "SERVICES", "s3",
                     "EAGER_SERVICE_LOADING", "1",
                     "SKIP_SSL_CERT_DOWNLOAD", "1",
-                    "SKIP_INFRA_DOWNLOADS", "1",
                     "DISABLE_EVENTS", "1");
     private Optional<String> containerNetworkId;
     private GenericContainer<?> container;
