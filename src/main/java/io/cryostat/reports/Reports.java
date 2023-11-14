@@ -16,12 +16,9 @@
 package io.cryostat.reports;
 
 import java.io.BufferedInputStream;
-import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
@@ -108,8 +105,7 @@ public class Reports {
     @Path("/api/v3/reports/{encodedKey}")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
-    public Uni<Map<String, AnalysisResult>> get(@RestPath String encodedKey)
-            throws IOException, CouldNotLoadRecordingException {
+    public Uni<Map<String, AnalysisResult>> get(@RestPath String encodedKey) {
         // TODO implement query parameter for evaluation predicate
         return Uni.createFrom()
                 .future(
