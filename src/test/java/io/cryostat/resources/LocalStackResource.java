@@ -21,6 +21,7 @@ import java.util.Optional;
 
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
+import org.jboss.logging.Logger;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
@@ -37,6 +38,7 @@ public class LocalStackResource
                     "EAGER_SERVICE_LOADING", "1",
                     "SKIP_SSL_CERT_DOWNLOAD", "1",
                     "DISABLE_EVENTS", "1");
+    private static final Logger logger = Logger.getLogger(LocalStackResource.class);
     private Optional<String> containerNetworkId;
     private GenericContainer<?> container;
 
@@ -59,12 +61,13 @@ public class LocalStackResource
         properties.put("s3.url.override", networkHostPort);
         properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
         properties.put("quarkus.s3.path-style-access", "true");
-        properties.put("quarkus.s3.aws.region", "us-east-1");
         properties.put("quarkus.s3.aws.credentials.type", "static");
         properties.put("quarkus.s3.aws.credentials.static-provider.access-key-id", "unused");
         properties.put("quarkus.s3.aws.credentials.static-provider.secret-access-key", "unused");
-        properties.put("aws.access-key-id", "unused");
-        properties.put("aws.secret-access-key", "unused");
+        properties.put("aws.access-key-id", properties.get("quarkus.s3.aws.credentials.static-provider.access-key-id"));
+        properties.put("aws.secret-access-key", properties.get("quarkus.s3.aws.credentials.static-provider.secret-access-key"));
+        properties.entrySet().forEach(e -> System.setProperty(e.getKey(), e.getValue()));
+        logger.infov("Configured properties: {0}", properties);
 
         return properties;
     }
