@@ -39,7 +39,7 @@
     <org.apache.commons.lang3.version>3.13.0</org.apache.commons.lang3.version>
     <org.apache.commons.validator.version>1.7</org.apache.commons.validator.version>
     <org.projectnessie.cel.bom.version>0.3.21</org.projectnessie.cel.bom.version>
-    <org.testcontainers.bom.version>1.19.1</org.testcontainers.bom.version>
+    <org.testcontainers.bom.version>1.19.2</org.testcontainers.bom.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.2.4.Final</quarkus.platform.version>
