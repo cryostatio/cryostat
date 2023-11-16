@@ -67,9 +67,11 @@ public class LocalStackResource
         properties.put(
                 "aws.access-key-id",
                 properties.get("quarkus.s3.aws.credentials.static-provider.access-key-id"));
+        properties.put("aws.accessKeyId", properties.get("aws.access-key-id"));
         properties.put(
                 "aws.secret-access-key",
                 properties.get("quarkus.s3.aws.credentials.static-provider.secret-access-key"));
+        properties.put("aws.secretAccessKey", properties.get("aws.secret-access-key"));
         properties.entrySet().forEach(e -> System.setProperty(e.getKey(), e.getValue()));
         logger.infov("Configured properties: {0}", properties);
 
