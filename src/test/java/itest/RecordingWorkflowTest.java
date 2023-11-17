@@ -232,8 +232,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                     inMemoryEvents.size(), Matchers.greaterThan(savedEvents.size()));
 
             String reportUrl = recordingInfo.getString("reportUrl");
-            MultiMap headers = MultiMap.caseInsensitiveMultiMap();
-            headers.add(HttpHeaders.ACCEPT.toString(), HttpMimeType.HTML.mime());
 
             HttpResponse<JsonObject> reportResponse =
                     webClient
