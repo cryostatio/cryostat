@@ -24,6 +24,7 @@ import java.util.concurrent.CompletableFuture;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.buffer.Buffer;
 import io.vertx.mutiny.ext.web.client.HttpRequest;
 import io.vertx.mutiny.ext.web.client.WebClient;
@@ -73,6 +74,7 @@ class Health {
     @Inject WebClient webClient;
 
     @GET
+    @Blocking
     @Path("/health")
     @PermitAll
     public Response health() {
@@ -105,6 +107,12 @@ class Health {
     }
 
     @GET
+    // This does not actually block, but we force it to execute on the worker pool so that the
+    // status check reports not only that the event loop dispatch thread is alive and responsive,
+    // but that the worker pool is also actively servicing requests. If we don't force this then
+    // this handler only checks if the event loop is alive, but the worker pool may be blocked or
+    // otherwise unresponsive and the application as a whole will not be usable.
+    @Blocking
     @Path("/health/liveness")
     @PermitAll
     public void liveness() {}
