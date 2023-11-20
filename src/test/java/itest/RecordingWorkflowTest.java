@@ -16,6 +16,7 @@
 package itest;
 
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -40,7 +41,6 @@ import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordingFile;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -50,8 +50,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "workflow_itest";
     static final String TARGET_ALIAS = "selftest";
-
-    public static final Logger logger = Logger.getLogger(RecordingWorkflowTest.class);
 
     @Test
     public void testWorkflow() throws Exception {
@@ -73,6 +71,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
         JsonArray listResp = listRespFuture1.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         Assertions.assertTrue(listResp.isEmpty());
 
+        List<String> archivedRecordingFilenames = new ArrayList<>();
         try {
             // create an in-memory recording
             MultiMap form = MultiMap.caseInsensitiveMultiMap();
@@ -120,16 +119,20 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             // save a copy of the partial recording dump
             MultiMap saveHeaders = MultiMap.caseInsensitiveMultiMap();
             saveHeaders.add(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.PLAINTEXT.mime());
-            webClient
-                    .extensions()
-                    .patch(
-                            String.format(
-                                    "/api/v1/targets/%s/recordings/%s",
-                                    getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME),
-                            true,
-                            saveHeaders,
-                            "SAVE",
-                            REQUEST_TIMEOUT_SECONDS);
+            String archivedRecordingFilename =
+                    webClient
+                            .extensions()
+                            .patch(
+                                    String.format(
+                                            "/api/v1/targets/%s/recordings/%s",
+                                            getSelfReferenceConnectUrlEncoded(),
+                                            TEST_RECORDING_NAME),
+                                    true,
+                                    saveHeaders,
+                                    "SAVE",
+                                    REQUEST_TIMEOUT_SECONDS)
+                            .bodyAsString();
+            archivedRecordingFilenames.add(archivedRecordingFilename);
 
             // check that the in-memory recording list hasn't changed
             CompletableFuture<JsonArray> listRespFuture3 = new CompletableFuture<>();
@@ -264,56 +267,25 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                 true,
                                 REQUEST_TIMEOUT_SECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                logger.error(
-                        new ITestCleanupFailedException(
-                                String.format(
-                                        "Failed to delete target recording %s",
-                                        TEST_RECORDING_NAME),
-                                e));
+                throw new ITestCleanupFailedException(
+                        String.format("Failed to delete target recording %s", TEST_RECORDING_NAME),
+                        e);
             }
 
-            CompletableFuture<JsonArray> savedRecordingsFuture = new CompletableFuture<>();
-            webClient
-                    .get("/api/v1/recordings")
-                    .basicAuthentication("user", "pass")
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, savedRecordingsFuture)) {
-                                    savedRecordingsFuture.complete(ar.result().bodyAsJsonArray());
-                                }
-                            });
-
-            JsonArray savedRecordings = null;
-            try {
-                savedRecordings =
-                        savedRecordingsFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                logger.error(
-                        new ITestCleanupFailedException(
-                                "Failed to retrieve archived recordings", e));
-            }
-
-            for (Object savedRecording : savedRecordings) {
-                String recordingName = ((JsonObject) savedRecording).getString("name");
-                if (recordingName.matches(
-                        TARGET_ALIAS + "_" + TEST_RECORDING_NAME + "_[\\d]{8}T[\\d]{6}Z.jfr")) {
-                    try {
-                        webClient
-                                .extensions()
-                                .delete(
-                                        String.format(
-                                                "/api/beta/recordings/%s/%s",
-                                                getSelfReferenceConnectUrlEncoded(), recordingName),
-                                        true,
-                                        REQUEST_TIMEOUT_SECONDS);
-                    } catch (InterruptedException | ExecutionException | TimeoutException e) {
-                        logger.error(
-                                new ITestCleanupFailedException(
-                                        String.format(
-                                                "Failed to delete archived recording %s",
-                                                recordingName),
-                                        e));
-                    }
+            for (String savedRecording : archivedRecordingFilenames) {
+                try {
+                    webClient
+                            .extensions()
+                            .delete(
+                                    String.format(
+                                            "/api/beta/recordings/%s/%s",
+                                            getSelfReferenceConnectUrlEncoded(), savedRecording),
+                                    true,
+                                    REQUEST_TIMEOUT_SECONDS);
+                } catch (InterruptedException | ExecutionException | TimeoutException e) {
+                    throw new ITestCleanupFailedException(
+                            String.format("Failed to delete archived recording %s", savedRecording),
+                            e);
                 }
             }
         }
