@@ -20,11 +20,16 @@ on:
 
 jobs:
   check:
+    permissions:
+      pull-requests: write
+      issues: write
+      statuses: write
     runs-on: ubuntu-latest
     steps:
       - uses: z0al/dependent-issues@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          permissions: write
         with:
           # (Optional) Enable checking for dependencies in issues.
           # Enable by setting the value to "on". Default "off"
