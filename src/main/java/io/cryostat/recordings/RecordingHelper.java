@@ -711,7 +711,9 @@ public class RecordingHelper {
         if (metadata.expiry() != null) {
             tags.add(
                     Tag.builder()
-                            .key(base64Url.encodeAsString(objectExpirationLabel.getBytes()))
+                            .key(
+                                    base64Url.encodeAsString(
+                                            objectExpirationLabel.getBytes(StandardCharsets.UTF_8)))
                             .value(
                                     base64Url.encodeAsString(
                                             metadata.expiry()
