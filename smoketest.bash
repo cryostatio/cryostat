@@ -5,8 +5,10 @@ if ! command -v yq; then
     exit 1
 fi
 
+DIR="$(dirname "$(readlink -f "$0")")"
+
 FILES=(
-    ./smoketest/compose/db.yml
+    "${DIR}/smoketest/compose/db.yml"
 )
 
 USE_USERHOSTS=${USE_USERHOSTS:-true}
@@ -16,15 +18,15 @@ OPEN_TABS=${OPEN_TABS:-false}
 
 display_usage() {
     echo "Usage:"
-    echo -e "\t-h\t\t\t\tprint this Help text."
-    echo -e "\t-O\t\t\t\tOffline mode, do not attempt to pull container images."
-    echo -e "\t-s [minio|localstack]\t\tS3 implementation to spin up (default \"minio\")."
-    echo -e "\t-g\t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
-    echo -e "\t-t\t\t\t\tinclude sample applications for Testing."
-    echo -e "\t-V\t\t\t\tdo not discard data storage Volumes on exit."
-    echo -e "\t-X\t\t\t\tdeploy additional development aid tools."
-    echo -e "\t-c [podman|docker]\t\tUse Podman or Docker Container Engine (default \"podman\")."
-    echo -e "\t-b\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. Cryostat web client, Minio console)"
+    echo -e "\t-h\t\t\t\t\t\tprint this Help text."
+    echo -e "\t-O\t\t\t\t\t\tOffline mode, do not attempt to pull container images."
+    echo -e "\t-s [minio|seaweed|cloudserver|localstack]\tS3 implementation to spin up (default \"minio\")."
+    echo -e "\t-g\t\t\t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
+    echo -e "\t-t\t\t\t\t\t\tinclude sample applications for Testing."
+    echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
+    echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
+    echo -e "\t-c [podman|docker]\t\t\t\tUse Podman or Docker Container Engine (default \"podman\")."
+    echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. Cryostat web client, Minio console)"
 }
 
 s3=minio
@@ -39,10 +41,10 @@ while getopts "hs:gtOVXcb" opt; do
             s3="${OPTARG}"
             ;;
         g)
-            FILES+=('./smoketest/compose/cryostat-grafana.yml' './smoketest/compose/jfr-datasource.yml')
+            FILES+=("${DIR}/smoketest/compose/cryostat-grafana.yml" "${DIR}/smoketest/compose/jfr-datasource.yml")
             ;;
         t)
-            FILES+=('./smoketest/compose/sample-apps.yml')
+            FILES+=("${DIR}/smoketest/compose/sample-apps.yml")
             ;;
         O)
             PULL_IMAGES=false
@@ -51,7 +53,7 @@ while getopts "hs:gtOVXcb" opt; do
             KEEP_VOLUMES=true
             ;;
         X)
-            FILES+=('./smoketest/compose/db-viewer.yml')
+            FILES+=("${DIR}/smoketest/compose/db-viewer.yml")
             ;;
         c)
             ce="${OPTARG}"
@@ -66,20 +68,19 @@ while getopts "hs:gtOVXcb" opt; do
     esac
 done
 
-if [ "${s3}" = "minio" ]; then
-    FILES+=('./smoketest/compose/s3-minio.yml')
-elif [ "${s3}" = "localstack" ]; then
-    FILES+=('./smoketest/compose/s3-localstack.yml')
-else
+s3Manifest="${DIR}/smoketest/compose/s3-${s3}.yml"
+
+if [ ! -f "${s3Manifest}" ]; then
     echo "Unknown S3 selection: ${s3}"
     display_usage
     exit 2
 fi
+FILES+=("${s3Manifest}")
 
 if [ "${ce}" = "podman" ]; then
-    FILES+=('./smoketest/compose/cryostat.yml')
+    FILES+=("${DIR}/smoketest/compose/cryostat.yml")
 elif [ "${ce}" = "docker" ]; then
-    FILES+=('./smoketest/compose/cryostat_docker.yml')
+    FILES+=("${DIR}/smoketest/compose/cryostat_docker.yml")
 else
     echo "Unknown Container Engine selection: ${ce}"
     display_usage

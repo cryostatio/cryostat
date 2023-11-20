@@ -1,0 +1,38 @@
+version: "3"
+services:
+  cryostat:
+    environment:
+      STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
+      QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:8000
+      QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
+      QUARKUS_S3_AWS_REGION: us-east-1
+      QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
+      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: accessKey1
+      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: verySecretKey1
+      AWS_ACCESS_KEY_ID: accessKey1
+      AWS_SECRET_ACCESS_KEY: verySecretKey1
+  s3:
+    image: docker.io/zenko/cloudserver:latest
+    hostname: s3
+    expose:
+      - "8000"
+    environment:
+      S3BACKEND: mem
+      ENDPOINT: s3
+      LOG_LEVEL: debug
+      REMOTE_MANAGEMENT_DISABLE: 1
+      SCALITY_ACCESS_KEY_ID: accessKey1
+      SCALITY_SECRET_ACCESS_KEY: verySecretKey1
+    labels:
+      kompose.service.expose: "cloudserver"
+    restart: always
+    # healthcheck:
+    #   test:
+    #     - CMD-SHELL
+    #     - curl
+    #     - --fail
+    #     - http://localhost:8000/
+    #   interval: 10s
+    #   retries: 3
+    #   start_period: 10s
+    #   timeout: 5s

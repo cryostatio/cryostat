@@ -4,7 +4,7 @@ services:
     environment:
       STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
       QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:4566
-      QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed in smoketest, but if the environment and specific S3 impl supports DNS subdomain style access then that should be preferred
+      QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
       QUARKUS_S3_AWS_REGION: us-east-1
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
       QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: unused
@@ -12,7 +12,7 @@ services:
       AWS_ACCESS_KEY_ID: unused
       AWS_SECRET_ACCESS_KEY: unused
   s3:
-    image: docker.io/localstack/localstack:1.4.0
+    image: docker.io/localstack/localstack:latest
     hostname: s3
     expose:
       - "4566"
