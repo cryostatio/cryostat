@@ -76,6 +76,8 @@ class StorageCachingReportsService implements ReportsService {
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
+        String key = ReportsService.key(recording);
+        logger.tracev("reportFor {0}", key);
         return delegate.reportFor(recording, predicate);
     }
 

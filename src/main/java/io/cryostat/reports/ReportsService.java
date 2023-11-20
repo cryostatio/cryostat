@@ -39,4 +39,8 @@ public interface ReportsService {
     default Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
         return reportFor(jvmId, filename, r -> true);
     }
+
+    static String key(ActiveRecording recording) {
+        return String.format("%s/%d", recording.target.jvmId, recording.id);
+    }
 }

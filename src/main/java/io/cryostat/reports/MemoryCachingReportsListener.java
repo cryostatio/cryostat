@@ -17,6 +17,7 @@ package io.cryostat.reports;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.Recordings;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
 
@@ -45,6 +46,8 @@ class MemoryCachingReportsListener {
     @CacheName(ConfigProperties.ARCHIVED_REPORTS_MEMORY_CACHE_NAME)
     Cache archivedCache;
 
+    @Inject RecordingHelper recordingHelper;
+
     @Inject Logger logger;
 
     @ConsumeEvent(value = Recordings.ARCHIVED_RECORDING_DELETED)
@@ -55,7 +58,8 @@ class MemoryCachingReportsListener {
         // FIXME if the jvmId is not properly persisted with the recording metadata then we cannot
         // clear the cache for that entry
         String key =
-                ReportsService.key(recording.metadata().labels().get("jvmId"), recording.name());
+                recordingHelper.archivedRecordingKey(
+                        recording.metadata().labels().get("jvmId"), recording.name());
         logger.tracev("Picked up deletion of archived recording: {0}", key);
         archivedCache.invalidate(key);
     }

@@ -18,6 +18,7 @@ package io.cryostat.reports;
 import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.Recordings;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
 
@@ -41,6 +42,8 @@ class StorageCachingReportsListener {
 
     @Inject S3Client storage;
 
+    @Inject RecordingHelper recordingHelper;
+
     @Inject Logger logger;
 
     @ConsumeEvent(value = Recordings.ARCHIVED_RECORDING_DELETED)
@@ -53,7 +56,7 @@ class StorageCachingReportsListener {
         Optional.ofNullable(recording.metadata().labels().get("jvmId"))
                 .ifPresent(
                         jvmId -> {
-                            var key = ReportsService.key(jvmId, recording.name());
+                            var key = recordingHelper.archivedRecordingKey(jvmId, recording.name());
                             logger.tracev("Picked up deletion of archived recording: {0}", key);
                             var req = DeleteObjectRequest.builder().bucket(bucket).key(key).build();
                             try {

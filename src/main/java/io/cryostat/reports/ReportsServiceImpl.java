@@ -22,12 +22,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
+import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.util.HttpStatusCodeIdentifier;
@@ -58,7 +58,7 @@ class ReportsServiceImpl implements ReportsService {
 
     @Blocking
     @Override
-    public Uni<Map<String, RuleEvaluation>> reportFor(
+    public Uni<Map<String, AnalysisResult>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
         return sidecarUri
                 .map(
@@ -69,7 +69,7 @@ class ReportsServiceImpl implements ReportsService {
                             try {
                                 return fireRequest(uri, helper.getActiveInputStream(recording));
                             } catch (Exception e) {
-                                return Uni.createFrom().<Map<String, RuleEvaluation>>failure(e);
+                                return Uni.createFrom().<Map<String, AnalysisResult>>failure(e);
                             }
                         })
                 .orElseGet(
@@ -80,14 +80,14 @@ class ReportsServiceImpl implements ReportsService {
                             try {
                                 return process(helper.getActiveInputStream(recording), predicate);
                             } catch (Exception e) {
-                                return Uni.createFrom().<Map<String, RuleEvaluation>>failure(e);
+                                return Uni.createFrom().<Map<String, AnalysisResult>>failure(e);
                             }
                         });
     }
 
     @Blocking
     @Override
-    public Uni<Map<String, RuleEvaluation>> reportFor(
+    public Uni<Map<String, AnalysisResult>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {
         return sidecarUri
                 .map(
@@ -108,23 +108,16 @@ class ReportsServiceImpl implements ReportsService {
                         });
     }
 
-    private Uni<Map<String, RuleEvaluation>> process(
+    private Uni<Map<String, AnalysisResult>> process(
             InputStream stream, Predicate<IRule> predicate) {
         return Uni.createFrom()
                 .future(
                         reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(stream), predicate))
-                .map(
-                        result ->
-                                result.entrySet().stream()
-                                        .collect(
-                                                Collectors.toMap(
-                                                        Map.Entry::getKey,
-                                                        e -> RuleEvaluation.from(e.getValue()))));
+                                new BufferedInputStream(stream), predicate));
     }
 
-    private Uni<Map<String, RuleEvaluation>> fireRequest(URI uri, InputStream stream) {
-        var cf = new CompletableFuture<Map<String, RuleEvaluation>>();
+    private Uni<Map<String, AnalysisResult>> fireRequest(URI uri, InputStream stream) {
+        var cf = new CompletableFuture<Map<String, AnalysisResult>>();
         try (var http = HttpClients.createDefault();
                 stream) {
             var post = new HttpPost(uri.resolve("report"));
@@ -140,10 +133,10 @@ class ReportsServiceImpl implements ReportsService {
                             return null;
                         }
                         var entity = response.getEntity();
-                        Map<String, RuleEvaluation> evaluation =
+                        Map<String, AnalysisResult> evaluation =
                                 mapper.readValue(
                                         entity.getContent(),
-                                        new TypeReference<Map<String, RuleEvaluation>>() {});
+                                        new TypeReference<Map<String, AnalysisResult>>() {});
                         cf.complete(evaluation);
                         return null;
                     });

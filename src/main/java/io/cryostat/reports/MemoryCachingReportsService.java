@@ -21,7 +21,9 @@ import java.util.function.Predicate;
 import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.cache.Cache;
 import io.quarkus.cache.CacheName;
@@ -56,10 +58,12 @@ class MemoryCachingReportsService implements ReportsService {
 
     @Inject @Delegate @Any ReportsService delegate;
 
+    @Inject RecordingHelper recordingHelper;
+
     @Inject Logger logger;
 
     @Override
-    public Uni<Map<String, RuleEvaluation>> reportFor(
+    public Uni<Map<String, AnalysisResult>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
         if (!quarkusCache || !memoryCache) {
             logger.trace("cache disabled, delegating...");
@@ -76,13 +80,13 @@ class MemoryCachingReportsService implements ReportsService {
     }
 
     @Override
-    public Uni<Map<String, RuleEvaluation>> reportFor(
+    public Uni<Map<String, AnalysisResult>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {
         if (!quarkusCache || !memoryCache) {
             logger.trace("cache disabled, delegating...");
             return delegate.reportFor(jvmId, filename, predicate);
         }
-        String key = ReportsService.key(jvmId, filename);
+        String key = recordingHelper.archivedRecordingKey(jvmId, filename);
         logger.tracev("reportFor {0}", key);
         return archivedCache.getAsync(
                 key,
