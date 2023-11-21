@@ -19,7 +19,6 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -77,7 +76,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import jdk.jfr.RecordingState;
-import org.apache.commons.codec.binary.Base32;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -99,8 +97,6 @@ import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
-import software.amazon.awssdk.services.s3.model.Tag;
-import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
@@ -120,8 +116,6 @@ public class Recordings {
     @Inject ScheduledExecutorService scheduler;
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper recordingHelper;
-
-    @Inject Base32 base32;
 
     @Inject
     @Named(Producers.BASE64_URL)
@@ -220,6 +214,7 @@ public class Recordings {
         if (rawLabels != null) {
             rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
         }
+        labels.put("jvmId", jvmId);
         Metadata metadata = new Metadata(labels);
         logger.infov(
                 "recording:{0}, labels:{1}, maxFiles:{2}", recording.fileName(), labels, maxFiles);
@@ -345,13 +340,15 @@ public class Recordings {
         if (!filename.endsWith(".jfr")) {
             filename = filename + ".jfr";
         }
+        Map<String, String> labels = new HashMap<>(metadata.labels);
+        labels.put("jvmId", jvmId);
         String key = recordingHelper.archivedRecordingKey(jvmId, filename);
         storage.putObject(
                 PutObjectRequest.builder()
                         .bucket(archiveBucket)
                         .key(key)
                         .contentType(RecordingHelper.JFR_MIME)
-                        .tagging(createMetadataTagging(metadata))
+                        .tagging(recordingHelper.createMetadataTagging(new Metadata(labels)))
                         .build(),
                 RequestBody.fromFile(recording.filePath()));
         logger.info("Upload complete");
@@ -663,7 +660,7 @@ public class Recordings {
     @RolesAllowed("write")
     public void deleteArchivedRecording(@RestPath String encodedJvmId, @RestPath String filename)
             throws Exception {
-        var jvmId = decodeBase32(encodedJvmId);
+        var jvmId = recordingHelper.decodeBase32(encodedJvmId);
         logger.infov("Handling archived recording deletion: {0} / {1}", jvmId, filename);
         var metadata =
                 recordingHelper
@@ -676,7 +673,8 @@ public class Recordings {
                         .map(c -> c.toString())
                         .orElseGet(() -> metadata.labels.computeIfAbsent("connectUrl", k -> jvmId));
         logger.infov(
-                "Archived recording from connectUrl {0} has metadata: {1}", connectUrl, metadata);
+                "Archived recording from connectUrl \"{0}\" has metadata: {1}",
+                connectUrl, metadata);
         logger.infov(
                 "Sending S3 deletion request for {0} {1}",
                 archiveBucket, recordingHelper.archivedRecordingKey(jvmId, filename));
@@ -832,35 +830,6 @@ public class Recordings {
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(presignedRequest.url().toURI())
                 .build();
-    }
-
-    private Tagging createMetadataTagging(Metadata metadata) {
-        // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
-        return Tagging.builder()
-                .tagSet(
-                        metadata.labels.entrySet().stream()
-                                .map(
-                                        e ->
-                                                Tag.builder()
-                                                        .key(
-                                                                base64Url.encodeAsString(
-                                                                        e.getKey()
-                                                                                .getBytes(
-                                                                                        StandardCharsets
-                                                                                                .UTF_8)))
-                                                        .value(
-                                                                base64Url.encodeAsString(
-                                                                        e.getValue()
-                                                                                .getBytes(
-                                                                                        StandardCharsets
-                                                                                                .UTF_8)))
-                                                        .build())
-                                .toList())
-                .build();
-    }
-
-    private String decodeBase32(String encoded) {
-        return new String(base32.decode(encoded), StandardCharsets.UTF_8);
     }
 
     private static Map<String, Object> getRecordingOptions(
