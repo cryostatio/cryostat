@@ -37,7 +37,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -218,6 +217,14 @@ public class RecordingHelper {
 
         desc = updatedDescriptor.get();
 
+        try (InputStream snapshot = remoteRecordingStreamFactory.open(connection, target, desc)) {
+            if (!snapshotIsReadable(target, snapshot)) {
+                connection.getService().close(desc);
+                throw new SnapshotCreationException(
+                        "Snapshot was not readable - are there any source recordings?");
+            }
+        }
+
         ActiveRecording recording =
                 ActiveRecording.from(
                         target,
@@ -233,25 +240,12 @@ public class RecordingHelper {
         target.activeRecordings.add(recording);
         target.persist();
 
-        try (InputStream snapshot = getActiveInputStream(target.id, desc.getId())) {
-            if (!snapshotIsReadable(target, snapshot)) {
-                String snapshotName = desc.getName();
-                this.deleteRecording(target, r -> Objects.equals(r.name, snapshotName));
-                throw new SnapshotCreationException(
-                        "Snapshot was not readable - are there any source recordings?");
-            }
-        }
-
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(
                         "SnapshotCreated", new RecordingEvent(target.connectUrl, recording)));
 
         return recording;
-    }
-
-    public void deleteRecording(Target target, Predicate<ActiveRecording> predicate) {
-        target.activeRecordings.stream().filter(predicate).forEach(ActiveRecording::delete);
     }
 
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
