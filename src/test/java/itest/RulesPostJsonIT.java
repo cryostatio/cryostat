@@ -37,7 +37,6 @@ import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @TestMethodOrder(OrderAnnotation.class)
@@ -107,12 +106,6 @@ class RulesPostJsonIT extends StandardSelfTest {
                 ex.getCause().getMessage(), Matchers.equalTo("Unsupported Media Type"));
     }
 
-    @DisabledIfEnvironmentVariable(
-            named = "CI",
-            matches = "true",
-            disabledReason =
-                    "The server 500 seems to cause issues for the next test in the suite, ex. HTTP"
-                            + " connection closed when attempting to POST the next rule definition")
     @Test
     @Order(3)
     void testAddRuleThrowsWhenMimeInvalid() throws Exception {
@@ -131,9 +124,8 @@ class RulesPostJsonIT extends StandardSelfTest {
                 Assertions.assertThrows(
                         ExecutionException.class, () -> response.get(10, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
-                ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(500));
-        MatcherAssert.assertThat(
-                ex.getCause().getMessage(), Matchers.equalTo("Internal Server Error"));
+                ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(400));
+        MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Bad Request"));
     }
 
     @Test
