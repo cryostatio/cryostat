@@ -48,4 +48,9 @@ public class ExceptionMappers {
     public RestResponse<Void> mapNoSuchKeyException(NoSuchKeyException ex) {
         return RestResponse.status(HttpResponseStatus.NOT_FOUND.code());
     }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapIllegalArgumentException(IllegalArgumentException exception) {
+        return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
+    }
 }
