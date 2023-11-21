@@ -37,6 +37,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -193,6 +194,77 @@ public class RecordingHelper {
         target.persist();
 
         return recording;
+    }
+
+    public ActiveRecording createSnapshot(Target target, JFRConnection connection)
+            throws Exception {
+        IRecordingDescriptor desc = connection.getService().getSnapshotRecording();
+
+        String rename = String.format("%s-%d", desc.getName().toLowerCase(), desc.getId());
+
+        RecordingOptionsBuilder recordingOptionsBuilder =
+                recordingOptionsBuilderFactory.create(connection.getService());
+        recordingOptionsBuilder.name(rename);
+
+        connection.getService().updateRecordingOptions(desc, recordingOptionsBuilder.build());
+
+        Optional<IRecordingDescriptor> updatedDescriptor = getDescriptorByName(connection, rename);
+
+        if (updatedDescriptor.isEmpty()) {
+            throw new IllegalStateException(
+                    "The most recent snapshot of the recording cannot be"
+                            + " found after renaming.");
+        }
+
+        desc = updatedDescriptor.get();
+
+        ActiveRecording recording =
+                ActiveRecording.from(
+                        target,
+                        desc,
+                        new Metadata(
+                                Map.of(
+                                        "jvmId",
+                                        target.jvmId,
+                                        "connectUrl",
+                                        target.connectUrl.toString())));
+        recording.persist();
+
+        target.activeRecordings.add(recording);
+        target.persist();
+
+        try (InputStream snapshot = getActiveInputStream(target.id, desc.getId())) {
+            if (!snapshotIsReadable(target, snapshot)) {
+                String snapshotName = desc.getName();
+                this.deleteRecording(target, r -> Objects.equals(r.name, snapshotName));
+                throw new SnapshotCreationException(
+                        "Snapshot was not readable - are there any source recordings?");
+            }
+        }
+
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        "SnapshotCreated", new RecordingEvent(target.connectUrl, recording)));
+
+        return recording;
+    }
+
+    public void deleteRecording(Target target, Predicate<ActiveRecording> predicate) {
+        target.activeRecordings.stream().filter(predicate).forEach(ActiveRecording::delete);
+    }
+
+    private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
+        if (!connectionManager.markConnectionInUse(target)) {
+            throw new IOException(
+                    "Target connection unexpectedly closed while streaming recording");
+        }
+
+        try {
+            return snapshot.read() != -1;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     private boolean shouldRestartRecording(
@@ -767,6 +839,12 @@ public class RecordingHelper {
 
         public RecordingNotFoundException(Pair<String, String> key) {
             this(key.getLeft(), key.getRight());
+        }
+    }
+
+    static class SnapshotCreationException extends Exception {
+        public SnapshotCreationException(String message) {
+            super(message);
         }
     }
 }

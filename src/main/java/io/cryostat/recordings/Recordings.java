@@ -494,6 +494,56 @@ public class Recordings {
     @POST
     @Transactional
     @Blocking
+    @Path("/api/v1/targets/{connectUrl}/snapshot")
+    @RolesAllowed("write")
+    public Response createSnapshotV1(@RestPath URI connectUrl) {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/snapshot",
+                                        Target.getTargetByConnectUrl(connectUrl).id)))
+                .build();
+    }
+
+    @POST
+    @Transactional
+    @Blocking
+    @Path("/api/v2/targets/{connectUrl}/snapshot")
+    @RolesAllowed("write")
+    public Response createSnapshotV2(@RestPath URI connectUrl) {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/snapshot",
+                                        Target.getTargetByConnectUrl(connectUrl).id)))
+                .build();
+    }
+
+    @POST
+    @Transactional
+    @Blocking
+    @Path("/api/v3/targets/{id}/snapshot")
+    @RolesAllowed("write")
+    public Response createSnapshot(@RestPath long id) throws Exception {
+        Target target = Target.find("id", id).singleResult();
+        try {
+            ActiveRecording recording =
+                    connectionManager.executeConnectedTask(
+                            target,
+                            connection -> recordingHelper.createSnapshot(target, connection));
+            return Response.status(Response.Status.OK)
+                    .entity(recordingHelper.toExternalForm(recording))
+                    .build();
+        } catch (RecordingHelper.SnapshotCreationException sce) {
+            return Response.status(Response.Status.ACCEPTED).build();
+        }
+    }
+
+    @POST
+    @Transactional
+    @Blocking
     @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed("write")
     public Response createRecording(
@@ -576,7 +626,7 @@ public class Recordings {
         }
 
         return Response.status(Response.Status.CREATED)
-                .entity(recordingHelper.toExternalForm(recording).toString())
+                .entity(recordingHelper.toExternalForm(recording))
                 .build();
     }
 
