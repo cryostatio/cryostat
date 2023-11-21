@@ -75,7 +75,6 @@ import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jdk.jfr.RecordingState;
-import org.apache.commons.codec.binary.Base32;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -122,8 +121,6 @@ public class RecordingHelper {
 
     @Inject Clock clock;
     @Inject S3Presigner presigner;
-
-    @Inject Base32 base32;
 
     @Inject
     @Named(Producers.BASE64_URL)
@@ -568,10 +565,6 @@ public class RecordingHelper {
             logger.warn(nske);
             return Optional.empty();
         }
-    }
-
-    String decodeBase32(String encoded) {
-        return new String(base32.decode(encoded), StandardCharsets.UTF_8);
     }
 
     String decodeBase64(String encoded) {
