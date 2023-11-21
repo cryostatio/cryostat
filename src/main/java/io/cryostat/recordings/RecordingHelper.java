@@ -383,9 +383,7 @@ public class RecordingHelper {
                             .bucket(archiveBucket)
                             .key(key)
                             .contentType(JFR_MIME)
-                            .tagging(
-                                    createMetadataTagging(
-                                            new Metadata(recording.metadata, expiry)));
+                            .tagging(createActiveRecordingTagging(recording, expiry));
             if (expiry != null && expiry.isAfter(Instant.now())) {
                 builder = builder.expires(expiry);
             }
@@ -609,6 +607,14 @@ public class RecordingHelper {
                         new RecordingEvent(URI.create("localhost:0"), Map.of("name", filename))));
     }
 
+    Tagging createActiveRecordingTagging(ActiveRecording recording, Instant expiry) {
+        Map<String, String> labels = new HashMap<>(recording.metadata.labels());
+        labels.put("connectUrl", recording.target.connectUrl.toString());
+        labels.put("jvmId", recording.target.jvmId);
+        Metadata metadata = new Metadata(labels, expiry);
+        return createMetadataTagging(metadata);
+    }
+
     // Metadata
     Tagging createMetadataTagging(Metadata metadata) {
         // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
@@ -734,14 +740,6 @@ public class RecordingHelper {
                                 throw new BadRequestException(e);
                             }
                         });
-    }
-
-    private Tagging createActiveRecordingTagging(ActiveRecording recording) {
-        Map<String, String> labels = new HashMap<>(recording.metadata.labels());
-        labels.put("connectUrl", recording.target.connectUrl.toString());
-        labels.put("jvmId", recording.target.jvmId);
-        Metadata metadata = new Metadata(labels);
-        return createMetadataTagging(metadata);
     }
 
     public enum RecordingReplace {
