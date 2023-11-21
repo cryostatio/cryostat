@@ -46,6 +46,7 @@ import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpStatusCodeIdentifier;
@@ -536,7 +537,7 @@ public class Recordings {
             return Response.status(Response.Status.OK)
                     .entity(recordingHelper.toExternalForm(recording))
                     .build();
-        } catch (RecordingHelper.SnapshotCreationException sce) {
+        } catch (SnapshotCreationException sce) {
             return Response.status(Response.Status.ACCEPTED).build();
         }
     }
