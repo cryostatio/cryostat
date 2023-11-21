@@ -15,16 +15,14 @@
  */
 package itest;
 
+import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import io.cryostat.util.HttpMimeType;
-
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonArray;
@@ -34,67 +32,41 @@ import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-@QuarkusIntegrationTest
-@Disabled("TODO")
+@QuarkusTest
 public class SnapshotIT extends StandardSelfTest {
-    static final String TEST_RECORDING_NAME = "someRecording";
-    static final String TARGET_REQ_URL =
-            String.format("/api/v1/targets%s", getSelfReferenceConnectUrl());
-    static final String V2_SNAPSHOT_REQ_URL =
-            String.format("/api/v2/targets%s", getSelfReferenceConnectUrl());
-    static final Pattern SNAPSHOT_NAME_PATTERN = Pattern.compile("^snapshot-[0-9]+$");
-    static final Pattern TIMESTAMP_PATTERN = Pattern.compile("^[0-9]+$");
 
-    @AfterAll
-    static void verifyRecordingsCleanedUp() throws Exception {
-        CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
-        webClient
-                .get(String.format("%s/recordings", TARGET_REQ_URL))
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture1)) {
-                                listRespFuture1.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        JsonArray listResp = listRespFuture1.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        Assertions.assertTrue(listResp.isEmpty());
+    static final String TEST_RECORDING_NAME = "someRecording";
+    static final Pattern SNAPSHOT_NAME_PATTERN = Pattern.compile("^snapshot-[0-9]+$");
+
+    String v1RequestUrl() {
+        return String.format("/api/v1/targets/%s", getSelfReferenceConnectUrlEncoded());
+    }
+
+    String v2RequestUrl() {
+        return String.format("/api/v2/targets/%s", getSelfReferenceConnectUrlEncoded());
     }
 
     @Test
     void testPostV1ShouldCreateSnapshot() throws Exception {
-
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
 
         try {
             // Create a recording
-            CompletableFuture<JsonObject> recordResponse = new CompletableFuture<>();
             MultiMap form = MultiMap.caseInsensitiveMultiMap();
             form.add("recordingName", TEST_RECORDING_NAME);
             form.add("duration", "5");
             form.add("events", "template=ALL");
-
             webClient
-                    .post(String.format("%s/recordings", TARGET_REQ_URL))
-                    .sendForm(
-                            form,
-                            ar -> {
-                                if (assertRequestStatus(ar, recordResponse)) {
-                                    MatcherAssert.assertThat(
-                                            ar.result().statusCode(), Matchers.equalTo(201));
-                                    recordResponse.complete(null);
-                                }
-                            });
-
-            recordResponse.get();
+                    .extensions()
+                    .post(String.format("%s/recordings", v1RequestUrl()), true, form, 5);
 
             // Create a snapshot recording of all events at that time
             webClient
-                    .post(String.format("%s/snapshot", TARGET_REQ_URL))
+                    .post(String.format("%s/snapshot", v1RequestUrl()))
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, snapshotName)) {
@@ -103,19 +75,21 @@ public class SnapshotIT extends StandardSelfTest {
                                     MatcherAssert.assertThat(
                                             ar.result()
                                                     .getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                                            Matchers.equalTo(HttpMimeType.PLAINTEXT.mime()));
+                                            Matchers.equalTo("text/plain;charset=UTF-8"));
                                     snapshotName.complete(ar.result().bodyAsString());
                                 }
                             });
 
             MatcherAssert.assertThat(
-                    snapshotName.get(), Matchers.matchesPattern(SNAPSHOT_NAME_PATTERN));
+                    snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                    Matchers.matchesPattern(SNAPSHOT_NAME_PATTERN));
 
         } finally {
             // Clean up recording and snapshot
             CompletableFuture<JsonObject> deleteRecordingResponse = new CompletableFuture<>();
             webClient
-                    .delete(String.format("%s/recordings/%s", TARGET_REQ_URL, TEST_RECORDING_NAME))
+                    .delete(String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME))
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteRecordingResponse)) {
@@ -125,20 +99,22 @@ public class SnapshotIT extends StandardSelfTest {
                             });
 
             try {
-                deleteRecordingResponse.get();
+                deleteRecordingResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (InterruptedException | ExecutionException e) {
-                logger.error(
-                        new ITestCleanupFailedException(
-                                String.format(
-                                        "Failed to delete target recording %s",
-                                        TEST_RECORDING_NAME),
-                                e));
+                throw new ITestCleanupFailedException(
+                        String.format("Failed to delete target recording %s", TEST_RECORDING_NAME),
+                        e);
             }
 
             CompletableFuture<JsonObject> deleteSnapshotResponse = new CompletableFuture<>();
 
             webClient
-                    .delete(String.format("%s/recordings/%s", TARGET_REQ_URL, snapshotName.get()))
+                    .delete(
+                            String.format(
+                                    "%s/recordings/%s",
+                                    v1RequestUrl(),
+                                    snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)))
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteSnapshotResponse)) {
@@ -147,48 +123,48 @@ public class SnapshotIT extends StandardSelfTest {
                             });
 
             try {
-                deleteSnapshotResponse.get();
+                deleteSnapshotResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (InterruptedException | ExecutionException e) {
-                logger.error(
-                        new ITestCleanupFailedException(
-                                String.format("Failed to delete snapshot %s", snapshotName.get()),
-                                e));
+                throw new ITestCleanupFailedException(
+                        String.format(
+                                "Failed to delete snapshot %s",
+                                snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)),
+                        e);
             }
         }
     }
 
     @Test
     void testPostV1ShouldHandleEmptySnapshot() throws Exception {
-        CompletableFuture<Void> result = new CompletableFuture<>();
+        CompletableFuture<Integer> result = new CompletableFuture<>();
 
-        try {
-            // Create an empty snapshot recording (no active recordings present)
-            webClient
-                    .post(String.format("%s/snapshot", TARGET_REQ_URL))
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, result)) {
-                                    MatcherAssert.assertThat(
-                                            ar.result().statusCode(), Matchers.equalTo(202));
-                                    result.complete(null);
-                                }
-                            });
-            result.get();
-        } finally {
-            // The empty snapshot should've been deleted (i.e. there should be no recordings
-            // present)
-            CompletableFuture<JsonArray> listRespFuture = new CompletableFuture<>();
-            webClient
-                    .get(String.format("%s/recordings", TARGET_REQ_URL))
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, listRespFuture)) {
-                                    listRespFuture.complete(ar.result().bodyAsJsonArray());
-                                }
-                            });
-            JsonArray listResp = listRespFuture.get();
-            Assertions.assertTrue(listResp.isEmpty());
-        }
+        // Create an empty snapshot recording (no active recordings present)
+        webClient
+                .post(String.format("%s/snapshot", v1RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, result)) {
+                                result.complete(ar.result().statusCode());
+                            }
+                        });
+        MatcherAssert.assertThat(
+                result.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS), Matchers.equalTo(202));
+
+        // The empty snapshot should've been deleted (i.e. there should be no recordings
+        // present)
+        CompletableFuture<JsonArray> listRespFuture = new CompletableFuture<>();
+        webClient
+                .get(String.format("%s/recordings", v1RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, listRespFuture)) {
+                                listRespFuture.complete(ar.result().bodyAsJsonArray());
+                            }
+                        });
+        JsonArray listResp = listRespFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Assertions.assertTrue(listResp.isEmpty());
     }
 
     @Test
@@ -196,13 +172,16 @@ public class SnapshotIT extends StandardSelfTest {
 
         CompletableFuture<String> snapshotResponse = new CompletableFuture<>();
         webClient
-                .post("/api/v1/targets/notFound:9000/snapshot")
+                .post("/api/v1/targets/notFound%2F9000/snapshot")
+                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             assertRequestStatus(ar, snapshotResponse);
                         });
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> snapshotResponse.get());
+                Assertions.assertThrows(
+                        ExecutionException.class,
+                        () -> snapshotResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(404));
         MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Not Found"));
@@ -210,36 +189,23 @@ public class SnapshotIT extends StandardSelfTest {
 
     @Test
     void testPostV2ShouldCreateSnapshot() throws Exception {
-
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
 
         try {
             // Create a recording
-            CompletableFuture<JsonObject> recordResponse = new CompletableFuture<>();
-
             MultiMap form = MultiMap.caseInsensitiveMultiMap();
             form.add("recordingName", TEST_RECORDING_NAME);
             form.add("duration", "5");
             form.add("events", "template=ALL");
-
             webClient
-                    .post(String.format("%s/recordings", TARGET_REQ_URL))
-                    .sendForm(
-                            form,
-                            ar -> {
-                                if (assertRequestStatus(ar, recordResponse)) {
-                                    MatcherAssert.assertThat(
-                                            ar.result().statusCode(), Matchers.equalTo(201));
-                                    recordResponse.complete(null);
-                                }
-                            });
-
-            recordResponse.get();
+                    .extensions()
+                    .post(String.format("%s/recordings", v1RequestUrl()), true, form, 5);
 
             // Create a snapshot recording of all events at that time
             CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
             webClient
-                    .post(String.format("%s/snapshot", V2_SNAPSHOT_REQ_URL))
+                    .post(String.format("%s/snapshot", v2RequestUrl()))
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, createResponse)) {
@@ -248,95 +214,58 @@ public class SnapshotIT extends StandardSelfTest {
                                     MatcherAssert.assertThat(
                                             ar.result()
                                                     .getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                                            Matchers.equalTo(HttpMimeType.PLAINTEXT.mime()));
+                                            Matchers.equalTo("application/json;charset=UTF-8"));
                                     createResponse.complete(ar.result().bodyAsJsonObject());
                                 }
                             });
 
             snapshotName.complete(
                     createResponse
-                            .get()
+                            .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                             .getJsonObject("data")
                             .getJsonObject("result")
                             .getString("name"));
 
-            final Long startTime =
-                    createResponse
-                            .get()
-                            .getJsonObject("data")
-                            .getJsonObject("result")
-                            .getLong("startTime");
-
-            final Long duration =
-                    createResponse
-                            .get()
-                            .getJsonObject("data")
-                            .getJsonObject("result")
-                            .getLong("duration");
-
-            // Extract id from snapshot name for validation
-            Pattern idPattern = Pattern.compile("[0-9]+");
-            Matcher idMatcher = idPattern.matcher(snapshotName.get());
-            idMatcher.find();
-            final Integer snapshotId = Integer.parseInt(idMatcher.group());
-
-            final String expectedDownloadUrl =
-                    String.format(
-                            "http://localhost:8181%s/recordings/%s",
-                            TARGET_REQ_URL, snapshotName.get());
-            final String expectedReportUrl =
-                    String.format(
-                            "http://localhost:8181%s/reports/%s",
-                            TARGET_REQ_URL, snapshotName.get());
-
-            JsonObject expectedCreateResponse =
-                    new JsonObject(
-                            Map.of(
-                                    "meta",
-                                            Map.of(
-                                                    "type",
-                                                    HttpMimeType.PLAINTEXT.mime(),
-                                                    "status",
-                                                    "Created"),
-                                    "data",
-                                            Map.ofEntries(
-                                                    Map.entry(
-                                                            "result",
-                                                            Map.ofEntries(
-                                                                    Map.entry(
-                                                                            "downloadUrl",
-                                                                            expectedDownloadUrl),
-                                                                    Map.entry(
-                                                                            "reportUrl",
-                                                                            expectedReportUrl),
-                                                                    Map.entry("id", snapshotId),
-                                                                    Map.entry(
-                                                                            "name",
-                                                                            snapshotName.get()),
-                                                                    Map.entry("state", "STOPPED"),
-                                                                    Map.entry(
-                                                                            "startTime", startTime),
-                                                                    Map.entry("duration", duration),
-                                                                    Map.entry("continuous", true),
-                                                                    Map.entry("toDisk", true),
-                                                                    Map.entry("maxSize", 0),
-                                                                    Map.entry("maxAge", 0),
-                                                                    Map.entry(
-                                                                            "archiveOnStop", false),
-                                                                    Map.entry(
-                                                                            "metadata",
-                                                                            Map.of(
-                                                                                    "labels",
-                                                                                    Map.of())))))));
+            JsonObject json = createResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
             MatcherAssert.assertThat(
-                    createResponse.get(), Matchers.equalToObject(expectedCreateResponse));
+                    json.getJsonObject("meta"),
+                    Matchers.equalTo(
+                            new JsonObject(
+                                    Map.of("type", "application/json", "status", "Created"))));
+            MatcherAssert.assertThat(json.getMap(), Matchers.hasKey("data"));
+            MatcherAssert.assertThat(
+                    json.getJsonObject("data").getMap(), Matchers.hasKey("result"));
+            JsonObject result = json.getJsonObject("data").getJsonObject("result");
+            MatcherAssert.assertThat(result.getString("state"), Matchers.equalTo("STOPPED"));
+            // the duration should be zero, but it might have managed to record something if the
+            // test environment is very slow
+            MatcherAssert.assertThat(result.getInteger("duration"), Matchers.lessThan(10));
+            MatcherAssert.assertThat(
+                    result.getLong("startTime"),
+                    Matchers.lessThanOrEqualTo(Instant.now().toEpochMilli()));
+            MatcherAssert.assertThat(result.getBoolean("continuous"), Matchers.equalTo(true));
+            MatcherAssert.assertThat(result.getBoolean("toDisk"), Matchers.equalTo(true));
+            MatcherAssert.assertThat(result.getInteger("maxSize"), Matchers.equalTo(0));
+            MatcherAssert.assertThat(result.getInteger("maxAge"), Matchers.equalTo(0));
+            MatcherAssert.assertThat(
+                    result.getString("name"),
+                    Matchers.equalTo(snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)));
+            MatcherAssert.assertThat(result.getLong("id"), Matchers.greaterThan(0L));
+            MatcherAssert.assertThat(
+                    result.getString("downloadUrl"),
+                    Matchers.equalTo("/api/v3/activedownload/" + result.getLong("id")));
+            MatcherAssert.assertThat(
+                    result.getString("reportUrl"),
+                    Matchers.equalTo("/api/v3/targets/1/reports/" + result.getLong("id")));
+            MatcherAssert.assertThat(result.getLong("expiry"), Matchers.nullValue());
 
         } finally {
             // Clean up recording and snapshot
             CompletableFuture<JsonObject> deleteRecordingResponse = new CompletableFuture<>();
             webClient
-                    .delete(String.format("%s/recordings/%s", TARGET_REQ_URL, TEST_RECORDING_NAME))
+                    .delete(String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME))
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteRecordingResponse)) {
@@ -346,20 +275,22 @@ public class SnapshotIT extends StandardSelfTest {
                             });
 
             try {
-                deleteRecordingResponse.get();
+                deleteRecordingResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (InterruptedException | ExecutionException e) {
-                logger.error(
-                        new ITestCleanupFailedException(
-                                String.format(
-                                        "Failed to delete target recording %s",
-                                        TEST_RECORDING_NAME),
-                                e));
+                throw new ITestCleanupFailedException(
+                        String.format("Failed to delete target recording %s", TEST_RECORDING_NAME),
+                        e);
             }
 
             CompletableFuture<JsonObject> deleteSnapshotResponse = new CompletableFuture<>();
 
             webClient
-                    .delete(String.format("%s/recordings/%s", TARGET_REQ_URL, snapshotName.get()))
+                    .delete(
+                            String.format(
+                                    "%s/recordings/%s",
+                                    v1RequestUrl(),
+                                    snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)))
+                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteSnapshotResponse)) {
@@ -368,48 +299,48 @@ public class SnapshotIT extends StandardSelfTest {
                             });
 
             try {
-                deleteSnapshotResponse.get();
+                deleteSnapshotResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             } catch (InterruptedException | ExecutionException e) {
-                logger.error(
-                        new ITestCleanupFailedException(
-                                String.format("Failed to delete snapshot %s", snapshotName.get()),
-                                e));
+                throw new ITestCleanupFailedException(
+                        String.format(
+                                "Failed to delete snapshot %s",
+                                snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)),
+                        e);
             }
         }
     }
 
     @Test
     void testPostV2ShouldHandleEmptySnapshot() throws Exception {
-        CompletableFuture<Void> result = new CompletableFuture<>();
+        CompletableFuture<Integer> result = new CompletableFuture<>();
 
-        try {
-            // Create an empty snapshot recording (no active recordings present)
-            webClient
-                    .post(String.format("%s/snapshot", V2_SNAPSHOT_REQ_URL))
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, result)) {
-                                    MatcherAssert.assertThat(
-                                            ar.result().statusCode(), Matchers.equalTo(202));
-                                    result.complete(null);
-                                }
-                            });
-            result.get();
-        } finally {
-            // The empty snapshot should've been deleted (i.e. there should be no recordings
-            // present)
-            CompletableFuture<JsonArray> listRespFuture = new CompletableFuture<>();
-            webClient
-                    .get(String.format("%s/recordings", TARGET_REQ_URL))
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, listRespFuture)) {
-                                    listRespFuture.complete(ar.result().bodyAsJsonArray());
-                                }
-                            });
-            JsonArray listResp = listRespFuture.get();
-            Assertions.assertTrue(listResp.isEmpty());
-        }
+        // Create an empty snapshot recording (no active recordings present)
+        webClient
+                .post(String.format("%s/snapshot", v2RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, result)) {
+                                result.complete(ar.result().statusCode());
+                            }
+                        });
+        MatcherAssert.assertThat(
+                result.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS), Matchers.equalTo(202));
+
+        // The empty snapshot should've been deleted (i.e. there should be no recordings
+        // present)
+        CompletableFuture<JsonArray> listRespFuture = new CompletableFuture<>();
+        webClient
+                .get(String.format("%s/recordings", v1RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, listRespFuture)) {
+                                listRespFuture.complete(ar.result().bodyAsJsonArray());
+                            }
+                        });
+        JsonArray listResp = listRespFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Assertions.assertTrue(listResp.isEmpty());
     }
 
     @Test
@@ -418,12 +349,15 @@ public class SnapshotIT extends StandardSelfTest {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
         webClient
                 .post("/api/v2/targets/notFound:9000/snapshot")
+                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             assertRequestStatus(ar, snapshotName);
                         });
         ExecutionException ex =
-                Assertions.assertThrows(ExecutionException.class, () -> snapshotName.get());
+                Assertions.assertThrows(
+                        ExecutionException.class,
+                        () -> snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS));
         MatcherAssert.assertThat(
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(404));
         MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Not Found"));

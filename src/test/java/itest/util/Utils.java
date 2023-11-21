@@ -138,7 +138,7 @@ public class Utils {
                             });
                 }
                 if (future.get().statusCode() == 308) {
-                    return post(future.get().getHeader("Location"), true, form, timeout);
+                    return post(future.get().getHeader("Location"), authentication, form, timeout);
                 }
                 return future.get(timeout, TimeUnit.SECONDS);
             }
