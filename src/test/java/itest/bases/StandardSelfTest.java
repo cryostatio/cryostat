@@ -386,6 +386,11 @@ public abstract class StandardSelfTest {
                 webClient.get(url), name, suffix, MultiMap.caseInsensitiveMultiMap());
     }
 
+    public static CompletableFuture<Path> downloadFile(
+            String url, String name, String suffix, MultiMap headers) {
+        return fireDownloadRequest(webClient.get(url), name, suffix, headers);
+    }
+
     public static CompletableFuture<Path> downloadFileAbs(String url, String name, String suffix) {
         return fireDownloadRequest(
                 webClient.getAbs(url), name, suffix, MultiMap.caseInsensitiveMultiMap());

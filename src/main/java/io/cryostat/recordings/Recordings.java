@@ -305,28 +305,20 @@ public class Recordings {
 
     @DELETE
     @Blocking
-    @Path("/api/beta/recordings/{jvmId}/{filename}")
+    @Path("/api/beta/recordings/{connectUrl}/{filename}")
     @RolesAllowed("write")
     public void agentDelete(
-            @RestPath String jvmId,
+            @RestPath String connectUrl,
             @RestPath String filename,
             @RestForm("recording") FileUpload recording,
             @RestForm("labels") JsonObject rawLabels)
             throws Exception {
-        var metadata =
-                recordingHelper
-                        .getArchivedRecordingMetadata(jvmId, filename)
-                        .orElseGet(Metadata::empty);
-        var connectUrl =
-                Target.getTargetByJvmId(jvmId)
-                        .map(t -> t.connectUrl)
-                        .map(c -> c.toString())
-                        .orElseGet(() -> metadata.labels.computeIfAbsent("connectUrl", k -> jvmId));
+        var target = Target.getTargetByConnectUrl(URI.create(connectUrl));
         var resp =
                 storage.deleteObject(
                         DeleteObjectRequest.builder()
                                 .bucket(archiveBucket)
-                                .key(recordingHelper.archivedRecordingKey(jvmId, filename))
+                                .key(recordingHelper.archivedRecordingKey(target.jvmId, filename))
                                 .build());
         if (resp.sdkHttpResponse().isSuccessful()) {
             bus.publish(

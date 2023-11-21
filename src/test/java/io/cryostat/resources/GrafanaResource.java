@@ -27,9 +27,9 @@ import org.testcontainers.utility.DockerImageName;
 public class GrafanaResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
-    private static int GRAFANA_PORT = 3000;
-    private static String IMAGE_NAME = "quay.io/cryostat/cryostat-grafana-dashboard:latest";
-    private static Map<String, String> envMap =
+    private static final int GRAFANA_PORT = 3000;
+    private static final String IMAGE_NAME = "quay.io/cryostat/cryostat-grafana-dashboard:latest";
+    private static final Map<String, String> envMap =
             Map.of(
                     "GF_INSTALL_PLUGINS", "grafana-simple-json-datasource",
                     "GF_AUTH_ANONYMOUS_ENABLED", "true",
@@ -59,8 +59,10 @@ public class GrafanaResource
 
     @Override
     public void stop() {
-        container.stop();
-        container.close();
+        if (container != null) {
+            container.stop();
+            container.close();
+        }
     }
 
     @Override

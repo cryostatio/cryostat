@@ -26,11 +26,9 @@ import itest.util.Utils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-@Disabled("TODO")
 public class NotificationsUrlIT extends StandardSelfTest {
 
     HttpRequest<Buffer> req;
@@ -43,14 +41,15 @@ public class NotificationsUrlIT extends StandardSelfTest {
     @Test
     public void shouldSucceed() throws Exception {
         CompletableFuture<Integer> future = new CompletableFuture<>();
-        req.send(
-                ar -> {
-                    if (ar.succeeded()) {
-                        future.complete(ar.result().statusCode());
-                    } else {
-                        future.completeExceptionally(ar.cause());
-                    }
-                });
+        req.basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (ar.succeeded()) {
+                                future.complete(ar.result().statusCode());
+                            } else {
+                                future.completeExceptionally(ar.cause());
+                            }
+                        });
         MatcherAssert.assertThat(
                 future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS), Matchers.equalTo(200));
     }
@@ -58,14 +57,15 @@ public class NotificationsUrlIT extends StandardSelfTest {
     @Test
     public void shouldReturnOK() throws Exception {
         CompletableFuture<String> future = new CompletableFuture<>();
-        req.send(
-                ar -> {
-                    if (ar.succeeded()) {
-                        future.complete(ar.result().statusMessage());
-                    } else {
-                        future.completeExceptionally(ar.cause());
-                    }
-                });
+        req.basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (ar.succeeded()) {
+                                future.complete(ar.result().statusMessage());
+                            } else {
+                                future.completeExceptionally(ar.cause());
+                            }
+                        });
         MatcherAssert.assertThat(
                 future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS), Matchers.equalTo("OK"));
     }
@@ -73,35 +73,37 @@ public class NotificationsUrlIT extends StandardSelfTest {
     @Test
     public void shouldReturnContentTypeJson() throws Exception {
         CompletableFuture<String> future = new CompletableFuture<>();
-        req.send(
-                ar -> {
-                    if (ar.succeeded()) {
-                        future.complete(ar.result().getHeader("Content-Type"));
-                    } else {
-                        future.completeExceptionally(ar.cause());
-                    }
-                });
+        req.basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (ar.succeeded()) {
+                                future.complete(ar.result().getHeader("Content-Type"));
+                            } else {
+                                future.completeExceptionally(ar.cause());
+                            }
+                        });
         MatcherAssert.assertThat(
                 future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
-                Matchers.equalTo("application/json"));
+                Matchers.equalTo("application/json;charset=UTF-8"));
     }
 
     @Test
     public void shouldReturnJsonMessage() throws Exception {
         CompletableFuture<String> future = new CompletableFuture<>();
-        req.send(
-                ar -> {
-                    if (ar.succeeded()) {
-                        future.complete(ar.result().bodyAsString());
-                    } else {
-                        future.completeExceptionally(ar.cause());
-                    }
-                });
+        req.basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (ar.succeeded()) {
+                                future.complete(ar.result().bodyAsString());
+                            } else {
+                                future.completeExceptionally(ar.cause());
+                            }
+                        });
         MatcherAssert.assertThat(
                 future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
                 Matchers.equalTo(
                         String.format(
                                 "{\"notificationsUrl\":\"ws://%s:%d/api/v1/notifications\"}",
-                                Utils.WEB_HOST, Utils.WEB_PORT)));
+                                "0.0.0.0", Utils.WEB_PORT)));
     }
 }

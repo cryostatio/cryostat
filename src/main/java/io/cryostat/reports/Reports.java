@@ -16,12 +16,9 @@
 package io.cryostat.reports;
 
 import java.io.BufferedInputStream;
-import java.io.IOException;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
-
-import org.openjdk.jmc.flightrecorder.CouldNotLoadRecordingException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
@@ -108,8 +105,7 @@ public class Reports {
     @Path("/api/v3/reports/{encodedKey}")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
-    public Uni<Map<String, AnalysisResult>> get(@RestPath String encodedKey)
-            throws IOException, CouldNotLoadRecordingException {
+    public Uni<Map<String, AnalysisResult>> get(@RestPath String encodedKey) {
         // TODO implement query parameter for evaluation predicate
         return Uni.createFrom()
                 .future(
@@ -122,7 +118,7 @@ public class Reports {
     @Blocking
     @GET
     @Path("/api/v1/targets/{targetId}/reports/{recordingName}")
-    @Produces({MediaType.APPLICATION_JSON, MediaType.TEXT_HTML, MediaType.TEXT_PLAIN})
+    @Produces({MediaType.APPLICATION_JSON})
     @RolesAllowed("read")
     @Deprecated(since = "3.0", forRemoval = true)
     public Response getActiveV1(@RestPath String targetId, @RestPath String recordingName) {
@@ -146,7 +142,7 @@ public class Reports {
     @CacheResult(cacheName = ACTIVE_CACHE)
     @GET
     @Path("/api/v3/targets/{targetId}/reports/{recordingId}")
-    @Produces(MediaType.APPLICATION_JSON)
+    @Produces({MediaType.APPLICATION_JSON})
     @RolesAllowed("read")
     @Deprecated(since = "3.0", forRemoval = true)
     public Uni<Map<String, AnalysisResult>> getActive(

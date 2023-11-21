@@ -88,6 +88,10 @@ public class Utils {
 
         HttpResponse<Buffer> delete(String url, boolean authentication, int timeout)
                 throws InterruptedException, ExecutionException, TimeoutException;
+
+        HttpResponse<Buffer> patch(
+                String url, boolean authentication, MultiMap headers, String action, int timeout)
+                throws InterruptedException, ExecutionException, TimeoutException;
     }
 
     public static class TestWebClient extends WebClientBase {
@@ -157,6 +161,36 @@ public class Utils {
                         });
                 if (future.get().statusCode() == 308) {
                     return delete(future.get().getHeader("Location"), true, timeout);
+                }
+                return future.get(timeout, TimeUnit.SECONDS);
+            }
+
+            public HttpResponse<Buffer> patch(
+                    String url,
+                    boolean authentication,
+                    MultiMap headers,
+                    String action,
+                    int timeout)
+                    throws InterruptedException, ExecutionException, TimeoutException {
+                CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
+                RequestOptions options = new RequestOptions().setURI(url);
+                HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.PATCH, options);
+                if (authentication) {
+                    req.basicAuthentication("user", "pass");
+                }
+                req.putHeaders(headers)
+                        .sendBuffer(
+                                Buffer.buffer(action),
+                                ar -> {
+                                    if (ar.succeeded()) {
+                                        future.complete(ar.result());
+                                    } else {
+                                        future.completeExceptionally(ar.cause());
+                                    }
+                                });
+                if (future.get().statusCode() == 308) {
+                    return patch(
+                            future.get().getHeader("Location"), true, headers, action, timeout);
                 }
                 return future.get(timeout, TimeUnit.SECONDS);
             }

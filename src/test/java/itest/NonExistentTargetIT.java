@@ -26,11 +26,9 @@ import org.apache.http.client.utils.URLEncodedUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-@Disabled("TODO")
 public class NonExistentTargetIT extends StandardSelfTest {
 
     static final String BAD_TARGET_CONNECT_URL =
