@@ -41,6 +41,7 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import io.cryostat.V2Response;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.TemplateType;
@@ -497,14 +498,17 @@ public class Recordings {
     @Blocking
     @Path("/api/v1/targets/{connectUrl}/snapshot")
     @RolesAllowed("write")
-    public Response createSnapshotV1(@RestPath URI connectUrl) {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/snapshot",
-                                        Target.getTargetByConnectUrl(connectUrl).id)))
-                .build();
+    public Response createSnapshotV1(@RestPath URI connectUrl) throws Exception {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        try {
+            ActiveRecording recording =
+                    connectionManager.executeConnectedTask(
+                            target,
+                            connection -> recordingHelper.createSnapshot(target, connection));
+            return Response.status(Response.Status.OK).entity(recording.name).build();
+        } catch (SnapshotCreationException sce) {
+            return Response.status(Response.Status.ACCEPTED).build();
+        }
     }
 
     @POST
@@ -512,14 +516,24 @@ public class Recordings {
     @Blocking
     @Path("/api/v2/targets/{connectUrl}/snapshot")
     @RolesAllowed("write")
-    public Response createSnapshotV2(@RestPath URI connectUrl) {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/snapshot",
-                                        Target.getTargetByConnectUrl(connectUrl).id)))
-                .build();
+    public Response createSnapshotV2(@RestPath URI connectUrl) throws Exception {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        try {
+            ActiveRecording recording =
+                    connectionManager.executeConnectedTask(
+                            target,
+                            connection -> recordingHelper.createSnapshot(target, connection));
+            return Response.status(Response.Status.CREATED)
+                    .entity(
+                            V2Response.json(
+                                    recordingHelper.toExternalForm(recording),
+                                    RestResponse.Status.CREATED.toString()))
+                    .build();
+        } catch (SnapshotCreationException sce) {
+            return Response.status(Response.Status.ACCEPTED)
+                    .entity(V2Response.json(null, RestResponse.Status.ACCEPTED.toString()))
+                    .build();
+        }
     }
 
     @POST
