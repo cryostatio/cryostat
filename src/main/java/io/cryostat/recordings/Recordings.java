@@ -721,11 +721,10 @@ public class Recordings {
 
     @DELETE
     @Blocking
-    @Path("/api/beta/fs/recordings/{encodedJvmId}/{filename}")
+    @Path("/api/beta/fs/recordings/{jvmId}/{filename}")
     @RolesAllowed("write")
-    public void deleteArchivedRecording(@RestPath String encodedJvmId, @RestPath String filename)
+    public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
             throws Exception {
-        var jvmId = recordingHelper.decodeBase32(encodedJvmId);
         logger.infov("Handling archived recording deletion: {0} / {1}", jvmId, filename);
         var metadata =
                 recordingHelper
