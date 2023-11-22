@@ -19,7 +19,7 @@ import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBu
 
 import io.cryostat.core.RecordingOptionsCustomizer;
 
-import io.quarkus.arc.DefaultBean;
+import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Singleton;
 import org.slf4j.Logger;
@@ -29,21 +29,21 @@ import org.slf4j.LoggerFactory;
 public class RecordingsModule {
 
     @Produces
-    @DefaultBean
+    @ApplicationScoped
     public RecordingOptionsBuilderFactory provideRecordingOptionsBuilderFactory(
             RecordingOptionsCustomizer customizer) {
         return service -> customizer.apply(new RecordingOptionsBuilder(service));
     }
 
     @Produces
-    @DefaultBean
+    @ApplicationScoped
     public EventOptionsBuilder.Factory provideEventOptionsBuilderFactory() {
         Logger log = LoggerFactory.getLogger(EventOptionsBuilder.class);
         return new EventOptionsBuilder.Factory(log::debug);
     }
 
     @Produces
-    @DefaultBean
+    @ApplicationScoped
     public RecordingOptionsCustomizer provideRecordingOptionsCustomizer() {
         Logger log = LoggerFactory.getLogger(RecordingOptionsCustomizer.class);
         return new RecordingOptionsCustomizer(log::debug);

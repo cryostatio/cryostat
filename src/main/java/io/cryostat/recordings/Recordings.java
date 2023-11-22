@@ -15,6 +15,7 @@
  */
 package io.cryostat.recordings;
 
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -31,6 +32,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
@@ -42,6 +45,7 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.V2Response;
+import io.cryostat.core.RecordingOptionsCustomizer;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.TemplateType;
@@ -110,6 +114,7 @@ public class Recordings {
     @Inject TargetConnectionManager connectionManager;
     @Inject EventBus bus;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
+    @Inject RecordingOptionsCustomizer recordingOptionsCustomizer;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
     @Inject Clock clock;
     @Inject S3Client storage;
@@ -464,7 +469,12 @@ public class Recordings {
                 activeRecording.persist();
                 return null;
             case "save":
-                return recordingHelper.saveRecording(activeRecording);
+                try {
+                    return recordingHelper.saveRecording(activeRecording);
+                } catch (IOException ioe) {
+                    logger.warn(ioe);
+                    return null;
+                }
             default:
                 throw new BadRequestException(body);
         }
@@ -845,6 +855,86 @@ public class Recordings {
         return connectionManager.executeConnectedTask(
                 target,
                 connection -> {
+                    RecordingOptionsBuilder builder =
+                            recordingOptionsBuilderFactory.create(connection.getService());
+                    return getRecordingOptions(connection.getService(), builder);
+                });
+    }
+
+    @PATCH
+    @Blocking
+    @Path("/api/v1/targets/{connectUrl}/recordingOptions")
+    @RolesAllowed("write")
+    public Response patchRecordingOptionsV1(@RestPath URI connectUrl) {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(String.format("/api/v3/targets/%d/recordingOptions", target.id)))
+                .build();
+    }
+
+    @PATCH
+    @Blocking
+    @Path("/api/v3/targets/{id}/recordingOptions")
+    @RolesAllowed("read")
+    public Map<String, Object> patchRecordingOptions(
+            @RestPath long id,
+            @RestForm String toDisk,
+            @RestForm String maxAge,
+            @RestForm String maxSize)
+            throws Exception {
+        final String unsetKeyword = "unset";
+        Map<String, String> form = new HashMap<>();
+
+        Pattern bool = Pattern.compile("true|false|" + unsetKeyword);
+        if (toDisk != null) {
+            Matcher m = bool.matcher(toDisk);
+            if (!m.matches()) {
+                throw new BadRequestException("Invalid options");
+            }
+            form.put("toDisk", toDisk);
+        }
+        if (maxAge != null) {
+            if (!unsetKeyword.equals(maxAge)) {
+                try {
+                    Long.parseLong(maxAge);
+                    form.put("maxAge", maxAge);
+                } catch (NumberFormatException e) {
+                    throw new BadRequestException("Invalid options");
+                }
+            }
+        }
+        if (maxSize != null) {
+            if (!unsetKeyword.equals(maxSize)) {
+                try {
+                    Long.parseLong(maxSize);
+                    form.put("maxSize", maxSize);
+                } catch (NumberFormatException e) {
+                    throw new BadRequestException("Invalid options");
+                }
+            }
+        }
+
+        Target target = Target.find("id", id).singleResult();
+        return connectionManager.executeConnectedTask(
+                target,
+                connection -> {
+                    List.of("maxAge", "maxSize", "toDisk")
+                            .forEach(
+                                    key -> {
+                                        if (form.containsKey(key)) {
+                                            String v = form.get(key);
+                                            RecordingOptionsCustomizer.OptionKey optionKey =
+                                                    RecordingOptionsCustomizer.OptionKey
+                                                            .fromOptionName(key)
+                                                            .get();
+                                            if ("unset".equals(v)) {
+                                                recordingOptionsCustomizer.unset(optionKey);
+                                            } else {
+                                                recordingOptionsCustomizer.set(optionKey, v);
+                                            }
+                                        }
+                                    });
                     RecordingOptionsBuilder builder =
                             recordingOptionsBuilderFactory.create(connection.getService());
                     return getRecordingOptions(connection.getService(), builder);
