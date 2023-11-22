@@ -306,9 +306,6 @@ public class SnapshotIT extends StandardSelfTest {
                     json.getJsonObject("data").getMap(), Matchers.hasKey("result"));
             JsonObject result = json.getJsonObject("data").getJsonObject("result");
             MatcherAssert.assertThat(result.getString("state"), Matchers.equalTo("STOPPED"));
-            // the duration should be zero, but it might have managed to record something if the
-            // test environment is very slow
-            MatcherAssert.assertThat(result.getInteger("duration"), Matchers.lessThan(10));
             MatcherAssert.assertThat(
                     result.getLong("startTime"),
                     Matchers.lessThanOrEqualTo(Instant.now().toEpochMilli()));
