@@ -41,11 +41,13 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import io.cryostat.V2Response;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpStatusCodeIdentifier;
@@ -494,6 +496,69 @@ public class Recordings {
     @POST
     @Transactional
     @Blocking
+    @Path("/api/v1/targets/{connectUrl}/snapshot")
+    @RolesAllowed("write")
+    public Response createSnapshotV1(@RestPath URI connectUrl) throws Exception {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        try {
+            ActiveRecording recording =
+                    connectionManager.executeConnectedTask(
+                            target,
+                            connection -> recordingHelper.createSnapshot(target, connection));
+            return Response.status(Response.Status.OK).entity(recording.name).build();
+        } catch (SnapshotCreationException sce) {
+            return Response.status(Response.Status.ACCEPTED).build();
+        }
+    }
+
+    @POST
+    @Transactional
+    @Blocking
+    @Path("/api/v2/targets/{connectUrl}/snapshot")
+    @RolesAllowed("write")
+    public Response createSnapshotV2(@RestPath URI connectUrl) throws Exception {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        try {
+            ActiveRecording recording =
+                    connectionManager.executeConnectedTask(
+                            target,
+                            connection -> recordingHelper.createSnapshot(target, connection));
+            return Response.status(Response.Status.CREATED)
+                    .entity(
+                            V2Response.json(
+                                    recordingHelper.toExternalForm(recording),
+                                    RestResponse.Status.CREATED.toString()))
+                    .build();
+        } catch (SnapshotCreationException sce) {
+            return Response.status(Response.Status.ACCEPTED)
+                    .entity(V2Response.json(null, RestResponse.Status.ACCEPTED.toString()))
+                    .build();
+        }
+    }
+
+    @POST
+    @Transactional
+    @Blocking
+    @Path("/api/v3/targets/{id}/snapshot")
+    @RolesAllowed("write")
+    public Response createSnapshot(@RestPath long id) throws Exception {
+        Target target = Target.find("id", id).singleResult();
+        try {
+            ActiveRecording recording =
+                    connectionManager.executeConnectedTask(
+                            target,
+                            connection -> recordingHelper.createSnapshot(target, connection));
+            return Response.status(Response.Status.OK)
+                    .entity(recordingHelper.toExternalForm(recording))
+                    .build();
+        } catch (SnapshotCreationException sce) {
+            return Response.status(Response.Status.ACCEPTED).build();
+        }
+    }
+
+    @POST
+    @Transactional
+    @Blocking
     @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed("write")
     public Response createRecording(
@@ -576,7 +641,7 @@ public class Recordings {
         }
 
         return Response.status(Response.Status.CREATED)
-                .entity(recordingHelper.toExternalForm(recording).toString())
+                .entity(recordingHelper.toExternalForm(recording))
                 .build();
     }
 
@@ -873,6 +938,7 @@ public class Recordings {
 
     public record LinkedRecordingDescriptor(
             long id,
+            long remoteId,
             RecordingState state,
             long duration,
             long startTime,
@@ -890,22 +956,6 @@ public class Recordings {
             Objects.requireNonNull(downloadUrl);
             Objects.requireNonNull(reportUrl);
             Objects.requireNonNull(metadata);
-        }
-
-        public static LinkedRecordingDescriptor from(ActiveRecording recording) {
-            return new LinkedRecordingDescriptor(
-                    recording.remoteId,
-                    recording.state,
-                    recording.duration,
-                    recording.startTime,
-                    recording.continuous,
-                    recording.toDisk,
-                    recording.maxSize,
-                    recording.maxAge,
-                    recording.name,
-                    "TODO",
-                    "TODO",
-                    recording.metadata);
         }
     }
 

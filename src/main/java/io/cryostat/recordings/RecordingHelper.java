@@ -195,6 +195,72 @@ public class RecordingHelper {
         return recording;
     }
 
+    public ActiveRecording createSnapshot(Target target, JFRConnection connection)
+            throws Exception {
+        IRecordingDescriptor desc = connection.getService().getSnapshotRecording();
+
+        String rename = String.format("%s-%d", desc.getName().toLowerCase(), desc.getId());
+
+        RecordingOptionsBuilder recordingOptionsBuilder =
+                recordingOptionsBuilderFactory.create(connection.getService());
+        recordingOptionsBuilder.name(rename);
+
+        connection.getService().updateRecordingOptions(desc, recordingOptionsBuilder.build());
+
+        Optional<IRecordingDescriptor> updatedDescriptor = getDescriptorByName(connection, rename);
+
+        if (updatedDescriptor.isEmpty()) {
+            throw new IllegalStateException(
+                    "The most recent snapshot of the recording cannot be"
+                            + " found after renaming.");
+        }
+
+        desc = updatedDescriptor.get();
+
+        try (InputStream snapshot = remoteRecordingStreamFactory.open(connection, target, desc)) {
+            if (!snapshotIsReadable(target, snapshot)) {
+                connection.getService().close(desc);
+                throw new SnapshotCreationException(
+                        "Snapshot was not readable - are there any source recordings?");
+            }
+        }
+
+        ActiveRecording recording =
+                ActiveRecording.from(
+                        target,
+                        desc,
+                        new Metadata(
+                                Map.of(
+                                        "jvmId",
+                                        target.jvmId,
+                                        "connectUrl",
+                                        target.connectUrl.toString())));
+        recording.persist();
+
+        target.activeRecordings.add(recording);
+        target.persist();
+
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        "SnapshotCreated", new RecordingEvent(target.connectUrl, recording)));
+
+        return recording;
+    }
+
+    private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
+        if (!connectionManager.markConnectionInUse(target)) {
+            throw new IOException(
+                    "Target connection unexpectedly closed while streaming recording");
+        }
+
+        try {
+            return snapshot.read() != -1;
+        } catch (IOException e) {
+            return false;
+        }
+    }
+
     private boolean shouldRestartRecording(
             RecordingReplace replace, RecordingState state, String recordingName)
             throws BadRequestException {
@@ -212,6 +278,7 @@ public class RecordingHelper {
 
     public LinkedRecordingDescriptor toExternalForm(ActiveRecording recording) {
         return new LinkedRecordingDescriptor(
+                recording.id,
                 recording.remoteId,
                 recording.state,
                 recording.duration,
@@ -767,6 +834,12 @@ public class RecordingHelper {
 
         public RecordingNotFoundException(Pair<String, String> key) {
             this(key.getLeft(), key.getRight());
+        }
+    }
+
+    static class SnapshotCreationException extends Exception {
+        public SnapshotCreationException(String message) {
+            super(message);
         }
     }
 }
