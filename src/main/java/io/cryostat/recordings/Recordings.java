@@ -919,20 +919,17 @@ public class Recordings {
         return connectionManager.executeConnectedTask(
                 target,
                 connection -> {
-                    List.of("maxAge", "maxSize", "toDisk")
+                    form.entrySet()
                             .forEach(
-                                    key -> {
-                                        if (form.containsKey(key)) {
-                                            String v = form.get(key);
-                                            RecordingOptionsCustomizer.OptionKey optionKey =
-                                                    RecordingOptionsCustomizer.OptionKey
-                                                            .fromOptionName(key)
-                                                            .get();
-                                            if ("unset".equals(v)) {
-                                                recordingOptionsCustomizer.unset(optionKey);
-                                            } else {
-                                                recordingOptionsCustomizer.set(optionKey, v);
-                                            }
+                                    e -> {
+                                        RecordingOptionsCustomizer.OptionKey optionKey =
+                                                RecordingOptionsCustomizer.OptionKey.fromOptionName(
+                                                                e.getKey())
+                                                        .get();
+                                        if ("unset".equals(e.getValue())) {
+                                            recordingOptionsCustomizer.unset(optionKey);
+                                        } else {
+                                            recordingOptionsCustomizer.set(optionKey, e.getValue());
                                         }
                                     });
                     RecordingOptionsBuilder builder =
