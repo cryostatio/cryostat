@@ -884,8 +884,8 @@ public class Recordings {
             @RestForm String maxSize)
             throws Exception {
         final String unsetKeyword = "unset";
-        Map<String, String> form = new HashMap<>();
 
+        Map<String, String> form = new HashMap<>();
         Pattern bool = Pattern.compile("true|false|" + unsetKeyword);
         if (toDisk != null) {
             Matcher m = bool.matcher(toDisk);
@@ -914,24 +914,23 @@ public class Recordings {
                 }
             }
         }
+        form.entrySet()
+                .forEach(
+                        e -> {
+                            RecordingOptionsCustomizer.OptionKey optionKey =
+                                    RecordingOptionsCustomizer.OptionKey.fromOptionName(e.getKey())
+                                            .get();
+                            if ("unset".equals(e.getValue())) {
+                                recordingOptionsCustomizer.unset(optionKey);
+                            } else {
+                                recordingOptionsCustomizer.set(optionKey, e.getValue());
+                            }
+                        });
 
         Target target = Target.find("id", id).singleResult();
         return connectionManager.executeConnectedTask(
                 target,
                 connection -> {
-                    form.entrySet()
-                            .forEach(
-                                    e -> {
-                                        RecordingOptionsCustomizer.OptionKey optionKey =
-                                                RecordingOptionsCustomizer.OptionKey.fromOptionName(
-                                                                e.getKey())
-                                                        .get();
-                                        if ("unset".equals(e.getValue())) {
-                                            recordingOptionsCustomizer.unset(optionKey);
-                                        } else {
-                                            recordingOptionsCustomizer.set(optionKey, e.getValue());
-                                        }
-                                    });
                     RecordingOptionsBuilder builder =
                             recordingOptionsBuilderFactory.create(connection.getService());
                     return getRecordingOptions(connection.getService(), builder);
