@@ -17,6 +17,8 @@ package itest.util;
 
 public class ITestCleanupFailedException extends Exception {
 
+    public ITestCleanupFailedException() {}
+
     public ITestCleanupFailedException(String reason) {
         super(reason);
     }

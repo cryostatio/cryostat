@@ -29,17 +29,12 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.handler.HttpException;
 import itest.bases.StandardSelfTest;
-import itest.util.ITestCleanupFailedException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusTest
-@TestMethodOrder(OrderAnnotation.class)
 public class SnapshotTest extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "someRecording";
@@ -54,7 +49,6 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    @Order(1)
     void testPostV1ShouldHandleEmptySnapshot() throws Exception {
         // precondition, there should be no recordings before we start
         CompletableFuture<JsonArray> preListRespFuture = new CompletableFuture<>();
@@ -101,7 +95,6 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    @Order(2)
     void testPostV2ShouldHandleEmptySnapshot() throws Exception {
         // precondition, there should be no recordings before we start
         CompletableFuture<JsonArray> preListRespFuture = new CompletableFuture<>();
@@ -148,95 +141,56 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    @Order(3)
     void testPostV1ShouldCreateSnapshot() throws Exception {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
 
-        try {
-            // Create a recording
-            MultiMap form = MultiMap.caseInsensitiveMultiMap();
-            form.add("recordingName", TEST_RECORDING_NAME);
-            form.add("duration", "5");
-            form.add("events", "template=ALL");
-            webClient
-                    .extensions()
-                    .post(String.format("%s/recordings", v1RequestUrl()), true, form, 5);
+        // Create a recording
+        MultiMap form = MultiMap.caseInsensitiveMultiMap();
+        form.add("recordingName", TEST_RECORDING_NAME);
+        form.add("duration", "5");
+        form.add("events", "template=ALL");
+        webClient.extensions().post(String.format("%s/recordings", v1RequestUrl()), true, form, 5);
 
-            // Create a snapshot recording of all events at that time
-            webClient
-                    .post(String.format("%s/snapshot", v1RequestUrl()))
-                    .basicAuthentication("user", "pass")
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, snapshotName)) {
-                                    MatcherAssert.assertThat(
-                                            ar.result().statusCode(), Matchers.equalTo(200));
-                                    MatcherAssert.assertThat(
-                                            ar.result()
-                                                    .getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                                            Matchers.equalTo("text/plain;charset=UTF-8"));
-                                    snapshotName.complete(ar.result().bodyAsString());
-                                }
-                            });
+        // Create a snapshot recording of all events at that time
+        webClient
+                .post(String.format("%s/snapshot", v1RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, snapshotName)) {
+                                MatcherAssert.assertThat(
+                                        ar.result().statusCode(), Matchers.equalTo(200));
+                                MatcherAssert.assertThat(
+                                        ar.result().getHeader(HttpHeaders.CONTENT_TYPE.toString()),
+                                        Matchers.equalTo("text/plain;charset=UTF-8"));
+                                snapshotName.complete(ar.result().bodyAsString());
+                            }
+                        });
 
-            MatcherAssert.assertThat(
-                    snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
-                    Matchers.matchesPattern(SNAPSHOT_NAME_PATTERN));
+        MatcherAssert.assertThat(
+                snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                Matchers.matchesPattern(SNAPSHOT_NAME_PATTERN));
 
-        } finally {
-            // Clean up recording and snapshot
-            CompletableFuture<JsonObject> deleteRecordingResponse = new CompletableFuture<>();
-            webClient
-                    .delete(String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME))
-                    .basicAuthentication("user", "pass")
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, deleteRecordingResponse)) {
-                                    deleteRecordingResponse.complete(
-                                            ar.result().bodyAsJsonObject());
-                                }
-                            });
-
-            try {
-                deleteRecordingResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete target recording %s", TEST_RECORDING_NAME),
-                        e);
-            }
-
-            CompletableFuture<JsonObject> deleteSnapshotResponse = new CompletableFuture<>();
-
-            webClient
-                    .delete(
-                            String.format(
-                                    "%s/recordings/%s",
-                                    v1RequestUrl(),
-                                    snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)))
-                    .basicAuthentication("user", "pass")
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, deleteSnapshotResponse)) {
-                                    deleteSnapshotResponse.complete(ar.result().bodyAsJsonObject());
-                                }
-                            });
-
-            try {
-                deleteSnapshotResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
+        // Clean up recording and snapshot
+        webClient
+                .extensions()
+                .delete(
+                        String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME),
+                        true,
+                        5);
+        webClient
+                .extensions()
+                .delete(
                         String.format(
-                                "Failed to delete snapshot %s",
+                                "%s/recordings/%s",
+                                v1RequestUrl(),
                                 snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)),
-                        e);
-            }
-        }
+                        true,
+                        5);
     }
 
     @Test
-    @Order(4)
     void testPostV1SnapshotThrowsWithNonExistentTarget() throws Exception {
-
         CompletableFuture<String> snapshotResponse = new CompletableFuture<>();
         webClient
                 .post("/api/v1/targets/notFound%2F9000/snapshot")
@@ -255,126 +209,84 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    @Order(5)
     void testPostV2ShouldCreateSnapshot() throws Exception {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
 
-        try {
-            // Create a recording
-            MultiMap form = MultiMap.caseInsensitiveMultiMap();
-            form.add("recordingName", TEST_RECORDING_NAME);
-            form.add("duration", "5");
-            form.add("events", "template=ALL");
-            webClient
-                    .extensions()
-                    .post(String.format("%s/recordings", v1RequestUrl()), true, form, 5);
+        // Create a recording
+        MultiMap form = MultiMap.caseInsensitiveMultiMap();
+        form.add("recordingName", TEST_RECORDING_NAME);
+        form.add("duration", "5");
+        form.add("events", "template=ALL");
+        webClient.extensions().post(String.format("%s/recordings", v1RequestUrl()), true, form, 5);
 
-            // Create a snapshot recording of all events at that time
-            CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
-            webClient
-                    .post(String.format("%s/snapshot", v2RequestUrl()))
-                    .basicAuthentication("user", "pass")
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, createResponse)) {
-                                    MatcherAssert.assertThat(
-                                            ar.result().statusCode(), Matchers.equalTo(201));
-                                    MatcherAssert.assertThat(
-                                            ar.result()
-                                                    .getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                                            Matchers.equalTo("application/json;charset=UTF-8"));
-                                    createResponse.complete(ar.result().bodyAsJsonObject());
-                                }
-                            });
+        // Create a snapshot recording of all events at that time
+        CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
+        webClient
+                .post(String.format("%s/snapshot", v2RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, createResponse)) {
+                                MatcherAssert.assertThat(
+                                        ar.result().statusCode(), Matchers.equalTo(201));
+                                MatcherAssert.assertThat(
+                                        ar.result().getHeader(HttpHeaders.CONTENT_TYPE.toString()),
+                                        Matchers.equalTo("application/json;charset=UTF-8"));
+                                createResponse.complete(ar.result().bodyAsJsonObject());
+                            }
+                        });
 
-            snapshotName.complete(
-                    createResponse
-                            .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                            .getJsonObject("data")
-                            .getJsonObject("result")
-                            .getString("name"));
+        snapshotName.complete(
+                createResponse
+                        .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                        .getJsonObject("data")
+                        .getJsonObject("result")
+                        .getString("name"));
 
-            JsonObject json = createResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        JsonObject json = createResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-            MatcherAssert.assertThat(
-                    json.getJsonObject("meta"),
-                    Matchers.equalTo(
-                            new JsonObject(
-                                    Map.of("type", "application/json", "status", "Created"))));
-            MatcherAssert.assertThat(json.getMap(), Matchers.hasKey("data"));
-            MatcherAssert.assertThat(
-                    json.getJsonObject("data").getMap(), Matchers.hasKey("result"));
-            JsonObject result = json.getJsonObject("data").getJsonObject("result");
-            MatcherAssert.assertThat(result.getString("state"), Matchers.equalTo("STOPPED"));
-            MatcherAssert.assertThat(
-                    result.getLong("startTime"),
-                    Matchers.lessThanOrEqualTo(Instant.now().toEpochMilli()));
-            MatcherAssert.assertThat(
-                    result.getString("name"),
-                    Matchers.equalTo(snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)));
-            MatcherAssert.assertThat(result.getLong("id"), Matchers.greaterThan(0L));
-            MatcherAssert.assertThat(
-                    result.getString("downloadUrl"),
-                    Matchers.equalTo("/api/v3/activedownload/" + result.getLong("id")));
-            MatcherAssert.assertThat(
-                    result.getString("reportUrl"),
-                    Matchers.equalTo("/api/v3/targets/1/reports/" + result.getLong("remoteId")));
-            MatcherAssert.assertThat(result.getLong("expiry"), Matchers.nullValue());
+        MatcherAssert.assertThat(
+                json.getJsonObject("meta"),
+                Matchers.equalTo(
+                        new JsonObject(Map.of("type", "application/json", "status", "Created"))));
+        MatcherAssert.assertThat(json.getMap(), Matchers.hasKey("data"));
+        MatcherAssert.assertThat(json.getJsonObject("data").getMap(), Matchers.hasKey("result"));
+        JsonObject result = json.getJsonObject("data").getJsonObject("result");
+        MatcherAssert.assertThat(result.getString("state"), Matchers.equalTo("STOPPED"));
+        MatcherAssert.assertThat(
+                result.getLong("startTime"),
+                Matchers.lessThanOrEqualTo(Instant.now().toEpochMilli()));
+        MatcherAssert.assertThat(
+                result.getString("name"),
+                Matchers.equalTo(snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)));
+        MatcherAssert.assertThat(result.getLong("id"), Matchers.greaterThan(0L));
+        MatcherAssert.assertThat(
+                result.getString("downloadUrl"),
+                Matchers.equalTo("/api/v3/activedownload/" + result.getLong("id")));
+        MatcherAssert.assertThat(
+                result.getString("reportUrl"),
+                Matchers.equalTo("/api/v3/targets/1/reports/" + result.getLong("remoteId")));
+        MatcherAssert.assertThat(result.getLong("expiry"), Matchers.nullValue());
 
-        } finally {
-            // Clean up recording and snapshot
-            CompletableFuture<JsonObject> deleteRecordingResponse = new CompletableFuture<>();
-            webClient
-                    .delete(String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME))
-                    .basicAuthentication("user", "pass")
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, deleteRecordingResponse)) {
-                                    deleteRecordingResponse.complete(
-                                            ar.result().bodyAsJsonObject());
-                                }
-                            });
-
-            try {
-                deleteRecordingResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
-                        String.format("Failed to delete target recording %s", TEST_RECORDING_NAME),
-                        e);
-            }
-
-            CompletableFuture<JsonObject> deleteSnapshotResponse = new CompletableFuture<>();
-
-            webClient
-                    .delete(
-                            String.format(
-                                    "%s/recordings/%s",
-                                    v1RequestUrl(),
-                                    snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)))
-                    .basicAuthentication("user", "pass")
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, deleteSnapshotResponse)) {
-                                    deleteSnapshotResponse.complete(ar.result().bodyAsJsonObject());
-                                }
-                            });
-
-            try {
-                deleteSnapshotResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            } catch (InterruptedException | ExecutionException e) {
-                throw new ITestCleanupFailedException(
+        webClient
+                .extensions()
+                .delete(
+                        String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME),
+                        true,
+                        5);
+        webClient
+                .extensions()
+                .delete(
                         String.format(
-                                "Failed to delete snapshot %s",
+                                "%s/recordings/%s",
+                                v1RequestUrl(),
                                 snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)),
-                        e);
-            }
-        }
+                        true,
+                        5);
     }
 
     @Test
-    @Order(6)
     void testPostV2SnapshotThrowsWithNonExistentTarget() throws Exception {
-
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
         webClient
                 .post("/api/v2/targets/notFound:9000/snapshot")
