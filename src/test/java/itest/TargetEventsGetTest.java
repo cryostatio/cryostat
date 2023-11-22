@@ -35,7 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-public class TargetEventsGetIT extends StandardSelfTest {
+public class TargetEventsGetTest extends StandardSelfTest {
 
     String eventReqUrl;
     String searchReqUrl;

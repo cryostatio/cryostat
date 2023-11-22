@@ -40,7 +40,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusTest
 @TestMethodOrder(OrderAnnotation.class)
-public class SnapshotIT extends StandardSelfTest {
+public class SnapshotTest extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "someRecording";
     static final Pattern SNAPSHOT_NAME_PATTERN = Pattern.compile("^snapshot-[0-9]+$");
