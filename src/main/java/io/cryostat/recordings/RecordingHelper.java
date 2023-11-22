@@ -278,6 +278,7 @@ public class RecordingHelper {
 
     public LinkedRecordingDescriptor toExternalForm(ActiveRecording recording) {
         return new LinkedRecordingDescriptor(
+                recording.id,
                 recording.remoteId,
                 recording.state,
                 recording.duration,
