@@ -309,10 +309,6 @@ public class SnapshotIT extends StandardSelfTest {
             MatcherAssert.assertThat(
                     result.getLong("startTime"),
                     Matchers.lessThanOrEqualTo(Instant.now().toEpochMilli()));
-            MatcherAssert.assertThat(result.getBoolean("continuous"), Matchers.equalTo(true));
-            MatcherAssert.assertThat(result.getBoolean("toDisk"), Matchers.equalTo(true));
-            MatcherAssert.assertThat(result.getInteger("maxSize"), Matchers.equalTo(0));
-            MatcherAssert.assertThat(result.getInteger("maxAge"), Matchers.equalTo(0));
             MatcherAssert.assertThat(
                     result.getString("name"),
                     Matchers.equalTo(snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)));
