@@ -23,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 
 import io.cryostat.util.HttpMimeType;
 
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonObject;
@@ -34,7 +34,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-@QuarkusIntegrationTest
+@QuarkusTest
 public class TargetEventsGetIT extends StandardSelfTest {
 
     String eventReqUrl;
