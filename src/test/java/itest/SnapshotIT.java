@@ -33,9 +33,13 @@ import itest.util.ITestCleanupFailedException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusTest
+@TestMethodOrder(OrderAnnotation.class)
 public class SnapshotIT extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "someRecording";
@@ -50,6 +54,101 @@ public class SnapshotIT extends StandardSelfTest {
     }
 
     @Test
+    @Order(1)
+    void testPostV1ShouldHandleEmptySnapshot() throws Exception {
+        // precondition, there should be no recordings before we start
+        CompletableFuture<JsonArray> preListRespFuture = new CompletableFuture<>();
+        webClient
+                .get(String.format("%s/recordings", v1RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, preListRespFuture)) {
+                                preListRespFuture.complete(ar.result().bodyAsJsonArray());
+                            }
+                        });
+        JsonArray preListResp = preListRespFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        MatcherAssert.assertThat(preListResp, Matchers.equalTo(new JsonArray()));
+
+        CompletableFuture<Integer> result = new CompletableFuture<>();
+        // Create an empty snapshot recording (no active recordings present)
+        webClient
+                .post(String.format("%s/snapshot", v1RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, result)) {
+                                result.complete(ar.result().statusCode());
+                            }
+                        });
+        MatcherAssert.assertThat(
+                result.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS), Matchers.equalTo(202));
+
+        // The empty snapshot should've been deleted (i.e. there should be no recordings
+        // present)
+        CompletableFuture<JsonArray> postListRespFuture = new CompletableFuture<>();
+        webClient
+                .get(String.format("%s/recordings", v1RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, postListRespFuture)) {
+                                postListRespFuture.complete(ar.result().bodyAsJsonArray());
+                            }
+                        });
+        JsonArray postListResp = postListRespFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        MatcherAssert.assertThat(postListResp, Matchers.equalTo(new JsonArray()));
+    }
+
+    @Test
+    @Order(2)
+    void testPostV2ShouldHandleEmptySnapshot() throws Exception {
+        // precondition, there should be no recordings before we start
+        CompletableFuture<JsonArray> preListRespFuture = new CompletableFuture<>();
+        webClient
+                .get(String.format("%s/recordings", v1RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, preListRespFuture)) {
+                                preListRespFuture.complete(ar.result().bodyAsJsonArray());
+                            }
+                        });
+        JsonArray preListResp = preListRespFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        MatcherAssert.assertThat(preListResp, Matchers.equalTo(new JsonArray()));
+
+        CompletableFuture<Integer> result = new CompletableFuture<>();
+        // Create an empty snapshot recording (no active recordings present)
+        webClient
+                .post(String.format("%s/snapshot", v2RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, result)) {
+                                result.complete(ar.result().statusCode());
+                            }
+                        });
+        MatcherAssert.assertThat(
+                result.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS), Matchers.equalTo(202));
+
+        // The empty snapshot should've been deleted (i.e. there should be no recordings
+        // present)
+        CompletableFuture<JsonArray> postListRespFuture = new CompletableFuture<>();
+        webClient
+                .get(String.format("%s/recordings", v1RequestUrl()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, postListRespFuture)) {
+                                postListRespFuture.complete(ar.result().bodyAsJsonArray());
+                            }
+                        });
+        JsonArray postListResp = postListRespFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        MatcherAssert.assertThat(postListResp, Matchers.equalTo(new JsonArray()));
+    }
+
+    @Test
+    @Order(3)
     void testPostV1ShouldCreateSnapshot() throws Exception {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
 
@@ -135,39 +234,7 @@ public class SnapshotIT extends StandardSelfTest {
     }
 
     @Test
-    void testPostV1ShouldHandleEmptySnapshot() throws Exception {
-        CompletableFuture<Integer> result = new CompletableFuture<>();
-
-        // Create an empty snapshot recording (no active recordings present)
-        webClient
-                .post(String.format("%s/snapshot", v1RequestUrl()))
-                .basicAuthentication("user", "pass")
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, result)) {
-                                result.complete(ar.result().statusCode());
-                            }
-                        });
-        MatcherAssert.assertThat(
-                result.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS), Matchers.equalTo(202));
-
-        // The empty snapshot should've been deleted (i.e. there should be no recordings
-        // present)
-        CompletableFuture<JsonArray> listRespFuture = new CompletableFuture<>();
-        webClient
-                .get(String.format("%s/recordings", v1RequestUrl()))
-                .basicAuthentication("user", "pass")
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture)) {
-                                listRespFuture.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        JsonArray listResp = listRespFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        Assertions.assertTrue(listResp.isEmpty());
-    }
-
-    @Test
+    @Order(4)
     void testPostV1SnapshotThrowsWithNonExistentTarget() throws Exception {
 
         CompletableFuture<String> snapshotResponse = new CompletableFuture<>();
@@ -188,6 +255,7 @@ public class SnapshotIT extends StandardSelfTest {
     }
 
     @Test
+    @Order(5)
     void testPostV2ShouldCreateSnapshot() throws Exception {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
 
@@ -257,7 +325,7 @@ public class SnapshotIT extends StandardSelfTest {
                     Matchers.equalTo("/api/v3/activedownload/" + result.getLong("id")));
             MatcherAssert.assertThat(
                     result.getString("reportUrl"),
-                    Matchers.equalTo("/api/v3/targets/1/reports/" + result.getLong("id")));
+                    Matchers.equalTo("/api/v3/targets/1/reports/" + result.getLong("remoteId")));
             MatcherAssert.assertThat(result.getLong("expiry"), Matchers.nullValue());
 
         } finally {
@@ -311,39 +379,7 @@ public class SnapshotIT extends StandardSelfTest {
     }
 
     @Test
-    void testPostV2ShouldHandleEmptySnapshot() throws Exception {
-        CompletableFuture<Integer> result = new CompletableFuture<>();
-
-        // Create an empty snapshot recording (no active recordings present)
-        webClient
-                .post(String.format("%s/snapshot", v2RequestUrl()))
-                .basicAuthentication("user", "pass")
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, result)) {
-                                result.complete(ar.result().statusCode());
-                            }
-                        });
-        MatcherAssert.assertThat(
-                result.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS), Matchers.equalTo(202));
-
-        // The empty snapshot should've been deleted (i.e. there should be no recordings
-        // present)
-        CompletableFuture<JsonArray> listRespFuture = new CompletableFuture<>();
-        webClient
-                .get(String.format("%s/recordings", v1RequestUrl()))
-                .basicAuthentication("user", "pass")
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture)) {
-                                listRespFuture.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        JsonArray listResp = listRespFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        Assertions.assertTrue(listResp.isEmpty());
-    }
-
-    @Test
+    @Order(6)
     void testPostV2SnapshotThrowsWithNonExistentTarget() throws Exception {
 
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
