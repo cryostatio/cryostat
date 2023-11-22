@@ -18,13 +18,15 @@ package itest;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
+import io.cryostat.util.HttpStatusCodeIdentifier;
+
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
+import itest.util.ITestCleanupFailedException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
@@ -96,26 +98,24 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
             Assertions.assertTrue(listResp.isEmpty());
 
         } finally {
-
             // Clean up recording
-            CompletableFuture<JsonObject> deleteActiveRecResponse = new CompletableFuture<>();
-            webClient
-                    .delete(String.format("%s/%s", recordingRequestUrl(), TEST_RECORDING_NAME))
-                    .basicAuthentication("user", "pass")
-                    .send(ar -> deleteActiveRecResponse.complete(null));
-            deleteActiveRecResponse.get();
+            HttpResponse<Buffer> deleteResponse =
+                    webClient
+                            .extensions()
+                            .delete(
+                                    String.format(
+                                            "%s/%s", recordingRequestUrl(), TEST_RECORDING_NAME),
+                                    true,
+                                    5);
+            if (!HttpStatusCodeIdentifier.isSuccessCode(deleteResponse.statusCode())) {
+                throw new ITestCleanupFailedException();
+            }
 
             // Reset default target recording options
-            CompletableFuture<JsonObject> optionsResponse = new CompletableFuture<>();
             MultiMap optionsForm = MultiMap.caseInsensitiveMultiMap();
             optionsForm.add("toDisk", "unset");
             optionsForm.add("maxSize", "unset");
-
-            webClient
-                    .patch(optionsRequestUrl())
-                    .basicAuthentication("user", "pass")
-                    .sendForm(optionsForm, ar -> optionsResponse.complete(null));
-            optionsResponse.get();
+            webClient.extensions().patch(optionsRequestUrl(), true, null, optionsForm, 5);
         }
     }
 }
