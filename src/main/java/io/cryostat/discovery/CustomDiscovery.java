@@ -20,16 +20,20 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import io.cryostat.V2Response;
+import io.cryostat.credentials.Credential;
+import io.cryostat.expressions.MatchExpression;
 import io.cryostat.targets.JvmIdException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -81,7 +85,47 @@ public class CustomDiscovery {
     @Path("/api/v2/targets")
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
-    public Response create(Target target, @RestQuery boolean dryrun) {
+    public Response create(
+            Target target, @RestQuery boolean dryrun, @RestQuery boolean storeCredentials) {
+        // TODO handle credentials embedded in JSON body
+        return doCreate(target, Optional.empty(), dryrun, storeCredentials);
+    }
+
+    @Transactional
+    @POST
+    @Path("/api/v2/targets")
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
+    @RolesAllowed("write")
+    public Response create(
+            @RestForm URI connectUrl,
+            @RestForm String alias,
+            @RestForm String username,
+            @RestForm String password,
+            @RestQuery boolean dryrun,
+            @RestQuery boolean storeCredentials) {
+        var target = new Target();
+        target.connectUrl = connectUrl;
+        target.alias = alias;
+
+        Credential credential = new Credential();
+        credential.matchExpression =
+                new MatchExpression(
+                        String.format("target.connectUrl == \"%s\"", connectUrl.toString()));
+        credential.username = username;
+        credential.password = password;
+        credential.matchExpression.persist();
+        credential.persist();
+
+        return doCreate(target, Optional.of(credential), dryrun, storeCredentials);
+    }
+
+    @Transactional
+    @Blocking
+    Response doCreate(
+            Target target,
+            Optional<Credential> credential,
+            boolean dryrun,
+            boolean storeCredentials) {
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
 
@@ -99,6 +143,7 @@ public class CustomDiscovery {
             }
 
             if (dryrun) {
+                credential.ifPresent(Credential::delete);
                 return Response.accepted()
                         .entity(V2Response.json(target, Response.Status.ACCEPTED.toString()))
                         .build();
@@ -129,20 +174,6 @@ public class CustomDiscovery {
             logger.error("Unknown error", e);
             return Response.serverError().build();
         }
-    }
-
-    @Transactional
-    @POST
-    @Path("/api/v2/targets")
-    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
-    @RolesAllowed("write")
-    public Response create(
-            @RestForm URI connectUrl, @RestForm String alias, @RestQuery boolean dryrun) {
-        var target = new Target();
-        target.connectUrl = connectUrl;
-        target.alias = alias;
-
-        return create(target, dryrun);
     }
 
     @Transactional
