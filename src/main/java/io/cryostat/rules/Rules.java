@@ -62,7 +62,7 @@ public class Rules {
     @Transactional
     @POST
     @RolesAllowed("write")
-    @Consumes({MediaType.APPLICATION_JSON})
+    @Consumes(MediaType.APPLICATION_JSON)
     public RestResponse<V2Response> create(Rule rule) {
         // TODO validate the incoming rule
         if (rule == null) {
@@ -83,7 +83,7 @@ public class Rules {
     @PATCH
     @RolesAllowed("write")
     @Path("/{name}")
-    @Consumes("application/json")
+    @Consumes(MediaType.APPLICATION_JSON)
     public RestResponse<V2Response> update(
             @RestPath String name, @RestQuery boolean clean, JsonObject body) {
         Rule rule = Rule.getByName(name);

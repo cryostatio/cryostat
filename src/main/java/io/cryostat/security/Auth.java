@@ -27,6 +27,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 
@@ -38,7 +39,7 @@ public class Auth {
     @POST
     @Path("/api/v2.1/logout")
     @PermitAll
-    @Produces("application/json")
+    @Produces(MediaType.APPLICATION_JSON)
     public Response logout(@Context RoutingContext context) {
         HttpAuthenticator authenticator = context.get(HttpAuthenticator.class.getName());
         return authenticator
@@ -62,7 +63,7 @@ public class Auth {
     @POST
     @Path("/api/v2.1/auth")
     @PermitAll
-    @Produces("application/json")
+    @Produces(MediaType.APPLICATION_JSON)
     public Response login(@Context RoutingContext context) {
         HttpAuthenticator authenticator = context.get(HttpAuthenticator.class.getName());
         return authenticator

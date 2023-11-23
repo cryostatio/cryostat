@@ -39,6 +39,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.exception.ConstraintViolationException;
@@ -77,7 +78,7 @@ public class CustomDiscovery {
     @Transactional(rollbackOn = {JvmIdException.class})
     @POST
     @Path("/api/v2/targets")
-    @Consumes("application/json")
+    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
     public Response create(Target target, @RestQuery boolean dryrun) {
         try {
@@ -128,7 +129,7 @@ public class CustomDiscovery {
     @Transactional
     @POST
     @Path("/api/v2/targets")
-    @Consumes("multipart/form-data")
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @RolesAllowed("write")
     public Response create(
             @RestForm URI connectUrl, @RestForm String alias, @RestQuery boolean dryrun) {
