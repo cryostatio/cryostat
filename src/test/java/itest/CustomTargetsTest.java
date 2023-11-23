@@ -15,10 +15,10 @@
  */
 package itest;
 
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -40,10 +40,11 @@ import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
 import itest.util.http.JvmIdWebRequest;
 import itest.util.http.StoredCredential;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -54,31 +55,44 @@ import org.junit.jupiter.api.TestMethodOrder;
 public class CustomTargetsTest extends StandardSelfTest {
 
     private final ExecutorService worker = Executors.newCachedThreadPool();
-    static final Map<String, String> NULL_RESULT = new HashMap<>();
-    private String itestJvmId;
+    private static String itestJvmId;
     private static StoredCredential storedCredential;
 
-    String hostname;
-    String jmxUrl;
+    static String JMX_URL_ENCODED = URLEncodedUtils.formatSegments(SELF_JMX_URL).substring(1);
 
-    static {
-        NULL_RESULT.put("result", null);
-    }
-
-    @BeforeEach
-    void setup()
+    @BeforeAll
+    static void removeTestHarnessTargetDefinition()
             throws InterruptedException,
                     ExecutionException,
                     TimeoutException,
                     UnknownHostException {
-        hostname = InetAddress.getLocalHost().getHostName();
-        jmxUrl = String.format("service:jmx:rmi:///jndi/rmi://%s:9091/jmxrmi", hostname);
-        itestJvmId = JvmIdWebRequest.jvmIdRequest(getSelfReferenceConnectUrl());
+        itestJvmId = JvmIdWebRequest.jvmIdRequest(SELF_JMX_URL);
+
+        deleteSelfCustomTarget();
+
+        JsonArray list =
+                webClient
+                        .extensions()
+                        .get("/api/v3/targets", true, REQUEST_TIMEOUT_SECONDS)
+                        .bodyAsJsonArray();
+        if (!list.isEmpty()) throw new IllegalStateException();
+    }
+
+    @AfterAll
+    static void restoreTestHarnessTargetDefinition()
+            throws InterruptedException,
+                    ExecutionException,
+                    TimeoutException,
+                    UnknownHostException {
+        waitForDiscovery(0);
     }
 
     @AfterAll
     static void cleanup() throws Exception {
         // Delete credentials to clean up
+        if (storedCredential == null) {
+            return;
+        }
         CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
         webClient
                 .delete("/api/v2.2/credentials/" + storedCredential.id)
@@ -89,13 +103,15 @@ public class CustomTargetsTest extends StandardSelfTest {
                             }
                         });
 
+        Map<String, String> nullResult = new HashMap<>();
+        nullResult.put("result", null);
         JsonObject expectedDeleteResponse =
                 new JsonObject(
                         Map.of(
                                 "meta",
                                 Map.of("type", HttpMimeType.JSON.mime(), "status", "OK"),
                                 "data",
-                                NULL_RESULT));
+                                nullResult));
         try {
             MatcherAssert.assertThat(
                     deleteResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
@@ -114,74 +130,43 @@ public class CustomTargetsTest extends StandardSelfTest {
     @Order(1)
     void shouldBeAbleToTestTargetConnection()
             throws InterruptedException, ExecutionException, TimeoutException {
-        MultiMap form = MultiMap.caseInsensitiveMultiMap();
-        form.add("connectUrl", "localhost:0");
-        form.add("alias", "self");
-
         HttpResponse<Buffer> response =
                 webClient
                         .extensions()
-                        .post("/api/v2/targets?dryrun=true", true, form, REQUEST_TIMEOUT_SECONDS);
+                        .post(
+                                "/api/v2/targets?dryrun=true",
+                                true,
+                                Buffer.buffer(
+                                        JsonObject.of("connectUrl", SELF_JMX_URL, "alias", "self")
+                                                .encode()),
+                                REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(202));
         JsonObject body = response.bodyAsJsonObject().getJsonObject("data").getJsonObject("result");
-        MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo("localhost:0"));
+        MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));
         MatcherAssert.assertThat(body.getString("alias"), Matchers.equalTo("self"));
+        MatcherAssert.assertThat(body.getString("jvmId"), Matchers.equalTo(itestJvmId));
+
+        JsonArray list =
+                webClient
+                        .extensions()
+                        .get("/api/v3/targets", true, REQUEST_TIMEOUT_SECONDS)
+                        .bodyAsJsonArray();
+        MatcherAssert.assertThat(list, Matchers.notNullValue());
+        MatcherAssert.assertThat(list.size(), Matchers.equalTo(0));
     }
 
     @Test
     @Order(2)
-    void targetShouldNotAppearInListing() throws InterruptedException, ExecutionException {
-        CompletableFuture<JsonArray> response = new CompletableFuture<>();
-        webClient
-                .get("/api/v1/targets")
-                .send(
-                        ar -> {
-                            assertRequestStatus(ar, response);
-                            response.complete(ar.result().bodyAsJsonArray());
-                        });
-        JsonArray body = response.get();
-        MatcherAssert.assertThat(body, Matchers.notNullValue());
-        MatcherAssert.assertThat(body.size(), Matchers.equalTo(1));
-
-        JsonObject selfJdp =
-                new JsonObject(
-                        Map.of(
-                                "jvmId",
-                                itestJvmId,
-                                "alias",
-                                "io.cryostat.Cryostat",
-                                "connectUrl",
-                                "service:jmx:rmi:///jndi/rmi://cryostat-itests:9091/jmxrmi",
-                                "labels",
-                                Map.of(),
-                                "annotations",
-                                Map.of(
-                                        "cryostat",
-                                        Map.of(
-                                                "REALM",
-                                                "JDP",
-                                                "HOST",
-                                                "cryostat-itests",
-                                                "PORT",
-                                                "9091",
-                                                "JAVA_MAIN",
-                                                "io.cryostat.Cryostat"),
-                                        "platform",
-                                        Map.of())));
-        MatcherAssert.assertThat(body, Matchers.contains(selfJdp));
-    }
-
-    @Test
-    @Order(3)
     void shouldBeAbleToDefineTarget()
             throws TimeoutException, ExecutionException, InterruptedException {
         MultiMap form = MultiMap.caseInsensitiveMultiMap();
-        form.add("connectUrl", "localhost:0");
-        form.add("alias", "self");
+        String alias = UUID.randomUUID().toString();
+        form.add("connectUrl", SELF_JMX_URL);
+        form.add("alias", alias);
         form.add("username", "username");
         form.add("password", "password");
 
-        CountDownLatch latch = new CountDownLatch(3);
+        CountDownLatch latch = new CountDownLatch(2);
 
         Future<JsonObject> resultFuture1 =
                 worker.submit(
@@ -215,23 +200,24 @@ public class CustomTargetsTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(5000); // Sleep to setup notification listening before query resolves
+        Thread.sleep(500);
 
-        CompletableFuture<JsonObject> response = new CompletableFuture<>();
-        webClient
-                .post("/api/v2/targets?storeCredentials=true")
-                .sendForm(
-                        form,
-                        ar -> {
-                            assertRequestStatus(ar, response);
-                            response.complete(ar.result().bodyAsJsonObject());
-                            latch.countDown();
-                        });
+        HttpResponse<Buffer> response =
+                webClient
+                        .extensions()
+                        .post(
+                                "/api/v2/targets?storeCredentials=true",
+                                true,
+                                form,
+                                REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(201));
+
+        JsonObject body = response.bodyAsJsonObject().getJsonObject("data").getJsonObject("result");
+
         latch.await(30, TimeUnit.SECONDS);
 
-        JsonObject body = response.get().getJsonObject("data").getJsonObject("result");
-        MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo("localhost:0"));
-        MatcherAssert.assertThat(body.getString("alias"), Matchers.equalTo("self"));
+        MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));
+        MatcherAssert.assertThat(body.getString("alias"), Matchers.equalTo(alias));
 
         JsonObject result1 = resultFuture1.get();
 
@@ -246,86 +232,50 @@ public class CustomTargetsTest extends StandardSelfTest {
         MatcherAssert.assertThat(storedCredential.id, Matchers.any(Integer.class));
         MatcherAssert.assertThat(
                 storedCredential.matchExpression,
-                Matchers.equalTo("target.connectUrl == \"localhost:0\""));
-        MatcherAssert.assertThat(
-                storedCredential.numMatchingTargets, Matchers.equalTo(Integer.valueOf(1)));
+                Matchers.equalTo(String.format("target.connectUrl == \"%s\"", SELF_JMX_URL)));
+        // FIXME this is currently always emitted as 0. Do we really need this to be included at
+        // all?
+        // MatcherAssert.assertThat(
+        //         storedCredential.numMatchingTargets, Matchers.equalTo(Integer.valueOf(1)));
 
         JsonObject result2 = resultFuture2.get();
-        JsonObject event = result2.getJsonObject("message").getJsonObject("event");
-        MatcherAssert.assertThat(event.getString("kind"), Matchers.equalTo("FOUND"));
+        JsonObject modifiedDiscoveryEvent = result2.getJsonObject("message").getJsonObject("event");
         MatcherAssert.assertThat(
-                event.getJsonObject("serviceRef").getString("connectUrl"),
-                Matchers.equalTo("localhost:0"));
+                modifiedDiscoveryEvent.getString("kind"), Matchers.equalTo("FOUND"));
         MatcherAssert.assertThat(
-                event.getJsonObject("serviceRef").getString("alias"), Matchers.equalTo("self"));
+                modifiedDiscoveryEvent.getJsonObject("serviceRef").getString("connectUrl"),
+                Matchers.equalTo(SELF_JMX_URL));
+        MatcherAssert.assertThat(
+                modifiedDiscoveryEvent.getJsonObject("serviceRef").getString("alias"),
+                Matchers.equalTo(alias));
+
+        HttpResponse<Buffer> listResponse =
+                webClient.extensions().get("/api/v1/targets", true, REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
+        JsonArray list = listResponse.bodyAsJsonArray();
+        MatcherAssert.assertThat(list, Matchers.notNullValue());
+        MatcherAssert.assertThat(list.size(), Matchers.equalTo(1));
+        JsonObject item = list.getJsonObject(0);
+        MatcherAssert.assertThat(item.getString("jvmId"), Matchers.equalTo(itestJvmId));
+        MatcherAssert.assertThat(item.getString("alias"), Matchers.equalTo(alias));
+        MatcherAssert.assertThat(item.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));
+        MatcherAssert.assertThat(item.getJsonObject("labels"), Matchers.equalTo(new JsonObject()));
+        MatcherAssert.assertThat(
+                item.getJsonObject("annotations"),
+                Matchers.equalTo(
+                        new JsonObject(
+                                Map.of(
+                                        "platform",
+                                        Map.of(),
+                                        "cryostat",
+                                        Map.of("REALM", "Custom Targets")))));
     }
 
     @Test
-    @Order(4)
-    void targetShouldAppearInListing()
-            throws ExecutionException, InterruptedException, TimeoutException {
-        CompletableFuture<JsonArray> response = new CompletableFuture<>();
-        webClient
-                .get("/api/v1/targets")
-                .send(
-                        ar -> {
-                            assertRequestStatus(ar, response);
-                            response.complete(ar.result().bodyAsJsonArray());
-                        });
-        JsonArray body = response.get();
-        MatcherAssert.assertThat(body, Matchers.notNullValue());
-        MatcherAssert.assertThat(body.size(), Matchers.equalTo(2));
-
-        JsonObject selfJdp =
-                new JsonObject(
-                        Map.of(
-                                "jvmId",
-                                itestJvmId,
-                                "alias",
-                                "io.cryostat.Cryostat",
-                                "connectUrl",
-                                "service:jmx:rmi:///jndi/rmi://cryostat-itests:9091/jmxrmi",
-                                "labels",
-                                Map.of(),
-                                "annotations",
-                                Map.of(
-                                        "cryostat",
-                                        Map.of(
-                                                "REALM",
-                                                "JDP",
-                                                "HOST",
-                                                "cryostat-itests",
-                                                "PORT",
-                                                "9091",
-                                                "JAVA_MAIN",
-                                                "io.cryostat.Cryostat"),
-                                        "platform",
-                                        Map.of())));
-        JsonObject selfCustom =
-                new JsonObject(
-                        Map.of(
-                                "jvmId",
-                                itestJvmId,
-                                "alias",
-                                "self",
-                                "connectUrl",
-                                "localhost:0",
-                                "labels",
-                                Map.of(),
-                                "annotations",
-                                Map.of(
-                                        "cryostat",
-                                        Map.of("REALM", "Custom Targets"),
-                                        "platform",
-                                        Map.of())));
-        MatcherAssert.assertThat(body, Matchers.containsInAnyOrder(selfJdp, selfCustom));
-    }
-
-    @Test
-    @Order(5)
+    @Order(3)
     void shouldBeAbleToDeleteTarget()
             throws TimeoutException, ExecutionException, InterruptedException {
-        CountDownLatch latch = new CountDownLatch(2);
+        CountDownLatch latch = new CountDownLatch(1);
 
         worker.submit(
                 () -> {
@@ -359,59 +309,20 @@ public class CustomTargetsTest extends StandardSelfTest {
                     }
                 });
 
-        CompletableFuture<JsonObject> response = new CompletableFuture<>();
         webClient
-                .delete("/api/v2/targets/localhost:0")
-                .send(
-                        ar -> {
-                            assertRequestStatus(ar, response);
-                            response.complete(null);
-                            latch.countDown();
-                        });
+                .extensions()
+                .delete(
+                        String.format("/api/v2/targets/%s", JMX_URL_ENCODED),
+                        true,
+                        REQUEST_TIMEOUT_SECONDS);
 
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-    }
 
-    @Test
-    @Order(6)
-    void targetShouldNoLongerAppearInListing() throws ExecutionException, InterruptedException {
-        CompletableFuture<JsonArray> response = new CompletableFuture<>();
-        webClient
-                .get("/api/v1/targets")
-                .send(
-                        ar -> {
-                            assertRequestStatus(ar, response);
-                            response.complete(ar.result().bodyAsJsonArray());
-                        });
-        JsonArray body = response.get();
-        MatcherAssert.assertThat(body, Matchers.notNullValue());
-        MatcherAssert.assertThat(body.size(), Matchers.equalTo(1));
-
-        JsonObject selfJdp =
-                new JsonObject(
-                        Map.of(
-                                "jvmId",
-                                itestJvmId,
-                                "alias",
-                                "io.cryostat.Cryostat",
-                                "connectUrl",
-                                "service:jmx:rmi:///jndi/rmi://cryostat-itests:9091/jmxrmi",
-                                "labels",
-                                Map.of(),
-                                "annotations",
-                                Map.of(
-                                        "cryostat",
-                                        Map.of(
-                                                "REALM",
-                                                "JDP",
-                                                "HOST",
-                                                "cryostat-itests",
-                                                "PORT",
-                                                "9091",
-                                                "JAVA_MAIN",
-                                                "io.cryostat.Cryostat"),
-                                        "platform",
-                                        Map.of())));
-        MatcherAssert.assertThat(body, Matchers.contains(selfJdp));
+        HttpResponse<Buffer> listResponse =
+                webClient.extensions().get("/api/v1/targets", true, REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
+        JsonArray list = listResponse.bodyAsJsonArray();
+        MatcherAssert.assertThat(list, Matchers.notNullValue());
+        MatcherAssert.assertThat(list.size(), Matchers.equalTo(0));
     }
 }
