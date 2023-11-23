@@ -15,6 +15,8 @@
  */
 package itest;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -28,10 +30,12 @@ import java.util.concurrent.TimeoutException;
 
 import io.cryostat.util.HttpMimeType;
 
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
 import itest.util.http.JvmIdWebRequest;
@@ -40,31 +44,36 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
-@QuarkusIntegrationTest
-@Disabled("TODO")
+@QuarkusTest
 @TestMethodOrder(OrderAnnotation.class)
-public class CustomTargetsIT extends StandardSelfTest {
+public class CustomTargetsTest extends StandardSelfTest {
 
     private final ExecutorService worker = Executors.newCachedThreadPool();
     static final Map<String, String> NULL_RESULT = new HashMap<>();
     private String itestJvmId;
     private static StoredCredential storedCredential;
 
+    String hostname;
+    String jmxUrl;
+
     static {
         NULL_RESULT.put("result", null);
     }
 
     @BeforeEach
-    void setup() throws InterruptedException, ExecutionException, TimeoutException {
-        itestJvmId =
-                JvmIdWebRequest.jvmIdRequest(
-                        "service:jmx:rmi:///jndi/rmi://cryostat-itests:9091/jmxrmi");
+    void setup()
+            throws InterruptedException,
+                    ExecutionException,
+                    TimeoutException,
+                    UnknownHostException {
+        hostname = InetAddress.getLocalHost().getHostName();
+        jmxUrl = String.format("service:jmx:rmi:///jndi/rmi://%s:9091/jmxrmi", hostname);
+        itestJvmId = JvmIdWebRequest.jvmIdRequest(getSelfReferenceConnectUrl());
     }
 
     @AfterAll
@@ -103,24 +112,18 @@ public class CustomTargetsIT extends StandardSelfTest {
 
     @Test
     @Order(1)
-    void shouldBeAbleToTestTargetConnection() throws InterruptedException, ExecutionException {
+    void shouldBeAbleToTestTargetConnection()
+            throws InterruptedException, ExecutionException, TimeoutException {
         MultiMap form = MultiMap.caseInsensitiveMultiMap();
         form.add("connectUrl", "localhost:0");
         form.add("alias", "self");
 
-        CompletableFuture<JsonObject> response = new CompletableFuture<>();
-        webClient
-                .post("/api/v2/targets?dryrun=true")
-                .sendForm(
-                        form,
-                        ar -> {
-                            assertRequestStatus(ar, response);
-                            // Assert 202 since localhost:0 jvm already exists
-                            MatcherAssert.assertThat(
-                                    ar.result().statusCode(), Matchers.equalTo(202));
-                            response.complete(ar.result().bodyAsJsonObject());
-                        });
-        JsonObject body = response.get().getJsonObject("data").getJsonObject("result");
+        HttpResponse<Buffer> response =
+                webClient
+                        .extensions()
+                        .post("/api/v2/targets?dryrun=true", true, form, REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(202));
+        JsonObject body = response.bodyAsJsonObject().getJsonObject("data").getJsonObject("result");
         MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo("localhost:0"));
         MatcherAssert.assertThat(body.getString("alias"), Matchers.equalTo("self"));
     }
@@ -184,7 +187,10 @@ public class CustomTargetsIT extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification("CredentialsStored", 15, TimeUnit.SECONDS)
+                                return expectNotification(
+                                                "CredentialsStored",
+                                                REQUEST_TIMEOUT_SECONDS,
+                                                TimeUnit.SECONDS)
                                         .get();
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
@@ -198,7 +204,9 @@ public class CustomTargetsIT extends StandardSelfTest {
                         () -> {
                             try {
                                 return expectNotification(
-                                                "TargetJvmDiscovery", 15, TimeUnit.SECONDS)
+                                                "TargetJvmDiscovery",
+                                                REQUEST_TIMEOUT_SECONDS,
+                                                TimeUnit.SECONDS)
                                         .get();
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
@@ -322,7 +330,10 @@ public class CustomTargetsIT extends StandardSelfTest {
         worker.submit(
                 () -> {
                     try {
-                        expectNotification("TargetJvmDiscovery", 5, TimeUnit.SECONDS)
+                        expectNotification(
+                                        "TargetJvmDiscovery",
+                                        REQUEST_TIMEOUT_SECONDS,
+                                        TimeUnit.SECONDS)
                                 .thenAcceptAsync(
                                         notification -> {
                                             JsonObject event =
@@ -358,7 +369,7 @@ public class CustomTargetsIT extends StandardSelfTest {
                             latch.countDown();
                         });
 
-        latch.await(5, TimeUnit.SECONDS);
+        latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
     }
 
     @Test

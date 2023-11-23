@@ -83,6 +83,9 @@ public class Utils {
     }
 
     public interface RedirectExtensions {
+        HttpResponse<Buffer> get(String url, boolean authentication, int timeout)
+                throws InterruptedException, ExecutionException, TimeoutException;
+
         HttpResponse<Buffer> post(String url, boolean authentication, MultiMap form, int timeout)
                 throws InterruptedException, ExecutionException, TimeoutException;
 
@@ -112,6 +115,28 @@ public class Utils {
         }
 
         private class RedirectExtensionsImpl implements RedirectExtensions {
+            public HttpResponse<Buffer> get(String url, boolean authentication, int timeout)
+                    throws InterruptedException, ExecutionException, TimeoutException {
+                CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
+                RequestOptions options = new RequestOptions().setURI(url);
+                HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.GET, options);
+                if (authentication) {
+                    req.basicAuthentication("user", "pass");
+                }
+                req.send(
+                        ar -> {
+                            if (ar.succeeded()) {
+                                future.complete(ar.result());
+                            } else {
+                                future.completeExceptionally(ar.cause());
+                            }
+                        });
+                if (future.get().statusCode() == 308) {
+                    return get(future.get().getHeader("Location"), true, timeout);
+                }
+                return future.get(timeout, TimeUnit.SECONDS);
+            }
+
             public HttpResponse<Buffer> post(
                     String url, boolean authentication, MultiMap form, int timeout)
                     throws InterruptedException, ExecutionException, TimeoutException {

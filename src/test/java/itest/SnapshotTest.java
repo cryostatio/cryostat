@@ -149,7 +149,13 @@ public class SnapshotTest extends StandardSelfTest {
         form.add("recordingName", TEST_RECORDING_NAME);
         form.add("duration", "5");
         form.add("events", "template=ALL");
-        webClient.extensions().post(String.format("%s/recordings", v1RequestUrl()), true, form, 5);
+        webClient
+                .extensions()
+                .post(
+                        String.format("%s/recordings", v1RequestUrl()),
+                        true,
+                        form,
+                        REQUEST_TIMEOUT_SECONDS);
 
         // Create a snapshot recording of all events at that time
         webClient
@@ -177,7 +183,7 @@ public class SnapshotTest extends StandardSelfTest {
                 .delete(
                         String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME),
                         true,
-                        5);
+                        REQUEST_TIMEOUT_SECONDS);
         webClient
                 .extensions()
                 .delete(
@@ -186,7 +192,7 @@ public class SnapshotTest extends StandardSelfTest {
                                 v1RequestUrl(),
                                 snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)),
                         true,
-                        5);
+                        REQUEST_TIMEOUT_SECONDS);
     }
 
     @Test
@@ -217,7 +223,13 @@ public class SnapshotTest extends StandardSelfTest {
         form.add("recordingName", TEST_RECORDING_NAME);
         form.add("duration", "5");
         form.add("events", "template=ALL");
-        webClient.extensions().post(String.format("%s/recordings", v1RequestUrl()), true, form, 5);
+        webClient
+                .extensions()
+                .post(
+                        String.format("%s/recordings", v1RequestUrl()),
+                        true,
+                        form,
+                        REQUEST_TIMEOUT_SECONDS);
 
         // Create a snapshot recording of all events at that time
         CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
@@ -273,7 +285,7 @@ public class SnapshotTest extends StandardSelfTest {
                 .delete(
                         String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME),
                         true,
-                        5);
+                        REQUEST_TIMEOUT_SECONDS);
         webClient
                 .extensions()
                 .delete(
@@ -282,7 +294,7 @@ public class SnapshotTest extends StandardSelfTest {
                                 v1RequestUrl(),
                                 snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)),
                         true,
-                        5);
+                        REQUEST_TIMEOUT_SECONDS);
     }
 
     @Test

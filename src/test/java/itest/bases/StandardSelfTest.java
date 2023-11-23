@@ -115,7 +115,7 @@ public abstract class StandardSelfTest {
                         webClient
                                 .delete(path)
                                 .basicAuthentication("user", "pass")
-                                .timeout(5000)
+                                .timeout(TimeUnit.SECONDS.toMillis(REQUEST_TIMEOUT_SECONDS))
                                 .send(
                                         ar -> {
                                             if (ar.failed()) {
@@ -152,7 +152,7 @@ public abstract class StandardSelfTest {
                                 .get("/api/v3/targets")
                                 .basicAuthentication("user", "pass")
                                 .as(BodyCodec.jsonArray())
-                                .timeout(5000)
+                                .timeout(TimeUnit.SECONDS.toMillis(REQUEST_TIMEOUT_SECONDS))
                                 .send(
                                         ar -> {
                                             if (ar.failed()) {
@@ -201,7 +201,7 @@ public abstract class StandardSelfTest {
                         webClient
                                 .getAbs(selfCustomTargetLocation)
                                 .basicAuthentication("user", "pass")
-                                .timeout(5000)
+                                .timeout(TimeUnit.SECONDS.toMillis(REQUEST_TIMEOUT_SECONDS))
                                 .send(
                                         ar -> {
                                             if (ar.failed()) {
@@ -245,7 +245,7 @@ public abstract class StandardSelfTest {
                         webClient
                                 .post("/api/v2/targets")
                                 .basicAuthentication("user", "pass")
-                                .timeout(5000)
+                                .timeout(TimeUnit.SECONDS.toMillis(REQUEST_TIMEOUT_SECONDS))
                                 .sendJson(
                                         self,
                                         ar -> {
@@ -288,7 +288,7 @@ public abstract class StandardSelfTest {
                             .get(path)
                             .basicAuthentication("user", "pass")
                             .as(BodyCodec.jsonObject())
-                            .timeout(5000)
+                            .timeout(TimeUnit.SECONDS.toMillis(REQUEST_TIMEOUT_SECONDS))
                             .send(
                                     ar -> {
                                         if (ar.failed()) {
