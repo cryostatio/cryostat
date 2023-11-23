@@ -32,6 +32,8 @@ import javax.management.remote.JMXServiceURL;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.JFRConnectionToolkit;
+import io.cryostat.credentials.Credential;
+import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
 
@@ -45,17 +47,20 @@ import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.FlightRecorder;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
 import org.jboss.logging.Logger;
+import org.projectnessie.cel.tools.ScriptException;
 
 @ApplicationScoped
 public class TargetConnectionManager {
 
     private final JFRConnectionToolkit jfrConnectionToolkit;
+    private final MatchExpressionEvaluator matchExpressionEvaluator;
     private final AgentConnectionFactory agentConnectionFactory;
     private final Executor executor;
     private final Logger logger;
@@ -67,12 +72,14 @@ public class TargetConnectionManager {
     @Inject
     TargetConnectionManager(
             JFRConnectionToolkit jfrConnectionToolkit,
+            MatchExpressionEvaluator matchExpressionEvaluator,
             AgentConnectionFactory agentConnectionFactory,
             Executor executor,
             Logger logger) {
         FlightRecorder.register(TargetConnectionOpened.class);
         FlightRecorder.register(TargetConnectionClosed.class);
         this.jfrConnectionToolkit = jfrConnectionToolkit;
+        this.matchExpressionEvaluator = matchExpressionEvaluator;
         this.agentConnectionFactory = agentConnectionFactory;
         this.executor = executor;
 
@@ -198,7 +205,8 @@ public class TargetConnectionManager {
         }
     }
 
-    private JFRConnection connect(URI connectUrl) throws Exception {
+    @Transactional
+    JFRConnection connect(URI connectUrl) throws Exception {
         TargetConnectionOpened evt = new TargetConnectionOpened(connectUrl.toString());
         evt.begin();
         try {
@@ -209,9 +217,34 @@ public class TargetConnectionManager {
             if (Set.of("http", "https", "cryostat-agent").contains(connectUrl.getScheme())) {
                 return agentConnectionFactory.createConnection(connectUrl);
             }
+
             return jfrConnectionToolkit.connect(
                     new JMXServiceURL(connectUrl.toString()),
-                    null /* TODO get from credentials storage */,
+                    Target.find("connectUrl", connectUrl)
+                            .<Target>firstResultOptional()
+                            .map(
+                                    t ->
+                                            Credential.<Credential>listAll().stream()
+                                                    .filter(
+                                                            c -> {
+                                                                try {
+                                                                    return matchExpressionEvaluator
+                                                                            .applies(
+                                                                                    c.matchExpression,
+                                                                                    t);
+                                                                } catch (ScriptException e) {
+                                                                    logger.warn(e);
+                                                                    return false;
+                                                                }
+                                                            })
+                                                    .findFirst()
+                                                    .map(
+                                                            c ->
+                                                                    new io.cryostat.core.net
+                                                                            .Credentials(
+                                                                            c.username, c.password))
+                                                    .orElse(null))
+                            .orElse(null),
                     Collections.singletonList(
                             () -> {
                                 this.connections.synchronous().invalidate(connectUrl);
