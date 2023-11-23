@@ -15,6 +15,7 @@
  */
 package itest;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -277,7 +278,13 @@ public class SnapshotTest extends StandardSelfTest {
                 Matchers.equalTo("/api/v3/activedownload/" + result.getLong("id")));
         MatcherAssert.assertThat(
                 result.getString("reportUrl"),
-                Matchers.equalTo("/api/v3/targets/1/reports/" + result.getLong("remoteId")));
+                Matchers.equalTo(
+                        URI.create(
+                                        String.format(
+                                                "%s/reports/%d",
+                                                selfCustomTargetLocation,
+                                                result.getLong("remoteId")))
+                                .getPath()));
         MatcherAssert.assertThat(result.getLong("expiry"), Matchers.nullValue());
 
         webClient
