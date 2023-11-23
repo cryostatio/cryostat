@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import io.cryostat.V2Response;
 import io.cryostat.targets.JvmIdException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
@@ -98,7 +99,9 @@ public class CustomDiscovery {
             }
 
             if (dryrun) {
-                return Response.ok().build();
+                return Response.accepted()
+                        .entity(V2Response.json(target, Response.Status.ACCEPTED.toString()))
+                        .build();
             }
 
             target.activeRecordings = new ArrayList<>();
@@ -115,7 +118,9 @@ public class CustomDiscovery {
             node.persist();
             realm.persist();
 
-            return Response.created(URI.create("/api/v3/targets/" + target.id)).build();
+            return Response.created(URI.create("/api/v3/targets/" + target.id))
+                    .entity(V2Response.json(target, Response.Status.CREATED.toString()))
+                    .build();
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
