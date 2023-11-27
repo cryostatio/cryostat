@@ -247,8 +247,12 @@ public abstract class StandardSelfTest {
     public static CompletableFuture<JsonObject> expectNotification(
             String category, long timeout, TimeUnit unit)
             throws TimeoutException, ExecutionException, InterruptedException {
+        logger.infov(
+                "Waiting for a \"{0}\" message within the next {1} {2} ...",
+                category, timeout, unit.name());
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
 
+        var a = new WebSocket[1];
         Utils.HTTP_CLIENT.webSocket(
                 getNotificationsUrl().get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
                 ar -> {
@@ -256,7 +260,8 @@ public abstract class StandardSelfTest {
                         future.completeExceptionally(ar.cause());
                         return;
                     }
-                    WebSocket ws = ar.result();
+                    a[0] = ar.result();
+                    var ws = a[0];
 
                     ws.handler(
                                     m -> {
@@ -264,6 +269,8 @@ public abstract class StandardSelfTest {
                                         JsonObject meta = resp.getJsonObject("meta");
                                         String c = meta.getString("category");
                                         if (Objects.equals(c, category)) {
+                                            logger.infov(
+                                                    "Received expected \"{0}\" message", category);
                                             ws.end(unused -> future.complete(resp));
                                             ws.close();
                                         }
@@ -279,7 +286,7 @@ public abstract class StandardSelfTest {
                             .writeTextMessage("");
                 });
 
-        return future.orTimeout(timeout, unit);
+        return future.orTimeout(timeout, unit).whenComplete((o, t) -> a[0].close());
     }
 
     public static <T> boolean assertRequestStatus(
