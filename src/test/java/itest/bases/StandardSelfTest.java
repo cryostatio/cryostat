@@ -42,6 +42,7 @@ import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.codec.BodyCodec;
 import io.vertx.ext.web.handler.HttpException;
+import itest.util.ITestCleanupFailedException;
 import itest.util.Utils;
 import itest.util.Utils.TestWebClient;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -49,6 +50,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
 public abstract class StandardSelfTest {
@@ -66,6 +68,37 @@ public abstract class StandardSelfTest {
     @BeforeAll
     public static void waitForDiscovery() {
         waitForDiscovery(0);
+    }
+
+    @BeforeAll
+    public static void assertPreconditions() throws Exception {
+        assertNoRecordings();
+    }
+
+    @AfterAll
+    public static void assertPostconditions() throws Exception {
+        assertNoRecordings();
+    }
+
+    public static void assertNoRecordings() throws Exception {
+        CompletableFuture<JsonArray> listFuture = new CompletableFuture<>();
+        webClient
+                .get(
+                        String.format(
+                                "/api/v1/targets/%s/recordings",
+                                getSelfReferenceConnectUrlEncoded()))
+                .basicAuthentication("user", "pass")
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, listFuture)) {
+                                listFuture.complete(ar.result().bodyAsJsonArray());
+                            }
+                        });
+        JsonArray listResp = listFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        if (!listResp.isEmpty()) {
+            throw new ITestCleanupFailedException(
+                    String.format("Unexpected recordings:\n%s", listResp.encodePrettily()));
+        }
     }
 
     // @AfterAll
