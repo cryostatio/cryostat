@@ -239,14 +239,13 @@ public class CustomTargetsTest extends StandardSelfTest {
         //         storedCredential.numMatchingTargets, Matchers.equalTo(Integer.valueOf(1)));
 
         JsonObject result2 = resultFuture2.get();
-        JsonObject modifiedDiscoveryEvent = result2.getJsonObject("message").getJsonObject("event");
+        JsonObject foundDiscoveryEvent = result2.getJsonObject("message").getJsonObject("event");
+        MatcherAssert.assertThat(foundDiscoveryEvent.getString("kind"), Matchers.equalTo("FOUND"));
         MatcherAssert.assertThat(
-                modifiedDiscoveryEvent.getString("kind"), Matchers.equalTo("FOUND"));
-        MatcherAssert.assertThat(
-                modifiedDiscoveryEvent.getJsonObject("serviceRef").getString("connectUrl"),
+                foundDiscoveryEvent.getJsonObject("serviceRef").getString("connectUrl"),
                 Matchers.equalTo(SELF_JMX_URL));
         MatcherAssert.assertThat(
-                modifiedDiscoveryEvent.getJsonObject("serviceRef").getString("alias"),
+                foundDiscoveryEvent.getJsonObject("serviceRef").getString("alias"),
                 Matchers.equalTo(alias));
 
         HttpResponse<Buffer> listResponse =
