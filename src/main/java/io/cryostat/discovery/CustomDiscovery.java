@@ -46,6 +46,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.logging.Logger;
@@ -107,16 +108,19 @@ public class CustomDiscovery {
         target.connectUrl = connectUrl;
         target.alias = alias;
 
-        Credential credential = new Credential();
-        credential.matchExpression =
-                new MatchExpression(
-                        String.format("target.connectUrl == \"%s\"", connectUrl.toString()));
-        credential.username = username;
-        credential.password = password;
-        credential.matchExpression.persist();
-        credential.persist();
+        Credential credential = null;
+        if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
+            credential = new Credential();
+            credential.matchExpression =
+                    new MatchExpression(
+                            String.format("target.connectUrl == \"%s\"", connectUrl.toString()));
+            credential.username = username;
+            credential.password = password;
+            credential.matchExpression.persist();
+            credential.persist();
+        }
 
-        return doCreate(target, Optional.of(credential), dryrun, storeCredentials);
+        return doCreate(target, Optional.ofNullable(credential), dryrun, storeCredentials);
     }
 
     @Transactional
