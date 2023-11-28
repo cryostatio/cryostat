@@ -48,7 +48,7 @@
 
     <com.github.spotbugs.version>4.8.0</com.github.spotbugs.version>
     <com.github.spotbugs.plugin.version>4.7.3.6</com.github.spotbugs.plugin.version>
-    <com.diffplug.spotless.maven.plugin.version>2.40.0</com.diffplug.spotless.maven.plugin.version>
+    <com.diffplug.spotless.maven.plugin.version>2.41.0</com.diffplug.spotless.maven.plugin.version>
     <com.google.java-format.version>1.18.1</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>4.3</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.2.2</surefire-plugin.version>
