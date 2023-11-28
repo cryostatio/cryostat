@@ -89,7 +89,7 @@ public class CustomDiscovery {
     public Response create(
             Target target, @RestQuery boolean dryrun, @RestQuery boolean storeCredentials) {
         // TODO handle credentials embedded in JSON body
-        return doCreate(target, Optional.empty(), dryrun, storeCredentials);
+        return doV2Create(target, Optional.empty(), dryrun, storeCredentials);
     }
 
     @Transactional
@@ -120,12 +120,12 @@ public class CustomDiscovery {
             credential.persist();
         }
 
-        return doCreate(target, Optional.ofNullable(credential), dryrun, storeCredentials);
+        return doV2Create(target, Optional.ofNullable(credential), dryrun, storeCredentials);
     }
 
     @Transactional
     @Blocking
-    Response doCreate(
+    Response doV2Create(
             Target target,
             Optional<Credential> credential,
             boolean dryrun,
@@ -143,13 +143,18 @@ public class CustomDiscovery {
                 }
             } catch (Exception e) {
                 logger.error("Target connection failed", e);
-                return Response.status(400).build();
+                return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
+                        .entity(
+                                V2Response.json(
+                                        Response.Status.BAD_REQUEST,
+                                        Map.of("reason", e.getMessage())))
+                        .build();
             }
 
             if (dryrun) {
                 credential.ifPresent(Credential::delete);
                 return Response.accepted()
-                        .entity(V2Response.json(target, Response.Status.ACCEPTED.toString()))
+                        .entity(V2Response.json(Response.Status.ACCEPTED, target))
                         .build();
             }
 
@@ -168,15 +173,25 @@ public class CustomDiscovery {
             realm.persist();
 
             return Response.created(URI.create("/api/v3/targets/" + target.id))
-                    .entity(V2Response.json(target, Response.Status.CREATED.toString()))
+                    .entity(V2Response.json(Response.Status.CREATED, target))
                     .build();
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
-                return Response.status(400).build();
+                return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
+                        .entity(
+                                V2Response.json(
+                                        Response.Status.BAD_REQUEST,
+                                        Map.of("reason", e.getMessage())))
+                        .build();
             }
             logger.error("Unknown error", e);
-            return Response.serverError().build();
+            return Response.serverError()
+                    .entity(
+                            V2Response.json(
+                                    Response.Status.INTERNAL_SERVER_ERROR,
+                                    Map.of("reason", e.getMessage())))
+                    .build();
         }
     }
 
@@ -201,7 +216,7 @@ public class CustomDiscovery {
         realm.children.remove(target.discoveryNode);
         target.delete();
         realm.persist();
-        return Response.ok().build();
+        return Response.noContent().build();
     }
 
     private URI sanitizeConnectUrl(String in) throws URISyntaxException, MalformedURLException {

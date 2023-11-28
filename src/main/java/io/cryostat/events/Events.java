@@ -37,7 +37,6 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
-import org.jboss.resteasy.reactive.RestResponse.Status;
 
 @Path("")
 public class Events {
@@ -65,7 +64,7 @@ public class Events {
     @RolesAllowed("read")
     public V2Response listEventsV2(@RestPath URI connectUrl, @RestQuery String q) throws Exception {
         return V2Response.json(
-                searchEvents(Target.getTargetByConnectUrl(connectUrl), q), Status.OK.toString());
+                Response.Status.OK, searchEvents(Target.getTargetByConnectUrl(connectUrl), q));
     }
 
     @GET
