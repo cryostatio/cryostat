@@ -30,6 +30,7 @@ import io.cryostat.util.HttpMimeType;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
+import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -129,7 +130,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                             TEST_RECORDING_NAME),
                                     true,
                                     saveHeaders,
-                                    "SAVE",
+                                    Buffer.buffer("SAVE"),
                                     REQUEST_TIMEOUT_SECONDS)
                             .bodyAsString();
             archivedRecordingFilenames.add(archivedRecordingFilename);

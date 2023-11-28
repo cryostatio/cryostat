@@ -90,7 +90,11 @@ public class Utils {
                 throws InterruptedException, ExecutionException, TimeoutException;
 
         HttpResponse<Buffer> patch(
-                String url, boolean authentication, MultiMap headers, String action, int timeout)
+                String url, boolean authentication, MultiMap headers, Buffer payload, int timeout)
+                throws InterruptedException, ExecutionException, TimeoutException;
+
+        HttpResponse<Buffer> patch(
+                String url, boolean authentication, MultiMap headers, MultiMap payload, int timeout)
                 throws InterruptedException, ExecutionException, TimeoutException;
     }
 
@@ -169,7 +173,7 @@ public class Utils {
                     String url,
                     boolean authentication,
                     MultiMap headers,
-                    String action,
+                    Buffer payload,
                     int timeout)
                     throws InterruptedException, ExecutionException, TimeoutException {
                 CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
@@ -178,19 +182,53 @@ public class Utils {
                 if (authentication) {
                     req.basicAuthentication("user", "pass");
                 }
-                req.putHeaders(headers)
-                        .sendBuffer(
-                                Buffer.buffer(action),
-                                ar -> {
-                                    if (ar.succeeded()) {
-                                        future.complete(ar.result());
-                                    } else {
-                                        future.completeExceptionally(ar.cause());
-                                    }
-                                });
+                if (headers != null) {
+                    req.putHeaders(headers);
+                }
+                req.sendBuffer(
+                        payload,
+                        ar -> {
+                            if (ar.succeeded()) {
+                                future.complete(ar.result());
+                            } else {
+                                future.completeExceptionally(ar.cause());
+                            }
+                        });
                 if (future.get().statusCode() == 308) {
                     return patch(
-                            future.get().getHeader("Location"), true, headers, action, timeout);
+                            future.get().getHeader("Location"), true, headers, payload, timeout);
+                }
+                return future.get(timeout, TimeUnit.SECONDS);
+            }
+
+            public HttpResponse<Buffer> patch(
+                    String url,
+                    boolean authentication,
+                    MultiMap headers,
+                    MultiMap payload,
+                    int timeout)
+                    throws InterruptedException, ExecutionException, TimeoutException {
+                CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
+                RequestOptions options = new RequestOptions().setURI(url);
+                HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.PATCH, options);
+                if (authentication) {
+                    req.basicAuthentication("user", "pass");
+                }
+                if (headers != null) {
+                    req.putHeaders(headers);
+                }
+                req.sendForm(
+                        payload,
+                        ar -> {
+                            if (ar.succeeded()) {
+                                future.complete(ar.result());
+                            } else {
+                                future.completeExceptionally(ar.cause());
+                            }
+                        });
+                if (future.get().statusCode() == 308) {
+                    return patch(
+                            future.get().getHeader("Location"), true, headers, payload, timeout);
                 }
                 return future.get(timeout, TimeUnit.SECONDS);
             }
