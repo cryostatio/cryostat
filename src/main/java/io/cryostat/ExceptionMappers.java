@@ -17,6 +17,8 @@ package io.cryostat;
 
 import org.openjdk.jmc.rjmx.ConnectionException;
 
+import io.cryostat.targets.TargetConnectionManager;
+
 import io.netty.handler.codec.http.HttpResponseStatus;
 import jakarta.persistence.NoResultException;
 import org.hibernate.exception.ConstraintViolationException;
@@ -58,6 +60,15 @@ public class ExceptionMappers {
 
     @ServerExceptionMapper
     public RestResponse<Void> mapJmxConnectionException(ConnectionException exception) {
+        return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapFlightRecorderException(
+            org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException exception) {
+        if (TargetConnectionManager.isJmxAuthFailure(exception)) {
+            return RestResponse.status(HttpResponseStatus.FORBIDDEN.code());
+        }
         return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
     }
 }

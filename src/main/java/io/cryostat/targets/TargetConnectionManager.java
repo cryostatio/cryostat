@@ -15,7 +15,9 @@
  */
 package io.cryostat.targets;
 
+import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.rmi.ConnectIOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
@@ -29,6 +31,11 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 
 import javax.management.remote.JMXServiceURL;
+import javax.naming.ServiceUnavailableException;
+import javax.security.sasl.SaslException;
+
+import org.openjdk.jmc.rjmx.ConnectionException;
+import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.JFRConnectionToolkit;
@@ -53,6 +60,7 @@ import jdk.jfr.Event;
 import jdk.jfr.FlightRecorder;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
 
@@ -341,6 +349,33 @@ public class TargetConnectionManager {
 
     public interface ConnectedTask<T> {
         T execute(JFRConnection connection) throws Exception;
+    }
+
+    public static boolean isTargetConnectionFailure(Exception e) {
+        return ExceptionUtils.indexOfType(e, ConnectionException.class) >= 0
+                || ExceptionUtils.indexOfType(e, FlightRecorderException.class) >= 0;
+    }
+
+    public static boolean isJmxAuthFailure(Exception e) {
+        return ExceptionUtils.indexOfType(e, SecurityException.class) >= 0
+                || ExceptionUtils.indexOfType(e, SaslException.class) >= 0;
+    }
+
+    public static boolean isJmxSslFailure(Exception e) {
+        return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
+                && !isServiceTypeFailure(e);
+    }
+
+    /** Check if the exception happened because the port connected to a non-JMX service. */
+    public static boolean isServiceTypeFailure(Exception e) {
+        return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
+                && ExceptionUtils.indexOfType(e, SocketTimeoutException.class) >= 0;
+    }
+
+    public static boolean isUnknownTargetFailure(Exception e) {
+        return ExceptionUtils.indexOfType(e, java.net.UnknownHostException.class) >= 0
+                || ExceptionUtils.indexOfType(e, java.rmi.UnknownHostException.class) >= 0
+                || ExceptionUtils.indexOfType(e, ServiceUnavailableException.class) >= 0;
     }
 
     @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionOpened")
