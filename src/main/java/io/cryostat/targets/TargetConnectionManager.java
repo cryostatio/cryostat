@@ -188,6 +188,15 @@ public class TargetConnectionManager {
         }
     }
 
+    @Blocking
+    public <T> T executeDirect(
+            Target target, Optional<Credential> credentials, ConnectedTask<T> task)
+            throws Exception {
+        try (var conn = connect(target.connectUrl, credentials)) {
+            return task.execute(conn);
+        }
+    }
+
     /**
      * Mark a connection as still in use by the consumer. Connections expire from cache and are
      * automatically closed after {@link NetworkModule.TARGET_CACHE_TTL}. For long-running

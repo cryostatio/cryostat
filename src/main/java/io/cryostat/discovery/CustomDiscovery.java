@@ -116,8 +116,6 @@ public class CustomDiscovery {
                             String.format("target.connectUrl == \"%s\"", connectUrl.toString()));
             credential.username = username;
             credential.password = password;
-            credential.matchExpression.persist();
-            credential.persist();
         }
 
         return doV2Create(target, Optional.ofNullable(credential), dryrun, storeCredentials);
@@ -134,29 +132,24 @@ public class CustomDiscovery {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
 
             try {
-                if (target.isAgent()) {
-                    // TODO test connection
-                    target.jvmId = target.connectUrl.toString();
-                } else {
-                    target.jvmId =
-                            connectionManager.executeConnectedTask(target, conn -> conn.getJvmId());
-                }
+                target.jvmId =
+                        connectionManager.executeDirect(
+                                target, credential, conn -> conn.getJvmId());
             } catch (Exception e) {
                 logger.error("Target connection failed", e);
                 return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(
-                                V2Response.json(
-                                        Response.Status.BAD_REQUEST,
-                                        Map.of("reason", e.getMessage())))
+                        .entity(V2Response.json(Response.Status.BAD_REQUEST, e))
                         .build();
             }
 
             if (dryrun) {
-                credential.ifPresent(Credential::delete);
                 return Response.accepted()
                         .entity(V2Response.json(Response.Status.ACCEPTED, target))
                         .build();
             }
+
+            target.persist();
+            credential.ifPresent(c -> c.persist());
 
             target.activeRecordings = new ArrayList<>();
             target.labels = Map.of();
@@ -179,18 +172,12 @@ public class CustomDiscovery {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
                 return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(
-                                V2Response.json(
-                                        Response.Status.BAD_REQUEST,
-                                        Map.of("reason", e.getMessage())))
+                        .entity(V2Response.json(Response.Status.BAD_REQUEST, e))
                         .build();
             }
             logger.error("Unknown error", e);
             return Response.serverError()
-                    .entity(
-                            V2Response.json(
-                                    Response.Status.INTERNAL_SERVER_ERROR,
-                                    Map.of("reason", e.getMessage())))
+                    .entity(V2Response.json(Response.Status.INTERNAL_SERVER_ERROR, e))
                     .build();
         }
     }
