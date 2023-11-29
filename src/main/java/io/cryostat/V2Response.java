@@ -58,7 +58,11 @@ public record V2Response(Meta meta, Data data) {
         String reason;
 
         public ErrorData(Object payload) {
-            this.reason = Objects.requireNonNull(payload).toString();
+            if (payload instanceof Exception) {
+                this.reason = ((Exception) Objects.requireNonNull(payload)).getMessage();
+            } else {
+                this.reason = Objects.requireNonNull(payload).toString();
+            }
         }
 
         public String getReason() {
