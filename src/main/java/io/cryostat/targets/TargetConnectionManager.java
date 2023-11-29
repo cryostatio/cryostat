@@ -243,6 +243,31 @@ public class TargetConnectionManager {
 
     @Transactional
     JFRConnection connect(URI connectUrl) throws Exception {
+        var credentials =
+                Target.find("connectUrl", connectUrl)
+                        .<Target>firstResultOptional()
+                        .map(
+                                t ->
+                                        Credential.<Credential>listAll().stream()
+                                                .filter(
+                                                        c -> {
+                                                            try {
+                                                                return matchExpressionEvaluator
+                                                                        .applies(
+                                                                                c.matchExpression,
+                                                                                t);
+                                                            } catch (ScriptException e) {
+                                                                logger.error(e);
+                                                                return false;
+                                                            }
+                                                        })
+                                                .findFirst()
+                                                .orElse(null));
+        return connect(connectUrl, credentials);
+    }
+
+    @Blocking
+    JFRConnection connect(URI connectUrl, Optional<Credential> credentials) throws Exception {
         TargetConnectionOpened evt = new TargetConnectionOpened(connectUrl.toString());
         evt.begin();
         try {
@@ -256,35 +281,11 @@ public class TargetConnectionManager {
 
             return jfrConnectionToolkit.connect(
                     new JMXServiceURL(connectUrl.toString()),
-                    Target.find("connectUrl", connectUrl)
-                            .<Target>firstResultOptional()
-                            .map(
-                                    t ->
-                                            Credential.<Credential>listAll().stream()
-                                                    .filter(
-                                                            c -> {
-                                                                try {
-                                                                    return matchExpressionEvaluator
-                                                                            .applies(
-                                                                                    c.matchExpression,
-                                                                                    t);
-                                                                } catch (ScriptException e) {
-                                                                    logger.warn(e);
-                                                                    return false;
-                                                                }
-                                                            })
-                                                    .findFirst()
-                                                    .map(
-                                                            c ->
-                                                                    new io.cryostat.core.net
-                                                                            .Credentials(
-                                                                            c.username, c.password))
-                                                    .orElse(null))
+                    credentials
+                            .map(c -> new io.cryostat.core.net.Credentials(c.username, c.password))
                             .orElse(null),
                     Collections.singletonList(
-                            () -> {
-                                this.connections.synchronous().invalidate(connectUrl);
-                            }));
+                            () -> connections.synchronous().invalidate(connectUrl)));
         } catch (Exception e) {
             evt.setExceptionThrown(true);
             if (semaphore.isPresent()) {
