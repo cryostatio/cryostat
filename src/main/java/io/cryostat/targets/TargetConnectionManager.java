@@ -123,6 +123,42 @@ public class TargetConnectionManager {
         }
     }
 
+    @Blocking
+    @ConsumeEvent(Credential.CREDENTIALS_STORED)
+    void onCredentialsStored(Credential credential) {
+        handleCredentialChange(credential);
+    }
+
+    @Blocking
+    @ConsumeEvent(Credential.CREDENTIALS_UPDATED)
+    void onCredentialsUpdated(Credential credential) {
+        handleCredentialChange(credential);
+    }
+
+    @Blocking
+    @ConsumeEvent(Credential.CREDENTIALS_DELETED)
+    void onCredentialsDeleted(Credential credential) {
+        handleCredentialChange(credential);
+    }
+
+    @Blocking
+    void handleCredentialChange(Credential credential) {
+        for (var entry : connections.asMap().entrySet()) {
+            URI key = entry.getKey();
+            var target = Target.find("connectUrl", key).<Target>firstResultOptional();
+            if (target.isEmpty()) {
+                continue;
+            }
+            try {
+                if (matchExpressionEvaluator.applies(credential.matchExpression, target.get())) {
+                    connections.synchronous().invalidate(key);
+                }
+            } catch (ScriptException se) {
+                logger.warn(se);
+            }
+        }
+    }
+
     public <T> Uni<T> executeConnectedTaskAsync(Target target, ConnectedTask<T> task) {
         return Uni.createFrom()
                 .completionStage(
