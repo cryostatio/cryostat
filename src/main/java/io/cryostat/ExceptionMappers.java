@@ -15,6 +15,8 @@
  */
 package io.cryostat;
 
+import org.openjdk.jmc.rjmx.ConnectionException;
+
 import io.netty.handler.codec.http.HttpResponseStatus;
 import jakarta.persistence.NoResultException;
 import org.hibernate.exception.ConstraintViolationException;
@@ -52,5 +54,10 @@ public class ExceptionMappers {
     @ServerExceptionMapper
     public RestResponse<Void> mapIllegalArgumentException(IllegalArgumentException exception) {
         return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapJmxConnectionException(ConnectionException exception) {
+        return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
     }
 }
