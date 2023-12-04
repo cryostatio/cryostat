@@ -97,7 +97,7 @@ services:
     expose:
       - "9977"
     environment:
-      JAVA_OPTS: "-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -javaagent:/deployments/app/cryostat-agent.jar"
+      JAVA_OPTS_APPEND: "-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -javaagent:/deployments/app/cryostat-agent.jar"
       QUARKUS_HTTP_PORT: 10010
       ORG_ACME_CRYOSTATSERVICE_ENABLED: "false"
       CRYOSTAT_AGENT_APP_NAME: quarkus-test-agent
