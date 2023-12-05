@@ -33,6 +33,7 @@ import org.openjdk.jmc.rjmx.IConnectionHandle;
 import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
 
 import io.cryostat.core.FlightRecorderException;
+import io.cryostat.core.JvmIdentifier;
 import io.cryostat.core.net.CryostatFlightRecorderService;
 import io.cryostat.core.net.IDException;
 import io.cryostat.core.net.JFRConnection;
@@ -99,6 +100,16 @@ class AgentConnection implements JFRConnection {
         // this should have already been populated when the agent published itself to the Discovery
         // API. If not, then this will fail, but we were in a bad state to begin with.
         return Target.getTargetByConnectUrl(agentUri).jvmId;
+    }
+
+    @Override
+    public JvmIdentifier getJvmIdentifier() throws IDException, IOException {
+        // try {
+        //     return JvmIdentifier.from(getMBeanMetrics().getRuntime());
+        // } catch (IntrospectionException | InstanceNotFoundException | ReflectionException e) {
+        //     throw new IDException(e);
+        // }
+        throw new UnsupportedOperationException("Unimplemented method 'getJvmIdentifier'");
     }
 
     @Override
