@@ -41,7 +41,6 @@ public class NonExistentTargetIT extends StandardSelfTest {
         CompletableFuture<JsonArray> response = new CompletableFuture<>();
         webClient
                 .get(String.format("/api/v1/targets/%s/recordings", BAD_TARGET_CONNECT_URL_ENCODED))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, response)) {

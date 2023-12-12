@@ -87,7 +87,6 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
             CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
             webClient
                     .get(archivesRequestUrl())
-                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture1)) {

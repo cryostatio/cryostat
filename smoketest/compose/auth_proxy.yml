@@ -1,0 +1,27 @@
+version: "3"
+services:
+  auth:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 32m
+    image: quay.io/oauth2-proxy/oauth2-proxy:latest
+    command: --alpha-config=/tmp/oauth2-proxy-alpha-config.yaml
+    volumes:
+      - ./auth-proxy-htpasswd:/tmp/.htpasswd
+      - ./oauth2-proxy-alpha-config.yaml:/tmp/oauth2-proxy-alpha-config.yaml:ro
+    hostname: auth
+    ports:
+      - "8080:8080"
+    labels:
+      kompose.service.expose: "auth"
+    environment:
+      OAUTH2_PROXY_HTPASSWD_FILE: /tmp/.htpasswd
+      OAUTH2_PROXY_HTPASSWD_USER_GROUP: write
+      OAUTH2_PROXY_REDIRECT_URL: http://localhost:8080/oauth2/callback
+      OAUTH2_PROXY_COOKIE_SECRET: __24_BYTE_COOKIE_SECRET_
+    restart: unless-stopped

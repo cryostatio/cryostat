@@ -61,7 +61,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                         String.format(
                                 "/api/v1/targets/%s/recordings",
                                 getSelfReferenceConnectUrlEncoded()))
-                .basicAuthentication("user", "pass")
                 .followRedirects(true)
                 .send(
                         ar -> {
@@ -97,7 +96,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                     "/api/v1/targets/%s/recordings",
                                     getSelfReferenceConnectUrlEncoded()))
                     .followRedirects(true)
-                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture2)) {
@@ -143,7 +141,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                     "/api/v1/targets/%s/recordings",
                                     getSelfReferenceConnectUrlEncoded()))
                     .followRedirects(true)
-                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture3)) {
@@ -165,7 +162,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             CompletableFuture<JsonArray> listRespFuture4 = new CompletableFuture<>();
             webClient
                     .get("/api/v1/recordings")
-                    .basicAuthentication("user", "pass")
                     .followRedirects(true)
                     .send(
                             ar -> {
@@ -196,7 +192,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                     "/api/v1/targets/%s/recordings",
                                     getSelfReferenceConnectUrlEncoded()))
                     .followRedirects(true)
-                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture5)) {
@@ -240,7 +235,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             HttpResponse<JsonObject> reportResponse =
                     webClient
                             .get(reportUrl)
-                            .basicAuthentication("user", "pass")
                             .as(BodyCodec.jsonObject())
                             .send()
                             .toCompletionStage()

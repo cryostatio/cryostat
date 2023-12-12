@@ -68,7 +68,6 @@ class RulesPostJsonIT extends StandardSelfTest {
 
         webClient
                 .post("/api/v2/rules")
-                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                 .sendJsonObject(
                         null,
@@ -90,7 +89,6 @@ class RulesPostJsonIT extends StandardSelfTest {
 
         webClient
                 .post("/api/v2/rules")
-                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "text/plain")
                 .sendJsonObject(
                         testRule,
@@ -113,7 +111,6 @@ class RulesPostJsonIT extends StandardSelfTest {
 
         webClient
                 .post("/api/v2/rules")
-                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "NOTAMIME")
                 .sendJsonObject(
                         testRule,
@@ -136,7 +133,6 @@ class RulesPostJsonIT extends StandardSelfTest {
         try {
             webClient
                     .post("/api/v2/rules")
-                    .basicAuthentication("user", "pass")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
@@ -162,7 +158,6 @@ class RulesPostJsonIT extends StandardSelfTest {
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();
             webClient
                     .post("/api/v2/rules")
-                    .basicAuthentication("user", "pass")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
@@ -183,7 +178,6 @@ class RulesPostJsonIT extends StandardSelfTest {
             CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
             webClient
                     .delete(String.format("/api/v2/rules/%s", TEST_RULE_NAME))
-                    .basicAuthentication("user", "pass")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .send(
                             ar -> {
@@ -221,7 +215,6 @@ class RulesPostJsonIT extends StandardSelfTest {
         try {
             webClient
                     .post("/api/v2/rules")
-                    .basicAuthentication("user", "pass")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,

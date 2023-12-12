@@ -9,6 +9,7 @@ DIR="$(dirname "$(readlink -f "$0")")"
 
 FILES=(
     "${DIR}/smoketest/compose/db.yml"
+    "${DIR}/smoketest/compose/auth_proxy.yml"
 )
 
 USE_USERHOSTS=${USE_USERHOSTS:-true}
@@ -157,6 +158,9 @@ openBrowserTabs() {
             local port
             if [ "${USE_USERHOSTS}" = "true" ]; then
                 host="$(echo "${yaml}" | yq ".[${i}].host" | grep -v null)"
+                if [ "${host}" = "auth" ]; then
+                  host="localhost"
+                fi
             else
                 host="localhost"
             fi
@@ -170,7 +174,16 @@ openBrowserTabs() {
     echo "Service URLs:" "${urls[@]}"
     for url in "${urls[@]}"; do
         (
-            until timeout 1s curl -s -f -o /dev/null "${url}"
+            testSvc() {
+              timeout 1s curl -s -f -o /dev/null "$1"
+              local sc="$?"
+              if [ "${sc}" = "0" ] || [ "${sc}" = "22" ]; then
+                return 0
+              else
+                return "${sc}"
+              fi
+            }
+            until testSvc "${url}"
             do
                 sleep 5
             done

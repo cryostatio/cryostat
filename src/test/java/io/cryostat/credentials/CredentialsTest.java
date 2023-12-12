@@ -15,7 +15,7 @@
  */
 package io.cryostat.credentials;
 
-import static io.cryostat.TestUtils.givenBasicAuth;
+import static io.restassured.RestAssured.given;
 
 import java.util.List;
 
@@ -30,8 +30,7 @@ public class CredentialsTest {
 
     @Test
     public void testHealth() {
-        givenBasicAuth()
-                .when()
+        given().when()
                 .get()
                 .then()
                 .statusCode(200)

@@ -54,7 +54,6 @@ public class SnapshotTest extends StandardSelfTest {
         CompletableFuture<JsonArray> preListRespFuture = new CompletableFuture<>();
         webClient
                 .get(String.format("%s/recordings", v1RequestUrl()))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, preListRespFuture)) {
@@ -68,7 +67,6 @@ public class SnapshotTest extends StandardSelfTest {
         // Create an empty snapshot recording (no active recordings present)
         webClient
                 .post(String.format("%s/snapshot", v1RequestUrl()))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, result)) {
@@ -83,7 +81,6 @@ public class SnapshotTest extends StandardSelfTest {
         CompletableFuture<JsonArray> postListRespFuture = new CompletableFuture<>();
         webClient
                 .get(String.format("%s/recordings", v1RequestUrl()))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, postListRespFuture)) {
@@ -100,7 +97,6 @@ public class SnapshotTest extends StandardSelfTest {
         CompletableFuture<JsonArray> preListRespFuture = new CompletableFuture<>();
         webClient
                 .get(String.format("%s/recordings", v1RequestUrl()))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, preListRespFuture)) {
@@ -114,7 +110,6 @@ public class SnapshotTest extends StandardSelfTest {
         // Create an empty snapshot recording (no active recordings present)
         webClient
                 .post(String.format("%s/snapshot", v2RequestUrl()))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, result)) {
@@ -129,7 +124,6 @@ public class SnapshotTest extends StandardSelfTest {
         CompletableFuture<JsonArray> postListRespFuture = new CompletableFuture<>();
         webClient
                 .get(String.format("%s/recordings", v1RequestUrl()))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, postListRespFuture)) {
@@ -154,7 +148,6 @@ public class SnapshotTest extends StandardSelfTest {
         // Create a snapshot recording of all events at that time
         webClient
                 .post(String.format("%s/snapshot", v1RequestUrl()))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, snapshotName)) {
@@ -194,7 +187,6 @@ public class SnapshotTest extends StandardSelfTest {
         CompletableFuture<String> snapshotResponse = new CompletableFuture<>();
         webClient
                 .post("/api/v1/targets/notFound%2F9000/snapshot")
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             assertRequestStatus(ar, snapshotResponse);
@@ -223,7 +215,6 @@ public class SnapshotTest extends StandardSelfTest {
         CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
         webClient
                 .post(String.format("%s/snapshot", v2RequestUrl()))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, createResponse)) {
@@ -290,7 +281,6 @@ public class SnapshotTest extends StandardSelfTest {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
         webClient
                 .post("/api/v2/targets/notFound:9000/snapshot")
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             assertRequestStatus(ar, snapshotName);

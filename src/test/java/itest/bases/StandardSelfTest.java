@@ -87,7 +87,6 @@ public abstract class StandardSelfTest {
                         String.format(
                                 "/api/v1/targets/%s/recordings",
                                 getSelfReferenceConnectUrlEncoded()))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, listFuture)) {
@@ -114,7 +113,6 @@ public abstract class StandardSelfTest {
                     () -> {
                         webClient
                                 .delete(path)
-                                .basicAuthentication("user", "pass")
                                 .timeout(5000)
                                 .send(
                                         ar -> {
@@ -150,7 +148,6 @@ public abstract class StandardSelfTest {
                     () -> {
                         webClient
                                 .get("/api/v3/targets")
-                                .basicAuthentication("user", "pass")
                                 .as(BodyCodec.jsonArray())
                                 .timeout(5000)
                                 .send(
@@ -200,7 +197,6 @@ public abstract class StandardSelfTest {
                     () -> {
                         webClient
                                 .getAbs(selfCustomTargetLocation)
-                                .basicAuthentication("user", "pass")
                                 .timeout(5000)
                                 .send(
                                         ar -> {
@@ -244,7 +240,6 @@ public abstract class StandardSelfTest {
                     () -> {
                         webClient
                                 .post("/api/v2/targets")
-                                .basicAuthentication("user", "pass")
                                 .timeout(5000)
                                 .sendJson(
                                         self,
@@ -286,7 +281,6 @@ public abstract class StandardSelfTest {
                     String path = URI.create(selfCustomTargetLocation).getPath();
                     webClient
                             .get(path)
-                            .basicAuthentication("user", "pass")
                             .as(BodyCodec.jsonObject())
                             .timeout(5000)
                             .send(
@@ -440,7 +434,6 @@ public abstract class StandardSelfTest {
         WORKER.submit(
                 () -> {
                     request.putHeaders(headers)
-                            .basicAuthentication("user", "pass")
                             .followRedirects(true)
                             .send(
                                     ar -> {

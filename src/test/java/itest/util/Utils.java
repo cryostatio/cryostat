@@ -118,9 +118,6 @@ public class Utils {
                 CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
                 RequestOptions options = new RequestOptions().setURI(url);
                 HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.POST, options);
-                if (authentication) {
-                    req.basicAuthentication("user", "pass");
-                }
                 if (form != null) {
                     req.sendForm(
                             form,
@@ -152,9 +149,6 @@ public class Utils {
                 CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
                 RequestOptions options = new RequestOptions().setURI(url);
                 HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.DELETE, options);
-                if (authentication) {
-                    req.basicAuthentication("user", "pass");
-                }
                 req.send(
                         ar -> {
                             if (ar.succeeded()) {
@@ -179,9 +173,6 @@ public class Utils {
                 CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
                 RequestOptions options = new RequestOptions().setURI(url);
                 HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.PATCH, options);
-                if (authentication) {
-                    req.basicAuthentication("user", "pass");
-                }
                 if (headers != null) {
                     req.putHeaders(headers);
                 }
@@ -211,9 +202,6 @@ public class Utils {
                 CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
                 RequestOptions options = new RequestOptions().setURI(url);
                 HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.PATCH, options);
-                if (authentication) {
-                    req.basicAuthentication("user", "pass");
-                }
                 if (headers != null) {
                     req.putHeaders(headers);
                 }

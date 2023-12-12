@@ -49,17 +49,11 @@ class Health {
     @ConfigProperty(name = "quarkus.application.version")
     String version;
 
-    @ConfigProperty(name = "quarkus.http.host")
+    @ConfigProperty(name = "cryostat.http.proxy.host")
     String host;
 
-    @ConfigProperty(name = "quarkus.http.port")
+    @ConfigProperty(name = "cryostat.http.proxy.port")
     int port;
-
-    @ConfigProperty(name = "quarkus.http.ssl-port")
-    int sslPort;
-
-    @ConfigProperty(name = "quarkus.http.ssl.certificate.key-store-password")
-    Optional<String> sslPass;
 
     @ConfigProperty(name = ConfigProperties.GRAFANA_DASHBOARD_URL)
     Optional<String> dashboardURL;
@@ -121,14 +115,12 @@ class Health {
     @Path("/api/v1/notifications_url")
     @PermitAll
     public Response notificationsUrl() {
-        boolean ssl = sslPass.isPresent();
         return new PermittedResponseBuilder(
                         Response.ok(
                                 Map.of(
                                         "notificationsUrl",
                                         String.format(
-                                                "%s://%s:%d/api/v1/notifications",
-                                                ssl ? "wss" : "ws", host, ssl ? sslPort : port))))
+                                                "ws://%s:%d/api/v1/notifications", host, port))))
                 .build();
     }
 

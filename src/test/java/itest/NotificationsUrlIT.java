@@ -41,15 +41,14 @@ public class NotificationsUrlIT extends StandardSelfTest {
     @Test
     public void shouldSucceed() throws Exception {
         CompletableFuture<Integer> future = new CompletableFuture<>();
-        req.basicAuthentication("user", "pass")
-                .send(
-                        ar -> {
-                            if (ar.succeeded()) {
-                                future.complete(ar.result().statusCode());
-                            } else {
-                                future.completeExceptionally(ar.cause());
-                            }
-                        });
+        req.send(
+                ar -> {
+                    if (ar.succeeded()) {
+                        future.complete(ar.result().statusCode());
+                    } else {
+                        future.completeExceptionally(ar.cause());
+                    }
+                });
         MatcherAssert.assertThat(
                 future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS), Matchers.equalTo(200));
     }
@@ -57,15 +56,14 @@ public class NotificationsUrlIT extends StandardSelfTest {
     @Test
     public void shouldReturnOK() throws Exception {
         CompletableFuture<String> future = new CompletableFuture<>();
-        req.basicAuthentication("user", "pass")
-                .send(
-                        ar -> {
-                            if (ar.succeeded()) {
-                                future.complete(ar.result().statusMessage());
-                            } else {
-                                future.completeExceptionally(ar.cause());
-                            }
-                        });
+        req.send(
+                ar -> {
+                    if (ar.succeeded()) {
+                        future.complete(ar.result().statusMessage());
+                    } else {
+                        future.completeExceptionally(ar.cause());
+                    }
+                });
         MatcherAssert.assertThat(
                 future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS), Matchers.equalTo("OK"));
     }
@@ -73,15 +71,14 @@ public class NotificationsUrlIT extends StandardSelfTest {
     @Test
     public void shouldReturnContentTypeJson() throws Exception {
         CompletableFuture<String> future = new CompletableFuture<>();
-        req.basicAuthentication("user", "pass")
-                .send(
-                        ar -> {
-                            if (ar.succeeded()) {
-                                future.complete(ar.result().getHeader("Content-Type"));
-                            } else {
-                                future.completeExceptionally(ar.cause());
-                            }
-                        });
+        req.send(
+                ar -> {
+                    if (ar.succeeded()) {
+                        future.complete(ar.result().getHeader("Content-Type"));
+                    } else {
+                        future.completeExceptionally(ar.cause());
+                    }
+                });
         MatcherAssert.assertThat(
                 future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
                 Matchers.equalTo("application/json;charset=UTF-8"));
@@ -90,15 +87,14 @@ public class NotificationsUrlIT extends StandardSelfTest {
     @Test
     public void shouldReturnJsonMessage() throws Exception {
         CompletableFuture<String> future = new CompletableFuture<>();
-        req.basicAuthentication("user", "pass")
-                .send(
-                        ar -> {
-                            if (ar.succeeded()) {
-                                future.complete(ar.result().bodyAsString());
-                            } else {
-                                future.completeExceptionally(ar.cause());
-                            }
-                        });
+        req.send(
+                ar -> {
+                    if (ar.succeeded()) {
+                        future.complete(ar.result().bodyAsString());
+                    } else {
+                        future.completeExceptionally(ar.cause());
+                    }
+                });
         MatcherAssert.assertThat(
                 future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
                 Matchers.equalTo(
