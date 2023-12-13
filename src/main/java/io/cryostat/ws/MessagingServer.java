@@ -42,7 +42,6 @@ public class MessagingServer {
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
     private final ObjectMapper mapper = new ObjectMapper();
 
-    // TODO implement authentication check
     @OnOpen
     public void onOpen(Session session) {
         logger.infov("Adding session {0}", session.getId());
