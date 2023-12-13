@@ -9,15 +9,16 @@ services:
     environment:
       HTTP_PORT: 8081
       JMX_PORT: 9093
-      CRYOSTAT_AGENT_APP_NAME: "vertx-fib-demo-1"
+      CRYOSTAT_AGENT_APP_NAME: vertx-fib-demo-1
       CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL: "true"
       CRYOSTAT_AGENT_WEBCLIENT_SSL_VERIFY_HOSTNAME: "false"
-      CRYOSTAT_AGENT_WEBSERVER_HOST: "sample-app"
-      CRYOSTAT_AGENT_WEBSERVER_PORT: "8910"
-      CRYOSTAT_AGENT_CALLBACK: "http://sample-app:8910/"
-      CRYOSTAT_AGENT_BASEURI: "http://cryostat:8181/"
+      CRYOSTAT_AGENT_WEBSERVER_HOST: sample-app
+      CRYOSTAT_AGENT_WEBSERVER_PORT: 8910
+      CRYOSTAT_AGENT_CALLBACK: http://sample-app:8910/
+      CRYOSTAT_AGENT_BASEURI: http://auth:8080/
+      CRYOSTAT_AGENT_BASEURI_RANGE: public
       CRYOSTAT_AGENT_TRUST_ALL: "true"
-      CRYOSTAT_AGENT_AUTHORIZATION: "Basic dXNlcjpwYXNz"
+      CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz
     ports:
       - "8081:8081"
     labels:
@@ -47,7 +48,8 @@ services:
       CRYOSTAT_AGENT_WEBSERVER_HOST: quarkus-test-agent
       CRYOSTAT_AGENT_WEBSERVER_PORT: 9977
       CRYOSTAT_AGENT_CALLBACK: http://quarkus-test-agent:9977/
-      CRYOSTAT_AGENT_BASEURI: http://cryostat:8181/
+      CRYOSTAT_AGENT_BASEURI: http://auth:8080/
+      CRYOSTAT_AGENT_BASEURI_RANGE: public
       CRYOSTAT_AGENT_SSL_TRUST_ALL: "true"
       CRYOSTAT_AGENT_SSL_VERIFY_HOSTNAME: "false"
       CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz # "Basic $(echo -n user:pass | base64)"
