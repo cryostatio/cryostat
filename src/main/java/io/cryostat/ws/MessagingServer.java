@@ -44,13 +44,13 @@ public class MessagingServer {
 
     @OnOpen
     public void onOpen(Session session) {
-        logger.infov("Adding session {0}", session.getId());
+        logger.debugv("Adding session {0}", session.getId());
         sessions.add(session);
     }
 
     @OnClose
     public void onClose(Session session) {
-        logger.infov("Removing session {0}", session.getId());
+        logger.debugv("Removing session {0}", session.getId());
         sessions.remove(session);
     }
 
@@ -80,7 +80,7 @@ public class MessagingServer {
                         Map.of("category", notification.category()),
                         "message",
                         notification.message());
-        logger.infov("Broadcasting: {0}", map);
+        logger.debugv("Broadcasting: {0}", map);
         sessions.forEach(
                 s -> {
                     try {
