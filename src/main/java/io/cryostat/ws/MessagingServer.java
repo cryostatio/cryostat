@@ -38,6 +38,8 @@ import org.jboss.logging.Logger;
 @ServerEndpoint("/api/notifications")
 public class MessagingServer {
 
+    private static final String CLIENT_ACTIVITY_CATEGORY = "WsClientActivity";
+
     @Inject Logger logger;
     private final Set<Session> sessions = ConcurrentHashMap.newKeySet();
     private final ObjectMapper mapper = new ObjectMapper();
@@ -46,12 +48,16 @@ public class MessagingServer {
     public void onOpen(Session session) {
         logger.debugv("Adding session {0}", session.getId());
         sessions.add(session);
+        broadcast(new Notification(CLIENT_ACTIVITY_CATEGORY, Map.of(session.getId(), "connected")));
     }
 
     @OnClose
     public void onClose(Session session) {
         logger.debugv("Removing session {0}", session.getId());
         sessions.remove(session);
+        broadcast(
+                new Notification(
+                        CLIENT_ACTIVITY_CATEGORY, Map.of(session.getId(), "disconnected")));
     }
 
     @OnError
@@ -64,11 +70,14 @@ public class MessagingServer {
             ioe.printStackTrace(System.err);
             logger.error("Unable to close session", ioe);
         }
+        broadcast(
+                new Notification(
+                        CLIENT_ACTIVITY_CATEGORY, Map.of(session.getId(), "disconnected")));
     }
 
     @OnMessage
     public void onMessage(Session session, String message) {
-        logger.infov("[{0}] message: {1}", session.getId(), message);
+        logger.debugv("[{0}] message: {1}", session.getId(), message);
     }
 
     @ConsumeEvent
