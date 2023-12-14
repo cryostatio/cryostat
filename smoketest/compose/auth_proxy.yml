@@ -14,10 +14,12 @@ services:
           cpus: '0.1'
           memory: 32m
     image: quay.io/oauth2-proxy/oauth2-proxy:latest
-    command: --alpha-config=/tmp/oauth2-proxy-alpha-config.yaml
+    user: ${UID:-0}
+    entrypoint: /bin/sh
+    command: -c 'chmod 644 /tmp/oauth2-proxy-alpha-config.yaml && /bin/oauth2-proxy --alpha-config=/tmp/oauth2-proxy-alpha-config.yaml'
     volumes:
       - ./auth-proxy-htpasswd:/tmp/.htpasswd
-      - ./oauth2-proxy-alpha-config.yaml:/tmp/oauth2-proxy-alpha-config.yaml:ro
+      - ./oauth2-proxy-alpha-config.yaml:/tmp/oauth2-proxy-alpha-config.yaml
     hostname: auth
     ports:
       - "8080:8080"
