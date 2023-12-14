@@ -35,7 +35,7 @@ import jakarta.websocket.server.ServerEndpoint;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
-@ServerEndpoint("/api/v1/notifications")
+@ServerEndpoint("/api/notifications")
 public class MessagingServer {
 
     @Inject Logger logger;

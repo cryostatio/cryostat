@@ -49,12 +49,6 @@ class Health {
     @ConfigProperty(name = "quarkus.application.version")
     String version;
 
-    @ConfigProperty(name = "cryostat.http.proxy.host")
-    String host;
-
-    @ConfigProperty(name = "cryostat.http.proxy.port")
-    int port;
-
     @ConfigProperty(name = ConfigProperties.GRAFANA_DASHBOARD_URL)
     Optional<String> dashboardURL;
 
@@ -110,19 +104,6 @@ class Health {
     @Path("/health/liveness")
     @PermitAll
     public void liveness() {}
-
-    @GET
-    @Path("/api/v1/notifications_url")
-    @PermitAll
-    public Response notificationsUrl() {
-        return new PermittedResponseBuilder(
-                        Response.ok(
-                                Map.of(
-                                        "notificationsUrl",
-                                        String.format(
-                                                "ws://%s:%d/api/v1/notifications", host, port))))
-                .build();
-    }
 
     @GET
     @Path("/api/v1/grafana_dashboard_url")
