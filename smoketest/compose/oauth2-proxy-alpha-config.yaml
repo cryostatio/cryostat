@@ -8,7 +8,7 @@ upstreamConfig:
       uri: http://cryostat:8181
 providers:
   - id: dummy
-    name: Unused (Dev)
+    name: Unused - Sign In Below
     clientId: CLIENT_ID
     clientSecret: CLIENT_SECRET
     provider: google
