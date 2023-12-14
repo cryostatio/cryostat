@@ -2,6 +2,7 @@
 
 podman run \
     --rm -it \
+    --publish 8080:8080 \
     --mount type=bind,source="$(dirname "$0")/smoketest/compose/auth-proxy-htpasswd",destination=/tmp/.htpasswd,relabel=shared \
     --mount type=bind,source="$(dirname "$0")/smoketest/compose/oauth2-proxy-alpha-config.yaml",destination=/tmp/oauth2-proxy-alpha-config.yaml,relabel=shared \
     --env OAUTH2_PROXY_HTPASSWD_FILE=/tmp/.htpasswd \
