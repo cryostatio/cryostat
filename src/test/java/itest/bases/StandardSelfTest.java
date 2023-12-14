@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -330,7 +329,7 @@ public abstract class StandardSelfTest {
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
 
         Utils.HTTP_CLIENT.webSocket(
-                getNotificationsUrl().get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                "ws://localhost/api/notifications",
                 ar -> {
                     if (ar.failed()) {
                         future.completeExceptionally(ar.cause());
@@ -379,33 +378,6 @@ public abstract class StandardSelfTest {
             return false;
         }
         return true;
-    }
-
-    private static Future<String> getNotificationsUrl() {
-        CompletableFuture<String> future = new CompletableFuture<>();
-        WORKER.submit(
-                () -> {
-                    webClient
-                            .get("/api/v1/notifications_url")
-                            .send(
-                                    ar -> {
-                                        if (ar.succeeded()) {
-                                            HttpResponse<Buffer> resp = ar.result();
-                                            logger.infov(
-                                                    "GET /api/v1/notifications_url -> HTTP {0} {1}:"
-                                                            + " [{2}]",
-                                                    resp.statusCode(),
-                                                    resp.statusMessage(),
-                                                    resp.headers());
-                                            future.complete(
-                                                    resp.bodyAsJsonObject()
-                                                            .getString("notificationsUrl"));
-                                        } else {
-                                            future.completeExceptionally(ar.cause());
-                                        }
-                                    });
-                });
-        return future;
     }
 
     public static CompletableFuture<Path> downloadFile(String url, String name, String suffix) {
