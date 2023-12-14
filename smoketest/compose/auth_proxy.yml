@@ -5,9 +5,9 @@ services:
     # to ensure that when the smoketest tries to open the auth login page in a
     # browser tab, it does so only after the upstream cryostat is actually
     # available to be proxied to
-    cryostat:
-      depends_on:
-          condition: service_healthy
+    depends_on:
+      cryostat:
+        condition: service_healthy
     deploy:
       resources:
         limits:
