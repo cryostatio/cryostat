@@ -110,7 +110,7 @@ public class Discovery {
     @Transactional
     @POST
     @Path("/api/v2.2/discovery")
-    @Consumes("application/json")
+    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
     public Map<String, Object> register(JsonObject body) throws URISyntaxException {
         String id = body.getString("id");
@@ -147,7 +147,7 @@ public class Discovery {
     @Transactional
     @POST
     @Path("/api/v2.2/discovery/{id}")
-    @Consumes("application/json")
+    @Consumes(MediaType.APPLICATION_JSON)
     @PermitAll
     public Map<String, Map<String, String>> publish(
             @RestPath UUID id, @RestQuery String token, List<DiscoveryNode> body) {

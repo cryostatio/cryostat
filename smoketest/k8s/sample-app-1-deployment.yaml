@@ -3,28 +3,28 @@ kind: Deployment
 metadata:
   annotations:
     io.cryostat.discovery: "true"
-    io.cryostat.jmxHost: sample-app
+    io.cryostat.jmxHost: sample-app-1
     io.cryostat.jmxPort: "9093"
   creationTimestamp: null
   labels:
-    io.kompose.service: sample-app
-  name: sample-app
+    io.kompose.service: sample-app-1
+  name: sample-app-1
 spec:
   replicas: 1
   selector:
     matchLabels:
-      io.kompose.service: sample-app
+      io.kompose.service: sample-app-1
   strategy: {}
   template:
     metadata:
       annotations:
         io.cryostat.discovery: "true"
-        io.cryostat.jmxHost: sample-app
+        io.cryostat.jmxHost: sample-app-1
         io.cryostat.jmxPort: "9093"
       creationTimestamp: null
       labels:
         io.kompose.network/compose-default: "true"
-        io.kompose.service: sample-app
+        io.kompose.service: sample-app-1
     spec:
       containers:
         - env:
@@ -35,7 +35,7 @@ spec:
             - name: CRYOSTAT_AGENT_BASEURI
               value: http://cryostat:8181/
             - name: CRYOSTAT_AGENT_CALLBACK
-              value: http://sample-app:8910/
+              value: http://sample-app-1:8910/
             - name: CRYOSTAT_AGENT_TRUST_ALL
               value: "true"
             - name: CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL
@@ -43,7 +43,7 @@ spec:
             - name: CRYOSTAT_AGENT_WEBCLIENT_SSL_VERIFY_HOSTNAME
               value: "false"
             - name: CRYOSTAT_AGENT_WEBSERVER_HOST
-              value: sample-app
+              value: sample-app-1
             - name: CRYOSTAT_AGENT_WEBSERVER_PORT
               value: "8910"
             - name: HTTP_PORT
@@ -59,7 +59,7 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 5
-          name: sample-app
+          name: sample-app-1
           ports:
             - containerPort: 8081
               hostPort: 8081

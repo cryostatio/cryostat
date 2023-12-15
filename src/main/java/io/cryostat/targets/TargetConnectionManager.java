@@ -15,7 +15,9 @@
  */
 package io.cryostat.targets;
 
+import java.net.SocketTimeoutException;
 import java.net.URI;
+import java.rmi.ConnectIOException;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
@@ -29,9 +31,16 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 
 import javax.management.remote.JMXServiceURL;
+import javax.naming.ServiceUnavailableException;
+import javax.security.sasl.SaslException;
+
+import org.openjdk.jmc.rjmx.ConnectionException;
+import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.JFRConnectionToolkit;
+import io.cryostat.credentials.Credential;
+import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
 
@@ -45,17 +54,21 @@ import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.FlightRecorder;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.jboss.logging.Logger;
+import org.projectnessie.cel.tools.ScriptException;
 
 @ApplicationScoped
 public class TargetConnectionManager {
 
     private final JFRConnectionToolkit jfrConnectionToolkit;
+    private final MatchExpressionEvaluator matchExpressionEvaluator;
     private final AgentConnectionFactory agentConnectionFactory;
     private final Executor executor;
     private final Logger logger;
@@ -67,12 +80,14 @@ public class TargetConnectionManager {
     @Inject
     TargetConnectionManager(
             JFRConnectionToolkit jfrConnectionToolkit,
+            MatchExpressionEvaluator matchExpressionEvaluator,
             AgentConnectionFactory agentConnectionFactory,
             Executor executor,
             Logger logger) {
         FlightRecorder.register(TargetConnectionOpened.class);
         FlightRecorder.register(TargetConnectionClosed.class);
         this.jfrConnectionToolkit = jfrConnectionToolkit;
+        this.matchExpressionEvaluator = matchExpressionEvaluator;
         this.agentConnectionFactory = agentConnectionFactory;
         this.executor = executor;
 
@@ -116,6 +131,42 @@ public class TargetConnectionManager {
         }
     }
 
+    @Blocking
+    @ConsumeEvent(Credential.CREDENTIALS_STORED)
+    void onCredentialsStored(Credential credential) {
+        handleCredentialChange(credential);
+    }
+
+    @Blocking
+    @ConsumeEvent(Credential.CREDENTIALS_UPDATED)
+    void onCredentialsUpdated(Credential credential) {
+        handleCredentialChange(credential);
+    }
+
+    @Blocking
+    @ConsumeEvent(Credential.CREDENTIALS_DELETED)
+    void onCredentialsDeleted(Credential credential) {
+        handleCredentialChange(credential);
+    }
+
+    @Blocking
+    void handleCredentialChange(Credential credential) {
+        for (var entry : connections.asMap().entrySet()) {
+            URI key = entry.getKey();
+            var target = Target.find("connectUrl", key).<Target>firstResultOptional();
+            if (target.isEmpty()) {
+                continue;
+            }
+            try {
+                if (matchExpressionEvaluator.applies(credential.matchExpression, target.get())) {
+                    connections.synchronous().invalidate(key);
+                }
+            } catch (ScriptException se) {
+                logger.warn(se);
+            }
+        }
+    }
+
     public <T> Uni<T> executeConnectedTaskAsync(Target target, ConnectedTask<T> task) {
         return Uni.createFrom()
                 .completionStage(
@@ -142,6 +193,15 @@ public class TargetConnectionManager {
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) throws Exception {
         synchronized (targetLocks.computeIfAbsent(target.connectUrl, k -> new Object())) {
             return task.execute(connections.get(target.connectUrl).get());
+        }
+    }
+
+    @Blocking
+    public <T> T executeDirect(
+            Target target, Optional<Credential> credentials, ConnectedTask<T> task)
+            throws Exception {
+        try (var conn = connect(target.connectUrl, credentials)) {
+            return task.execute(conn);
         }
     }
 
@@ -198,7 +258,33 @@ public class TargetConnectionManager {
         }
     }
 
-    private JFRConnection connect(URI connectUrl) throws Exception {
+    @Transactional
+    JFRConnection connect(URI connectUrl) throws Exception {
+        var credentials =
+                Target.find("connectUrl", connectUrl)
+                        .<Target>firstResultOptional()
+                        .map(
+                                t ->
+                                        Credential.<Credential>listAll().stream()
+                                                .filter(
+                                                        c -> {
+                                                            try {
+                                                                return matchExpressionEvaluator
+                                                                        .applies(
+                                                                                c.matchExpression,
+                                                                                t);
+                                                            } catch (ScriptException e) {
+                                                                logger.error(e);
+                                                                return false;
+                                                            }
+                                                        })
+                                                .findFirst()
+                                                .orElse(null));
+        return connect(connectUrl, credentials);
+    }
+
+    @Blocking
+    JFRConnection connect(URI connectUrl, Optional<Credential> credentials) throws Exception {
         TargetConnectionOpened evt = new TargetConnectionOpened(connectUrl.toString());
         evt.begin();
         try {
@@ -209,13 +295,14 @@ public class TargetConnectionManager {
             if (Set.of("http", "https", "cryostat-agent").contains(connectUrl.getScheme())) {
                 return agentConnectionFactory.createConnection(connectUrl);
             }
+
             return jfrConnectionToolkit.connect(
                     new JMXServiceURL(connectUrl.toString()),
-                    null /* TODO get from credentials storage */,
+                    credentials
+                            .map(c -> new io.cryostat.core.net.Credentials(c.username, c.password))
+                            .orElse(null),
                     Collections.singletonList(
-                            () -> {
-                                this.connections.synchronous().invalidate(connectUrl);
-                            }));
+                            () -> connections.synchronous().invalidate(connectUrl)));
         } catch (Exception e) {
             evt.setExceptionThrown(true);
             if (semaphore.isPresent()) {
@@ -262,6 +349,33 @@ public class TargetConnectionManager {
 
     public interface ConnectedTask<T> {
         T execute(JFRConnection connection) throws Exception;
+    }
+
+    public static boolean isTargetConnectionFailure(Exception e) {
+        return ExceptionUtils.indexOfType(e, ConnectionException.class) >= 0
+                || ExceptionUtils.indexOfType(e, FlightRecorderException.class) >= 0;
+    }
+
+    public static boolean isJmxAuthFailure(Exception e) {
+        return ExceptionUtils.indexOfType(e, SecurityException.class) >= 0
+                || ExceptionUtils.indexOfType(e, SaslException.class) >= 0;
+    }
+
+    public static boolean isJmxSslFailure(Exception e) {
+        return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
+                && !isServiceTypeFailure(e);
+    }
+
+    /** Check if the exception happened because the port connected to a non-JMX service. */
+    public static boolean isServiceTypeFailure(Exception e) {
+        return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
+                && ExceptionUtils.indexOfType(e, SocketTimeoutException.class) >= 0;
+    }
+
+    public static boolean isUnknownTargetFailure(Exception e) {
+        return ExceptionUtils.indexOfType(e, java.net.UnknownHostException.class) >= 0
+                || ExceptionUtils.indexOfType(e, java.rmi.UnknownHostException.class) >= 0
+                || ExceptionUtils.indexOfType(e, ServiceUnavailableException.class) >= 0;
     }
 
     @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionOpened")

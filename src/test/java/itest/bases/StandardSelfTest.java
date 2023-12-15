@@ -55,8 +55,8 @@ import org.junit.jupiter.api.BeforeAll;
 
 public abstract class StandardSelfTest {
 
-    private static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
-    private static final String SELFTEST_ALIAS = "selftest";
+    public static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
+    public static final String SELFTEST_ALIAS = "selftest";
     private static final ExecutorService WORKER = Executors.newCachedThreadPool();
     public static final Logger logger = Logger.getLogger(StandardSelfTest.class);
     public static final ObjectMapper mapper = new ObjectMapper();
@@ -81,62 +81,36 @@ public abstract class StandardSelfTest {
     }
 
     public static void assertNoRecordings() throws Exception {
-        CompletableFuture<JsonArray> listFuture = new CompletableFuture<>();
-        webClient
-                .get(
-                        String.format(
-                                "/api/v1/targets/%s/recordings",
-                                getSelfReferenceConnectUrlEncoded()))
-                .basicAuthentication("user", "pass")
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listFuture)) {
-                                listFuture.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        JsonArray listResp = listFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        JsonArray listResp =
+                webClient
+                        .extensions()
+                        .get(
+                                String.format(
+                                        "/api/v1/targets/%s/recordings",
+                                        getSelfReferenceConnectUrlEncoded()),
+                                true,
+                                REQUEST_TIMEOUT_SECONDS)
+                        .bodyAsJsonArray();
         if (!listResp.isEmpty()) {
             throw new ITestCleanupFailedException(
                     String.format("Unexpected recordings:\n%s", listResp.encodePrettily()));
         }
     }
 
-    // @AfterAll
-    public static void deleteSelfCustomTarget() {
-        if (StringUtils.isBlank(selfCustomTargetLocation)) {
+    @AfterAll
+    public static void deleteSelfCustomTarget()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        if (!selfCustomTargetExists()) {
             return;
         }
         logger.infov("Deleting self custom target at {0}", selfCustomTargetLocation);
         String path = URI.create(selfCustomTargetLocation).getPath();
-        CompletableFuture<String> future = new CompletableFuture<>();
-        try {
-            WORKER.submit(
-                    () -> {
-                        webClient
-                                .delete(path)
-                                .basicAuthentication("user", "pass")
-                                .timeout(5000)
-                                .send(
-                                        ar -> {
-                                            if (ar.failed()) {
-                                                logger.error(ar.cause());
-                                                future.completeExceptionally(ar.cause());
-                                                return;
-                                            }
-                                            HttpResponse<Buffer> resp = ar.result();
-                                            logger.infov(
-                                                    "DELETE {0} -> HTTP {1} {2}: [{3}]",
-                                                    path,
-                                                    resp.statusCode(),
-                                                    resp.statusMessage(),
-                                                    resp.headers());
-                                            future.complete(null);
-                                        });
-                    });
-            selfCustomTargetLocation = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            logger.error(e);
-        }
+        HttpResponse<Buffer> resp =
+                webClient.extensions().delete(path, true, REQUEST_TIMEOUT_SECONDS);
+        logger.infov(
+                "DELETE {0} -> HTTP {1} {2}: [{3}]",
+                path, resp.statusCode(), resp.statusMessage(), resp.headers());
+        selfCustomTargetLocation = null;
     }
 
     public static void waitForDiscovery(int otherTargetsCount) {
@@ -152,7 +126,7 @@ public abstract class StandardSelfTest {
                                 .get("/api/v3/targets")
                                 .basicAuthentication("user", "pass")
                                 .as(BodyCodec.jsonArray())
-                                .timeout(5000)
+                                .timeout(TimeUnit.SECONDS.toMillis(REQUEST_TIMEOUT_SECONDS))
                                 .send(
                                         ar -> {
                                             if (ar.failed()) {
@@ -194,38 +168,21 @@ public abstract class StandardSelfTest {
         if (StringUtils.isBlank(selfCustomTargetLocation)) {
             return false;
         }
-        CompletableFuture<Boolean> future = new CompletableFuture<>();
         try {
-            WORKER.submit(
-                    () -> {
-                        webClient
-                                .getAbs(selfCustomTargetLocation)
-                                .basicAuthentication("user", "pass")
-                                .timeout(5000)
-                                .send(
-                                        ar -> {
-                                            if (ar.failed()) {
-                                                logger.error(ar.cause());
-                                                future.completeExceptionally(ar.cause());
-                                                return;
-                                            }
-                                            HttpResponse<Buffer> resp = ar.result();
-                                            logger.infov(
-                                                    "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
-                                                    resp.statusCode(),
-                                                    resp.statusMessage(),
-                                                    resp.headers());
-                                            future.complete(
-                                                    HttpStatusCodeIdentifier.isSuccessCode(
-                                                            resp.statusCode()));
-                                        });
-                    });
-            boolean result = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            HttpResponse<Buffer> resp =
+                    webClient
+                            .extensions()
+                            .get(selfCustomTargetLocation, true, REQUEST_TIMEOUT_SECONDS);
+            logger.infov(
+                    "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
+                    resp.statusCode(), resp.statusMessage(), resp.headers());
+            boolean result = HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode());
             if (!result) {
                 selfCustomTargetLocation = null;
             }
             return result;
         } catch (Exception e) {
+            selfCustomTargetLocation = null;
             logger.error(e);
             return false;
         }
@@ -236,88 +193,45 @@ public abstract class StandardSelfTest {
             return;
         }
         logger.info("Trying to define self-referential custom target...");
-        CompletableFuture<String> future = new CompletableFuture<>();
+        JsonObject self =
+                new JsonObject(Map.of("connectUrl", SELF_JMX_URL, "alias", SELFTEST_ALIAS));
+        HttpResponse<Buffer> resp;
         try {
-            JsonObject self =
-                    new JsonObject(Map.of("connectUrl", SELF_JMX_URL, "alias", SELFTEST_ALIAS));
-            WORKER.submit(
-                    () -> {
-                        webClient
-                                .post("/api/v2/targets")
-                                .basicAuthentication("user", "pass")
-                                .timeout(5000)
-                                .sendJson(
-                                        self,
-                                        ar -> {
-                                            if (ar.failed()) {
-                                                logger.error(ar.cause());
-                                                future.completeExceptionally(ar.cause());
-                                                return;
-                                            }
-                                            HttpResponse<Buffer> resp = ar.result();
-                                            logger.infov(
-                                                    "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
-                                                    resp.statusCode(),
-                                                    resp.statusMessage(),
-                                                    resp.headers());
-                                            if (HttpStatusCodeIdentifier.isSuccessCode(
-                                                    resp.statusCode())) {
-                                                future.complete(
-                                                        resp.headers().get(HttpHeaders.LOCATION));
-                                            } else {
-                                                future.completeExceptionally(
-                                                        new IllegalStateException(
-                                                                Integer.toString(
-                                                                        resp.statusCode())));
-                                            }
-                                        });
-                    });
-            selfCustomTargetLocation = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            logger.error(e);
+            resp =
+                    webClient
+                            .extensions()
+                            .post(
+                                    "/api/v2/targets",
+                                    true,
+                                    Buffer.buffer(self.encode()),
+                                    REQUEST_TIMEOUT_SECONDS);
+            logger.infov(
+                    "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
+                    resp.statusCode(), resp.statusMessage(), resp.headers());
+            if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
+                throw new IllegalStateException(Integer.toString(resp.statusCode()));
+            }
+            selfCustomTargetLocation =
+                    URI.create(resp.headers().get(HttpHeaders.LOCATION)).getPath();
+        } catch (InterruptedException | ExecutionException | TimeoutException e) {
+            throw new IllegalStateException(e);
         }
     }
 
     public static String getSelfReferenceConnectUrl() {
-        tryDefineSelfCustomTarget();
-        CompletableFuture<JsonObject> future = new CompletableFuture<>();
-        WORKER.submit(
-                () -> {
-                    String path = URI.create(selfCustomTargetLocation).getPath();
-                    webClient
-                            .get(path)
-                            .basicAuthentication("user", "pass")
-                            .as(BodyCodec.jsonObject())
-                            .timeout(5000)
-                            .send(
-                                    ar -> {
-                                        if (ar.failed()) {
-                                            logger.error(ar.cause());
-                                            future.completeExceptionally(ar.cause());
-                                            return;
-                                        }
-                                        HttpResponse<JsonObject> resp = ar.result();
-                                        JsonObject body = resp.body();
-                                        logger.infov(
-                                                "GET {0} -> HTTP {1} {2}: [{3}] = {4}",
-                                                path,
-                                                resp.statusCode(),
-                                                resp.statusMessage(),
-                                                resp.headers(),
-                                                body);
-                                        if (!HttpStatusCodeIdentifier.isSuccessCode(
-                                                resp.statusCode())) {
-                                            future.completeExceptionally(
-                                                    new IllegalStateException(
-                                                            Integer.toString(resp.statusCode())));
-                                            return;
-                                        }
-                                        future.complete(body);
-                                    });
-                });
         try {
-            JsonObject obj = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            return obj.getString("connectUrl");
+            tryDefineSelfCustomTarget();
+            String path = URI.create(selfCustomTargetLocation).getPath();
+            HttpResponse<Buffer> resp =
+                    webClient.extensions().get(path, true, REQUEST_TIMEOUT_SECONDS);
+            JsonObject body = resp.bodyAsJsonObject();
+            logger.infov(
+                    "GET {0} -> HTTP {1} {2}: [{3}] = {4}",
+                    path, resp.statusCode(), resp.statusMessage(), resp.headers(), body);
+            if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
+                throw new IllegalStateException(Integer.toString(resp.statusCode()));
+            }
+            return body.getString("connectUrl");
         } catch (Exception e) {
             throw new RuntimeException("Could not determine own connectUrl", e);
         }
@@ -333,8 +247,12 @@ public abstract class StandardSelfTest {
     public static CompletableFuture<JsonObject> expectNotification(
             String category, long timeout, TimeUnit unit)
             throws TimeoutException, ExecutionException, InterruptedException {
+        logger.infov(
+                "Waiting for a \"{0}\" message within the next {1} {2} ...",
+                category, timeout, unit.name());
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
 
+        var a = new WebSocket[1];
         Utils.HTTP_CLIENT.webSocket(
                 getNotificationsUrl().get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
                 ar -> {
@@ -342,7 +260,8 @@ public abstract class StandardSelfTest {
                         future.completeExceptionally(ar.cause());
                         return;
                     }
-                    WebSocket ws = ar.result();
+                    a[0] = ar.result();
+                    var ws = a[0];
 
                     ws.handler(
                                     m -> {
@@ -350,6 +269,8 @@ public abstract class StandardSelfTest {
                                         JsonObject meta = resp.getJsonObject("meta");
                                         String c = meta.getString("category");
                                         if (Objects.equals(c, category)) {
+                                            logger.infov(
+                                                    "Received expected \"{0}\" message", category);
                                             ws.end(unused -> future.complete(resp));
                                             ws.close();
                                         }
@@ -365,7 +286,7 @@ public abstract class StandardSelfTest {
                             .writeTextMessage("");
                 });
 
-        return future.orTimeout(timeout, unit);
+        return future.orTimeout(timeout, unit).whenComplete((o, t) -> a[0].close());
     }
 
     public static <T> boolean assertRequestStatus(

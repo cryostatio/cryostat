@@ -37,6 +37,7 @@ import io.quarkus.cache.CaffeineCache;
 import io.quarkus.cache.CompositeCacheKey;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
+import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jdk.jfr.Category;
@@ -198,13 +199,12 @@ public class MatchExpressionEvaluator {
     private static record SimplifiedTarget(
             String connectUrl,
             String alias,
-            String jvmId,
+            @Nullable String jvmId,
             Map<String, String> labels,
             Target.Annotations annotations) {
         SimplifiedTarget {
             Objects.requireNonNull(connectUrl);
             Objects.requireNonNull(alias);
-            Objects.requireNonNull(jvmId);
             if (labels == null) {
                 labels = Collections.emptyMap();
             }
