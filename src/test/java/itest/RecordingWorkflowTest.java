@@ -84,7 +84,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                             String.format(
                                     "/api/v1/targets/%s/recordings",
                                     getSelfReferenceConnectUrlEncoded()),
-                            true,
                             form,
                             REQUEST_TIMEOUT_SECONDS);
 
@@ -126,7 +125,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                             "/api/v1/targets/%s/recordings/%s",
                                             getSelfReferenceConnectUrlEncoded(),
                                             TEST_RECORDING_NAME),
-                                    true,
                                     saveHeaders,
                                     Buffer.buffer("SAVE"),
                                     REQUEST_TIMEOUT_SECONDS)
@@ -259,7 +257,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                 String.format(
                                         "/api/v1/targets/%s/recordings/%s",
                                         getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME),
-                                true,
                                 REQUEST_TIMEOUT_SECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
                 throw new ITestCleanupFailedException(
@@ -275,7 +272,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                     String.format(
                                             "/api/beta/recordings/%s/%s",
                                             getSelfReferenceConnectUrlEncoded(), savedRecording),
-                                    true,
                                     REQUEST_TIMEOUT_SECONDS);
                 } catch (InterruptedException | ExecutionException | TimeoutException e) {
                     throw new ITestCleanupFailedException(

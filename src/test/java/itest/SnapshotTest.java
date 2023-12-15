@@ -148,7 +148,6 @@ public class SnapshotTest extends StandardSelfTest {
                 .extensions()
                 .post(
                         String.format("%s/recordings", v1RequestUrl()),
-                        true,
                         form,
                         REQUEST_TIMEOUT_SECONDS);
 
@@ -176,7 +175,6 @@ public class SnapshotTest extends StandardSelfTest {
                 .extensions()
                 .delete(
                         String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME),
-                        true,
                         REQUEST_TIMEOUT_SECONDS);
         webClient
                 .extensions()
@@ -185,7 +183,6 @@ public class SnapshotTest extends StandardSelfTest {
                                 "%s/recordings/%s",
                                 v1RequestUrl(),
                                 snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)),
-                        true,
                         REQUEST_TIMEOUT_SECONDS);
     }
 
@@ -220,7 +217,6 @@ public class SnapshotTest extends StandardSelfTest {
                 .extensions()
                 .post(
                         String.format("%s/recordings", v1RequestUrl()),
-                        true,
                         form,
                         REQUEST_TIMEOUT_SECONDS);
 
@@ -282,7 +278,6 @@ public class SnapshotTest extends StandardSelfTest {
                 .extensions()
                 .delete(
                         String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME),
-                        true,
                         REQUEST_TIMEOUT_SECONDS);
         webClient
                 .extensions()
@@ -291,7 +286,6 @@ public class SnapshotTest extends StandardSelfTest {
                                 "%s/recordings/%s",
                                 v1RequestUrl(),
                                 snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)),
-                        true,
                         REQUEST_TIMEOUT_SECONDS);
     }
 

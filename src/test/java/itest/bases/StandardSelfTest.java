@@ -87,7 +87,6 @@ public abstract class StandardSelfTest {
                                 String.format(
                                         "/api/v1/targets/%s/recordings",
                                         getSelfReferenceConnectUrlEncoded()),
-                                true,
                                 REQUEST_TIMEOUT_SECONDS)
                         .bodyAsJsonArray();
         if (!listResp.isEmpty()) {
@@ -104,8 +103,7 @@ public abstract class StandardSelfTest {
         }
         logger.infov("Deleting self custom target at {0}", selfCustomTargetLocation);
         String path = URI.create(selfCustomTargetLocation).getPath();
-        HttpResponse<Buffer> resp =
-                webClient.extensions().delete(path, true, REQUEST_TIMEOUT_SECONDS);
+        HttpResponse<Buffer> resp = webClient.extensions().delete(path, REQUEST_TIMEOUT_SECONDS);
         logger.infov(
                 "DELETE {0} -> HTTP {1} {2}: [{3}]",
                 path, resp.statusCode(), resp.statusMessage(), resp.headers());
@@ -168,9 +166,7 @@ public abstract class StandardSelfTest {
         }
         try {
             HttpResponse<Buffer> resp =
-                    webClient
-                            .extensions()
-                            .get(selfCustomTargetLocation, true, REQUEST_TIMEOUT_SECONDS);
+                    webClient.extensions().get(selfCustomTargetLocation, REQUEST_TIMEOUT_SECONDS);
             logger.infov(
                     "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
                     resp.statusCode(), resp.statusMessage(), resp.headers());
@@ -200,7 +196,6 @@ public abstract class StandardSelfTest {
                             .extensions()
                             .post(
                                     "/api/v2/targets",
-                                    true,
                                     Buffer.buffer(self.encode()),
                                     REQUEST_TIMEOUT_SECONDS);
             logger.infov(
@@ -220,8 +215,7 @@ public abstract class StandardSelfTest {
         try {
             tryDefineSelfCustomTarget();
             String path = URI.create(selfCustomTargetLocation).getPath();
-            HttpResponse<Buffer> resp =
-                    webClient.extensions().get(path, true, REQUEST_TIMEOUT_SECONDS);
+            HttpResponse<Buffer> resp = webClient.extensions().get(path, REQUEST_TIMEOUT_SECONDS);
             JsonObject body = resp.bodyAsJsonObject();
             logger.infov(
                     "GET {0} -> HTTP {1} {2}: [{3}] = {4}",

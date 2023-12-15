@@ -73,7 +73,7 @@ public class CustomTargetsTest extends StandardSelfTest {
         JsonArray list =
                 webClient
                         .extensions()
-                        .get("/api/v3/targets", true, REQUEST_TIMEOUT_SECONDS)
+                        .get("/api/v3/targets", REQUEST_TIMEOUT_SECONDS)
                         .bodyAsJsonArray();
         if (!list.isEmpty()) throw new IllegalStateException();
     }
@@ -135,7 +135,6 @@ public class CustomTargetsTest extends StandardSelfTest {
                         .extensions()
                         .post(
                                 "/api/v2/targets?dryrun=true",
-                                true,
                                 Buffer.buffer(
                                         JsonObject.of("connectUrl", SELF_JMX_URL, "alias", "self")
                                                 .encode()),
@@ -149,7 +148,7 @@ public class CustomTargetsTest extends StandardSelfTest {
         JsonArray list =
                 webClient
                         .extensions()
-                        .get("/api/v3/targets", true, REQUEST_TIMEOUT_SECONDS)
+                        .get("/api/v3/targets", REQUEST_TIMEOUT_SECONDS)
                         .bodyAsJsonArray();
         MatcherAssert.assertThat(list, Matchers.notNullValue());
         MatcherAssert.assertThat(list.size(), Matchers.equalTo(0));
@@ -207,7 +206,6 @@ public class CustomTargetsTest extends StandardSelfTest {
                         .extensions()
                         .post(
                                 "/api/v2/targets?storeCredentials=true",
-                                true,
                                 form,
                                 REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(201));
@@ -249,7 +247,7 @@ public class CustomTargetsTest extends StandardSelfTest {
                 Matchers.equalTo(alias));
 
         HttpResponse<Buffer> listResponse =
-                webClient.extensions().get("/api/v1/targets", true, REQUEST_TIMEOUT_SECONDS);
+                webClient.extensions().get("/api/v1/targets", REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
         JsonArray list = listResponse.bodyAsJsonArray();
         MatcherAssert.assertThat(list, Matchers.notNullValue());
@@ -312,13 +310,12 @@ public class CustomTargetsTest extends StandardSelfTest {
                 .extensions()
                 .delete(
                         String.format("/api/v2/targets/%s", JMX_URL_ENCODED),
-                        true,
                         REQUEST_TIMEOUT_SECONDS);
 
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
         HttpResponse<Buffer> listResponse =
-                webClient.extensions().get("/api/v1/targets", true, REQUEST_TIMEOUT_SECONDS);
+                webClient.extensions().get("/api/v1/targets", REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
         JsonArray list = listResponse.bodyAsJsonArray();
         MatcherAssert.assertThat(list, Matchers.notNullValue());

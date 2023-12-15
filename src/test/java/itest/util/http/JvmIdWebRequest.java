@@ -33,7 +33,6 @@ public class JvmIdWebRequest {
                 .extensions()
                 .get(
                         String.format("/api/v3/targets/%d", id),
-                        true,
                         StandardSelfTest.REQUEST_TIMEOUT_SECONDS)
                 .bodyAsJsonObject()
                 .getString("jvmId");
@@ -43,7 +42,7 @@ public class JvmIdWebRequest {
             throws InterruptedException, ExecutionException, TimeoutException {
         return webClient
                 .extensions()
-                .get("/api/v3/targets", true, StandardSelfTest.REQUEST_TIMEOUT_SECONDS)
+                .get("/api/v3/targets", StandardSelfTest.REQUEST_TIMEOUT_SECONDS)
                 .bodyAsJsonArray()
                 .stream()
                 .map(o -> (JsonObject) o)
