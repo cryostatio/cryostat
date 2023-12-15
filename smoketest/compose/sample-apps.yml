@@ -2,7 +2,7 @@ version: "3"
 services:
   sample-app-1:
     depends_on:
-      cryostat:
+      auth:
         condition: service_healthy
     image: quay.io/andrewazores/vertx-fib-demo:0.13.0
     hostname: vertx-fib-demo-1
@@ -15,7 +15,7 @@ services:
       CRYOSTAT_AGENT_WEBSERVER_HOST: "sample-app-1"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8910"
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-1:8910/"
-      CRYOSTAT_AGENT_BASEURI: "http:/auth:8080/"
+      CRYOSTAT_AGENT_BASEURI: "http://auth:8080/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
       CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz
     ports:
@@ -33,7 +33,7 @@ services:
       timeout: 5s
   sample-app-2:
     depends_on:
-      cryostat:
+      auth:
         condition: service_healthy
     image: quay.io/andrewazores/vertx-fib-demo:0.13.0
     hostname: vertx-fib-demo-2
@@ -47,7 +47,7 @@ services:
       CRYOSTAT_AGENT_WEBSERVER_HOST: "sample-app-2"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8911"
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-2:8911/"
-      CRYOSTAT_AGENT_BASEURI: "http://cryostat:8181/"
+      CRYOSTAT_AGENT_BASEURI: "http://auth:8080/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
       CRYOSTAT_AGENT_AUTHORIZATION: "Basic dXNlcjpwYXNz"
     ports:
@@ -61,7 +61,7 @@ services:
       timeout: 5s
   sample-app-3:
     depends_on:
-      cryostat:
+      auth:
         condition: service_healthy
     image: quay.io/andrewazores/vertx-fib-demo:0.13.0
     hostname: vertx-fib-demo-3
@@ -76,7 +76,7 @@ services:
       CRYOSTAT_AGENT_WEBSERVER_HOST: "sample-app-3"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8910"
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-3:8912/"
-      CRYOSTAT_AGENT_BASEURI: "http://cryostat:8181/"
+      CRYOSTAT_AGENT_BASEURI: "http://auth:8080/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
       CRYOSTAT_AGENT_AUTHORIZATION: "Basic dXNlcjpwYXNz"
     ports:
@@ -90,7 +90,7 @@ services:
       timeout: 5s
   quarkus-test-agent:
     image: quay.io/andrewazores/quarkus-test:latest
-    # do not add a depends_on:cryostat here, so that we can test that the agent is tolerant of that state
+    # do not add a depends_on:cryostat/depends_on:auth here, so that we can test that the agent is tolerant of that state
     hostname: quarkus-test-agent
     ports:
       - "10010:10010"
