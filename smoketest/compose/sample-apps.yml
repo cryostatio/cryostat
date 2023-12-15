@@ -1,6 +1,6 @@
 version: "3"
 services:
-  sample-app:
+  sample-app-1:
     depends_on:
       cryostat:
         condition: service_healthy
@@ -12,19 +12,75 @@ services:
       CRYOSTAT_AGENT_APP_NAME: vertx-fib-demo-1
       CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL: "true"
       CRYOSTAT_AGENT_WEBCLIENT_SSL_VERIFY_HOSTNAME: "false"
-      CRYOSTAT_AGENT_WEBSERVER_HOST: sample-app
-      CRYOSTAT_AGENT_WEBSERVER_PORT: 8910
-      CRYOSTAT_AGENT_CALLBACK: http://sample-app:8910/
-      CRYOSTAT_AGENT_BASEURI: http://auth:8080/
-      CRYOSTAT_AGENT_BASEURI_RANGE: public
+      CRYOSTAT_AGENT_WEBSERVER_HOST: "sample-app-1"
+      CRYOSTAT_AGENT_WEBSERVER_PORT: "8910"
+      CRYOSTAT_AGENT_CALLBACK: "http://sample-app-1:8910/"
+      CRYOSTAT_AGENT_BASEURI: "http:/auth:8080/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
       CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz
     ports:
       - "8081:8081"
     labels:
       io.cryostat.discovery: "true"
-      io.cryostat.jmxHost: "sample-app"
+      io.cryostat.jmxHost: "sample-app-1"
       io.cryostat.jmxPort: "9093"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:8081 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
+  sample-app-2:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: quay.io/andrewazores/vertx-fib-demo:0.13.0
+    hostname: vertx-fib-demo-2
+    environment:
+      HTTP_PORT: 8082
+      JMX_PORT: 9094
+      USE_AUTH: "true"
+      CRYOSTAT_AGENT_APP_NAME: "vertx-fib-demo-2"
+      CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL: "true"
+      CRYOSTAT_AGENT_WEBCLIENT_SSL_VERIFY_HOSTNAME: "false"
+      CRYOSTAT_AGENT_WEBSERVER_HOST: "sample-app-2"
+      CRYOSTAT_AGENT_WEBSERVER_PORT: "8911"
+      CRYOSTAT_AGENT_CALLBACK: "http://sample-app-2:8911/"
+      CRYOSTAT_AGENT_BASEURI: "http://cryostat:8181/"
+      CRYOSTAT_AGENT_TRUST_ALL: "true"
+      CRYOSTAT_AGENT_AUTHORIZATION: "Basic dXNlcjpwYXNz"
+    ports:
+      - "8082:8082"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:8081 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 10s
+      timeout: 5s
+  sample-app-3:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: quay.io/andrewazores/vertx-fib-demo:0.13.0
+    hostname: vertx-fib-demo-3
+    environment:
+      HTTP_PORT: 8083
+      JMX_PORT: 9095
+      USE_AUTH: "true"
+      USE_SSL: "true"
+      CRYOSTAT_AGENT_APP_NAME: "vertx-fib-demo-3"
+      CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL: "true"
+      CRYOSTAT_AGENT_WEBCLIENT_SSL_VERIFY_HOSTNAME: "false"
+      CRYOSTAT_AGENT_WEBSERVER_HOST: "sample-app-3"
+      CRYOSTAT_AGENT_WEBSERVER_PORT: "8910"
+      CRYOSTAT_AGENT_CALLBACK: "http://sample-app-3:8912/"
+      CRYOSTAT_AGENT_BASEURI: "http://cryostat:8181/"
+      CRYOSTAT_AGENT_TRUST_ALL: "true"
+      CRYOSTAT_AGENT_AUTHORIZATION: "Basic dXNlcjpwYXNz"
+    ports:
+      - "8083:8083"
     restart: always
     healthcheck:
       test: curl --fail http://localhost:8081 || exit 1
@@ -41,7 +97,7 @@ services:
     expose:
       - "9977"
     environment:
-      JAVA_OPTS: "-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -javaagent:/deployments/app/cryostat-agent.jar"
+      JAVA_OPTS_APPEND: "-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -javaagent:/deployments/app/cryostat-agent.jar"
       QUARKUS_HTTP_PORT: 10010
       ORG_ACME_CRYOSTATSERVICE_ENABLED: "false"
       CRYOSTAT_AGENT_APP_NAME: quarkus-test-agent

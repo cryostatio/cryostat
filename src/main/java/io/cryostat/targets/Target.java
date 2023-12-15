@@ -233,11 +233,9 @@ public class Target extends PanacheEntity {
                         connectionManager.executeConnectedTask(target, conn -> conn.getJvmId());
             } catch (Exception e) {
                 // TODO tolerate this in the condition that the connection failed because of JMX
-                // auth.
-                // In that instance then persist the entity with a null jvmId, but listen for new
-                // Credentials
-                // and test them against any targets with null jvmIds to see if we can populate
-                // them.
+                // auth. In that instance then persist the entity with a null jvmId, but listen for
+                // new Credentials and test them against any targets with null jvmIds to see if we
+                // can populate them.
                 throw new JvmIdException(e);
             }
         }

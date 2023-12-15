@@ -20,15 +20,20 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import io.cryostat.V2Response;
+import io.cryostat.credentials.Credential;
+import io.cryostat.expressions.MatchExpression;
 import io.cryostat.targets.JvmIdException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -39,7 +44,9 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.logging.Logger;
@@ -77,28 +84,72 @@ public class CustomDiscovery {
     @Transactional(rollbackOn = {JvmIdException.class})
     @POST
     @Path("/api/v2/targets")
-    @Consumes("application/json")
+    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
-    public Response create(Target target, @RestQuery boolean dryrun) {
+    public Response create(
+            Target target, @RestQuery boolean dryrun, @RestQuery boolean storeCredentials) {
+        // TODO handle credentials embedded in JSON body
+        return doV2Create(target, Optional.empty(), dryrun, storeCredentials);
+    }
+
+    @Transactional
+    @POST
+    @Path("/api/v2/targets")
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
+    @RolesAllowed("write")
+    public Response create(
+            @RestForm URI connectUrl,
+            @RestForm String alias,
+            @RestForm String username,
+            @RestForm String password,
+            @RestQuery boolean dryrun,
+            @RestQuery boolean storeCredentials) {
+        var target = new Target();
+        target.connectUrl = connectUrl;
+        target.alias = alias;
+
+        Credential credential = null;
+        if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
+            credential = new Credential();
+            credential.matchExpression =
+                    new MatchExpression(
+                            String.format("target.connectUrl == \"%s\"", connectUrl.toString()));
+            credential.username = username;
+            credential.password = password;
+        }
+
+        return doV2Create(target, Optional.ofNullable(credential), dryrun, storeCredentials);
+    }
+
+    @Transactional
+    @Blocking
+    Response doV2Create(
+            Target target,
+            Optional<Credential> credential,
+            boolean dryrun,
+            boolean storeCredentials) {
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
 
             try {
-                if (target.isAgent()) {
-                    // TODO test connection
-                    target.jvmId = target.connectUrl.toString();
-                } else {
-                    target.jvmId =
-                            connectionManager.executeConnectedTask(target, conn -> conn.getJvmId());
-                }
+                target.jvmId =
+                        connectionManager.executeDirect(
+                                target, credential, conn -> conn.getJvmId());
             } catch (Exception e) {
                 logger.error("Target connection failed", e);
-                return Response.status(400).build();
+                return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
+                        .entity(V2Response.json(Response.Status.BAD_REQUEST, e))
+                        .build();
             }
 
             if (dryrun) {
-                return Response.ok().build();
+                return Response.accepted()
+                        .entity(V2Response.json(Response.Status.ACCEPTED, target))
+                        .build();
             }
+
+            target.persist();
+            credential.ifPresent(c -> c.persist());
 
             target.activeRecordings = new ArrayList<>();
             target.labels = Map.of();
@@ -114,29 +165,21 @@ public class CustomDiscovery {
             node.persist();
             realm.persist();
 
-            return Response.created(URI.create("/api/v3/targets/" + target.id)).build();
+            return Response.created(URI.create("/api/v3/targets/" + target.id))
+                    .entity(V2Response.json(Response.Status.CREATED, target))
+                    .build();
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
-                return Response.status(400).build();
+                return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
+                        .entity(V2Response.json(Response.Status.BAD_REQUEST, e))
+                        .build();
             }
             logger.error("Unknown error", e);
-            return Response.serverError().build();
+            return Response.serverError()
+                    .entity(V2Response.json(Response.Status.INTERNAL_SERVER_ERROR, e))
+                    .build();
         }
-    }
-
-    @Transactional
-    @POST
-    @Path("/api/v2/targets")
-    @Consumes("multipart/form-data")
-    @RolesAllowed("write")
-    public Response create(
-            @RestForm URI connectUrl, @RestForm String alias, @RestQuery boolean dryrun) {
-        var target = new Target();
-        target.connectUrl = connectUrl;
-        target.alias = alias;
-
-        return create(target, dryrun);
     }
 
     @Transactional
@@ -158,9 +201,9 @@ public class CustomDiscovery {
         Target target = Target.find("id", id).singleResult();
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         realm.children.remove(target.discoveryNode);
-        target.delete();
         realm.persist();
-        return Response.ok().build();
+        target.delete();
+        return Response.noContent().build();
     }
 
     private URI sanitizeConnectUrl(String in) throws URISyntaxException, MalformedURLException {

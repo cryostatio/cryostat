@@ -15,6 +15,7 @@
  */
 package itest;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -143,7 +144,13 @@ public class SnapshotTest extends StandardSelfTest {
         form.add("recordingName", TEST_RECORDING_NAME);
         form.add("duration", "5");
         form.add("events", "template=ALL");
-        webClient.extensions().post(String.format("%s/recordings", v1RequestUrl()), true, form, 5);
+        webClient
+                .extensions()
+                .post(
+                        String.format("%s/recordings", v1RequestUrl()),
+                        true,
+                        form,
+                        REQUEST_TIMEOUT_SECONDS);
 
         // Create a snapshot recording of all events at that time
         webClient
@@ -170,7 +177,7 @@ public class SnapshotTest extends StandardSelfTest {
                 .delete(
                         String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME),
                         true,
-                        5);
+                        REQUEST_TIMEOUT_SECONDS);
         webClient
                 .extensions()
                 .delete(
@@ -179,7 +186,7 @@ public class SnapshotTest extends StandardSelfTest {
                                 v1RequestUrl(),
                                 snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)),
                         true,
-                        5);
+                        REQUEST_TIMEOUT_SECONDS);
     }
 
     @Test
@@ -209,7 +216,13 @@ public class SnapshotTest extends StandardSelfTest {
         form.add("recordingName", TEST_RECORDING_NAME);
         form.add("duration", "5");
         form.add("events", "template=ALL");
-        webClient.extensions().post(String.format("%s/recordings", v1RequestUrl()), true, form, 5);
+        webClient
+                .extensions()
+                .post(
+                        String.format("%s/recordings", v1RequestUrl()),
+                        true,
+                        form,
+                        REQUEST_TIMEOUT_SECONDS);
 
         // Create a snapshot recording of all events at that time
         CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
@@ -256,7 +269,13 @@ public class SnapshotTest extends StandardSelfTest {
                 Matchers.equalTo("/api/v3/activedownload/" + result.getLong("id")));
         MatcherAssert.assertThat(
                 result.getString("reportUrl"),
-                Matchers.equalTo("/api/v3/targets/1/reports/" + result.getLong("remoteId")));
+                Matchers.equalTo(
+                        URI.create(
+                                        String.format(
+                                                "%s/reports/%d",
+                                                selfCustomTargetLocation,
+                                                result.getLong("remoteId")))
+                                .getPath()));
         MatcherAssert.assertThat(result.getLong("expiry"), Matchers.nullValue());
 
         webClient
@@ -264,7 +283,7 @@ public class SnapshotTest extends StandardSelfTest {
                 .delete(
                         String.format("%s/recordings/%s", v1RequestUrl(), TEST_RECORDING_NAME),
                         true,
-                        5);
+                        REQUEST_TIMEOUT_SECONDS);
         webClient
                 .extensions()
                 .delete(
@@ -273,7 +292,7 @@ public class SnapshotTest extends StandardSelfTest {
                                 v1RequestUrl(),
                                 snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)),
                         true,
-                        5);
+                        REQUEST_TIMEOUT_SECONDS);
     }
 
     @Test

@@ -33,12 +33,12 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
-import org.jboss.resteasy.reactive.RestResponse.Status;
 import org.projectnessie.cel.tools.ScriptException;
 
 @Path("/api/v2.2/credentials")
@@ -52,6 +52,7 @@ public class Credentials {
     public V2Response list() {
         List<Credential> credentials = Credential.listAll();
         return V2Response.json(
+                Response.Status.OK,
                 credentials.stream()
                         .map(
                                 c -> {
@@ -63,8 +64,7 @@ public class Credentials {
                                     }
                                 })
                         .filter(Objects::nonNull)
-                        .toList(),
-                Status.OK.toString());
+                        .toList());
     }
 
     @GET
@@ -72,7 +72,7 @@ public class Credentials {
     @Path("/{id}")
     public V2Response get(@RestPath long id) throws ScriptException {
         Credential credential = Credential.find("id", id).singleResult();
-        return V2Response.json(safeMatchedResult(credential, targetMatcher), Status.OK.toString());
+        return V2Response.json(Response.Status.OK, safeMatchedResult(credential, targetMatcher));
     }
 
     @Transactional

@@ -25,6 +25,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 @Path("")
@@ -33,7 +34,7 @@ public class Auth {
     @POST
     @Path("/api/v2.1/logout")
     @PermitAll
-    @Produces("application/json")
+    @Produces(MediaType.APPLICATION_JSON)
     public Response logout(@Context RoutingContext context) {
         return Response.noContent().build();
     }
@@ -41,7 +42,7 @@ public class Auth {
     @POST
     @Path("/api/v2.1/auth")
     @PermitAll
-    @Produces("application/json")
+    @Produces(MediaType.APPLICATION_JSON)
     public Response login(@Context RoutingContext context) {
         return Response.ok()
                 .header("X-WWW-Authenticate", "None")

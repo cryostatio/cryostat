@@ -18,10 +18,18 @@ package io.cryostat;
 import java.util.Objects;
 
 import jakarta.annotation.Nullable;
+import jakarta.ws.rs.core.Response;
 
 public record V2Response(Meta meta, Data data) {
-    public static V2Response json(Object payload, String status) {
-        return new V2Response(new Meta("application/json", status), new Data(payload));
+    public static V2Response json(Response.Status status, Object payload) {
+        Data data;
+        if (status.getFamily().equals(Response.Status.Family.CLIENT_ERROR)
+                || status.getFamily().equals(Response.Status.Family.SERVER_ERROR)) {
+            data = new ErrorData(payload);
+        } else {
+            data = new PayloadData(payload);
+        }
+        return new V2Response(new Meta("application/json", status.getReasonPhrase()), data);
     }
 
     // FIXME the type and status should both come from an enum and be non-null
@@ -32,5 +40,33 @@ public record V2Response(Meta meta, Data data) {
         }
     }
 
-    public record Data(@Nullable Object result) {}
+    interface Data {}
+
+    public static class PayloadData implements Data {
+        @Nullable Object result;
+
+        public PayloadData(Object payload) {
+            this.result = payload;
+        }
+
+        public Object getResult() {
+            return result;
+        }
+    }
+
+    public static class ErrorData implements Data {
+        String reason;
+
+        public ErrorData(Object payload) {
+            if (payload instanceof Exception) {
+                this.reason = ((Exception) Objects.requireNonNull(payload)).getMessage();
+            } else {
+                this.reason = Objects.requireNonNull(payload).toString();
+            }
+        }
+
+        public String getReason() {
+            return reason;
+        }
+    }
 }

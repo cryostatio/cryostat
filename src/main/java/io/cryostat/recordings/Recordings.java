@@ -536,12 +536,12 @@ public class Recordings {
             return Response.status(Response.Status.CREATED)
                     .entity(
                             V2Response.json(
-                                    recordingHelper.toExternalForm(recording),
-                                    RestResponse.Status.CREATED.toString()))
+                                    Response.Status.CREATED,
+                                    recordingHelper.toExternalForm(recording)))
                     .build();
         } catch (SnapshotCreationException sce) {
             return Response.status(Response.Status.ACCEPTED)
-                    .entity(V2Response.json(null, RestResponse.Status.ACCEPTED.toString()))
+                    .entity(V2Response.json(Response.Status.ACCEPTED, null))
                     .build();
         }
     }

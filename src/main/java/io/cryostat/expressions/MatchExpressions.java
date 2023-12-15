@@ -32,7 +32,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.core.Response.Status;
+import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.projectnessie.cel.tools.ScriptException;
@@ -53,7 +53,7 @@ public class MatchExpressions {
         var matched =
                 targetMatcher.match(
                         new MatchExpression(requestData.matchExpression), requestData.targets);
-        return V2Response.json(matched, Status.OK.toString());
+        return V2Response.json(Response.Status.OK, matched);
     }
 
     @GET
