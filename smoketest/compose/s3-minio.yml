@@ -46,4 +46,3 @@ volumes:
     driver: local
   minio_certs:
     driver: local
-    

@@ -80,8 +80,10 @@ FILES+=("${s3Manifest}")
 
 if [ "${ce}" = "podman" ]; then
     FILES+=("${DIR}/smoketest/compose/cryostat.yml")
+    container_engine="podman"
 elif [ "${ce}" = "docker" ]; then
     FILES+=("${DIR}/smoketest/compose/cryostat_docker.yml")
+    container_engine="docker"
 else
     echo "Unknown Container Engine selection: ${ce}"
     display_usage
@@ -101,6 +103,8 @@ HOSTSFILE="${HOSTSFILE:-$HOME/.hosts}"
 
 cleanup() {
     set +xe
+    ${container_engine} rm proxy_cfg_helper
+    ${container_engine} volume rm auth_proxy_cfg
     local downFlags=('--remove-orphans')
     if [ "${KEEP_VOLUMES}" != "true" ]; then
         downFlags=('--volumes')
@@ -117,6 +121,14 @@ cleanup() {
 }
 trap cleanup EXIT
 cleanup
+
+createProxyCfgVolume() {
+    "${container_engine}" volume create auth_proxy_cfg
+    "${container_engine}" container create --name proxy_cfg_helper -v auth_proxy_cfg:/tmp busybox
+    "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
+    "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_alpha_config.yaml" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
+}
+createProxyCfgVolume
 
 setupUserHosts() {
     # FIXME this is broken: it puts the containers' bridge-internal IP addresses

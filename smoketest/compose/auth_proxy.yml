@@ -22,18 +22,16 @@ services:
           memory: 32m
     image: quay.io/oauth2-proxy/oauth2-proxy:latest
     user: ${UID:-0}
-    entrypoint: /bin/sh
-    command: -c 'chmod 644 /tmp/oauth2-proxy-alpha-config.yaml && /bin/oauth2-proxy --alpha-config=/tmp/oauth2-proxy-alpha-config.yaml'
+    command: --alpha-config=/tmp/auth_proxy_alpha_config.yaml
     volumes:
-      - ./auth-proxy-htpasswd:/tmp/.htpasswd
-      - ./oauth2-proxy-alpha-config.yaml:/tmp/oauth2-proxy-alpha-config.yaml
+      - auth_proxy_cfg:/tmp
     hostname: auth
     ports:
       - "8080:8080"
     labels:
       kompose.service.expose: "auth"
     environment:
-      OAUTH2_PROXY_HTPASSWD_FILE: /tmp/.htpasswd
+      OAUTH2_PROXY_HTPASSWD_FILE: /tmp/auth_proxy_htpasswd
       OAUTH2_PROXY_HTPASSWD_USER_GROUP: write
       OAUTH2_PROXY_REDIRECT_URL: http://localhost:8080/oauth2/callback
       OAUTH2_PROXY_COOKIE_SECRET: __24_BYTE_COOKIE_SECRET_
@@ -45,3 +43,7 @@ services:
       retries: 3
       start_period: 10s
       timeout: 5s
+
+volumes:
+  auth_proxy_cfg:
+    external: true
