@@ -46,7 +46,7 @@ public class Auth {
     public Response login(@Context RoutingContext context) {
         return Response.ok()
                 .header("X-WWW-Authenticate", "None")
-                .entity(V2Response.json(Map.of("username", "user"), Response.Status.OK.toString()))
+                .entity(V2Response.json(Response.Status.OK, Map.of("username", "user")))
                 .build();
     }
 }
