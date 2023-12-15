@@ -103,8 +103,6 @@ HOSTSFILE="${HOSTSFILE:-$HOME/.hosts}"
 
 cleanup() {
     set +xe
-    ${container_engine} rm proxy_cfg_helper
-    ${container_engine} volume rm auth_proxy_cfg
     local downFlags=('--remove-orphans')
     if [ "${KEEP_VOLUMES}" != "true" ]; then
         downFlags=('--volumes')
@@ -112,6 +110,8 @@ cleanup() {
     docker-compose \
         "${CMD[@]}" \
         down "${downFlags[@]}"
+    ${container_engine} rm proxy_cfg_helper
+    ${container_engine} volume rm auth_proxy_cfg
     # podman kill hoster || true
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
