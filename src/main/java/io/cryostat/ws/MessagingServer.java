@@ -23,7 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.websocket.OnClose;
@@ -81,7 +80,6 @@ public class MessagingServer {
     }
 
     @ConsumeEvent
-    @Blocking
     void broadcast(Notification notification) {
         var map =
                 Map.of(
