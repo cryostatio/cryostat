@@ -16,10 +16,8 @@
 package itest;
 
 import java.net.UnknownHostException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -28,8 +26,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import io.cryostat.util.HttpMimeType;
-
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
@@ -37,7 +33,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
-import itest.util.ITestCleanupFailedException;
 import itest.util.http.JvmIdWebRequest;
 import itest.util.http.StoredCredential;
 import org.apache.http.client.utils.URLEncodedUtils;
@@ -93,37 +88,10 @@ public class CustomTargetsTest extends StandardSelfTest {
         if (storedCredential == null) {
             return;
         }
-        CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
         webClient
-                .delete("/api/v2.2/credentials/" + storedCredential.id)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, deleteResponse)) {
-                                deleteResponse.complete(ar.result().bodyAsJsonObject());
-                            }
-                        });
-
-        Map<String, String> nullResult = new HashMap<>();
-        nullResult.put("result", null);
-        JsonObject expectedDeleteResponse =
-                new JsonObject(
-                        Map.of(
-                                "meta",
-                                Map.of("type", HttpMimeType.JSON.mime(), "status", "OK"),
-                                "data",
-                                nullResult));
-        try {
-            MatcherAssert.assertThat(
-                    deleteResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
-                    Matchers.equalTo(expectedDeleteResponse));
-        } catch (Exception e) {
-            logger.error(
-                    new ITestCleanupFailedException(
-                            String.format(
-                                    "Failed to clean up credential with ID %d",
-                                    storedCredential.id),
-                            e));
-        }
+                .extensions()
+                .delete("/api/v2.2/credentials/" + storedCredential.id, 0)
+                .bodyAsJsonObject();
     }
 
     @Test
