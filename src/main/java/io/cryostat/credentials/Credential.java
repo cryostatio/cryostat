@@ -40,10 +40,6 @@ import org.projectnessie.cel.tools.ScriptException;
 @EntityListeners(Credential.Listener.class)
 public class Credential extends PanacheEntity {
 
-    public static final String CREDENTIALS_STORED = "CredentialsStored";
-    public static final String CREDENTIALS_DELETED = "CredentialsDeleted";
-    public static final String CREDENTIALS_UPDATED = "CredentialsUpdated";
-
     @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     @JoinColumn(name = "matchExpression")
     public MatchExpression matchExpression;
@@ -62,6 +58,7 @@ public class Credential extends PanacheEntity {
 
     @ApplicationScoped
     static class Listener {
+
         @Inject EventBus bus;
         @Inject MatchExpression.TargetMatcher targetMatcher;
 
@@ -70,8 +67,7 @@ public class Credential extends PanacheEntity {
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
-                            CREDENTIALS_STORED, Credentials.notificationResult(credential)));
-            bus.publish(CREDENTIALS_STORED, credential);
+                            "CredentialsStored", Credentials.notificationResult(credential)));
         }
 
         @PostUpdate
@@ -79,8 +75,7 @@ public class Credential extends PanacheEntity {
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
-                            CREDENTIALS_UPDATED, Credentials.notificationResult(credential)));
-            bus.publish(CREDENTIALS_UPDATED, credential);
+                            "CredentialsUpdated", Credentials.notificationResult(credential)));
         }
 
         @PostRemove
@@ -88,8 +83,7 @@ public class Credential extends PanacheEntity {
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
-                            CREDENTIALS_DELETED, Credentials.notificationResult(credential)));
-            bus.publish(CREDENTIALS_DELETED, credential);
+                            "CredentialsDeleted", Credentials.notificationResult(credential)));
         }
     }
 }

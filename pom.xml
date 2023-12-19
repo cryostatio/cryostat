@@ -55,6 +55,7 @@
     <surefire.rerunFailingTestsCount>2</surefire.rerunFailingTestsCount>
     <failsafe-plugin.version>3.2.3</failsafe-plugin.version>
     <failsafe.rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</failsafe.rerunFailingTestsCount>
+    <com.google.code.gson.version>2.10.1</com.google.code.gson.version><!-- TODO drop this -->
   </properties>
   <dependencyManagement>
     <dependencies>
@@ -228,6 +229,12 @@
       <artifactId>spotbugs-annotations</artifactId>
       <version>${com.github.spotbugs.version}</version>
       <scope>provided</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.code.gson</groupId>
+      <artifactId>gson</artifactId>
+      <version>${com.google.code.gson.version}</version>
+      <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.rest-assured</groupId>

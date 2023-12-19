@@ -39,6 +39,7 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
+import org.jboss.resteasy.reactive.RestResponse.Status;
 
 @Path("/api/v2/rules")
 public class Rules {
@@ -48,20 +49,20 @@ public class Rules {
     @GET
     @RolesAllowed("read")
     public RestResponse<V2Response> list() {
-        return RestResponse.ok(V2Response.json(Response.Status.OK, Rule.listAll()));
+        return RestResponse.ok(V2Response.json(Rule.listAll(), Status.OK.getReasonPhrase()));
     }
 
     @GET
     @RolesAllowed("read")
     @Path("/{name}")
     public RestResponse<V2Response> get(@RestPath String name) {
-        return RestResponse.ok(V2Response.json(Response.Status.OK, Rule.getByName(name)));
+        return RestResponse.ok(V2Response.json(Rule.getByName(name), Status.OK.getReasonPhrase()));
     }
 
     @Transactional
     @POST
     @RolesAllowed("write")
-    @Consumes(MediaType.APPLICATION_JSON)
+    @Consumes({MediaType.APPLICATION_JSON})
     public RestResponse<V2Response> create(Rule rule) {
         // TODO validate the incoming rule
         if (rule == null) {
@@ -74,7 +75,7 @@ public class Rules {
         rule.persist();
         return ResponseBuilder.create(
                         Response.Status.CREATED,
-                        V2Response.json(Response.Status.CREATED, rule.name))
+                        V2Response.json(rule.name, Status.CREATED.toString()))
                 .build();
     }
 
@@ -82,7 +83,7 @@ public class Rules {
     @PATCH
     @RolesAllowed("write")
     @Path("/{name}")
-    @Consumes(MediaType.APPLICATION_JSON)
+    @Consumes("application/json")
     public RestResponse<V2Response> update(
             @RestPath String name, @RestQuery boolean clean, JsonObject body) {
         Rule rule = Rule.getByName(name);
@@ -94,7 +95,7 @@ public class Rules {
         rule.enabled = enabled;
         rule.persist();
 
-        return ResponseBuilder.ok(V2Response.json(Response.Status.OK, rule)).build();
+        return ResponseBuilder.ok(V2Response.json(rule, Status.OK.toString())).build();
     }
 
     @Transactional
@@ -141,7 +142,7 @@ public class Rules {
             bus.send(Rule.RULE_ADDRESS + "?clean", rule);
         }
         rule.delete();
-        return RestResponse.ok(V2Response.json(Response.Status.OK, null));
+        return RestResponse.ok(V2Response.json(null, Status.OK.toString()));
     }
 
     static class RuleExistsException extends ClientErrorException {

@@ -15,29 +15,27 @@
  */
 package io.cryostat.util;
 
-import jakarta.ws.rs.core.Response;
-
 public final class HttpStatusCodeIdentifier {
 
     private HttpStatusCodeIdentifier() {}
 
     public static boolean isInformationCode(int code) {
-        return Response.Status.Family.familyOf(code).equals(Response.Status.Family.INFORMATIONAL);
+        return 100 <= code && code < 200;
     }
 
     public static boolean isSuccessCode(int code) {
-        return Response.Status.Family.familyOf(code).equals(Response.Status.Family.SUCCESSFUL);
+        return 200 <= code && code < 300;
     }
 
     public static boolean isRedirectCode(int code) {
-        return Response.Status.Family.familyOf(code).equals(Response.Status.Family.REDIRECTION);
+        return 300 <= code && code < 400;
     }
 
     public static boolean isClientErrorCode(int code) {
-        return Response.Status.Family.familyOf(code).equals(Response.Status.Family.CLIENT_ERROR);
+        return 400 <= code && code < 500;
     }
 
     public static boolean isServerErrorCode(int code) {
-        return Response.Status.Family.familyOf(code).equals(Response.Status.Family.SERVER_ERROR);
+        return 500 <= code && code < 600;
     }
 }

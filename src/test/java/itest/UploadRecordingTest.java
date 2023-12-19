@@ -108,7 +108,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                                         "/api/v1/targets/%s/recordings/%s/upload",
                                         getSelfReferenceConnectUrlEncoded(), RECORDING_NAME),
                                 true,
-                                (Buffer) null,
+                                null,
                                 0);
 
         MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(200));
