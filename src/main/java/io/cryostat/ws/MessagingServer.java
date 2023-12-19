@@ -142,6 +142,10 @@ public class MessagingServer {
     @ConsumeEvent
     @Blocking
     void broadcast(Notification notification) {
-        msgQ.add(notification);
+        try {
+            msgQ.put(notification);
+        } catch (InterruptedException e) {
+            logger.error(e);
+        }
     }
 }
