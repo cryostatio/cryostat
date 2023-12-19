@@ -17,7 +17,7 @@ services:
     security_opt:
       - label:disable
     hostname: cryostat3
-    user: "0"
+    user: "1000"
     expose:
       - "9091"
     ports:

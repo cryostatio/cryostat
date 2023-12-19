@@ -13,11 +13,11 @@ services:
           memory: 512m
     image: quay.io/cryostat/cryostat:3.0.0-snapshot
     volumes:
-      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/user/0/podman/podman.sock:Z
+      - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/user/1000/podman/podman.sock:Z
     security_opt:
       - label:disable
     hostname: cryostat3
-    user: "0"
+    user: "1000"
     expose:
       - "8181"
     labels:

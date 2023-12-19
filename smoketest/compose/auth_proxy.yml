@@ -21,7 +21,6 @@ services:
           cpus: '0.1'
           memory: 32m
     image: quay.io/oauth2-proxy/oauth2-proxy:latest
-    user: ${UID:-0}
     command: --alpha-config=/tmp/auth_proxy_alpha_config.yaml
     volumes:
       - auth_proxy_cfg:/tmp

@@ -8,7 +8,6 @@ services:
         condition: service_healthy
     image: quay.io/cryostat/cryostat:3.0.0-snapshot
     hostname: cryostat3
-    user: "0"
     expose:
       - "9091"
     ports:
