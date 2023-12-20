@@ -1,0 +1,6 @@
+<FindBugsFilter>
+  <Match>
+    <SuperClass name="io.quarkus.hibernate.orm.panache.PanacheEntity"/>
+    <Bug pattern="PA_PUBLIC_PRIMITIVE_ATTRIBUTE"/>
+  </Match>
+</FindBugsFilter>

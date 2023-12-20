@@ -347,6 +347,9 @@
             </goals>
           </execution>
         </executions>
+        <configuration>
+          <excludeFilterFile>spotbugs-excludes.xml</excludeFilterFile>
+        </configuration>
       </plugin>
       <plugin>
         <groupId>com.mycila</groupId>
