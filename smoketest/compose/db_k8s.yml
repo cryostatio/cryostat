@@ -24,7 +24,7 @@ services:
       test: pg_isready -U cryostat3 -d cryostat3 || exit 1
       interval: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
       timeout: 5s
   db-viewer:
     depends_on:
@@ -48,7 +48,7 @@ services:
       test: wget --no-verbose --tries=1 --spider http://localhost:8989 || exit 1
       interval: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
       timeout: 5s
 
 volumes:

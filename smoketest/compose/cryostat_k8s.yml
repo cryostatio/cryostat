@@ -27,5 +27,5 @@ services:
       test: curl --fail http://localhost:8181/health/liveness || exit 1
       interval: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
       timeout: 5s

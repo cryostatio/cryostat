@@ -29,7 +29,7 @@ services:
       test: curl --fail http://localhost:8081 || exit 1
       interval: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
       timeout: 5s
   sample-app-2:
     depends_on:
@@ -57,7 +57,7 @@ services:
       test: curl --fail http://localhost:8081 || exit 1
       interval: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
       timeout: 5s
   sample-app-3:
     depends_on:
@@ -86,7 +86,7 @@ services:
       test: curl --fail http://localhost:8081 || exit 1
       interval: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
       timeout: 5s
   quarkus-test-agent:
     image: quay.io/andrewazores/quarkus-test:latest
@@ -118,6 +118,6 @@ services:
       test: curl --fail http://localhost:10010 || exit 1
       interval: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
       timeout: 5s
 
