@@ -46,7 +46,7 @@
     <quarkus-quinoa.version>2.3.1</quarkus-quinoa.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.5.0</org.codehaus.mojo.build.helper.plugin.version>
 
-    <com.github.spotbugs.version>4.8.0</com.github.spotbugs.version>
+    <com.github.spotbugs.version>4.8.3</com.github.spotbugs.version>
     <com.github.spotbugs.plugin.version>4.8.2.0</com.github.spotbugs.plugin.version>
     <com.diffplug.spotless.maven.plugin.version>2.41.1</com.diffplug.spotless.maven.plugin.version>
     <com.google.java-format.version>1.19.1</com.google.java-format.version>
