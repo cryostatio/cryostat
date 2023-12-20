@@ -3,4 +3,8 @@
     <SuperClass name="io.quarkus.hibernate.orm.panache.PanacheEntity"/>
     <Bug pattern="PA_PUBLIC_PRIMITIVE_ATTRIBUTE"/>
   </Match>
+  <Match>
+    <!-- These are almost always false positives due to bytecode particulars -->
+    <Bug pattern="RCN_REDUNDANT_NULLCHECK_OF_NONNULL_VALUE"/>
+  </Match>
 </FindBugsFilter>
