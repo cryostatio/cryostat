@@ -49,6 +49,7 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -78,6 +79,11 @@ public class TargetConnectionManager {
     private final Optional<Semaphore> semaphore;
 
     @Inject
+    @SuppressFBWarnings(
+            value = "CT_CONSTRUCTOR_THROW",
+            justification =
+                    "Caffeine cache is initialized here, so it will not throw due to"
+                            + " reconfiguration")
     TargetConnectionManager(
             JFRConnectionToolkit jfrConnectionToolkit,
             MatchExpressionEvaluator matchExpressionEvaluator,
@@ -107,8 +113,9 @@ public class TargetConnectionManager {
                         .removalListener(this::closeConnection);
         Duration ttl = Duration.ofSeconds(10); // TODO make configurable
         if (ttl.isZero() || ttl.isNegative()) {
-            throw new IllegalArgumentException(
-                    "TTL must be a positive integer in seconds, was " + ttl.toSeconds());
+            logger.errorv(
+                    "TTL must be a positive integer in seconds, was {0} - ignoring",
+                    ttl.toSeconds());
         } else {
             cacheBuilder = cacheBuilder.expireAfterAccess(ttl);
         }
