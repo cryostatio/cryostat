@@ -9,7 +9,7 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: '2'
           memory: 512m
     image: quay.io/cryostat/cryostat:3.0.0-snapshot
     volumes:
