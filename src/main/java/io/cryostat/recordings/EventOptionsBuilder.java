@@ -15,9 +15,9 @@
  */
 package io.cryostat.recordings;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Supplier;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IConstraint;
@@ -25,7 +25,6 @@ import org.openjdk.jmc.common.unit.IMutableConstrainedMap;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 import org.openjdk.jmc.flightrecorder.configuration.events.IEventTypeID;
-import org.openjdk.jmc.rjmx.IConnectionHandle;
 import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
 import org.openjdk.jmc.rjmx.services.jfr.internal.FlightRecorderServiceV2;
 
@@ -36,24 +35,19 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 public class EventOptionsBuilder {
 
-    private final boolean isV2;
     private final IMutableConstrainedMap<EventOptionID> map;
     private Map<IEventTypeID, Map<String, IOptionDescriptor<?>>> knownTypes;
     private Map<String, IEventTypeID> eventIds;
 
-    // Testing only
-    EventOptionsBuilder(ClientWriter cw, JFRConnection connection, Supplier<Boolean> v2)
-            throws Exception {
-        this.isV2 = v2.get();
-        this.map = connection.getService().getDefaultEventOptions().emptyWithSameConstraints();
-        knownTypes = new HashMap<>();
-        eventIds = new HashMap<>();
+    EventOptionsBuilder(
+            ClientWriter cw,
+            IMutableConstrainedMap<EventOptionID> empty,
+            Collection<? extends IEventTypeInfo> eventTypes) {
+        this.map = empty;
+        this.knownTypes = new HashMap<>();
+        this.eventIds = new HashMap<>();
 
-        if (!isV2) {
-            cw.println("Flight Recorder V1 is not yet supported");
-        }
-
-        for (IEventTypeInfo eventTypeInfo : connection.getService().getAvailableEventTypes()) {
+        for (IEventTypeInfo eventTypeInfo : eventTypes) {
             eventIds.put(
                     eventTypeInfo.getEventTypeID().getFullKey(), eventTypeInfo.getEventTypeID());
             knownTypes.putIfAbsent(
@@ -86,9 +80,6 @@ public class EventOptionsBuilder {
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public IConstrainedMap<EventOptionID> build() {
-        if (!isV2) {
-            return null;
-        }
         return map;
     }
 
@@ -112,9 +103,12 @@ public class EventOptionsBuilder {
         }
 
         public EventOptionsBuilder create(JFRConnection connection) throws Exception {
-            IConnectionHandle handle = connection.getHandle();
-            return new EventOptionsBuilder(
-                    cw, connection, () -> FlightRecorderServiceV2.isAvailable(handle));
+            if (!FlightRecorderServiceV2.isAvailable(connection.getHandle())) {
+                throw new UnsupportedOperationException("Only FlightRecorder V2 is supported");
+            }
+            var empty = connection.getService().getDefaultEventOptions().emptyWithSameConstraints();
+            var eventTypes = connection.getService().getAvailableEventTypes();
+            return new EventOptionsBuilder(cw, empty, eventTypes);
         }
     }
 }
