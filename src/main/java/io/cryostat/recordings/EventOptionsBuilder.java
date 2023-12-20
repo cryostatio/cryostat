@@ -33,6 +33,7 @@ import io.cryostat.core.tui.ClientWriter;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
+// FIXME remove this and use the one from -core instead
 public class EventOptionsBuilder {
 
     private final IMutableConstrainedMap<EventOptionID> map;
