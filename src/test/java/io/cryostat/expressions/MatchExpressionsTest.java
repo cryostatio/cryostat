@@ -15,9 +15,7 @@
  */
 package io.cryostat.expressions;
 
-import static io.cryostat.TestUtils.givenBasicAuth;
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
 
 import java.util.HashMap;
 import java.util.List;
@@ -44,18 +42,12 @@ public class MatchExpressionsTest {
     }
 
     @Test
-    public void testUnauthorizedPost() {
-        given().body(ALL_MATCHING_EXPRESSION).when().post().then().assertThat().statusCode(401);
-    }
-
-    @Test
     public void testPostWithoutTargets() {
         var expectation = new HashMap<>();
         expectation.put("id", null);
         expectation.put("expression", "true");
         expectation.put("targets", List.of());
-        givenBasicAuth()
-                .contentType(ContentType.JSON)
+        given().contentType(ContentType.JSON)
                 .body(ALL_MATCHING_EXPRESSION)
                 .when()
                 .post()

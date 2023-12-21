@@ -69,7 +69,6 @@ class RulesPostFormIT extends StandardSelfTest {
 
         webClient
                 .post("/api/v2/rules")
-                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.URLENCODED_FORM.mime())
                 .sendForm(
                         MultiMap.caseInsensitiveMultiMap(),
@@ -92,7 +91,6 @@ class RulesPostFormIT extends StandardSelfTest {
         try {
             webClient
                     .post("/api/v2/rules")
-                    .basicAuthentication("user", "pass")
                     .putHeader(
                             HttpHeaders.CONTENT_TYPE.toString(),
                             HttpMimeType.URLENCODED_FORM.mime())
@@ -120,7 +118,6 @@ class RulesPostFormIT extends StandardSelfTest {
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();
             webClient
                     .post("/api/v2/rules")
-                    .basicAuthentication("user", "pass")
                     .putHeader(
                             HttpHeaders.CONTENT_TYPE.toString(),
                             HttpMimeType.URLENCODED_FORM.mime())
@@ -143,7 +140,6 @@ class RulesPostFormIT extends StandardSelfTest {
             CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
             webClient
                     .delete(String.format("/api/v2/rules/%s", TEST_RULE_NAME))
-                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteResponse)) {
@@ -180,7 +176,6 @@ class RulesPostFormIT extends StandardSelfTest {
 
         webClient
                 .post("/api/v2/rules")
-                .basicAuthentication("user", "pass")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.URLENCODED_FORM.mime())
                 .sendForm(
                         testRule,

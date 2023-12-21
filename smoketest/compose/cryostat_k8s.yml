@@ -8,7 +8,6 @@ services:
         condition: service_healthy
     image: quay.io/cryostat/cryostat:3.0.0-snapshot
     hostname: cryostat3
-    user: "0"
     expose:
       - "9091"
     ports:
@@ -28,5 +27,5 @@ services:
       test: curl --fail http://localhost:8181/health/liveness || exit 1
       interval: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
       timeout: 5s

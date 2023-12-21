@@ -34,5 +34,5 @@ services:
     #     - http://localhost:8000/
     #   interval: 10s
     #   retries: 3
-    #   start_period: 10s
+    #   start_period: 30s
     #   timeout: 5s

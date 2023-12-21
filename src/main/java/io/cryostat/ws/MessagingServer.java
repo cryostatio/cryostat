@@ -16,7 +16,6 @@
 package io.cryostat.ws;
 
 import java.io.IOException;
-import java.nio.channels.ClosedChannelException;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -30,7 +29,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -40,13 +38,14 @@ import jakarta.websocket.OnMessage;
 import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
 import jakarta.websocket.server.ServerEndpoint;
-import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
-@ServerEndpoint("/api/v1/notifications")
+@ServerEndpoint("/api/notifications")
 public class MessagingServer {
+
+    private static final String CLIENT_ACTIVITY_CATEGORY = "WsClientActivity";
 
     @Inject Logger logger;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -58,17 +57,20 @@ public class MessagingServer {
         this.msgQ = new ArrayBlockingQueue<>(capacity);
     }
 
-    // TODO implement authentication check
     @OnOpen
     public void onOpen(Session session) {
-        logger.infov("Adding session {0}", session.getId());
+        logger.debugv("Adding session {0}", session.getId());
         sessions.add(session);
+        broadcast(new Notification(CLIENT_ACTIVITY_CATEGORY, Map.of(session.getId(), "connected")));
     }
 
     @OnClose
     public void onClose(Session session) {
-        logger.infov("Removing session {0}", session.getId());
+        logger.debugv("Removing session {0}", session.getId());
         sessions.remove(session);
+        broadcast(
+                new Notification(
+                        CLIENT_ACTIVITY_CATEGORY, Map.of(session.getId(), "disconnected")));
     }
 
     @OnError
@@ -80,6 +82,9 @@ public class MessagingServer {
         } catch (IOException ioe) {
             logger.error("Unable to close session", ioe);
         }
+        broadcast(
+                new Notification(
+                        CLIENT_ACTIVITY_CATEGORY, Map.of(session.getId(), "disconnected")));
     }
 
     void start(@Observes StartupEvent evt) {
@@ -99,25 +104,10 @@ public class MessagingServer {
                             sessions.forEach(
                                     s -> {
                                         try {
-                                            s.getBasicRemote()
+                                            s.getAsyncRemote()
                                                     .sendText(mapper.writeValueAsString(map));
                                         } catch (JsonProcessingException e) {
                                             logger.error("Unable to serialize message to JSON", e);
-                                        } catch (IOException e) {
-                                            // ignored simple ClosedChannelExceptions since this
-                                            // just means the connection has already been closed,
-                                            // either due to an error or the client closing it. This
-                                            // does not actually indicate a problem
-                                            if (!ExceptionUtils.getThrowableList(e).stream()
-                                                    .anyMatch(
-                                                            t ->
-                                                                    t
-                                                                            instanceof
-                                                                            ClosedChannelException)) {
-                                                logger.errorv(
-                                                        "Unable to send message to {0}", s.getId());
-                                                logger.error(e);
-                                            }
                                         }
                                     });
                         } catch (InterruptedException ie) {
@@ -136,11 +126,10 @@ public class MessagingServer {
 
     @OnMessage
     public void onMessage(Session session, String message) {
-        logger.infov("{0} message: \"{1}\"", session.getId(), message);
+        logger.debugv("{0} message: \"{1}\"", session.getId(), message);
     }
 
     @ConsumeEvent
-    @Blocking
     void broadcast(Notification notification) {
         msgQ.add(notification);
     }

@@ -61,7 +61,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                         String.format(
                                 "/api/v1/targets/%s/recordings",
                                 getSelfReferenceConnectUrlEncoded()))
-                .basicAuthentication("user", "pass")
                 .followRedirects(true)
                 .send(
                         ar -> {
@@ -85,7 +84,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                             String.format(
                                     "/api/v1/targets/%s/recordings",
                                     getSelfReferenceConnectUrlEncoded()),
-                            true,
                             form,
                             REQUEST_TIMEOUT_SECONDS);
 
@@ -97,7 +95,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                     "/api/v1/targets/%s/recordings",
                                     getSelfReferenceConnectUrlEncoded()))
                     .followRedirects(true)
-                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture2)) {
@@ -128,7 +125,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                             "/api/v1/targets/%s/recordings/%s",
                                             getSelfReferenceConnectUrlEncoded(),
                                             TEST_RECORDING_NAME),
-                                    true,
                                     saveHeaders,
                                     Buffer.buffer("SAVE"),
                                     REQUEST_TIMEOUT_SECONDS)
@@ -143,7 +139,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                     "/api/v1/targets/%s/recordings",
                                     getSelfReferenceConnectUrlEncoded()))
                     .followRedirects(true)
-                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture3)) {
@@ -165,7 +160,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             CompletableFuture<JsonArray> listRespFuture4 = new CompletableFuture<>();
             webClient
                     .get("/api/v1/recordings")
-                    .basicAuthentication("user", "pass")
                     .followRedirects(true)
                     .send(
                             ar -> {
@@ -196,7 +190,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                     "/api/v1/targets/%s/recordings",
                                     getSelfReferenceConnectUrlEncoded()))
                     .followRedirects(true)
-                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture5)) {
@@ -240,7 +233,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             HttpResponse<JsonObject> reportResponse =
                     webClient
                             .get(reportUrl)
-                            .basicAuthentication("user", "pass")
                             .as(BodyCodec.jsonObject())
                             .send()
                             .toCompletionStage()
@@ -265,7 +257,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                 String.format(
                                         "/api/v1/targets/%s/recordings/%s",
                                         getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME),
-                                true,
                                 REQUEST_TIMEOUT_SECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
                 throw new ITestCleanupFailedException(
@@ -281,7 +272,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                     String.format(
                                             "/api/beta/recordings/%s/%s",
                                             getSelfReferenceConnectUrlEncoded(), savedRecording),
-                                    true,
                                     REQUEST_TIMEOUT_SECONDS);
                 } catch (InterruptedException | ExecutionException | TimeoutException e) {
                     throw new ITestCleanupFailedException(

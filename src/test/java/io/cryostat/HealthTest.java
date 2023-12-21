@@ -76,20 +76,6 @@ public class HealthTest {
     }
 
     @Test
-    public void testNotificationsUrl() {
-        boolean ssl = sslPass.isPresent();
-        when().get("/api/v1/notifications_url")
-                .then()
-                .statusCode(200)
-                .body(
-                        "notificationsUrl",
-                        is(
-                                String.format(
-                                        "%s://%s:%d/api/v1/notifications",
-                                        ssl ? "wss" : "ws", host, ssl ? sslPort : port)));
-    }
-
-    @Test
     public void testGrafanaDashboardUrl() {
         when().get("/api/v1/grafana_dashboard_url")
                 .then()

@@ -15,8 +15,7 @@
  */
 package io.cryostat.rules;
 
-import static io.cryostat.TestUtils.givenBasicAuth;
-import static io.restassured.RestAssured.when;
+import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.*;
 
@@ -64,14 +63,8 @@ public class RulesTest {
     }
 
     @Test
-    public void testUnauthorized() {
-        when().get().then().statusCode(401);
-    }
-
-    @Test
     public void testListEmpty() {
-        givenBasicAuth()
-                .get()
+        given().get()
                 .then()
                 .statusCode(200)
                 .body(
@@ -83,15 +76,9 @@ public class RulesTest {
     @Test
     @Transactional
     public void testList() {
-        givenBasicAuth()
-                .body(rule.toString())
-                .contentType(ContentType.JSON)
-                .post()
-                .then()
-                .statusCode(201);
+        given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
 
-        givenBasicAuth()
-                .get()
+        given().get()
                 .then()
                 .statusCode(200)
                 .body(
@@ -107,8 +94,7 @@ public class RulesTest {
     public void testUpdate() {
         var copy = rule.copy();
         copy.put("enabled", false);
-        givenBasicAuth()
-                .body(copy.toString())
+        given().body(copy.toString())
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
@@ -118,8 +104,7 @@ public class RulesTest {
                         "meta.status", is("Created"),
                         "data.result", is(RULE_NAME));
 
-        givenBasicAuth()
-                .get()
+        given().get()
                 .then()
                 .statusCode(200)
                 .body(
@@ -129,8 +114,7 @@ public class RulesTest {
                         "data.result[0].name", is(RULE_NAME),
                         "data.result[0].enabled", is(false));
 
-        givenBasicAuth()
-                .body(new JsonObject().put("enabled", true).toString())
+        given().body(new JsonObject().put("enabled", true).toString())
                 .contentType(ContentType.JSON)
                 .patch(RULE_NAME)
                 .then()
@@ -144,15 +128,9 @@ public class RulesTest {
 
     @Test
     public void testUpdateWithClean() {
-        givenBasicAuth()
-                .body(rule.toString())
-                .contentType(ContentType.JSON)
-                .post()
-                .then()
-                .statusCode(201);
+        given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
 
-        givenBasicAuth()
-                .queryParam("clean", true)
+        given().queryParam("clean", true)
                 .body(new JsonObject().put("enabled", false).toString())
                 .contentType(ContentType.JSON)
                 .patch(RULE_NAME)
@@ -171,12 +149,7 @@ public class RulesTest {
     @Test
     public void testCreateThrowsWhenRuleNameExists() {
         // Created: rule_name
-        givenBasicAuth()
-                .body(rule.toString())
-                .contentType(ContentType.JSON)
-                .post()
-                .then()
-                .statusCode(201);
+        given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
 
         // Try to create again
         var conflictRule = new JsonObject();
@@ -184,17 +157,12 @@ public class RulesTest {
         conflictRule.put("matchExpression", EXPR_2);
         conflictRule.put("eventSpecifier", "some_other_event_specifier");
 
-        givenBasicAuth()
-                .body(rule.toString())
-                .contentType(ContentType.JSON)
-                .post()
-                .then()
-                .statusCode(409);
+        given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(409);
     }
 
     @Test
     public void testCreateThrowsWhenBodyNull() {
-        givenBasicAuth().contentType(ContentType.JSON).post().then().statusCode(400);
+        given().contentType(ContentType.JSON).post().then().statusCode(400);
     }
 
     @Test
@@ -203,8 +171,7 @@ public class RulesTest {
         badRule.put("name", RULE_NAME);
         badRule.put("matchExpression", EXPR_2);
         // MISSING: badRule.put("eventSpecifier", "some_other_event_specifier");
-        givenBasicAuth()
-                .body(badRule.toString())
+        given().body(badRule.toString())
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
@@ -213,20 +180,14 @@ public class RulesTest {
 
     @Test
     public void testDeleteEmpty() {
-        givenBasicAuth().delete(RULE_NAME).then().statusCode(404);
+        given().delete(RULE_NAME).then().statusCode(404);
     }
 
     @Test
     public void testDelete() {
-        givenBasicAuth()
-                .body(rule.toString())
-                .contentType(ContentType.JSON)
-                .post()
-                .then()
-                .statusCode(201);
+        given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
 
-        givenBasicAuth()
-                .delete(RULE_NAME)
+        given().delete(RULE_NAME)
                 .then()
                 .statusCode(200)
                 .body(
@@ -237,15 +198,9 @@ public class RulesTest {
 
     @Test
     public void testDeleteWithClean() {
-        givenBasicAuth()
-                .body(rule.toString())
-                .contentType(ContentType.JSON)
-                .post()
-                .then()
-                .statusCode(201);
+        given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
 
-        givenBasicAuth()
-                .queryParam("clean", true)
+        given().queryParam("clean", true)
                 .delete(RULE_NAME)
                 .then()
                 .statusCode(200)

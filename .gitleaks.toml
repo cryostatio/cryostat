@@ -1,0 +1,5 @@
+[allowlist]
+    description = "Global Allowlist"
+    paths = [
+        '''smoketest\/'''
+    ]

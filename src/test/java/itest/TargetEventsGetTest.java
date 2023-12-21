@@ -53,7 +53,6 @@ public class TargetEventsGetTest extends StandardSelfTest {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
                 .get(eventReqUrl)
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, getResponse)) {
@@ -75,7 +74,6 @@ public class TargetEventsGetTest extends StandardSelfTest {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
                 .get(searchReqUrl)
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, getResponse)) {
@@ -100,7 +98,6 @@ public class TargetEventsGetTest extends StandardSelfTest {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
                 .get(String.format("%s?q=TargetConnectionOpened", searchReqUrl))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, getResponse)) {
@@ -163,7 +160,6 @@ public class TargetEventsGetTest extends StandardSelfTest {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
                 .get(String.format("%s?q=thisEventDoesNotExist", searchReqUrl))
-                .basicAuthentication("user", "pass")
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, getResponse)) {

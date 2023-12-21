@@ -16,10 +16,8 @@
 package itest;
 
 import java.net.UnknownHostException;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -28,8 +26,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import io.cryostat.util.HttpMimeType;
-
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
@@ -37,7 +33,6 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
-import itest.util.ITestCleanupFailedException;
 import itest.util.http.JvmIdWebRequest;
 import itest.util.http.StoredCredential;
 import org.apache.http.client.utils.URLEncodedUtils;
@@ -73,7 +68,7 @@ public class CustomTargetsTest extends StandardSelfTest {
         JsonArray list =
                 webClient
                         .extensions()
-                        .get("/api/v3/targets", true, REQUEST_TIMEOUT_SECONDS)
+                        .get("/api/v3/targets", REQUEST_TIMEOUT_SECONDS)
                         .bodyAsJsonArray();
         if (!list.isEmpty()) throw new IllegalStateException();
     }
@@ -93,37 +88,10 @@ public class CustomTargetsTest extends StandardSelfTest {
         if (storedCredential == null) {
             return;
         }
-        CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
         webClient
-                .delete("/api/v2.2/credentials/" + storedCredential.id)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, deleteResponse)) {
-                                deleteResponse.complete(ar.result().bodyAsJsonObject());
-                            }
-                        });
-
-        Map<String, String> nullResult = new HashMap<>();
-        nullResult.put("result", null);
-        JsonObject expectedDeleteResponse =
-                new JsonObject(
-                        Map.of(
-                                "meta",
-                                Map.of("type", HttpMimeType.JSON.mime(), "status", "OK"),
-                                "data",
-                                nullResult));
-        try {
-            MatcherAssert.assertThat(
-                    deleteResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
-                    Matchers.equalTo(expectedDeleteResponse));
-        } catch (Exception e) {
-            logger.error(
-                    new ITestCleanupFailedException(
-                            String.format(
-                                    "Failed to clean up credential with ID %d",
-                                    storedCredential.id),
-                            e));
-        }
+                .extensions()
+                .delete("/api/v2.2/credentials/" + storedCredential.id, 0)
+                .bodyAsJsonObject();
     }
 
     @Test
@@ -135,7 +103,6 @@ public class CustomTargetsTest extends StandardSelfTest {
                         .extensions()
                         .post(
                                 "/api/v2/targets?dryrun=true",
-                                true,
                                 Buffer.buffer(
                                         JsonObject.of("connectUrl", SELF_JMX_URL, "alias", "self")
                                                 .encode()),
@@ -149,7 +116,7 @@ public class CustomTargetsTest extends StandardSelfTest {
         JsonArray list =
                 webClient
                         .extensions()
-                        .get("/api/v3/targets", true, REQUEST_TIMEOUT_SECONDS)
+                        .get("/api/v3/targets", REQUEST_TIMEOUT_SECONDS)
                         .bodyAsJsonArray();
         MatcherAssert.assertThat(list, Matchers.notNullValue());
         MatcherAssert.assertThat(list.size(), Matchers.equalTo(0));
@@ -207,7 +174,6 @@ public class CustomTargetsTest extends StandardSelfTest {
                         .extensions()
                         .post(
                                 "/api/v2/targets?storeCredentials=true",
-                                true,
                                 form,
                                 REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(201));
@@ -249,7 +215,7 @@ public class CustomTargetsTest extends StandardSelfTest {
                 Matchers.equalTo(alias));
 
         HttpResponse<Buffer> listResponse =
-                webClient.extensions().get("/api/v1/targets", true, REQUEST_TIMEOUT_SECONDS);
+                webClient.extensions().get("/api/v1/targets", REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
         JsonArray list = listResponse.bodyAsJsonArray();
         MatcherAssert.assertThat(list, Matchers.notNullValue());
@@ -312,13 +278,12 @@ public class CustomTargetsTest extends StandardSelfTest {
                 .extensions()
                 .delete(
                         String.format("/api/v2/targets/%s", JMX_URL_ENCODED),
-                        true,
                         REQUEST_TIMEOUT_SECONDS);
 
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
         HttpResponse<Buffer> listResponse =
-                webClient.extensions().get("/api/v1/targets", true, REQUEST_TIMEOUT_SECONDS);
+                webClient.extensions().get("/api/v1/targets", REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
         JsonArray list = listResponse.bodyAsJsonArray();
         MatcherAssert.assertThat(list, Matchers.notNullValue());

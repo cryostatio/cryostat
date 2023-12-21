@@ -9,6 +9,7 @@ DIR="$(dirname "$(readlink -f "$0")")"
 
 FILES=(
     "${DIR}/smoketest/compose/db.yml"
+    "${DIR}/smoketest/compose/auth_proxy.yml"
 )
 
 USE_USERHOSTS=${USE_USERHOSTS:-true}
@@ -79,8 +80,10 @@ FILES+=("${s3Manifest}")
 
 if [ "${ce}" = "podman" ]; then
     FILES+=("${DIR}/smoketest/compose/cryostat.yml")
+    container_engine="podman"
 elif [ "${ce}" = "docker" ]; then
     FILES+=("${DIR}/smoketest/compose/cryostat_docker.yml")
+    container_engine="docker"
 else
     echo "Unknown Container Engine selection: ${ce}"
     display_usage
@@ -107,6 +110,8 @@ cleanup() {
     docker-compose \
         "${CMD[@]}" \
         down "${downFlags[@]}"
+    ${container_engine} rm proxy_cfg_helper
+    ${container_engine} volume rm auth_proxy_cfg
     # podman kill hoster || true
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
@@ -116,6 +121,14 @@ cleanup() {
 }
 trap cleanup EXIT
 cleanup
+
+createProxyCfgVolume() {
+    "${container_engine}" volume create auth_proxy_cfg
+    "${container_engine}" container create --name proxy_cfg_helper -v auth_proxy_cfg:/tmp busybox
+    "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
+    "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_alpha_config.yaml" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
+}
+createProxyCfgVolume
 
 setupUserHosts() {
     # FIXME this is broken: it puts the containers' bridge-internal IP addresses
@@ -157,6 +170,9 @@ openBrowserTabs() {
             local port
             if [ "${USE_USERHOSTS}" = "true" ]; then
                 host="$(echo "${yaml}" | yq ".[${i}].host" | grep -v null)"
+                if [ "${host}" = "auth" ]; then
+                  host="localhost"
+                fi
             else
                 host="localhost"
             fi
@@ -170,7 +186,16 @@ openBrowserTabs() {
     echo "Service URLs:" "${urls[@]}"
     for url in "${urls[@]}"; do
         (
-            until timeout 1s curl -s -f -o /dev/null "${url}"
+            testSvc() {
+              timeout 1s curl -s -f -o /dev/null "$1"
+              local sc="$?"
+              if [ "${sc}" = "0" ] || [ "${sc}" = "22" ]; then
+                return 0
+              else
+                return "${sc}"
+              fi
+            }
+            until testSvc "${url}"
             do
                 sleep 5
             done

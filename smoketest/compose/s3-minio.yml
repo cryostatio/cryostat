@@ -38,7 +38,7 @@ services:
         - local
       interval: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
       timeout: 5s
 
 volumes:
@@ -46,4 +46,3 @@ volumes:
     driver: local
   minio_certs:
     driver: local
-    

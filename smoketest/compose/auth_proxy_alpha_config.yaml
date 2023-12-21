@@ -1,0 +1,14 @@
+server:
+  BindAddress: http://0.0.0.0:8080
+upstreamConfig:
+  proxyRawPath: true
+  upstreams:
+    - id: cryostat
+      path: /
+      uri: http://cryostat:8181
+providers:
+  - id: dummy
+    name: Unused - Sign In Below
+    clientId: CLIENT_ID
+    clientSecret: CLIENT_SECRET
+    provider: google

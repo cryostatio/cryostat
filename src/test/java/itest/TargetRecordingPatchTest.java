@@ -57,7 +57,7 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
             optionsForm.add("toDisk", "false");
             optionsForm.add("maxSize", "0");
             HttpResponse<Buffer> optionsResponse =
-                    webClient.extensions().patch(optionsRequestUrl(), true, null, optionsForm, 5);
+                    webClient.extensions().patch(optionsRequestUrl(), null, optionsForm, 5);
             MatcherAssert.assertThat(optionsResponse.statusCode(), Matchers.equalTo(200));
 
             // Create an empty recording
@@ -66,7 +66,7 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
             form.add("duration", "5");
             form.add("events", "template=ALL");
             HttpResponse<Buffer> postResponse =
-                    webClient.extensions().post(recordingRequestUrl(), true, form, 5);
+                    webClient.extensions().post(recordingRequestUrl(), form, 5);
             MatcherAssert.assertThat(postResponse.statusCode(), Matchers.equalTo(201));
 
             // Attempt to save the recording to archive
@@ -76,7 +76,6 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
                             .patch(
                                     String.format(
                                             "%s/%s", recordingRequestUrl(), TEST_RECORDING_NAME),
-                                    true,
                                     null,
                                     Buffer.buffer("SAVE"),
                                     5);
@@ -87,7 +86,6 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
             CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
             webClient
                     .get(archivesRequestUrl())
-                    .basicAuthentication("user", "pass")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, listRespFuture1)) {
@@ -105,7 +103,6 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
                             .delete(
                                     String.format(
                                             "%s/%s", recordingRequestUrl(), TEST_RECORDING_NAME),
-                                    true,
                                     5);
             if (!HttpStatusCodeIdentifier.isSuccessCode(deleteResponse.statusCode())) {
                 throw new ITestCleanupFailedException();
@@ -115,7 +112,7 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
             MultiMap optionsForm = MultiMap.caseInsensitiveMultiMap();
             optionsForm.add("toDisk", "unset");
             optionsForm.add("maxSize", "unset");
-            webClient.extensions().patch(optionsRequestUrl(), true, null, optionsForm, 5);
+            webClient.extensions().patch(optionsRequestUrl(), null, optionsForm, 5);
         }
     }
 }

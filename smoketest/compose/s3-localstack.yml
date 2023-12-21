@@ -34,7 +34,7 @@ services:
       test: curl --fail http://localhost:4566 || exit 1
       interval: 10s
       retries: 3
-      start_period: 10s
+      start_period: 30s
       timeout: 5s
 
 volumes:

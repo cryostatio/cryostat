@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -88,7 +87,6 @@ public abstract class StandardSelfTest {
                                 String.format(
                                         "/api/v1/targets/%s/recordings",
                                         getSelfReferenceConnectUrlEncoded()),
-                                true,
                                 REQUEST_TIMEOUT_SECONDS)
                         .bodyAsJsonArray();
         if (!listResp.isEmpty()) {
@@ -105,8 +103,7 @@ public abstract class StandardSelfTest {
         }
         logger.infov("Deleting self custom target at {0}", selfCustomTargetLocation);
         String path = URI.create(selfCustomTargetLocation).getPath();
-        HttpResponse<Buffer> resp =
-                webClient.extensions().delete(path, true, REQUEST_TIMEOUT_SECONDS);
+        HttpResponse<Buffer> resp = webClient.extensions().delete(path, REQUEST_TIMEOUT_SECONDS);
         logger.infov(
                 "DELETE {0} -> HTTP {1} {2}: [{3}]",
                 path, resp.statusCode(), resp.statusMessage(), resp.headers());
@@ -124,7 +121,6 @@ public abstract class StandardSelfTest {
                     () -> {
                         webClient
                                 .get("/api/v3/targets")
-                                .basicAuthentication("user", "pass")
                                 .as(BodyCodec.jsonArray())
                                 .timeout(TimeUnit.SECONDS.toMillis(REQUEST_TIMEOUT_SECONDS))
                                 .send(
@@ -170,9 +166,7 @@ public abstract class StandardSelfTest {
         }
         try {
             HttpResponse<Buffer> resp =
-                    webClient
-                            .extensions()
-                            .get(selfCustomTargetLocation, true, REQUEST_TIMEOUT_SECONDS);
+                    webClient.extensions().get(selfCustomTargetLocation, REQUEST_TIMEOUT_SECONDS);
             logger.infov(
                     "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
                     resp.statusCode(), resp.statusMessage(), resp.headers());
@@ -202,7 +196,6 @@ public abstract class StandardSelfTest {
                             .extensions()
                             .post(
                                     "/api/v2/targets",
-                                    true,
                                     Buffer.buffer(self.encode()),
                                     REQUEST_TIMEOUT_SECONDS);
             logger.infov(
@@ -222,8 +215,7 @@ public abstract class StandardSelfTest {
         try {
             tryDefineSelfCustomTarget();
             String path = URI.create(selfCustomTargetLocation).getPath();
-            HttpResponse<Buffer> resp =
-                    webClient.extensions().get(path, true, REQUEST_TIMEOUT_SECONDS);
+            HttpResponse<Buffer> resp = webClient.extensions().get(path, REQUEST_TIMEOUT_SECONDS);
             JsonObject body = resp.bodyAsJsonObject();
             logger.infov(
                     "GET {0} -> HTTP {1} {2}: [{3}] = {4}",
@@ -254,7 +246,7 @@ public abstract class StandardSelfTest {
 
         var a = new WebSocket[1];
         Utils.HTTP_CLIENT.webSocket(
-                getNotificationsUrl().get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
+                "ws://localhost/api/notifications",
                 ar -> {
                     if (ar.failed()) {
                         future.completeExceptionally(ar.cause());
@@ -308,33 +300,6 @@ public abstract class StandardSelfTest {
         return true;
     }
 
-    private static Future<String> getNotificationsUrl() {
-        CompletableFuture<String> future = new CompletableFuture<>();
-        WORKER.submit(
-                () -> {
-                    webClient
-                            .get("/api/v1/notifications_url")
-                            .send(
-                                    ar -> {
-                                        if (ar.succeeded()) {
-                                            HttpResponse<Buffer> resp = ar.result();
-                                            logger.infov(
-                                                    "GET /api/v1/notifications_url -> HTTP {0} {1}:"
-                                                            + " [{2}]",
-                                                    resp.statusCode(),
-                                                    resp.statusMessage(),
-                                                    resp.headers());
-                                            future.complete(
-                                                    resp.bodyAsJsonObject()
-                                                            .getString("notificationsUrl"));
-                                        } else {
-                                            future.completeExceptionally(ar.cause());
-                                        }
-                                    });
-                });
-        return future;
-    }
-
     public static CompletableFuture<Path> downloadFile(String url, String name, String suffix) {
         return fireDownloadRequest(
                 webClient.get(url), name, suffix, MultiMap.caseInsensitiveMultiMap());
@@ -361,7 +326,6 @@ public abstract class StandardSelfTest {
         WORKER.submit(
                 () -> {
                     request.putHeaders(headers)
-                            .basicAuthentication("user", "pass")
                             .followRedirects(true)
                             .send(
                                     ar -> {

@@ -83,24 +83,22 @@ public class Utils {
     }
 
     public interface RedirectExtensions {
-        HttpResponse<Buffer> get(String url, boolean authentication, int timeout)
+        HttpResponse<Buffer> get(String url, int timeout)
                 throws InterruptedException, ExecutionException, TimeoutException;
 
-        HttpResponse<Buffer> post(String url, boolean authentication, Buffer payload, int timeout)
+        HttpResponse<Buffer> post(String url, Buffer payload, int timeout)
                 throws InterruptedException, ExecutionException, TimeoutException;
 
-        HttpResponse<Buffer> post(String url, boolean authentication, MultiMap payload, int timeout)
+        HttpResponse<Buffer> post(String url, MultiMap payload, int timeout)
                 throws InterruptedException, ExecutionException, TimeoutException;
 
-        HttpResponse<Buffer> delete(String url, boolean authentication, int timeout)
+        HttpResponse<Buffer> delete(String url, int timeout)
                 throws InterruptedException, ExecutionException, TimeoutException;
 
-        HttpResponse<Buffer> patch(
-                String url, boolean authentication, MultiMap headers, Buffer payload, int timeout)
+        HttpResponse<Buffer> patch(String url, MultiMap headers, Buffer payload, int timeout)
                 throws InterruptedException, ExecutionException, TimeoutException;
 
-        HttpResponse<Buffer> patch(
-                String url, boolean authentication, MultiMap headers, MultiMap payload, int timeout)
+        HttpResponse<Buffer> patch(String url, MultiMap headers, MultiMap payload, int timeout)
                 throws InterruptedException, ExecutionException, TimeoutException;
     }
 
@@ -118,14 +116,11 @@ public class Utils {
         }
 
         private class RedirectExtensionsImpl implements RedirectExtensions {
-            public HttpResponse<Buffer> get(String url, boolean authentication, int timeout)
+            public HttpResponse<Buffer> get(String url, int timeout)
                     throws InterruptedException, ExecutionException, TimeoutException {
                 CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
                 RequestOptions options = new RequestOptions().setURI(url);
                 HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.GET, options);
-                if (authentication) {
-                    req.basicAuthentication("user", "pass");
-                }
                 req.send(
                         ar -> {
                             if (ar.succeeded()) {
@@ -135,20 +130,16 @@ public class Utils {
                             }
                         });
                 if (future.get().statusCode() == 308) {
-                    return get(future.get().getHeader("Location"), true, timeout);
+                    return get(future.get().getHeader("Location"), timeout);
                 }
                 return future.get(timeout, TimeUnit.SECONDS);
             }
 
-            public HttpResponse<Buffer> post(
-                    String url, boolean authentication, Buffer payload, int timeout)
+            public HttpResponse<Buffer> post(String url, Buffer payload, int timeout)
                     throws InterruptedException, ExecutionException, TimeoutException {
                 CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
                 RequestOptions options = new RequestOptions().setURI(url);
                 HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.POST, options);
-                if (authentication) {
-                    req.basicAuthentication("user", "pass");
-                }
                 if (payload != null) {
                     req.sendBuffer(
                             payload,
@@ -170,21 +161,16 @@ public class Utils {
                             });
                 }
                 if (future.get().statusCode() == 308) {
-                    return post(
-                            future.get().getHeader("Location"), authentication, payload, timeout);
+                    return post(future.get().getHeader("Location"), payload, timeout);
                 }
                 return future.get(timeout, TimeUnit.SECONDS);
             }
 
-            public HttpResponse<Buffer> post(
-                    String url, boolean authentication, MultiMap payload, int timeout)
+            public HttpResponse<Buffer> post(String url, MultiMap payload, int timeout)
                     throws InterruptedException, ExecutionException, TimeoutException {
                 CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
                 RequestOptions options = new RequestOptions().setURI(url);
                 HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.POST, options);
-                if (authentication) {
-                    req.basicAuthentication("user", "pass");
-                }
                 if (payload != null) {
                     req.sendForm(
                             payload,
@@ -206,20 +192,16 @@ public class Utils {
                             });
                 }
                 if (future.get().statusCode() == 308) {
-                    return post(
-                            future.get().getHeader("Location"), authentication, payload, timeout);
+                    return post(future.get().getHeader("Location"), payload, timeout);
                 }
                 return future.get(timeout, TimeUnit.SECONDS);
             }
 
-            public HttpResponse<Buffer> delete(String url, boolean authentication, int timeout)
+            public HttpResponse<Buffer> delete(String url, int timeout)
                     throws InterruptedException, ExecutionException, TimeoutException {
                 CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
                 RequestOptions options = new RequestOptions().setURI(url);
                 HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.DELETE, options);
-                if (authentication) {
-                    req.basicAuthentication("user", "pass");
-                }
                 req.send(
                         ar -> {
                             if (ar.succeeded()) {
@@ -229,24 +211,17 @@ public class Utils {
                             }
                         });
                 if (future.get().statusCode() == 308) {
-                    return delete(future.get().getHeader("Location"), true, timeout);
+                    return delete(future.get().getHeader("Location"), timeout);
                 }
                 return future.get(timeout, TimeUnit.SECONDS);
             }
 
             public HttpResponse<Buffer> patch(
-                    String url,
-                    boolean authentication,
-                    MultiMap headers,
-                    Buffer payload,
-                    int timeout)
+                    String url, MultiMap headers, Buffer payload, int timeout)
                     throws InterruptedException, ExecutionException, TimeoutException {
                 CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
                 RequestOptions options = new RequestOptions().setURI(url);
                 HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.PATCH, options);
-                if (authentication) {
-                    req.basicAuthentication("user", "pass");
-                }
                 if (headers != null) {
                     req.putHeaders(headers);
                 }
@@ -260,25 +235,17 @@ public class Utils {
                             }
                         });
                 if (future.get().statusCode() == 308) {
-                    return patch(
-                            future.get().getHeader("Location"), true, headers, payload, timeout);
+                    return patch(future.get().getHeader("Location"), headers, payload, timeout);
                 }
                 return future.get(timeout, TimeUnit.SECONDS);
             }
 
             public HttpResponse<Buffer> patch(
-                    String url,
-                    boolean authentication,
-                    MultiMap headers,
-                    MultiMap payload,
-                    int timeout)
+                    String url, MultiMap headers, MultiMap payload, int timeout)
                     throws InterruptedException, ExecutionException, TimeoutException {
                 CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
                 RequestOptions options = new RequestOptions().setURI(url);
                 HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.PATCH, options);
-                if (authentication) {
-                    req.basicAuthentication("user", "pass");
-                }
                 if (headers != null) {
                     req.putHeaders(headers);
                 }
@@ -292,8 +259,7 @@ public class Utils {
                             }
                         });
                 if (future.get().statusCode() == 308) {
-                    return patch(
-                            future.get().getHeader("Location"), true, headers, payload, timeout);
+                    return patch(future.get().getHeader("Location"), headers, payload, timeout);
                 }
                 return future.get(timeout, TimeUnit.SECONDS);
             }

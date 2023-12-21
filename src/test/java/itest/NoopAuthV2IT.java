@@ -27,9 +27,11 @@ import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
+@Disabled
 public class NoopAuthV2IT extends StandardSelfTest {
 
     HttpRequest<Buffer> req;
@@ -42,15 +44,14 @@ public class NoopAuthV2IT extends StandardSelfTest {
     @Test
     public void shouldRespond200() throws Exception {
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
-        req.basicAuthentication("user", "pass")
-                .send(
-                        ar -> {
-                            if (ar.succeeded()) {
-                                future.complete(ar.result().bodyAsJsonObject());
-                            } else {
-                                future.completeExceptionally(ar.cause());
-                            }
-                        });
+        req.send(
+                ar -> {
+                    if (ar.succeeded()) {
+                        future.complete(ar.result().bodyAsJsonObject());
+                    } else {
+                        future.completeExceptionally(ar.cause());
+                    }
+                });
 
         JsonObject response = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
