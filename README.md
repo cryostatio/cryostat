@@ -120,9 +120,9 @@ $ export LD_PRELOAD=$HOME/bin/lib/libuserhosts.so
 
 You can verify that this setup works by running `smoketest.bash`, and then in another terminal:
 ```bash
-$ LD_PRELOAD=$HOME/bin/libuserhosts.so ping cryostat3
-$ LD_PRELOAD=$HOME/bin/libuserhosts.so curl http://cryostat3:8181
-$ LD_PRELOAD=$HOME/bin/libuserhosts.so firefox http://cryostat3:8181
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so ping auth
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so curl http://auth:8080
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so firefox http://auth:8080
 ```
 
 ### Smoketesting in K8s
