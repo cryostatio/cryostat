@@ -44,7 +44,6 @@ jobs:
         java: [ '17', '21' ]
     env:
       IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
-      TESTCONTAINERS_RYUK_DISABLED: true
       cache-name: cache-yarn
     name: Build and test Java ${{ matrix.java }}
     permissions:
@@ -94,7 +93,10 @@ jobs:
         chmod +x $HOME/.bin/docker
         echo "PATH=$HOME/.bin:$PATH" >> "$GITHUB_ENV"
     - name: Set up testcontainers for podman
-      run:  echo ryuk.container.privileged=true > ~/.testcontainers.properties
+      run: |
+        echo ryuk.container.privileged=true > ~/.testcontainers.properties
+        echo docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy >> ~/.testcontainers.properties
+        echo testcontainers.reuse.enable=false >> ~/.testcontainers.properties
     - name: Start Podman API
       run: systemctl --user enable --now podman.socket
     - name: Set DOCKER_HOST environment variable
