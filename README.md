@@ -90,7 +90,13 @@ $ systemctl --user enable --now podman.socket
 `$HOME/.bashrc` (or equivalent shell configuration)
 ```bash
 export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
-export TESTCONTAINERS_RYUK_DISABLED=true
+```
+
+`$HOME/.testcontainers.properties`
+```properties
+ryuk.container.privileged=true
+docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
+testcontainers.reuse.enable=false
 ```
 
 Build the container image and run smoketests. This will spin up the cryostat container and its required services.
