@@ -156,7 +156,8 @@ public class RecordingHelper {
                             if (!restart) {
                                 throw new BadRequestException(
                                         String.format(
-                                                "Recording with name \"%s\" already exists",
+                                                "Recording with name \"%s\" already exists. Rename"
+                                                        + " the recording and try again.",
                                                 recordingName));
                             }
                             if (!ActiveRecording.deleteFromTarget(target, recordingName)) {

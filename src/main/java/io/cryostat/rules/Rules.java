@@ -149,7 +149,11 @@ public class Rules {
 
     static class RuleExistsException extends ClientErrorException {
         RuleExistsException(String ruleName) {
-            super("Rule with name " + ruleName + " already exists", Response.Status.CONFLICT);
+            super(
+                    "Rule with name "
+                            + ruleName
+                            + " already exists. Rename the rule and try again.",
+                    Response.Status.CONFLICT);
         }
     }
 }
