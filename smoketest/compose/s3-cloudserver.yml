@@ -12,7 +12,7 @@ services:
       AWS_ACCESS_KEY_ID: accessKey1
       AWS_SECRET_ACCESS_KEY: verySecretKey1
   s3:
-    image: docker.io/zenko/cloudserver:latest
+    image: ${CLOUDSERVER_IMAGE:-docker.io/zenko/cloudserver:latest}
     hostname: s3
     expose:
       - "8000"

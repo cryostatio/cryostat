@@ -4,7 +4,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    image: docker.io/dpage/pgadmin4:7
+    image: ${DB_VIEWER_IMAGE:-docker.io/dpage/pgadmin4:7}
     hostname: db-viewer
     ports:
       - "8989:8989"

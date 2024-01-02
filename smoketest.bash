@@ -214,7 +214,7 @@ if [ "${PULL_IMAGES}" = "true" ]; then
     for file in "${FILES[@]}" ; do
         images="$(yq '.services.*.image' "${file}" | grep -v null)"
         for img in ${images}; do
-          IMAGES+=("${img}")
+          IMAGES+=("$(eval echo "${img}")")
         done
     done
     ${ce} pull "${IMAGES[@]}" || true

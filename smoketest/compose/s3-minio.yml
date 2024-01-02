@@ -12,7 +12,7 @@ services:
       AWS_ACCESS_KEY_ID: minioroot
       AWS_SECRET_ACCESS_KEY: minioroot
   s3:
-    image: docker.io/minio/minio:latest
+    image: ${MINIO_IMAGE:-docker.io/minio/minio:latest}
     hostname: s3
     ports:
       - "9001:9001"
