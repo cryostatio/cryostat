@@ -1,0 +1,8 @@
+version: "3"
+services:
+  cryostat:
+    hostname: cryostat3
+    ports:
+      - ${CRYOSTAT_HTTP_PORT}:${CRYOSTAT_HTTP_PORT}
+    expose:
+      - ${CRYOSTAT_HTTP_PORT}

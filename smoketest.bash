@@ -9,7 +9,6 @@ DIR="$(dirname "$(readlink -f "$0")")"
 
 FILES=(
     "${DIR}/smoketest/compose/db.yml"
-    "${DIR}/smoketest/compose/auth_proxy.yml"
 )
 
 USE_USERHOSTS=${USE_USERHOSTS:-true}
@@ -17,10 +16,14 @@ PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
 OPEN_TABS=${OPEN_TABS:-false}
 
+CRYOSTAT_HTTP_PORT=8080
+USE_PROXY=${USE_PROXY:-true}
+
 display_usage() {
     echo "Usage:"
     echo -e "\t-h\t\t\t\t\t\tprint this Help text."
     echo -e "\t-O\t\t\t\t\t\tOffline mode, do not attempt to pull container images."
+    echo -e "\t-p\t\t\t\t\t\tDisable auth Proxy."
     echo -e "\t-s [minio|seaweed|cloudserver|localstack]\tS3 implementation to spin up (default \"minio\")."
     echo -e "\t-g\t\t\t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
     echo -e "\t-t\t\t\t\t\t\tinclude sample applications for Testing."
@@ -32,11 +35,14 @@ display_usage() {
 
 s3=minio
 ce=podman
-while getopts "hs:gtOVXcb" opt; do
+while getopts "hs:pgtOVXcb" opt; do
     case $opt in
         h)
             display_usage
             exit 0
+            ;;
+        p)
+            USE_PROXY=false
             ;;
         s)
             s3="${OPTARG}"
@@ -68,6 +74,13 @@ while getopts "hs:gtOVXcb" opt; do
             ;;
     esac
 done
+export CRYOSTAT_HTTP_PORT
+if [ "${USE_PROXY}" = "true" ]; then
+    FILES+=("${DIR}/smoketest/compose/auth_proxy.yml")
+    CRYOSTAT_HTTP_PORT=8181
+else
+    FILES+=("${DIR}/smoketest/compose/no_proxy.yml")
+fi
 
 s3Manifest="${DIR}/smoketest/compose/s3-${s3}.yml"
 
@@ -78,11 +91,17 @@ if [ ! -f "${s3Manifest}" ]; then
 fi
 FILES+=("${s3Manifest}")
 
+unshift() {
+    local -n ary=$1;
+    shift;
+    ary=("$@" "${ary[@]}");
+}
+
 if [ "${ce}" = "podman" ]; then
-    FILES+=("${DIR}/smoketest/compose/cryostat.yml")
+    unshift FILES "${DIR}/smoketest/compose/cryostat.yml"
     container_engine="podman"
 elif [ "${ce}" = "docker" ]; then
-    FILES+=("${DIR}/smoketest/compose/cryostat_docker.yml")
+    unshift FILES "${DIR}/smoketest/compose/cryostat_docker.yml"
     container_engine="docker"
 else
     echo "Unknown Container Engine selection: ${ce}"
@@ -147,7 +166,7 @@ setupUserHosts() {
     truncate -s 0 "${HOSTSFILE}"
     for file in "${FILES[@]}" ; do
         local hosts
-        hosts="$(yq '.services.*.hostname' "${file}" | grep -v null | sed -e 's/^/localhost /')"
+        hosts="$(yq '.services.*.hostname' "${file}" | { grep -v null || test $? = 1 ; } | sed -e 's/^/localhost /')"
         echo "${hosts}" >> "${HOSTSFILE}"
     done
 }
@@ -169,14 +188,14 @@ openBrowserTabs() {
             local host
             local port
             if [ "${USE_USERHOSTS}" = "true" ]; then
-                host="$(echo "${yaml}" | yq ".[${i}].host" | grep -v null)"
+                host="$(echo "${yaml}" | yq ".[${i}].host" | { grep -v null || test $? = 1 ; } )"
                 if [ "${host}" = "auth" ]; then
                   host="localhost"
                 fi
             else
                 host="localhost"
             fi
-            port="$(echo "${yaml}" | yq ".[${i}].ports[0]" | grep -v null | cut -d: -f1)"
+            port="$(echo "${yaml}" | yq ".[${i}].ports[0]" | { grep -v null || test $? = 1 ; } | envsubst | cut -d: -f1)"
             if [ -n "${host}" ] && [ -n "${port}" ]; then
                 urls+=("http://${host}:${port}")
             fi
@@ -212,7 +231,7 @@ fi
 if [ "${PULL_IMAGES}" = "true" ]; then
     IMAGES=()
     for file in "${FILES[@]}" ; do
-        images="$(yq '.services.*.image' "${file}" | grep -v null)"
+        images="$(yq '.services.*.image' "${file}" | { grep -v null || test $? = 1; })"
         for img in ${images}; do
           IMAGES+=("$(eval echo "${img}")")
         done
