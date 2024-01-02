@@ -12,7 +12,7 @@ services:
       AWS_ACCESS_KEY_ID: unused
       AWS_SECRET_ACCESS_KEY: unused
   s3:
-    image: docker.io/chrislusf/seaweedfs:latest
+    image: ${SEAWEEDFS_IMAGE:-docker.io/chrislusf/seaweedfs:latest}
     command: server -s3
     hostname: s3
     expose:
