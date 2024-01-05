@@ -236,10 +236,14 @@ public class RecordingHelper {
         target.activeRecordings.add(recording);
         target.persist();
 
+        var event =
+                new ActiveRecordingEvent(
+                        Recordings.RecordingEventCategory.SNAPSHOT_CREATED,
+                        ActiveRecordingEvent.Payload.of(this, recording));
+        bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
-                new Notification(
-                        "SnapshotCreated", new RecordingEvent(target.connectUrl, recording)));
+                new Notification(event.category().category(), event.payload()));
 
         return recording;
     }

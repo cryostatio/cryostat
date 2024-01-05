@@ -314,42 +314,16 @@ public class Recordings {
     @Blocking
     @Path("/api/beta/recordings/{connectUrl}/{filename}")
     @RolesAllowed("write")
-    public void agentDelete(
-            @RestPath String connectUrl,
-            @RestPath String filename,
-            @RestForm("recording") FileUpload recording,
-            @RestForm("labels") JsonObject rawLabels)
+    public Response agentDelete(@RestPath String connectUrl, @RestPath String filename)
             throws Exception {
         var target = Target.getTargetByConnectUrl(URI.create(connectUrl));
-        var resp =
-                storage.deleteObject(
-                        DeleteObjectRequest.builder()
-                                .bucket(archiveBucket)
-                                .key(recordingHelper.archivedRecordingKey(target.jvmId, filename))
-                                .build());
-        if (resp.sdkHttpResponse().isSuccessful()) {
-            var event =
-                    new ArchivedRecordingEvent(
-                            Recordings.RecordingEventCategory.ARCHIVED_DELETED,
-                            ArchivedRecordingEvent.Payload.of(
-                                    URI.create(connectUrl),
-                                    new ArchivedRecording(
-                                            recording.fileName(),
-                                            recordingHelper.downloadUrl(
-                                                    jvmId, recording.fileName()),
-                                            recordingHelper.reportUrl(jvmId, recording.fileName()),
-                                            metadata,
-                                            0,
-                                            clock.getMonotonicTime())));
-            bus.publish(event.category().category(), event.payload().recording());
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(event.category().category(), event.payload()));
-        } else {
-            throw new HttpException(
-                    resp.sdkHttpResponse().statusCode(),
-                    resp.sdkHttpResponse().statusText().orElse(""));
+        if (!recordingHelper.listArchivedRecordingObjects(target.jvmId).stream()
+                .map(item -> item.key().strip().split("/")[1])
+                .anyMatch(fn -> Objects.equals(fn, filename))) {
+            return Response.status(RestResponse.Status.NOT_FOUND).build();
         }
+        recordingHelper.deleteArchivedRecording(target.jvmId, filename);
+        return Response.status(RestResponse.Status.NO_CONTENT).build();
     }
 
     @Blocking
@@ -1140,6 +1114,7 @@ public class Recordings {
     public static final String ARCHIVED_RECORDING_CREATED = "ArchivedRecordingCreated";
     public static final String ACTIVE_RECORDING_DELETED = "ActiveRecordingDeleted";
     public static final String ACTIVE_RECORDING_SAVED = "ActiveRecordingSaved";
+    public static final String SNAPSHOT_RECORDING_CREATED = "SnapshotCreated";
 
     public enum RecordingEventCategory {
         ACTIVE_CREATED(ACTIVE_RECORDING_CREATED),
@@ -1148,6 +1123,7 @@ public class Recordings {
         ACTIVE_DELETED(ACTIVE_RECORDING_DELETED),
         ARCHIVED_CREATED(ARCHIVED_RECORDING_CREATED),
         ARCHIVED_DELETED(ARCHIVED_RECORDING_DELETED),
+        SNAPSHOT_CREATED(SNAPSHOT_RECORDING_CREATED),
         ;
 
         private final String category;
