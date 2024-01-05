@@ -151,6 +151,8 @@ public class SnapshotTest extends StandardSelfTest {
                         form,
                         REQUEST_TIMEOUT_SECONDS);
 
+        Thread.sleep(5_000l);
+
         // Create a snapshot recording of all events at that time
         webClient
                 .post(String.format("%s/snapshot", v1RequestUrl()))
@@ -219,6 +221,8 @@ public class SnapshotTest extends StandardSelfTest {
                         String.format("%s/recordings", v1RequestUrl()),
                         form,
                         REQUEST_TIMEOUT_SECONDS);
+
+        Thread.sleep(5_000l);
 
         // Create a snapshot recording of all events at that time
         CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
