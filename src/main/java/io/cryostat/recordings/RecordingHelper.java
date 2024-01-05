@@ -47,6 +47,7 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;

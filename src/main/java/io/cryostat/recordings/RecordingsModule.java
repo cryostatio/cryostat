@@ -17,6 +17,7 @@ package io.cryostat.recordings;
 
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
 
+import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.RecordingOptionsCustomizer;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -38,8 +39,7 @@ public class RecordingsModule {
     @Produces
     @ApplicationScoped
     public EventOptionsBuilder.Factory provideEventOptionsBuilderFactory() {
-        Logger log = LoggerFactory.getLogger(EventOptionsBuilder.class);
-        return new EventOptionsBuilder.Factory(log::debug);
+        return new EventOptionsBuilder.Factory();
     }
 
     @Produces
