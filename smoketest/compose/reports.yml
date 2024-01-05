@@ -4,7 +4,7 @@ services:
     environment:
       - CRYOSTAT_SERVICES_REPORTS_URL=http://reports:10001
   reports:
-    image: quay.io/cryostat/cryostat-reports:latest
+    image: ${CRYOSTAT_REPORTS_IMAGE:-quay.io/cryostat/cryostat-reports:latest}
     hostname: reports
     restart: unless-stopped
     deploy:
