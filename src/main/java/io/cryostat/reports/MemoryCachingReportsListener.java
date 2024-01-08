@@ -16,16 +16,20 @@
 package io.cryostat.reports;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.Recordings;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
+import io.cryostat.targets.Target;
+import io.cryostat.targets.Target.TargetDiscovery;
 
 import io.quarkus.cache.Cache;
 import io.quarkus.cache.CacheName;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.PreRemove;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -53,6 +57,7 @@ class MemoryCachingReportsListener {
 
     @ConsumeEvent(value = Recordings.ARCHIVED_RECORDING_DELETED)
     public void handleArchivedRecordingDeletion(ArchivedRecording recording) {
+        logger.tracev("archived recording cache invalidation: {0}", recording.name());
         if (!quarkusCache || !memoryCache) {
             return;
         }
@@ -65,17 +70,47 @@ class MemoryCachingReportsListener {
         archivedCache.invalidate(key);
     }
 
-    @ConsumeEvent(value = Recordings.ACTIVE_RECORDING_DELETED)
-    public void handleActiveRecordingDeletion(ActiveRecording recording) {
+    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY)
+    public void handleTargetDiscovery(TargetDiscovery evt) {
+        logger.tracev(
+                "target active recording cache invalidation: {0} {1} [{2}]",
+                evt.kind(), evt.serviceRef().connectUrl, evt.serviceRef().activeRecordings);
         if (!quarkusCache || !memoryCache) {
             return;
         }
-        // TODO verify that target lost cascades and causes active recording deletion events that we
-        // observe here
+        if (!Target.EventKind.LOST.equals(evt.kind())) {
+            return;
+        }
+        preRemoveTarget(evt.serviceRef());
+    }
+
+    @PreRemove
+    @ConsumeEvent(value = Recordings.ACTIVE_RECORDING_DELETED)
+    void handleActiveRecordingDeletion(ActiveRecording recording) {
+        logger.tracev(
+                "active recording cache invalidation: {0} {1}",
+                recording.target.connectUrl, recording.name);
+        if (!quarkusCache || !memoryCache) {
+            return;
+        }
         String key = ReportsService.key(recording);
         logger.tracev(
                 "Picked up deletion of active recording: {0} / {1} ({2})",
                 recording.target.alias, recording.name, key);
         activeCache.invalidate(key);
+    }
+
+    @PreRemove
+    void preRemoveTarget(Target target) {
+        logger.tracev("Deleting target: {0} {1}", target.connectUrl, target.activeRecordings);
+        target.activeRecordings.forEach(this::handleActiveRecordingDeletion);
+    }
+
+    @PreRemove
+    void preRemoveDiscoveryNode(DiscoveryNode node) {
+        logger.tracev("Lost discovery node: {0} {1}", node.name, node.target);
+        if (node.target != null) {
+            preRemoveTarget(node.target);
+        }
     }
 }

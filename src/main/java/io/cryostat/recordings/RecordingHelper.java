@@ -189,6 +189,8 @@ public class RecordingHelper {
         target.activeRecordings.add(recording);
         target.persist();
 
+        logger.tracev("Started recording: {0} {1}", target.connectUrl, target.activeRecordings);
+
         return recording;
     }
 
