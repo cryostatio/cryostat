@@ -63,6 +63,9 @@ class StorageCachingReportsService implements ReportsService {
     @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_STORAGE_CACHE_NAME)
     String bucket;
 
+    @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_EXPIRY_DURATION)
+    Duration expiry;
+
     @Inject S3Client storage;
     @Inject ExecutorService worker;
     @Inject RecordingHelper recordingHelper;
@@ -129,7 +132,7 @@ class StorageCachingReportsService implements ReportsService {
                                                 .bucket(bucket)
                                                 .key(key)
                                                 .contentType(HttpMimeType.JSON.mime())
-                                                .expires(Instant.now().plus(Duration.ofDays(1)))
+                                                .expires(Instant.now().plus(expiry))
                                                 .build();
                                 var res = storage.putObject(req, RequestBody.fromString(str));
                                 var sc = res.sdkHttpResponse().statusCode();
