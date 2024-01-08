@@ -15,14 +15,11 @@
  */
 package io.cryostat.recordings;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.Objects;
 import java.util.Optional;
 
 import org.openjdk.jmc.common.unit.UnitLookup;
-import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
-import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.recordings.Recordings.ArchivedRecording;
@@ -190,6 +187,15 @@ public class ActiveRecording extends PanacheEntity {
                             RecordingHelper.getDescriptorById(conn, activeRecording.remoteId)
                                     .ifPresent(
                                             d -> {
+                                                // this connection can fail if we are removing this
+                                                // recording as a cascading
+                                                // operation after the owner target was lost. It
+                                                // isn't too important in that
+                                                // case that we are unable to connect to the target
+                                                // and close the actual
+                                                // recording, because the target probably went
+                                                // offline or we otherwise just
+                                                // can't reach it.
                                                 try {
                                                     if (!d.getState()
                                                             .equals(
@@ -198,9 +204,7 @@ public class ActiveRecording extends PanacheEntity {
                                                                             .STOPPED)) {
                                                         conn.getService().stop(d);
                                                     }
-                                                } catch (FlightRecorderException
-                                                        | IOException
-                                                        | ServiceNotAvailableException e) {
+                                                } catch (Exception e) {
                                                     logger.warn(
                                                             "Failed to stop remote recording", e);
                                                 }
