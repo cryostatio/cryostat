@@ -26,6 +26,7 @@ import io.quarkus.cache.CacheName;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -55,11 +56,13 @@ class MemoryCachingReportsListener {
         if (!quarkusCache || !memoryCache) {
             return;
         }
+        String jvmId = recording.metadata().labels().get("jvmId");
         // FIXME if the jvmId is not properly persisted with the recording metadata then we cannot
         // clear the cache for that entry
-        String key =
-                recordingHelper.archivedRecordingKey(
-                        recording.metadata().labels().get("jvmId"), recording.name());
+        if (StringUtils.isBlank(jvmId)) {
+            return;
+        }
+        String key = recordingHelper.archivedRecordingKey(jvmId, recording.name());
         logger.tracev("Picked up deletion of archived recording: {0}", key);
         archivedCache.invalidate(key);
     }
