@@ -42,6 +42,9 @@ import org.jboss.logging.Logger;
 @Dependent
 class MemoryCachingReportsService implements ReportsService {
 
+    static final String ACTIVE_REPORTS_MEMORY_CACHE_NAME = "activereports";
+    static final String ARCHIVED_REPORTS_MEMORY_CACHE_NAME = "archivedreports";
+
     @ConfigProperty(name = "quarkus.cache.enabled")
     boolean quarkusCache;
 
@@ -49,11 +52,11 @@ class MemoryCachingReportsService implements ReportsService {
     boolean memoryCache;
 
     @Inject
-    @CacheName(ConfigProperties.ACTIVE_REPORTS_MEMORY_CACHE_NAME)
+    @CacheName(ACTIVE_REPORTS_MEMORY_CACHE_NAME)
     Cache activeCache;
 
     @Inject
-    @CacheName(ConfigProperties.ARCHIVED_REPORTS_MEMORY_CACHE_NAME)
+    @CacheName(ARCHIVED_REPORTS_MEMORY_CACHE_NAME)
     Cache archivedCache;
 
     @Inject @Delegate @Any ReportsService delegate;

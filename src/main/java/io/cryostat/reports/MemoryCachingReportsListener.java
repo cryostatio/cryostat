@@ -40,11 +40,11 @@ class MemoryCachingReportsListener {
     boolean memoryCache;
 
     @Inject
-    @CacheName(ConfigProperties.ACTIVE_REPORTS_MEMORY_CACHE_NAME)
+    @CacheName(MemoryCachingReportsService.ACTIVE_REPORTS_MEMORY_CACHE_NAME)
     Cache activeCache;
 
     @Inject
-    @CacheName(ConfigProperties.ARCHIVED_REPORTS_MEMORY_CACHE_NAME)
+    @CacheName(MemoryCachingReportsService.ARCHIVED_REPORTS_MEMORY_CACHE_NAME)
     Cache archivedCache;
 
     @Inject RecordingHelper recordingHelper;
