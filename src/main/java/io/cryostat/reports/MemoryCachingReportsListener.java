@@ -57,8 +57,6 @@ class MemoryCachingReportsListener {
             return;
         }
         String jvmId = recording.metadata().labels().get("jvmId");
-        // FIXME if the jvmId is not properly persisted with the recording metadata then we cannot
-        // clear the cache for that entry
         if (StringUtils.isBlank(jvmId)) {
             return;
         }

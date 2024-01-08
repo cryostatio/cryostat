@@ -51,8 +51,6 @@ class StorageCachingReportsListener {
         if (!enabled) {
             return;
         }
-        // FIXME if the jvmId is not properly persisted with the recording metadata then we cannot
-        // clear the cache for that entry
         Optional.ofNullable(recording.metadata().labels().get("jvmId"))
                 .ifPresent(
                         jvmId -> {
