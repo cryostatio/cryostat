@@ -72,7 +72,7 @@ class ReportsServiceImpl implements ReportsService {
                                         return fireRequest(
                                                 uri, helper.getActiveInputStream(recording));
                                     } catch (Exception e) {
-                                        throw new RuntimeException(e);
+                                        throw new ReportGenerationException(e);
                                     }
                                 })
                         .orElseGet(
@@ -84,13 +84,10 @@ class ReportsServiceImpl implements ReportsService {
                                         return process(
                                                 helper.getActiveInputStream(recording), predicate);
                                     } catch (Exception e) {
-                                        throw new RuntimeException(e);
+                                        throw new ReportGenerationException(e);
                                     }
                                 });
-        return Uni.createFrom()
-                .future(future)
-                .onFailure()
-                .transform(ReportGenerationException::new);
+        return Uni.createFrom().future(future);
     }
 
     @Blocking
@@ -118,10 +115,7 @@ class ReportsServiceImpl implements ReportsService {
                                             predicate);
                                 });
 
-        return Uni.createFrom()
-                .future(future)
-                .onFailure()
-                .transform(ReportGenerationException::new);
+        return Uni.createFrom().future(future);
     }
 
     private Future<Map<String, AnalysisResult>> process(
@@ -155,7 +149,7 @@ class ReportsServiceImpl implements ReportsService {
                         return null;
                     });
         } catch (Exception e) {
-            cf.completeExceptionally(e);
+            cf.completeExceptionally(new ReportGenerationException(e));
         }
         return cf;
     }
