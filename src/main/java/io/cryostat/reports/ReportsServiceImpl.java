@@ -21,6 +21,7 @@ import java.net.URI;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
 import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
@@ -60,63 +61,76 @@ class ReportsServiceImpl implements ReportsService {
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
-        return sidecarUri
-                .map(
-                        uri -> {
-                            logger.tracev(
-                                    "sidecar reportFor active recording {0} {1}",
-                                    recording.target.jvmId, recording.remoteId);
-                            try {
-                                return fireRequest(uri, helper.getActiveInputStream(recording));
-                            } catch (Exception e) {
-                                return Uni.createFrom().<Map<String, AnalysisResult>>failure(e);
-                            }
-                        })
-                .orElseGet(
-                        () -> {
-                            logger.tracev(
-                                    "inprocess reportFor active recording {0} {1}",
-                                    recording.target.jvmId, recording.remoteId);
-                            try {
-                                return process(helper.getActiveInputStream(recording), predicate);
-                            } catch (Exception e) {
-                                return Uni.createFrom().<Map<String, AnalysisResult>>failure(e);
-                            }
-                        });
+        Future<Map<String, AnalysisResult>> future =
+                sidecarUri
+                        .map(
+                                uri -> {
+                                    logger.tracev(
+                                            "sidecar reportFor active recording {0} {1}",
+                                            recording.target.jvmId, recording.remoteId);
+                                    try {
+                                        return fireRequest(
+                                                uri, helper.getActiveInputStream(recording));
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                })
+                        .orElseGet(
+                                () -> {
+                                    logger.tracev(
+                                            "inprocess reportFor active recording {0} {1}",
+                                            recording.target.jvmId, recording.remoteId);
+                                    try {
+                                        return process(
+                                                helper.getActiveInputStream(recording), predicate);
+                                    } catch (Exception e) {
+                                        throw new RuntimeException(e);
+                                    }
+                                });
+        return Uni.createFrom()
+                .future(future)
+                .onFailure()
+                .transform(ReportGenerationException::new);
     }
 
     @Blocking
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {
-        return sidecarUri
-                .map(
-                        uri -> {
-                            logger.tracev(
-                                    "sidecar reportFor archived recording {0} {1}",
-                                    jvmId, filename);
-                            return fireRequest(
-                                    uri, helper.getArchivedRecordingStream(jvmId, filename));
-                        })
-                .orElseGet(
-                        () -> {
-                            logger.tracev(
-                                    "inprocess reportFor archived recording {0} {1}",
-                                    jvmId, filename);
-                            return process(
-                                    helper.getArchivedRecordingStream(jvmId, filename), predicate);
-                        });
-    }
+        Future<Map<String, AnalysisResult>> future =
+                sidecarUri
+                        .map(
+                                uri -> {
+                                    logger.tracev(
+                                            "sidecar reportFor archived recording {0} {1}",
+                                            jvmId, filename);
+                                    return fireRequest(
+                                            uri,
+                                            helper.getArchivedRecordingStream(jvmId, filename));
+                                })
+                        .orElseGet(
+                                () -> {
+                                    logger.tracev(
+                                            "inprocess reportFor archived recording {0} {1}",
+                                            jvmId, filename);
+                                    return process(
+                                            helper.getArchivedRecordingStream(jvmId, filename),
+                                            predicate);
+                                });
 
-    private Uni<Map<String, AnalysisResult>> process(
-            InputStream stream, Predicate<IRule> predicate) {
         return Uni.createFrom()
-                .future(
-                        reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(stream), predicate));
+                .future(future)
+                .onFailure()
+                .transform(ReportGenerationException::new);
     }
 
-    private Uni<Map<String, AnalysisResult>> fireRequest(URI uri, InputStream stream) {
+    private Future<Map<String, AnalysisResult>> process(
+            InputStream stream, Predicate<IRule> predicate) {
+        return reportGenerator.generateEvalMapInterruptibly(
+                new BufferedInputStream(stream), predicate);
+    }
+
+    private Future<Map<String, AnalysisResult>> fireRequest(URI uri, InputStream stream) {
         var cf = new CompletableFuture<Map<String, AnalysisResult>>();
         try (var http = HttpClients.createDefault();
                 stream) {
@@ -143,6 +157,12 @@ class ReportsServiceImpl implements ReportsService {
         } catch (Exception e) {
             cf.completeExceptionally(e);
         }
-        return Uni.createFrom().future(cf);
+        return cf;
+    }
+
+    public static class ReportGenerationException extends RuntimeException {
+        public ReportGenerationException(Throwable cause) {
+            super(cause);
+        }
     }
 }
