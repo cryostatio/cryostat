@@ -150,7 +150,6 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
             case LOST:
                 Target t = Target.getTargetByConnectUrl(connectUrl);
                 realm.children.remove(t.discoveryNode);
-                t.delete();
                 realm.persist();
                 break;
             default:
