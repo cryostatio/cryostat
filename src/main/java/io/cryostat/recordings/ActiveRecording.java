@@ -229,7 +229,6 @@ public class ActiveRecording extends PanacheEntity {
 
         @PreRemove
         public void preRemove(ActiveRecording activeRecording) throws Exception {
-            activeRecording.target.activeRecordings.remove(activeRecording);
             connectionManager.executeConnectedTask(
                     activeRecording.target,
                     conn -> {
