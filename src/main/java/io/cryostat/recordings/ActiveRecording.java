@@ -31,6 +31,7 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -148,12 +149,12 @@ public class ActiveRecording extends PanacheEntity {
         boolean found = recording.isPresent();
         if (found) {
             Logger.getLogger(ActiveRecording.class)
-                    .infov("Found and deleting match: {0} / {1}", target.alias, recording.get());
+                    .debugv("Found and deleting match: {0} / {1}", target.alias, recording.get());
             recording.get().delete();
             getEntityManager().flush();
         } else {
             Logger.getLogger(ActiveRecording.class)
-                    .infov(
+                    .debugv(
                             "No match found for recording {0} in target {1}",
                             recordingName, target.alias);
         }
@@ -179,38 +180,40 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         @PreUpdate
+        @Blocking
         public void preUpdate(ActiveRecording activeRecording) throws Exception {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
-                connectionManager.executeConnectedTask(
-                        activeRecording.target,
-                        conn -> {
-                            RecordingHelper.getDescriptorById(conn, activeRecording.remoteId)
-                                    .ifPresent(
-                                            d -> {
-                                                // this connection can fail if we are removing this
-                                                // recording as a cascading
-                                                // operation after the owner target was lost. It
-                                                // isn't too important in that
-                                                // case that we are unable to connect to the target
-                                                // and close the actual
-                                                // recording, because the target probably went
-                                                // offline or we otherwise just
-                                                // can't reach it.
-                                                try {
-                                                    if (!d.getState()
-                                                            .equals(
-                                                                    IRecordingDescriptor
-                                                                            .RecordingState
-                                                                            .STOPPED)) {
-                                                        conn.getService().stop(d);
+                try {
+                    connectionManager.executeConnectedTask(
+                            activeRecording.target,
+                            conn -> {
+                                RecordingHelper.getDescriptorById(conn, activeRecording.remoteId)
+                                        .ifPresent(
+                                                d -> {
+                                                    // this connection can fail if we are removing
+                                                    // this recording as a cascading operation after
+                                                    // the owner target was lost. It isn't too
+                                                    // important in that case that we are unable to
+                                                    // connect to the target and close the actual
+                                                    // recording, because the target probably went
+                                                    // offline or we otherwise just can't reach it.
+                                                    try {
+                                                        if (!d.getState()
+                                                                .equals(
+                                                                        IRecordingDescriptor
+                                                                                .RecordingState
+                                                                                .STOPPED)) {
+                                                            conn.getService().stop(d);
+                                                        }
+                                                    } catch (Exception e) {
+                                                        throw new RuntimeException(e);
                                                     }
-                                                } catch (Exception e) {
-                                                    logger.warn(
-                                                            "Failed to stop remote recording", e);
-                                                }
-                                            });
-                            return null;
-                        });
+                                                });
+                                return null;
+                            });
+                } catch (Exception e) {
+                    logger.error("Failed to stop remote recording", e);
+                }
             }
         }
 
@@ -228,26 +231,32 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         @PreRemove
+        @Blocking
         public void preRemove(ActiveRecording activeRecording) throws Exception {
-            connectionManager.executeConnectedTask(
-                    activeRecording.target,
-                    conn -> {
-                        // this connection can fail if we are removing this recording as a cascading
-                        // operation after the owner target was lost. It isn't too important in that
-                        // case that we are unable to connect to the target and close the actual
-                        // recording, because the target probably went offline or we otherwise just
-                        // can't reach it.
-                        try {
-                            RecordingHelper.getDescriptor(conn, activeRecording)
-                                    .ifPresent(
-                                            rec ->
-                                                    Recordings.safeCloseRecording(
-                                                            conn, rec, logger));
-                        } catch (Exception e) {
-                            logger.info(e);
-                        }
-                        return null;
-                    });
+            try {
+                connectionManager.executeConnectedTask(
+                        activeRecording.target,
+                        conn -> {
+                            // this connection can fail if we are removing this recording as a
+                            // cascading operation after the owner target was lost. It isn't too
+                            // important in that case that we are unable to connect to the target
+                            // and close the actual recording, because the target probably went
+                            // offline or we otherwise just can't reach it.
+                            try {
+                                RecordingHelper.getDescriptor(conn, activeRecording)
+                                        .ifPresent(
+                                                rec ->
+                                                        Recordings.safeCloseRecording(
+                                                                conn, rec, logger));
+                            } catch (Exception e) {
+                                logger.info(e);
+                            }
+                            return null;
+                        });
+            } catch (Exception e) {
+                logger.error(e);
+                throw e;
+            }
         }
 
         @PostRemove
