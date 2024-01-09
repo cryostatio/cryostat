@@ -16,6 +16,7 @@
 package io.cryostat;
 
 import java.net.URI;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
@@ -71,6 +72,13 @@ public class Producers {
     @Named(BASE64_URL)
     public static Base64 produceBase64Url() {
         return new Base64(0, null, true);
+    }
+
+    @Produces
+    @ApplicationScoped
+    @DefaultBean
+    public static ExecutorService produceExecutorService() {
+        return ForkJoinPool.commonPool();
     }
 
     @Produces

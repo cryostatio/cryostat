@@ -45,11 +45,12 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.V2Response;
+import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.RecordingOptionsCustomizer;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.TemplateType;
-import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
+import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
@@ -58,7 +59,6 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
-import com.arjuna.ats.jta.exceptions.NotImplementedException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
@@ -74,7 +74,6 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
@@ -86,6 +85,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.validator.routines.UrlValidator;
+import org.apache.hc.core5.http.HttpStatus;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -237,21 +237,26 @@ public class Recordings {
             return;
         }
         logger.infov("Removing {0}", toRemove);
+
         // FIXME this notification should be emitted in the deletion operation stream so that there
         // is one notification per deleted object
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(
-                        "ArchivedRecordingDeleted",
-                        new RecordingEvent(
-                                URI.create(jvmId),
+        var target = Target.getTargetByJvmId(jvmId);
+        var event =
+                new ArchivedRecordingEvent(
+                        Recordings.RecordingEventCategory.ARCHIVED_DELETED,
+                        ArchivedRecordingEvent.Payload.of(
+                                target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
                                         recording.fileName(),
                                         recordingHelper.downloadUrl(jvmId, recording.fileName()),
                                         recordingHelper.reportUrl(jvmId, recording.fileName()),
                                         metadata,
-                                        0 /*filesize*/,
-                                        clock.getMonotonicTime()))));
+                                        0,
+                                        clock.getMonotonicTime())));
+        bus.publish(event.category().category(), event.payload().recording());
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
         storage.deleteObjects(
                         DeleteObjectsRequest.builder()
                                 .bucket(archiveBucket)
@@ -309,30 +314,16 @@ public class Recordings {
     @Blocking
     @Path("/api/beta/recordings/{connectUrl}/{filename}")
     @RolesAllowed("write")
-    public void agentDelete(
-            @RestPath String connectUrl,
-            @RestPath String filename,
-            @RestForm("recording") FileUpload recording,
-            @RestForm("labels") JsonObject rawLabels)
+    public Response agentDelete(@RestPath String connectUrl, @RestPath String filename)
             throws Exception {
         var target = Target.getTargetByConnectUrl(URI.create(connectUrl));
-        var resp =
-                storage.deleteObject(
-                        DeleteObjectRequest.builder()
-                                .bucket(archiveBucket)
-                                .key(recordingHelper.archivedRecordingKey(target.jvmId, filename))
-                                .build());
-        if (resp.sdkHttpResponse().isSuccessful()) {
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(
-                            "ArchivedRecordingDeleted",
-                            new RecordingEvent(URI.create(connectUrl), Map.of("name", filename))));
-        } else {
-            throw new HttpException(
-                    resp.sdkHttpResponse().statusCode(),
-                    resp.sdkHttpResponse().statusText().orElse(""));
+        if (!recordingHelper.listArchivedRecordingObjects(target.jvmId).stream()
+                .map(item -> item.key().strip().split("/")[1])
+                .anyMatch(fn -> Objects.equals(fn, filename))) {
+            return Response.status(RestResponse.Status.NOT_FOUND).build();
         }
+        recordingHelper.deleteArchivedRecording(target.jvmId, filename);
+        return Response.status(RestResponse.Status.NO_CONTENT).build();
     }
 
     @Blocking
@@ -359,19 +350,24 @@ public class Recordings {
                         .build(),
                 RequestBody.fromFile(recording.filePath()));
         logger.info("Upload complete");
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(
-                        "ArchivedRecordingCreated",
-                        new RecordingEvent(
-                                URI.create(jvmId),
+
+        var target = Target.getTargetByJvmId(jvmId);
+        var event =
+                new ArchivedRecordingEvent(
+                        Recordings.RecordingEventCategory.ARCHIVED_CREATED,
+                        ArchivedRecordingEvent.Payload.of(
+                                target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
                                         filename,
                                         recordingHelper.downloadUrl(jvmId, filename),
                                         recordingHelper.reportUrl(jvmId, filename),
                                         metadata,
                                         0 /*filesize*/,
-                                        clock.getMonotonicTime()))));
+                                        clock.getMonotonicTime())));
+        bus.publish(event.category().category(), event.payload().recording());
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
 
         return Map.of("name", filename, "metadata", Map.of("labels", metadata.labels));
     }
@@ -745,7 +741,11 @@ public class Recordings {
                 Target.getTargetByJvmId(jvmId)
                         .map(t -> t.connectUrl)
                         .map(c -> c.toString())
-                        .orElseGet(() -> metadata.labels.computeIfAbsent("connectUrl", k -> jvmId));
+                        .filter(StringUtils::isNotBlank)
+                        .orElseGet(
+                                () ->
+                                        metadata.labels.computeIfAbsent(
+                                                "connectUrl", k -> "lost-" + jvmId));
         logger.infov(
                 "Archived recording from connectUrl \"{0}\" has metadata: {1}",
                 connectUrl, metadata);
@@ -762,11 +762,22 @@ public class Recordings {
                 "Got SDK response {0} {1}",
                 resp.sdkHttpResponse().statusCode(), resp.sdkHttpResponse().statusText());
         if (resp.sdkHttpResponse().isSuccessful()) {
+            var event =
+                    new ArchivedRecordingEvent(
+                            Recordings.RecordingEventCategory.ARCHIVED_DELETED,
+                            ArchivedRecordingEvent.Payload.of(
+                                    URI.create(connectUrl),
+                                    new ArchivedRecording(
+                                            filename,
+                                            recordingHelper.downloadUrl(jvmId, filename),
+                                            recordingHelper.reportUrl(jvmId, filename),
+                                            metadata,
+                                            0 /*filesize*/,
+                                            clock.getMonotonicTime())));
+            bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(
-                            "ArchivedRecordingDeleted",
-                            new RecordingEvent(URI.create(connectUrl), Map.of("name", filename))));
+                    new Notification(event.category().category(), event.payload()));
         } else {
             throw new HttpException(
                     resp.sdkHttpResponse().statusCode(),
@@ -816,13 +827,15 @@ public class Recordings {
                     new URL(
                             grafanaDatasourceURL.orElseThrow(
                                     () ->
-                                            new InternalServerErrorException(
+                                            new HttpException(
+                                                    HttpStatus.SC_BAD_GATEWAY,
                                                     "GRAFANA_DATASOURCE_URL environment variable"
                                                             + " does not exist")));
             boolean isValidUploadUrl =
                     new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS).isValid(uploadUrl.toString());
             if (!isValidUploadUrl) {
-                throw new NotImplementedException(
+                throw new HttpException(
+                        HttpStatus.SC_BAD_GATEWAY,
                         String.format(
                                 "$%s=%s is an invalid datasource URL",
                                 ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
@@ -830,7 +843,7 @@ public class Recordings {
 
             return recordingHelper.uploadToJFRDatasource(targetId, remoteId, uploadUrl);
         } catch (MalformedURLException e) {
-            throw new NotImplementedException(e);
+            throw new HttpException(HttpStatus.SC_BAD_GATEWAY, e);
         }
     }
 
@@ -1044,6 +1057,7 @@ public class Recordings {
         }
     }
 
+    // TODO include jvmId and filename
     public record ArchivedRecording(
             String name,
             String downloadUrl,
@@ -1091,6 +1105,35 @@ public class Recordings {
 
         public static Metadata empty() {
             return new Metadata(new HashMap<>());
+        }
+    }
+
+    public static final String ACTIVE_RECORDING_CREATED = "ActiveRecordingCreated";
+    public static final String ACTIVE_RECORDING_STOPPED = "ActiveRecordingStopped";
+    public static final String ARCHIVED_RECORDING_DELETED = "ArchivedRecordingDeleted";
+    public static final String ARCHIVED_RECORDING_CREATED = "ArchivedRecordingCreated";
+    public static final String ACTIVE_RECORDING_DELETED = "ActiveRecordingDeleted";
+    public static final String ACTIVE_RECORDING_SAVED = "ActiveRecordingSaved";
+    public static final String SNAPSHOT_RECORDING_CREATED = "SnapshotCreated";
+
+    public enum RecordingEventCategory {
+        ACTIVE_CREATED(ACTIVE_RECORDING_CREATED),
+        ACTIVE_STOPPED(ACTIVE_RECORDING_STOPPED),
+        ACTIVE_SAVED(ACTIVE_RECORDING_SAVED),
+        ACTIVE_DELETED(ACTIVE_RECORDING_DELETED),
+        ARCHIVED_CREATED(ARCHIVED_RECORDING_CREATED),
+        ARCHIVED_DELETED(ARCHIVED_RECORDING_DELETED),
+        SNAPSHOT_CREATED(SNAPSHOT_RECORDING_CREATED),
+        ;
+
+        private final String category;
+
+        private RecordingEventCategory(String category) {
+            this.category = category;
+        }
+
+        public String category() {
+            return category;
         }
     }
 }

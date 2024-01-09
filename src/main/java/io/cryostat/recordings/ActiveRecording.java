@@ -15,16 +15,14 @@
  */
 package io.cryostat.recordings;
 
-import java.io.IOException;
 import java.net.URI;
 import java.util.Objects;
 import java.util.Optional;
 
 import org.openjdk.jmc.common.unit.UnitLookup;
-import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
-import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
+import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
@@ -33,6 +31,7 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -111,7 +110,7 @@ public class ActiveRecording extends PanacheEntity {
         recording.name = descriptor.getName();
         switch (descriptor.getState()) {
             case CREATED:
-                recording.state = RecordingState.NEW;
+                recording.state = RecordingState.DELAYED;
                 break;
             case RUNNING:
                 recording.state = RecordingState.RUNNING;
@@ -123,6 +122,7 @@ public class ActiveRecording extends PanacheEntity {
                 recording.state = RecordingState.STOPPED;
                 break;
             default:
+                recording.state = RecordingState.NEW;
                 break;
         }
         recording.duration = descriptor.getDuration().in(UnitLookup.MILLISECOND).longValue();
@@ -149,12 +149,12 @@ public class ActiveRecording extends PanacheEntity {
         boolean found = recording.isPresent();
         if (found) {
             Logger.getLogger(ActiveRecording.class)
-                    .infov("Found and deleting match: {0} / {1}", target.alias, recording.get());
+                    .debugv("Found and deleting match: {0} / {1}", target.alias, recording.get());
             recording.get().delete();
             getEntityManager().flush();
         } else {
             Logger.getLogger(ActiveRecording.class)
-                    .infov(
+                    .debugv(
                             "No match found for recording {0} in target {1}",
                             recordingName, target.alias);
         }
@@ -171,80 +171,153 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
-            notify("ActiveRecordingCreated", activeRecording);
+            bus.publish(
+                    Recordings.RecordingEventCategory.ACTIVE_CREATED.category(), activeRecording);
+            notify(
+                    new ActiveRecordingEvent(
+                            Recordings.RecordingEventCategory.ACTIVE_CREATED,
+                            ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
         }
 
         @PreUpdate
+        @Blocking
         public void preUpdate(ActiveRecording activeRecording) throws Exception {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
-                connectionManager.executeConnectedTask(
-                        activeRecording.target,
-                        conn -> {
-                            RecordingHelper.getDescriptorById(conn, activeRecording.remoteId)
-                                    .ifPresent(
-                                            d -> {
-                                                try {
-                                                    if (!d.getState()
-                                                            .equals(
-                                                                    IRecordingDescriptor
-                                                                            .RecordingState
-                                                                            .STOPPED)) {
-                                                        conn.getService().stop(d);
+                try {
+                    connectionManager.executeConnectedTask(
+                            activeRecording.target,
+                            conn -> {
+                                RecordingHelper.getDescriptorById(conn, activeRecording.remoteId)
+                                        .ifPresent(
+                                                d -> {
+                                                    // this connection can fail if we are removing
+                                                    // this recording as a cascading operation after
+                                                    // the owner target was lost. It isn't too
+                                                    // important in that case that we are unable to
+                                                    // connect to the target and close the actual
+                                                    // recording, because the target probably went
+                                                    // offline or we otherwise just can't reach it.
+                                                    try {
+                                                        if (!d.getState()
+                                                                .equals(
+                                                                        IRecordingDescriptor
+                                                                                .RecordingState
+                                                                                .STOPPED)) {
+                                                            conn.getService().stop(d);
+                                                        }
+                                                    } catch (Exception e) {
+                                                        throw new RuntimeException(e);
                                                     }
-                                                } catch (FlightRecorderException
-                                                        | IOException
-                                                        | ServiceNotAvailableException e) {
-                                                    logger.warn(
-                                                            "Failed to stop remote recording", e);
-                                                }
-                                            });
-                            return null;
-                        });
+                                                });
+                                return null;
+                            });
+                } catch (Exception e) {
+                    logger.error("Failed to stop remote recording", e);
+                }
             }
         }
 
         @PostUpdate
         public void postUpdate(ActiveRecording activeRecording) {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
-                notify("ActiveRecordingStopped", activeRecording);
+                bus.publish(
+                        Recordings.RecordingEventCategory.ACTIVE_STOPPED.category(),
+                        activeRecording);
+                notify(
+                        new ActiveRecordingEvent(
+                                Recordings.RecordingEventCategory.ACTIVE_STOPPED,
+                                ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
             }
         }
 
         @PreRemove
+        @Blocking
         public void preRemove(ActiveRecording activeRecording) throws Exception {
-            activeRecording.target.activeRecordings.remove(activeRecording);
-            connectionManager.executeConnectedTask(
-                    activeRecording.target,
-                    conn -> {
-                        RecordingHelper.getDescriptor(conn, activeRecording)
-                                .ifPresent(rec -> Recordings.safeCloseRecording(conn, rec, logger));
-                        return null;
-                    });
+            try {
+                activeRecording.target.activeRecordings.remove(activeRecording);
+                connectionManager.executeConnectedTask(
+                        activeRecording.target,
+                        conn -> {
+                            // this connection can fail if we are removing this recording as a
+                            // cascading operation after the owner target was lost. It isn't too
+                            // important in that case that we are unable to connect to the target
+                            // and close the actual recording, because the target probably went
+                            // offline or we otherwise just can't reach it.
+                            try {
+                                RecordingHelper.getDescriptor(conn, activeRecording)
+                                        .ifPresent(
+                                                rec ->
+                                                        Recordings.safeCloseRecording(
+                                                                conn, rec, logger));
+                            } catch (Exception e) {
+                                logger.info(e);
+                            }
+                            return null;
+                        });
+            } catch (Exception e) {
+                logger.error(e);
+                throw e;
+            }
         }
 
         @PostRemove
         public void postRemove(ActiveRecording activeRecording) {
-            notify("ActiveRecordingDeleted", activeRecording);
+            bus.publish(
+                    Recordings.RecordingEventCategory.ACTIVE_DELETED.category(), activeRecording);
+            notify(
+                    new ActiveRecordingEvent(
+                            Recordings.RecordingEventCategory.ACTIVE_DELETED,
+                            ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
         }
 
-        private void notify(String category, ActiveRecording recording) {
+        private void notify(ActiveRecordingEvent event) {
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(
-                            category,
-                            new RecordingEvent(
-                                    recording.target.connectUrl,
-                                    recordingHelper.toExternalForm(recording))));
+                    new Notification(event.category().category(), event.payload()));
         }
 
-        // FIXME the target connectUrl URI may no longer be known if the target
-        // has disappeared and we are emitting an event regarding an archived recording originally
-        // sourced from that target.
-        // This should embed the target jvmId and optionally the database ID.
-        public record RecordingEvent(URI target, Object recording) {
-            public RecordingEvent {
-                Objects.requireNonNull(target);
-                Objects.requireNonNull(recording);
+        public record ActiveRecordingEvent(
+                Recordings.RecordingEventCategory category, Payload payload) {
+            public ActiveRecordingEvent {
+                Objects.requireNonNull(category);
+                Objects.requireNonNull(payload);
+            }
+
+            public record Payload(String target, LinkedRecordingDescriptor recording) {
+                public Payload {
+                    Objects.requireNonNull(target);
+                    Objects.requireNonNull(recording);
+                }
+
+                public static Payload of(RecordingHelper helper, ActiveRecording recording) {
+                    return new Payload(
+                            recording.target.connectUrl.toString(),
+                            helper.toExternalForm(recording));
+                }
+            }
+        }
+
+        public record ArchivedRecordingEvent(
+                Recordings.RecordingEventCategory category, Payload payload) {
+            public ArchivedRecordingEvent {
+                Objects.requireNonNull(category);
+                Objects.requireNonNull(payload);
+            }
+
+            // FIXME the target connectUrl URI may no longer be known if the target
+            // has disappeared and we are emitting an event regarding an archived recording
+            // originally
+            // sourced from that target.
+            // This should embed the target jvmId and optionally the database ID.
+            public record Payload(String target, ArchivedRecording recording) {
+                public Payload {
+                    Objects.requireNonNull(target);
+                    Objects.requireNonNull(recording);
+                }
+
+                public static Payload of(URI connectUrl, ArchivedRecording recording) {
+                    return new Payload(connectUrl.toString(), recording);
+                }
             }
         }
     }

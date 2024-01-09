@@ -20,14 +20,19 @@ import org.openjdk.jmc.rjmx.ConnectionException;
 import io.cryostat.targets.TargetConnectionManager;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
+import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import org.hibernate.exception.ConstraintViolationException;
+import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import org.projectnessie.cel.tools.ScriptException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 public class ExceptionMappers {
+
+    @Inject Logger logger;
+
     @ServerExceptionMapper
     public RestResponse<Void> mapNoResultException(NoResultException ex) {
         return RestResponse.notFound();
@@ -35,38 +40,45 @@ public class ExceptionMappers {
 
     @ServerExceptionMapper
     public RestResponse<Void> mapConstraintViolationException(ConstraintViolationException ex) {
+        logger.warn(ex);
         return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
     }
 
     @ServerExceptionMapper
     public RestResponse<Void> mapValidationException(jakarta.validation.ValidationException ex) {
+        logger.warn(ex);
         return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
     }
 
     @ServerExceptionMapper
     public RestResponse<Void> mapScriptException(ScriptException ex) {
+        logger.warn(ex);
         return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
     }
 
     @ServerExceptionMapper
     public RestResponse<Void> mapNoSuchKeyException(NoSuchKeyException ex) {
+        logger.warn(ex);
         return RestResponse.status(HttpResponseStatus.NOT_FOUND.code());
     }
 
     @ServerExceptionMapper
-    public RestResponse<Void> mapIllegalArgumentException(IllegalArgumentException exception) {
+    public RestResponse<Void> mapIllegalArgumentException(IllegalArgumentException ex) {
+        logger.warn(ex);
         return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
     }
 
     @ServerExceptionMapper
-    public RestResponse<Void> mapJmxConnectionException(ConnectionException exception) {
+    public RestResponse<Void> mapJmxConnectionException(ConnectionException ex) {
+        logger.warn(ex);
         return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
     }
 
     @ServerExceptionMapper
     public RestResponse<Void> mapFlightRecorderException(
-            org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException exception) {
-        if (TargetConnectionManager.isJmxAuthFailure(exception)) {
+            org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException ex) {
+        logger.warn(ex);
+        if (TargetConnectionManager.isJmxAuthFailure(ex)) {
             return RestResponse.status(HttpResponseStatus.FORBIDDEN.code());
         }
         return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());

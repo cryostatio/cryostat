@@ -38,7 +38,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -189,8 +188,7 @@ public class Target extends PanacheEntity {
         @Inject TargetConnectionManager connectionManager;
 
         @Transactional
-        @Blocking
-        @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
+        @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
         void onMessage(TargetDiscovery event) {
             switch (event.kind()) {
                 case LOST:

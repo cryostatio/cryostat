@@ -17,7 +17,6 @@ package io.cryostat.recordings;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
@@ -48,12 +47,15 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
-import io.cryostat.recordings.ActiveRecording.Listener.RecordingEvent;
+import io.cryostat.recordings.ActiveRecording.Listener.ActiveRecordingEvent;
+import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
+import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
@@ -62,7 +64,6 @@ import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.multipart.MultipartForm;
@@ -127,7 +128,6 @@ public class RecordingHelper {
     Base64 base64Url;
 
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
-    @Inject ObjectMapper mapper;
     @Inject S3Client storage;
     @Inject FileSystem fs;
 
@@ -189,6 +189,8 @@ public class RecordingHelper {
         target.activeRecordings.add(recording);
         target.persist();
 
+        logger.tracev("Started recording: {0} {1}", target.connectUrl, target.activeRecordings);
+
         return recording;
     }
 
@@ -237,10 +239,14 @@ public class RecordingHelper {
         target.activeRecordings.add(recording);
         target.persist();
 
+        var event =
+                new ActiveRecordingEvent(
+                        Recordings.RecordingEventCategory.SNAPSHOT_CREATED,
+                        ActiveRecordingEvent.Payload.of(this, recording));
+        bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
-                new Notification(
-                        "SnapshotCreated", new RecordingEvent(target.connectUrl, recording)));
+                new Notification(event.category().category(), event.payload()));
 
         return recording;
     }
@@ -532,17 +538,14 @@ public class RecordingHelper {
             throw e;
         }
         if (expiry == null) {
-            LinkedRecordingDescriptor serializedRecording = toExternalForm(recording);
+            var event =
+                    new ActiveRecordingEvent(
+                            Recordings.RecordingEventCategory.ACTIVE_SAVED,
+                            ActiveRecordingEvent.Payload.of(this, recording));
+            bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(
-                            "ActiveRecordingSaved",
-                            new RecordingEvent(recording.target.connectUrl, serializedRecording)));
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(
-                            "ArchivedRecordingCreated",
-                            new RecordingEvent(recording.target.connectUrl, serializedRecording)));
+                    new Notification(event.category().category(), event.payload()));
         }
         return filename;
     }
@@ -551,7 +554,7 @@ public class RecordingHelper {
         return getArchivedRecordingMetadata(archivedRecordingKey(jvmId, filename));
     }
 
-    private Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
+    public Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
         try {
             return Optional.of(
                     taggingToMetadata(
@@ -567,7 +570,7 @@ public class RecordingHelper {
         }
     }
 
-    String decodeBase64(String encoded) {
+    private String decodeBase64(String encoded) {
         return new String(base64Url.decode(encoded), StandardCharsets.UTF_8);
     }
 
@@ -660,11 +663,25 @@ public class RecordingHelper {
                         .bucket(archiveBucket)
                         .key(archivedRecordingKey(jvmId, filename))
                         .build());
+
+        var metadata = Metadata.empty(); // TODO
+        var target = Target.getTargetByJvmId(jvmId);
+        var event =
+                new ArchivedRecordingEvent(
+                        Recordings.RecordingEventCategory.ARCHIVED_DELETED,
+                        ArchivedRecordingEvent.Payload.of(
+                                target.map(t -> t.connectUrl).orElse(null),
+                                new ArchivedRecording(
+                                        filename,
+                                        downloadUrl(jvmId, filename),
+                                        reportUrl(jvmId, filename),
+                                        metadata,
+                                        0,
+                                        0)));
+        bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
-                new Notification(
-                        "ArchivedRecordingDeleted",
-                        new RecordingEvent(URI.create("localhost:0"), Map.of("name", filename))));
+                new Notification(event.category().category(), event.payload()));
     }
 
     Tagging createActiveRecordingTagging(ActiveRecording recording, Instant expiry) {
@@ -701,7 +718,9 @@ public class RecordingHelper {
         if (metadata.expiry() != null) {
             tags.add(
                     Tag.builder()
-                            .key(objectExpirationLabel)
+                            .key(
+                                    base64Url.encodeAsString(
+                                            objectExpirationLabel.getBytes(StandardCharsets.UTF_8)))
                             .value(
                                     base64Url.encodeAsString(
                                             metadata.expiry()
@@ -718,12 +737,12 @@ public class RecordingHelper {
         Instant expiry = null;
         var labels = new HashMap<String, String>();
         for (var tag : tagSet) {
-            var decodedValue = decodeBase64(tag.value());
-            if (tag.key().equals(objectExpirationLabel)) {
-                expiry = Instant.parse(decodedValue);
+            var key = decodeBase64(tag.key());
+            var value = decodeBase64(tag.value());
+            if (key.equals(objectExpirationLabel)) {
+                expiry = Instant.parse(value);
             } else {
-                var decodedKey = decodeBase64(tag.key());
-                labels.put(decodedKey, decodedValue);
+                labels.put(key, value);
             }
         }
         return new Metadata(labels, expiry);

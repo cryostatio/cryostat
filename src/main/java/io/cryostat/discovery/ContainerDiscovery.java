@@ -369,8 +369,8 @@ public abstract class ContainerDiscovery {
             } else {
                 realm.children.remove(t.discoveryNode);
             }
-            t.delete();
             realm.persist();
+            t.delete();
         }
     }
 

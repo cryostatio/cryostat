@@ -100,16 +100,14 @@ public class MessagingServer {
                                             Map.of("category", notification.category()),
                                             "message",
                                             notification.message());
-                            logger.infov("Broadcasting: {0}", map);
-                            sessions.forEach(
-                                    s -> {
-                                        try {
-                                            s.getAsyncRemote()
-                                                    .sendText(mapper.writeValueAsString(map));
-                                        } catch (JsonProcessingException e) {
-                                            logger.error("Unable to serialize message to JSON", e);
-                                        }
-                                    });
+                            try {
+                                var json = mapper.writeValueAsString(map);
+                                logger.infov("Broadcasting: {0}", map);
+                                logger.debugv("Broadcasting: {0}", json);
+                                sessions.forEach(s -> s.getAsyncRemote().sendText(json));
+                            } catch (JsonProcessingException e) {
+                                logger.error("Unable to serialize message to JSON", e);
+                            }
                         } catch (InterruptedException ie) {
                             logger.warn(ie);
                             break;

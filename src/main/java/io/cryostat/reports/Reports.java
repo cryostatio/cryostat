@@ -15,25 +15,22 @@
  */
 package io.cryostat.reports;
 
-import java.io.BufferedInputStream;
 import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.Producers;
-import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.RecordingHelper;
-import io.cryostat.recordings.RemoteRecordingInputStreamFactory;
 import io.cryostat.targets.Target;
+import io.cryostat.util.HttpStatusCodeIdentifier;
 
-import io.quarkus.cache.CacheResult;
+import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -41,31 +38,53 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import org.apache.commons.codec.binary.Base64;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
 @Path("")
 public class Reports {
 
-    static final String ACTIVE_CACHE = "active-reports";
-    static final String ARCHIVED_CACHE = "archived-reports";
+    @Inject RecordingHelper helper;
+    @Inject ReportsService reportsService;
+    @Inject Logger logger;
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
-    String archiveBucket;
+    @ConfigProperty(name = ConfigProperties.STORAGE_CACHE_ENABLED)
+    boolean storageCacheEnabled;
 
-    @Inject
-    @Named(Producers.BASE64_URL)
-    Base64 base64Url;
+    @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_STORAGE_CACHE_NAME)
+    String bucket;
 
     @Inject S3Client storage;
-    @Inject RecordingHelper helper;
-    @Inject RemoteRecordingInputStreamFactory remoteStreamFactory;
-    @Inject InterruptibleReportGenerator reportGenerator;
-    @Inject Logger logger;
+
+    // FIXME this observer cannot be declared on the StorageCachingReportsService decorator.
+    // Refactor to put this somewhere more sensible
+    void onStart(@Observes StartupEvent evt) {
+        if (storageCacheEnabled) {
+            boolean exists = false;
+            try {
+                exists =
+                        HttpStatusCodeIdentifier.isSuccessCode(
+                                storage.headBucket(
+                                                HeadBucketRequest.builder().bucket(bucket).build())
+                                        .sdkHttpResponse()
+                                        .statusCode());
+            } catch (Exception e) {
+                logger.info(e);
+            }
+            if (!exists) {
+                try {
+                    storage.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
+                } catch (Exception e) {
+                    logger.error(e);
+                }
+            }
+        }
+    }
 
     @Blocking
     @GET
@@ -98,25 +117,19 @@ public class Reports {
                 .build();
     }
 
-    @Blocking
-    // TODO proactively invalidate cache when recording is deleted
-    @CacheResult(cacheName = ARCHIVED_CACHE)
     @GET
+    @Blocking
     @Path("/api/v3/reports/{encodedKey}")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
     public Uni<Map<String, AnalysisResult>> get(@RestPath String encodedKey) {
         // TODO implement query parameter for evaluation predicate
-        return Uni.createFrom()
-                .future(
-                        reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(
-                                        helper.getArchivedRecordingStream(encodedKey)),
-                                r -> true));
+        var pair = helper.decodedKey(encodedKey);
+        return reportsService.reportFor(pair.getKey(), pair.getValue());
     }
 
-    @Blocking
     @GET
+    @Blocking
     @Path("/api/v1/targets/{targetId}/reports/{recordingName}")
     @Produces({MediaType.APPLICATION_JSON})
     @RolesAllowed("read")
@@ -137,10 +150,8 @@ public class Reports {
                 .build();
     }
 
-    @Blocking
-    // TODO proactively invalidate cache when recording is deleted or target disappears
-    @CacheResult(cacheName = ACTIVE_CACHE)
     @GET
+    @Blocking
     @Path("/api/v3/targets/{targetId}/reports/{recordingId}")
     @Produces({MediaType.APPLICATION_JSON})
     @RolesAllowed("read")
@@ -148,12 +159,14 @@ public class Reports {
     public Uni<Map<String, AnalysisResult>> getActive(
             @RestPath long targetId, @RestPath long recordingId) throws Exception {
         var target = Target.<Target>findById(targetId);
+        if (target == null) {
+            throw new NotFoundException();
+        }
         var recording = target.getRecordingById(recordingId);
+        if (recording == null) {
+            throw new NotFoundException();
+        }
         // TODO implement query parameter for evaluation predicate
-        return Uni.createFrom()
-                .future(
-                        reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(helper.getActiveInputStream(recording)),
-                                r -> true));
+        return reportsService.reportFor(recording);
     }
 }
