@@ -31,7 +31,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-    <io.cryostat.core.version>2.26.0</io.cryostat.core.version>
+    <io.cryostat.core.version>2.27.0</io.cryostat.core.version>
     
     <org.apache.commons.codec.version>1.16.0</org.apache.commons.codec.version>
     <org.apache.commons.io.version>2.13.0</org.apache.commons.io.version>
