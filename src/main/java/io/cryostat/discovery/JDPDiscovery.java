@@ -151,6 +151,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
                 Target t = Target.getTargetByConnectUrl(connectUrl);
                 realm.children.remove(t.discoveryNode);
                 realm.persist();
+                t.delete();
                 break;
             default:
                 logger.warnv("Unknown JVM discovery event {0}", evt.getEventKind());

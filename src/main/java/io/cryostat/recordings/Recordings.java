@@ -53,7 +53,6 @@ import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
-import io.cryostat.recordings.Recordings.RecordingEventCategory;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpStatusCodeIdentifier;

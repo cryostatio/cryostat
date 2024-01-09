@@ -67,7 +67,7 @@ public class Target extends PanacheEntity {
     @Column(unique = true, nullable = false, updatable = false)
     public URI connectUrl;
 
-    @Column(nullable = false)
+    @Column(unique = true, nullable = false)
     public String alias;
 
     public String jvmId;

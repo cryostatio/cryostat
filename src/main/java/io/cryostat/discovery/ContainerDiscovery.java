@@ -362,7 +362,6 @@ public abstract class ContainerDiscovery {
             realm.persist();
         } else {
             Target t = Target.getTargetByConnectUrl(connectUrl);
-            t.delete();
             String podName = desc.PodName;
             if (StringUtils.isNotBlank(podName)) {
                 DiscoveryNode pod = DiscoveryNode.environment(podName, DiscoveryNode.POD);
@@ -371,6 +370,7 @@ public abstract class ContainerDiscovery {
                 realm.children.remove(t.discoveryNode);
             }
             realm.persist();
+            t.delete();
         }
     }
 

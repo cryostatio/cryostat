@@ -202,6 +202,7 @@ public class CustomDiscovery {
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         realm.children.remove(target.discoveryNode);
         realm.persist();
+        target.delete();
         return Response.noContent().build();
     }
 
