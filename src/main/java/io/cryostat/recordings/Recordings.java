@@ -134,6 +134,9 @@ public class Recordings {
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURL;
 
+    @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
+    Optional<String> externalStorageUrl;
+
     void onStart(@Observes StartupEvent evt) {
         boolean exists = false;
         try {
@@ -990,9 +993,18 @@ public class Recordings {
                         .getObjectRequest(getRequest)
                         .build();
         PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(presignedRequest.url().toURI())
-                .build();
+        URI uri = presignedRequest.url().toURI();
+        if (externalStorageUrl.isPresent()) {
+            URI extUri = new URI(externalStorageUrl.get());
+            uri =
+                    new URI(
+                            extUri.getScheme(),
+                            extUri.getAuthority(),
+                            URI.create(extUri.getPath()).resolve(uri.getPath()).getPath(),
+                            uri.getQuery(),
+                            uri.getFragment());
+        }
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT).location(uri).build();
     }
 
     private static Map<String, Object> getRecordingOptions(

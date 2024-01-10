@@ -33,4 +33,6 @@ public class ConfigProperties {
     public static final String GRAFANA_DASHBOARD_URL = "grafana-dashboard.url";
     public static final String GRAFANA_DASHBOARD_EXT_URL = "grafana-dashboard-ext.url";
     public static final String GRAFANA_DATASOURCE_URL = "grafana-datasource.url";
+
+    public static final String STORAGE_EXT_URL = "storage-ext.url";
 }
