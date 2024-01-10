@@ -995,14 +995,19 @@ public class Recordings {
         PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
         URI uri = presignedRequest.url().toURI();
         if (externalStorageUrl.isPresent()) {
-            URI extUri = new URI(externalStorageUrl.get());
-            uri =
-                    new URI(
-                            extUri.getScheme(),
-                            extUri.getAuthority(),
-                            URI.create(extUri.getPath()).resolve(uri.getPath()).getPath(),
-                            uri.getQuery(),
-                            uri.getFragment());
+            String extUrl = externalStorageUrl.get();
+            if (StringUtils.isNotBlank(extUrl)) {
+                URI extUri = new URI(extUrl);
+                uri =
+                        new URI(
+                                extUri.getScheme(),
+                                extUri.getAuthority(),
+                                URI.create(String.format("%s/%s", extUri.getPath(), uri.getPath()))
+                                        .normalize()
+                                        .getPath(),
+                                uri.getQuery(),
+                                uri.getFragment());
+            }
         }
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT).location(uri).build();
     }
