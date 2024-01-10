@@ -4,6 +4,7 @@ services:
     environment:
       STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
       QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:8333
+      STORAGE_EXT_URL: http://localhost:8080/storage/
       QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
       QUARKUS_S3_AWS_REGION: us-east-1
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
@@ -15,8 +16,6 @@ services:
     image: ${SEAWEEDFS_IMAGE:-docker.io/chrislusf/seaweedfs:latest}
     command: server -s3
     hostname: s3
-    ports:
-      - "8333:8333"
     expose:
       - "8333"
     labels:

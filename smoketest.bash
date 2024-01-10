@@ -86,7 +86,7 @@ if [ "${USE_PROXY}" = "true" ]; then
     CRYOSTAT_HTTP_PORT=8181
     GRAFANA_DASHBOARD_EXT_URL=http://localhost:8080/grafana/
 else
-    FILES+=("${DIR}/smoketest/compose/no_proxy.yml")
+    FILES+=("${DIR}/smoketest/compose/no_proxy.yml" "${DIR}/smoketest/compose/s3_no_proxy.yml")
     if [ "${DEPLOY_GRAFANA}" = "true" ]; then
       FILES+=("${DIR}/smoketest/compose/grafana_no_proxy.yml")
     fi
@@ -96,6 +96,8 @@ export CRYOSTAT_HTTP_PORT
 export GRAFANA_DASHBOARD_EXT_URL
 
 s3Manifest="${DIR}/smoketest/compose/s3-${s3}.yml"
+STORAGE_PORT="$(yq '.services.*.expose[0]' "${s3Manifest}" | grep -v null)"
+export STORAGE_PORT
 
 if [ ! -f "${s3Manifest}" ]; then
     echo "Unknown S3 selection: ${s3}"
@@ -157,8 +159,12 @@ cleanup
 createProxyCfgVolume() {
     "${container_engine}" volume create auth_proxy_cfg
     "${container_engine}" container create --name proxy_cfg_helper -v auth_proxy_cfg:/tmp busybox
+    local cfg
+    cfg="$(mktemp)"
+    chmod 644 "${cfg}"
+    envsubst '$STORAGE_PORT' < "${DIR}/smoketest/compose/auth_proxy_alpha_config.yaml" > "${cfg}"
     "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
-    "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_alpha_config.yaml" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
+    "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
 }
 createProxyCfgVolume
 
