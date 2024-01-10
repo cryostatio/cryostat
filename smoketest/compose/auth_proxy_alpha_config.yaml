@@ -6,6 +6,9 @@ upstreamConfig:
     - id: cryostat
       path: /
       uri: http://cryostat:8181
+    - id: grafana
+      path: /grafana/
+      uri: http://grafana:3000
 providers:
   - id: dummy
     name: Unused - Sign In Below

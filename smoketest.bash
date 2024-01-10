@@ -18,6 +18,7 @@ OPEN_TABS=${OPEN_TABS:-false}
 
 CRYOSTAT_HTTP_PORT=8080
 USE_PROXY=${USE_PROXY:-true}
+DEPLOY_GRAFANA=false
 
 display_usage() {
     echo "Usage:"
@@ -50,6 +51,7 @@ while getopts "hs:prgtOVXcb" opt; do
             ;;
         g)
             FILES+=("${DIR}/smoketest/compose/cryostat-grafana.yml" "${DIR}/smoketest/compose/jfr-datasource.yml")
+            DEPLOY_GRAFANA=true
             ;;
         t)
             FILES+=("${DIR}/smoketest/compose/sample-apps.yml")
@@ -78,13 +80,20 @@ while getopts "hs:prgtOVXcb" opt; do
             ;;
     esac
 done
-export CRYOSTAT_HTTP_PORT
+
 if [ "${USE_PROXY}" = "true" ]; then
     FILES+=("${DIR}/smoketest/compose/auth_proxy.yml")
     CRYOSTAT_HTTP_PORT=8181
+    GRAFANA_DASHBOARD_EXT_URL=http://localhost:8080/grafana/
 else
     FILES+=("${DIR}/smoketest/compose/no_proxy.yml")
+    if [ "${DEPLOY_GRAFANA}" = "true" ]; then
+      FILES+=("${DIR}/smoketest/compose/grafana_no_proxy.yml")
+    fi
+    GRAFANA_DASHBOARD_EXT_URL=http://grafana:3000/
 fi
+export CRYOSTAT_HTTP_PORT
+export GRAFANA_DASHBOARD_EXT_URL
 
 s3Manifest="${DIR}/smoketest/compose/s3-${s3}.yml"
 
