@@ -54,7 +54,7 @@
     <com.mycila.license.maven.plugin.version>4.3</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.2.3</surefire-plugin.version>
     <surefire.rerunFailingTestsCount>2</surefire.rerunFailingTestsCount>
-    <failsafe-plugin.version>3.2.3</failsafe-plugin.version>
+    <failsafe-plugin.version>3.2.5</failsafe-plugin.version>
     <failsafe.rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</failsafe.rerunFailingTestsCount>
   </properties>
   <dependencyManagement>
