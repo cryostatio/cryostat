@@ -14,6 +14,8 @@ services:
   s3:
     image: ${CLOUDSERVER_IMAGE:-docker.io/zenko/cloudserver:latest}
     hostname: s3
+    ports:
+      - "8000:8000"
     expose:
       - "8000"
     environment:

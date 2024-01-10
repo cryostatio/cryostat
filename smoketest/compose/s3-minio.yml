@@ -16,6 +16,7 @@ services:
     hostname: s3
     ports:
       - "9001:9001"
+      - "9000:9000"
     expose:
       - "9000"
       - "9001"

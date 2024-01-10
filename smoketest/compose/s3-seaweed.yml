@@ -15,6 +15,8 @@ services:
     image: ${SEAWEEDFS_IMAGE:-docker.io/chrislusf/seaweedfs:latest}
     command: server -s3
     hostname: s3
+    ports:
+      - "8333:8333"
     expose:
       - "8333"
     labels:

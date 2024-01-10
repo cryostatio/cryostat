@@ -14,9 +14,10 @@ services:
   s3:
     image: ${LOCALSTACK_IMAGE:-docker.io/localstack/localstack:latest}
     hostname: s3
+    ports:
+      - "4566:4566"
     expose:
       - "4566"
-      - "4577"
     environment:
       SERVICES: s3
       START_WEB: 1
