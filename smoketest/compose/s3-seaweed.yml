@@ -16,6 +16,8 @@ services:
     image: ${SEAWEEDFS_IMAGE:-docker.io/chrislusf/seaweedfs:latest}
     hostname: s3
     command: server -dir=/data -s3
+    environment:
+      WEED_V: '4'
     volumes:
       - seaweed_data:/data
     expose:
