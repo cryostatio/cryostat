@@ -14,8 +14,10 @@ services:
       AWS_SECRET_ACCESS_KEY: unused
   s3:
     image: ${SEAWEEDFS_IMAGE:-docker.io/chrislusf/seaweedfs:latest}
-    command: server -s3
     hostname: s3
+    command: server -dir=/data -s3
+    volumes:
+      - seaweed_data:/data
     expose:
       - "8333"
     labels:
@@ -32,3 +34,7 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
+
+volumes:
+  seaweed_data:
+    driver: local
