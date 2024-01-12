@@ -144,8 +144,10 @@ cleanup() {
     docker-compose \
         "${CMD[@]}" \
         down "${downFlags[@]}"
-    ${container_engine} rm proxy_cfg_helper
-    ${container_engine} volume rm auth_proxy_cfg
+    ${container_engine} rm proxy_cfg_helper || true
+    ${container_engine} volume rm auth_proxy_cfg || true
+    ${container_engine} rm seaweed_cfg_helper || true
+    ${container_engine} volume rm seaweed_cfg || true
     # podman kill hoster || true
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
@@ -166,7 +168,18 @@ createProxyCfgVolume() {
     "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
     "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
 }
-createProxyCfgVolume
+if [ "${USE_PROXY}" = "true" ]; then
+    createProxyCfgVolume
+fi
+
+createSeaweedConfigVolume() {
+    "${container_engine}" volume create seaweed_cfg
+    "${container_engine}" container create --name seaweed_cfg_helper -v seaweed_cfg:/tmp busybox
+    "${container_engine}" cp "${DIR}/smoketest/compose/seaweed_cfg.json" seaweed_cfg_helper:/tmp/seaweed_cfg.json
+}
+if [ "${s3}" = "seaweed" ]; then
+    createSeaweedConfigVolume
+fi
 
 setupUserHosts() {
     # FIXME this is broken: it puts the containers' bridge-internal IP addresses

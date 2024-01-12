@@ -8,18 +8,20 @@ services:
       QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
       QUARKUS_S3_AWS_REGION: us-east-1
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
-      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: unused
-      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: unused
-      AWS_ACCESS_KEY_ID: unused
-      AWS_SECRET_ACCESS_KEY: unused
+      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: access_key
+      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: secret_key
+      AWS_ACCESS_KEY_ID: access_key
+      AWS_SECRET_ACCESS_KEY: secret_key
   s3:
     image: ${SEAWEEDFS_IMAGE:-docker.io/chrislusf/seaweedfs:latest}
     hostname: s3
-    command: server -dir=/data -s3
+    command: server -dir=/data -s3 -s3.config=/opt/seaweed_cfg.json
     environment:
+      IP_BIND: 0.0.0.0
       WEED_V: '4' # glog logging level
     volumes:
       - seaweed_data:/data
+      - seaweed_cfg:/opt
     expose:
       - "8333"
     labels:
@@ -40,3 +42,5 @@ services:
 volumes:
   seaweed_data:
     driver: local
+  seaweed_cfg:
+    external: true
