@@ -969,17 +969,21 @@ public class Recordings {
                 recordingHelper.saveRecording(
                         recording, Instant.now().plusSeconds(60)); // TODO make expiry configurable
         String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
+        String savename = recording.name;
+        if (!savename.endsWith(".jfr")) {
+            savename += ".jfr";
+        }
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
-                        String.format("attachment; filename=\"%s.jfr\"", recording.name))
+                        String.format("attachment; filename=\"%s\"", savename))
                 .location(
                         URI.create(
                                 String.format(
                                         "/api/v3/download/%s?f=%s",
                                         encodedKey,
                                         base64Url.encodeAsString(
-                                                recording.name.getBytes(StandardCharsets.UTF_8)))))
+                                                savename.getBytes(StandardCharsets.UTF_8)))))
                 .build();
     }
 
