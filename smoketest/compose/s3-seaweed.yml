@@ -17,7 +17,7 @@ services:
     hostname: s3
     command: server -dir=/data -s3
     environment:
-      WEED_V: '4'
+      WEED_V: '4' # glog logging level
     volumes:
       - seaweed_data:/data
     expose:
