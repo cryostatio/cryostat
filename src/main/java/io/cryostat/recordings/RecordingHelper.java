@@ -432,6 +432,11 @@ public class RecordingHelper {
     }
 
     public String saveRecording(ActiveRecording recording, Instant expiry) throws Exception {
+        return saveRecording(recording, null, expiry);
+    }
+
+    public String saveRecording(ActiveRecording recording, String savename, Instant expiry)
+            throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
         String transformedAlias =
@@ -441,6 +446,9 @@ public class RecordingHelper {
                 clock.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =
                 String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
+        if (StringUtils.isBlank(savename)) {
+            savename = filename;
+        }
         int mib = 1024 * 1024;
         String key = archivedRecordingKey(recording.target.jvmId, filename);
         String multipartId = null;
@@ -453,6 +461,8 @@ public class RecordingHelper {
                             .bucket(archiveBucket)
                             .key(key)
                             .contentType(JFR_MIME)
+                            .contentDisposition(
+                                    String.format("attachment; filename=\"%s\"", savename))
                             .tagging(createActiveRecordingTagging(recording, expiry));
             if (expiry != null && expiry.isAfter(Instant.now())) {
                 builder = builder.expires(expiry);

@@ -965,11 +965,13 @@ public class Recordings {
         if (recording == null) {
             throw new NotFoundException();
         }
+        String savename = recording.name;
         String filename =
                 recordingHelper.saveRecording(
-                        recording, Instant.now().plusSeconds(60)); // TODO make expiry configurable
+                        recording,
+                        savename,
+                        Instant.now().plusSeconds(60)); // TODO make expiry configurable
         String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
-        String savename = recording.name;
         if (!savename.endsWith(".jfr")) {
             savename += ".jfr";
         }
