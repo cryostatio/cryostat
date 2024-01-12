@@ -20,6 +20,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -80,6 +81,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -90,6 +92,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -969,8 +972,14 @@ public class Recordings {
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
-                        String.format("attachment; filename=\"%s\"", filename))
-                .location(URI.create(String.format("/api/v3/download/%s", encodedKey)))
+                        String.format("attachment; filename=\"%s.jfr\"", recording.name))
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/download/%s?f=%s",
+                                        encodedKey,
+                                        base64Url.encodeAsString(
+                                                recording.name.getBytes(StandardCharsets.UTF_8)))))
                 .build();
     }
 
@@ -978,7 +987,7 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/download/{encodedKey}")
     @RolesAllowed("read")
-    public Response redirectPresignedDownload(@RestPath String encodedKey)
+    public Response redirectPresignedDownload(@RestPath String encodedKey, @RestQuery String f)
             throws URISyntaxException {
         Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
         logger.infov("Handling presigned download request for {0}", pair);
@@ -1009,7 +1018,14 @@ public class Recordings {
                                 uri.getFragment());
             }
         }
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT).location(uri).build();
+        ResponseBuilder response = Response.status(RestResponse.Status.PERMANENT_REDIRECT);
+        if (StringUtils.isNotBlank(f)) {
+            response =
+                    response.header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            String.format("attachment; filename=\"%s\"", f));
+        }
+        return response.location(uri).build();
     }
 
     private static Map<String, Object> getRecordingOptions(
