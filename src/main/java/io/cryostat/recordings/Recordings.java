@@ -1023,7 +1023,9 @@ public class Recordings {
             response =
                     response.header(
                             HttpHeaders.CONTENT_DISPOSITION,
-                            String.format("attachment; filename=\"%s\"", f));
+                            String.format(
+                                    "attachment; filename=\"%s\"",
+                                    new String(base64Url.decode(f), StandardCharsets.UTF_8)));
         }
         return response.location(uri).build();
     }
