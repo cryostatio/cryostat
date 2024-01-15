@@ -13,15 +13,16 @@ services:
       AWS_ACCESS_KEY_ID: access_key
       AWS_SECRET_ACCESS_KEY: secret_key
   s3:
-    image: ${SEAWEEDFS_IMAGE:-docker.io/chrislusf/seaweedfs:latest}
+    image: ${SEAWEEDFS_IMAGE:-quay.io/cryostat/cryostat-storage:latest}
     hostname: s3
-    command: server -dir=/data -s3 -s3.config=/opt/seaweed_cfg.json
     environment:
+      CRYOSTAT_ACCESS_KEY: access_key
+      CRYOSTAT_SECRET_KEY: secret_key
+      DATA_DIR: /data
       IP_BIND: 0.0.0.0
       WEED_V: '4' # glog logging level
     volumes:
       - seaweed_data:/data
-      - seaweed_cfg:/opt
     expose:
       - "8333"
     labels:
@@ -30,10 +31,11 @@ services:
     healthcheck:
       test:
         - CMD-SHELL
-        - wget
-        - --tries=1
-        - --spider
-        - http://s3:8333/
+        - timeout
+        - 5s
+        - bash
+        - -c
+        - :> /dev/tcp/127.0.0.1/8333
       interval: 10s
       retries: 3
       start_period: 30s
@@ -42,5 +44,3 @@ services:
 volumes:
   seaweed_data:
     driver: local
-  seaweed_cfg:
-    external: true
