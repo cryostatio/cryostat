@@ -1,0 +1,8 @@
+version: "3"
+services:
+  s3:
+    ports:
+      - "${STORAGE_PORT}:${STORAGE_PORT}"
+  cryostat:
+    environment:
+      STORAGE_EXT_URL: ''

@@ -20,6 +20,7 @@ import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -80,6 +81,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -90,6 +92,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.core.sync.RequestBody;
@@ -133,6 +136,9 @@ public class Recordings {
 
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURL;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
+    Optional<String> externalStorageUrl;
 
     void onStart(@Observes StartupEvent evt) {
         boolean exists = false;
@@ -959,15 +965,27 @@ public class Recordings {
         if (recording == null) {
             throw new NotFoundException();
         }
+        String savename = recording.name;
         String filename =
                 recordingHelper.saveRecording(
-                        recording, Instant.now().plusSeconds(60)); // TODO make expiry configurable
+                        recording,
+                        savename,
+                        Instant.now().plusSeconds(60)); // TODO make expiry configurable
         String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
+        if (!savename.endsWith(".jfr")) {
+            savename += ".jfr";
+        }
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
-                        String.format("attachment; filename=\"%s\"", filename))
-                .location(URI.create(String.format("/api/v3/download/%s", encodedKey)))
+                        String.format("attachment; filename=\"%s\"", savename))
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/download/%s?f=%s",
+                                        encodedKey,
+                                        base64Url.encodeAsString(
+                                                savename.getBytes(StandardCharsets.UTF_8)))))
                 .build();
     }
 
@@ -975,7 +993,7 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/download/{encodedKey}")
     @RolesAllowed("read")
-    public Response redirectPresignedDownload(@RestPath String encodedKey)
+    public Response redirectPresignedDownload(@RestPath String encodedKey, @RestQuery String f)
             throws URISyntaxException {
         Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
         logger.infov("Handling presigned download request for {0}", pair);
@@ -990,9 +1008,32 @@ public class Recordings {
                         .getObjectRequest(getRequest)
                         .build();
         PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(presignedRequest.url().toURI())
-                .build();
+        URI uri = presignedRequest.url().toURI();
+        if (externalStorageUrl.isPresent()) {
+            String extUrl = externalStorageUrl.get();
+            if (StringUtils.isNotBlank(extUrl)) {
+                URI extUri = new URI(extUrl);
+                uri =
+                        new URI(
+                                extUri.getScheme(),
+                                extUri.getAuthority(),
+                                URI.create(String.format("%s/%s", extUri.getPath(), uri.getPath()))
+                                        .normalize()
+                                        .getPath(),
+                                uri.getQuery(),
+                                uri.getFragment());
+            }
+        }
+        ResponseBuilder response = Response.status(RestResponse.Status.PERMANENT_REDIRECT);
+        if (StringUtils.isNotBlank(f)) {
+            response =
+                    response.header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            String.format(
+                                    "attachment; filename=\"%s\"",
+                                    new String(base64Url.decode(f), StandardCharsets.UTF_8)));
+        }
+        return response.location(uri).build();
     }
 
     private static Map<String, Object> getRecordingOptions(

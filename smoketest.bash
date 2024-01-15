@@ -25,17 +25,17 @@ display_usage() {
     echo -e "\t-h\t\t\t\t\t\tprint this Help text."
     echo -e "\t-O\t\t\t\t\t\tOffline mode, do not attempt to pull container images."
     echo -e "\t-p\t\t\t\t\t\tDisable auth Proxy."
-    echo -e "\t-s [minio|seaweed|cloudserver|localstack]\tS3 implementation to spin up (default \"minio\")."
+    echo -e "\t-s [seaweed|minio|cloudserver|localstack]\tS3 implementation to spin up (default \"seaweed\")."
     echo -e "\t-g\t\t\t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
     echo -e "\t-r\t\t\t\t\t\tconfigure a cryostat-Reports sidecar instance"
     echo -e "\t-t\t\t\t\t\t\tinclude sample applications for Testing."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
     echo -e "\t-c [podman|docker]\t\t\t\tUse Podman or Docker Container Engine (default \"podman\")."
-    echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. Cryostat web client, Minio console)"
+    echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
 }
 
-s3=minio
+s3=seaweed
 ce=podman
 while getopts "hs:prgtOVXcb" opt; do
     case $opt in
@@ -86,7 +86,7 @@ if [ "${USE_PROXY}" = "true" ]; then
     CRYOSTAT_HTTP_PORT=8181
     GRAFANA_DASHBOARD_EXT_URL=http://localhost:8080/grafana/
 else
-    FILES+=("${DIR}/smoketest/compose/no_proxy.yml")
+    FILES+=("${DIR}/smoketest/compose/no_proxy.yml" "${DIR}/smoketest/compose/s3_no_proxy.yml")
     if [ "${DEPLOY_GRAFANA}" = "true" ]; then
       FILES+=("${DIR}/smoketest/compose/grafana_no_proxy.yml")
     fi
@@ -96,6 +96,8 @@ export CRYOSTAT_HTTP_PORT
 export GRAFANA_DASHBOARD_EXT_URL
 
 s3Manifest="${DIR}/smoketest/compose/s3-${s3}.yml"
+STORAGE_PORT="$(yq '.services.*.expose[0]' "${s3Manifest}" | grep -v null)"
+export STORAGE_PORT
 
 if [ ! -f "${s3Manifest}" ]; then
     echo "Unknown S3 selection: ${s3}"
@@ -142,8 +144,10 @@ cleanup() {
     docker-compose \
         "${CMD[@]}" \
         down "${downFlags[@]}"
-    ${container_engine} rm proxy_cfg_helper
-    ${container_engine} volume rm auth_proxy_cfg
+    ${container_engine} rm proxy_cfg_helper || true
+    ${container_engine} volume rm auth_proxy_cfg || true
+    ${container_engine} rm seaweed_cfg_helper || true
+    ${container_engine} volume rm seaweed_cfg || true
     # podman kill hoster || true
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
@@ -157,10 +161,25 @@ cleanup
 createProxyCfgVolume() {
     "${container_engine}" volume create auth_proxy_cfg
     "${container_engine}" container create --name proxy_cfg_helper -v auth_proxy_cfg:/tmp busybox
+    local cfg
+    cfg="$(mktemp)"
+    chmod 644 "${cfg}"
+    envsubst '$STORAGE_PORT' < "${DIR}/smoketest/compose/auth_proxy_alpha_config.yaml" > "${cfg}"
     "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
-    "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_alpha_config.yaml" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
+    "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
 }
-createProxyCfgVolume
+if [ "${USE_PROXY}" = "true" ]; then
+    createProxyCfgVolume
+fi
+
+createSeaweedConfigVolume() {
+    "${container_engine}" volume create seaweed_cfg
+    "${container_engine}" container create --name seaweed_cfg_helper -v seaweed_cfg:/tmp busybox
+    "${container_engine}" cp "${DIR}/smoketest/compose/seaweed_cfg.json" seaweed_cfg_helper:/tmp/seaweed_cfg.json
+}
+if [ "${s3}" = "seaweed" ]; then
+    createSeaweedConfigVolume
+fi
 
 setupUserHosts() {
     # FIXME this is broken: it puts the containers' bridge-internal IP addresses
