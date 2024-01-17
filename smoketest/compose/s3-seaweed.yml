@@ -3,6 +3,7 @@ services:
   cryostat:
     environment:
       STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
+      CRYOSTAT_SERVICES_REPORTS_STORAGE_CACHE_NAME: archivedreports
       QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:8333
       STORAGE_EXT_URL: http://localhost:8080/storage/
       QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
