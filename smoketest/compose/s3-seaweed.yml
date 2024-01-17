@@ -24,6 +24,8 @@ services:
       WEED_V: '4' # glog logging level
     volumes:
       - seaweed_data:/data
+    ports:
+      - "8888:8888"
     expose:
       - "8333"
     labels:
