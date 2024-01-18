@@ -27,6 +27,7 @@ import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
@@ -66,8 +67,8 @@ class ScheduledArchiveJob implements Job {
         }
     }
 
-    private void initPreviousRecordings(
-            Target target, Rule rule, Queue<String> previousRecordings) {
+    @Transactional
+    void initPreviousRecordings(Target target, Rule rule, Queue<String> previousRecordings) {
         recordingHelper.listArchivedRecordingObjects().parallelStream()
                 .forEach(
                         item -> {
@@ -87,13 +88,15 @@ class ScheduledArchiveJob implements Job {
                         });
     }
 
-    private void performArchival(ActiveRecording recording, Queue<String> previousRecordings)
+    @Transactional
+    void performArchival(ActiveRecording recording, Queue<String> previousRecordings)
             throws Exception {
         String filename = recordingHelper.saveRecording(recording);
         previousRecordings.add(filename);
     }
 
-    private void pruneArchive(Target target, Queue<String> previousRecordings, String filename)
+    @Transactional
+    void pruneArchive(Target target, Queue<String> previousRecordings, String filename)
             throws Exception {
         recordingHelper.deleteArchivedRecording(target.jvmId, filename);
         previousRecordings.remove(filename);
