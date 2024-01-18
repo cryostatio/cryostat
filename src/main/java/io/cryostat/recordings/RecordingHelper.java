@@ -25,6 +25,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -110,8 +111,6 @@ public class RecordingHelper {
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
-    private static final long httpTimeoutSeconds = 5; // TODO: configurable client timeout
-
     @Inject Logger logger;
     @Inject EntityManager entityManager;
     @Inject TargetConnectionManager connectionManager;
@@ -138,6 +137,9 @@ public class RecordingHelper {
 
     @ConfigProperty(name = ConfigProperties.AWS_OBJECT_EXPIRATION_LABELS)
     String objectExpirationLabel;
+
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionFailedTimeout;
 
     public ActiveRecording startRecording(
             Target target,
@@ -787,7 +789,7 @@ public class RecordingHelper {
                     webClient
                             .postAbs(uploadUrl.toURI().resolve("/load").normalize().toString())
                             .addQueryParam("overwrite", "true")
-                            .timeout(TimeUnit.SECONDS.toMillis(httpTimeoutSeconds))
+                            .timeout(connectionFailedTimeout.toMillis())
                             .sendMultipartForm(form);
             return asyncRequest
                     .onItem()
