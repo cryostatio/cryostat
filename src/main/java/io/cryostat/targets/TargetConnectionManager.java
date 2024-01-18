@@ -72,7 +72,6 @@ public class TargetConnectionManager {
     private final JFRConnectionToolkit jfrConnectionToolkit;
     private final MatchExpressionEvaluator matchExpressionEvaluator;
     private final AgentConnectionFactory agentConnectionFactory;
-    private final Executor executor;
     private final Logger logger;
 
     private final AsyncLoadingCache<URI, JFRConnection> connections;
@@ -96,7 +95,6 @@ public class TargetConnectionManager {
         this.jfrConnectionToolkit = jfrConnectionToolkit;
         this.matchExpressionEvaluator = matchExpressionEvaluator;
         this.agentConnectionFactory = agentConnectionFactory;
-        this.executor = executor;
 
         int maxTargetConnections = 0; // TODO make configurable
 
@@ -175,33 +173,31 @@ public class TargetConnectionManager {
         }
     }
 
-    public <T> Uni<T> executeConnectedTaskAsync(Target target, ConnectedTask<T> task) {
+    @Blocking
+    public <T> Uni<T> executeConnectedTaskUni(Target target, ConnectedTask<T> task) {
         return Uni.createFrom()
-                .completionStage(
-                        connections
-                                .get(target.connectUrl)
-                                .thenApplyAsync(
-                                        conn -> {
-                                            try {
-                                                synchronized (
-                                                        targetLocks.computeIfAbsent(
-                                                                target.connectUrl,
-                                                                k -> new Object())) {
-                                                    return task.execute(conn);
-                                                }
-                                            } catch (Exception e) {
-                                                logger.error("Connection failure", e);
-                                                throw new CompletionException(e);
-                                            }
-                                        },
-                                        executor));
+                .completionStage(connections.get(target.connectUrl))
+                .onItem()
+                .transform(
+                        Unchecked.function(
+                                conn -> {
+                                    synchronized (
+                                            targetLocks.computeIfAbsent(
+                                                    target.connectUrl, k -> new Object())) {
+                                        return task.execute(conn);
+                                    }
+                                }))
+                .onFailure(RuntimeException.class)
+                .transform(this::unwrapRuntimeException)
+                .onFailure(t -> isTargetConnectionFailure(t) || isUnknownTargetFailure(t))
+                .retry()
+                .withBackOff(Duration.ofSeconds(2))
+                .atMost(5);
     }
 
     @Blocking
-    public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) throws Exception {
-        synchronized (targetLocks.computeIfAbsent(target.connectUrl, k -> new Object())) {
-            return task.execute(connections.get(target.connectUrl).get());
-        }
+    public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
+        return executeConnectedTaskUni(target, task).await().atMost(Duration.ofSeconds(10));
     }
 
     @Blocking
