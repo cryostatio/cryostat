@@ -37,6 +37,7 @@ import javax.security.sasl.SaslException;
 import org.openjdk.jmc.rjmx.ConnectionException;
 import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.JFRConnectionToolkit;
 import io.cryostat.credentials.Credential;
@@ -63,6 +64,7 @@ import jdk.jfr.FlightRecorder;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
 
@@ -78,6 +80,9 @@ public class TargetConnectionManager {
     private final Map<URI, Object> targetLocks;
     private final Optional<Semaphore> semaphore;
 
+    private final Duration failedBackoff;
+    private final Duration failedTimeout;
+
     @Inject
     @SuppressFBWarnings(
             value = "CT_CONSTRUCTOR_THROW",
@@ -88,6 +93,10 @@ public class TargetConnectionManager {
             JFRConnectionToolkit jfrConnectionToolkit,
             MatchExpressionEvaluator matchExpressionEvaluator,
             AgentConnectionFactory agentConnectionFactory,
+            @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_BACKOFF)
+                    Duration failedBackoff,
+            @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+                    Duration failedTimeout,
             Executor executor,
             Logger logger) {
         FlightRecorder.register(TargetConnectionOpened.class);
@@ -95,6 +104,8 @@ public class TargetConnectionManager {
         this.jfrConnectionToolkit = jfrConnectionToolkit;
         this.matchExpressionEvaluator = matchExpressionEvaluator;
         this.agentConnectionFactory = agentConnectionFactory;
+        this.failedBackoff = failedBackoff;
+        this.failedTimeout = failedTimeout;
 
         int maxTargetConnections = 0; // TODO make configurable
 
@@ -191,13 +202,13 @@ public class TargetConnectionManager {
                 .transform(this::unwrapRuntimeException)
                 .onFailure(t -> isTargetConnectionFailure(t) || isUnknownTargetFailure(t))
                 .retry()
-                .withBackOff(Duration.ofSeconds(2))
-                .atMost(5);
+                .withBackOff(failedBackoff)
+                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis());
     }
 
     @Blocking
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
-        return executeConnectedTaskUni(target, task).await().atMost(Duration.ofSeconds(10));
+        return executeConnectedTaskUni(target, task).await().atMost(failedTimeout);
     }
 
     @Blocking
@@ -215,8 +226,8 @@ public class TargetConnectionManager {
                 .transform(this::unwrapRuntimeException)
                 .onFailure(t -> isTargetConnectionFailure(t) || isUnknownTargetFailure(t))
                 .retry()
-                .withBackOff(Duration.ofSeconds(2))
-                .atMost(5);
+                .withBackOff(failedBackoff)
+                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis());
     }
 
     /**
