@@ -53,6 +53,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.unchecked.Unchecked;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -204,12 +205,22 @@ public class TargetConnectionManager {
     }
 
     @Blocking
-    public <T> T executeDirect(
-            Target target, Optional<Credential> credentials, ConnectedTask<T> task)
-            throws Exception {
-        try (var conn = connect(target.connectUrl, credentials)) {
-            return task.execute(conn);
-        }
+    public <T> Uni<T> executeDirect(
+            Target target, Optional<Credential> credentials, ConnectedTask<T> task) {
+        return Uni.createFrom()
+                .item(
+                        Unchecked.supplier(
+                                () -> {
+                                    try (var conn = connect(target.connectUrl, credentials)) {
+                                        return task.execute(conn);
+                                    }
+                                }))
+                .onFailure(RuntimeException.class)
+                .transform(this::unwrapRuntimeException)
+                .onFailure(t -> isTargetConnectionFailure(t) || isUnknownTargetFailure(t))
+                .retry()
+                .withBackOff(Duration.ofSeconds(2))
+                .atMost(5);
     }
 
     /**
@@ -358,28 +369,58 @@ public class TargetConnectionManager {
         T execute(JFRConnection connection) throws Exception;
     }
 
-    public static boolean isTargetConnectionFailure(Exception e) {
+    public Throwable unwrapRuntimeException(Throwable t) {
+        final int maxDepth = 10;
+        int depth = 0;
+        Throwable cause = t;
+        while (cause instanceof RuntimeException && depth++ < maxDepth) {
+            cause = cause.getCause();
+        }
+        return cause;
+    }
+
+    public static boolean isTargetConnectionFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, ConnectionException.class) >= 0
                 || ExceptionUtils.indexOfType(e, FlightRecorderException.class) >= 0;
     }
 
-    public static boolean isJmxAuthFailure(Exception e) {
+    public static boolean isJmxAuthFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, SecurityException.class) >= 0
                 || ExceptionUtils.indexOfType(e, SaslException.class) >= 0;
     }
 
-    public static boolean isJmxSslFailure(Exception e) {
+    public static boolean isJmxSslFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
                 && !isServiceTypeFailure(e);
     }
 
     /** Check if the exception happened because the port connected to a non-JMX service. */
-    public static boolean isServiceTypeFailure(Exception e) {
+    public static boolean isServiceTypeFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
                 && ExceptionUtils.indexOfType(e, SocketTimeoutException.class) >= 0;
     }
 
-    public static boolean isUnknownTargetFailure(Exception e) {
+    public static boolean isUnknownTargetFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, java.net.UnknownHostException.class) >= 0
                 || ExceptionUtils.indexOfType(e, java.rmi.UnknownHostException.class) >= 0
                 || ExceptionUtils.indexOfType(e, ServiceUnavailableException.class) >= 0;

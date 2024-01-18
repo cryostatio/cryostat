@@ -20,6 +20,7 @@ import org.openjdk.jmc.rjmx.ConnectionException;
 import io.cryostat.targets.TargetConnectionManager;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.smallrye.mutiny.TimeoutException;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import org.hibernate.exception.ConstraintViolationException;
@@ -82,5 +83,11 @@ public class ExceptionMappers {
             return RestResponse.status(HttpResponseStatus.FORBIDDEN.code());
         }
         return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapMutinyTimeoutException(TimeoutException ex) {
+        logger.warn(ex);
+        return RestResponse.status(HttpResponseStatus.GATEWAY_TIMEOUT.code());
     }
 }
