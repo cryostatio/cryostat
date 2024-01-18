@@ -20,6 +20,7 @@ public class ConfigProperties {
     public static final String AWS_OBJECT_EXPIRATION_LABELS =
             "storage.buckets.archives.expiration-label";
 
+    public static final String CONNECTIONS_MAX_OPEN = "cryostat.connections.max-open";
     public static final String CONNECTIONS_FAILED_BACKOFF = "cryostat.connections.failed-backoff";
     public static final String CONNECTIONS_FAILED_TIMEOUT = "cryostat.connections.failed-timeout";
 

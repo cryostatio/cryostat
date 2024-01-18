@@ -93,6 +93,7 @@ public class TargetConnectionManager {
             JFRConnectionToolkit jfrConnectionToolkit,
             MatchExpressionEvaluator matchExpressionEvaluator,
             AgentConnectionFactory agentConnectionFactory,
+            @ConfigProperty(name = ConfigProperties.CONNECTIONS_MAX_OPEN) int maxOpen,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_BACKOFF)
                     Duration failedBackoff,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
@@ -107,11 +108,9 @@ public class TargetConnectionManager {
         this.failedBackoff = failedBackoff;
         this.failedTimeout = failedTimeout;
 
-        int maxTargetConnections = 0; // TODO make configurable
-
         this.targetLocks = new ConcurrentHashMap<>();
-        if (maxTargetConnections > 0) {
-            this.semaphore = Optional.of(new Semaphore(maxTargetConnections, true));
+        if (maxOpen > 0) {
+            this.semaphore = Optional.of(new Semaphore(maxOpen, true));
         } else {
             this.semaphore = Optional.empty();
         }
