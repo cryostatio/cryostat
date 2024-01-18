@@ -94,6 +94,7 @@ public class TargetConnectionManager {
             MatchExpressionEvaluator matchExpressionEvaluator,
             AgentConnectionFactory agentConnectionFactory,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_MAX_OPEN) int maxOpen,
+            @ConfigProperty(name = ConfigProperties.CONNECTIONS_TTL) Duration ttl,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_BACKOFF)
                     Duration failedBackoff,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
@@ -120,13 +121,16 @@ public class TargetConnectionManager {
                         .executor(executor)
                         .scheduler(Scheduler.systemScheduler())
                         .removalListener(this::closeConnection);
-        Duration ttl = Duration.ofSeconds(10); // TODO make configurable
-        if (ttl.isZero() || ttl.isNegative()) {
+        if (ttl.isNegative()) {
             logger.errorv(
-                    "TTL must be a positive integer in seconds, was {0} - ignoring",
+                    "TTL must be a non-negative integer in seconds, was {0} - ignoring",
                     ttl.toSeconds());
-        } else {
+        } else if (!ttl.isZero()) {
             cacheBuilder = cacheBuilder.expireAfterAccess(ttl);
+        } else {
+            logger.warn(
+                    "TTL is set to 0 - target connections will be cached indefinitely, until closed"
+                            + " by the remote end or the network drops");
         }
         this.connections = cacheBuilder.buildAsync(new ConnectionLoader());
         this.logger = logger;
