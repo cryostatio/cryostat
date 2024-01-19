@@ -189,7 +189,8 @@ public class RuleService {
         return optionsBuilder.build();
     }
 
-    private void applyRuleToMatchingTargets(Rule rule) {
+    @Transactional
+    void applyRuleToMatchingTargets(Rule rule) {
         try (Stream<Target> targets = Target.streamAll()) {
             targets.filter(
                             target -> {
