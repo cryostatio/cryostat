@@ -64,6 +64,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -507,65 +508,63 @@ public class Recordings {
 
     @POST
     @Transactional
-    @Blocking
     @Path("/api/v1/targets/{connectUrl}/snapshot")
     @RolesAllowed("write")
-    public Response createSnapshotV1(@RestPath URI connectUrl) throws Exception {
+    public Uni<Response> createSnapshotV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        try {
-            ActiveRecording recording =
-                    connectionManager.executeConnectedTask(
-                            target,
-                            connection -> recordingHelper.createSnapshot(target, connection));
-            return Response.status(Response.Status.OK).entity(recording.name).build();
-        } catch (SnapshotCreationException sce) {
-            return Response.status(Response.Status.ACCEPTED).build();
-        }
+        return connectionManager
+                .executeConnectedTaskUni(
+                        target, connection -> recordingHelper.createSnapshot(target, connection))
+                .onItem()
+                .transform(
+                        recording ->
+                                Response.status(Response.Status.OK).entity(recording.name).build())
+                .onFailure(SnapshotCreationException.class)
+                .recoverWithItem(Response.status(Response.Status.ACCEPTED).build());
     }
 
     @POST
     @Transactional
-    @Blocking
     @Path("/api/v2/targets/{connectUrl}/snapshot")
     @RolesAllowed("write")
-    public Response createSnapshotV2(@RestPath URI connectUrl) throws Exception {
+    public Uni<Response> createSnapshotV2(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        try {
-            ActiveRecording recording =
-                    connectionManager.executeConnectedTask(
-                            target,
-                            connection -> recordingHelper.createSnapshot(target, connection));
-            return Response.status(Response.Status.CREATED)
-                    .entity(
-                            V2Response.json(
-                                    Response.Status.CREATED,
-                                    recordingHelper.toExternalForm(recording)))
-                    .build();
-        } catch (SnapshotCreationException sce) {
-            return Response.status(Response.Status.ACCEPTED)
-                    .entity(V2Response.json(Response.Status.ACCEPTED, null))
-                    .build();
-        }
+        return connectionManager
+                .executeConnectedTaskUni(
+                        target, connection -> recordingHelper.createSnapshot(target, connection))
+                .onItem()
+                .transform(
+                        recording ->
+                                Response.status(Response.Status.CREATED)
+                                        .entity(
+                                                V2Response.json(
+                                                        Response.Status.CREATED,
+                                                        recordingHelper.toExternalForm(recording)))
+                                        .build())
+                .onFailure(SnapshotCreationException.class)
+                .recoverWithItem(
+                        Response.status(Response.Status.ACCEPTED)
+                                .entity(V2Response.json(Response.Status.ACCEPTED, null))
+                                .build());
     }
 
     @POST
     @Transactional
-    @Blocking
     @Path("/api/v3/targets/{id}/snapshot")
     @RolesAllowed("write")
-    public Response createSnapshot(@RestPath long id) throws Exception {
+    public Uni<Response> createSnapshot(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
-        try {
-            ActiveRecording recording =
-                    connectionManager.executeConnectedTask(
-                            target,
-                            connection -> recordingHelper.createSnapshot(target, connection));
-            return Response.status(Response.Status.OK)
-                    .entity(recordingHelper.toExternalForm(recording))
-                    .build();
-        } catch (SnapshotCreationException sce) {
-            return Response.status(Response.Status.ACCEPTED).build();
-        }
+        return connectionManager
+                .executeConnectedTaskUni(
+                        target, connection -> recordingHelper.createSnapshot(target, connection))
+                .onItem()
+                .transform(
+                        recording ->
+                                Response.status(Response.Status.OK)
+                                        .entity(recordingHelper.toExternalForm(recording))
+                                        .build())
+                .onFailure(SnapshotCreationException.class)
+                .recoverWithItem(Response.status(Response.Status.ACCEPTED).build());
     }
 
     @POST

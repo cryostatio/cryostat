@@ -164,6 +164,7 @@ class AgentConnection implements JFRConnection {
         MemoryMetrics memory = new MemoryMetrics(Map.of());
         ThreadMetrics thread = new ThreadMetrics(Map.of());
         OperatingSystemMetrics operatingSystem = new OperatingSystemMetrics(Map.of());
-        return new MBeanMetrics(runtime, memory, thread, operatingSystem, getJvmId());
+        return new MBeanMetrics(
+                runtime, memory, thread, operatingSystem, getJvmIdentifier().getHash());
     }
 }

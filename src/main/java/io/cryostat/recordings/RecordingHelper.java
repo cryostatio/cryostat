@@ -25,6 +25,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -34,8 +35,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -70,7 +69,6 @@ import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.Response;
@@ -99,7 +97,6 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @ApplicationScoped
 public class RecordingHelper {
@@ -110,18 +107,13 @@ public class RecordingHelper {
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
-    private static final long httpTimeoutSeconds = 5; // TODO: configurable client timeout
-
     @Inject Logger logger;
-    @Inject EntityManager entityManager;
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
-    @Inject ScheduledExecutorService scheduler;
     @Inject EventBus bus;
 
     @Inject Clock clock;
-    @Inject S3Presigner presigner;
 
     @Inject
     @Named(Producers.BASE64_URL)
@@ -138,6 +130,9 @@ public class RecordingHelper {
 
     @ConfigProperty(name = ConfigProperties.AWS_OBJECT_EXPIRATION_LABELS)
     String objectExpirationLabel;
+
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionFailedTimeout;
 
     public ActiveRecording startRecording(
             Target target,
@@ -787,7 +782,7 @@ public class RecordingHelper {
                     webClient
                             .postAbs(uploadUrl.toURI().resolve("/load").normalize().toString())
                             .addQueryParam("overwrite", "true")
-                            .timeout(TimeUnit.SECONDS.toMillis(httpTimeoutSeconds))
+                            .timeout(connectionFailedTimeout.toMillis())
                             .sendMultipartForm(form);
             return asyncRequest
                     .onItem()

@@ -18,6 +18,7 @@ package io.cryostat.targets;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -228,7 +229,13 @@ public class Target extends PanacheEntity {
             }
             try {
                 target.jvmId =
-                        connectionManager.executeConnectedTask(target, conn -> conn.getJvmId());
+                        connectionManager
+                                .executeDirect(
+                                        target,
+                                        Optional.empty(),
+                                        conn -> conn.getJvmIdentifier().getHash())
+                                .await()
+                                .atMost(Duration.ofSeconds(10));
             } catch (Exception e) {
                 // TODO tolerate this in the condition that the connection failed because of JMX
                 // auth. In that instance then persist the entity with a null jvmId, but listen for

@@ -37,6 +37,7 @@ import javax.security.sasl.SaslException;
 import org.openjdk.jmc.rjmx.ConnectionException;
 import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.JFRConnectionToolkit;
 import io.cryostat.credentials.Credential;
@@ -53,6 +54,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.unchecked.Unchecked;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -62,6 +64,7 @@ import jdk.jfr.FlightRecorder;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
 
@@ -71,12 +74,14 @@ public class TargetConnectionManager {
     private final JFRConnectionToolkit jfrConnectionToolkit;
     private final MatchExpressionEvaluator matchExpressionEvaluator;
     private final AgentConnectionFactory agentConnectionFactory;
-    private final Executor executor;
     private final Logger logger;
 
     private final AsyncLoadingCache<URI, JFRConnection> connections;
     private final Map<URI, Object> targetLocks;
     private final Optional<Semaphore> semaphore;
+
+    private final Duration failedBackoff;
+    private final Duration failedTimeout;
 
     @Inject
     @SuppressFBWarnings(
@@ -88,6 +93,12 @@ public class TargetConnectionManager {
             JFRConnectionToolkit jfrConnectionToolkit,
             MatchExpressionEvaluator matchExpressionEvaluator,
             AgentConnectionFactory agentConnectionFactory,
+            @ConfigProperty(name = ConfigProperties.CONNECTIONS_MAX_OPEN) int maxOpen,
+            @ConfigProperty(name = ConfigProperties.CONNECTIONS_TTL) Duration ttl,
+            @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_BACKOFF)
+                    Duration failedBackoff,
+            @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+                    Duration failedTimeout,
             Executor executor,
             Logger logger) {
         FlightRecorder.register(TargetConnectionOpened.class);
@@ -95,13 +106,12 @@ public class TargetConnectionManager {
         this.jfrConnectionToolkit = jfrConnectionToolkit;
         this.matchExpressionEvaluator = matchExpressionEvaluator;
         this.agentConnectionFactory = agentConnectionFactory;
-        this.executor = executor;
-
-        int maxTargetConnections = 0; // TODO make configurable
+        this.failedBackoff = failedBackoff;
+        this.failedTimeout = failedTimeout;
 
         this.targetLocks = new ConcurrentHashMap<>();
-        if (maxTargetConnections > 0) {
-            this.semaphore = Optional.of(new Semaphore(maxTargetConnections, true));
+        if (maxOpen > 0) {
+            this.semaphore = Optional.of(new Semaphore(maxOpen, true));
         } else {
             this.semaphore = Optional.empty();
         }
@@ -111,13 +121,16 @@ public class TargetConnectionManager {
                         .executor(executor)
                         .scheduler(Scheduler.systemScheduler())
                         .removalListener(this::closeConnection);
-        Duration ttl = Duration.ofSeconds(10); // TODO make configurable
-        if (ttl.isZero() || ttl.isNegative()) {
+        if (ttl.isNegative()) {
             logger.errorv(
-                    "TTL must be a positive integer in seconds, was {0} - ignoring",
+                    "TTL must be a non-negative integer in seconds, was {0} - ignoring",
                     ttl.toSeconds());
-        } else {
+        } else if (!ttl.isZero()) {
             cacheBuilder = cacheBuilder.expireAfterAccess(ttl);
+        } else {
+            logger.warn(
+                    "TTL is set to 0 - target connections will be cached indefinitely, until closed"
+                            + " by the remote end or the network drops");
         }
         this.connections = cacheBuilder.buildAsync(new ConnectionLoader());
         this.logger = logger;
@@ -174,42 +187,54 @@ public class TargetConnectionManager {
         }
     }
 
-    public <T> Uni<T> executeConnectedTaskAsync(Target target, ConnectedTask<T> task) {
+    @Blocking
+    public <T> Uni<T> executeConnectedTaskUni(Target target, ConnectedTask<T> task) {
         return Uni.createFrom()
-                .completionStage(
-                        connections
-                                .get(target.connectUrl)
-                                .thenApplyAsync(
-                                        conn -> {
-                                            try {
-                                                synchronized (
-                                                        targetLocks.computeIfAbsent(
-                                                                target.connectUrl,
-                                                                k -> new Object())) {
-                                                    return task.execute(conn);
-                                                }
-                                            } catch (Exception e) {
-                                                logger.error("Connection failure", e);
-                                                throw new CompletionException(e);
-                                            }
-                                        },
-                                        executor));
+                .completionStage(connections.get(target.connectUrl))
+                .onItem()
+                .transform(
+                        Unchecked.function(
+                                conn -> {
+                                    synchronized (
+                                            targetLocks.computeIfAbsent(
+                                                    target.connectUrl, k -> new Object())) {
+                                        return task.execute(conn);
+                                    }
+                                }))
+                .onFailure(RuntimeException.class)
+                .transform(this::unwrapRuntimeException)
+                .onFailure()
+                .invoke(logger::warn)
+                .onFailure(t -> isTargetConnectionFailure(t) || isUnknownTargetFailure(t))
+                .retry()
+                .withBackOff(failedBackoff)
+                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis());
     }
 
     @Blocking
-    public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) throws Exception {
-        synchronized (targetLocks.computeIfAbsent(target.connectUrl, k -> new Object())) {
-            return task.execute(connections.get(target.connectUrl).get());
-        }
+    public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
+        return executeConnectedTaskUni(target, task).await().atMost(failedTimeout);
     }
 
     @Blocking
-    public <T> T executeDirect(
-            Target target, Optional<Credential> credentials, ConnectedTask<T> task)
-            throws Exception {
-        try (var conn = connect(target.connectUrl, credentials)) {
-            return task.execute(conn);
-        }
+    public <T> Uni<T> executeDirect(
+            Target target, Optional<Credential> credentials, ConnectedTask<T> task) {
+        return Uni.createFrom()
+                .item(
+                        Unchecked.supplier(
+                                () -> {
+                                    try (var conn = connect(target.connectUrl, credentials)) {
+                                        return task.execute(conn);
+                                    }
+                                }))
+                .onFailure(RuntimeException.class)
+                .transform(this::unwrapRuntimeException)
+                .onFailure()
+                .invoke(logger::warn)
+                .onFailure(t -> isTargetConnectionFailure(t) || isUnknownTargetFailure(t))
+                .retry()
+                .withBackOff(failedBackoff)
+                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis());
     }
 
     /**
@@ -358,28 +383,58 @@ public class TargetConnectionManager {
         T execute(JFRConnection connection) throws Exception;
     }
 
-    public static boolean isTargetConnectionFailure(Exception e) {
+    public Throwable unwrapRuntimeException(Throwable t) {
+        final int maxDepth = 10;
+        int depth = 0;
+        Throwable cause = t;
+        while (cause instanceof RuntimeException && depth++ < maxDepth) {
+            cause = cause.getCause();
+        }
+        return cause;
+    }
+
+    public static boolean isTargetConnectionFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, ConnectionException.class) >= 0
                 || ExceptionUtils.indexOfType(e, FlightRecorderException.class) >= 0;
     }
 
-    public static boolean isJmxAuthFailure(Exception e) {
+    public static boolean isJmxAuthFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, SecurityException.class) >= 0
                 || ExceptionUtils.indexOfType(e, SaslException.class) >= 0;
     }
 
-    public static boolean isJmxSslFailure(Exception e) {
+    public static boolean isJmxSslFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
                 && !isServiceTypeFailure(e);
     }
 
     /** Check if the exception happened because the port connected to a non-JMX service. */
-    public static boolean isServiceTypeFailure(Exception e) {
+    public static boolean isServiceTypeFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
                 && ExceptionUtils.indexOfType(e, SocketTimeoutException.class) >= 0;
     }
 
-    public static boolean isUnknownTargetFailure(Exception e) {
+    public static boolean isUnknownTargetFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, java.net.UnknownHostException.class) >= 0
                 || ExceptionUtils.indexOfType(e, java.rmi.UnknownHostException.class) >= 0
                 || ExceptionUtils.indexOfType(e, ServiceUnavailableException.class) >= 0;
