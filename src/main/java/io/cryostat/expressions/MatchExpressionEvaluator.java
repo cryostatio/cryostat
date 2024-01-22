@@ -68,6 +68,8 @@ public class MatchExpressionEvaluator {
                 invalidate(event.expression().script);
                 break;
             case UPDATED:
+                // expression scripts aren't meant to be updatable, but handle them by invalidating cached results just in case
+                invalidate(event.expression().script);
                 break;
             default:
                 break;
