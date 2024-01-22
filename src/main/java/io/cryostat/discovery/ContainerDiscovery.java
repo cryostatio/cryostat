@@ -18,6 +18,7 @@ package io.cryostat.discovery;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -36,6 +37,7 @@ import javax.management.remote.JMXServiceURL;
 
 import io.cryostat.URIUtil;
 import io.cryostat.core.net.JFRConnectionToolkit;
+import io.cryostat.core.sys.FileSystem;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.EventKind;
@@ -131,6 +133,7 @@ public abstract class ContainerDiscovery {
     public static final String JMX_PORT_LABEL = "io.cryostat.jmxPort";
 
     @Inject Logger logger;
+    @Inject FileSystem fs;
     @Inject Vertx vertx;
     @Inject WebClient webClient;
     @Inject JFRConnectionToolkit connectionToolkit;
@@ -145,6 +148,15 @@ public abstract class ContainerDiscovery {
         if (!enabled()) {
             return;
         }
+
+        Path socketPath = Path.of(getSocket().path());
+        if (!(fs.isRegularFile(socketPath) && fs.isReadable(socketPath))) {
+            logger.errorv(
+                    "{0} enabled but socket {1} is not accessible!",
+                    getClass().getName(), socketPath);
+            return;
+        }
+        logger.infov("{0} started", getClass().getName());
 
         DiscoveryNode universe = DiscoveryNode.getUniverse();
         if (DiscoveryNode.getRealm(getRealm()).isEmpty()) {
