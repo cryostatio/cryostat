@@ -41,6 +41,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.CascadeType;
@@ -98,7 +99,11 @@ public class Target extends PanacheEntity {
             cascade = {CascadeType.ALL},
             orphanRemoval = true)
     @JoinColumn(name = "discoveryNode")
-    @NotNull
+    // FIXME these should not be nullable, but when discovery plugins (ex. the Cryostat Agent)
+    // publish discovery updates, their Target nodes do not include back-references to the parent
+    // DiscoveryNode
+    // @NotNull
+    @Nullable
     @JsonIgnore
     public DiscoveryNode discoveryNode;
 
