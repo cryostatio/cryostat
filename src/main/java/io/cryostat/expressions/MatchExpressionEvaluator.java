@@ -49,7 +49,7 @@ import org.projectnessie.cel.tools.ScriptHost;
 @ApplicationScoped
 public class MatchExpressionEvaluator {
 
-    private static final String CACHE_NAME = "match-expression-cache";
+    private static final String CACHE_NAME = "matchexpressions";
 
     @Inject ScriptHost scriptHost;
     @Inject Logger logger;
