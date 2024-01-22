@@ -130,6 +130,8 @@ public class Discovery {
         plugin.builtin = false;
         plugin.persist();
 
+        DiscoveryNode.getUniverse().children.add(plugin.realm);
+
         return Map.of(
                 "meta",
                         Map.of(
@@ -183,6 +185,7 @@ public class Discovery {
             throw new ForbiddenException();
         }
         plugin.delete();
+        DiscoveryNode.getUniverse().children.remove(plugin.realm);
         return Map.of(
                 "meta",
                         Map.of(
