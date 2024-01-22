@@ -18,6 +18,8 @@ package io.cryostat.discovery;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -34,8 +36,10 @@ import java.util.function.Consumer;
 
 import javax.management.remote.JMXServiceURL;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.URIUtil;
 import io.cryostat.core.net.JFRConnectionToolkit;
+import io.cryostat.core.sys.FileSystem;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.EventKind;
@@ -131,10 +135,17 @@ public abstract class ContainerDiscovery {
     public static final String JMX_PORT_LABEL = "io.cryostat.jmxPort";
 
     @Inject Logger logger;
+    @Inject FileSystem fs;
     @Inject Vertx vertx;
     @Inject WebClient webClient;
     @Inject JFRConnectionToolkit connectionToolkit;
     @Inject ObjectMapper mapper;
+
+    @ConfigProperty(name = ConfigProperties.CONTAINERS_POLL_PERIOD)
+    Duration pollPeriod;
+
+    @ConfigProperty(name = ConfigProperties.CONTAINERS_REQUEST_TIMEOUT)
+    Duration requestTimeout;
 
     protected long timerId;
 
@@ -145,6 +156,15 @@ public abstract class ContainerDiscovery {
         if (!enabled()) {
             return;
         }
+
+        Path socketPath = Path.of(getSocket().path());
+        if (!(fs.exists(socketPath) && fs.isReadable(socketPath))) {
+            logger.errorv(
+                    "{0} enabled but socket {1} is not accessible!",
+                    getClass().getName(), socketPath);
+            return;
+        }
+        logger.infov("{0} started", getClass().getName());
 
         DiscoveryNode universe = DiscoveryNode.getUniverse();
         if (DiscoveryNode.getRealm(getRealm()).isEmpty()) {
@@ -158,7 +178,7 @@ public abstract class ContainerDiscovery {
         }
 
         queryContainers();
-        this.timerId = vertx.setPeriodic(10_000, unused -> queryContainers());
+        this.timerId = vertx.setPeriodic(pollPeriod.toMillis(), unused -> queryContainers());
     }
 
     void onStop(@Observes ShutdownEvent evt) {
@@ -219,7 +239,7 @@ public abstract class ContainerDiscovery {
                     .addQueryParam(
                             "filters",
                             mapper.writeValueAsString(Map.of("label", List.of(DISCOVERY_LABEL))))
-                    .timeout(2_000L)
+                    .timeout(requestTimeout.toMillis())
                     .as(BodyCodec.string())
                     .send()
                     .subscribe()
@@ -249,7 +269,7 @@ public abstract class ContainerDiscovery {
         URI requestPath = URI.create(getContainerQueryURL(container));
         webClient
                 .request(HttpMethod.GET, getSocket(), 80, "localhost", requestPath.toString())
-                .timeout(2_000L)
+                .timeout(requestTimeout.toMillis())
                 .as(BodyCodec.string())
                 .send()
                 .subscribe()

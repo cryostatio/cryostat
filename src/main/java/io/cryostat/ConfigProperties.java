@@ -20,6 +20,10 @@ public class ConfigProperties {
     public static final String AWS_OBJECT_EXPIRATION_LABELS =
             "storage.buckets.archives.expiration-label";
 
+    public static final String CONTAINERS_POLL_PERIOD = "cryostat.discovery.containers.poll-period";
+    public static final String CONTAINERS_REQUEST_TIMEOUT =
+            "cryostat.discovery.containers.request-timeout";
+
     public static final String CONNECTIONS_MAX_OPEN = "cryostat.connections.max-open";
     public static final String CONNECTIONS_TTL = "cryostat.connections.ttl";
     public static final String CONNECTIONS_FAILED_BACKOFF = "cryostat.connections.failed-backoff";
