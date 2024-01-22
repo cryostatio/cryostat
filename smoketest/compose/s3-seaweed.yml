@@ -11,8 +11,6 @@ services:
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
       QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: access_key
       QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: secret_key
-      AWS_ACCESS_KEY_ID: access_key
-      AWS_SECRET_ACCESS_KEY: secret_key
   s3:
     image: ${STORAGE_IMAGE:-quay.io/cryostat/cryostat-storage:latest}
     hostname: s3

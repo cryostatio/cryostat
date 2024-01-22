@@ -10,8 +10,6 @@ services:
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
       QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: accessKey1
       QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: verySecretKey1
-      AWS_ACCESS_KEY_ID: accessKey1
-      AWS_SECRET_ACCESS_KEY: verySecretKey1
   s3:
     image: ${CLOUDSERVER_IMAGE:-docker.io/zenko/cloudserver:latest}
     hostname: s3
