@@ -150,7 +150,7 @@ public abstract class ContainerDiscovery {
         }
 
         Path socketPath = Path.of(getSocket().path());
-        if (!(fs.isRegularFile(socketPath) && fs.isReadable(socketPath))) {
+        if (!(fs.exists(socketPath) && fs.isReadable(socketPath))) {
             logger.errorv(
                     "{0} enabled but socket {1} is not accessible!",
                     getClass().getName(), socketPath);
