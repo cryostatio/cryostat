@@ -102,9 +102,6 @@ public class MatchExpressionEvaluator {
         return script.execute(Boolean.class, Map.of("target", SimplifiedTarget.from(target)));
     }
 
-    @CacheInvalidate(cacheName = CACHE_NAME)
-    void invalidate(String matchExpression, Target target) {}
-
     void invalidate(String matchExpression) {
         Optional<Cache> cache = cacheManager.getCache(CACHE_NAME);
         if (cache.isPresent()) {
