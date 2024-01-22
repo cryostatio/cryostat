@@ -71,6 +71,9 @@ public class Rules {
         if (ruleExists) {
             throw new RuleExistsException(rule.name);
         }
+        if (rule.description == null) {
+            rule.description = "";
+        }
         rule.persist();
         return ResponseBuilder.create(
                         Response.Status.CREATED,

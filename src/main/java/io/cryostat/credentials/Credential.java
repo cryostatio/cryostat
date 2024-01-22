@@ -19,6 +19,7 @@ import io.cryostat.expressions.MatchExpression;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -33,6 +34,8 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.ColumnTransformer;
 import org.projectnessie.cel.tools.ScriptException;
 
@@ -46,18 +49,23 @@ public class Credential extends PanacheEntity {
 
     @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     @JoinColumn(name = "matchExpression")
+    @NotNull
     public MatchExpression matchExpression;
 
     @ColumnTransformer(
             read = "pgp_sym_decrypt(username, current_setting('encrypt.key'))",
             write = "pgp_sym_encrypt(?, current_setting('encrypt.key'))")
-    @Column(nullable = false, updatable = false, columnDefinition = "bytea")
+    @Column(updatable = false, columnDefinition = "bytea")
+    @NotBlank
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public String username;
 
     @ColumnTransformer(
             read = "pgp_sym_decrypt(password, current_setting('encrypt.key'))",
             write = "pgp_sym_encrypt(?, current_setting('encrypt.key'))")
-    @Column(nullable = false, updatable = false, columnDefinition = "bytea")
+    @Column(updatable = false, columnDefinition = "bytea")
+    @NotBlank
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public String password;
 
     @ApplicationScoped

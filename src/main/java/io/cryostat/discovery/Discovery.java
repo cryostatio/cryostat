@@ -127,6 +127,7 @@ public class Discovery {
         DiscoveryPlugin plugin = new DiscoveryPlugin();
         plugin.callback = callbackUri;
         plugin.realm = DiscoveryNode.environment(realmName, DiscoveryNode.REALM);
+        plugin.builtin = false;
         plugin.persist();
 
         return Map.of(

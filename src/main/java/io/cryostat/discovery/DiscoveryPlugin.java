@@ -24,6 +24,7 @@ import java.util.UUID;
 
 import io.cryostat.credentials.Credential;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -37,6 +38,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
@@ -56,6 +58,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     @Column(name = "id")
     @GeneratedValue(generator = "UUID")
     @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @NotNull
     public UUID id;
 
     @OneToOne(
@@ -63,12 +66,14 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             cascade = {CascadeType.ALL},
             orphanRemoval = true,
             fetch = FetchType.LAZY)
+    @NotNull
     public DiscoveryNode realm;
 
     @Column(unique = true, updatable = false)
     @Convert(converter = UriConverter.class)
     public URI callback;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     public boolean builtin;
 
     @ApplicationScoped

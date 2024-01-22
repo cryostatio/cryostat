@@ -35,7 +35,6 @@ import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
@@ -49,6 +48,9 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jdk.jfr.RecordingState;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -65,22 +67,22 @@ public class ActiveRecording extends PanacheEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")
+    @NotNull
     public Target target;
 
-    @Column(nullable = false)
-    public String name;
+    @NotBlank public String name;
 
-    public long remoteId;
-    public RecordingState state;
-    public long duration;
-    public long startTime;
+    @PositiveOrZero public long remoteId;
+    @NotNull public RecordingState state;
+    @PositiveOrZero public long duration;
+    @PositiveOrZero public long startTime;
     public boolean continuous;
     public boolean toDisk;
-    public long maxSize;
-    public long maxAge;
+    @PositiveOrZero public long maxSize;
+    @PositiveOrZero public long maxAge;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false)
+    @NotNull
     public Metadata metadata;
 
     public static ActiveRecording from(Target target, LinkedRecordingDescriptor descriptor) {

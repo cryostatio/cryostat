@@ -36,6 +36,7 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.vertx.ConsumeEvent;
@@ -54,6 +55,8 @@ import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -65,40 +68,46 @@ public class Target extends PanacheEntity {
 
     public static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
 
-    @Column(unique = true, nullable = false, updatable = false)
+    @Column(unique = true, updatable = false)
+    @NotNull
     public URI connectUrl;
 
-    @Column(unique = true, nullable = false)
+    @Column(unique = true)
+    @NotBlank
     public String alias;
 
     public String jvmId;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false)
+    @NotNull
     public Map<String, String> labels = new HashMap<>();
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false)
+    @NotNull
     public Annotations annotations = new Annotations();
 
-    @JsonIgnore
     @OneToMany(
             mappedBy = "target",
             cascade = {CascadeType.ALL},
             orphanRemoval = true)
+    @NotNull
+    @JsonIgnore
     public List<ActiveRecording> activeRecordings = new ArrayList<>();
 
-    @JsonIgnore
     @OneToOne(
             cascade = {CascadeType.ALL},
             orphanRemoval = true)
     @JoinColumn(name = "discoveryNode")
+    @NotNull
+    @JsonIgnore
     public DiscoveryNode discoveryNode;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     public boolean isAgent() {
         return Set.of("http", "https", "cryostat-agent").contains(connectUrl.getScheme());
     }
 
+    @JsonIgnore
     public String targetId() {
         return this.connectUrl.toString();
     }
