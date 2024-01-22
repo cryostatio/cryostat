@@ -30,7 +30,6 @@ import io.cryostat.targets.Target.Annotations;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.cache.Cache;
-import io.quarkus.cache.CacheInvalidate;
 import io.quarkus.cache.CacheManager;
 import io.quarkus.cache.CacheResult;
 import io.quarkus.cache.CaffeineCache;
@@ -68,7 +67,8 @@ public class MatchExpressionEvaluator {
                 invalidate(event.expression().script);
                 break;
             case UPDATED:
-                // expression scripts aren't meant to be updatable, but handle them by invalidating cached results just in case
+                // expression scripts aren't meant to be updatable, but handle them by invalidating
+                // cached results just in case
                 invalidate(event.expression().script);
                 break;
             default:
