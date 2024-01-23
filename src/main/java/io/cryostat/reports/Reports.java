@@ -113,7 +113,7 @@ public class Reports {
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/reports/%s", entry.getKey(), entry.getValue())))
+                                        "api/v3/reports/%s", entry.getKey(), entry.getValue())))
                 .build();
     }
 
@@ -145,7 +145,7 @@ public class Reports {
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/targets/%d/reports/%d",
+                                        "api/v3/targets/%d/reports/%d",
                                         target.id, recording.remoteId)))
                 .build();
     }

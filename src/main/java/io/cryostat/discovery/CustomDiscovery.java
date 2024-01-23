@@ -195,7 +195,7 @@ public class CustomDiscovery {
     public Response delete(@RestPath URI connectUrl) throws URISyntaxException {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v3/targets/%d", target.id)))
+                .location(URI.create(String.format("api/v3/targets/%d", target.id)))
                 .build();
     }
 

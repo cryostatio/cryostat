@@ -446,7 +446,7 @@ public class Recordings {
     public Response listForTargetByUrl(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v3/targets/%d/recordings", target.id)))
+                .location(URI.create(String.format("api/v3/targets/%d/recordings", target.id)))
                 .build();
     }
 
@@ -501,7 +501,7 @@ public class Recordings {
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/targets/%d/recordings/%s",
+                                        "api/v3/targets/%d/recordings/%s",
                                         target.id, recording.get().getId())))
                 .build();
     }
@@ -683,7 +683,7 @@ public class Recordings {
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/targets/%d/recordings",
+                                        "api/v3/targets/%d/recordings",
                                         Target.getTargetByConnectUrl(connectUrl).id)))
                 .build();
     }
@@ -709,7 +709,7 @@ public class Recordings {
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/targets/%d/recordings/%d", target.id, remoteId)))
+                                        "api/v3/targets/%d/recordings/%d", target.id, remoteId)))
                 .build();
     }
 
@@ -816,7 +816,7 @@ public class Recordings {
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/targets/%d/recordings/%d/upload",
+                                        "api/v3/targets/%d/recordings/%d/upload",
                                         target.id, remoteId)))
                 .build();
     }
@@ -860,7 +860,7 @@ public class Recordings {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(
-                        URI.create(String.format("/api/v3/targets/%d/recordingOptions", target.id)))
+                        URI.create(String.format("api/v3/targets/%d/recordingOptions", target.id)))
                 .build();
     }
 
@@ -887,7 +887,7 @@ public class Recordings {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(
-                        URI.create(String.format("/api/v3/targets/%d/recordingOptions", target.id)))
+                        URI.create(String.format("api/v3/targets/%d/recordingOptions", target.id)))
                 .build();
     }
 
@@ -981,7 +981,7 @@ public class Recordings {
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/download/%s?f=%s",
+                                        "api/v3/download/%s?f=%s",
                                         encodedKey,
                                         base64Url.encodeAsString(
                                                 savename.getBytes(StandardCharsets.UTF_8)))))

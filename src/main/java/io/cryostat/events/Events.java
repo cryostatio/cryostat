@@ -54,7 +54,7 @@ public class Events {
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/targets/%d/events%s",
+                                        "api/v3/targets/%d/events%s",
                                         target.id, q == null ? "" : "?q=" + q)))
                 .build();
     }
