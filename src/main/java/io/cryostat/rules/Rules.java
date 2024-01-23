@@ -39,6 +39,7 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
+import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 
 @Path("/api/v2/rules")
 public class Rules {
@@ -78,6 +79,14 @@ public class Rules {
         return ResponseBuilder.create(
                         Response.Status.CREATED,
                         V2Response.json(Response.Status.CREATED, rule.name))
+                .build();
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<V2Response> mapException(RuleExistsException e) {
+        return ResponseBuilder.create(
+                        Response.Status.CONFLICT,
+                        V2Response.json(Response.Status.CONFLICT, e.getMessage()))
                 .build();
     }
 
@@ -147,7 +156,7 @@ public class Rules {
         return RestResponse.ok(V2Response.json(Response.Status.OK, null));
     }
 
-    static class RuleExistsException extends ClientErrorException {
+    public static class RuleExistsException extends ClientErrorException {
         RuleExistsException(String ruleName) {
             super(
                     "Rule with name "
