@@ -127,7 +127,10 @@ public class Discovery {
         DiscoveryPlugin plugin = new DiscoveryPlugin();
         plugin.callback = callbackUri;
         plugin.realm = DiscoveryNode.environment(realmName, DiscoveryNode.REALM);
+        plugin.builtin = false;
         plugin.persist();
+
+        DiscoveryNode.getUniverse().children.add(plugin.realm);
 
         return Map.of(
                 "meta",
@@ -155,7 +158,13 @@ public class Discovery {
         plugin.realm.children.clear();
         plugin.persist();
         plugin.realm.children.addAll(body);
-        body.forEach(b -> b.persist());
+        body.forEach(
+                b -> {
+                    if (b.target != null) {
+                        b.target.discoveryNode = b;
+                    }
+                    b.persist();
+                });
         plugin.persist();
 
         return Map.of(
@@ -176,6 +185,7 @@ public class Discovery {
             throw new ForbiddenException();
         }
         plugin.delete();
+        DiscoveryNode.getUniverse().children.remove(plugin.realm);
         return Map.of(
                 "meta",
                         Map.of(
