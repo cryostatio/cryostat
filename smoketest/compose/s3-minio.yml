@@ -10,8 +10,6 @@ services:
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
       QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: minioroot
       QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: minioroot
-      AWS_ACCESS_KEY_ID: minioroot
-      AWS_SECRET_ACCESS_KEY: minioroot
   s3:
     image: ${MINIO_IMAGE:-docker.io/minio/minio:latest}
     hostname: s3
