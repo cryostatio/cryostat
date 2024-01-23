@@ -4,7 +4,8 @@ upstreamConfig:
   proxyRawPath: true
   upstreams:
     - id: cryostat
-      path: /
+      path: ^/cryostat/(.*)$
+      rewriteTarget: /$1
       uri: http://cryostat:8181
     - id: grafana
       path: /grafana/
