@@ -16,6 +16,7 @@
 package io.cryostat.reports;
 
 import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.util.Map;
@@ -35,13 +36,17 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.runtime.ShutdownEvent;
+import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.handler.HttpException;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -56,6 +61,16 @@ class ReportsServiceImpl implements ReportsService {
     @Inject RecordingHelper helper;
     @Inject InterruptibleReportGenerator reportGenerator;
     @Inject Logger logger;
+
+    CloseableHttpClient http;
+
+    void onStart(@Observes StartupEvent evt) {
+        this.http = HttpClients.createSystem();
+    }
+
+    void onStop(@Observes ShutdownEvent evt) throws IOException {
+        this.http.close();
+    }
 
     @Blocking
     @Override
@@ -126,8 +141,7 @@ class ReportsServiceImpl implements ReportsService {
 
     private Future<Map<String, AnalysisResult>> fireRequest(URI uri, InputStream stream) {
         var cf = new CompletableFuture<Map<String, AnalysisResult>>();
-        try (var http = HttpClients.createDefault();
-                stream) {
+        try  {
             var post = new HttpPost(uri.resolve("report"));
             var form = MultipartEntityBuilder.create().addBinaryBody("file", stream).build();
             post.setEntity(form);
