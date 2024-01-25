@@ -72,9 +72,7 @@ public class Target extends PanacheEntity {
     @NotNull
     public URI connectUrl;
 
-    @Column(unique = true)
-    @NotBlank
-    public String alias;
+    @NotBlank public String alias;
 
     public String jvmId;
 
