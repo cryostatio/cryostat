@@ -53,8 +53,7 @@ public class EventTemplates {
     public Response listTemplatesV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(String.format("/api/v3/targets/%d/event_templates", target.id)))
+                .location(URI.create(String.format("api/v3/targets/%d/event_templates", target.id)))
                 .build();
     }
 
@@ -71,7 +70,7 @@ public class EventTemplates {
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/targets/%d/event_templates/%s/%s",
+                                        "api/v3/targets/%d/event_templates/%s/%s",
                                         target.id, templateName, templateType)))
                 .build();
     }

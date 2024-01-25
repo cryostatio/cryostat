@@ -88,7 +88,7 @@ public class Discovery {
     @RolesAllowed("read")
     public Response getv21() {
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create("/api/v3/discovery"))
+                .location(URI.create("api/v3/discovery"))
                 .build();
     }
 
