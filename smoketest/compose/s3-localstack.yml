@@ -10,6 +10,8 @@ services:
       QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
       QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: unused
       QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: unused
+      AWS_ACCESS_KEY_ID: unused
+      AWS_SECRET_ACCESS_KEY: unused
   s3:
     image: ${LOCALSTACK_IMAGE:-docker.io/localstack/localstack:latest}
     hostname: s3
