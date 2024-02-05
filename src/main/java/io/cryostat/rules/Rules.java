@@ -17,6 +17,7 @@ package io.cryostat.rules;
 
 import io.cryostat.V2Response;
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.util.EntityExistsException;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -24,7 +25,6 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
-import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -39,7 +39,6 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
-import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 
 @Path("/api/v2/rules")
 public class Rules {
@@ -70,7 +69,7 @@ public class Rules {
         }
         boolean ruleExists = Rule.getByName(rule.name) != null;
         if (ruleExists) {
-            throw new RuleExistsException(rule.name);
+            throw new EntityExistsException("Rule", rule.name);
         }
         if (rule.description == null) {
             rule.description = "";
@@ -79,14 +78,6 @@ public class Rules {
         return ResponseBuilder.create(
                         Response.Status.CREATED,
                         V2Response.json(Response.Status.CREATED, rule.name))
-                .build();
-    }
-
-    @ServerExceptionMapper
-    public RestResponse<V2Response> mapException(RuleExistsException e) {
-        return ResponseBuilder.create(
-                        Response.Status.CONFLICT,
-                        V2Response.json(Response.Status.CONFLICT, e.getMessage()))
                 .build();
     }
 
@@ -154,15 +145,5 @@ public class Rules {
         }
         rule.delete();
         return RestResponse.ok(V2Response.json(Response.Status.OK, null));
-    }
-
-    public static class RuleExistsException extends ClientErrorException {
-        RuleExistsException(String ruleName) {
-            super(
-                    "Rule with name "
-                            + ruleName
-                            + " already exists. Rename the rule and try again.",
-                    Response.Status.CONFLICT);
-        }
     }
 }

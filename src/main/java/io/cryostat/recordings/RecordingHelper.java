@@ -59,6 +59,7 @@ import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.EntityExistsException;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
@@ -154,11 +155,7 @@ public class RecordingHelper {
                             boolean restart =
                                     shouldRestartRecording(replace, previousState, recordingName);
                             if (!restart) {
-                                throw new BadRequestException(
-                                        String.format(
-                                                "Recording with name \"%s\" already exists. Rename"
-                                                        + " the recording and try again.",
-                                                recordingName));
+                                throw new EntityExistsException("Recording", recordingName);
                             }
                             if (!ActiveRecording.deleteFromTarget(target, recordingName)) {
                                 logger.warnf(

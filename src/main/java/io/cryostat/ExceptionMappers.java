@@ -18,6 +18,7 @@ package io.cryostat;
 import org.openjdk.jmc.rjmx.ConnectionException;
 
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.EntityExistsException;
 
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.smallrye.mutiny.TimeoutException;
@@ -26,6 +27,7 @@ import jakarta.persistence.NoResultException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import org.projectnessie.cel.tools.ScriptException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -89,5 +91,13 @@ public class ExceptionMappers {
     public RestResponse<Void> mapMutinyTimeoutException(TimeoutException ex) {
         logger.warn(ex);
         return RestResponse.status(HttpResponseStatus.GATEWAY_TIMEOUT.code());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Object> mapEntityExistsException(EntityExistsException ex) {
+        logger.warn(ex);
+        return ResponseBuilder.create(HttpResponseStatus.CONFLICT.code())
+                .entity(ex.getMessage())
+                .build();
     }
 }
