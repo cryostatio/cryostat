@@ -6,21 +6,6 @@
   <artifactId>cryostat3</artifactId>
   <version>3.0.0-SNAPSHOT</version>
 
-  <repositories>
-    <repository>
-      <id>github</id>
-      <url>https://maven.pkg.github.com/cryostatio/cryostat-core</url>
-    </repository>
-  </repositories>
-
-  <distributionManagement>
-    <repository>
-      <id>github</id>
-      <name>GitHub Packages</name>
-      <url>https://maven.pkg.github.com/cryostatio/cryostat-agent</url>
-    </repository>
-  </distributionManagement>
-
   <properties>
     <quarkus.application.version>${cryostat.imageVersionLower}</quarkus.application.version>
     <java.version>17</java.version>
