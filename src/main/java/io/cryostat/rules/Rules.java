@@ -17,6 +17,7 @@ package io.cryostat.rules;
 
 import io.cryostat.V2Response;
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.util.EntityExistsException;
 
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -24,7 +25,6 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
-import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -69,7 +69,7 @@ public class Rules {
         }
         boolean ruleExists = Rule.getByName(rule.name) != null;
         if (ruleExists) {
-            throw new RuleExistsException(rule.name);
+            throw new EntityExistsException("Rule", rule.name);
         }
         if (rule.description == null) {
             rule.description = "";
@@ -145,11 +145,5 @@ public class Rules {
         }
         rule.delete();
         return RestResponse.ok(V2Response.json(Response.Status.OK, null));
-    }
-
-    static class RuleExistsException extends ClientErrorException {
-        RuleExistsException(String ruleName) {
-            super("Rule with name " + ruleName + " already exists", Response.Status.CONFLICT);
-        }
     }
 }
