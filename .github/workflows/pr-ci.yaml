@@ -118,11 +118,6 @@ jobs:
         java-version: ${{ matrix.java }}
         distribution: 'temurin'
         cache: 'maven'
-    - name: maven-settings
-      uses: s4u/maven-settings-action@v2
-      with:
-        servers: '[{"id": "github", "username": "dummy", "password": "${{ secrets.GITHUB_TOKEN }}"}]'
-        githubServer: false
     - run: git submodule init && git submodule update
     - name: Cache yarn packages
       uses: actions/cache@v3

@@ -39,11 +39,6 @@ jobs:
       with:
         java-version: '17'
         distribution: 'temurin'
-    - name: maven-settings
-      uses: s4u/maven-settings-action@v2
-      with:
-        servers: '[{"id": "github", "username": "dummy", "password": "${env.GITHUB_TOKEN_REF}"}]'
-        githubServer: false
     - name: Run spotbugs
       run: mvn -B -U compile spotbugs:check
       env:
