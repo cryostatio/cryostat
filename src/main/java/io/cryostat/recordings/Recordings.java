@@ -138,6 +138,9 @@ public class Recordings {
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURL;
 
+    @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
+    boolean presignedDownloadsEnabled;
+
     @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
     Optional<String> externalStorageUrl;
 
@@ -959,7 +962,7 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/activedownload/{id}")
     @RolesAllowed("read")
-    public Response createAndRedirectPresignedDownload(@RestPath long id) throws Exception {
+    public Response createAndRedirectDownload(@RestPath long id) throws Exception {
         ActiveRecording recording = ActiveRecording.findById(id);
         if (recording == null) {
             throw new NotFoundException();
@@ -992,8 +995,14 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/download/{encodedKey}")
     @RolesAllowed("read")
-    public Response redirectPresignedDownload(@RestPath String encodedKey, @RestQuery String f)
+    public Response handleStorageDownload(@RestPath String encodedKey, @RestQuery String f)
             throws URISyntaxException {
+        if (!presignedDownloadsEnabled) {
+            return Response.status(RestResponse.Status.OK)
+                    .entity(recordingHelper.getArchivedRecordingStream(encodedKey))
+                    .build();
+        }
+
         Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
         logger.infov("Handling presigned download request for {0}", pair);
         GetObjectRequest getRequest =
