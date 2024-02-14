@@ -56,6 +56,7 @@ import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.HttpMimeType;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
@@ -984,6 +985,7 @@ public class Recordings {
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format("attachment; filename=\"%s.jfr\"", recording.name))
+                    .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(recordingHelper.getActiveInputStream(recording))
                     .build();
         }
@@ -1023,6 +1025,7 @@ public class Recordings {
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format("attachment; filename=\"%s\"", pair.getValue()))
+                    .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(recordingHelper.getArchivedRecordingStream(encodedKey))
                     .build();
         }
