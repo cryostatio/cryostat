@@ -912,10 +912,6 @@ public class RecordingHelper {
         }
     }
 
-    public Response uploadToJFRDatasource(String jvmId, String filename) throws Exception {
-        return uploadToJFRDatasource(Pair.of(jvmId, filename));
-    }
-
     Optional<Path> getRecordingCopyPath(
             JFRConnection connection, Target target, String recordingName) throws Exception {
         return connection.getService().getAvailableRecordings().stream()
