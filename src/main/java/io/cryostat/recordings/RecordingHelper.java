@@ -18,6 +18,7 @@ package io.cryostat.recordings;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
@@ -37,6 +38,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -820,46 +822,17 @@ public class RecordingHelper {
                                                             target.targetId(), recording.name));
                         });
 
-        MultipartForm form =
-                MultipartForm.create()
-                        .binaryFileUpload(
-                                "file", DATASOURCE_FILENAME, recordingPath.toString(), JFR_MIME);
-
         try {
-            ResponseBuilder builder = new ResponseBuilderImpl();
-            var asyncRequest =
-                    webClient
-                            .postAbs(
-                                    grafanaDatasourceURL
-                                            .get()
-                                            .toURI()
-                                            .resolve("/load")
-                                            .normalize()
-                                            .toString())
-                            .addQueryParam("overwrite", "true")
-                            .timeout(connectionFailedTimeout.toMillis())
-                            .sendMultipartForm(form);
-            return asyncRequest
-                    .onItem()
-                    .transform(
-                            r ->
-                                    builder.status(r.statusCode(), r.statusMessage())
-                                            .entity(r.bodyAsString())
-                                            .build())
-                    .onFailure()
-                    .recoverWithItem(
-                            (failure) -> {
-                                logger.error(failure);
-                                return Response.serverError().build();
-                            })
-                    .await()
-                    .indefinitely(); // The timeout from the request should be sufficient
+            return uploadToJFRDatasource(recordingPath);
         } finally {
             fs.deleteIfExists(recordingPath);
         }
     }
 
     public Response uploadToJFRDatasource(Pair<String, String> key) throws Exception {
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(key.getKey());
+        Objects.requireNonNull(key.getValue());
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
                         .bucket(archiveBucket)
@@ -873,43 +846,48 @@ public class RecordingHelper {
 
         storage.getObject(getRequest, recordingPath);
 
+        try {
+            return uploadToJFRDatasource(recordingPath);
+        } finally {
+            fs.deleteIfExists(recordingPath);
+        }
+    }
+
+    private Response uploadToJFRDatasource(Path recordingPath)
+            throws URISyntaxException, InterruptedException, ExecutionException {
         MultipartForm form =
                 MultipartForm.create()
                         .binaryFileUpload(
                                 "file", DATASOURCE_FILENAME, recordingPath.toString(), JFR_MIME);
 
-        try {
-            ResponseBuilder builder = new ResponseBuilderImpl();
-            var asyncRequest =
-                    webClient
-                            .postAbs(
-                                    grafanaDatasourceURL
-                                            .get()
-                                            .toURI()
-                                            .resolve("/load")
-                                            .normalize()
-                                            .toString())
-                            .addQueryParam("overwrite", "true")
-                            .timeout(connectionFailedTimeout.toMillis())
-                            .sendMultipartForm(form);
-            return asyncRequest
-                    .onItem()
-                    .transform(
-                            r ->
-                                    builder.status(r.statusCode(), r.statusMessage())
-                                            .entity(r.bodyAsString())
-                                            .build())
-                    .onFailure()
-                    .recoverWithItem(
-                            (failure) -> {
-                                logger.error(failure);
-                                return Response.serverError().build();
-                            })
-                    .await()
-                    .indefinitely(); // The timeout from the request should be sufficient
-        } finally {
-            fs.deleteIfExists(recordingPath);
-        }
+        ResponseBuilder builder = new ResponseBuilderImpl();
+        var asyncRequest =
+                webClient
+                        .postAbs(
+                                grafanaDatasourceURL
+                                        .get()
+                                        .toURI()
+                                        .resolve("/load")
+                                        .normalize()
+                                        .toString())
+                        .addQueryParam("overwrite", "true")
+                        .timeout(connectionFailedTimeout.toMillis())
+                        .sendMultipartForm(form);
+        return asyncRequest
+                .onItem()
+                .transform(
+                        r ->
+                                builder.status(r.statusCode(), r.statusMessage())
+                                        .entity(r.bodyAsString())
+                                        .build())
+                .onFailure()
+                .recoverWithItem(
+                        (failure) -> {
+                            logger.error(failure);
+                            return Response.serverError().build();
+                        })
+                .await()
+                .indefinitely(); // The timeout from the request should be sufficient
     }
 
     Optional<Path> getRecordingCopyPath(

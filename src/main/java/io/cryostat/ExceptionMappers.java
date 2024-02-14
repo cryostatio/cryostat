@@ -16,6 +16,7 @@
 package io.cryostat;
 
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 
 import org.openjdk.jmc.rjmx.ConnectionException;
 
@@ -106,6 +107,12 @@ public class ExceptionMappers {
 
     @ServerExceptionMapper
     public RestResponse<Void> mapCompletionException(CompletionException ex) throws Throwable {
+        logger.warn(ex);
+        throw ExceptionUtils.getRootCause(ex);
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapExecutionException(ExecutionException ex) throws Throwable {
         logger.warn(ex);
         throw ExceptionUtils.getRootCause(ex);
     }
