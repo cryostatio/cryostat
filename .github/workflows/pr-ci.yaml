@@ -166,7 +166,8 @@ jobs:
           const name = '${{github.workflow}}';
           const url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
           const success = '${{ job.status }}' === 'success';
-          const body = `${name}: ${success ? 'All tests pass ✅' : 'At least one test failed ❌'}\n${url}`;
+          const javaVersion = '${{matrix.java}}';
+          const body = `${name}: ${success ? 'All tests pass ✅' : 'At least one test failed ❌'} (JDK${javaVersion})\n${url}`;
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
