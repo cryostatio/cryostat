@@ -838,13 +838,12 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/targets/{targetId}/recordings/{remoteId}/upload")
     @RolesAllowed("write")
-    public Response uploadActiveToGrafana(@RestPath long targetId, @RestPath long remoteId)
+    public Uni<String> uploadActiveToGrafana(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
         return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
     }
 
     @POST
-    @Blocking
     @Path("/api/beta/fs/recordings/{jvmId}/{filename}/upload")
     @RolesAllowed("write")
     public Response uploadArchivedToGrafanaBeta(@RestPath String jvmId, @RestPath String filename)
@@ -862,7 +861,7 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/grafana/{encodedKey}")
     @RolesAllowed("write")
-    public Response uploadArchivedToGrafana(@RestPath String encodedKey) throws Exception {
+    public Uni<String> uploadArchivedToGrafana(@RestPath String encodedKey) throws Exception {
         var key = recordingHelper.decodedKey(encodedKey);
         var found =
                 recordingHelper.listArchivedRecordingObjects().stream()

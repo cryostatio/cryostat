@@ -69,8 +69,11 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import io.vertx.mutiny.ext.web.client.HttpResponse;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -79,8 +82,6 @@ import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ServerErrorException;
-import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -89,7 +90,6 @@ import org.apache.commons.validator.routines.UrlValidator;
 import org.apache.hc.core5.http.HttpStatus;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import org.jboss.resteasy.reactive.server.jaxrs.ResponseBuilderImpl;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -805,8 +805,8 @@ public class RecordingHelper {
         return new Metadata(labels, expiry);
     }
 
-    // jfr-datasource handling
-    public Response uploadToJFRDatasource(long targetEntityId, long remoteId) throws Exception {
+    @Blocking
+    public Uni<String> uploadToJFRDatasource(long targetEntityId, long remoteId) throws Exception {
         Target target = Target.getTargetById(targetEntityId);
         Objects.requireNonNull(target, "Target from targetId not found");
         ActiveRecording recording = target.getRecordingById(remoteId);
@@ -822,14 +822,11 @@ public class RecordingHelper {
                                                             target.targetId(), recording.name));
                         });
 
-        try {
-            return uploadToJFRDatasource(recordingPath);
-        } finally {
-            fs.deleteIfExists(recordingPath);
-        }
+        return uploadToJFRDatasource(recordingPath);
     }
 
-    public Response uploadToJFRDatasource(Pair<String, String> key) throws Exception {
+    @Blocking
+    public Uni<String> uploadToJFRDatasource(Pair<String, String> key) throws Exception {
         Objects.requireNonNull(key);
         Objects.requireNonNull(key.getKey());
         Objects.requireNonNull(key.getValue());
@@ -846,21 +843,16 @@ public class RecordingHelper {
 
         storage.getObject(getRequest, recordingPath);
 
-        try {
-            return uploadToJFRDatasource(recordingPath);
-        } finally {
-            fs.deleteIfExists(recordingPath);
-        }
+        return uploadToJFRDatasource(recordingPath);
     }
 
-    private Response uploadToJFRDatasource(Path recordingPath)
+    private Uni<String> uploadToJFRDatasource(Path recordingPath)
             throws URISyntaxException, InterruptedException, ExecutionException {
         MultipartForm form =
                 MultipartForm.create()
                         .binaryFileUpload(
                                 "file", DATASOURCE_FILENAME, recordingPath.toString(), JFR_MIME);
 
-        ResponseBuilder builder = new ResponseBuilderImpl();
         var asyncRequest =
                 webClient
                         .postAbs(
@@ -875,19 +867,15 @@ public class RecordingHelper {
                         .sendMultipartForm(form);
         return asyncRequest
                 .onItem()
-                .transform(
-                        r ->
-                                builder.status(r.statusCode(), r.statusMessage())
-                                        .entity(r.bodyAsString())
-                                        .build())
-                .onFailure()
-                .recoverWithItem(
-                        (failure) -> {
-                            logger.error(failure);
-                            return Response.serverError().build();
-                        })
-                .await()
-                .indefinitely(); // The timeout from the request should be sufficient
+                .transform(HttpResponse::bodyAsString)
+                .eventually(
+                        () -> {
+                            try {
+                                fs.deleteIfExists(recordingPath);
+                            } catch (IOException e) {
+                                logger.warn(e);
+                            }
+                        });
     }
 
     Optional<Path> getRecordingCopyPath(
