@@ -141,6 +141,9 @@ public class Recordings {
     @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_ENABLED)
     boolean transientArchivesEnabled;
 
+    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_TTL)
+    Duration transientArchivesTtl;
+
     @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
     boolean presignedDownloadsEnabled;
 
@@ -982,9 +985,7 @@ public class Recordings {
         String savename = recording.name;
         String filename =
                 recordingHelper.saveRecording(
-                        recording,
-                        savename,
-                        Instant.now().plusSeconds(60)); // TODO make expiry configurable
+                        recording, savename, Instant.now().plus(transientArchivesTtl));
         String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
         if (!savename.endsWith(".jfr")) {
             savename += ".jfr";

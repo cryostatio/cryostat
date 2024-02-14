@@ -48,4 +48,5 @@ public class ConfigProperties {
             "storage.presigned-downloads.enabled";
     public static final String STORAGE_TRANSIENT_ARCHIVES_ENABLED =
             "storage.transient-archives.enabled";
+    public static final String STORAGE_TRANSIENT_ARCHIVES_TTL = "storage.transient-archives.ttl";
 }
