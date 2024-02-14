@@ -138,6 +138,9 @@ public class Recordings {
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURL;
 
+    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_ENABLED)
+    boolean transientArchivesEnabled;
+
     @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
     boolean presignedDownloadsEnabled;
 
@@ -967,6 +970,15 @@ public class Recordings {
         if (recording == null) {
             throw new NotFoundException();
         }
+        if (!transientArchivesEnabled) {
+            return Response.status(RestResponse.Status.OK)
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            String.format("attachment; filename=\"%s.jfr\"", recording.name))
+                    .entity(recordingHelper.getActiveInputStream(recording))
+                    .build();
+        }
+
         String savename = recording.name;
         String filename =
                 recordingHelper.saveRecording(

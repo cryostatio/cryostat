@@ -46,4 +46,6 @@ public class ConfigProperties {
     public static final String STORAGE_EXT_URL = "storage-ext.url";
     public static final String STORAGE_PRESIGNED_DOWNLOADS_ENABLED =
             "storage.presigned-downloads.enabled";
+    public static final String STORAGE_TRANSIENT_ARCHIVES_ENABLED =
+            "storage.transient-archives.enabled";
 }
