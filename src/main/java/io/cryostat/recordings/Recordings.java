@@ -997,13 +997,17 @@ public class Recordings {
     @RolesAllowed("read")
     public Response handleStorageDownload(@RestPath String encodedKey, @RestQuery String f)
             throws URISyntaxException {
+        Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
+
         if (!presignedDownloadsEnabled) {
             return Response.status(RestResponse.Status.OK)
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            String.format("attachment; filename=\"%s\"", pair.getValue()))
                     .entity(recordingHelper.getArchivedRecordingStream(encodedKey))
                     .build();
         }
 
-        Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
         logger.infov("Handling presigned download request for {0}", pair);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
