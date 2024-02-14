@@ -752,6 +752,7 @@ public class RecordingHelper {
     }
 
     // jfr-datasource handling
+    // TODO refactor this to take an ActiveRecording argument. uploadUrl should be an injected field
     public Response uploadToJFRDatasource(long targetEntityId, long remoteId, URL uploadUrl)
             throws Exception {
         Target target = Target.getTargetById(targetEntityId);
@@ -768,6 +769,57 @@ public class RecordingHelper {
                                                     new RecordingNotFoundException(
                                                             target.targetId(), recording.name));
                         });
+
+        MultipartForm form =
+                MultipartForm.create()
+                        .binaryFileUpload(
+                                "file", DATASOURCE_FILENAME, recordingPath.toString(), JFR_MIME);
+
+        try {
+            ResponseBuilder builder = new ResponseBuilderImpl();
+            var asyncRequest =
+                    webClient
+                            .postAbs(uploadUrl.toURI().resolve("/load").normalize().toString())
+                            .addQueryParam("overwrite", "true")
+                            .timeout(connectionFailedTimeout.toMillis())
+                            .sendMultipartForm(form);
+            return asyncRequest
+                    .onItem()
+                    .transform(
+                            r ->
+                                    builder.status(r.statusCode(), r.statusMessage())
+                                            .entity(r.bodyAsString())
+                                            .build())
+                    .onFailure()
+                    .recoverWithItem(
+                            (failure) -> {
+                                logger.error(failure);
+                                return Response.serverError().build();
+                            })
+                    .await()
+                    .indefinitely(); // The timeout from the request should be sufficient
+        } finally {
+            fs.deleteIfExists(recordingPath);
+        }
+    }
+
+    public Response uploadToJFRDatasource(String jvmId, String filename, URL uploadUrl)
+            throws Exception {
+        Objects.requireNonNull(jvmId);
+        Objects.requireNonNull(filename);
+
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(archivedRecordingKey(Pair.of(jvmId, filename)))
+                        .build();
+
+        Path recordingPath = fs.createTempFile(null, null);
+        // the S3 client will create the file at this path, we just need to get a fresh temp file
+        // path but one that does not yet exist
+        fs.deleteIfExists(recordingPath);
+
+        storage.getObject(getRequest, recordingPath);
 
         MultipartForm form =
                 MultipartForm.create()

@@ -820,7 +820,8 @@ public class Recordings {
     @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}/upload")
     @RolesAllowed("write")
-    public Response uploadToGrafanaV1(@RestPath URI connectUrl, @RestPath String recordingName) {
+    public Response uploadActiveToGrafanaV1(
+            @RestPath URI connectUrl, @RestPath String recordingName) {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         long remoteId =
                 target.activeRecordings.stream()
@@ -841,7 +842,7 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/targets/{targetId}/recordings/{remoteId}/upload")
     @RolesAllowed("write")
-    public Response uploadToGrafana(@RestPath long targetId, @RestPath long remoteId)
+    public Response uploadActiveToGrafana(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
         try {
             URL uploadUrl =
@@ -866,6 +867,40 @@ public class Recordings {
         } catch (MalformedURLException e) {
             throw new HttpException(HttpStatus.SC_BAD_GATEWAY, e);
         }
+    }
+
+    @POST
+    @Blocking
+    @Path("/api/beta/fs/recordings/{jvmId}/{filename}/upload")
+    @RolesAllowed("write")
+    public Response uploadArchivedToGrafanaBeta(@RestPath String jvmId, @RestPath String filename)
+            throws Exception {
+        URL uploadUrl =
+                new URL(
+                        grafanaDatasourceURL.orElseThrow(
+                                () ->
+                                        new HttpException(
+                                                HttpStatus.SC_BAD_GATEWAY,
+                                                "GRAFANA_DATASOURCE_URL environment variable"
+                                                        + " does not exist")));
+        boolean isValidUploadUrl =
+                new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS).isValid(uploadUrl.toString());
+        if (!isValidUploadUrl) {
+            throw new HttpException(
+                    HttpStatus.SC_BAD_GATEWAY,
+                    String.format(
+                            "$%s=%s is an invalid datasource URL",
+                            ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
+        }
+
+        var found =
+                recordingHelper.listArchivedRecordingObjects(jvmId).stream()
+                        .map(o -> o.key().strip().split("/")[1])
+                        .anyMatch(k -> Objects.equals(k, filename));
+        if (!found) {
+            throw new NotFoundException();
+        }
+        return recordingHelper.uploadToJFRDatasource(jvmId, filename, uploadUrl);
     }
 
     @GET
