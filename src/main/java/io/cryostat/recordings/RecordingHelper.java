@@ -17,6 +17,7 @@ package io.cryostat.recordings;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
@@ -35,6 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -64,10 +66,13 @@ import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import io.quarkus.runtime.StartupEvent;
+import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.ws.rs.BadRequestException;
@@ -78,6 +83,8 @@ import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.validator.routines.UrlValidator;
+import org.apache.hc.core5.http.HttpStatus;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.server.jaxrs.ResponseBuilderImpl;
@@ -134,6 +141,49 @@ public class RecordingHelper {
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
+
+    @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
+    Optional<String> grafanaDatasourceURLProperty;
+
+    CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
+
+    void onStart(@Observes StartupEvent evt) {
+        if (grafanaDatasourceURLProperty.isEmpty()) {
+            grafanaDatasourceURL.completeExceptionally(
+                    new HttpException(
+                            HttpStatus.SC_BAD_GATEWAY,
+                            String.format(
+                                    "Configuration property %s is not set",
+                                    ConfigProperties.GRAFANA_DATASOURCE_URL)));
+            return;
+        }
+        try {
+            URL uploadUrl =
+                    new URL(grafanaDatasourceURLProperty.orElseThrow(() -> new HttpException()));
+            boolean isValidUploadUrl =
+                    new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS).isValid(uploadUrl.toString());
+            if (!isValidUploadUrl) {
+                grafanaDatasourceURL.completeExceptionally(
+                        new HttpException(
+                                HttpStatus.SC_BAD_GATEWAY,
+                                String.format(
+                                        "Configuration property %s=%s is not acceptable",
+                                        ConfigProperties.GRAFANA_DATASOURCE_URL,
+                                        grafanaDatasourceURLProperty.get())));
+                return;
+            }
+            grafanaDatasourceURL.complete(new URL(grafanaDatasourceURLProperty.get()));
+        } catch (MalformedURLException e) {
+            grafanaDatasourceURL.completeExceptionally(
+                    new HttpException(
+                            HttpStatus.SC_BAD_GATEWAY,
+                            String.format(
+                                    "Configuration property %s=%s is not a valid URL",
+                                    ConfigProperties.GRAFANA_DATASOURCE_URL,
+                                    grafanaDatasourceURLProperty.get())));
+            return;
+        }
+    }
 
     public ActiveRecording startRecording(
             Target target,
@@ -754,9 +804,7 @@ public class RecordingHelper {
     }
 
     // jfr-datasource handling
-    // TODO refactor this to take an ActiveRecording argument. uploadUrl should be an injected field
-    public Response uploadToJFRDatasource(long targetEntityId, long remoteId, URL uploadUrl)
-            throws Exception {
+    public Response uploadToJFRDatasource(long targetEntityId, long remoteId) throws Exception {
         Target target = Target.getTargetById(targetEntityId);
         Objects.requireNonNull(target, "Target from targetId not found");
         ActiveRecording recording = target.getRecordingById(remoteId);
@@ -781,7 +829,13 @@ public class RecordingHelper {
             ResponseBuilder builder = new ResponseBuilderImpl();
             var asyncRequest =
                     webClient
-                            .postAbs(uploadUrl.toURI().resolve("/load").normalize().toString())
+                            .postAbs(
+                                    grafanaDatasourceURL
+                                            .get()
+                                            .toURI()
+                                            .resolve("/load")
+                                            .normalize()
+                                            .toString())
                             .addQueryParam("overwrite", "true")
                             .timeout(connectionFailedTimeout.toMillis())
                             .sendMultipartForm(form);
@@ -805,8 +859,7 @@ public class RecordingHelper {
         }
     }
 
-    public Response uploadToJFRDatasource(Pair<String, String> key, URL uploadUrl)
-            throws Exception {
+    public Response uploadToJFRDatasource(Pair<String, String> key) throws Exception {
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
                         .bucket(archiveBucket)
@@ -829,7 +882,13 @@ public class RecordingHelper {
             ResponseBuilder builder = new ResponseBuilderImpl();
             var asyncRequest =
                     webClient
-                            .postAbs(uploadUrl.toURI().resolve("/load").normalize().toString())
+                            .postAbs(
+                                    grafanaDatasourceURL
+                                            .get()
+                                            .toURI()
+                                            .resolve("/load")
+                                            .normalize()
+                                            .toString())
                             .addQueryParam("overwrite", "true")
                             .timeout(connectionFailedTimeout.toMillis())
                             .sendMultipartForm(form);
@@ -853,9 +912,8 @@ public class RecordingHelper {
         }
     }
 
-    public Response uploadToJFRDatasource(String jvmId, String filename, URL uploadUrl)
-            throws Exception {
-        return uploadToJFRDatasource(Pair.of(jvmId, filename), uploadUrl);
+    public Response uploadToJFRDatasource(String jvmId, String filename) throws Exception {
+        return uploadToJFRDatasource(Pair.of(jvmId, filename));
     }
 
     Optional<Path> getRecordingCopyPath(

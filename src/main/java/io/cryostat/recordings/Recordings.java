@@ -16,10 +16,8 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -88,8 +86,6 @@ import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.validator.routines.UrlValidator;
-import org.apache.hc.core5.http.HttpStatus;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -844,29 +840,7 @@ public class Recordings {
     @RolesAllowed("write")
     public Response uploadActiveToGrafana(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
-        try {
-            URL uploadUrl =
-                    new URL(
-                            grafanaDatasourceURL.orElseThrow(
-                                    () ->
-                                            new HttpException(
-                                                    HttpStatus.SC_BAD_GATEWAY,
-                                                    "GRAFANA_DATASOURCE_URL environment variable"
-                                                            + " does not exist")));
-            boolean isValidUploadUrl =
-                    new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS).isValid(uploadUrl.toString());
-            if (!isValidUploadUrl) {
-                throw new HttpException(
-                        HttpStatus.SC_BAD_GATEWAY,
-                        String.format(
-                                "$%s=%s is an invalid datasource URL",
-                                ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
-            }
-
-            return recordingHelper.uploadToJFRDatasource(targetId, remoteId, uploadUrl);
-        } catch (MalformedURLException e) {
-            throw new HttpException(HttpStatus.SC_BAD_GATEWAY, e);
-        }
+        return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
     }
 
     @POST
@@ -889,24 +863,6 @@ public class Recordings {
     @Path("/api/v3/grafana/{encodedKey}")
     @RolesAllowed("write")
     public Response uploadArchivedToGrafana(@RestPath String encodedKey) throws Exception {
-        URL uploadUrl =
-                new URL(
-                        grafanaDatasourceURL.orElseThrow(
-                                () ->
-                                        new HttpException(
-                                                HttpStatus.SC_BAD_GATEWAY,
-                                                "GRAFANA_DATASOURCE_URL environment variable"
-                                                        + " does not exist")));
-        boolean isValidUploadUrl =
-                new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS).isValid(uploadUrl.toString());
-        if (!isValidUploadUrl) {
-            throw new HttpException(
-                    HttpStatus.SC_BAD_GATEWAY,
-                    String.format(
-                            "$%s=%s is an invalid datasource URL",
-                            ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
-        }
-
         var key = recordingHelper.decodedKey(encodedKey);
         var found =
                 recordingHelper.listArchivedRecordingObjects().stream()
@@ -918,7 +874,7 @@ public class Recordings {
         if (!found) {
             throw new NotFoundException();
         }
-        return recordingHelper.uploadToJFRDatasource(key, uploadUrl);
+        return recordingHelper.uploadToJFRDatasource(key);
     }
 
     @GET

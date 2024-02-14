@@ -15,6 +15,8 @@
  */
 package io.cryostat;
 
+import java.util.concurrent.CompletionException;
+
 import org.openjdk.jmc.rjmx.ConnectionException;
 
 import io.cryostat.targets.TargetConnectionManager;
@@ -24,6 +26,7 @@ import io.netty.handler.codec.http.HttpResponseStatus;
 import io.smallrye.mutiny.TimeoutException;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -99,5 +102,11 @@ public class ExceptionMappers {
         return ResponseBuilder.create(HttpResponseStatus.CONFLICT.code())
                 .entity(ex.getMessage())
                 .build();
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapCompletionException(CompletionException ex) throws Throwable {
+        logger.warn(ex);
+        throw ExceptionUtils.getRootCause(ex);
     }
 }
