@@ -482,6 +482,12 @@ public class Recordings {
                 return null;
             case "save":
                 try {
+                    // FIXME this operation might take a long time to complete, depending on the
+                    // amount of JFR data in the target and the speed of the connection between the
+                    // target and Cryostat. We should not make the client wait until this operation
+                    // completes before sending a response - it should be async. Here we should just
+                    // return an Accepted response, and if a failure occurs that should be indicated
+                    // as a websocket notification.
                     return recordingHelper.saveRecording(activeRecording);
                 } catch (IOException ioe) {
                     logger.warn(ioe);
