@@ -586,6 +586,8 @@ public class RecordingHelper {
     }
 
     public String encodedKey(String jvmId, String filename) {
+        Objects.requireNonNull(jvmId);
+        Objects.requireNonNull(filename);
         return base64Url.encodeAsString(
                 (archivedRecordingKey(jvmId, filename)).getBytes(StandardCharsets.UTF_8));
     }
@@ -803,15 +805,12 @@ public class RecordingHelper {
         }
     }
 
-    public Response uploadToJFRDatasource(String jvmId, String filename, URL uploadUrl)
+    public Response uploadToJFRDatasource(Pair<String, String> key, URL uploadUrl)
             throws Exception {
-        Objects.requireNonNull(jvmId);
-        Objects.requireNonNull(filename);
-
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
                         .bucket(archiveBucket)
-                        .key(archivedRecordingKey(Pair.of(jvmId, filename)))
+                        .key(archivedRecordingKey(key))
                         .build();
 
         Path recordingPath = fs.createTempFile(null, null);
@@ -852,6 +851,11 @@ public class RecordingHelper {
         } finally {
             fs.deleteIfExists(recordingPath);
         }
+    }
+
+    public Response uploadToJFRDatasource(String jvmId, String filename, URL uploadUrl)
+            throws Exception {
+        return uploadToJFRDatasource(Pair.of(jvmId, filename), uploadUrl);
     }
 
     Optional<Path> getRecordingCopyPath(

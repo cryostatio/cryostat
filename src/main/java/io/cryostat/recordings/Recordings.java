@@ -875,6 +875,20 @@ public class Recordings {
     @RolesAllowed("write")
     public Response uploadArchivedToGrafanaBeta(@RestPath String jvmId, @RestPath String filename)
             throws Exception {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/grafana/%s",
+                                        recordingHelper.encodedKey(jvmId, filename))))
+                .build();
+    }
+
+    @POST
+    @Blocking
+    @Path("/api/v3/grafana/{encodedKey}")
+    @RolesAllowed("write")
+    public Response uploadArchivedToGrafana(@RestPath String encodedKey) throws Exception {
         URL uploadUrl =
                 new URL(
                         grafanaDatasourceURL.orElseThrow(
@@ -893,14 +907,18 @@ public class Recordings {
                             ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
         }
 
+        var key = recordingHelper.decodedKey(encodedKey);
         var found =
-                recordingHelper.listArchivedRecordingObjects(jvmId).stream()
-                        .map(o -> o.key().strip().split("/")[1])
-                        .anyMatch(k -> Objects.equals(k, filename));
+                recordingHelper.listArchivedRecordingObjects().stream()
+                        .anyMatch(
+                                o ->
+                                        Objects.equals(
+                                                o.key(),
+                                                recordingHelper.archivedRecordingKey(key)));
         if (!found) {
             throw new NotFoundException();
         }
-        return recordingHelper.uploadToJFRDatasource(jvmId, filename, uploadUrl);
+        return recordingHelper.uploadToJFRDatasource(key, uploadUrl);
     }
 
     @GET
