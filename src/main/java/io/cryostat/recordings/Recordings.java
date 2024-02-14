@@ -965,7 +965,7 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/activedownload/{id}")
     @RolesAllowed("read")
-    public Response createAndRedirectDownload(@RestPath long id) throws Exception {
+    public Response handleActiveDownload(@RestPath long id) throws Exception {
         ActiveRecording recording = ActiveRecording.findById(id);
         if (recording == null) {
             throw new NotFoundException();
