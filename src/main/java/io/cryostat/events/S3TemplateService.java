@@ -191,10 +191,11 @@ public class S3TemplateService implements MutableTemplateService {
                 t -> {
                     var encodedKey = t.key();
                     var decodedKey =
-                            new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
+                            new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8).trim();
                     var encodedValue = t.value();
                     var decodedValue =
-                            new String(base64Url.decode(encodedValue), StandardCharsets.UTF_8);
+                            new String(base64Url.decode(encodedValue), StandardCharsets.UTF_8)
+                                    .trim();
                     decodedList.add(Pair.of(decodedKey, decodedValue));
                 });
         var label =
