@@ -124,8 +124,8 @@ class S3TemplateService implements TemplateService {
 
             for (XMLValidationResult result : model.getResults()) {
                 if (result.isError()) {
-                    // throw new InvalidEventTemplateException(result.getText());
-                    throw new IllegalArgumentException(result.getText());
+                    throw new IllegalArgumentException(
+                            new InvalidEventTemplateException(result.getText()));
                 }
             }
 
@@ -139,9 +139,9 @@ class S3TemplateService implements TemplateService {
             }
 
             if (labelAttr == null) {
-                // throw new InvalidEventTemplateException(
-                //         "Template has no configuration label attribute");
-                throw new IllegalArgumentException("Template has no configuration label attribute");
+                throw new IllegalArgumentException(
+                        new InvalidEventTemplateException(
+                                "Template has no configuration label attribute"));
             }
 
             String templateName = labelAttr.getExplicitValue();
@@ -165,11 +165,11 @@ class S3TemplateService implements TemplateService {
                     getAttributeValue(root, "provider"),
                     TemplateType.CUSTOM);
         } catch (IOException ioe) {
+            // FIXME InvalidXmlException constructor should be made public in -core
             // throw new InvalidXmlException("Unable to parse XML stream", ioe);
             throw new IllegalArgumentException("Unable to parse XML stream", ioe);
         } catch (ParseException | IllegalArgumentException e) {
-            // throw new InvalidEventTemplateException("Invalid XML", e);
-            throw new IllegalArgumentException("Invalid XML", e);
+            throw new IllegalArgumentException(new InvalidEventTemplateException("Invalid XML", e));
         }
     }
 
