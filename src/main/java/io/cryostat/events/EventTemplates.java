@@ -24,14 +24,13 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.TargetConnectionManager;
 
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
@@ -55,12 +54,9 @@ public class EventTemplates {
                     TemplateType.TARGET);
 
     @Inject Vertx vertx;
-    @Inject TargetConnectionManager connectionManager;
+    @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
     @Inject Logger logger;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
-    String eventTemplatesBucket;
 
     @GET
     @Path("/api/v1/targets/{connectUrl}/templates")
@@ -122,14 +118,11 @@ public class EventTemplates {
     @RolesAllowed("read")
     public List<Template> listTemplates(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
-        return connectionManager.executeConnectedTask(
-                target,
-                connection -> {
-                    List<Template> list =
-                            new ArrayList<>(connection.getTemplateService().getTemplates());
-                    list.add(ALL_EVENTS_TEMPLATE);
-                    return list;
-                });
+        var list = new ArrayList<Template>();
+        list.add(ALL_EVENTS_TEMPLATE);
+        list.addAll(targetTemplateServiceFactory.create(target).getTemplates());
+        list.addAll(customTemplateService.getTemplates());
+        return list;
     }
 
     @GET
@@ -139,12 +132,16 @@ public class EventTemplates {
             @RestPath long id, @RestPath String templateName, @RestPath TemplateType templateType)
             throws Exception {
         Target target = Target.find("id", id).singleResult();
-        return connectionManager.executeConnectedTask(
-                target,
-                conn ->
-                        conn.getTemplateService()
-                                .getXml(templateName, templateType)
-                                .orElseThrow(NotFoundException::new)
-                                .toString());
+        switch (templateType) {
+            case TARGET:
+                return targetTemplateServiceFactory
+                        .create(target)
+                        .getXml(templateName, templateType)
+                        .toString();
+            case CUSTOM:
+                return customTemplateService.getXml(templateName, templateType).toString();
+            default:
+                throw new BadRequestException();
+        }
     }
 }
