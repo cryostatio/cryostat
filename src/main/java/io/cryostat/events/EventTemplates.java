@@ -90,7 +90,7 @@ public class EventTemplates {
     @Inject S3Client storage;
     @Inject Logger logger;
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
     static String eventTemplatesBucket;
 
     void onStart(@Observes StartupEvent evt) {
