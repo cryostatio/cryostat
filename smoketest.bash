@@ -39,7 +39,7 @@ display_usage() {
 
 s3=seaweed
 ce=podman
-while getopts "hs:prgtOVXcb" opt; do
+while getopts "hs:prGtOVXcb" opt; do
     case $opt in
         h)
             display_usage
@@ -51,7 +51,7 @@ while getopts "hs:prgtOVXcb" opt; do
         s)
             s3="${OPTARG}"
             ;;
-        g)
+        G)
             DEPLOY_GRAFANA=false
             ;;
         t)
