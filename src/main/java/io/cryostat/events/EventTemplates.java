@@ -72,7 +72,6 @@ public class EventTemplates {
     }
 
     @POST
-    @Blocking
     @Path("/api/v1/templates")
     @RolesAllowed("write")
     public Response postTemplatesV1(@RestForm("template") FileUpload body) {
@@ -82,7 +81,6 @@ public class EventTemplates {
     }
 
     @POST
-    @Blocking
     @Path("/api/v3/event_templates")
     @RolesAllowed("write")
     public Uni<Void> postTemplates(@RestForm("template") FileUpload body) {
@@ -121,6 +119,7 @@ public class EventTemplates {
     }
 
     @DELETE
+    @Blocking
     @Path("/api/v3/event_templates/{templateName}")
     @RolesAllowed("write")
     public void deleteTemplates(@RestPath String templateName) {
@@ -145,6 +144,7 @@ public class EventTemplates {
     }
 
     @GET
+    @Blocking
     @Path("/api/v3/event_templates")
     @RolesAllowed("read")
     public List<Template> listTemplates() throws Exception {
@@ -155,6 +155,7 @@ public class EventTemplates {
     }
 
     @GET
+    @Blocking
     @Path("/api/v3/targets/{id}/event_templates")
     @RolesAllowed("read")
     public List<Template> listTargetTemplates(@RestPath long id) throws Exception {
@@ -167,6 +168,7 @@ public class EventTemplates {
     }
 
     @GET
+    @Blocking
     @Path("/api/v3/targets/{id}/event_templates/{templateType}/{templateName}")
     @RolesAllowed("read")
     public String getTargetTemplate(
