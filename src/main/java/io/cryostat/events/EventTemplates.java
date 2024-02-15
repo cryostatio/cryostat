@@ -69,6 +69,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @Path("")
@@ -216,6 +217,10 @@ public class EventTemplates {
             var objects = s3.listObjectsV2(builder.build());
             var templates = convertObjects(objects);
             return templates;
+        }
+
+        private List<Template> convertObjects(ListObjectsV2Response objects) {
+            return List.of();
         }
 
         @Override
