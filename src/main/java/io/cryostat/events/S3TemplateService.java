@@ -20,7 +20,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -36,6 +38,7 @@ import org.openjdk.jmc.flightrecorder.controlpanel.ui.configuration.model.xml.XM
 import org.openjdk.jmc.flightrecorder.controlpanel.ui.model.EventConfiguration;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.Producers;
 import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.templates.MutableTemplateService.InvalidEventTemplateException;
 import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
@@ -49,6 +52,9 @@ import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
+import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.hc.core5.http.ContentType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -59,15 +65,23 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.Tag;
+import software.amazon.awssdk.services.s3.model.Tagging;
 
 @ApplicationScoped
 class S3TemplateService implements TemplateService {
 
     @Inject S3Client storage;
+
+    @Inject
+    @Named(Producers.BASE64_URL)
+    Base64 base64Url;
+
     @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
@@ -147,7 +161,6 @@ class S3TemplateService implements TemplateService {
 
     @Blocking
     private Optional<S3Object> getObject(String name) {
-        // FIXME do this by querying for a single S3Object rather than list and filter
         return getObjects().stream().filter(o -> o.key().equals(name)).findFirst();
     }
 
@@ -163,9 +176,7 @@ class S3TemplateService implements TemplateService {
                         t -> {
                             try {
                                 return convertObject(t);
-                            } catch (IOException
-                                    | ParseException
-                                    | InvalidEventTemplateException e) {
+                            } catch (InvalidEventTemplateException e) {
                                 logger.error(e);
                                 return null;
                             }
@@ -173,42 +184,57 @@ class S3TemplateService implements TemplateService {
                 .toList();
     }
 
-    private Template convertObject(S3Object object)
-            throws IOException, ParseException, InvalidEventTemplateException {
-        var xml = parseXml(getContents(object));
+    private Template convertObject(S3Object object) throws InvalidEventTemplateException {
+        var req =
+                GetObjectTaggingRequest.builder()
+                        .bucket(eventTemplatesBucket)
+                        .key(object.key())
+                        .build();
+        var tagging = storage.getObjectTagging(req);
+        var list = tagging.tagSet();
+        if (!tagging.hasTagSet() || list.isEmpty()) {
+            throw new InvalidEventTemplateException("No metadata found");
+        }
+        var decodedList = new ArrayList<Pair<String, String>>();
+        list.forEach(
+                t -> {
+                    var encodedKey = t.key();
+                    var decodedKey =
+                            new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
+                    var encodedValue = t.value();
+                    var decodedValue =
+                            new String(base64Url.decode(encodedValue), StandardCharsets.UTF_8);
+                    decodedList.add(Pair.of(decodedKey, decodedValue));
+                });
+        var label =
+                decodedList.stream()
+                        .filter(t -> t.getKey().equals("label"))
+                        .map(Pair::getValue)
+                        .findFirst()
+                        .orElseThrow();
+        var description =
+                decodedList.stream()
+                        .filter(t -> t.getKey().equals("description"))
+                        .map(Pair::getValue)
+                        .findFirst()
+                        .orElseThrow();
+        var provider =
+                decodedList.stream()
+                        .filter(t -> t.getKey().equals("provider"))
+                        .map(Pair::getValue)
+                        .findFirst()
+                        .orElseThrow();
 
-        // XMLAttributeInstance descAttr = null, providerAttr = null;
-        // var configuration = xml.getRoot();
-        // for (var attr : configuration.getAttributeInstances()) {
-        //     if (attr.getAttribute().getName().equals("description")) {
-        //         descAttr = attr;
-        //         break;
-        //     } else if (attr.getAttribute().getName().equals("provider")) {
-        //         providerAttr = attr;
-        //         break;
-        //     }
-        // }
-        // if (descAttr == null) {
-        //     throw new InvalidEventTemplateException("\"description\" attribute not found");
-        // }
-        // if (providerAttr == null) {
-        //     throw new InvalidEventTemplateException("\"provider\" attribute not found");
-        // }
-
-        return new Template(
-                object.key(),
-                "",
-                "unknown",
-                // descAttr.getExplicitValue(),
-                // providerAttr.getExplicitValue(),
-                TemplateType.CUSTOM);
+        return new Template(label, description, provider, TemplateType.CUSTOM);
     }
 
+    @Blocking
     private InputStream getContents(S3Object object) {
         var req = GetObjectRequest.builder().bucket(eventTemplatesBucket).key(object.key()).build();
         return storage.getObject(req);
     }
 
+    @Blocking
     private XMLModel parseXml(InputStream inputStream) throws IOException, ParseException {
         try (inputStream) {
             var model = EventConfiguration.createModel(inputStream);
@@ -254,22 +280,18 @@ class S3TemplateService implements TemplateService {
             XMLTagInstance root = model.getRoot();
             root.setValue(JFCGrammar.ATTRIBUTE_LABEL_MANDATORY, templateName);
 
-            // TODO put the template description, provider, and other attributes in metadata so we
-            // don't need to download and parse the whole XML just to display the templates list
-            String key = templateName;
+            String description = getAttributeValue(root, "description");
+            String provider = getAttributeValue(root, "provider");
             storage.putObject(
                     PutObjectRequest.builder()
                             .bucket(eventTemplatesBucket)
-                            .key(key)
+                            .key(templateName)
                             .contentType(ContentType.APPLICATION_XML.getMimeType())
+                            .tagging(createTemplateTagging(templateName, description, provider))
                             .build(),
                     RequestBody.fromString(model.toString()));
 
-            return new Template(
-                    templateName,
-                    getAttributeValue(root, "description"),
-                    getAttributeValue(root, "provider"),
-                    TemplateType.CUSTOM);
+            return new Template(templateName, description, provider, TemplateType.CUSTOM);
         } catch (IOException ioe) {
             // FIXME InvalidXmlException constructor should be made public in -core
             // throw new InvalidXmlException("Unable to parse XML stream", ioe);
@@ -277,6 +299,32 @@ class S3TemplateService implements TemplateService {
         } catch (ParseException | IllegalArgumentException e) {
             throw new IllegalArgumentException(new InvalidEventTemplateException("Invalid XML", e));
         }
+    }
+
+    private Tagging createTemplateTagging(
+            String templateName, String description, String provider) {
+        var map = Map.of("label", templateName, "description", description, "provider", provider);
+        var tags = new ArrayList<Tag>();
+        tags.addAll(
+                map.entrySet().stream()
+                        .map(
+                                e ->
+                                        Tag.builder()
+                                                .key(
+                                                        base64Url.encodeAsString(
+                                                                e.getKey()
+                                                                        .getBytes(
+                                                                                StandardCharsets
+                                                                                        .UTF_8)))
+                                                .value(
+                                                        base64Url.encodeAsString(
+                                                                e.getValue()
+                                                                        .getBytes(
+                                                                                StandardCharsets
+                                                                                        .UTF_8)))
+                                                .build())
+                        .toList());
+        return Tagging.builder().tagSet(tags).build();
     }
 
     protected String getAttributeValue(XMLTagInstance node, String valueKey) {
