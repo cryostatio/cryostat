@@ -113,9 +113,19 @@ public class EventTemplates {
     }
 
     @GET
+    @Path("/api/v3/event_templates")
+    @RolesAllowed("read")
+    public List<Template> listTemplates() throws Exception {
+        var list = new ArrayList<Template>();
+        list.add(ALL_EVENTS_TEMPLATE);
+        list.addAll(customTemplateService.getTemplates());
+        return list;
+    }
+
+    @GET
     @Path("/api/v3/targets/{id}/event_templates")
     @RolesAllowed("read")
-    public List<Template> listTemplates(@RestPath long id) throws Exception {
+    public List<Template> listTargetTemplates(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
         var list = new ArrayList<Template>();
         list.add(ALL_EVENTS_TEMPLATE);
