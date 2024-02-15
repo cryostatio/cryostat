@@ -9,8 +9,6 @@ DIR="$(dirname "$(readlink -f "$0")")"
 
 FILES=(
     "${DIR}/smoketest/compose/db.yml"
-    "${DIR}/smoketest/compose/cryostat-grafana.yml"
-    "${DIR}/smoketest/compose/jfr-datasource.yml"
 )
 
 USE_USERHOSTS=${USE_USERHOSTS:-true}
@@ -81,6 +79,14 @@ while getopts "hs:prGtOVXcb" opt; do
             ;;
     esac
 done
+
+if [ "${DEPLOY_GRAFANA}" = "true" ]; then
+    FILES+=(
+        "${DIR}/smoketest/compose/cryostat-grafana.yml"
+        "${DIR}/smoketest/compose/jfr-datasource.yml"
+    )
+fi
+
 
 if [ "${USE_PROXY}" = "true" ]; then
     FILES+=("${DIR}/smoketest/compose/auth_proxy.yml")
