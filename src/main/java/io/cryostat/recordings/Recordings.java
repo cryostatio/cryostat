@@ -56,6 +56,7 @@ import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.HttpMimeType;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
@@ -137,6 +138,15 @@ public class Recordings {
 
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURL;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_ENABLED)
+    boolean transientArchivesEnabled;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_TTL)
+    Duration transientArchivesTtl;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
+    boolean presignedDownloadsEnabled;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
     Optional<String> externalStorageUrl;
@@ -473,6 +483,12 @@ public class Recordings {
                 return null;
             case "save":
                 try {
+                    // FIXME this operation might take a long time to complete, depending on the
+                    // amount of JFR data in the target and the speed of the connection between the
+                    // target and Cryostat. We should not make the client wait until this operation
+                    // completes before sending a response - it should be async. Here we should just
+                    // return an Accepted response, and if a failure occurs that should be indicated
+                    // as a websocket notification.
                     return recordingHelper.saveRecording(activeRecording);
                 } catch (IOException ioe) {
                     logger.warn(ioe);
@@ -959,17 +975,25 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/activedownload/{id}")
     @RolesAllowed("read")
-    public Response createAndRedirectPresignedDownload(@RestPath long id) throws Exception {
+    public Response handleActiveDownload(@RestPath long id) throws Exception {
         ActiveRecording recording = ActiveRecording.findById(id);
         if (recording == null) {
             throw new NotFoundException();
         }
+        if (!transientArchivesEnabled) {
+            return Response.status(RestResponse.Status.OK)
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            String.format("attachment; filename=\"%s.jfr\"", recording.name))
+                    .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
+                    .entity(recordingHelper.getActiveInputStream(recording))
+                    .build();
+        }
+
         String savename = recording.name;
         String filename =
                 recordingHelper.saveRecording(
-                        recording,
-                        savename,
-                        Instant.now().plusSeconds(60)); // TODO make expiry configurable
+                        recording, savename, Instant.now().plus(transientArchivesTtl));
         String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
         if (!savename.endsWith(".jfr")) {
             savename += ".jfr";
@@ -992,9 +1016,20 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/download/{encodedKey}")
     @RolesAllowed("read")
-    public Response redirectPresignedDownload(@RestPath String encodedKey, @RestQuery String f)
+    public Response handleStorageDownload(@RestPath String encodedKey, @RestQuery String f)
             throws URISyntaxException {
         Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
+
+        if (!presignedDownloadsEnabled) {
+            return Response.status(RestResponse.Status.OK)
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            String.format("attachment; filename=\"%s\"", pair.getValue()))
+                    .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
+                    .entity(recordingHelper.getArchivedRecordingStream(encodedKey))
+                    .build();
+        }
+
         logger.infov("Handling presigned download request for {0}", pair);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
