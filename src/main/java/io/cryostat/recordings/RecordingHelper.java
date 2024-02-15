@@ -54,8 +54,9 @@ import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;
-import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
+import io.cryostat.events.S3TemplateService;
+import io.cryostat.events.TargetTemplateService;
 import io.cryostat.recordings.ActiveRecording.Listener.ActiveRecordingEvent;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
@@ -117,23 +118,24 @@ public class RecordingHelper {
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
-    @Inject Logger logger;
+    @Inject S3Client storage;
+
+    @Inject WebClient webClient;
+    @Inject FileSystem fs;
+    @Inject Clock clock;
     @Inject TargetConnectionManager connectionManager;
+    @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
-    @Inject EventBus bus;
-
-    @Inject Clock clock;
+    @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
+    @Inject S3TemplateService customTemplateService;
 
     @Inject
     @Named(Producers.BASE64_URL)
     Base64 base64Url;
 
-    @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
-    @Inject S3Client storage;
-    @Inject FileSystem fs;
-
-    @Inject WebClient webClient;
+    @Inject EventBus bus;
+    @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
@@ -199,7 +201,7 @@ public class RecordingHelper {
             throws Exception {
         String recordingName = (String) recordingOptions.get(RecordingOptionsBuilder.KEY_NAME);
         TemplateType preferredTemplateType =
-                getPreferredTemplateType(connection, templateName, templateType);
+                getPreferredTemplateType(target, templateName, templateType);
         getDescriptorByName(connection, recordingName)
                 .ifPresent(
                         previous -> {
@@ -221,7 +223,7 @@ public class RecordingHelper {
                         .getService()
                         .start(
                                 recordingOptions,
-                                enableEvents(connection, templateName, preferredTemplateType));
+                                enableEvents(target, templateName, preferredTemplateType));
 
         Map<String, String> labels = metadata.labels();
         labels.put("template.name", templateName);
@@ -356,54 +358,56 @@ public class RecordingHelper {
         throw new BadRequestException(eventSpecifier);
     }
 
-    private IConstrainedMap<EventOptionID> enableAllEvents(JFRConnection connection)
-            throws Exception {
-        EventOptionsBuilder builder = eventOptionsBuilderFactory.create(connection);
+    private IConstrainedMap<EventOptionID> enableAllEvents(Target target) throws Exception {
+        return connectionManager.executeConnectedTask(
+                target,
+                connection -> {
+                    EventOptionsBuilder builder = eventOptionsBuilderFactory.create(connection);
 
-        for (IEventTypeInfo eventTypeInfo : connection.getService().getAvailableEventTypes()) {
-            builder.addEvent(eventTypeInfo.getEventTypeID().getFullKey(), "enabled", "true");
-        }
+                    for (IEventTypeInfo eventTypeInfo :
+                            connection.getService().getAvailableEventTypes()) {
+                        builder.addEvent(
+                                eventTypeInfo.getEventTypeID().getFullKey(), "enabled", "true");
+                    }
 
-        return builder.build();
+                    return builder.build();
+                });
     }
 
     public IConstrainedMap<EventOptionID> enableEvents(
-            JFRConnection connection, String templateName, TemplateType templateType)
-            throws Exception {
+            Target target, String templateName, TemplateType templateType) throws Exception {
         if (templateName.equals("ALL")) {
-            return enableAllEvents(connection);
+            return enableAllEvents(target);
         }
-        // if template type not specified, try to find a Custom template by that name. If none,
-        // fall back on finding a Target built-in template by the name. If not, throw an
-        // exception and bail out.
-        TemplateType type = getPreferredTemplateType(connection, templateName, templateType);
-        return connection.getTemplateService().getEvents(templateName, type).get();
+        TemplateType type = getPreferredTemplateType(target, templateName, templateType);
+        switch (type) {
+            case TARGET:
+                return targetTemplateServiceFactory
+                        .create(target)
+                        .getEvents(templateName, type)
+                        .orElseThrow();
+            case CUSTOM:
+                return customTemplateService.getEvents(templateName, templateType).orElseThrow();
+            default:
+                throw new BadRequestException(
+                        String.format("Invalid/unknown event template %s", templateName));
+        }
     }
 
     public TemplateType getPreferredTemplateType(
-            JFRConnection connection, String templateName, TemplateType templateType)
-            throws Exception {
+            Target target, String templateName, TemplateType templateType) throws Exception {
+        // if template type not specified, try to find a Custom template by that name. If none,
+        // fall back on finding a Target built-in template by the name. If not, throw an
+        // exception and bail out.
         if (templateType != null) {
             return templateType;
         }
-        if (templateName.equals("ALL")) {
-            // special case for the ALL meta-template
-            return TemplateType.TARGET;
-        }
-        List<Template> matchingNameTemplates =
-                connection.getTemplateService().getTemplates().stream()
-                        .filter(t -> t.getName().equals(templateName))
-                        .toList();
-        boolean custom =
-                matchingNameTemplates.stream()
-                        .anyMatch(t -> t.getType().equals(TemplateType.CUSTOM));
-        if (custom) {
+        if (customTemplateService.getTemplates().stream()
+                .anyMatch(t -> t.getName().equals(templateName))) {
             return TemplateType.CUSTOM;
         }
-        boolean target =
-                matchingNameTemplates.stream()
-                        .anyMatch(t -> t.getType().equals(TemplateType.TARGET));
-        if (target) {
+        if (targetTemplateServiceFactory.create(target).getTemplates().stream()
+                .anyMatch(t -> t.getName().equals(templateName))) {
             return TemplateType.TARGET;
         }
         throw new BadRequestException(
