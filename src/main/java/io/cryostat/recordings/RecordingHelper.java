@@ -384,12 +384,11 @@ public class RecordingHelper {
         if (templateName.equals("ALL")) {
             return enableAllEvents(target);
         }
-        TemplateType type = getPreferredTemplateType(target, templateName, templateType);
-        switch (type) {
+        switch (templateType) {
             case TARGET:
                 return targetTemplateServiceFactory
                         .create(target)
-                        .getEvents(templateName, type)
+                        .getEvents(templateName, templateType)
                         .orElseThrow();
             case CUSTOM:
                 return customTemplateService.getEvents(templateName, templateType).orElseThrow();
