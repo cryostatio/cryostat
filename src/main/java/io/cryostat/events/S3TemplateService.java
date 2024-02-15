@@ -53,8 +53,8 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Response;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 @ApplicationScoped
 class S3TemplateService implements TemplateService {
@@ -100,12 +100,12 @@ class S3TemplateService implements TemplateService {
     @Override
     public List<Template> getTemplates() throws FlightRecorderException {
         var builder = ListObjectsV2Request.builder().bucket(eventTemplatesBucket);
-        var objects = storage.listObjectsV2(builder.build());
+        var objects = storage.listObjectsV2(builder.build()).contents();
         var templates = convertObjects(objects);
         return templates;
     }
 
-    private List<Template> convertObjects(ListObjectsV2Response objects) {
+    private List<Template> convertObjects(List<S3Object> objects) {
         return List.of();
     }
 
