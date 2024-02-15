@@ -73,8 +73,17 @@ public class EventTemplates {
     @Blocking
     @Path("/api/v1/templates")
     @RolesAllowed("write")
-    public Uni<Void> postTemplatesV1(@RestForm("template") FileUpload body) {
-        // FIXME this should redirect to a POST /api/v3/event_templates
+    public Response postTemplatesV1(@RestForm("template") FileUpload body) {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create("/api/v3/event_templates"))
+                .build();
+    }
+
+    @POST
+    @Blocking
+    @Path("/api/v3/event_templates")
+    @RolesAllowed("write")
+    public Uni<Void> postTemplates(@RestForm("template") FileUpload body) {
         CompletableFuture<Void> cf = new CompletableFuture<>();
         var path = body.filePath();
         vertx.fileSystem()
@@ -100,7 +109,16 @@ public class EventTemplates {
     @DELETE
     @Path("/api/v1/templates/{templateName}")
     @RolesAllowed("write")
-    public void deleteTemplatesV1(@RestPath String templateName) {
+    public Response deleteTemplatesV1(@RestPath String templateName) {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create(String.format("/api/v3/event_templates/%s", templateName)))
+                .build();
+    }
+
+    @DELETE
+    @Path("/api/v3/event_templates/{templateName}")
+    @RolesAllowed("write")
+    public void deleteTemplates(@RestPath String templateName) {
         customTemplateService.removeTemplate(templateName);
     }
 
