@@ -67,6 +67,7 @@ import org.jsoup.parser.Parser;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
@@ -79,8 +80,8 @@ import software.amazon.awssdk.services.s3.model.Tagging;
 @ApplicationScoped
 class S3TemplateService implements TemplateService {
 
-    public static final String EVENT_TEMPLATE_CREATED = "TemplateUploaded";
-    public static final String EVENT_TEMPLATE_DELETED = "TemplateDeleted";
+    static final String EVENT_TEMPLATE_CREATED = "TemplateUploaded";
+    static final String EVENT_TEMPLATE_DELETED = "TemplateDeleted";
 
     @Inject S3Client storage;
 
@@ -239,7 +240,7 @@ class S3TemplateService implements TemplateService {
     }
 
     @Blocking
-    public Template addTemplate(String templateText)
+    Template addTemplate(String templateText)
             throws InvalidXmlException, InvalidEventTemplateException, IOException {
         try (var stream = new ByteArrayInputStream(templateText.getBytes(StandardCharsets.UTF_8))) {
             XMLModel model = parseXml(stream);
@@ -279,7 +280,7 @@ class S3TemplateService implements TemplateService {
             var template = new Template(templateName, description, provider, TemplateType.CUSTOM);
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(EVENT_TEMPLATE_CREATED, template));
+                    new Notification(EVENT_TEMPLATE_CREATED, Map.of("template", template)));
             return template;
         } catch (IOException ioe) {
             // FIXME InvalidXmlException constructor should be made public in -core
@@ -288,6 +289,20 @@ class S3TemplateService implements TemplateService {
         } catch (ParseException | IllegalArgumentException e) {
             throw new IllegalArgumentException(new InvalidEventTemplateException("Invalid XML", e));
         }
+    }
+
+    @Blocking
+    void removeTemplate(String templateName) {
+        var req =
+                DeleteObjectRequest.builder()
+                        .bucket(eventTemplatesBucket)
+                        .key(templateName)
+                        .build();
+        storage.deleteObject(req);
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        EVENT_TEMPLATE_DELETED, Map.of("template", Map.of("name", templateName))));
     }
 
     private Tagging createTemplateTagging(

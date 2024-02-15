@@ -24,11 +24,13 @@ import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.targets.Target;
 
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -68,9 +70,10 @@ public class EventTemplates {
     }
 
     @POST
+    @Blocking
     @Path("/api/v1/templates")
     @RolesAllowed("write")
-    public Uni<Void> postTemplatesV1(@RestForm("template") FileUpload body) throws Exception {
+    public Uni<Void> postTemplatesV1(@RestForm("template") FileUpload body) {
         // FIXME this should redirect to a POST /api/v3/event_templates
         CompletableFuture<Void> cf = new CompletableFuture<>();
         var path = body.filePath();
@@ -94,14 +97,20 @@ public class EventTemplates {
         return Uni.createFrom().future(cf);
     }
 
+    @DELETE
+    @Path("/api/v1/templates/{templateName}")
+    @RolesAllowed("write")
+    public void deleteTemplatesV1(@RestPath String templateName) {
+        customTemplateService.removeTemplate(templateName);
+    }
+
     @GET
     @Path("/api/v1/targets/{connectUrl}/templates/{templateName}/type/{templateType}")
     @RolesAllowed("read")
     public Response getTargetTemplateV1(
             @RestPath URI connectUrl,
             @RestPath String templateName,
-            @RestPath TemplateType templateType)
-            throws Exception {
+            @RestPath TemplateType templateType) {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(
