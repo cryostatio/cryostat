@@ -46,9 +46,12 @@ import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateService;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.util.HttpStatusCodeIdentifier;
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.vertx.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -76,7 +79,12 @@ import software.amazon.awssdk.services.s3.model.Tagging;
 @ApplicationScoped
 class S3TemplateService implements TemplateService {
 
+    public static final String EVENT_TEMPLATE_CREATED = "TemplateUploaded";
+    public static final String EVENT_TEMPLATE_DELETED = "TemplateDeleted";
+
     @Inject S3Client storage;
+
+    @Inject EventBus bus;
 
     @Inject
     @Named(Producers.BASE64_URL)
@@ -268,7 +276,11 @@ class S3TemplateService implements TemplateService {
                             .build(),
                     RequestBody.fromString(model.toString()));
 
-            return new Template(templateName, description, provider, TemplateType.CUSTOM);
+            var template = new Template(templateName, description, provider, TemplateType.CUSTOM);
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(EVENT_TEMPLATE_CREATED, template));
+            return template;
         } catch (IOException ioe) {
             // FIXME InvalidXmlException constructor should be made public in -core
             // throw new InvalidXmlException("Unable to parse XML stream", ioe);
