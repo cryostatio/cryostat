@@ -90,7 +90,7 @@ public class EventTemplates {
     @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
-    static String eventTemplatesBucket;
+    String eventTemplatesBucket;
 
     void onStart(@Observes StartupEvent evt) {
         boolean exists = false;
