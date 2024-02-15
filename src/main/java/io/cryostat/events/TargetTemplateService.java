@@ -46,7 +46,7 @@ class TargetTemplateService implements TemplateService {
     private final TargetConnectionManager connectionManager;
     private final Target target;
 
-    public TargetTemplateService(TargetConnectionManager connectionManager, Target target) {
+    private TargetTemplateService(TargetConnectionManager connectionManager, Target target) {
         this.connectionManager = connectionManager;
         this.target = target;
     }
