@@ -15,7 +15,6 @@
  */
 package io.cryostat.events;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -40,10 +39,10 @@ import org.openjdk.jmc.flightrecorder.controlpanel.ui.model.EventConfiguration;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.core.FlightRecorderException;
+import io.cryostat.core.templates.MutableTemplateService;
 import io.cryostat.core.templates.MutableTemplateService.InvalidEventTemplateException;
 import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
 import io.cryostat.core.templates.Template;
-import io.cryostat.core.templates.TemplateService;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 import io.cryostat.ws.MessagingServer;
@@ -78,7 +77,7 @@ import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 
 @ApplicationScoped
-class S3TemplateService implements TemplateService {
+class S3TemplateService implements MutableTemplateService {
 
     static final String EVENT_TEMPLATE_CREATED = "TemplateUploaded";
     static final String EVENT_TEMPLATE_DELETED = "TemplateDeleted";
@@ -240,9 +239,10 @@ class S3TemplateService implements TemplateService {
     }
 
     @Blocking
-    Template addTemplate(String templateText)
+    @Override
+    public Template addTemplate(InputStream stream)
             throws InvalidXmlException, InvalidEventTemplateException, IOException {
-        try (var stream = new ByteArrayInputStream(templateText.getBytes(StandardCharsets.UTF_8))) {
+        try (stream) {
             XMLModel model = parseXml(stream);
 
             XMLTagInstance configuration = model.getRoot();
@@ -292,7 +292,8 @@ class S3TemplateService implements TemplateService {
     }
 
     @Blocking
-    void removeTemplate(String templateName) {
+    @Override
+    public void deleteTemplate(String templateName) {
         var req =
                 DeleteObjectRequest.builder()
                         .bucket(eventTemplatesBucket)
