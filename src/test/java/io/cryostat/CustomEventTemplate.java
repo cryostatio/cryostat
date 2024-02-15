@@ -2,23 +2,19 @@ package io.cryostat;
 
 import static io.cryostat.TestUtils.givenBasicAuth;
 
-import javax.swing.text.AbstractDocument.Content;
+import io.cryostat.core.templates.Template;
+import io.cryostat.core.templates.TemplateType;
 
+import jakarta.transaction.Transactional;
 import org.apache.http.entity.ContentType;
-import org.eclipse.microprofile.openapi.models.media.XML;
 import org.junit.Test;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
-import io.cryostat.core.templates.Template;
-import io.cryostat.core.templates.TemplateType;
-import io.vertx.core.json.JsonObject;
-import jakarta.transaction.Transactional;
-
 public class CustomEventTemplate {
 
     Template template;
-    
+
     static String TEMPLATE_NAME = "customEventTemplate";
 
     @BeforeEach
@@ -39,6 +35,11 @@ public class CustomEventTemplate {
 
     @Test
     public void testCustom() {
-        givenBasicAuth().body().contentType(ContentType.APPLICATION_XML).post().then().statusCode(200);
+        givenBasicAuth()
+                .body()
+                .contentType(ContentType.APPLICATION_XML)
+                .post()
+                .then()
+                .statusCode(200);
     }
 }
