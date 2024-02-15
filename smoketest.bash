@@ -9,6 +9,8 @@ DIR="$(dirname "$(readlink -f "$0")")"
 
 FILES=(
     "${DIR}/smoketest/compose/db.yml"
+    "${DIR}/smoketest/compose/cryostat-grafana.yml"
+    "${DIR}/smoketest/compose/jfr-datasource.yml"
 )
 
 USE_USERHOSTS=${USE_USERHOSTS:-true}
@@ -18,7 +20,7 @@ OPEN_TABS=${OPEN_TABS:-false}
 
 CRYOSTAT_HTTP_PORT=8080
 USE_PROXY=${USE_PROXY:-true}
-DEPLOY_GRAFANA=false
+DEPLOY_GRAFANA=true
 
 display_usage() {
     echo "Usage:"
@@ -26,7 +28,7 @@ display_usage() {
     echo -e "\t-O\t\t\t\t\t\tOffline mode, do not attempt to pull container images."
     echo -e "\t-p\t\t\t\t\t\tDisable auth Proxy."
     echo -e "\t-s [seaweed|minio|cloudserver|localstack]\tS3 implementation to spin up (default \"seaweed\")."
-    echo -e "\t-g\t\t\t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
+    echo -e "\t-G\t\t\t\t\t\texclude Grafana dashboard and jfr-datasource from deployment."
     echo -e "\t-r\t\t\t\t\t\tconfigure a cryostat-Reports sidecar instance"
     echo -e "\t-t\t\t\t\t\t\tinclude sample applications for Testing."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
@@ -50,8 +52,7 @@ while getopts "hs:prgtOVXcb" opt; do
             s3="${OPTARG}"
             ;;
         g)
-            FILES+=("${DIR}/smoketest/compose/cryostat-grafana.yml" "${DIR}/smoketest/compose/jfr-datasource.yml")
-            DEPLOY_GRAFANA=true
+            DEPLOY_GRAFANA=false
             ;;
         t)
             FILES+=("${DIR}/smoketest/compose/sample-apps.yml")
