@@ -19,7 +19,7 @@ import java.io.File;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
-import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.handler.HttpException;
@@ -31,9 +31,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-@QuarkusIntegrationTest
+@QuarkusTest
 @Disabled("TODO")
 public class TemplatePostDeleteIT extends StandardSelfTest {
+
     static final String INVALID_TEMPLATE_FILE_NAME = "invalidTemplate.xml";
     static final String SANITIZE_TEMPLATE_FILE_NAME = "TemplateToSanitize.jfc";
     static final String TEMPLATE_NAME = "invalidTemplate";
@@ -57,6 +58,7 @@ public class TemplatePostDeleteIT extends StandardSelfTest {
 
         webClient
                 .post(REQ_URL)
+                .followRedirects(true)
                 .sendMultipartForm(
                         form,
                         ar -> {
@@ -86,6 +88,7 @@ public class TemplatePostDeleteIT extends StandardSelfTest {
 
         webClient
                 .post(REQ_URL)
+                .followRedirects(true)
                 .sendMultipartForm(
                         form,
                         ar -> {
@@ -105,6 +108,7 @@ public class TemplatePostDeleteIT extends StandardSelfTest {
 
         webClient
                 .delete(String.format("%s/%s", REQ_URL, INVALID_TEMPLATE_FILE_NAME))
+                .followRedirects(true)
                 .send(
                         ar -> {
                             assertRequestStatus(ar, response);
@@ -131,6 +135,7 @@ public class TemplatePostDeleteIT extends StandardSelfTest {
                                     "template", SANITIZE_TEMPLATE_FILE_NAME, path, MEDIA_TYPE);
             webClient
                     .post(REQ_URL)
+                    .followRedirects(true)
                     .sendMultipartForm(
                             form,
                             ar -> {
@@ -141,7 +146,11 @@ public class TemplatePostDeleteIT extends StandardSelfTest {
 
             CompletableFuture<JsonArray> getResponse = new CompletableFuture<>();
             webClient
-                    .get("/api/v1/targets/localhost:0/templates")
+                    .get(
+                            String.format(
+                                    "/api/v1/targets/%s/templates",
+                                    getSelfReferenceConnectUrlEncoded()))
+                    .followRedirects(true)
                     .send(
                             ar -> {
                                 assertRequestStatus(ar, getResponse);
@@ -160,6 +169,7 @@ public class TemplatePostDeleteIT extends StandardSelfTest {
             CompletableFuture<Integer> deleteResponse = new CompletableFuture<>();
             webClient
                     .delete(REQ_URL + "/Template_To_Sanitize")
+                    .followRedirects(true)
                     .send(
                             ar -> {
                                 assertRequestStatus(ar, deleteResponse);
