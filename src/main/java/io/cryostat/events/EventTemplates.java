@@ -93,6 +93,8 @@ public class EventTemplates {
     String eventTemplatesBucket;
 
     void onStart(@Observes StartupEvent evt) {
+        // FIXME refactor this to a reusable utility method since this is done for custom event
+        // templates, archived recordings, and archived reports
         boolean exists = false;
         try {
             exists =
