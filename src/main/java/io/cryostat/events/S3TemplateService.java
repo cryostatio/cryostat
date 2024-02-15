@@ -122,6 +122,7 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     @Override
+    @Blocking
     public Optional<IConstrainedMap<EventOptionID>> getEvents(
             String templateName, TemplateType unused) throws FlightRecorderException {
         try (var stream = getModel(templateName)) {
@@ -137,6 +138,7 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     @Override
+    @Blocking
     public List<Template> getTemplates() throws FlightRecorderException {
         return getObjects().stream()
                 .map(
@@ -153,6 +155,7 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     @Override
+    @Blocking
     public Optional<Document> getXml(String templateName, TemplateType unused)
             throws FlightRecorderException {
         try (var stream = getModel(templateName)) {

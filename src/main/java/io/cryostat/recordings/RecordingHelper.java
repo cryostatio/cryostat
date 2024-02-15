@@ -189,6 +189,7 @@ public class RecordingHelper {
         }
     }
 
+    @Blocking
     public ActiveRecording startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
@@ -241,6 +242,7 @@ public class RecordingHelper {
         return recording;
     }
 
+    @Blocking
     public ActiveRecording createSnapshot(Target target, JFRConnection connection)
             throws Exception {
         IRecordingDescriptor desc = connection.getService().getSnapshotRecording();
@@ -298,6 +300,7 @@ public class RecordingHelper {
         return recording;
     }
 
+    @Blocking
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
         if (!connectionManager.markConnectionInUse(target)) {
             throw new IOException(
@@ -358,6 +361,7 @@ public class RecordingHelper {
         throw new BadRequestException(eventSpecifier);
     }
 
+    @Blocking
     private IConstrainedMap<EventOptionID> enableAllEvents(Target target) throws Exception {
         return connectionManager.executeConnectedTask(
                 target,
@@ -374,7 +378,8 @@ public class RecordingHelper {
                 });
     }
 
-    public IConstrainedMap<EventOptionID> enableEvents(
+    @Blocking
+    private IConstrainedMap<EventOptionID> enableEvents(
             Target target, String templateName, TemplateType templateType) throws Exception {
         if (templateName.equals("ALL")) {
             return enableAllEvents(target);
@@ -394,7 +399,8 @@ public class RecordingHelper {
         }
     }
 
-    public TemplateType getPreferredTemplateType(
+    @Blocking
+    private TemplateType getPreferredTemplateType(
             Target target, String templateName, TemplateType templateType) throws Exception {
         // if template type not specified, try to find a Custom template by that name. If none,
         // fall back on finding a Target built-in template by the name. If not, throw an
@@ -457,10 +463,12 @@ public class RecordingHelper {
         }
     }
 
+    @Blocking
     public List<S3Object> listArchivedRecordingObjects() {
         return listArchivedRecordingObjects(null);
     }
 
+    @Blocking
     public List<S3Object> listArchivedRecordingObjects(String jvmId) {
         var builder = ListObjectsV2Request.builder().bucket(archiveBucket);
         if (StringUtils.isNotBlank(jvmId)) {
@@ -484,6 +492,7 @@ public class RecordingHelper {
         return saveRecording(recording, null, expiry);
     }
 
+    @Blocking
     public String saveRecording(ActiveRecording recording, String savename, Instant expiry)
             throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
@@ -613,6 +622,7 @@ public class RecordingHelper {
         return getArchivedRecordingMetadata(archivedRecordingKey(jvmId, filename));
     }
 
+    @Blocking
     public Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
         try {
             return Optional.of(
@@ -670,6 +680,7 @@ public class RecordingHelper {
         return getArchivedRecordingStream(encodedKey(jvmId, recordingName));
     }
 
+    @Blocking
     public InputStream getArchivedRecordingStream(String encodedKey) {
         String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
 
@@ -696,6 +707,7 @@ public class RecordingHelper {
         return String.format("/api/v3/reports/%s", encodedKey(jvmId, filename));
     }
 
+    @Blocking
     private int retryRead(ReadableByteChannel channel, ByteBuffer buffer) throws IOException {
         int attempts = 30;
         int read = 0;
@@ -718,6 +730,7 @@ public class RecordingHelper {
     }
 
     /* Archived Recording Helpers */
+    @Blocking
     public void deleteArchivedRecording(String jvmId, String filename) {
         storage.deleteObject(
                 DeleteObjectRequest.builder()
@@ -882,6 +895,7 @@ public class RecordingHelper {
                         });
     }
 
+    @Blocking
     Optional<Path> getRecordingCopyPath(
             JFRConnection connection, Target target, String recordingName) throws Exception {
         return connection.getService().getAvailableRecordings().stream()

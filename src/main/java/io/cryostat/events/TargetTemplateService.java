@@ -28,6 +28,7 @@ import io.cryostat.core.templates.TemplateType;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
+import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jsoup.nodes.Document;
@@ -52,6 +53,7 @@ public class TargetTemplateService implements TemplateService {
     }
 
     @Override
+    @Blocking
     public List<Template> getTemplates() throws FlightRecorderException {
         return connectionManager.executeConnectedTask(
                 target,
@@ -62,6 +64,7 @@ public class TargetTemplateService implements TemplateService {
     }
 
     @Override
+    @Blocking
     public Optional<Document> getXml(String templateName, TemplateType unused)
             throws FlightRecorderException {
         return connectionManager.executeConnectedTask(
@@ -70,6 +73,7 @@ public class TargetTemplateService implements TemplateService {
     }
 
     @Override
+    @Blocking
     public Optional<IConstrainedMap<EventOptionID>> getEvents(
             String templateName, TemplateType unused) throws FlightRecorderException {
         return connectionManager.executeConnectedTask(
