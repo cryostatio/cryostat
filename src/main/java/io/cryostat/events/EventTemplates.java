@@ -71,6 +71,7 @@ public class EventTemplates {
     @Path("/api/v1/templates")
     @RolesAllowed("write")
     public Uni<Void> postTemplatesV1(@RestForm("template") FileUpload body) throws Exception {
+        // FIXME this should redirect to a POST /api/v3/event_templates
         CompletableFuture<Void> cf = new CompletableFuture<>();
         var path = body.filePath();
         vertx.fileSystem()
@@ -107,7 +108,7 @@ public class EventTemplates {
                         URI.create(
                                 String.format(
                                         "/api/v3/targets/%d/event_templates/%s/%s",
-                                        target.id, templateName, templateType)))
+                                        target.id, templateType, templateName)))
                 .build();
     }
 
@@ -124,10 +125,10 @@ public class EventTemplates {
     }
 
     @GET
-    @Path("/api/v3/targets/{id}/event_templates/{templateName}/{templateType}")
+    @Path("/api/v3/targets/{id}/event_templates/{templateType}/{templateName}")
     @RolesAllowed("read")
     public String getTargetTemplate(
-            @RestPath long id, @RestPath String templateName, @RestPath TemplateType templateType)
+            @RestPath long id, @RestPath TemplateType templateType, @RestPath String templateName)
             throws Exception {
         Target target = Target.find("id", id).singleResult();
         switch (templateType) {
