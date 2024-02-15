@@ -144,6 +144,23 @@ public class EventTemplates {
     }
 
     @GET
+    @Path("/api/v2.1/targets/{connectUrl}/templates/{templateName}/type/{templateType}")
+    @RolesAllowed("read")
+    public Response getTargetTemplateV2_1(
+            @RestPath URI connectUrl,
+            @RestPath String templateName,
+            @RestPath TemplateType templateType) {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/event_templates/%s/%s",
+                                        target.id, templateType, templateName)))
+                .build();
+    }
+
+    @GET
     @Blocking
     @Path("/api/v3/event_templates")
     @RolesAllowed("read")
