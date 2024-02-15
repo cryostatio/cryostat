@@ -77,7 +77,7 @@ import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 
 @ApplicationScoped
-public class S3TemplateService implements MutableTemplateService {
+class S3TemplateService implements MutableTemplateService {
 
     static final String EVENT_TEMPLATE_CREATED = "TemplateUploaded";
     static final String EVENT_TEMPLATE_DELETED = "TemplateDeleted";

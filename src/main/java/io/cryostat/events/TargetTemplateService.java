@@ -32,13 +32,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jsoup.nodes.Document;
 
-public class TargetTemplateService implements TemplateService {
+class TargetTemplateService implements TemplateService {
 
     @ApplicationScoped
-    public static class Factory {
+    static class Factory {
         @Inject TargetConnectionManager connectionManager;
 
-        public TargetTemplateService create(Target target) {
+        TargetTemplateService create(Target target) {
             return new TargetTemplateService(connectionManager, target);
         }
     }
