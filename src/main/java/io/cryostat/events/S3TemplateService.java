@@ -298,16 +298,25 @@ public class S3TemplateService implements MutableTemplateService {
     @Blocking
     @Override
     public void deleteTemplate(String templateName) {
-        var req =
-                DeleteObjectRequest.builder()
-                        .bucket(eventTemplatesBucket)
-                        .key(templateName)
-                        .build();
-        storage.deleteObject(req);
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(
-                        EVENT_TEMPLATE_DELETED, Map.of("template", Map.of("name", templateName))));
+        try {
+            var template =
+                    getTemplates().stream()
+                            .filter(t -> t.getName().equals(templateName))
+                            .findFirst()
+                            .orElseThrow();
+            var req =
+                    DeleteObjectRequest.builder()
+                            .bucket(eventTemplatesBucket)
+                            .key(templateName)
+                            .build();
+            if (storage.deleteObject(req).sdkHttpResponse().isSuccessful()) {
+                bus.publish(
+                        MessagingServer.class.getName(),
+                        new Notification(EVENT_TEMPLATE_DELETED, Map.of("template", template)));
+            }
+        } catch (FlightRecorderException e) {
+            logger.error(e);
+        }
     }
 
     private Tagging createTemplateTagging(
