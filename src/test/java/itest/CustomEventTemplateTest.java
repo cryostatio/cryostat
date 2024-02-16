@@ -23,6 +23,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.multipart.MultipartForm;
 import itest.bases.StandardSelfTest;
+import org.apache.http.client.utils.URLEncodedUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
@@ -34,7 +35,7 @@ import org.junit.jupiter.api.Test;
 public class CustomEventTemplateTest extends StandardSelfTest {
 
     static final String INVALID_TEMPLATE_FILE_NAME = "invalidTemplate.xml";
-    static final String SANITIZE_TEMPLATE_FILE_NAME = "TemplateToSanitize.jfc";
+    static final String TEMPLATE_FILE_NAME = "CustomEventTemplate.jfc";
     static final String TEMPLATE_NAME = "invalidTemplate";
     static final String MEDIA_TYPE = "application/xml";
     static final String REQ_URL = "/api/v1/templates";
@@ -87,17 +88,16 @@ public class CustomEventTemplateTest extends StandardSelfTest {
     }
 
     @Test
-    public void testPostedTemplateIsSanitizedAndCanBeDeleted() throws Exception {
+    public void testPostedTemplateCanBeDeleted() throws Exception {
         try {
             ClassLoader classLoader = getClass().getClassLoader();
-            File templateToSanitize =
-                    new File(classLoader.getResource(SANITIZE_TEMPLATE_FILE_NAME).getFile());
-            String path = templateToSanitize.getAbsolutePath();
+            File customEventTemplate =
+                    new File(classLoader.getResource(TEMPLATE_FILE_NAME).getFile());
+            String path = customEventTemplate.getAbsolutePath();
             MultipartForm form =
                     MultipartForm.create()
-                            .attribute("template", SANITIZE_TEMPLATE_FILE_NAME)
-                            .binaryFileUpload(
-                                    "template", SANITIZE_TEMPLATE_FILE_NAME, path, MEDIA_TYPE);
+                            .attribute("template", TEMPLATE_FILE_NAME)
+                            .binaryFileUpload("template", TEMPLATE_FILE_NAME, path, MEDIA_TYPE);
             HttpResponse<Buffer> postResp =
                     webClient.extensions().post(REQ_URL, form, REQUEST_TIMEOUT_SECONDS);
             MatcherAssert.assertThat(postResp.statusCode(), Matchers.equalTo(200));
@@ -115,13 +115,18 @@ public class CustomEventTemplateTest extends StandardSelfTest {
                 JsonObject json = (JsonObject) o;
                 foundSanitizedTemplate =
                         foundSanitizedTemplate
-                                || json.getString("name").equals("Template_To_Sanitize");
+                                || json.getString("name").equals("Custom Event Template");
             }
             Assertions.assertTrue(foundSanitizedTemplate);
         } finally {
             webClient
                     .extensions()
-                    .delete(REQ_URL + "/Template_To_Sanitize", REQUEST_TIMEOUT_SECONDS);
+                    .delete(
+                            String.format(
+                                    "%s/%s",
+                                    REQ_URL,
+                                    URLEncodedUtils.formatSegments("/Template_To_Sanitize")),
+                            REQUEST_TIMEOUT_SECONDS);
         }
     }
 }

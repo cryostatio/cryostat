@@ -265,7 +265,6 @@ public class S3TemplateService implements MutableTemplateService {
             }
 
             String templateName = labelAttr.getExplicitValue();
-            templateName = templateName.replaceAll("[\\W]+", "_");
 
             XMLTagInstance root = model.getRoot();
             root.setValue(JFCGrammar.ATTRIBUTE_LABEL_MANDATORY, templateName);

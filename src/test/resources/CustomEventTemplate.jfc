@@ -5,7 +5,7 @@
      see Window -> Flight Recorder Template Manager.
 -->
 
-<configuration version="2.0" label="Template To Sanitize" description="Template with multiple words in label/name" provider="Cryostat">
+<configuration version="2.0" label="Custom Event Template" description="Custom event template with multiple words in label/name" provider="Cryostat">
 
     <event name="jdk.ThreadAllocationStatistics">
       <setting name="enabled">true</setting>
