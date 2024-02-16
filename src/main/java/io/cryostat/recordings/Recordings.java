@@ -16,10 +16,8 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
@@ -88,8 +86,6 @@ import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.validator.routines.UrlValidator;
-import org.apache.hc.core5.http.HttpStatus;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -820,7 +816,8 @@ public class Recordings {
     @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}/upload")
     @RolesAllowed("write")
-    public Response uploadToGrafanaV1(@RestPath URI connectUrl, @RestPath String recordingName) {
+    public Response uploadActiveToGrafanaV1(
+            @RestPath URI connectUrl, @RestPath String recordingName) {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         long remoteId =
                 target.activeRecordings.stream()
@@ -841,31 +838,42 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/targets/{targetId}/recordings/{remoteId}/upload")
     @RolesAllowed("write")
-    public Response uploadToGrafana(@RestPath long targetId, @RestPath long remoteId)
+    public Uni<String> uploadActiveToGrafana(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
-        try {
-            URL uploadUrl =
-                    new URL(
-                            grafanaDatasourceURL.orElseThrow(
-                                    () ->
-                                            new HttpException(
-                                                    HttpStatus.SC_BAD_GATEWAY,
-                                                    "GRAFANA_DATASOURCE_URL environment variable"
-                                                            + " does not exist")));
-            boolean isValidUploadUrl =
-                    new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS).isValid(uploadUrl.toString());
-            if (!isValidUploadUrl) {
-                throw new HttpException(
-                        HttpStatus.SC_BAD_GATEWAY,
-                        String.format(
-                                "$%s=%s is an invalid datasource URL",
-                                ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
-            }
+        return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
+    }
 
-            return recordingHelper.uploadToJFRDatasource(targetId, remoteId, uploadUrl);
-        } catch (MalformedURLException e) {
-            throw new HttpException(HttpStatus.SC_BAD_GATEWAY, e);
+    @POST
+    @Path("/api/beta/fs/recordings/{jvmId}/{filename}/upload")
+    @RolesAllowed("write")
+    public Response uploadArchivedToGrafanaBeta(@RestPath String jvmId, @RestPath String filename)
+            throws Exception {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/grafana/%s",
+                                        recordingHelper.encodedKey(jvmId, filename))))
+                .build();
+    }
+
+    @POST
+    @Blocking
+    @Path("/api/v3/grafana/{encodedKey}")
+    @RolesAllowed("write")
+    public Uni<String> uploadArchivedToGrafana(@RestPath String encodedKey) throws Exception {
+        var key = recordingHelper.decodedKey(encodedKey);
+        var found =
+                recordingHelper.listArchivedRecordingObjects().stream()
+                        .anyMatch(
+                                o ->
+                                        Objects.equals(
+                                                o.key(),
+                                                recordingHelper.archivedRecordingKey(key)));
+        if (!found) {
+            throw new NotFoundException();
         }
+        return recordingHelper.uploadToJFRDatasource(key);
     }
 
     @GET
