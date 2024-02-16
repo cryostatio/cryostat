@@ -15,8 +15,7 @@
  */
 package itest;
 
-import java.io.File;
-
+import io.quarkus.test.junit.DisabledOnIntegrationTest;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
@@ -27,11 +26,10 @@ import org.apache.http.client.utils.URLEncodedUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@Disabled("TODO")
+@DisabledOnIntegrationTest("classpath resources are not loadable in integration test")
 public class CustomEventTemplateTest extends StandardSelfTest {
 
     static final String INVALID_TEMPLATE_FILE_NAME = "invalidTemplate.xml";
@@ -43,37 +41,33 @@ public class CustomEventTemplateTest extends StandardSelfTest {
     @Test
     public void shouldThrowIfTemplateUploadNameInvalid() throws Exception {
         ClassLoader classLoader = getClass().getClassLoader();
-        File invalidTemplate =
-                new File(classLoader.getResource(INVALID_TEMPLATE_FILE_NAME).getFile());
-        String path = invalidTemplate.getAbsolutePath();
+        try (var stream = classLoader.getResourceAsStream(INVALID_TEMPLATE_FILE_NAME)) {
+            var buf = Buffer.buffer(stream.readAllBytes());
+            MultipartForm form =
+                    MultipartForm.create()
+                            .binaryFileUpload(
+                                    TEMPLATE_NAME, INVALID_TEMPLATE_FILE_NAME, buf, MEDIA_TYPE);
 
-        MultipartForm form =
-                MultipartForm.create()
-                        .attribute("invalidTemplateAttribute", INVALID_TEMPLATE_FILE_NAME)
-                        .binaryFileUpload(
-                                TEMPLATE_NAME, INVALID_TEMPLATE_FILE_NAME, path, MEDIA_TYPE);
-
-        HttpResponse<Buffer> resp =
-                webClient.extensions().post(REQ_URL, form, REQUEST_TIMEOUT_SECONDS);
-        MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(400));
+            HttpResponse<Buffer> resp =
+                    webClient.extensions().post(REQ_URL, form, REQUEST_TIMEOUT_SECONDS);
+            MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(400));
+        }
     }
 
     @Test
     public void shouldThrowWhenPostingInvalidTemplate() throws Exception {
         ClassLoader classLoader = getClass().getClassLoader();
-        File invalidTemplate =
-                new File(classLoader.getResource(INVALID_TEMPLATE_FILE_NAME).getFile());
-        String path = invalidTemplate.getAbsolutePath();
+        try (var stream = classLoader.getResourceAsStream(INVALID_TEMPLATE_FILE_NAME)) {
+            var buf = Buffer.buffer(stream.readAllBytes());
+            MultipartForm form =
+                    MultipartForm.create()
+                            .binaryFileUpload(
+                                    TEMPLATE_NAME, INVALID_TEMPLATE_FILE_NAME, buf, MEDIA_TYPE);
 
-        MultipartForm form =
-                MultipartForm.create()
-                        .attribute("template", INVALID_TEMPLATE_FILE_NAME)
-                        .binaryFileUpload(
-                                TEMPLATE_NAME, INVALID_TEMPLATE_FILE_NAME, path, MEDIA_TYPE);
-
-        HttpResponse<Buffer> resp =
-                webClient.extensions().post(REQ_URL, form, REQUEST_TIMEOUT_SECONDS);
-        MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(400));
+            HttpResponse<Buffer> resp =
+                    webClient.extensions().post(REQ_URL, form, REQUEST_TIMEOUT_SECONDS);
+            MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(400));
+        }
     }
 
     @Test
@@ -88,19 +82,16 @@ public class CustomEventTemplateTest extends StandardSelfTest {
     }
 
     @Test
-    public void testPostedTemplateCanBeDeleted() throws Exception {
-        try {
-            ClassLoader classLoader = getClass().getClassLoader();
-            File customEventTemplate =
-                    new File(classLoader.getResource(TEMPLATE_FILE_NAME).getFile());
-            String path = customEventTemplate.getAbsolutePath();
+    public void testPostedTemplateNameIsSanitizedAndCanBeDeleted() throws Exception {
+        ClassLoader classLoader = getClass().getClassLoader();
+        try (var stream = classLoader.getResourceAsStream(TEMPLATE_FILE_NAME)) {
+            var buf = Buffer.buffer(stream.readAllBytes());
             MultipartForm form =
                     MultipartForm.create()
-                            .attribute("template", TEMPLATE_FILE_NAME)
-                            .binaryFileUpload("template", TEMPLATE_FILE_NAME, path, MEDIA_TYPE);
+                            .binaryFileUpload("template", TEMPLATE_FILE_NAME, buf, MEDIA_TYPE);
             HttpResponse<Buffer> postResp =
                     webClient.extensions().post(REQ_URL, form, REQUEST_TIMEOUT_SECONDS);
-            MatcherAssert.assertThat(postResp.statusCode(), Matchers.equalTo(200));
+            MatcherAssert.assertThat(postResp.statusCode(), Matchers.equalTo(204));
 
             HttpResponse<Buffer> getResp =
                     webClient
@@ -113,20 +104,23 @@ public class CustomEventTemplateTest extends StandardSelfTest {
             boolean foundSanitizedTemplate = false;
             for (Object o : getResp.bodyAsJsonArray()) {
                 JsonObject json = (JsonObject) o;
+                var name = json.getString("name");
                 foundSanitizedTemplate =
-                        foundSanitizedTemplate
-                                || json.getString("name").equals("Custom Event Template");
+                        foundSanitizedTemplate || name.equals("Custom_Event_Template");
             }
             Assertions.assertTrue(foundSanitizedTemplate);
         } finally {
-            webClient
-                    .extensions()
-                    .delete(
-                            String.format(
-                                    "%s/%s",
-                                    REQ_URL,
-                                    URLEncodedUtils.formatSegments("/Template_To_Sanitize")),
-                            REQUEST_TIMEOUT_SECONDS);
+            var delResp =
+                    webClient
+                            .extensions()
+                            .delete(
+                                    String.format(
+                                            "%s%s",
+                                            REQ_URL,
+                                            URLEncodedUtils.formatSegments(
+                                                    "Custom_Event_Template")),
+                                    REQUEST_TIMEOUT_SECONDS);
+            MatcherAssert.assertThat(delResp.statusCode(), Matchers.equalTo(204));
         }
     }
 }

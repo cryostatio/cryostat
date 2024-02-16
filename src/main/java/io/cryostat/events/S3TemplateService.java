@@ -264,7 +264,7 @@ public class S3TemplateService implements MutableTemplateService {
                                 "Template has no configuration label attribute"));
             }
 
-            String templateName = labelAttr.getExplicitValue();
+            String templateName = labelAttr.getExplicitValue().replaceAll("[\\W]+", "_");
 
             XMLTagInstance root = model.getRoot();
             root.setValue(JFCGrammar.ATTRIBUTE_LABEL_MANDATORY, templateName);

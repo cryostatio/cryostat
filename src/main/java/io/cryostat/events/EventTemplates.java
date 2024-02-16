@@ -15,21 +15,20 @@
  */
 package io.cryostat.events;
 
-import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 
+import io.cryostat.core.sys.FileSystem;
+import io.cryostat.core.templates.MutableTemplateService.InvalidEventTemplateException;
+import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
 
 import io.smallrye.common.annotation.Blocking;
-import io.smallrye.mutiny.Uni;
-import io.vertx.core.Vertx;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
@@ -58,7 +57,7 @@ public class EventTemplates {
                     "Cryostat",
                     TemplateType.TARGET);
 
-    @Inject Vertx vertx;
+    @Inject FileSystem fs;
     @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
     @Inject Logger logger;
@@ -86,30 +85,15 @@ public class EventTemplates {
     @POST
     @Path("/api/v3/event_templates")
     @RolesAllowed("write")
-    public Uni<Void> postTemplates(@RestForm("template") FileUpload body) {
-        CompletableFuture<Void> cf = new CompletableFuture<>();
-        var path = body.filePath();
-        vertx.fileSystem()
-                .readFile(path.toString())
-                .onComplete(
-                        ar -> {
-                            var str = ar.result().toString();
-                            try (var stream =
-                                    new ByteArrayInputStream(
-                                            str.getBytes(StandardCharsets.UTF_8))) {
-                                customTemplateService.addTemplate(stream);
-                                cf.complete(null);
-                            } catch (Exception e) {
-                                logger.error(e);
-                                cf.completeExceptionally(e);
-                            }
-                        })
-                .onFailure(
-                        ar -> {
-                            logger.error(ar.getCause());
-                            cf.completeExceptionally(ar.getCause());
-                        });
-        return Uni.createFrom().future(cf);
+    public void postTemplates(@RestForm("template") FileUpload body) throws IOException {
+        if (body == null || body.filePath() == null || !"template".equals(body.name())) {
+            throw new BadRequestException();
+        }
+        try (var stream = fs.newInputStream(body.filePath())) {
+            customTemplateService.addTemplate(stream);
+        } catch (InvalidEventTemplateException | InvalidXmlException e) {
+            throw new BadRequestException(e);
+        }
     }
 
     @DELETE
