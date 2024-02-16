@@ -197,9 +197,10 @@ public class EventTemplates {
                 return targetTemplateServiceFactory
                         .create(target)
                         .getXml(templateName, templateType)
+                        .get()
                         .toString();
             case CUSTOM:
-                return customTemplateService.getXml(templateName, templateType).toString();
+                return customTemplateService.getXml(templateName, templateType).get().toString();
             default:
                 throw new BadRequestException();
         }
