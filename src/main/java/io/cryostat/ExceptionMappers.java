@@ -15,6 +15,7 @@
  */
 package io.cryostat;
 
+import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
@@ -42,6 +43,11 @@ public class ExceptionMappers {
 
     @ServerExceptionMapper
     public RestResponse<Void> mapNoResultException(NoResultException ex) {
+        return RestResponse.notFound();
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapNoSuchElementException(NoSuchElementException ex) {
         return RestResponse.notFound();
     }
 
