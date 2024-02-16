@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,10 +52,13 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.core.EventOptionsBuilder;
+import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;
+import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
+import io.cryostat.events.EventTemplates;
 import io.cryostat.events.S3TemplateService;
 import io.cryostat.events.TargetTemplateService;
 import io.cryostat.recordings.ActiveRecording.Listener.ActiveRecordingEvent;
@@ -193,16 +197,13 @@ public class RecordingHelper {
     public ActiveRecording startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
-            String templateName,
-            TemplateType templateType,
+            Template eventTemplate,
             Metadata metadata,
             boolean archiveOnStop,
             RecordingReplace replace,
             JFRConnection connection)
             throws Exception {
         String recordingName = (String) recordingOptions.get(RecordingOptionsBuilder.KEY_NAME);
-        TemplateType preferredTemplateType =
-                getPreferredTemplateType(target, templateName, templateType);
         getDescriptorByName(connection, recordingName)
                 .ifPresent(
                         previous -> {
@@ -222,13 +223,11 @@ public class RecordingHelper {
         IRecordingDescriptor desc =
                 connection
                         .getService()
-                        .start(
-                                recordingOptions,
-                                enableEvents(target, templateName, preferredTemplateType));
+                        .start(recordingOptions, enableEvents(target, eventTemplate));
 
         Map<String, String> labels = metadata.labels();
-        labels.put("template.name", templateName);
-        labels.put("template.type", preferredTemplateType.name());
+        labels.put("template.name", eventTemplate.getName());
+        labels.put("template.type", eventTemplate.getType().toString());
         Metadata meta = new Metadata(labels);
 
         ActiveRecording recording = ActiveRecording.from(target, desc, meta);
@@ -346,7 +345,7 @@ public class RecordingHelper {
                 recording.metadata);
     }
 
-    public Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier) {
+    public Pair<String, TemplateType> parseEventSpecifier(String eventSpecifier) {
         if (TEMPLATE_PATTERN.matcher(eventSpecifier).matches()) {
             Matcher m = TEMPLATE_PATTERN.matcher(eventSpecifier);
             m.find();
@@ -379,44 +378,74 @@ public class RecordingHelper {
     }
 
     @Blocking
-    private IConstrainedMap<EventOptionID> enableEvents(
-            Target target, String templateName, TemplateType templateType) throws Exception {
-        if (templateName.equals("ALL")) {
+    private IConstrainedMap<EventOptionID> enableEvents(Target target, Template eventTemplate)
+            throws Exception {
+        if (EventTemplates.ALL_EVENTS_TEMPLATE.equals(eventTemplate)) {
             return enableAllEvents(target);
         }
-        switch (templateType) {
+        switch (eventTemplate.getType()) {
             case TARGET:
                 return targetTemplateServiceFactory
                         .create(target)
-                        .getEvents(templateName, templateType)
+                        .getEvents(eventTemplate.getName(), eventTemplate.getType())
                         .orElseThrow();
             case CUSTOM:
-                return customTemplateService.getEvents(templateName, templateType).orElseThrow();
+                return customTemplateService
+                        .getEvents(eventTemplate.getName(), eventTemplate.getType())
+                        .orElseThrow();
             default:
                 throw new BadRequestException(
-                        String.format("Invalid/unknown event template %s", templateName));
+                        String.format(
+                                "Invalid/unknown event template %s", eventTemplate.getName()));
         }
     }
 
     @Blocking
-    private TemplateType getPreferredTemplateType(
+    public Template getPreferredTemplate(
             Target target, String templateName, TemplateType templateType) throws Exception {
-        // if template type not specified, try to find a Custom template by that name. If none,
-        // fall back on finding a Target built-in template by the name. If not, throw an
-        // exception and bail out.
-        if (templateType != null) {
-            return templateType;
+        Objects.requireNonNull(target);
+        Objects.requireNonNull(templateName);
+        if (templateName.equals(EventTemplates.ALL_EVENTS_TEMPLATE.getName())) {
+            return EventTemplates.ALL_EVENTS_TEMPLATE;
         }
-        if (customTemplateService.getTemplates().stream()
-                .anyMatch(t -> t.getName().equals(templateName))) {
-            return TemplateType.CUSTOM;
+        Supplier<Optional<Template>> custom =
+                () -> {
+                    try {
+                        return customTemplateService.getTemplates().stream()
+                                .filter(t -> t.getName().equals(templateName))
+                                .findFirst();
+                    } catch (FlightRecorderException e) {
+                        logger.error(e);
+                        return Optional.empty();
+                    }
+                };
+
+        Supplier<Optional<Template>> remote =
+                () -> {
+                    try {
+                        return targetTemplateServiceFactory.create(target).getTemplates().stream()
+                                .filter(t -> t.getName().equals(templateName))
+                                .findFirst();
+                    } catch (FlightRecorderException e) {
+                        logger.error(e);
+                        return Optional.empty();
+                    }
+                };
+        switch (templateType) {
+            case TARGET:
+                return remote.get().orElseThrow();
+            case CUSTOM:
+                return custom.get().orElseThrow();
+            default:
+                return custom.get()
+                        .or(() -> remote.get())
+                        .orElseThrow(
+                                () ->
+                                        new BadRequestException(
+                                                String.format(
+                                                        "Invalid/unknown event template %s",
+                                                        templateName)));
         }
-        if (targetTemplateServiceFactory.create(target).getTemplates().stream()
-                .anyMatch(t -> t.getName().equals(templateName))) {
-            return TemplateType.TARGET;
-        }
-        throw new BadRequestException(
-                String.format("Invalid/unknown event template %s", templateName));
     }
 
     static Optional<IRecordingDescriptor> getDescriptorById(
