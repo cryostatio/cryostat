@@ -25,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.targets.Target;
+import io.cryostat.util.HttpMimeType;
 
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -36,12 +37,14 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.jsoup.nodes.Document;
 
 @Path("")
 public class EventTemplates {
@@ -188,21 +191,28 @@ public class EventTemplates {
     @Blocking
     @Path("/api/v3/targets/{id}/event_templates/{templateType}/{templateName}")
     @RolesAllowed("read")
-    public String getTargetTemplate(
+    public Response getTargetTemplate(
             @RestPath long id, @RestPath TemplateType templateType, @RestPath String templateName)
             throws Exception {
         Target target = Target.find("id", id).singleResult();
+        Document doc;
         switch (templateType) {
             case TARGET:
-                return targetTemplateServiceFactory
-                        .create(target)
-                        .getXml(templateName, templateType)
-                        .get()
-                        .toString();
+                doc =
+                        targetTemplateServiceFactory
+                                .create(target)
+                                .getXml(templateName, templateType)
+                                .get();
+                break;
             case CUSTOM:
-                return customTemplateService.getXml(templateName, templateType).get().toString();
+                doc = customTemplateService.getXml(templateName, templateType).get();
+                break;
             default:
                 throw new BadRequestException();
         }
+        return Response.status(RestResponse.Status.OK)
+                .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.JFC.mime())
+                .entity(doc.toString())
+                .build();
     }
 }
