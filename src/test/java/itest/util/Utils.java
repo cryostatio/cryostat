@@ -35,6 +35,7 @@ import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.ext.web.client.impl.WebClientBase;
+import io.vertx.ext.web.multipart.MultipartForm;
 
 public class Utils {
 
@@ -90,6 +91,9 @@ public class Utils {
                 throws InterruptedException, ExecutionException, TimeoutException;
 
         HttpResponse<Buffer> post(String url, MultiMap payload, int timeout)
+                throws InterruptedException, ExecutionException, TimeoutException;
+
+        HttpResponse<Buffer> post(String url, MultipartForm payload, int timeout)
                 throws InterruptedException, ExecutionException, TimeoutException;
 
         HttpResponse<Buffer> delete(String url, int timeout)
@@ -173,6 +177,37 @@ public class Utils {
                 HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.POST, options);
                 if (payload != null) {
                     req.sendForm(
+                            payload,
+                            ar -> {
+                                if (ar.succeeded()) {
+                                    future.complete(ar.result());
+                                } else {
+                                    future.completeExceptionally(ar.cause());
+                                }
+                            });
+                } else {
+                    req.send(
+                            ar -> {
+                                if (ar.succeeded()) {
+                                    future.complete(ar.result());
+                                } else {
+                                    future.completeExceptionally(ar.cause());
+                                }
+                            });
+                }
+                if (future.get().statusCode() == 308) {
+                    return post(future.get().getHeader("Location"), payload, timeout);
+                }
+                return future.get(timeout, TimeUnit.SECONDS);
+            }
+
+            public HttpResponse<Buffer> post(String url, MultipartForm payload, int timeout)
+                    throws InterruptedException, ExecutionException, TimeoutException {
+                CompletableFuture<HttpResponse<Buffer>> future = new CompletableFuture<>();
+                RequestOptions options = new RequestOptions().setURI(url);
+                HttpRequest<Buffer> req = TestWebClient.this.request(HttpMethod.POST, options);
+                if (payload != null) {
+                    req.sendMultipartForm(
                             payload,
                             ar -> {
                                 if (ar.succeeded()) {
