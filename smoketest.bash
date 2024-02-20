@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if ! command -v yq; then
+if ! command -v yq >/dev/null 2>&1 ; then
     echo "No 'yq' found"
     exit 1
 fi
@@ -18,9 +18,10 @@ OPEN_TABS=${OPEN_TABS:-false}
 
 PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-archivedrecordings,archivedreports}
 
-CRYOSTAT_HTTP_PORT=8080
+CRYOSTAT_HTTP_PORT=${CRYOSTAT_HTTP_PORT:-8080}
 USE_PROXY=${USE_PROXY:-true}
-DEPLOY_GRAFANA=true
+DEPLOY_GRAFANA=${DEPLOY_GRAFANA:-true}
+DRY_RUN=${DRY_RUN:-false}
 
 display_usage() {
     echo "Usage:"
@@ -35,11 +36,12 @@ display_usage() {
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
     echo -e "\t-c [podman|docker]\t\t\t\tUse Podman or Docker Container Engine (default \"podman\")."
     echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
+    echo -e "\t-n\t\t\t\t\t\tDo Not apply configuration changes, insteaed emit the compose YAML that would have been used to stdout."
 }
 
 s3=seaweed
 ce=podman
-while getopts "hs:prGtOVXcb" opt; do
+while getopts "hs:prGtOVXcbn" opt; do
     case $opt in
         h)
             display_usage
@@ -74,6 +76,9 @@ while getopts "hs:prGtOVXcb" opt; do
             ;;
         r)
             FILES+=('./compose/reports.yml')
+            ;;
+        n)
+            DRY_RUN=true
             ;;
         *)
             display_usage
@@ -134,12 +139,22 @@ else
     exit 2
 fi
 
-set -xe
+if [ ! "${DRY_RUN}" = "true" ]; then
+    set -xe
+fi
 
 CMD=()
 for file in "${FILES[@]}"; do
     CMD+=(-f "${file}")
 done
+
+if [ "${DRY_RUN}" = "true" ]; then
+    set +xe
+    docker-compose \
+        "${CMD[@]}" \
+        config
+    exit 0
+fi
 
 PIDS=()
 
