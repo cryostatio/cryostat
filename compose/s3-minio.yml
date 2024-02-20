@@ -21,7 +21,7 @@ services:
     environment:
       MINIO_ROOT_USER: minioroot
       MINIO_ROOT_PASSWORD: minioroot
-      MINIO_DEFAULT_BUCKETS: archivedrecordings
+      MINIO_DEFAULT_BUCKETS: ${PRECREATE_BUCKETS}
     volumes:
       - minio_data:/data
       - minio_certs:/certs

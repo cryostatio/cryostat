@@ -16,6 +16,8 @@ PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
 OPEN_TABS=${OPEN_TABS:-false}
 
+PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-archivedrecordings,archivedreports}
+
 CRYOSTAT_HTTP_PORT=8080
 USE_PROXY=${USE_PROXY:-true}
 DEPLOY_GRAFANA=true
@@ -105,6 +107,7 @@ export GRAFANA_DASHBOARD_EXT_URL
 s3Manifest="${DIR}/compose/s3-${s3}.yml"
 STORAGE_PORT="$(yq '.services.*.expose[0]' "${s3Manifest}" | grep -v null)"
 export STORAGE_PORT
+export PRECREATE_BUCKETS
 
 if [ ! -f "${s3Manifest}" ]; then
     echo "Unknown S3 selection: ${s3}"
