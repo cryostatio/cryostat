@@ -154,10 +154,14 @@ cleanup() {
     docker-compose \
         "${CMD[@]}" \
         down "${downFlags[@]}"
-    ${container_engine} rm proxy_cfg_helper || true
-    ${container_engine} volume rm auth_proxy_cfg || true
-    ${container_engine} rm localstack_cfg_helper || true
-    ${container_engine} volume rm localstack_cfg || true
+    if [ "${USE_PROXY}" = "true" ]; then
+        ${container_engine} rm proxy_cfg_helper || true
+        ${container_engine} volume rm auth_proxy_cfg || true
+    fi
+    if [ "${s3}" = "localstack" ]; then
+        ${container_engine} rm localstack_cfg_helper || true
+        ${container_engine} volume rm localstack_cfg || true
+    fi
     # podman kill hoster || true
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
