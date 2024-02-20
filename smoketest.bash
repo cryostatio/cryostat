@@ -8,7 +8,7 @@ fi
 DIR="$(dirname "$(readlink -f "$0")")"
 
 FILES=(
-    "${DIR}/smoketest/compose/db.yml"
+    "${DIR}/compose/db.yml"
 )
 
 USE_USERHOSTS=${USE_USERHOSTS:-true}
@@ -53,7 +53,7 @@ while getopts "hs:prGtOVXcb" opt; do
             DEPLOY_GRAFANA=false
             ;;
         t)
-            FILES+=("${DIR}/smoketest/compose/sample-apps.yml")
+            FILES+=("${DIR}/compose/sample-apps.yml")
             ;;
         O)
             PULL_IMAGES=false
@@ -62,7 +62,7 @@ while getopts "hs:prGtOVXcb" opt; do
             KEEP_VOLUMES=true
             ;;
         X)
-            FILES+=("${DIR}/smoketest/compose/db-viewer.yml")
+            FILES+=("${DIR}/compose/db-viewer.yml")
             ;;
         c)
             ce="${OPTARG}"
@@ -71,7 +71,7 @@ while getopts "hs:prGtOVXcb" opt; do
             OPEN_TABS=true
             ;;
         r)
-            FILES+=('./smoketest/compose/reports.yml')
+            FILES+=('./compose/reports.yml')
             ;;
         *)
             display_usage
@@ -82,27 +82,27 @@ done
 
 if [ "${DEPLOY_GRAFANA}" = "true" ]; then
     FILES+=(
-        "${DIR}/smoketest/compose/cryostat-grafana.yml"
-        "${DIR}/smoketest/compose/jfr-datasource.yml"
+        "${DIR}/compose/cryostat-grafana.yml"
+        "${DIR}/compose/jfr-datasource.yml"
     )
 fi
 
 
 if [ "${USE_PROXY}" = "true" ]; then
-    FILES+=("${DIR}/smoketest/compose/auth_proxy.yml")
+    FILES+=("${DIR}/compose/auth_proxy.yml")
     CRYOSTAT_HTTP_PORT=8181
     GRAFANA_DASHBOARD_EXT_URL=http://localhost:8080/grafana/
 else
-    FILES+=("${DIR}/smoketest/compose/no_proxy.yml" "${DIR}/smoketest/compose/s3_no_proxy.yml")
+    FILES+=("${DIR}/compose/no_proxy.yml" "${DIR}/compose/s3_no_proxy.yml")
     if [ "${DEPLOY_GRAFANA}" = "true" ]; then
-      FILES+=("${DIR}/smoketest/compose/grafana_no_proxy.yml")
+      FILES+=("${DIR}/compose/grafana_no_proxy.yml")
     fi
     GRAFANA_DASHBOARD_EXT_URL=http://grafana:3000/
 fi
 export CRYOSTAT_HTTP_PORT
 export GRAFANA_DASHBOARD_EXT_URL
 
-s3Manifest="${DIR}/smoketest/compose/s3-${s3}.yml"
+s3Manifest="${DIR}/compose/s3-${s3}.yml"
 STORAGE_PORT="$(yq '.services.*.expose[0]' "${s3Manifest}" | grep -v null)"
 export STORAGE_PORT
 
@@ -120,10 +120,10 @@ unshift() {
 }
 
 if [ "${ce}" = "podman" ]; then
-    unshift FILES "${DIR}/smoketest/compose/cryostat.yml"
+    unshift FILES "${DIR}/compose/cryostat.yml"
     container_engine="podman"
 elif [ "${ce}" = "docker" ]; then
-    unshift FILES "${DIR}/smoketest/compose/cryostat_docker.yml"
+    unshift FILES "${DIR}/compose/cryostat_docker.yml"
     container_engine="docker"
 else
     echo "Unknown Container Engine selection: ${ce}"
@@ -169,8 +169,8 @@ createProxyCfgVolume() {
     local cfg
     cfg="$(mktemp)"
     chmod 644 "${cfg}"
-    envsubst '$STORAGE_PORT' < "${DIR}/smoketest/compose/auth_proxy_alpha_config.yaml" > "${cfg}"
-    "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
+    envsubst '$STORAGE_PORT' < "${DIR}/compose/auth_proxy_alpha_config.yaml" > "${cfg}"
+    "${container_engine}" cp "${DIR}/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
     "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
 }
 if [ "${USE_PROXY}" = "true" ]; then
