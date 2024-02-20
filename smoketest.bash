@@ -153,6 +153,8 @@ cleanup() {
         down "${downFlags[@]}"
     ${container_engine} rm proxy_cfg_helper || true
     ${container_engine} volume rm auth_proxy_cfg || true
+    ${container_engine} rm localstack_cfg_helper || true
+    ${container_engine} volume rm localstack_cfg || true
     # podman kill hoster || true
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
@@ -175,6 +177,15 @@ createProxyCfgVolume() {
 }
 if [ "${USE_PROXY}" = "true" ]; then
     createProxyCfgVolume
+fi
+
+createLocalstackCfgVolume() {
+    "${container_engine}" volume create localstack_cfg
+    "${container_engine}" container create --name localstack_cfg_helper -v localstack_cfg:/tmp busybox
+    "${container_engine}" cp "${DIR}/compose/localstack_buckets.sh" localstack_cfg_helper:/tmp
+}
+if [ "${s3}" = "localstack" ]; then
+    createLocalstackCfgVolume
 fi
 
 setupUserHosts() {

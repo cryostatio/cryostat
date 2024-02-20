@@ -20,13 +20,9 @@ services:
     environment:
       SERVICES: s3
       START_WEB: 1
-      DEFAULT_REGION: us-east-1
-      PORT_WEB_UI: 4577
+      CRYOSTAT_BUCKETS: archivedrecordings,archivedreports
     volumes:
-      - localstack_data:/etc/localstack/init/ready.d:z
-      # this buckets.bash hook script isn't working for some reason. In the meantime, after spinning up the localstack instance, do:
-      # $ podman exec -it cryostat3_s3_1 /bin/bash
-      # $ awslocal s3 mb s3://archivedrecordings
+      - localstack_cfg:/etc/localstack/init/ready.d:z
     labels:
       kompose.service.expose: "s3"
     restart: always
@@ -38,5 +34,5 @@ services:
       timeout: 5s
 
 volumes:
-  localstack_data:
-    driver: local
+  localstack_cfg:
+    external: true
