@@ -289,4 +289,7 @@ fi
 
 docker-compose \
     "${CMD[@]}" \
-    up
+    up \
+        --renew-anon-volumes \
+        --remove-orphans \
+        --abort-on-container-exit
