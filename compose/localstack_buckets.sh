@@ -6,7 +6,7 @@ createBucket() {
 
 createBuckets() {
     for name in "$@"; do
-        createBucket "${name}"
+        createBucket "${name}" &
     done
 }
 
