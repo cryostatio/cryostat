@@ -162,7 +162,6 @@ cleanup() {
         ${container_engine} rm localstack_cfg_helper || true
         ${container_engine} volume rm localstack_cfg || true
     fi
-    # podman kill hoster || true
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
         kill -0 "${i}" && kill "${i}"
@@ -196,18 +195,6 @@ if [ "${s3}" = "localstack" ]; then
 fi
 
 setupUserHosts() {
-    # FIXME this is broken: it puts the containers' bridge-internal IP addresses
-    # into the user hosts file, but these IPs are in a subnet not reachable from the host.
-    # podman run \
-    #     --detach \
-    #     --rm  \
-    #     --name hoster \
-    #     --user=0 \
-    #     --security-opt label=disable \
-    #     -v "${XDG_RUNTIME_DIR}/podman/podman.sock:/tmp/docker.sock:Z" \
-    #     -v "${HOME}/.hosts:/tmp/hosts" \
-    #     dvdarias/docker-hoster
-    #
     # This requires https://github.com/figiel/hosts to work. See README.
     truncate -s 0 "${HOSTSFILE}"
     for file in "${FILES[@]}" ; do
