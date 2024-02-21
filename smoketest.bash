@@ -36,7 +36,7 @@ display_usage() {
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
     echo -e "\t-c [podman|docker]\t\t\t\tUse Podman or Docker Container Engine (default \"podman\")."
     echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
-    echo -e "\t-n\t\t\t\t\t\tDo Not apply configuration changes, insteaed emit the compose YAML that would have been used to stdout."
+    echo -e "\t-n\t\t\t\t\t\tDo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
 }
 
 s3=seaweed
