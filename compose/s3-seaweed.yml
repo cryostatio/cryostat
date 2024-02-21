@@ -17,7 +17,7 @@ services:
     image: ${STORAGE_IMAGE:-quay.io/cryostat/cryostat-storage:latest}
     hostname: s3
     environment:
-      CRYOSTAT_BUCKETS: archivedrecordings,archivedreports
+      CRYOSTAT_BUCKETS: ${PRECREATE_BUCKETS}
       CRYOSTAT_ACCESS_KEY: access_key
       CRYOSTAT_SECRET_KEY: secret_key
       DATA_DIR: /data

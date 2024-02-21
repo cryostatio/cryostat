@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if ! command -v yq; then
+if ! command -v yq >/dev/null 2>&1 ; then
     echo "No 'yq' found"
     exit 1
 fi
@@ -8,7 +8,7 @@ fi
 DIR="$(dirname "$(readlink -f "$0")")"
 
 FILES=(
-    "${DIR}/smoketest/compose/db.yml"
+    "${DIR}/compose/db.yml"
 )
 
 USE_USERHOSTS=${USE_USERHOSTS:-true}
@@ -16,9 +16,12 @@ PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
 OPEN_TABS=${OPEN_TABS:-false}
 
-CRYOSTAT_HTTP_PORT=8080
+PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-archivedrecordings,archivedreports}
+
+CRYOSTAT_HTTP_PORT=${CRYOSTAT_HTTP_PORT:-8080}
 USE_PROXY=${USE_PROXY:-true}
-DEPLOY_GRAFANA=true
+DEPLOY_GRAFANA=${DEPLOY_GRAFANA:-true}
+DRY_RUN=${DRY_RUN:-false}
 
 display_usage() {
     echo "Usage:"
@@ -33,11 +36,12 @@ display_usage() {
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
     echo -e "\t-c [podman|docker]\t\t\t\tUse Podman or Docker Container Engine (default \"podman\")."
     echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
+    echo -e "\t-n\t\t\t\t\t\tDo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
 }
 
 s3=seaweed
 ce=podman
-while getopts "hs:prGtOVXcb" opt; do
+while getopts "hs:prGtOVXcbn" opt; do
     case $opt in
         h)
             display_usage
@@ -53,7 +57,7 @@ while getopts "hs:prGtOVXcb" opt; do
             DEPLOY_GRAFANA=false
             ;;
         t)
-            FILES+=("${DIR}/smoketest/compose/sample-apps.yml")
+            FILES+=("${DIR}/compose/sample-apps.yml")
             ;;
         O)
             PULL_IMAGES=false
@@ -62,7 +66,7 @@ while getopts "hs:prGtOVXcb" opt; do
             KEEP_VOLUMES=true
             ;;
         X)
-            FILES+=("${DIR}/smoketest/compose/db-viewer.yml")
+            FILES+=("${DIR}/compose/db-viewer.yml")
             ;;
         c)
             ce="${OPTARG}"
@@ -71,7 +75,10 @@ while getopts "hs:prGtOVXcb" opt; do
             OPEN_TABS=true
             ;;
         r)
-            FILES+=('./smoketest/compose/reports.yml')
+            FILES+=('./compose/reports.yml')
+            ;;
+        n)
+            DRY_RUN=true
             ;;
         *)
             display_usage
@@ -82,29 +89,30 @@ done
 
 if [ "${DEPLOY_GRAFANA}" = "true" ]; then
     FILES+=(
-        "${DIR}/smoketest/compose/cryostat-grafana.yml"
-        "${DIR}/smoketest/compose/jfr-datasource.yml"
+        "${DIR}/compose/cryostat-grafana.yml"
+        "${DIR}/compose/jfr-datasource.yml"
     )
 fi
 
 
 if [ "${USE_PROXY}" = "true" ]; then
-    FILES+=("${DIR}/smoketest/compose/auth_proxy.yml")
+    FILES+=("${DIR}/compose/auth_proxy.yml")
     CRYOSTAT_HTTP_PORT=8181
     GRAFANA_DASHBOARD_EXT_URL=http://localhost:8080/grafana/
 else
-    FILES+=("${DIR}/smoketest/compose/no_proxy.yml" "${DIR}/smoketest/compose/s3_no_proxy.yml")
+    FILES+=("${DIR}/compose/no_proxy.yml" "${DIR}/compose/s3_no_proxy.yml")
     if [ "${DEPLOY_GRAFANA}" = "true" ]; then
-      FILES+=("${DIR}/smoketest/compose/grafana_no_proxy.yml")
+      FILES+=("${DIR}/compose/grafana_no_proxy.yml")
     fi
     GRAFANA_DASHBOARD_EXT_URL=http://grafana:3000/
 fi
 export CRYOSTAT_HTTP_PORT
 export GRAFANA_DASHBOARD_EXT_URL
 
-s3Manifest="${DIR}/smoketest/compose/s3-${s3}.yml"
+s3Manifest="${DIR}/compose/s3-${s3}.yml"
 STORAGE_PORT="$(yq '.services.*.expose[0]' "${s3Manifest}" | grep -v null)"
 export STORAGE_PORT
+export PRECREATE_BUCKETS
 
 if [ ! -f "${s3Manifest}" ]; then
     echo "Unknown S3 selection: ${s3}"
@@ -120,10 +128,10 @@ unshift() {
 }
 
 if [ "${ce}" = "podman" ]; then
-    unshift FILES "${DIR}/smoketest/compose/cryostat.yml"
+    unshift FILES "${DIR}/compose/cryostat.yml"
     container_engine="podman"
 elif [ "${ce}" = "docker" ]; then
-    unshift FILES "${DIR}/smoketest/compose/cryostat_docker.yml"
+    unshift FILES "${DIR}/compose/cryostat_docker.yml"
     container_engine="docker"
 else
     echo "Unknown Container Engine selection: ${ce}"
@@ -131,12 +139,22 @@ else
     exit 2
 fi
 
-set -xe
+if [ ! "${DRY_RUN}" = "true" ]; then
+    set -xe
+fi
 
 CMD=()
 for file in "${FILES[@]}"; do
     CMD+=(-f "${file}")
 done
+
+if [ "${DRY_RUN}" = "true" ]; then
+    set +xe
+    docker-compose \
+        "${CMD[@]}" \
+        config
+    exit 0
+fi
 
 PIDS=()
 
@@ -151,9 +169,14 @@ cleanup() {
     docker-compose \
         "${CMD[@]}" \
         down "${downFlags[@]}"
-    ${container_engine} rm proxy_cfg_helper || true
-    ${container_engine} volume rm auth_proxy_cfg || true
-    # podman kill hoster || true
+    if [ "${USE_PROXY}" = "true" ]; then
+        ${container_engine} rm proxy_cfg_helper || true
+        ${container_engine} volume rm auth_proxy_cfg || true
+    fi
+    if [ "${s3}" = "localstack" ]; then
+        ${container_engine} rm localstack_cfg_helper || true
+        ${container_engine} volume rm localstack_cfg || true
+    fi
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
         kill -0 "${i}" && kill "${i}"
@@ -169,27 +192,24 @@ createProxyCfgVolume() {
     local cfg
     cfg="$(mktemp)"
     chmod 644 "${cfg}"
-    envsubst '$STORAGE_PORT' < "${DIR}/smoketest/compose/auth_proxy_alpha_config.yaml" > "${cfg}"
-    "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
+    envsubst '$STORAGE_PORT' < "${DIR}/compose/auth_proxy_alpha_config.yaml" > "${cfg}"
+    "${container_engine}" cp "${DIR}/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
     "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
 }
 if [ "${USE_PROXY}" = "true" ]; then
     createProxyCfgVolume
 fi
 
+createLocalstackCfgVolume() {
+    "${container_engine}" volume create localstack_cfg
+    "${container_engine}" container create --name localstack_cfg_helper -v localstack_cfg:/tmp busybox
+    "${container_engine}" cp "${DIR}/compose/localstack_buckets.sh" localstack_cfg_helper:/tmp
+}
+if [ "${s3}" = "localstack" ]; then
+    createLocalstackCfgVolume
+fi
+
 setupUserHosts() {
-    # FIXME this is broken: it puts the containers' bridge-internal IP addresses
-    # into the user hosts file, but these IPs are in a subnet not reachable from the host.
-    # podman run \
-    #     --detach \
-    #     --rm  \
-    #     --name hoster \
-    #     --user=0 \
-    #     --security-opt label=disable \
-    #     -v "${XDG_RUNTIME_DIR}/podman/podman.sock:/tmp/docker.sock:Z" \
-    #     -v "${HOME}/.hosts:/tmp/hosts" \
-    #     dvdarias/docker-hoster
-    #
     # This requires https://github.com/figiel/hosts to work. See README.
     truncate -s 0 "${HOSTSFILE}"
     for file in "${FILES[@]}" ; do
@@ -269,4 +289,7 @@ fi
 
 docker-compose \
     "${CMD[@]}" \
-    up
+    up \
+        --renew-anon-volumes \
+        --remove-orphans \
+        --abort-on-container-exit
