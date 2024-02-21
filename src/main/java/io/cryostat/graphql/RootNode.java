@@ -17,7 +17,6 @@ package io.cryostat.graphql;
 
 import io.cryostat.discovery.DiscoveryNode;
 
-import io.smallrye.mutiny.Uni;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.Query;
@@ -27,7 +26,7 @@ public class RootNode {
 
     @Query("rootNode")
     @Description("Get the root target discovery node")
-    public Uni<DiscoveryNode> getRootNode() {
-        return Uni.createFrom().item(DiscoveryNode::getUniverse);
+    public DiscoveryNode getRootNode() {
+        return DiscoveryNode.getUniverse();
     }
 }
