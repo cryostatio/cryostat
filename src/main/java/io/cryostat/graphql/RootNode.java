@@ -22,6 +22,7 @@ import java.util.Set;
 import java.util.function.Predicate;
 
 import io.cryostat.discovery.DiscoveryNode;
+import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
@@ -64,10 +65,8 @@ public class RootNode {
         public @Nullable Long id;
         public @Nullable String name;
         public @Nullable List<String> names;
-
-        // TODO reimplement label and annotations matching syntax
-        // public List<String> labels;
-        // public List<String> annotations;
+        public @Nullable List<String> labels;
+        public @Nullable List<String> annotations;
 
         @Override
         public boolean test(DiscoveryNode t) {
@@ -75,8 +74,37 @@ public class RootNode {
             Predicate<DiscoveryNode> matchesName =
                     n -> name == null || Objects.equals(name, n.name);
             Predicate<DiscoveryNode> matchesNames = n -> names == null || names.contains(n.name);
+            Predicate<DiscoveryNode> matchesLabels =
+                    n -> {
+                        if (labels == null) {
+                            return true;
+                        }
+                        var allMatch = true;
+                        for (var l : labels) {
+                            allMatch &= LabelSelectorMatcher.parse(l).test(n.labels);
+                        }
+                        return allMatch;
+                    };
+            Predicate<DiscoveryNode> matchesAnnotations =
+                    n -> {
+                        if (annotations == null) {
+                            return true;
+                        }
+                        var allMatch = true;
+                        for (var l : annotations) {
+                            allMatch &=
+                                    LabelSelectorMatcher.parse(l)
+                                            .test(n.target.annotations.merged());
+                        }
+                        return allMatch;
+                    };
 
-            return matchesId.and(matchesName).and(matchesNames).test(t);
+            return matchesId
+                    .and(matchesName)
+                    .and(matchesNames)
+                    .and(matchesLabels)
+                    .and(matchesAnnotations)
+                    .test(t);
         }
     }
 }
