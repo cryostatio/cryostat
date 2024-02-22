@@ -73,7 +73,7 @@ public class RootNode {
 
         @Override
         public boolean test(DiscoveryNode t) {
-            Predicate<DiscoveryNode> matchesId = n -> id == null || id == n.id;
+            Predicate<DiscoveryNode> matchesId = n -> id == null || id.equals(n.id);
             Predicate<DiscoveryNode> matchesName =
                     n -> name == null || Objects.equals(name, n.name);
             Predicate<DiscoveryNode> matchesNames = n -> names == null || names.contains(n.name);
