@@ -89,11 +89,6 @@ public class CustomDiscovery {
     @RolesAllowed("write")
     public Response create(
             Target target, @RestQuery boolean dryrun, @RestQuery boolean storeCredentials) {
-        if (target.id != null) {
-            return Response.status(Response.Status.CONFLICT.getStatusCode())
-                    .entity("ID field cannot be specified in the request body")
-                    .build();
-        }
         // TODO handle credentials embedded in JSON body
         return doV2Create(target, Optional.empty(), dryrun, storeCredentials);
     }
