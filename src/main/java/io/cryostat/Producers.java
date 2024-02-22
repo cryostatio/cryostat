@@ -94,8 +94,7 @@ public class Producers {
     @RequestScoped
     @DefaultBean
     public static InterruptibleReportGenerator produceInterruptibleReportGenerator() {
-        return new InterruptibleReportGenerator(
-                ForkJoinPool.commonPool(), io.cryostat.core.log.Logger.INSTANCE);
+        return new InterruptibleReportGenerator(ForkJoinPool.commonPool());
     }
 
     @Produces
