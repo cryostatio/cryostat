@@ -15,23 +15,35 @@
  */
 package io.cryostat.events;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.cryostat.core.sys.FileSystem;
+import io.cryostat.core.templates.MutableTemplateService.InvalidEventTemplateException;
+import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.HttpMimeType;
 
+import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
-import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
+import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.jsoup.nodes.Document;
 
 @Path("")
 public class EventTemplates {
@@ -45,7 +57,10 @@ public class EventTemplates {
                     "Cryostat",
                     TemplateType.TARGET);
 
-    @Inject TargetConnectionManager connectionManager;
+    @Inject FileSystem fs;
+    @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
+    @Inject S3TemplateService customTemplateService;
+    @Inject Logger logger;
 
     @GET
     @Path("/api/v1/targets/{connectUrl}/templates")
@@ -58,52 +73,130 @@ public class EventTemplates {
                 .build();
     }
 
+    @POST
+    @Path("/api/v1/templates")
+    @RolesAllowed("write")
+    public Response postTemplatesV1(@RestForm("template") FileUpload body) {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create("/api/v3/event_templates"))
+                .build();
+    }
+
+    @POST
+    @Path("/api/v3/event_templates")
+    @RolesAllowed("write")
+    public void postTemplates(@RestForm("template") FileUpload body) throws IOException {
+        if (body == null || body.filePath() == null || !"template".equals(body.name())) {
+            throw new BadRequestException();
+        }
+        try (var stream = fs.newInputStream(body.filePath())) {
+            customTemplateService.addTemplate(stream);
+        } catch (InvalidEventTemplateException | InvalidXmlException e) {
+            throw new BadRequestException(e);
+        }
+    }
+
+    @DELETE
+    @Path("/api/v1/templates/{templateName}")
+    @RolesAllowed("write")
+    public Response deleteTemplatesV1(@RestPath String templateName) {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create(String.format("/api/v3/event_templates/%s", templateName)))
+                .build();
+    }
+
+    @DELETE
+    @Blocking
+    @Path("/api/v3/event_templates/{templateName}")
+    @RolesAllowed("write")
+    public void deleteTemplates(@RestPath String templateName) {
+        customTemplateService.deleteTemplate(templateName);
+    }
+
     @GET
     @Path("/api/v1/targets/{connectUrl}/templates/{templateName}/type/{templateType}")
     @RolesAllowed("read")
     public Response getTargetTemplateV1(
             @RestPath URI connectUrl,
             @RestPath String templateName,
-            @RestPath TemplateType templateType)
-            throws Exception {
+            @RestPath TemplateType templateType) {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(
                         URI.create(
                                 String.format(
                                         "/api/v3/targets/%d/event_templates/%s/%s",
-                                        target.id, templateName, templateType)))
+                                        target.id, templateType, templateName)))
                 .build();
     }
 
     @GET
-    @Path("/api/v3/targets/{id}/event_templates")
+    @Path("/api/v2.1/targets/{connectUrl}/templates/{templateName}/type/{templateType}")
     @RolesAllowed("read")
-    public List<Template> listTemplates(@RestPath long id) throws Exception {
-        Target target = Target.find("id", id).singleResult();
-        return connectionManager.executeConnectedTask(
-                target,
-                connection -> {
-                    List<Template> list =
-                            new ArrayList<>(connection.getTemplateService().getTemplates());
-                    list.add(ALL_EVENTS_TEMPLATE);
-                    return list;
-                });
+    public Response getTargetTemplateV2_1(
+            @RestPath URI connectUrl,
+            @RestPath String templateName,
+            @RestPath TemplateType templateType) {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/event_templates/%s/%s",
+                                        target.id, templateType, templateName)))
+                .build();
     }
 
     @GET
-    @Path("/api/v3/targets/{id}/event_templates/{templateName}/{templateType}")
+    @Blocking
+    @Path("/api/v3/event_templates")
     @RolesAllowed("read")
-    public String getTargetTemplate(
-            @RestPath long id, @RestPath String templateName, @RestPath TemplateType templateType)
+    public List<Template> listTemplates() throws Exception {
+        var list = new ArrayList<Template>();
+        list.add(ALL_EVENTS_TEMPLATE);
+        list.addAll(customTemplateService.getTemplates());
+        return list;
+    }
+
+    @GET
+    @Blocking
+    @Path("/api/v3/targets/{id}/event_templates")
+    @RolesAllowed("read")
+    public List<Template> listTargetTemplates(@RestPath long id) throws Exception {
+        Target target = Target.find("id", id).singleResult();
+        var list = new ArrayList<Template>();
+        list.add(ALL_EVENTS_TEMPLATE);
+        list.addAll(targetTemplateServiceFactory.create(target).getTemplates());
+        list.addAll(customTemplateService.getTemplates());
+        return list;
+    }
+
+    @GET
+    @Blocking
+    @Path("/api/v3/targets/{id}/event_templates/{templateType}/{templateName}")
+    @RolesAllowed("read")
+    public Response getTargetTemplate(
+            @RestPath long id, @RestPath TemplateType templateType, @RestPath String templateName)
             throws Exception {
         Target target = Target.find("id", id).singleResult();
-        return connectionManager.executeConnectedTask(
-                target,
-                conn ->
-                        conn.getTemplateService()
+        Document doc;
+        switch (templateType) {
+            case TARGET:
+                doc =
+                        targetTemplateServiceFactory
+                                .create(target)
                                 .getXml(templateName, templateType)
-                                .orElseThrow(NotFoundException::new)
-                                .toString());
+                                .orElseThrow();
+                break;
+            case CUSTOM:
+                doc = customTemplateService.getXml(templateName, templateType).orElseThrow();
+                break;
+            default:
+                throw new BadRequestException();
+        }
+        return Response.status(RestResponse.Status.OK)
+                .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.JFC.mime())
+                .entity(doc.toString())
+                .build();
     }
 }

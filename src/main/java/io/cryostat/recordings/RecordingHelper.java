@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -51,11 +52,15 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.core.EventOptionsBuilder;
+import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
+import io.cryostat.events.EventTemplates;
+import io.cryostat.events.S3TemplateService;
+import io.cryostat.events.TargetTemplateService;
 import io.cryostat.recordings.ActiveRecording.Listener.ActiveRecordingEvent;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
@@ -117,23 +122,24 @@ public class RecordingHelper {
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
-    @Inject Logger logger;
+    @Inject S3Client storage;
+
+    @Inject WebClient webClient;
+    @Inject FileSystem fs;
+    @Inject Clock clock;
     @Inject TargetConnectionManager connectionManager;
+    @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
-    @Inject EventBus bus;
-
-    @Inject Clock clock;
+    @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
+    @Inject S3TemplateService customTemplateService;
 
     @Inject
     @Named(Producers.BASE64_URL)
     Base64 base64Url;
 
-    @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
-    @Inject S3Client storage;
-    @Inject FileSystem fs;
-
-    @Inject WebClient webClient;
+    @Inject EventBus bus;
+    @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
@@ -187,19 +193,17 @@ public class RecordingHelper {
         }
     }
 
+    @Blocking
     public ActiveRecording startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
-            String templateName,
-            TemplateType templateType,
+            Template eventTemplate,
             Metadata metadata,
             boolean archiveOnStop,
             RecordingReplace replace,
             JFRConnection connection)
             throws Exception {
         String recordingName = (String) recordingOptions.get(RecordingOptionsBuilder.KEY_NAME);
-        TemplateType preferredTemplateType =
-                getPreferredTemplateType(connection, templateName, templateType);
         getDescriptorByName(connection, recordingName)
                 .ifPresent(
                         previous -> {
@@ -219,13 +223,11 @@ public class RecordingHelper {
         IRecordingDescriptor desc =
                 connection
                         .getService()
-                        .start(
-                                recordingOptions,
-                                enableEvents(connection, templateName, preferredTemplateType));
+                        .start(recordingOptions, enableEvents(target, eventTemplate));
 
         Map<String, String> labels = metadata.labels();
-        labels.put("template.name", templateName);
-        labels.put("template.type", preferredTemplateType.name());
+        labels.put("template.name", eventTemplate.getName());
+        labels.put("template.type", eventTemplate.getType().toString());
         Metadata meta = new Metadata(labels);
 
         ActiveRecording recording = ActiveRecording.from(target, desc, meta);
@@ -239,6 +241,7 @@ public class RecordingHelper {
         return recording;
     }
 
+    @Blocking
     public ActiveRecording createSnapshot(Target target, JFRConnection connection)
             throws Exception {
         IRecordingDescriptor desc = connection.getService().getSnapshotRecording();
@@ -296,6 +299,7 @@ public class RecordingHelper {
         return recording;
     }
 
+    @Blocking
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
         if (!connectionManager.markConnectionInUse(target)) {
             throw new IOException(
@@ -341,7 +345,7 @@ public class RecordingHelper {
                 recording.metadata);
     }
 
-    public Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier) {
+    public Pair<String, TemplateType> parseEventSpecifier(String eventSpecifier) {
         if (TEMPLATE_PATTERN.matcher(eventSpecifier).matches()) {
             Matcher m = TEMPLATE_PATTERN.matcher(eventSpecifier);
             m.find();
@@ -356,58 +360,92 @@ public class RecordingHelper {
         throw new BadRequestException(eventSpecifier);
     }
 
-    private IConstrainedMap<EventOptionID> enableAllEvents(JFRConnection connection)
-            throws Exception {
-        EventOptionsBuilder builder = eventOptionsBuilderFactory.create(connection);
+    @Blocking
+    private IConstrainedMap<EventOptionID> enableAllEvents(Target target) throws Exception {
+        return connectionManager.executeConnectedTask(
+                target,
+                connection -> {
+                    EventOptionsBuilder builder = eventOptionsBuilderFactory.create(connection);
 
-        for (IEventTypeInfo eventTypeInfo : connection.getService().getAvailableEventTypes()) {
-            builder.addEvent(eventTypeInfo.getEventTypeID().getFullKey(), "enabled", "true");
-        }
+                    for (IEventTypeInfo eventTypeInfo :
+                            connection.getService().getAvailableEventTypes()) {
+                        builder.addEvent(
+                                eventTypeInfo.getEventTypeID().getFullKey(), "enabled", "true");
+                    }
 
-        return builder.build();
+                    return builder.build();
+                });
     }
 
-    public IConstrainedMap<EventOptionID> enableEvents(
-            JFRConnection connection, String templateName, TemplateType templateType)
+    @Blocking
+    private IConstrainedMap<EventOptionID> enableEvents(Target target, Template eventTemplate)
             throws Exception {
-        if (templateName.equals("ALL")) {
-            return enableAllEvents(connection);
+        if (EventTemplates.ALL_EVENTS_TEMPLATE.equals(eventTemplate)) {
+            return enableAllEvents(target);
         }
-        // if template type not specified, try to find a Custom template by that name. If none,
-        // fall back on finding a Target built-in template by the name. If not, throw an
-        // exception and bail out.
-        TemplateType type = getPreferredTemplateType(connection, templateName, templateType);
-        return connection.getTemplateService().getEvents(templateName, type).get();
+        switch (eventTemplate.getType()) {
+            case TARGET:
+                return targetTemplateServiceFactory
+                        .create(target)
+                        .getEvents(eventTemplate.getName(), eventTemplate.getType())
+                        .orElseThrow();
+            case CUSTOM:
+                return customTemplateService
+                        .getEvents(eventTemplate.getName(), eventTemplate.getType())
+                        .orElseThrow();
+            default:
+                throw new BadRequestException(
+                        String.format(
+                                "Invalid/unknown event template %s", eventTemplate.getName()));
+        }
     }
 
-    public TemplateType getPreferredTemplateType(
-            JFRConnection connection, String templateName, TemplateType templateType)
-            throws Exception {
-        if (templateType != null) {
-            return templateType;
+    @Blocking
+    public Template getPreferredTemplate(
+            Target target, String templateName, TemplateType templateType) throws Exception {
+        Objects.requireNonNull(target);
+        Objects.requireNonNull(templateName);
+        if (templateName.equals(EventTemplates.ALL_EVENTS_TEMPLATE.getName())) {
+            return EventTemplates.ALL_EVENTS_TEMPLATE;
         }
-        if (templateName.equals("ALL")) {
-            // special case for the ALL meta-template
-            return TemplateType.TARGET;
+        Supplier<Optional<Template>> custom =
+                () -> {
+                    try {
+                        return customTemplateService.getTemplates().stream()
+                                .filter(t -> t.getName().equals(templateName))
+                                .findFirst();
+                    } catch (FlightRecorderException e) {
+                        logger.error(e);
+                        return Optional.empty();
+                    }
+                };
+
+        Supplier<Optional<Template>> remote =
+                () -> {
+                    try {
+                        return targetTemplateServiceFactory.create(target).getTemplates().stream()
+                                .filter(t -> t.getName().equals(templateName))
+                                .findFirst();
+                    } catch (FlightRecorderException e) {
+                        logger.error(e);
+                        return Optional.empty();
+                    }
+                };
+        switch (templateType) {
+            case TARGET:
+                return remote.get().orElseThrow();
+            case CUSTOM:
+                return custom.get().orElseThrow();
+            default:
+                return custom.get()
+                        .or(() -> remote.get())
+                        .orElseThrow(
+                                () ->
+                                        new BadRequestException(
+                                                String.format(
+                                                        "Invalid/unknown event template %s",
+                                                        templateName)));
         }
-        List<Template> matchingNameTemplates =
-                connection.getTemplateService().getTemplates().stream()
-                        .filter(t -> t.getName().equals(templateName))
-                        .toList();
-        boolean custom =
-                matchingNameTemplates.stream()
-                        .anyMatch(t -> t.getType().equals(TemplateType.CUSTOM));
-        if (custom) {
-            return TemplateType.CUSTOM;
-        }
-        boolean target =
-                matchingNameTemplates.stream()
-                        .anyMatch(t -> t.getType().equals(TemplateType.TARGET));
-        if (target) {
-            return TemplateType.TARGET;
-        }
-        throw new BadRequestException(
-                String.format("Invalid/unknown event template %s", templateName));
     }
 
     static Optional<IRecordingDescriptor> getDescriptorById(
@@ -453,10 +491,12 @@ public class RecordingHelper {
         }
     }
 
+    @Blocking
     public List<S3Object> listArchivedRecordingObjects() {
         return listArchivedRecordingObjects(null);
     }
 
+    @Blocking
     public List<S3Object> listArchivedRecordingObjects(String jvmId) {
         var builder = ListObjectsV2Request.builder().bucket(archiveBucket);
         if (StringUtils.isNotBlank(jvmId)) {
@@ -480,6 +520,7 @@ public class RecordingHelper {
         return saveRecording(recording, null, expiry);
     }
 
+    @Blocking
     public String saveRecording(ActiveRecording recording, String savename, Instant expiry)
             throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
@@ -609,6 +650,7 @@ public class RecordingHelper {
         return getArchivedRecordingMetadata(archivedRecordingKey(jvmId, filename));
     }
 
+    @Blocking
     public Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
         try {
             return Optional.of(
@@ -666,6 +708,7 @@ public class RecordingHelper {
         return getArchivedRecordingStream(encodedKey(jvmId, recordingName));
     }
 
+    @Blocking
     public InputStream getArchivedRecordingStream(String encodedKey) {
         String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
 
@@ -692,6 +735,7 @@ public class RecordingHelper {
         return String.format("/api/v3/reports/%s", encodedKey(jvmId, filename));
     }
 
+    @Blocking
     private int retryRead(ReadableByteChannel channel, ByteBuffer buffer) throws IOException {
         int attempts = 30;
         int read = 0;
@@ -714,6 +758,7 @@ public class RecordingHelper {
     }
 
     /* Archived Recording Helpers */
+    @Blocking
     public void deleteArchivedRecording(String jvmId, String filename) {
         storage.deleteObject(
                 DeleteObjectRequest.builder()
@@ -878,6 +923,7 @@ public class RecordingHelper {
                         });
     }
 
+    @Blocking
     Optional<Path> getRecordingCopyPath(
             JFRConnection connection, Target target, String recordingName) throws Exception {
         return connection.getService().getAvailableRecordings().stream()

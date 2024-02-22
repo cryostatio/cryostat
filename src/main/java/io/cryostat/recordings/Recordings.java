@@ -48,6 +48,7 @@ import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.RecordingOptionsCustomizer;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
+import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
@@ -608,7 +609,9 @@ public class Recordings {
 
         Target target = Target.find("id", id).singleResult();
 
-        Pair<String, TemplateType> template = recordingHelper.parseEventSpecifierToTemplate(events);
+        Pair<String, TemplateType> pair = recordingHelper.parseEventSpecifier(events);
+        Template template =
+                recordingHelper.getPreferredTemplate(target, pair.getKey(), pair.getValue());
 
         ActiveRecording recording =
                 connectionManager.executeConnectedTask(
@@ -648,8 +651,7 @@ public class Recordings {
                             return recordingHelper.startRecording(
                                     target,
                                     recordingOptions,
-                                    template.getLeft(),
-                                    template.getRight(),
+                                    template,
                                     new Metadata(labels),
                                     archiveOnStop.orElse(false),
                                     replacement,

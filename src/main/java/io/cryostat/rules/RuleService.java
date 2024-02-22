@@ -33,6 +33,7 @@ import org.openjdk.jmc.rjmx.ConnectionException;
 import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
 
 import io.cryostat.core.net.JFRConnection;
+import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.recordings.ActiveRecording;
@@ -144,9 +145,11 @@ public class RuleService {
                         connection -> {
                             var recordingOptions = createRecordingOptions(rule, connection);
 
-                            Pair<String, TemplateType> template =
-                                    recordingHelper.parseEventSpecifierToTemplate(
-                                            rule.eventSpecifier);
+                            Pair<String, TemplateType> pair =
+                                    recordingHelper.parseEventSpecifier(rule.eventSpecifier);
+                            Template template =
+                                    recordingHelper.getPreferredTemplate(
+                                            target, pair.getKey(), pair.getValue());
 
                             Map<String, String> labels = new HashMap<>();
                             labels.put("rule", rule.name);
@@ -154,8 +157,7 @@ public class RuleService {
                             return recordingHelper.startRecording(
                                     target,
                                     recordingOptions,
-                                    template.getLeft(),
-                                    template.getRight(),
+                                    template,
                                     meta,
                                     false,
                                     RecordingReplace.ALWAYS,
