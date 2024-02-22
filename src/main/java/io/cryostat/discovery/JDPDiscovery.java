@@ -51,7 +51,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @Produces
     @ApplicationScoped
     static JvmDiscoveryClient produceJvmDiscoveryClient() {
-        return new JvmDiscoveryClient(io.cryostat.core.log.Logger.INSTANCE);
+        return new JvmDiscoveryClient();
     }
 
     @Inject Logger logger;
