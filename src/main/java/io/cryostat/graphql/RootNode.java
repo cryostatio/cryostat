@@ -39,6 +39,9 @@ public class RootNode {
         return DiscoveryNode.getUniverse();
     }
 
+    @Description(
+            "Get target nodes that are descendants of this node. That is, get the set of leaf nodes"
+                    + " from anywhere below this node's subtree.")
     public List<DiscoveryNode> descendantTargets(
             @Source DiscoveryNode discoveryNode, DescendantTargetsFilterInput filter) {
         // TODO do this filtering at the database query level as much as possible. As is, this will
