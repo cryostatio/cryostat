@@ -94,7 +94,9 @@ public class Producers {
     @RequestScoped
     @DefaultBean
     public static InterruptibleReportGenerator produceInterruptibleReportGenerator() {
-        return new InterruptibleReportGenerator(ForkJoinPool.commonPool());
+        boolean singleThread = Runtime.getRuntime().availableProcessors() < 2;
+        return new InterruptibleReportGenerator(
+                singleThread ? Executors.newSingleThreadExecutor() : ForkJoinPool.commonPool());
     }
 
     @Produces
