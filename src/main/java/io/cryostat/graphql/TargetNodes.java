@@ -15,8 +15,10 @@
  */
 package io.cryostat.graphql;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -24,6 +26,7 @@ import java.util.function.Predicate;
 
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilterInput;
+import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
@@ -34,8 +37,10 @@ import graphql.schema.GraphQLEnumType;
 import graphql.schema.GraphQLEnumValueDefinition;
 import graphql.schema.GraphQLSchema;
 import io.smallrye.graphql.api.Context;
+import io.smallrye.graphql.api.Nullable;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jdk.jfr.RecordingState;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.NonNull;
@@ -54,7 +59,7 @@ public class TargetNodes {
                         .name("RecordingState")
                         .description("Running state of an active Flight Recording")
                         .values(
-                                Arrays.asList(jdk.jfr.RecordingState.values()).stream()
+                                Arrays.asList(RecordingState.values()).stream()
                                         .map(
                                                 s ->
                                                         new GraphQLEnumValueDefinition.Builder()
@@ -113,6 +118,23 @@ public class TargetNodes {
         return recordings;
     }
 
+    public ActiveRecordings active(
+            @Source Recordings recordings, ActiveRecordingsFilterInput filter) {
+        var out = new ActiveRecordings();
+        out.data = new ArrayList<>();
+        out.aggregate = new AggregateInfo();
+
+        var in = recordings.active;
+        if (in != null && in.data != null) {
+            out.data =
+                    in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
+            out.aggregate.size = 0;
+            out.aggregate.count = out.data.size();
+        }
+
+        return out;
+    }
+
     public static class Recordings {
         public @NonNull ActiveRecordings active;
         public @NonNull ArchivedRecordings archived;
@@ -129,7 +151,68 @@ public class TargetNodes {
     }
 
     public static class AggregateInfo {
-        public @NonNull long count;
-        public @NonNull long size;
+        public @NonNull @Description("The number of elements in this collection") long count;
+        public @NonNull @Description(
+                "The sum of sizes of elements in this collection, or 0 if not applicable") long
+                size;
+    }
+
+    public static class ActiveRecordingsFilterInput implements Predicate<ActiveRecording> {
+
+        public @Nullable String name;
+        public @Nullable List<String> names;
+        public @Nullable List<String> labels;
+        public @Nullable RecordingState state;
+        public @Nullable Boolean continuous;
+        public @Nullable Boolean toDisk;
+        public @Nullable Long durationMsGreaterThanEqual;
+        public @Nullable Long durationMsLessThanEqual;
+        public @Nullable Long startTimeMsBeforeEqual;
+        public @Nullable Long startTimeMsAfterEqual;
+
+        @Override
+        public boolean test(ActiveRecording r) {
+            Predicate<ActiveRecording> matchesName =
+                    n -> name == null || Objects.equals(name, n.name);
+            Predicate<ActiveRecording> matchesNames = n -> names == null || names.contains(n.name);
+            Predicate<ActiveRecording> matchesLabels =
+                    n -> {
+                        if (labels == null) {
+                            return true;
+                        }
+                        var allMatch = true;
+                        for (var l : labels) {
+                            allMatch &= LabelSelectorMatcher.parse(l).test(n.metadata.labels());
+                        }
+                        return allMatch;
+                    };
+            Predicate<ActiveRecording> matchesState = n -> state == null || n.state.equals(state);
+            Predicate<ActiveRecording> matchesContinuous =
+                    n -> continuous == null || continuous.equals(n.continuous);
+            Predicate<ActiveRecording> matchesToDisk =
+                    n -> toDisk == null || toDisk.equals(n.toDisk);
+            Predicate<ActiveRecording> matchesDurationGte =
+                    n ->
+                            durationMsGreaterThanEqual == null
+                                    || durationMsGreaterThanEqual >= n.duration;
+            Predicate<ActiveRecording> matchesDurationLte =
+                    n -> durationMsLessThanEqual == null || durationMsLessThanEqual <= n.duration;
+            Predicate<ActiveRecording> matchesStartTimeBefore =
+                    n -> startTimeMsBeforeEqual == null || startTimeMsBeforeEqual <= n.startTime;
+            Predicate<ActiveRecording> matchesStartTimeAfter =
+                    n -> startTimeMsAfterEqual == null || startTimeMsAfterEqual >= n.startTime;
+
+            return matchesName
+                    .and(matchesNames)
+                    .and(matchesLabels)
+                    .and(matchesState)
+                    .and(matchesContinuous)
+                    .and(matchesToDisk)
+                    .and(matchesDurationGte)
+                    .and(matchesDurationLte)
+                    .and(matchesStartTimeBefore)
+                    .and(matchesStartTimeAfter)
+                    .test(r);
+        }
     }
 }
