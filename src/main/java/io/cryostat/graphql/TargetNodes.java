@@ -17,40 +17,59 @@ package io.cryostat.graphql;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+import org.openjdk.jmc.common.unit.IConstrainedMap;
+import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
+
+import io.cryostat.core.templates.Template;
+import io.cryostat.core.templates.TemplateType;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.recordings.RecordingOptionsBuilderFactory;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
+import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.TargetConnectionManager;
 
 import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.GraphQLEnumType;
 import graphql.schema.GraphQLEnumValueDefinition;
 import graphql.schema.GraphQLSchema;
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
+import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
+import org.jboss.logging.Logger;
 
 @GraphQLApi
 public class TargetNodes {
 
     @Inject RecordingHelper recordingHelper;
+    @Inject TargetConnectionManager connectionManager;
+    @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
+    @Inject Logger logger;
 
     public GraphQLSchema.Builder registerRecordingStateEnum(
             @Observes GraphQLSchema.Builder builder) {
@@ -84,6 +103,7 @@ public class TargetNodes {
                         .build());
     }
 
+    @Blocking
     @Query("targetNodes")
     @Description("Get the Target discovery nodes, i.e. the leaf nodes of the discovery tree")
     public List<DiscoveryNode> getTargetNodes(DiscoveryNodeFilter filter) {
@@ -102,6 +122,7 @@ public class TargetNodes {
         return t -> observed.add(fn.apply(t));
     }
 
+    @Blocking
     @Description("Get the active and archived recordings belonging to this target")
     public Recordings recordings(@Source Target target, Context context) {
         var dfe = context.unwrap(DataFetchingEnvironment.class);
@@ -144,6 +165,63 @@ public class TargetNodes {
         }
 
         return out;
+    }
+
+    @Blocking
+    @Transactional
+    public Uni<ActiveRecording> doStartRecording(
+            @Source Target target, @NonNull RecordingSettings settings) {
+        var fTarget = Target.<Target>findById(target.id);
+        return connectionManager.executeConnectedTaskUni(
+                target,
+                conn -> {
+                    RecordingOptionsBuilder optionsBuilder =
+                            recordingOptionsBuilderFactory
+                                    .create(conn.getService())
+                                    .name(settings.name);
+                    Template template =
+                            recordingHelper.getPreferredTemplate(
+                                    target, settings.template, settings.templateType);
+                    if (settings.duration != null) {
+
+                        optionsBuilder.duration(TimeUnit.SECONDS.toMillis(settings.duration));
+                    }
+                    if (settings.toDisk != null) {
+                        optionsBuilder.toDisk(settings.toDisk);
+                    }
+                    if (settings.maxAge != null) {
+                        optionsBuilder.maxAge(settings.maxAge);
+                    }
+                    if (settings.maxSize != null) {
+                        optionsBuilder.maxSize(settings.maxSize);
+                    }
+                    Map<String, String> labels = new HashMap<>();
+                    if (settings.metadata != null) {
+                        labels.putAll(settings.metadata.labels());
+                    }
+                    RecordingReplace replacement = RecordingReplace.NEVER;
+                    if (settings.replace != null) {
+                        replacement = settings.replace;
+                    }
+                    IConstrainedMap<String> recordingOptions = optionsBuilder.build();
+                    ActiveRecording recording =
+                            recordingHelper.startRecording(
+                                    fTarget,
+                                    recordingOptions,
+                                    template,
+                                    new Metadata(labels),
+                                    replacement,
+                                    conn);
+                    return recording;
+                });
+    }
+
+    @Blocking
+    @Transactional
+    public Uni<ActiveRecording> doSnapshot(@Source Target target) {
+        var fTarget = Target.<Target>findById(target.id);
+        return connectionManager.executeConnectedTaskUni(
+                target, conn -> recordingHelper.createSnapshot(fTarget, conn));
     }
 
     public ArchivedRecordings archived(
@@ -293,5 +371,19 @@ public class TargetNodes {
                     .and(matchesArchivedTimeLte)
                     .test(r);
         }
+    }
+
+    public static class RecordingSettings {
+        public @NonNull String name;
+        public @NonNull String template;
+        public @NonNull TemplateType templateType;
+        public @Nullable RecordingReplace replace;
+        public @Nullable Boolean continuous;
+        public @Nullable Boolean archiveOnStop;
+        public @Nullable Boolean toDisk;
+        public @Nullable Long duration;
+        public @Nullable Long maxSize;
+        public @Nullable Long maxAge;
+        public @Nullable Metadata metadata;
     }
 }
