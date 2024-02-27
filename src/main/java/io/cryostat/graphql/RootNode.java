@@ -43,7 +43,7 @@ public class RootNode {
             "Get target nodes that are descendants of this node. That is, get the set of leaf nodes"
                     + " from anywhere below this node's subtree.")
     public List<DiscoveryNode> descendantTargets(
-            @Source DiscoveryNode discoveryNode, DescendantTargetsFilterInput filter) {
+            @Source DiscoveryNode discoveryNode, DiscoveryNodeFilterInput filter) {
         // TODO do this filtering at the database query level as much as possible. As is, this will
         // load the entire discovery tree out of the database, then perform the filtering at the
         // application level.
@@ -64,7 +64,7 @@ public class RootNode {
         return result;
     }
 
-    public static class DescendantTargetsFilterInput implements Predicate<DiscoveryNode> {
+    public static class DiscoveryNodeFilterInput implements Predicate<DiscoveryNode> {
         public @Nullable Long id;
         public @Nullable String name;
         public @Nullable List<String> names;
