@@ -199,7 +199,6 @@ public class RecordingHelper {
             IConstrainedMap<String> recordingOptions,
             Template eventTemplate,
             Metadata metadata,
-            boolean archiveOnStop,
             RecordingReplace replace,
             JFRConnection connection)
             throws Exception {

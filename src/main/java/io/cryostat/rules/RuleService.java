@@ -159,7 +159,6 @@ public class RuleService {
                                     recordingOptions,
                                     template,
                                     meta,
-                                    false,
                                     RecordingReplace.ALWAYS,
                                     connection);
                         });

@@ -631,7 +631,6 @@ public class Recordings {
                                     recordingOptions,
                                     template,
                                     new Metadata(labels),
-                                    archiveOnStop.orElse(false),
                                     replacement,
                                     connection);
                         });
