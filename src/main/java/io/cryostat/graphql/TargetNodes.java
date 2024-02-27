@@ -176,6 +176,8 @@ public class TargetNodes {
         return connectionManager.executeConnectedTaskUni(
                 target,
                 conn -> {
+                    // TODO refactor, this is almost identical to the implementation in
+                    // Recordings.java . This should be extracted to the RecordingHelper
                     RecordingOptionsBuilder optionsBuilder =
                             recordingOptionsBuilderFactory
                                     .create(conn.getService())
