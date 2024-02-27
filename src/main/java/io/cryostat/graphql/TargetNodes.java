@@ -54,12 +54,25 @@ public class TargetNodes {
 
     public GraphQLSchema.Builder registerRecordingStateEnum(
             @Observes GraphQLSchema.Builder builder) {
-        GraphQLEnumType recordingState =
+        return createEnumType(
+                builder, RecordingState.class, "Running state of an active Flight Recording");
+    }
+
+    public GraphQLSchema.Builder registerTemplateTypeEnum(@Observes GraphQLSchema.Builder builder) {
+        return createEnumType(
+                builder,
+                TemplateType.class,
+                "Source where a given event template will be loaded from");
+    }
+
+    private static GraphQLSchema.Builder createEnumType(
+            GraphQLSchema.Builder builder, Class<? extends Enum<?>> klazz, String description) {
+        return builder.additionalType(
                 GraphQLEnumType.newEnum()
-                        .name("RecordingState")
-                        .description("Running state of an active Flight Recording")
+                        .name(klazz.getSimpleName())
+                        .description(description)
                         .values(
-                                Arrays.asList(RecordingState.values()).stream()
+                                Arrays.asList(klazz.getEnumConstants()).stream()
                                         .map(
                                                 s ->
                                                         new GraphQLEnumValueDefinition.Builder()
@@ -68,8 +81,7 @@ public class TargetNodes {
                                                                 .description(s.name())
                                                                 .build())
                                         .toList())
-                        .build();
-        return builder.additionalType(recordingState);
+                        .build());
     }
 
     @Query("targetNodes")
