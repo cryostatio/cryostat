@@ -25,7 +25,7 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 
 import io.cryostat.discovery.DiscoveryNode;
-import io.cryostat.graphql.RootNode.DiscoveryNodeFilterInput;
+import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
@@ -74,7 +74,7 @@ public class TargetNodes {
 
     @Query("targetNodes")
     @Description("Get the Target discovery nodes, i.e. the leaf nodes of the discovery tree")
-    public List<DiscoveryNode> getTargetNodes(DiscoveryNodeFilterInput filter) {
+    public List<DiscoveryNode> getTargetNodes(DiscoveryNodeFilter filter) {
         // TODO do this filtering at the database query level as much as possible. As is, this will
         // load the entire discovery tree out of the database, then perform the filtering at the
         // application level.
@@ -118,8 +118,7 @@ public class TargetNodes {
         return recordings;
     }
 
-    public ActiveRecordings active(
-            @Source Recordings recordings, ActiveRecordingsFilterInput filter) {
+    public ActiveRecordings active(@Source Recordings recordings, ActiveRecordingsFilter filter) {
         var out = new ActiveRecordings();
         out.data = new ArrayList<>();
         out.aggregate = new AggregateInfo();
@@ -136,7 +135,7 @@ public class TargetNodes {
     }
 
     public ArchivedRecordings archived(
-            @Source Recordings recordings, ArchivedRecordingsFilterInput filter) {
+            @Source Recordings recordings, ArchivedRecordingsFilter filter) {
         var out = new ArchivedRecordings();
         out.data = new ArrayList<>();
         out.aggregate = new AggregateInfo();
@@ -174,7 +173,7 @@ public class TargetNodes {
                 size;
     }
 
-    public static class ActiveRecordingsFilterInput implements Predicate<ActiveRecording> {
+    public static class ActiveRecordingsFilter implements Predicate<ActiveRecording> {
 
         public @Nullable String name;
         public @Nullable List<String> names;
@@ -233,7 +232,7 @@ public class TargetNodes {
         }
     }
 
-    public static class ArchivedRecordingsFilterInput implements Predicate<ArchivedRecording> {
+    public static class ArchivedRecordingsFilter implements Predicate<ArchivedRecording> {
 
         public @Nullable String name;
         public @Nullable List<String> names;
