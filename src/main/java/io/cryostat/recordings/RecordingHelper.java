@@ -497,6 +497,29 @@ public class RecordingHelper {
     }
 
     @Blocking
+    public List<ArchivedRecording> listArchivedRecordings() {
+        return listArchivedRecordingObjects().stream()
+                .map(
+                        item -> {
+                            String path = item.key().strip();
+                            String[] parts = path.split("/");
+                            String jvmId = parts[0];
+                            String filename = parts[1];
+                            Metadata metadata =
+                                    getArchivedRecordingMetadata(jvmId, filename)
+                                            .orElseGet(Metadata::empty);
+                            return new ArchivedRecording(
+                                    filename,
+                                    downloadUrl(jvmId, filename),
+                                    reportUrl(jvmId, filename),
+                                    metadata,
+                                    item.size(),
+                                    item.lastModified().getEpochSecond());
+                        })
+                .toList();
+    }
+
+    @Blocking
     public List<S3Object> listArchivedRecordingObjects(String jvmId) {
         var builder = ListObjectsV2Request.builder().bucket(archiveBucket);
         if (StringUtils.isNotBlank(jvmId)) {
@@ -508,6 +531,29 @@ public class RecordingHelper {
                             var metadata = getArchivedRecordingMetadata(o.key());
                             var temporary = metadata.map(m -> m.expiry() != null).orElse(false);
                             return !temporary;
+                        })
+                .toList();
+    }
+
+    @Blocking
+    public List<ArchivedRecording> listArchivedRecordings(Target target) {
+        return listArchivedRecordingObjects(target.jvmId).stream()
+                .map(
+                        item -> {
+                            String path = item.key().strip();
+                            String[] parts = path.split("/");
+                            String jvmId = parts[0];
+                            String filename = parts[1];
+                            Metadata metadata =
+                                    getArchivedRecordingMetadata(jvmId, filename)
+                                            .orElseGet(Metadata::empty);
+                            return new ArchivedRecording(
+                                    filename,
+                                    downloadUrl(jvmId, filename),
+                                    reportUrl(jvmId, filename),
+                                    metadata,
+                                    item.size(),
+                                    item.lastModified().getEpochSecond());
                         })
                 .toList();
     }

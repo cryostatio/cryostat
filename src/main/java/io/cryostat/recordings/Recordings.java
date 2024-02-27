@@ -176,29 +176,7 @@ public class Recordings {
     @Path("/api/v1/recordings")
     @RolesAllowed("read")
     public List<ArchivedRecording> listArchivesV1() {
-        var result = new ArrayList<ArchivedRecording>();
-        recordingHelper
-                .listArchivedRecordingObjects()
-                .forEach(
-                        item -> {
-                            String path = item.key().strip();
-                            String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
-                            Metadata metadata =
-                                    recordingHelper
-                                            .getArchivedRecordingMetadata(jvmId, filename)
-                                            .orElseGet(Metadata::empty);
-                            result.add(
-                                    new ArchivedRecording(
-                                            filename,
-                                            recordingHelper.downloadUrl(jvmId, filename),
-                                            recordingHelper.reportUrl(jvmId, filename),
-                                            metadata,
-                                            item.size(),
-                                            item.lastModified().getEpochSecond()));
-                        });
-        return result;
+        return recordingHelper.listArchivedRecordings();
     }
 
     @POST
