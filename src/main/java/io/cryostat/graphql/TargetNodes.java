@@ -15,6 +15,7 @@
  */
 package io.cryostat.graphql;
 
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -23,12 +24,16 @@ import java.util.function.Predicate;
 
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilterInput;
+import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.targets.Target;
 
+import graphql.schema.GraphQLEnumType;
+import graphql.schema.GraphQLEnumValueDefinition;
+import graphql.schema.GraphQLSchema;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.NonNull;
@@ -39,6 +44,26 @@ import org.eclipse.microprofile.graphql.Source;
 public class TargetNodes {
 
     @Inject RecordingHelper recordingHelper;
+
+    public GraphQLSchema.Builder registerRecordingStateEnum(
+            @Observes GraphQLSchema.Builder builder) {
+        GraphQLEnumType recordingState =
+                GraphQLEnumType.newEnum()
+                        .name("RecordingState")
+                        .description("Running state of an active Flight Recording")
+                        .values(
+                                Arrays.asList(jdk.jfr.RecordingState.values()).stream()
+                                        .map(
+                                                s ->
+                                                        new GraphQLEnumValueDefinition.Builder()
+                                                                .name(s.name())
+                                                                .value(s)
+                                                                .description(s.name())
+                                                                .build())
+                                        .toList())
+                        .build();
+        return builder.additionalType(recordingState);
+    }
 
     @Query("targetNodes")
     @Description("Get the Target discovery nodes, i.e. the leaf nodes of the discovery tree")
@@ -61,6 +86,11 @@ public class TargetNodes {
     @Description("Get the active and archived recordings belonging to this target")
     public Recordings recordings(@Source Target target) {
         var recordings = new Recordings();
+        recordings.active = new ActiveRecordings();
+        recordings.active.data = target.activeRecordings;
+        recordings.active.aggregate = new AggregateInfo();
+        recordings.active.aggregate.count = recordings.active.data.size();
+        recordings.active.aggregate.size = 0;
 
         recordings.archived = new ArchivedRecordings();
         recordings.archived.data = recordingHelper.listArchivedRecordings(target);
@@ -73,7 +103,13 @@ public class TargetNodes {
     }
 
     public static class Recordings {
+        public @NonNull ActiveRecordings active;
         public @NonNull ArchivedRecordings archived;
+    }
+
+    public static class ActiveRecordings {
+        public @NonNull List<ActiveRecording> data;
+        public @NonNull AggregateInfo aggregate;
     }
 
     public static class ArchivedRecordings {
