@@ -29,9 +29,11 @@ import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.targets.Target;
 
+import graphql.schema.DataFetchingEnvironment;
 import graphql.schema.GraphQLEnumType;
 import graphql.schema.GraphQLEnumValueDefinition;
 import graphql.schema.GraphQLSchema;
+import io.smallrye.graphql.api.Context;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.graphql.Description;
@@ -84,20 +86,29 @@ public class TargetNodes {
     }
 
     @Description("Get the active and archived recordings belonging to this target")
-    public Recordings recordings(@Source Target target) {
-        var recordings = new Recordings();
-        recordings.active = new ActiveRecordings();
-        recordings.active.data = target.activeRecordings;
-        recordings.active.aggregate = new AggregateInfo();
-        recordings.active.aggregate.count = recordings.active.data.size();
-        recordings.active.aggregate.size = 0;
+    public Recordings recordings(@Source Target target, Context context) {
+        var dfe = context.unwrap(DataFetchingEnvironment.class);
+        var requestedFields =
+                dfe.getSelectionSet().getFields().stream().map(field -> field.getName()).toList();
 
-        recordings.archived = new ArchivedRecordings();
-        recordings.archived.data = recordingHelper.listArchivedRecordings(target);
-        recordings.archived.aggregate = new AggregateInfo();
-        recordings.archived.aggregate.count = recordings.archived.data.size();
-        recordings.archived.aggregate.size =
-                recordings.archived.data.stream().mapToLong(ArchivedRecording::size).sum();
+        var recordings = new Recordings();
+
+        if (requestedFields.contains("active")) {
+            recordings.active = new ActiveRecordings();
+            recordings.active.data = target.activeRecordings;
+            recordings.active.aggregate = new AggregateInfo();
+            recordings.active.aggregate.count = recordings.active.data.size();
+            recordings.active.aggregate.size = 0;
+        }
+
+        if (requestedFields.contains("archived")) {
+            recordings.archived = new ArchivedRecordings();
+            recordings.archived.data = recordingHelper.listArchivedRecordings(target);
+            recordings.archived.aggregate = new AggregateInfo();
+            recordings.archived.aggregate.count = recordings.archived.data.size();
+            recordings.archived.aggregate.size =
+                    recordings.archived.data.stream().mapToLong(ArchivedRecording::size).sum();
+        }
 
         return recordings;
     }
