@@ -169,6 +169,7 @@ public class TargetNodes {
 
     @Blocking
     @Transactional
+    @Description("Start a new Flight Recording on the specified Target")
     public Uni<ActiveRecording> doStartRecording(
             @Source Target target, @NonNull RecordingSettings settings) {
         var fTarget = Target.<Target>findById(target.id);
@@ -218,6 +219,7 @@ public class TargetNodes {
 
     @Blocking
     @Transactional
+    @Description("Create a new Flight Recorder Snapshot on the specified Target")
     public Uni<ActiveRecording> doSnapshot(@Source Target target) {
         var fTarget = Target.<Target>findById(target.id);
         return connectionManager.executeConnectedTaskUni(
