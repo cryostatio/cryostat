@@ -74,13 +74,6 @@ public class TargetNodes {
                 builder, RecordingState.class, "Running state of an active Flight Recording");
     }
 
-    public GraphQLSchema.Builder registerTemplateTypeEnum(@Observes GraphQLSchema.Builder builder) {
-        return createEnumType(
-                builder,
-                TemplateType.class,
-                "Source where a given event template will be loaded from");
-    }
-
     private static GraphQLSchema.Builder createEnumType(
             GraphQLSchema.Builder builder, Class<? extends Enum<?>> klazz, String description) {
         return builder.additionalType(
