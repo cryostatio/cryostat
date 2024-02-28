@@ -30,6 +30,8 @@ import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
 @GraphQLApi
 public class RootNode {
 
@@ -64,6 +66,7 @@ public class RootNode {
         return result;
     }
 
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class DiscoveryNodeFilter implements Predicate<DiscoveryNode> {
         public @Nullable Long id;
         public @Nullable String name;
