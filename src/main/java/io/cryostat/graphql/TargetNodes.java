@@ -27,6 +27,8 @@ import java.util.function.Predicate;
 
 import org.openjdk.jmc.common.unit.QuantityConversionException;
 
+import io.cryostat.core.net.JFRConnection;
+import io.cryostat.core.net.MBeanMetrics;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.discovery.DiscoveryNode;
@@ -39,6 +41,7 @@ import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
@@ -63,6 +66,7 @@ import org.eclipse.microprofile.graphql.Source;
 public class TargetNodes {
 
     @Inject RecordingHelper recordingHelper;
+    @Inject TargetConnectionManager connectionManager;
 
     public GraphQLSchema.Builder registerRecordingStateEnum(
             @Observes GraphQLSchema.Builder builder) {
@@ -175,6 +179,12 @@ public class TargetNodes {
         }
 
         return out;
+    }
+
+    @Blocking
+    @Description("Get live MBean metrics snapshot from the specified Target")
+    public Uni<MBeanMetrics> mbeanMetrics(@Source Target target) {
+        return connectionManager.executeConnectedTaskUni(target, JFRConnection::getMBeanMetrics);
     }
 
     @Blocking
