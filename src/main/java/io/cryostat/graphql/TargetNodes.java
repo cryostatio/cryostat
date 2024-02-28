@@ -36,11 +36,9 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
-import io.cryostat.recordings.RecordingOptionsBuilderFactory;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
@@ -60,15 +58,11 @@ import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
-import org.jboss.logging.Logger;
 
 @GraphQLApi
 public class TargetNodes {
 
     @Inject RecordingHelper recordingHelper;
-    @Inject TargetConnectionManager connectionManager;
-    @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
-    @Inject Logger logger;
 
     public GraphQLSchema.Builder registerRecordingStateEnum(
             @Observes GraphQLSchema.Builder builder) {
