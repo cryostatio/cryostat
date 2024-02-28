@@ -160,6 +160,23 @@ public class TargetNodes {
         return out;
     }
 
+    public ArchivedRecordings archived(
+            @Source Recordings recordings, ArchivedRecordingsFilter filter) {
+        var out = new ArchivedRecordings();
+        out.data = new ArrayList<>();
+        out.aggregate = new AggregateInfo();
+
+        var in = recordings.archived;
+        if (in != null && in.data != null) {
+            out.data =
+                    in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
+            out.aggregate.size = 0;
+            out.aggregate.count = out.data.size();
+        }
+
+        return out;
+    }
+
     @Blocking
     @Transactional
     @Description("Start a new Flight Recording on the specified Target")
@@ -184,23 +201,6 @@ public class TargetNodes {
     public Uni<ActiveRecording> doSnapshot(@Source Target target) {
         var fTarget = Target.<Target>findById(target.id);
         return recordingHelper.createSnapshot(fTarget);
-    }
-
-    public ArchivedRecordings archived(
-            @Source Recordings recordings, ArchivedRecordingsFilter filter) {
-        var out = new ArchivedRecordings();
-        out.data = new ArrayList<>();
-        out.aggregate = new AggregateInfo();
-
-        var in = recordings.archived;
-        if (in != null && in.data != null) {
-            out.data =
-                    in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
-            out.aggregate.size = 0;
-            out.aggregate.count = out.data.size();
-        }
-
-        return out;
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
