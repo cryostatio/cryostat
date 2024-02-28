@@ -17,18 +17,15 @@ package io.cryostat.graphql;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import org.openjdk.jmc.common.unit.IConstrainedMap;
-import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
+import org.openjdk.jmc.common.unit.QuantityConversionException;
 
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
@@ -37,6 +34,7 @@ import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingOptionsBuilderFactory;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
@@ -172,52 +170,18 @@ public class TargetNodes {
     @Transactional
     @Description("Start a new Flight Recording on the specified Target")
     public Uni<ActiveRecording> doStartRecording(
-            @Source Target target, @NonNull RecordingSettings settings) {
+            @Source Target target, @NonNull RecordingSettings settings)
+            throws QuantityConversionException {
         var fTarget = Target.<Target>findById(target.id);
-        return connectionManager.executeConnectedTaskUni(
-                target,
-                conn -> {
-                    // TODO refactor, this is almost identical to the implementation in
-                    // Recordings.java . This should be extracted to the RecordingHelper
-                    RecordingOptionsBuilder optionsBuilder =
-                            recordingOptionsBuilderFactory
-                                    .create(conn.getService())
-                                    .name(settings.name);
-                    Template template =
-                            recordingHelper.getPreferredTemplate(
-                                    target, settings.template, settings.templateType);
-                    if (settings.duration != null) {
-
-                        optionsBuilder.duration(TimeUnit.SECONDS.toMillis(settings.duration));
-                    }
-                    if (settings.toDisk != null) {
-                        optionsBuilder.toDisk(settings.toDisk);
-                    }
-                    if (settings.maxAge != null) {
-                        optionsBuilder.maxAge(settings.maxAge);
-                    }
-                    if (settings.maxSize != null) {
-                        optionsBuilder.maxSize(settings.maxSize);
-                    }
-                    Map<String, String> labels = new HashMap<>();
-                    if (settings.metadata != null) {
-                        labels.putAll(settings.metadata.labels());
-                    }
-                    RecordingReplace replacement = RecordingReplace.NEVER;
-                    if (settings.replace != null) {
-                        replacement = settings.replace;
-                    }
-                    IConstrainedMap<String> recordingOptions = optionsBuilder.build();
-                    ActiveRecording recording =
-                            recordingHelper.startRecording(
-                                    fTarget,
-                                    recordingOptions,
-                                    template,
-                                    new Metadata(labels),
-                                    replacement,
-                                    conn);
-                    return recording;
-                });
+        Template template =
+                recordingHelper.getPreferredTemplate(
+                        fTarget, settings.template, settings.templateType);
+        return recordingHelper.startRecording(
+                fTarget,
+                RecordingReplace.STOPPED,
+                template,
+                settings.asOptions(),
+                settings.metadata.labels());
     }
 
     @Blocking
@@ -225,8 +189,7 @@ public class TargetNodes {
     @Description("Create a new Flight Recorder Snapshot on the specified Target")
     public Uni<ActiveRecording> doSnapshot(@Source Target target) {
         var fTarget = Target.<Target>findById(target.id);
-        return connectionManager.executeConnectedTaskUni(
-                target, conn -> recordingHelper.createSnapshot(fTarget, conn));
+        return recordingHelper.createSnapshot(fTarget);
     }
 
     public ArchivedRecordings archived(
@@ -395,5 +358,15 @@ public class TargetNodes {
         public @Nullable Long maxSize;
         public @Nullable Long maxAge;
         public @Nullable Metadata metadata;
+
+        public RecordingOptions asOptions() {
+            return new RecordingOptions(
+                    name,
+                    Optional.ofNullable(toDisk),
+                    Optional.ofNullable(archiveOnStop),
+                    Optional.ofNullable(duration),
+                    Optional.ofNullable(maxSize),
+                    Optional.ofNullable(maxAge));
+        }
     }
 }

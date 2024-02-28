@@ -24,13 +24,12 @@ import java.util.function.Predicate;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
-
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @GraphQLApi
 public class RootNode {
