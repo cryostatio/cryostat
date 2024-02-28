@@ -13,7 +13,7 @@ import io.cryostat.discovery.DiscoveryNode;
 import io.smallrye.graphql.api.Nullable;
 
 @GraphQLApi
-public class EnvironmentNodeGraphQL {
+public class EnvironmentNodes {
 
     public static class EnvironmentNodeFilterInput {
         @Nullable
@@ -85,7 +85,7 @@ public class EnvironmentNodeGraphQL {
     public List<EnvironmentNode> environmentNodes(EnvironmentNodeFilterInput filter) {
         DiscoveryNode rootNode = DiscoveryNode.getUniverse();
         return filterAndTraverse(rootNode, filter).stream()
-            .map(EnvironmentNodeGraphQL::convertDiscoveryNodeToEnvironmentNode)
+            .map(EnvironmentNodes::convertDiscoveryNodeToEnvironmentNode)
             .collect(Collectors.toList());
     }
 
