@@ -24,6 +24,7 @@ import java.util.function.Predicate;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
@@ -43,7 +44,7 @@ public class RootNode {
             "Get target nodes that are descendants of this node. That is, get the set of leaf nodes"
                     + " from anywhere below this node's subtree.")
     public List<DiscoveryNode> descendantTargets(
-            @Source DiscoveryNode discoveryNode, DescendantTargetsFilterInput filter) {
+            @Source DiscoveryNode discoveryNode, DiscoveryNodeFilter filter) {
         // TODO do this filtering at the database query level as much as possible. As is, this will
         // load the entire discovery tree out of the database, then perform the filtering at the
         // application level.
@@ -64,7 +65,8 @@ public class RootNode {
         return result;
     }
 
-    public static class DescendantTargetsFilterInput implements Predicate<DiscoveryNode> {
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class DiscoveryNodeFilter implements Predicate<DiscoveryNode> {
         public @Nullable Long id;
         public @Nullable String name;
         public @Nullable List<String> names;
