@@ -78,29 +78,23 @@ public class RootNode {
                     n -> name == null || Objects.equals(name, n.name);
             Predicate<DiscoveryNode> matchesNames = n -> names == null || names.contains(n.name);
             Predicate<DiscoveryNode> matchesLabels =
-                    n -> {
-                        if (labels == null) {
-                            return true;
-                        }
-                        var allMatch = true;
-                        for (var l : labels) {
-                            allMatch &= LabelSelectorMatcher.parse(l).test(n.labels);
-                        }
-                        return allMatch;
-                    };
+                    n ->
+                            labels == null
+                                    || labels.stream()
+                                            .allMatch(
+                                                    label ->
+                                                            LabelSelectorMatcher.parse(label)
+                                                                    .test(n.labels));
             Predicate<DiscoveryNode> matchesAnnotations =
-                    n -> {
-                        if (annotations == null) {
-                            return true;
-                        }
-                        var allMatch = true;
-                        for (var l : annotations) {
-                            allMatch &=
-                                    LabelSelectorMatcher.parse(l)
-                                            .test(n.target.annotations.merged());
-                        }
-                        return allMatch;
-                    };
+                    n ->
+                            annotations == null
+                                    || annotations.stream()
+                                            .allMatch(
+                                                    annotation ->
+                                                            LabelSelectorMatcher.parse(annotation)
+                                                                    .test(
+                                                                            n.target.annotations
+                                                                                    .merged()));
 
             return matchesId
                     .and(matchesName)
