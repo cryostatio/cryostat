@@ -51,6 +51,7 @@ import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
+import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
@@ -176,29 +177,7 @@ public class Recordings {
     @Path("/api/v1/recordings")
     @RolesAllowed("read")
     public List<ArchivedRecording> listArchivesV1() {
-        var result = new ArrayList<ArchivedRecording>();
-        recordingHelper
-                .listArchivedRecordingObjects()
-                .forEach(
-                        item -> {
-                            String path = item.key().strip();
-                            String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
-                            Metadata metadata =
-                                    recordingHelper
-                                            .getArchivedRecordingMetadata(jvmId, filename)
-                                            .orElseGet(Metadata::empty);
-                            result.add(
-                                    new ArchivedRecording(
-                                            filename,
-                                            recordingHelper.downloadUrl(jvmId, filename),
-                                            recordingHelper.reportUrl(jvmId, filename),
-                                            metadata,
-                                            item.size(),
-                                            item.lastModified().getEpochSecond()));
-                        });
-        return result;
+        return recordingHelper.listArchivedRecordings();
     }
 
     @POST
@@ -525,9 +504,8 @@ public class Recordings {
     @RolesAllowed("write")
     public Uni<Response> createSnapshotV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        return connectionManager
-                .executeConnectedTaskUni(
-                        target, connection -> recordingHelper.createSnapshot(target, connection))
+        return recordingHelper
+                .createSnapshot(target)
                 .onItem()
                 .transform(
                         recording ->
@@ -542,9 +520,8 @@ public class Recordings {
     @RolesAllowed("write")
     public Uni<Response> createSnapshotV2(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        return connectionManager
-                .executeConnectedTaskUni(
-                        target, connection -> recordingHelper.createSnapshot(target, connection))
+        return recordingHelper
+                .createSnapshot(target)
                 .onItem()
                 .transform(
                         recording ->
@@ -567,9 +544,8 @@ public class Recordings {
     @RolesAllowed("write")
     public Uni<Response> createSnapshot(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
-        return connectionManager
-                .executeConnectedTaskUni(
-                        target, connection -> recordingHelper.createSnapshot(target, connection))
+        return recordingHelper
+                .createSnapshot(target)
                 .onItem()
                 .transform(
                         recording ->
@@ -613,50 +589,32 @@ public class Recordings {
         Template template =
                 recordingHelper.getPreferredTemplate(target, pair.getKey(), pair.getValue());
 
+        Map<String, String> labels = new HashMap<>();
+        if (rawMetadata.isPresent()) {
+            labels.putAll(mapper.readValue(rawMetadata.get(), Metadata.class).labels);
+        }
+        RecordingReplace replacement = RecordingReplace.NEVER;
+        if (replace.isPresent()) {
+            replacement = RecordingReplace.fromString(replace.get());
+        } else if (restart.isPresent()) {
+            replacement = restart.get() ? RecordingReplace.ALWAYS : RecordingReplace.NEVER;
+        }
         ActiveRecording recording =
-                connectionManager.executeConnectedTask(
-                        target,
-                        connection -> {
-                            RecordingOptionsBuilder optionsBuilder =
-                                    recordingOptionsBuilderFactory
-                                            .create(connection.getService())
-                                            .name(recordingName);
-                            if (duration.isPresent()) {
-                                optionsBuilder.duration(TimeUnit.SECONDS.toMillis(duration.get()));
-                            }
-                            if (toDisk.isPresent()) {
-                                optionsBuilder.toDisk(toDisk.get());
-                            }
-                            if (maxAge.isPresent()) {
-                                optionsBuilder.maxAge(maxAge.get());
-                            }
-                            if (maxSize.isPresent()) {
-                                optionsBuilder.maxSize(maxSize.get());
-                            }
-                            Map<String, String> labels = new HashMap<>();
-                            if (rawMetadata.isPresent()) {
-                                labels.putAll(
-                                        mapper.readValue(rawMetadata.get(), Metadata.class).labels);
-                            }
-                            RecordingReplace replacement = RecordingReplace.NEVER;
-                            if (replace.isPresent()) {
-                                replacement = RecordingReplace.fromString(replace.get());
-                            } else if (restart.isPresent()) {
-                                replacement =
-                                        restart.get()
-                                                ? RecordingReplace.ALWAYS
-                                                : RecordingReplace.NEVER;
-                            }
-                            IConstrainedMap<String> recordingOptions = optionsBuilder.build();
-                            return recordingHelper.startRecording(
-                                    target,
-                                    recordingOptions,
-                                    template,
-                                    new Metadata(labels),
-                                    archiveOnStop.orElse(false),
-                                    replacement,
-                                    connection);
-                        });
+                recordingHelper
+                        .startRecording(
+                                target,
+                                replacement,
+                                template,
+                                new RecordingOptions(
+                                        recordingName,
+                                        toDisk,
+                                        archiveOnStop,
+                                        duration,
+                                        maxSize,
+                                        maxAge),
+                                labels)
+                        .await()
+                        .atMost(Duration.ofSeconds(10));
 
         if (recording.duration > 0) {
             scheduler.schedule(
