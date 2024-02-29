@@ -251,16 +251,13 @@ public class TargetNodes {
                     n -> name == null || Objects.equals(name, n.name);
             Predicate<ActiveRecording> matchesNames = n -> names == null || names.contains(n.name);
             Predicate<ActiveRecording> matchesLabels =
-                    n -> {
-                        if (labels == null) {
-                            return true;
-                        }
-                        var allMatch = true;
-                        for (var l : labels) {
-                            allMatch &= LabelSelectorMatcher.parse(l).test(n.metadata.labels());
-                        }
-                        return allMatch;
-                    };
+                    n ->
+                            labels == null
+                                    || labels.stream()
+                                            .allMatch(
+                                                    label ->
+                                                            LabelSelectorMatcher.parse(label)
+                                                                    .test(n.metadata.labels()));
             Predicate<ActiveRecording> matchesState = n -> state == null || n.state.equals(state);
             Predicate<ActiveRecording> matchesContinuous =
                     n -> continuous == null || continuous.equals(n.continuous);
@@ -308,16 +305,13 @@ public class TargetNodes {
             Predicate<ArchivedRecording> matchesNames =
                     n -> names == null || names.contains(n.name());
             Predicate<ArchivedRecording> matchesLabels =
-                    n -> {
-                        if (labels == null) {
-                            return true;
-                        }
-                        var allMatch = true;
-                        for (var l : labels) {
-                            allMatch &= LabelSelectorMatcher.parse(l).test(n.metadata().labels());
-                        }
-                        return allMatch;
-                    };
+                    n ->
+                            labels == null
+                                    || labels.stream()
+                                            .allMatch(
+                                                    label ->
+                                                            LabelSelectorMatcher.parse(label)
+                                                                    .test(n.metadata().labels()));
             Predicate<ArchivedRecording> matchesSizeGte =
                     n -> sizeBytesGreaterThanEqual == null || sizeBytesGreaterThanEqual >= n.size();
             Predicate<ArchivedRecording> matchesSizeLte =
