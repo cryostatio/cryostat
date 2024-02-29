@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Objects;
 
 import io.cryostat.discovery.DiscoveryNode;
+import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
@@ -67,7 +68,11 @@ public class EnvironmentNodes {
         boolean matchesNames = filter.names == null || filter.names.contains(node.name);
         boolean matchesLabels =
                 filter.labels == null
-                        || filter.labels.stream().allMatch(label -> node.labels.containsKey(label));
+                        || filter.labels.stream()
+                                .allMatch(
+                                        label ->
+                                                LabelSelectorMatcher.parse(label)
+                                                        .test(node.labels));
         boolean matchesNodeType = filter.nodeType == null || filter.nodeType.equals(node.nodeType);
 
         return matchesId && matchesName && matchesNames && matchesLabels && matchesNodeType;
