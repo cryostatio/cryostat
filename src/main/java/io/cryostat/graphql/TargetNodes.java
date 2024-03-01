@@ -20,9 +20,6 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
 import java.util.function.Predicate;
 
 import org.openjdk.jmc.common.unit.QuantityConversionException;
@@ -101,16 +98,19 @@ public class TargetNodes {
         // load the entire discovery tree out of the database, then perform the filtering at the
         // application level.
         return Target.<Target>findAll().stream()
-                .filter(distinctWith(t -> t.jvmId))
+                // FIXME filtering by distinct JVM ID breaks clients that expect to be able to use a
+                // different connection URL (in the node filter or for client-side filtering) than
+                // the one we end up selecting for here.
+                // .filter(distinctWith(t -> t.jvmId))
                 .map(t -> t.discoveryNode)
                 .filter(n -> filter == null ? true : filter.test(n))
                 .toList();
     }
 
-    private static <T> Predicate<T> distinctWith(Function<? super T, ?> fn) {
-        Set<Object> observed = ConcurrentHashMap.newKeySet();
-        return t -> observed.add(fn.apply(t));
-    }
+    // private static <T> Predicate<T> distinctWith(Function<? super T, ?> fn) {
+    //     Set<Object> observed = ConcurrentHashMap.newKeySet();
+    //     return t -> observed.add(fn.apply(t));
+    // }
 
     @Blocking
     @Description("Get the active and archived recordings belonging to this target")
