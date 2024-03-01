@@ -157,23 +157,6 @@ public class TargetNodes {
         return out;
     }
 
-    public ArchivedRecordings archived(
-            @Source Recordings recordings, ArchivedRecordingsFilter filter) {
-        var out = new ArchivedRecordings();
-        out.data = new ArrayList<>();
-        out.aggregate = new AggregateInfo();
-
-        var in = recordings.archived;
-        if (in != null && in.data != null) {
-            out.data =
-                    in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
-            out.aggregate.size = 0;
-            out.aggregate.count = out.data.size();
-        }
-
-        return out;
-    }
-
     @Blocking
     @Description("Get live MBean metrics snapshot from the specified Target")
     public Uni<MBeanMetrics> mbeanMetrics(@Source Target target) {
@@ -284,54 +267,6 @@ public class TargetNodes {
                     .and(matchesDurationLte)
                     .and(matchesStartTimeBefore)
                     .and(matchesStartTimeAfter)
-                    .test(r);
-        }
-    }
-
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
-    public static class ArchivedRecordingsFilter implements Predicate<ArchivedRecording> {
-        public @Nullable String name;
-        public @Nullable List<String> names;
-        public @Nullable List<String> labels;
-        public @Nullable Long sizeBytesGreaterThanEqual;
-        public @Nullable Long sizeBytesLessThanEqual;
-        public @Nullable Long archivedTimeAfterEqual;
-        public @Nullable Long archivedTimeBeforeEqual;
-
-        @Override
-        public boolean test(ArchivedRecording r) {
-            Predicate<ArchivedRecording> matchesName =
-                    n -> name == null || Objects.equals(name, n.name());
-            Predicate<ArchivedRecording> matchesNames =
-                    n -> names == null || names.contains(n.name());
-            Predicate<ArchivedRecording> matchesLabels =
-                    n ->
-                            labels == null
-                                    || labels.stream()
-                                            .allMatch(
-                                                    label ->
-                                                            LabelSelectorMatcher.parse(label)
-                                                                    .test(n.metadata().labels()));
-            Predicate<ArchivedRecording> matchesSizeGte =
-                    n -> sizeBytesGreaterThanEqual == null || sizeBytesGreaterThanEqual >= n.size();
-            Predicate<ArchivedRecording> matchesSizeLte =
-                    n -> sizeBytesLessThanEqual == null || sizeBytesLessThanEqual <= n.size();
-            Predicate<ArchivedRecording> matchesArchivedTimeGte =
-                    n ->
-                            archivedTimeAfterEqual == null
-                                    || archivedTimeAfterEqual >= n.archivedTime();
-            Predicate<ArchivedRecording> matchesArchivedTimeLte =
-                    n ->
-                            archivedTimeBeforeEqual == null
-                                    || archivedTimeBeforeEqual <= n.archivedTime();
-
-            return matchesName
-                    .and(matchesNames)
-                    .and(matchesLabels)
-                    .and(matchesSizeGte)
-                    .and(matchesSizeLte)
-                    .and(matchesArchivedTimeGte)
-                    .and(matchesArchivedTimeLte)
                     .test(r);
         }
     }
