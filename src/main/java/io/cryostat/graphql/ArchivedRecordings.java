@@ -44,7 +44,7 @@ public class ArchivedRecordings {
     public TargetNodes.ArchivedRecordings listArchivedRecordings(ArchivedRecordingsFilter filter) {
         var r = new TargetNodes.ArchivedRecordings();
         r.data = recordingHelper.listArchivedRecordings();
-        r.aggregate = new AggregateInfo();
+        r.aggregate = AggregateInfo.fromArchived(r.data);
         r.aggregate.size = r.data.stream().mapToLong(ArchivedRecording::size).sum();
         r.aggregate.count = r.data.size();
         return r;
@@ -54,14 +54,13 @@ public class ArchivedRecordings {
             @Source Recordings recordings, ArchivedRecordingsFilter filter) {
         var out = new TargetNodes.ArchivedRecordings();
         out.data = new ArrayList<>();
-        out.aggregate = new AggregateInfo();
+        out.aggregate = AggregateInfo.empty();
 
         var in = recordings.archived;
         if (in != null && in.data != null) {
             out.data =
                     in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
-            out.aggregate.size = in.data.stream().mapToLong(ArchivedRecording::size).sum();
-            out.aggregate.count = out.data.size();
+            out.aggregate = AggregateInfo.fromArchived(out.data);
         }
 
         return out;

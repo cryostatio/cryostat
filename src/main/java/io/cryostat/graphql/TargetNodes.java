@@ -124,15 +124,13 @@ public class TargetNodes {
         if (requestedFields.contains("active")) {
             recordings.active = new ActiveRecordings();
             recordings.active.data = target.activeRecordings;
-            recordings.active.aggregate = new AggregateInfo();
-            recordings.active.aggregate.count = recordings.active.data.size();
-            recordings.active.aggregate.size = 0;
+            recordings.active.aggregate = AggregateInfo.fromActive(recordings.active.data);
         }
 
         if (requestedFields.contains("archived")) {
             recordings.archived = new ArchivedRecordings();
             recordings.archived.data = recordingHelper.listArchivedRecordings(target);
-            recordings.archived.aggregate = new AggregateInfo();
+            recordings.archived.aggregate = AggregateInfo.fromArchived(recordings.archived.data);
             recordings.archived.aggregate.count = recordings.archived.data.size();
             recordings.archived.aggregate.size =
                     recordings.archived.data.stream().mapToLong(ArchivedRecording::size).sum();
@@ -144,14 +142,13 @@ public class TargetNodes {
     public ActiveRecordings active(@Source Recordings recordings, ActiveRecordingsFilter filter) {
         var out = new ActiveRecordings();
         out.data = new ArrayList<>();
-        out.aggregate = new AggregateInfo();
+        out.aggregate = AggregateInfo.empty();
 
         var in = recordings.active;
         if (in != null && in.data != null) {
             out.data =
                     in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
-            out.aggregate.size = 0;
-            out.aggregate.count = out.data.size();
+            out.aggregate = AggregateInfo.fromActive(out.data);
         }
 
         return out;
@@ -213,6 +210,25 @@ public class TargetNodes {
         public @NonNull @Description(
                 "The sum of sizes of elements in this collection, or 0 if not applicable") long
                 size;
+
+        private AggregateInfo(long count, long size) {
+            this.count = count;
+            this.size = size;
+        }
+
+        public static AggregateInfo empty() {
+            return new AggregateInfo(0, 0);
+        }
+
+        public static AggregateInfo fromActive(List<ActiveRecording> recordings) {
+            return new AggregateInfo(recordings.size(), 0);
+        }
+
+        public static AggregateInfo fromArchived(List<ArchivedRecording> recordings) {
+            return new AggregateInfo(
+                    recordings.size(),
+                    recordings.stream().mapToLong(ArchivedRecording::size).sum());
+        }
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
