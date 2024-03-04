@@ -330,13 +330,18 @@ public class Recordings {
     @RolesAllowed("write")
     public Response agentDelete(@RestPath String connectUrl, @RestPath String filename)
             throws Exception {
-        var target = Target.getTargetByConnectUrl(URI.create(connectUrl));
-        if (!recordingHelper.listArchivedRecordingObjects(target.jvmId).stream()
+        String jvmId;
+        if ("uploads".equals(connectUrl)) {
+            jvmId = "uploads";
+        } else {
+            jvmId = Target.getTargetByConnectUrl(URI.create(connectUrl)).jvmId;
+        }
+        if (!recordingHelper.listArchivedRecordingObjects(jvmId).stream()
                 .map(item -> item.key().strip().split("/")[1])
                 .anyMatch(fn -> Objects.equals(fn, filename))) {
             return Response.status(RestResponse.Status.NOT_FOUND).build();
         }
-        recordingHelper.deleteArchivedRecording(target.jvmId, filename);
+        recordingHelper.deleteArchivedRecording(jvmId, filename);
         return Response.status(RestResponse.Status.NO_CONTENT).build();
     }
 
@@ -376,7 +381,7 @@ public class Recordings {
                                         recordingHelper.downloadUrl(jvmId, filename),
                                         recordingHelper.reportUrl(jvmId, filename),
                                         metadata,
-                                        0 /*filesize*/,
+                                        recording.size(),
                                         clock.getMonotonicTime())));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
