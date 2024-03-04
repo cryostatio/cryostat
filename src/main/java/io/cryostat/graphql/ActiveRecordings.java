@@ -17,6 +17,7 @@ package io.cryostat.graphql;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -32,7 +33,7 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
-import io.cryostat.recordings.Recordings.Metadata;
+import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.targets.Target;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -56,18 +57,20 @@ public class ActiveRecordings {
     @Transactional
     @Description("Start a new Flight Recording on the specified Target")
     public Uni<ActiveRecording> doStartRecording(
-            @Source Target target, @NonNull RecordingSettings settings)
+            @Source Target target, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
         var fTarget = Target.<Target>findById(target.id);
         Template template =
                 recordingHelper.getPreferredTemplate(
-                        fTarget, settings.template, settings.templateType);
+                        fTarget, recording.template, TemplateType.valueOf(recording.templateType));
         return recordingHelper.startRecording(
                 fTarget,
-                RecordingReplace.STOPPED,
+                Optional.ofNullable(recording.replace)
+                        .map(RecordingReplace::valueOf)
+                        .orElse(RecordingReplace.STOPPED),
                 template,
-                settings.asOptions(),
-                settings.metadata.labels());
+                recording.asOptions(),
+                recording.metadata.labels);
     }
 
     @Blocking
@@ -76,6 +79,39 @@ public class ActiveRecordings {
     public Uni<ActiveRecording> doSnapshot(@Source Target target) {
         var fTarget = Target.<Target>findById(target.id);
         return recordingHelper.createSnapshot(fTarget);
+    }
+
+    @Blocking
+    @Transactional
+    @Description("Stop the specified Flight Recording")
+    public Uni<ActiveRecording> doStop(@Source ActiveRecording recording) {
+        var ar = ActiveRecording.<ActiveRecording>findById(recording.id);
+        ar.state = RecordingState.STOPPED;
+        ar.persist();
+        return Uni.createFrom().item(ar);
+    }
+
+    @Blocking
+    @Transactional
+    @Description("Delete the specified Flight Recording")
+    public Uni<ActiveRecording> doDelete(@Source ActiveRecording recording) {
+        var ar = ActiveRecording.<ActiveRecording>findById(recording.id);
+        ar.delete();
+        return Uni.createFrom().item(ar);
+    }
+
+    @Blocking
+    @Transactional
+    @Description("Archive the specified Flight Recording")
+    public Uni<ArchivedRecording> doArchive(@Source ActiveRecording recording) throws Exception {
+        var ar = ActiveRecording.<ActiveRecording>findById(recording.id);
+        var filename = recordingHelper.saveRecording(ar);
+        var archive =
+                recordingHelper.listArchivedRecordings(ar.target).stream()
+                        .filter(r -> r.name().equals(filename))
+                        .findFirst()
+                        .orElseThrow();
+        return Uni.createFrom().item(archive);
     }
 
     public TargetNodes.ActiveRecordings active(
@@ -98,15 +134,15 @@ public class ActiveRecordings {
     public static class RecordingSettings {
         public @NonNull String name;
         public @NonNull String template;
-        public @NonNull TemplateType templateType;
-        public @Nullable RecordingReplace replace;
+        public @NonNull String templateType;
+        public @Nullable String replace;
         public @Nullable Boolean continuous;
         public @Nullable Boolean archiveOnStop;
         public @Nullable Boolean toDisk;
         public @Nullable Long duration;
         public @Nullable Long maxSize;
         public @Nullable Long maxAge;
-        public @Nullable Metadata metadata;
+        public @Nullable RecordingMetadata metadata;
 
         public RecordingOptions asOptions() {
             return new RecordingOptions(
@@ -117,6 +153,11 @@ public class ActiveRecordings {
                     Optional.ofNullable(maxSize),
                     Optional.ofNullable(maxAge));
         }
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class RecordingMetadata {
+        public @Nullable Map<String, String> labels;
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")

@@ -30,7 +30,7 @@ import org.eclipse.microprofile.graphql.Query;
 @GraphQLApi
 public class EnvironmentNodes {
 
-    public static class EnvironmentNodeFilterInput {
+    public static class EnvironmentNodesFilter {
         @Nullable public Long id;
         @Nullable public String name;
         @Nullable public List<String> names;
@@ -40,13 +40,13 @@ public class EnvironmentNodes {
 
     @Query("environmentNodes")
     @Description("Get all environment nodes in the discovery tree with optional filtering")
-    public List<DiscoveryNode> environmentNodes(EnvironmentNodeFilterInput filter) {
+    public List<DiscoveryNode> environmentNodes(EnvironmentNodesFilter filter) {
         DiscoveryNode rootNode = DiscoveryNode.getUniverse();
         return filterAndTraverse(rootNode, filter);
     }
 
     private List<DiscoveryNode> filterAndTraverse(
-            DiscoveryNode node, EnvironmentNodeFilterInput filter) {
+            DiscoveryNode node, EnvironmentNodesFilter filter) {
         List<DiscoveryNode> filteredNodes = new ArrayList<>();
         if (matchesFilter(node, filter)) {
             filteredNodes.add(node);
@@ -59,7 +59,7 @@ public class EnvironmentNodes {
         return filteredNodes;
     }
 
-    private static boolean matchesFilter(DiscoveryNode node, EnvironmentNodeFilterInput filter) {
+    private static boolean matchesFilter(DiscoveryNode node, EnvironmentNodesFilter filter) {
         if (node.target != null) return false;
         if (filter == null) return true;
 
