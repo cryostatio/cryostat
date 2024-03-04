@@ -15,31 +15,16 @@
  */
 package io.cryostat.graphql;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.Function;
-import java.util.function.Predicate;
-
-import org.openjdk.jmc.common.unit.QuantityConversionException;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.MBeanMetrics;
-import io.cryostat.core.templates.Template;
-import io.cryostat.core.templates.TemplateType;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
-import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
-import io.cryostat.recordings.RecordingHelper.RecordingOptions;
-import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
-import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -50,11 +35,9 @@ import graphql.schema.GraphQLEnumValueDefinition;
 import graphql.schema.GraphQLSchema;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Context;
-import io.smallrye.graphql.api.Nullable;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
@@ -101,16 +84,19 @@ public class TargetNodes {
         // load the entire discovery tree out of the database, then perform the filtering at the
         // application level.
         return Target.<Target>findAll().stream()
-                .filter(distinctWith(t -> t.jvmId))
+                // FIXME filtering by distinct JVM ID breaks clients that expect to be able to use a
+                // different connection URL (in the node filter or for client-side filtering) than
+                // the one we end up selecting for here.
+                // .filter(distinctWith(t -> t.jvmId))
                 .map(t -> t.discoveryNode)
                 .filter(n -> filter == null ? true : filter.test(n))
                 .toList();
     }
 
-    private static <T> Predicate<T> distinctWith(Function<? super T, ?> fn) {
-        Set<Object> observed = ConcurrentHashMap.newKeySet();
-        return t -> observed.add(fn.apply(t));
-    }
+    // private static <T> Predicate<T> distinctWith(Function<? super T, ?> fn) {
+    //     Set<Object> observed = ConcurrentHashMap.newKeySet();
+    //     return t -> observed.add(fn.apply(t));
+    // }
 
     @Blocking
     @Description("Get the active and archived recordings belonging to this target")
@@ -124,15 +110,13 @@ public class TargetNodes {
         if (requestedFields.contains("active")) {
             recordings.active = new ActiveRecordings();
             recordings.active.data = target.activeRecordings;
-            recordings.active.aggregate = new AggregateInfo();
-            recordings.active.aggregate.count = recordings.active.data.size();
-            recordings.active.aggregate.size = 0;
+            recordings.active.aggregate = AggregateInfo.fromActive(recordings.active.data);
         }
 
         if (requestedFields.contains("archived")) {
             recordings.archived = new ArchivedRecordings();
             recordings.archived.data = recordingHelper.listArchivedRecordings(target);
-            recordings.archived.aggregate = new AggregateInfo();
+            recordings.archived.aggregate = AggregateInfo.fromArchived(recordings.archived.data);
             recordings.archived.aggregate.count = recordings.archived.data.size();
             recordings.archived.aggregate.size =
                     recordings.archived.data.stream().mapToLong(ArchivedRecording::size).sum();
@@ -141,69 +125,10 @@ public class TargetNodes {
         return recordings;
     }
 
-    public ActiveRecordings active(@Source Recordings recordings, ActiveRecordingsFilter filter) {
-        var out = new ActiveRecordings();
-        out.data = new ArrayList<>();
-        out.aggregate = new AggregateInfo();
-
-        var in = recordings.active;
-        if (in != null && in.data != null) {
-            out.data =
-                    in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
-            out.aggregate.size = 0;
-            out.aggregate.count = out.data.size();
-        }
-
-        return out;
-    }
-
-    public ArchivedRecordings archived(
-            @Source Recordings recordings, ArchivedRecordingsFilter filter) {
-        var out = new ArchivedRecordings();
-        out.data = new ArrayList<>();
-        out.aggregate = new AggregateInfo();
-
-        var in = recordings.archived;
-        if (in != null && in.data != null) {
-            out.data =
-                    in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
-            out.aggregate.size = 0;
-            out.aggregate.count = out.data.size();
-        }
-
-        return out;
-    }
-
     @Blocking
     @Description("Get live MBean metrics snapshot from the specified Target")
     public Uni<MBeanMetrics> mbeanMetrics(@Source Target target) {
         return connectionManager.executeConnectedTaskUni(target, JFRConnection::getMBeanMetrics);
-    }
-
-    @Blocking
-    @Transactional
-    @Description("Start a new Flight Recording on the specified Target")
-    public Uni<ActiveRecording> doStartRecording(
-            @Source Target target, @NonNull RecordingSettings settings)
-            throws QuantityConversionException {
-        var fTarget = Target.<Target>findById(target.id);
-        Template template =
-                recordingHelper.getPreferredTemplate(
-                        fTarget, settings.template, settings.templateType);
-        return recordingHelper.startRecording(
-                fTarget,
-                RecordingReplace.STOPPED,
-                template,
-                settings.asOptions(),
-                settings.metadata.labels());
-    }
-
-    @Blocking
-    @Transactional
-    @Description("Create a new Flight Recorder Snapshot on the specified Target")
-    public Uni<ActiveRecording> doSnapshot(@Source Target target) {
-        var fTarget = Target.<Target>findById(target.id);
-        return recordingHelper.createSnapshot(fTarget);
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
@@ -230,134 +155,24 @@ public class TargetNodes {
         public @NonNull @Description(
                 "The sum of sizes of elements in this collection, or 0 if not applicable") long
                 size;
-    }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
-    public static class ActiveRecordingsFilter implements Predicate<ActiveRecording> {
-        public @Nullable String name;
-        public @Nullable List<String> names;
-        public @Nullable List<String> labels;
-        public @Nullable RecordingState state;
-        public @Nullable Boolean continuous;
-        public @Nullable Boolean toDisk;
-        public @Nullable Long durationMsGreaterThanEqual;
-        public @Nullable Long durationMsLessThanEqual;
-        public @Nullable Long startTimeMsAfterEqual;
-        public @Nullable Long startTimeMsBeforeEqual;
-
-        @Override
-        public boolean test(ActiveRecording r) {
-            Predicate<ActiveRecording> matchesName =
-                    n -> name == null || Objects.equals(name, n.name);
-            Predicate<ActiveRecording> matchesNames = n -> names == null || names.contains(n.name);
-            Predicate<ActiveRecording> matchesLabels =
-                    n ->
-                            labels == null
-                                    || labels.stream()
-                                            .allMatch(
-                                                    label ->
-                                                            LabelSelectorMatcher.parse(label)
-                                                                    .test(n.metadata.labels()));
-            Predicate<ActiveRecording> matchesState = n -> state == null || n.state.equals(state);
-            Predicate<ActiveRecording> matchesContinuous =
-                    n -> continuous == null || continuous.equals(n.continuous);
-            Predicate<ActiveRecording> matchesToDisk =
-                    n -> toDisk == null || toDisk.equals(n.toDisk);
-            Predicate<ActiveRecording> matchesDurationGte =
-                    n ->
-                            durationMsGreaterThanEqual == null
-                                    || durationMsGreaterThanEqual >= n.duration;
-            Predicate<ActiveRecording> matchesDurationLte =
-                    n -> durationMsLessThanEqual == null || durationMsLessThanEqual <= n.duration;
-            Predicate<ActiveRecording> matchesStartTimeAfter =
-                    n -> startTimeMsAfterEqual == null || startTimeMsAfterEqual >= n.startTime;
-            Predicate<ActiveRecording> matchesStartTimeBefore =
-                    n -> startTimeMsBeforeEqual == null || startTimeMsBeforeEqual <= n.startTime;
-
-            return matchesName
-                    .and(matchesNames)
-                    .and(matchesLabels)
-                    .and(matchesState)
-                    .and(matchesContinuous)
-                    .and(matchesToDisk)
-                    .and(matchesDurationGte)
-                    .and(matchesDurationLte)
-                    .and(matchesStartTimeBefore)
-                    .and(matchesStartTimeAfter)
-                    .test(r);
+        private AggregateInfo(long count, long size) {
+            this.count = count;
+            this.size = size;
         }
-    }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
-    public static class ArchivedRecordingsFilter implements Predicate<ArchivedRecording> {
-        public @Nullable String name;
-        public @Nullable List<String> names;
-        public @Nullable List<String> labels;
-        public @Nullable Long sizeBytesGreaterThanEqual;
-        public @Nullable Long sizeBytesLessThanEqual;
-        public @Nullable Long archivedTimeAfterEqual;
-        public @Nullable Long archivedTimeBeforeEqual;
-
-        @Override
-        public boolean test(ArchivedRecording r) {
-            Predicate<ArchivedRecording> matchesName =
-                    n -> name == null || Objects.equals(name, n.name());
-            Predicate<ArchivedRecording> matchesNames =
-                    n -> names == null || names.contains(n.name());
-            Predicate<ArchivedRecording> matchesLabels =
-                    n ->
-                            labels == null
-                                    || labels.stream()
-                                            .allMatch(
-                                                    label ->
-                                                            LabelSelectorMatcher.parse(label)
-                                                                    .test(n.metadata().labels()));
-            Predicate<ArchivedRecording> matchesSizeGte =
-                    n -> sizeBytesGreaterThanEqual == null || sizeBytesGreaterThanEqual >= n.size();
-            Predicate<ArchivedRecording> matchesSizeLte =
-                    n -> sizeBytesLessThanEqual == null || sizeBytesLessThanEqual <= n.size();
-            Predicate<ArchivedRecording> matchesArchivedTimeGte =
-                    n ->
-                            archivedTimeAfterEqual == null
-                                    || archivedTimeAfterEqual >= n.archivedTime();
-            Predicate<ArchivedRecording> matchesArchivedTimeLte =
-                    n ->
-                            archivedTimeBeforeEqual == null
-                                    || archivedTimeBeforeEqual <= n.archivedTime();
-
-            return matchesName
-                    .and(matchesNames)
-                    .and(matchesLabels)
-                    .and(matchesSizeGte)
-                    .and(matchesSizeLte)
-                    .and(matchesArchivedTimeGte)
-                    .and(matchesArchivedTimeLte)
-                    .test(r);
+        public static AggregateInfo empty() {
+            return new AggregateInfo(0, 0);
         }
-    }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
-    public static class RecordingSettings {
-        public @NonNull String name;
-        public @NonNull String template;
-        public @NonNull TemplateType templateType;
-        public @Nullable RecordingReplace replace;
-        public @Nullable Boolean continuous;
-        public @Nullable Boolean archiveOnStop;
-        public @Nullable Boolean toDisk;
-        public @Nullable Long duration;
-        public @Nullable Long maxSize;
-        public @Nullable Long maxAge;
-        public @Nullable Metadata metadata;
+        public static AggregateInfo fromActive(List<ActiveRecording> recordings) {
+            return new AggregateInfo(recordings.size(), 0);
+        }
 
-        public RecordingOptions asOptions() {
-            return new RecordingOptions(
-                    name,
-                    Optional.ofNullable(toDisk),
-                    Optional.ofNullable(archiveOnStop),
-                    Optional.ofNullable(duration),
-                    Optional.ofNullable(maxSize),
-                    Optional.ofNullable(maxAge));
+        public static AggregateInfo fromArchived(List<ArchivedRecording> recordings) {
+            return new AggregateInfo(
+                    recordings.size(),
+                    recordings.stream().mapToLong(ArchivedRecording::size).sum());
         }
     }
 }
