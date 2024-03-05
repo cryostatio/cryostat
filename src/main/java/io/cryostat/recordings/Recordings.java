@@ -439,8 +439,7 @@ public class Recordings {
         ActiveRecording activeRecording = recording.get();
         switch (body.toLowerCase()) {
             case "stop":
-                activeRecording.state = RecordingState.STOPPED;
-                activeRecording.persist();
+                recordingHelper.stopRecording(activeRecording).await().indefinitely();
                 return null;
             case "save":
                 try {
@@ -681,7 +680,7 @@ public class Recordings {
                 .filter(r -> r.remoteId == remoteId)
                 .findFirst()
                 .ifPresentOrElse(
-                        ActiveRecording::delete,
+                        recordingHelper::deleteRecording,
                         () -> {
                             throw new NotFoundException();
                         });

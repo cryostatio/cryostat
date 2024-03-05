@@ -86,9 +86,7 @@ public class ActiveRecordings {
     @Description("Stop the specified Flight Recording")
     public Uni<ActiveRecording> doStop(@Source ActiveRecording recording) {
         var ar = ActiveRecording.<ActiveRecording>findById(recording.id);
-        ar.state = RecordingState.STOPPED;
-        ar.persist();
-        return Uni.createFrom().item(ar);
+        return recordingHelper.stopRecording(ar);
     }
 
     @Blocking
@@ -96,8 +94,7 @@ public class ActiveRecordings {
     @Description("Delete the specified Flight Recording")
     public Uni<ActiveRecording> doDelete(@Source ActiveRecording recording) {
         var ar = ActiveRecording.<ActiveRecording>findById(recording.id);
-        ar.delete();
-        return Uni.createFrom().item(ar);
+        return recordingHelper.deleteRecording(ar);
     }
 
     @Blocking

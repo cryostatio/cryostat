@@ -87,6 +87,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ServerErrorException;
 import jdk.jfr.RecordingState;
@@ -195,6 +196,7 @@ public class RecordingHelper {
         }
     }
 
+    @Transactional
     public Uni<ActiveRecording> startRecording(
             Target target,
             RecordingReplace replace,
@@ -265,7 +267,7 @@ public class RecordingHelper {
                 });
     }
 
-    @Blocking
+    @Transactional
     public Uni<ActiveRecording> createSnapshot(Target target) {
         return connectionManager.executeConnectedTaskUni(
                 target,
@@ -329,6 +331,20 @@ public class RecordingHelper {
 
                     return recording;
                 });
+    }
+
+    @Transactional
+    public Uni<ActiveRecording> stopRecording(ActiveRecording recording) {
+        recording.state = RecordingState.STOPPED;
+        recording.persist();
+        return Uni.createFrom().item(recording);
+    }
+
+    @Transactional
+    public Uni<ActiveRecording> deleteRecording(ActiveRecording recording) {
+        recording.delete();
+        recording.persist();
+        return Uni.createFrom().item(recording);
     }
 
     @Blocking
