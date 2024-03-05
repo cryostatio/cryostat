@@ -98,11 +98,9 @@ public class RootNode {
                                                                             n.target.annotations
                                                                                     .merged()));
 
-            return matchesId
-                    .and(matchesName)
-                    .and(matchesNames)
-                    .and(matchesLabels)
-                    .and(matchesAnnotations)
+            return List.of(matchesId, matchesName, matchesNames, matchesLabels, matchesAnnotations)
+                    .stream()
+                    .reduce(x -> true, Predicate::and)
                     .test(t);
         }
     }

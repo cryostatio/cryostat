@@ -101,6 +101,7 @@ public class TargetNodes {
     @Blocking
     @Description("Get the active and archived recordings belonging to this target")
     public Recordings recordings(@Source Target target, Context context) {
+        var fTarget = Target.<Target>findById(target.id);
         var dfe = context.unwrap(DataFetchingEnvironment.class);
         var requestedFields =
                 dfe.getSelectionSet().getFields().stream().map(field -> field.getName()).toList();
@@ -109,17 +110,14 @@ public class TargetNodes {
 
         if (requestedFields.contains("active")) {
             recordings.active = new ActiveRecordings();
-            recordings.active.data = target.activeRecordings;
+            recordings.active.data = fTarget.activeRecordings;
             recordings.active.aggregate = AggregateInfo.fromActive(recordings.active.data);
         }
 
         if (requestedFields.contains("archived")) {
             recordings.archived = new ArchivedRecordings();
-            recordings.archived.data = recordingHelper.listArchivedRecordings(target);
+            recordings.archived.data = recordingHelper.listArchivedRecordings(fTarget);
             recordings.archived.aggregate = AggregateInfo.fromArchived(recordings.archived.data);
-            recordings.archived.aggregate.count = recordings.archived.data.size();
-            recordings.archived.aggregate.size =
-                    recordings.archived.data.stream().mapToLong(ArchivedRecording::size).sum();
         }
 
         return recordings;
@@ -128,7 +126,8 @@ public class TargetNodes {
     @Blocking
     @Description("Get live MBean metrics snapshot from the specified Target")
     public Uni<MBeanMetrics> mbeanMetrics(@Source Target target) {
-        return connectionManager.executeConnectedTaskUni(target, JFRConnection::getMBeanMetrics);
+        var fTarget = Target.<Target>findById(target.id);
+        return connectionManager.executeConnectedTaskUni(fTarget, JFRConnection::getMBeanMetrics);
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")

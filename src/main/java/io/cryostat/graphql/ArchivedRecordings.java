@@ -45,8 +45,6 @@ public class ArchivedRecordings {
         var r = new TargetNodes.ArchivedRecordings();
         r.data = recordingHelper.listArchivedRecordings();
         r.aggregate = AggregateInfo.fromArchived(r.data);
-        r.aggregate.size = r.data.stream().mapToLong(ArchivedRecording::size).sum();
-        r.aggregate.count = r.data.size();
         return r;
     }
 
@@ -109,14 +107,17 @@ public class ArchivedRecordings {
                             archivedTimeBeforeEqual == null
                                     || archivedTimeBeforeEqual <= n.archivedTime();
 
-            return matchesName
-                    .and(matchesNames)
-                    .and(matchesSourceTarget)
-                    .and(matchesLabels)
-                    .and(matchesSizeGte)
-                    .and(matchesSizeLte)
-                    .and(matchesArchivedTimeGte)
-                    .and(matchesArchivedTimeLte)
+            return List.of(
+                            matchesName,
+                            matchesNames,
+                            matchesSourceTarget,
+                            matchesLabels,
+                            matchesSizeGte,
+                            matchesSizeLte,
+                            matchesArchivedTimeGte,
+                            matchesArchivedTimeLte)
+                    .stream()
+                    .reduce(x -> true, Predicate::and)
                     .test(r);
         }
     }

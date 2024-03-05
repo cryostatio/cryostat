@@ -199,16 +199,19 @@ public class ActiveRecordings {
             Predicate<ActiveRecording> matchesStartTimeBefore =
                     n -> startTimeMsBeforeEqual == null || startTimeMsBeforeEqual <= n.startTime;
 
-            return matchesName
-                    .and(matchesNames)
-                    .and(matchesLabels)
-                    .and(matchesState)
-                    .and(matchesContinuous)
-                    .and(matchesToDisk)
-                    .and(matchesDurationGte)
-                    .and(matchesDurationLte)
-                    .and(matchesStartTimeBefore)
-                    .and(matchesStartTimeAfter)
+            return List.of(
+                            matchesName,
+                            matchesNames,
+                            matchesLabels,
+                            matchesState,
+                            matchesContinuous,
+                            matchesToDisk,
+                            matchesDurationGte,
+                            matchesDurationLte,
+                            matchesStartTimeBefore,
+                            matchesStartTimeAfter)
+                    .stream()
+                    .reduce(x -> true, Predicate::and)
                     .test(r);
         }
     }
