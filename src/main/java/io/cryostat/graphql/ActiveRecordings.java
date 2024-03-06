@@ -70,7 +70,7 @@ public class ActiveRecordings {
                         .orElse(RecordingReplace.STOPPED),
                 template,
                 recording.asOptions(),
-                recording.metadata.labels);
+                Optional.ofNullable(recording.metadata).map(s -> s.labels).orElse(Map.of()));
     }
 
     @Blocking
