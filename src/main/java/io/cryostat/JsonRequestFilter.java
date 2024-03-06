@@ -15,37 +15,54 @@
  */
 package io.cryostat;
 
-import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
 
 @Provider
 public class JsonRequestFilter implements ContainerRequestFilter {
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
         if (requestContext.getMediaType() != null
-                && requestContext
-                        .getMediaType()
-                        .isCompatible(jakarta.ws.rs.core.MediaType.APPLICATION_JSON_TYPE)) {
-            BufferedReader reader =
-                    new BufferedReader(new InputStreamReader(requestContext.getEntityStream()));
-            try {
-                String line = reader.readLine();
-                if (line.contains("\"id\"")) {
-                    requestContext.abortWith(
-                            Response.status(Response.Status.BAD_REQUEST)
-                                    .entity("ID field cannot be specified in the request body")
-                                    .build());
+                && requestContext.getMediaType().isCompatible(MediaType.APPLICATION_JSON_TYPE)) {
+            byte[] jsonData = requestContext.getEntityStream().readAllBytes();
+            String json = new String(jsonData, StandardCharsets.UTF_8);
+            JsonNode rootNode = objectMapper.readTree(json);
+
+            if (containsIdField(rootNode)) {
+                requestContext.abortWith(
+                        Response.status(Response.Status.BAD_REQUEST)
+                                .entity("ID field cannot be specified in the request body.")
+                                .build());
+                return;
+            }
+
+            requestContext.setEntityStream(new ByteArrayInputStream(json.getBytes()));
+        }
+    }
+
+    private boolean containsIdField(JsonNode node) {
+        if (node.has("id")) {
+            return true;
+        }
+        if (node.isContainerNode()) {
+            for (JsonNode child : node) {
+                if (containsIdField(child)) {
+                    return true;
                 }
-            } finally {
-                reader.close();
             }
         }
+        return false;
     }
 }
