@@ -48,7 +48,8 @@ public class JsonRequestFilter implements ContainerRequestFilter {
                 return;
             }
 
-            requestContext.setEntityStream(new ByteArrayInputStream(json.getBytes()));
+            requestContext.setEntityStream(
+                    new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)));
         }
     }
 
