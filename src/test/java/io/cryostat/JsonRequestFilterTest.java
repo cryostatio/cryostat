@@ -20,12 +20,14 @@ import static org.mockito.Mockito.*;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.stream.Stream;
 
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 public class JsonRequestFilterTest {
     private JsonRequestFilter filter;
@@ -37,42 +39,39 @@ public class JsonRequestFilterTest {
         requestContext = mock(ContainerRequestContext.class);
     }
 
-    @Test
-    void testRejectsPayloadWithId() throws Exception {
-
-        String[] testPayloads = {
-            "{\"id\": 1}",
-            "{\n  \"id\": 1\n}",
-            "{\n  \"foo\": \"bar\",\n  \"id\": 1\n}",
-            "[\n  {\n    \"id\": 1\n  }\n]"
-        };
-
-        for (String payload : testPayloads) {
-            simulateRequest(payload);
-            verify(requestContext, times(1)).abortWith(any(Response.class));
-            reset(requestContext);
-        }
+    static Stream<String> payloadsReject() {
+        return Stream.of(
+                "{\"id\": 1}",
+                "{\n  \"id\": 1\n}",
+                "{\n  \"foo\": \"bar\",\n  \"id\": 1\n}",
+                "[\n  {\n    \"id\": 1\n  }\n]");
     }
 
-    @Test
-    void testAllowsPayloadWithoutId() throws Exception {
+    @ParameterizedTest
+    @MethodSource("payloadsReject")
+    void testRejectsPayloadWithId(String payload) throws Exception {
+        simulateRequest(payload);
+        verify(requestContext, times(1)).abortWith(any(Response.class));
+        reset(requestContext);
+    }
 
-        String[] testPayloads = {
-            "{ \"message\": \"this text includes the string literal \\\"id\\\"\" }",
-            "{}",
-            "[]",
-            "{ \"foo\": \"bar\" }"
-        };
+    static Stream<String> payloadsAllow() {
+        return Stream.of(
+                "{ \"message\": \"this text includes the string literal \\\"id\\\"\" }",
+                "{}",
+                "[]",
+                "{ \"foo\": \"bar\" }");
+    }
 
-        for (String payload : testPayloads) {
-            simulateRequest(payload);
-            verify(requestContext, never()).abortWith(any(Response.class));
-            reset(requestContext);
-        }
+    @ParameterizedTest
+    @MethodSource("payloadsAllow")
+    void testAllowsPayloadWithoutId(String payload) throws Exception {
+        simulateRequest(payload);
+        verify(requestContext, never()).abortWith(any(Response.class));
+        reset(requestContext);
     }
 
     private void simulateRequest(String jsonPayload) throws Exception {
-
         ByteArrayInputStream payloadStream =
                 new ByteArrayInputStream(jsonPayload.getBytes(StandardCharsets.UTF_8));
         when(requestContext.getEntityStream()).thenReturn(payloadStream);
