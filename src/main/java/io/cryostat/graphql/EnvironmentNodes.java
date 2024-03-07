@@ -17,10 +17,9 @@ package io.cryostat.graphql;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
 
 import io.cryostat.discovery.DiscoveryNode;
-import io.cryostat.graphql.matchers.LabelSelectorMatcher;
+import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
@@ -30,12 +29,12 @@ import org.eclipse.microprofile.graphql.Query;
 @GraphQLApi
 public class EnvironmentNodes {
 
-    public static class EnvironmentNodesFilter {
-        @Nullable public Long id;
-        @Nullable public String name;
-        @Nullable public List<String> names;
-        @Nullable public String nodeType;
-        @Nullable public List<String> labels;
+    public static class EnvironmentNodesFilter extends DiscoveryNodeFilter {
+        @Override
+        public boolean test(DiscoveryNode node) {
+            boolean hasTarget = node.target == null;
+            return !hasTarget && super.test(node);
+        }
     }
 
     @Query("environmentNodes")
@@ -48,7 +47,7 @@ public class EnvironmentNodes {
     private static List<DiscoveryNode> filterAndTraverse(
             DiscoveryNode node, EnvironmentNodesFilter filter) {
         List<DiscoveryNode> filteredNodes = new ArrayList<>();
-        if (matchesFilter(node, filter)) {
+        if (filter.test(node)) {
             filteredNodes.add(node);
         }
         if (node.children != null) {
@@ -57,24 +56,5 @@ public class EnvironmentNodes {
             }
         }
         return filteredNodes;
-    }
-
-    private static boolean matchesFilter(DiscoveryNode node, EnvironmentNodesFilter filter) {
-        if (node.target != null) return false;
-        if (filter == null) return true;
-
-        boolean matchesId = filter.id == null || filter.id.equals(node.id);
-        boolean matchesName = filter.name == null || Objects.equals(filter.name, node.name);
-        boolean matchesNames = filter.names == null || filter.names.contains(node.name);
-        boolean matchesLabels =
-                filter.labels == null
-                        || filter.labels.stream()
-                                .allMatch(
-                                        label ->
-                                                LabelSelectorMatcher.parse(label)
-                                                        .test(node.labels));
-        boolean matchesNodeType = filter.nodeType == null || filter.nodeType.equals(node.nodeType);
-
-        return matchesId && matchesName && matchesNames && matchesLabels && matchesNodeType;
     }
 }
