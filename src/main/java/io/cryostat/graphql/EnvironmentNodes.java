@@ -40,12 +40,12 @@ public class EnvironmentNodes {
 
     @Query("environmentNodes")
     @Description("Get all environment nodes in the discovery tree with optional filtering")
-    public List<DiscoveryNode> environmentNodes(EnvironmentNodesFilter filter) {
+    public List<DiscoveryNode> environmentNodes(@Nullable EnvironmentNodesFilter filter) {
         DiscoveryNode rootNode = DiscoveryNode.getUniverse();
         return filterAndTraverse(rootNode, filter);
     }
 
-    private List<DiscoveryNode> filterAndTraverse(
+    private static List<DiscoveryNode> filterAndTraverse(
             DiscoveryNode node, EnvironmentNodesFilter filter) {
         List<DiscoveryNode> filteredNodes = new ArrayList<>();
         if (matchesFilter(node, filter)) {

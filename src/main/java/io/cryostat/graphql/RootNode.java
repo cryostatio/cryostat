@@ -53,7 +53,7 @@ public class RootNode {
                 .toList();
     }
 
-    private Set<DiscoveryNode> recurseChildren(
+    static Set<DiscoveryNode> recurseChildren(
             DiscoveryNode node, Predicate<DiscoveryNode> predicate) {
         Set<DiscoveryNode> result = new HashSet<>();
         if (predicate.test(node)) {
