@@ -21,6 +21,8 @@ import java.util.List;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.MBeanMetrics;
 import io.cryostat.discovery.DiscoveryNode;
+import io.cryostat.graphql.ActiveRecordings.ActiveRecordingsFilter;
+import io.cryostat.graphql.ArchivedRecordings.ArchivedRecordingsFilter;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
@@ -35,6 +37,7 @@ import graphql.schema.GraphQLEnumValueDefinition;
 import graphql.schema.GraphQLSchema;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Context;
+import io.smallrye.graphql.api.Nullable;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -97,6 +100,32 @@ public class TargetNodes {
     //     Set<Object> observed = ConcurrentHashMap.newKeySet();
     //     return t -> observed.add(fn.apply(t));
     // }
+
+    @Blocking
+    public ActiveRecordings activeRecordings(
+            @Source Target target, @Nullable ActiveRecordingsFilter filter) {
+        var fTarget = Target.<Target>findById(target.id);
+        var recordings = new ActiveRecordings();
+        recordings.data =
+                fTarget.activeRecordings.stream()
+                        .filter(r -> filter == null || filter.test(r))
+                        .toList();
+        recordings.aggregate = AggregateInfo.fromActive(recordings.data);
+        return recordings;
+    }
+
+    @Blocking
+    public ArchivedRecordings archivedRecordings(
+            @Source Target target, @Nullable ArchivedRecordingsFilter filter) {
+        var fTarget = Target.<Target>findById(target.id);
+        var recordings = new ArchivedRecordings();
+        recordings.data =
+                recordingHelper.listArchivedRecordings(fTarget).stream()
+                        .filter(r -> filter == null || filter.test(r))
+                        .toList();
+        recordings.aggregate = AggregateInfo.fromArchived(recordings.data);
+        return recordings;
+    }
 
     @Blocking
     @Description("Get the active and archived recordings belonging to this target")
