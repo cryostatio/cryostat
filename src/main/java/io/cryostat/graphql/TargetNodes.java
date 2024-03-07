@@ -15,7 +15,6 @@
  */
 package io.cryostat.graphql;
 
-import java.util.Arrays;
 import java.util.List;
 
 import io.cryostat.core.net.JFRConnection;
@@ -32,16 +31,11 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.GraphQLEnumType;
-import graphql.schema.GraphQLEnumValueDefinition;
-import graphql.schema.GraphQLSchema;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
 import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jdk.jfr.RecordingState;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.NonNull;
@@ -53,31 +47,6 @@ public class TargetNodes {
 
     @Inject RecordingHelper recordingHelper;
     @Inject TargetConnectionManager connectionManager;
-
-    public GraphQLSchema.Builder registerRecordingStateEnum(
-            @Observes GraphQLSchema.Builder builder) {
-        return createEnumType(
-                builder, RecordingState.class, "Running state of an active Flight Recording");
-    }
-
-    private static GraphQLSchema.Builder createEnumType(
-            GraphQLSchema.Builder builder, Class<? extends Enum<?>> klazz, String description) {
-        return builder.additionalType(
-                GraphQLEnumType.newEnum()
-                        .name(klazz.getSimpleName())
-                        .description(description)
-                        .values(
-                                Arrays.asList(klazz.getEnumConstants()).stream()
-                                        .map(
-                                                s ->
-                                                        new GraphQLEnumValueDefinition.Builder()
-                                                                .name(s.name())
-                                                                .value(s)
-                                                                .description(s.name())
-                                                                .build())
-                                        .toList())
-                        .build());
-    }
 
     @Blocking
     @Query("targetNodes")
