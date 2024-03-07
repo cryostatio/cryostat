@@ -322,6 +322,31 @@ public class ActiveRecordings {
         }
     }
 
+    @Mutation
+    @Description(
+            "Updates the metadata labels for an existing Flight Recorder recording specified by the"
+                    + " recording ID.")
+    public Uni<ActiveRecording> doPutMetadata(Long recordingId, MetadataInput metadataInput) {
+        return Uni.createFrom()
+                .item(
+                        () -> {
+                            Map<String, String> labels = metadataInput.getLabels();
+                            return recordingHelper.updateRecordingMetadata(recordingId, labels);
+                        });
+    }
+
+    public static class MetadataInput {
+        private Map<String, String> labels;
+
+        public Map<String, String> getLabels() {
+            return labels;
+        }
+
+        public void setLabels(Map<String, String> labels) {
+            this.labels = labels;
+        }
+    }
+
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class RecordingMetadata {
         public @Nullable Map<String, String> labels;

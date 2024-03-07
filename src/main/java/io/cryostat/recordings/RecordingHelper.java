@@ -89,6 +89,7 @@ import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ServerErrorException;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
@@ -943,6 +944,20 @@ public class RecordingHelper {
             }
         }
         return new Metadata(labels, expiry);
+    }
+
+    public ActiveRecording updateRecordingMetadata(
+            Long recordingId, Map<String, String> newLabels) {
+        ActiveRecording recording = ActiveRecording.findById(recordingId);
+        if (recording == null) {
+            throw new NotFoundException("Recording not found for ID: " + recordingId);
+        }
+
+        Metadata updatedMetadata = new Metadata(newLabels);
+        recording.setMetadata(updatedMetadata);
+        recording.persist();
+
+        return recording;
     }
 
     @Blocking
