@@ -17,7 +17,6 @@ package io.cryostat.graphql;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -67,18 +66,18 @@ public class RootNode {
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class DiscoveryNodeFilter implements Predicate<DiscoveryNode> {
-        public @Nullable Long id;
-        public @Nullable String name;
+        public @Nullable List<Long> ids;
         public @Nullable List<String> names;
+        public @Nullable List<String> nodeTypes;
         public @Nullable List<String> labels;
         public @Nullable List<String> annotations;
 
         @Override
         public boolean test(DiscoveryNode t) {
-            Predicate<DiscoveryNode> matchesId = n -> id == null || id.equals(n.id);
-            Predicate<DiscoveryNode> matchesName =
-                    n -> name == null || Objects.equals(name, n.name);
+            Predicate<DiscoveryNode> matchesIds = n -> ids == null || ids.contains(n.id);
             Predicate<DiscoveryNode> matchesNames = n -> names == null || names.contains(n.name);
+            Predicate<DiscoveryNode> matchesNodeTypes =
+                    n -> nodeTypes == null || nodeTypes.contains(n.nodeType);
             Predicate<DiscoveryNode> matchesLabels =
                     n ->
                             labels == null
@@ -98,7 +97,12 @@ public class RootNode {
                                                                             n.target.annotations
                                                                                     .merged()));
 
-            return List.of(matchesId, matchesName, matchesNames, matchesLabels, matchesAnnotations)
+            return List.of(
+                            matchesIds,
+                            matchesNames,
+                            matchesNodeTypes,
+                            matchesLabels,
+                            matchesAnnotations)
                     .stream()
                     .reduce(x -> true, Predicate::and)
                     .test(t);
