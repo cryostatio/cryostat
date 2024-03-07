@@ -404,6 +404,43 @@ public class Recordings {
     }
 
     @GET
+    @Blocking
+    @Path("/api/beta/fs/recordings/{jvmId}")
+    @RolesAllowed("read")
+    public Collection<ArchivedRecordingDirectory> listFsArchives(@RestPath String jvmId) {
+        var map = new HashMap<String, ArchivedRecordingDirectory>();
+        recordingHelper
+                .listArchivedRecordingObjects(jvmId)
+                .forEach(
+                        item -> {
+                            String filename = item.key().strip().replace(jvmId + "/", "");
+
+                            Metadata metadata =
+                                    recordingHelper
+                                            .getArchivedRecordingMetadata(jvmId, filename)
+                                            .orElseGet(Metadata::empty);
+
+                            String connectUrl =
+                                    metadata.labels.computeIfAbsent("connectUrl", k -> jvmId);
+                            var dir =
+                                    map.computeIfAbsent(
+                                            jvmId,
+                                            id ->
+                                                    new ArchivedRecordingDirectory(
+                                                            connectUrl, id, new ArrayList<>()));
+                            dir.recordings.add(
+                                    new ArchivedRecording(
+                                            filename,
+                                            recordingHelper.downloadUrl(jvmId, filename),
+                                            recordingHelper.reportUrl(jvmId, filename),
+                                            metadata,
+                                            item.size(),
+                                            item.lastModified().getEpochSecond()));
+                        });
+        return map.values();
+    }
+
+    @GET
     @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
