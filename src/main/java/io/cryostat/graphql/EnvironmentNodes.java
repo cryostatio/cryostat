@@ -15,7 +15,6 @@
  */
 package io.cryostat.graphql;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import io.cryostat.discovery.DiscoveryNode;
@@ -29,32 +28,12 @@ import org.eclipse.microprofile.graphql.Query;
 @GraphQLApi
 public class EnvironmentNodes {
 
-    public static class EnvironmentNodesFilter extends DiscoveryNodeFilter {
-        @Override
-        public boolean test(DiscoveryNode node) {
-            boolean hasTarget = node.target == null;
-            return !hasTarget && super.test(node);
-        }
-    }
-
     @Query("environmentNodes")
     @Description("Get all environment nodes in the discovery tree with optional filtering")
-    public List<DiscoveryNode> environmentNodes(@Nullable EnvironmentNodesFilter filter) {
-        DiscoveryNode rootNode = DiscoveryNode.getUniverse();
-        return filterAndTraverse(rootNode, filter);
-    }
-
-    private static List<DiscoveryNode> filterAndTraverse(
-            DiscoveryNode node, EnvironmentNodesFilter filter) {
-        List<DiscoveryNode> filteredNodes = new ArrayList<>();
-        if (filter.test(node)) {
-            filteredNodes.add(node);
-        }
-        if (node.children != null) {
-            for (DiscoveryNode child : node.children) {
-                filteredNodes.addAll(filterAndTraverse(child, filter));
-            }
-        }
-        return filteredNodes;
+    public List<DiscoveryNode> environmentNodes(@Nullable DiscoveryNodeFilter filter) {
+        return RootNode.recurseChildren(DiscoveryNode.getUniverse(), node -> node.target == null)
+                .stream()
+                .filter(filter)
+                .toList();
     }
 }
