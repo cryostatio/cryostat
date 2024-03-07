@@ -15,7 +15,7 @@ services:
       CRYOSTAT_AGENT_WEBSERVER_HOST: "sample-app-1"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8910"
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-1:8910/"
-      CRYOSTAT_AGENT_BASEURI: "http://cryostat:${CRYOSTAT_HTTP_PORT}/"
+        # CRYOSTAT_AGENT_BASEURI: "http://cryostat:${CRYOSTAT_HTTP_PORT}/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
       CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz
     ports:
@@ -47,7 +47,7 @@ services:
       CRYOSTAT_AGENT_WEBSERVER_HOST: "sample-app-2"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8911"
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-2:8911/"
-      CRYOSTAT_AGENT_BASEURI: "http://cryostat:${CRYOSTAT_HTTP_PORT}/"
+        # CRYOSTAT_AGENT_BASEURI: "http://cryostat:${CRYOSTAT_HTTP_PORT}/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
       CRYOSTAT_AGENT_AUTHORIZATION: "Basic dXNlcjpwYXNz"
     ports:
@@ -76,7 +76,7 @@ services:
       CRYOSTAT_AGENT_WEBSERVER_HOST: "sample-app-3"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8910"
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-3:8912/"
-      CRYOSTAT_AGENT_BASEURI: "http://cryostat:${CRYOSTAT_HTTP_PORT}/"
+        # CRYOSTAT_AGENT_BASEURI: "http://cryostat:${CRYOSTAT_HTTP_PORT}/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
       CRYOSTAT_AGENT_AUTHORIZATION: "Basic dXNlcjpwYXNz"
     ports:
@@ -104,7 +104,7 @@ services:
       CRYOSTAT_AGENT_WEBSERVER_HOST: quarkus-test-agent
       CRYOSTAT_AGENT_WEBSERVER_PORT: 9977
       CRYOSTAT_AGENT_CALLBACK: http://quarkus-test-agent:9977/
-      CRYOSTAT_AGENT_BASEURI: http://cryostat:${CRYOSTAT_HTTP_PORT}/
+        # CRYOSTAT_AGENT_BASEURI: http://cryostat:${CRYOSTAT_HTTP_PORT}/
       CRYOSTAT_AGENT_BASEURI_RANGE: public
       CRYOSTAT_AGENT_SSL_TRUST_ALL: "true"
       CRYOSTAT_AGENT_SSL_VERIFY_HOSTNAME: "false"

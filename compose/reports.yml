@@ -10,8 +10,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 512m
+          cpus: '8'
+          memory: 4G
     expose:
       - "10001"
     labels:
