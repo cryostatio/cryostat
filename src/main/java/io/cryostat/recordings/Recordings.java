@@ -449,7 +449,7 @@ public class Recordings {
                     // completes before sending a response - it should be async. Here we should just
                     // return an Accepted response, and if a failure occurs that should be indicated
                     // as a websocket notification.
-                    return recordingHelper.saveRecording(activeRecording);
+                    return recordingHelper.archiveRecording(activeRecording, null, null).name();
                 } catch (IOException ioe) {
                     logger.warn(ioe);
                     return null;
@@ -621,7 +621,7 @@ public class Recordings {
                                 recording.state = RecordingState.STOPPED;
                                 recording.persist();
                                 if (archive) {
-                                    recordingHelper.saveRecording(recording);
+                                    recordingHelper.archiveRecording(recording, null, null);
                                 }
                             } catch (Exception e) {
                                 logger.error("couldn't update recording", e);
@@ -944,8 +944,10 @@ public class Recordings {
 
         String savename = recording.name;
         String filename =
-                recordingHelper.saveRecording(
-                        recording, savename, Instant.now().plus(transientArchivesTtl));
+                recordingHelper
+                        .archiveRecording(
+                                recording, savename, Instant.now().plus(transientArchivesTtl))
+                        .name();
         String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
         if (!savename.endsWith(".jfr")) {
             savename += ".jfr";

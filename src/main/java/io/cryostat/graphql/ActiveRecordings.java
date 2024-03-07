@@ -102,13 +102,7 @@ public class ActiveRecordings {
     @Description("Archive the specified Flight Recording")
     public Uni<ArchivedRecording> doArchive(@Source ActiveRecording recording) throws Exception {
         var ar = ActiveRecording.<ActiveRecording>findById(recording.id);
-        var filename = recordingHelper.saveRecording(ar);
-        var archive =
-                recordingHelper.listArchivedRecordings(ar.target).stream()
-                        .filter(r -> r.name().equals(filename))
-                        .findFirst()
-                        .orElseThrow();
-        return Uni.createFrom().item(archive);
+        return Uni.createFrom().item(recordingHelper.archiveRecording(ar, null, null));
     }
 
     public TargetNodes.ActiveRecordings active(
