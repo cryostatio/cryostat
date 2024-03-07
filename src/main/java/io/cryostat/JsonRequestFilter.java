@@ -17,6 +17,7 @@ package io.cryostat;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -36,20 +37,21 @@ public class JsonRequestFilter implements ContainerRequestFilter {
     public void filter(ContainerRequestContext requestContext) throws IOException {
         if (requestContext.getMediaType() != null
                 && requestContext.getMediaType().isCompatible(MediaType.APPLICATION_JSON_TYPE)) {
-            byte[] jsonData = requestContext.getEntityStream().readAllBytes();
-            String json = new String(jsonData, StandardCharsets.UTF_8);
-            JsonNode rootNode = objectMapper.readTree(json);
+            try (InputStream stream = requestContext.getEntityStream()) {
+                JsonNode rootNode = objectMapper.readTree(stream);
 
-            if (containsIdField(rootNode)) {
-                requestContext.abortWith(
-                        Response.status(Response.Status.BAD_REQUEST)
-                                .entity("ID field cannot be specified in the request body.")
-                                .build());
-                return;
+                if (containsIdField(rootNode)) {
+                    requestContext.abortWith(
+                            Response.status(Response.Status.BAD_REQUEST)
+                                    .entity("ID field cannot be specified in the request body.")
+                                    .build());
+                    return;
+                }
+
+                requestContext.setEntityStream(
+                        new ByteArrayInputStream(
+                                rootNode.toString().getBytes(StandardCharsets.UTF_8)));
             }
-
-            requestContext.setEntityStream(
-                    new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8)));
         }
     }
 
