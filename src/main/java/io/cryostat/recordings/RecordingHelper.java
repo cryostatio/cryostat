@@ -584,13 +584,12 @@ public class RecordingHelper {
     }
 
     @Blocking
-    public List<ArchivedRecording> listArchivedRecordings(Target target) {
-        return listArchivedRecordingObjects(target.jvmId).stream()
+    public List<ArchivedRecording> listArchivedRecordings(String jvmId) {
+        return listArchivedRecordingObjects(jvmId).stream()
                 .map(
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
-                            String jvmId = parts[0];
                             String filename = parts[1];
                             Metadata metadata =
                                     getArchivedRecordingMetadata(jvmId, filename)
@@ -604,6 +603,11 @@ public class RecordingHelper {
                                     item.lastModified().getEpochSecond());
                         })
                 .toList();
+    }
+
+    @Blocking
+    public List<ArchivedRecording> listArchivedRecordings(Target target) {
+        return listArchivedRecordings(target.jvmId);
     }
 
     public ArchivedRecording archiveRecording(

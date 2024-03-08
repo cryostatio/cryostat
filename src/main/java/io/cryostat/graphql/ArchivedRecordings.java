@@ -43,7 +43,12 @@ public class ArchivedRecordings {
     @Query("archivedRecordings")
     public TargetNodes.ArchivedRecordings listArchivedRecordings(ArchivedRecordingsFilter filter) {
         var r = new TargetNodes.ArchivedRecordings();
-        r.data = recordingHelper.listArchivedRecordings();
+        r.data =
+                recordingHelper
+                        .listArchivedRecordings(filter == null ? null : filter.sourceTarget)
+                        .stream()
+                        .filter(filter)
+                        .toList();
         r.aggregate = AggregateInfo.fromArchived(r.data);
         return r;
     }

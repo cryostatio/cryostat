@@ -171,6 +171,8 @@ public class Recordings {
         if (rawLabels != null) {
             rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
         }
+        labels.put("jvmId", "uploads");
+        labels.put("connectUrl", "uploads");
         Metadata metadata = new Metadata(labels);
         return doUpload(recording, metadata, "uploads");
     }
