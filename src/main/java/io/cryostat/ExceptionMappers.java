@@ -35,6 +35,7 @@ import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import org.projectnessie.cel.tools.ScriptException;
+import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 public class ExceptionMappers {
@@ -49,6 +50,12 @@ public class ExceptionMappers {
     @ServerExceptionMapper
     public RestResponse<Void> mapNoSuchElementException(NoSuchElementException ex) {
         return RestResponse.notFound();
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapNoSuchBucketException(NoSuchBucketException ex) {
+        logger.error(ex);
+        return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
     }
 
     @ServerExceptionMapper

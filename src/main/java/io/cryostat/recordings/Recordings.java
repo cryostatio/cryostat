@@ -43,6 +43,7 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import io.cryostat.StorageBuckets;
 import io.cryostat.V2Response;
 import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.RecordingOptionsCustomizer;
@@ -56,7 +57,6 @@ import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
-import io.cryostat.util.HttpStatusCodeIdentifier;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -96,12 +96,10 @@ import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -112,7 +110,6 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 @Path("")
 public class Recordings {
 
-    @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
     @Inject EventBus bus;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
@@ -120,18 +117,20 @@ public class Recordings {
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
     @Inject Clock clock;
     @Inject S3Client storage;
+    @Inject StorageBuckets storageBuckets;
     @Inject S3Presigner presigner;
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ScheduledExecutorService scheduler;
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper recordingHelper;
+    @Inject Logger logger;
 
     @Inject
     @Named(Producers.BASE64_URL)
     Base64 base64Url;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
-    String archiveBucket;
+    String bucket;
 
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURL;
@@ -149,26 +148,7 @@ public class Recordings {
     Optional<String> externalStorageUrl;
 
     void onStart(@Observes StartupEvent evt) {
-        boolean exists = false;
-        try {
-            exists =
-                    HttpStatusCodeIdentifier.isSuccessCode(
-                            storage.headBucket(
-                                            HeadBucketRequest.builder()
-                                                    .bucket(archiveBucket)
-                                                    .build())
-                                    .sdkHttpResponse()
-                                    .statusCode());
-        } catch (Exception e) {
-            logger.info(e);
-        }
-        if (!exists) {
-            try {
-                storage.createBucket(CreateBucketRequest.builder().bucket(archiveBucket).build());
-            } catch (Exception e) {
-                logger.error(e);
-            }
-        }
+        storageBuckets.createIfNecessary(bucket);
     }
 
     @GET
@@ -273,7 +253,7 @@ public class Recordings {
                 new Notification(event.category().category(), event.payload()));
         storage.deleteObjects(
                         DeleteObjectsRequest.builder()
-                                .bucket(archiveBucket)
+                                .bucket(bucket)
                                 .delete(
                                         Delete.builder()
                                                 .objects(
@@ -362,7 +342,7 @@ public class Recordings {
         String key = recordingHelper.archivedRecordingKey(jvmId, filename);
         storage.putObject(
                 PutObjectRequest.builder()
-                        .bucket(archiveBucket)
+                        .bucket(bucket)
                         .key(key)
                         .contentType(RecordingHelper.JFR_MIME)
                         .tagging(recordingHelper.createMetadataTagging(new Metadata(labels)))
@@ -399,7 +379,7 @@ public class Recordings {
         // TODO scan all prefixes for matching filename? This is an old v1 API problem.
         storage.deleteObject(
                 DeleteObjectRequest.builder()
-                        .bucket(archiveBucket)
+                        .bucket(bucket)
                         .key(String.format("%s/%s", "uploads", filename))
                         .build());
     }
@@ -775,11 +755,11 @@ public class Recordings {
                 connectUrl, metadata);
         logger.infov(
                 "Sending S3 deletion request for {0} {1}",
-                archiveBucket, recordingHelper.archivedRecordingKey(jvmId, filename));
+                bucket, recordingHelper.archivedRecordingKey(jvmId, filename));
         var resp =
                 storage.deleteObject(
                         DeleteObjectRequest.builder()
-                                .bucket(archiveBucket)
+                                .bucket(bucket)
                                 .key(recordingHelper.archivedRecordingKey(jvmId, filename))
                                 .build());
         logger.infov(
@@ -1048,7 +1028,7 @@ public class Recordings {
         logger.infov("Handling presigned download request for {0}", pair);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
-                        .bucket(archiveBucket)
+                        .bucket(bucket)
                         .key(recordingHelper.archivedRecordingKey(pair))
                         .build();
         GetObjectPresignRequest presignRequest =

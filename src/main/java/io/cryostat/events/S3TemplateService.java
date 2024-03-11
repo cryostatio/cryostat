@@ -38,13 +38,13 @@ import org.openjdk.jmc.flightrecorder.controlpanel.ui.model.EventConfiguration;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import io.cryostat.StorageBuckets;
 import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.templates.MutableTemplateService;
 import io.cryostat.core.templates.MutableTemplateService.InvalidEventTemplateException;
 import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
-import io.cryostat.util.HttpStatusCodeIdentifier;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -65,11 +65,9 @@ import org.jsoup.nodes.Document;
 import org.jsoup.parser.Parser;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
-import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -82,7 +80,11 @@ public class S3TemplateService implements MutableTemplateService {
     static final String EVENT_TEMPLATE_CREATED = "TemplateUploaded";
     static final String EVENT_TEMPLATE_DELETED = "TemplateDeleted";
 
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
+    String bucket;
+
     @Inject S3Client storage;
+    @Inject StorageBuckets storageBuckets;
 
     @Inject EventBus bus;
 
@@ -92,33 +94,8 @@ public class S3TemplateService implements MutableTemplateService {
 
     @Inject Logger logger;
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
-    String eventTemplatesBucket;
-
     void onStart(@Observes StartupEvent evt) {
-        // FIXME refactor this to a reusable utility method since this is done for custom event
-        // templates, archived recordings, and archived reports
-        boolean exists = false;
-        try {
-            exists =
-                    HttpStatusCodeIdentifier.isSuccessCode(
-                            storage.headBucket(
-                                            HeadBucketRequest.builder()
-                                                    .bucket(eventTemplatesBucket)
-                                                    .build())
-                                    .sdkHttpResponse()
-                                    .statusCode());
-        } catch (Exception e) {
-            logger.info(e);
-        }
-        if (!exists) {
-            try {
-                storage.createBucket(
-                        CreateBucketRequest.builder().bucket(eventTemplatesBucket).build());
-            } catch (Exception e) {
-                logger.error(e);
-            }
-        }
+        storageBuckets.createIfNecessary(bucket);
     }
 
     @Override
@@ -170,17 +147,13 @@ public class S3TemplateService implements MutableTemplateService {
 
     @Blocking
     private List<S3Object> getObjects() {
-        var builder = ListObjectsV2Request.builder().bucket(eventTemplatesBucket);
+        var builder = ListObjectsV2Request.builder().bucket(bucket);
         return storage.listObjectsV2(builder.build()).contents();
     }
 
     @Blocking
     private Template convertObject(S3Object object) throws InvalidEventTemplateException {
-        var req =
-                GetObjectTaggingRequest.builder()
-                        .bucket(eventTemplatesBucket)
-                        .key(object.key())
-                        .build();
+        var req = GetObjectTaggingRequest.builder().bucket(bucket).key(object.key()).build();
         var tagging = storage.getObjectTagging(req);
         var list = tagging.tagSet();
         if (!tagging.hasTagSet() || list.isEmpty()) {
@@ -222,7 +195,7 @@ public class S3TemplateService implements MutableTemplateService {
 
     @Blocking
     private InputStream getModel(String name) {
-        var req = GetObjectRequest.builder().bucket(eventTemplatesBucket).key(name).build();
+        var req = GetObjectRequest.builder().bucket(bucket).key(name).build();
         return storage.getObject(req);
     }
 
@@ -273,7 +246,7 @@ public class S3TemplateService implements MutableTemplateService {
             String provider = getAttributeValue(root, "provider");
             storage.putObject(
                     PutObjectRequest.builder()
-                            .bucket(eventTemplatesBucket)
+                            .bucket(bucket)
                             .key(templateName)
                             .contentType(ContentType.APPLICATION_XML.getMimeType())
                             .tagging(createTemplateTagging(templateName, description, provider))
@@ -303,11 +276,7 @@ public class S3TemplateService implements MutableTemplateService {
                             .filter(t -> t.getName().equals(templateName))
                             .findFirst()
                             .orElseThrow();
-            var req =
-                    DeleteObjectRequest.builder()
-                            .bucket(eventTemplatesBucket)
-                            .key(templateName)
-                            .build();
+            var req = DeleteObjectRequest.builder().bucket(bucket).key(templateName).build();
             if (storage.deleteObject(req).sdkHttpResponse().isSuccessful()) {
                 bus.publish(
                         MessagingServer.class.getName(),
