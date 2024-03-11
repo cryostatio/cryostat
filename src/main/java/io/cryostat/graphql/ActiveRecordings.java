@@ -49,7 +49,6 @@ import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
-import org.eclipse.microprofile.graphql.Mutation;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Source;
 import org.jboss.logging.Logger;
@@ -322,16 +321,16 @@ public class ActiveRecordings {
         }
     }
 
-    @Mutation
     @Description(
             "Updates the metadata labels for an existing Flight Recorder recording specified by the"
                     + " recording ID.")
-    public Uni<ActiveRecording> doPutMetadata(Long recordingId, MetadataInput metadataInput) {
+    public Uni<ActiveRecording> doPutMetadata(
+            @Source ActiveRecording recording, MetadataInput metadataInput) {
         return Uni.createFrom()
                 .item(
                         () -> {
                             Map<String, String> labels = metadataInput.getLabels();
-                            return recordingHelper.updateRecordingMetadata(recordingId, labels);
+                            return recordingHelper.updateRecordingMetadata(recording.id, labels);
                         });
     }
 

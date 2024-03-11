@@ -949,12 +949,14 @@ public class RecordingHelper {
     public ActiveRecording updateRecordingMetadata(
             Long recordingId, Map<String, String> newLabels) {
         ActiveRecording recording = ActiveRecording.findById(recordingId);
+
         if (recording == null) {
             throw new NotFoundException("Recording not found for ID: " + recordingId);
         }
 
         Metadata updatedMetadata = new Metadata(newLabels);
         recording.setMetadata(updatedMetadata);
+
         recording.persist();
 
         return recording;
