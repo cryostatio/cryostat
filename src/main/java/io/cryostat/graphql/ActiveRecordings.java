@@ -325,7 +325,7 @@ public class ActiveRecordings {
             "Updates the metadata labels for an existing Flight Recorder recording specified by the"
                     + " recording ID.")
     public Uni<ActiveRecording> doPutMetadata(
-            @Source ActiveRecording recording, MetadataLabelsInput metadataInput) {
+            @Source ActiveRecording recording, MetadataLabels metadataInput) {
         return Uni.createFrom()
                 .item(
                         () -> {
@@ -334,14 +334,14 @@ public class ActiveRecordings {
                         });
     }
 
-    public class MetadataLabelsInput {
+    public class MetadataLabels {
 
         private Map<String, String> labels;
         private Instant expiry;
 
-        public MetadataLabelsInput() {}
+        public MetadataLabels() {}
 
-        public MetadataLabelsInput(Map<String, String> labels, Instant expiry) {
+        public MetadataLabels(Map<String, String> labels, Instant expiry) {
             this.labels = labels;
             this.expiry = expiry;
         }
