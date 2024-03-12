@@ -175,7 +175,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                     Matchers.equalTo(1));
             recordingInfo = listResp.getJsonObject(0);
             MatcherAssert.assertThat(
-                    recordingInfo.getString("name"),
+                    recordingInfo.getString("filename"),
                     Matchers.matchesRegex(
                             TARGET_ALIAS + "_" + TEST_RECORDING_NAME + "_[\\d]{8}T[\\d]{6}Z.jfr"));
             String savedDownloadUrl = recordingInfo.getString("downloadUrl");

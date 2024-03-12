@@ -29,8 +29,10 @@ import io.cryostat.recordings.Recordings.ArchivedRecording;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Nullable;
+import io.vertx.core.cli.annotations.Description;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.graphql.GraphQLApi;
+import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
 
@@ -69,6 +71,12 @@ public class ArchivedRecordings {
         return out;
     }
 
+    @NonNull
+    public ArchivedRecording doDelete(@Source ArchivedRecording recording) {
+        recordingHelper.deleteArchivedRecording(recording.jvmId(), recording.filename());
+        return recording;
+    }
+
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class ArchivedRecordingsFilter implements Predicate<ArchivedRecording> {
         public @Nullable String name;
@@ -83,9 +91,9 @@ public class ArchivedRecordings {
         @Override
         public boolean test(ArchivedRecording r) {
             Predicate<ArchivedRecording> matchesName =
-                    n -> name == null || Objects.equals(name, n.name());
+                    n -> name == null || Objects.equals(name, n.filename());
             Predicate<ArchivedRecording> matchesNames =
-                    n -> names == null || names.contains(n.name());
+                    n -> names == null || names.contains(n.filename());
             Predicate<ArchivedRecording> matchesSourceTarget =
                     n ->
                             sourceTarget == null

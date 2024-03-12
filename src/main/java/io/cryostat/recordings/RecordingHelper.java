@@ -558,6 +558,7 @@ public class RecordingHelper {
                                     getArchivedRecordingMetadata(jvmId, filename)
                                             .orElseGet(Metadata::empty);
                             return new ArchivedRecording(
+                                    jvmId,
                                     filename,
                                     downloadUrl(jvmId, filename),
                                     reportUrl(jvmId, filename),
@@ -596,6 +597,7 @@ public class RecordingHelper {
                                     getArchivedRecordingMetadata(jvmId, filename)
                                             .orElseGet(Metadata::empty);
                             return new ArchivedRecording(
+                                    jvmId,
                                     filename,
                                     downloadUrl(jvmId, filename),
                                     reportUrl(jvmId, filename),
@@ -870,6 +872,7 @@ public class RecordingHelper {
                         ArchivedRecordingEvent.Payload.of(
                                 target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
+                                        jvmId,
                                         filename,
                                         downloadUrl(jvmId, filename),
                                         reportUrl(jvmId, filename),

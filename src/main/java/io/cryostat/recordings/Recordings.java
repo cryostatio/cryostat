@@ -222,6 +222,7 @@ public class Recordings {
                         ArchivedRecordingEvent.Payload.of(
                                 target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
+                                        jvmId,
                                         recording.fileName(),
                                         recordingHelper.downloadUrl(jvmId, recording.fileName()),
                                         recordingHelper.reportUrl(jvmId, recording.fileName()),
@@ -275,6 +276,7 @@ public class Recordings {
                                             .orElseGet(Metadata::empty);
                             result.add(
                                     new ArchivedRecording(
+                                            jvmId,
                                             filename,
                                             recordingHelper.downloadUrl(jvmId, filename),
                                             recordingHelper.reportUrl(jvmId, filename),
@@ -338,6 +340,7 @@ public class Recordings {
                         ArchivedRecordingEvent.Payload.of(
                                 target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
+                                        jvmId,
                                         filename,
                                         recordingHelper.downloadUrl(jvmId, filename),
                                         recordingHelper.reportUrl(jvmId, filename),
@@ -395,6 +398,7 @@ public class Recordings {
                                                             connectUrl, id, new ArrayList<>()));
                             dir.recordings.add(
                                     new ArchivedRecording(
+                                            jvmId,
                                             filename,
                                             recordingHelper.downloadUrl(jvmId, filename),
                                             recordingHelper.reportUrl(jvmId, filename),
@@ -768,6 +772,7 @@ public class Recordings {
                             ArchivedRecordingEvent.Payload.of(
                                     URI.create(connectUrl),
                                     new ArchivedRecording(
+                                            jvmId,
                                             filename,
                                             recordingHelper.downloadUrl(jvmId, filename),
                                             recordingHelper.reportUrl(jvmId, filename),
@@ -1127,14 +1132,16 @@ public class Recordings {
 
     // TODO include jvmId and filename
     public record ArchivedRecording(
-            String name,
+            String jvmId,
+            String filename,
             String downloadUrl,
             String reportUrl,
             Metadata metadata,
             long size,
             long archivedTime) {
         public ArchivedRecording {
-            Objects.requireNonNull(name);
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(filename);
             Objects.requireNonNull(downloadUrl);
             Objects.requireNonNull(reportUrl);
             Objects.requireNonNull(metadata);

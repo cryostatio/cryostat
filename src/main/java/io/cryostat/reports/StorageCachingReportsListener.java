@@ -54,7 +54,9 @@ class StorageCachingReportsListener {
         Optional.ofNullable(recording.metadata().labels().get("jvmId"))
                 .ifPresent(
                         jvmId -> {
-                            var key = recordingHelper.archivedRecordingKey(jvmId, recording.name());
+                            var key =
+                                    recordingHelper.archivedRecordingKey(
+                                            jvmId, recording.filename());
                             logger.tracev("Picked up deletion of archived recording: {0}", key);
                             var req = DeleteObjectRequest.builder().bucket(bucket).key(key).build();
                             try {
