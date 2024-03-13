@@ -31,7 +31,6 @@ import io.cryostat.recordings.Recordings.Metadata;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Nullable;
-import io.vertx.core.cli.annotations.Description;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.NonNull;
