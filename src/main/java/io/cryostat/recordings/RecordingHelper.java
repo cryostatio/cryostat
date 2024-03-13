@@ -110,8 +110,10 @@ import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
@@ -963,6 +965,49 @@ public class RecordingHelper {
         recording.persist();
 
         return recording;
+    }
+
+    public ArchivedRecording updateArchivedRecordingMetadata(
+            String jvmId, String filename, Map<String, String> newLabels) {
+        String key = archivedRecordingKey(jvmId, filename);
+        Optional<Metadata> existingMetadataOpt = getArchivedRecordingMetadata(key);
+
+        if (existingMetadataOpt.isEmpty()) {
+            throw new NotFoundException(
+                    "Could not find metadata for archived recording with key: " + key);
+        }
+
+        // overwrite existing keys with new values
+        Map<String, String> combinedLabels = new HashMap<>(existingMetadataOpt.get().labels());
+        combinedLabels.putAll(newLabels);
+
+        Instant expiry = existingMetadataOpt.get().expiry();
+        Metadata updatedMetadata = new Metadata(combinedLabels, expiry);
+
+        // Update the S3 object tagging with new metadata
+        Tagging tagging = createMetadataTagging(updatedMetadata);
+        storage.putObjectTagging(
+                PutObjectTaggingRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(key)
+                        .tagging(tagging)
+                        .build());
+
+        var response =
+                storage.headObject(
+                        HeadObjectRequest.builder().bucket(archiveBucket).key(key).build());
+
+        long size = response.contentLength();
+        Instant lastModified = response.lastModified();
+
+        return new ArchivedRecording(
+                jvmId,
+                filename,
+                downloadUrl(jvmId, filename),
+                reportUrl(jvmId, filename),
+                updatedMetadata,
+                size,
+                lastModified.getEpochSecond());
     }
 
     @Blocking

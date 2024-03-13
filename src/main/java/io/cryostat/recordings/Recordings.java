@@ -1133,7 +1133,7 @@ public class Recordings {
     // TODO include jvmId and filename
     public record ArchivedRecording(
             String jvmId,
-            String filename,
+            String name,
             String downloadUrl,
             String reportUrl,
             Metadata metadata,
@@ -1141,7 +1141,7 @@ public class Recordings {
             long archivedTime) {
         public ArchivedRecording {
             Objects.requireNonNull(jvmId);
-            Objects.requireNonNull(filename);
+            Objects.requireNonNull(name);
             Objects.requireNonNull(downloadUrl);
             Objects.requireNonNull(reportUrl);
             Objects.requireNonNull(metadata);

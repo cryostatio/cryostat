@@ -57,7 +57,7 @@ class MemoryCachingReportsListener {
 
     @ConsumeEvent(value = Recordings.ARCHIVED_RECORDING_DELETED)
     public void handleArchivedRecordingDeletion(ArchivedRecording recording) {
-        logger.tracev("archived recording cache invalidation: {0}", recording.filename());
+        logger.tracev("archived recording cache invalidation: {0}", recording.name());
         if (!quarkusCache || !memoryCache) {
             return;
         }
@@ -65,7 +65,7 @@ class MemoryCachingReportsListener {
         if (StringUtils.isBlank(jvmId)) {
             return;
         }
-        String key = recordingHelper.archivedRecordingKey(jvmId, recording.filename());
+        String key = recordingHelper.archivedRecordingKey(jvmId, recording.name());
         logger.tracev("Picked up deletion of archived recording: {0}", key);
         archivedCache.invalidate(key);
     }

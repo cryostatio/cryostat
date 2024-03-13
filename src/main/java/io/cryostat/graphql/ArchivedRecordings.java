@@ -20,11 +20,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
 
+import io.cryostat.graphql.ActiveRecordings.MetadataLabels;
 import io.cryostat.graphql.TargetNodes.AggregateInfo;
 import io.cryostat.graphql.TargetNodes.Recordings;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
+import io.cryostat.recordings.Recordings.Metadata;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.common.annotation.Blocking;
@@ -73,8 +75,27 @@ public class ArchivedRecordings {
 
     @NonNull
     public ArchivedRecording doDelete(@Source ArchivedRecording recording) {
-        recordingHelper.deleteArchivedRecording(recording.jvmId(), recording.filename());
+        recordingHelper.deleteArchivedRecording(recording.jvmId(), recording.name());
         return recording;
+    }
+
+    @NonNull
+    public ArchivedRecording doPutMetadata(
+            @Source ArchivedRecording recording, MetadataLabels metadataInput) {
+        recordingHelper.updateArchivedRecordingMetadata(
+                recording.jvmId(), recording.name(), metadataInput.getLabels());
+
+        String downloadUrl = recordingHelper.downloadUrl(recording.jvmId(), recording.name());
+        String reportUrl = recordingHelper.reportUrl(recording.jvmId(), recording.name());
+
+        return new ArchivedRecording(
+                recording.jvmId(),
+                recording.name(),
+                downloadUrl,
+                reportUrl,
+                new Metadata(metadataInput.getLabels(), metadataInput.getExpiry()),
+                recording.size(),
+                recording.archivedTime());
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
@@ -91,9 +112,9 @@ public class ArchivedRecordings {
         @Override
         public boolean test(ArchivedRecording r) {
             Predicate<ArchivedRecording> matchesName =
-                    n -> name == null || Objects.equals(name, n.filename());
+                    n -> name == null || Objects.equals(name, n.name());
             Predicate<ArchivedRecording> matchesNames =
-                    n -> names == null || names.contains(n.filename());
+                    n -> names == null || names.contains(n.name());
             Predicate<ArchivedRecording> matchesSourceTarget =
                     n ->
                             sourceTarget == null
