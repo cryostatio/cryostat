@@ -17,6 +17,7 @@ package io.cryostat.graphql;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -334,7 +335,7 @@ public class ActiveRecordings {
                         });
     }
 
-    public class MetadataLabels {
+    public static class MetadataLabels {
 
         private Map<String, String> labels;
         private Instant expiry;
@@ -342,16 +343,16 @@ public class ActiveRecordings {
         public MetadataLabels() {}
 
         public MetadataLabels(Map<String, String> labels, Instant expiry) {
-            this.labels = labels;
+            this.labels = new HashMap<>(labels);
             this.expiry = expiry;
         }
 
         public Map<String, String> getLabels() {
-            return labels;
+            return new HashMap<>(labels);
         }
 
         public void setLabels(Map<String, String> labels) {
-            this.labels = labels;
+            this.labels = new HashMap<>(labels);
         }
 
         public Instant getExpiry() {
