@@ -436,6 +436,7 @@ public class Recordings {
                                                             connectUrl, id, new ArrayList<>()));
                             dir.recordings.add(
                                     new ArchivedRecording(
+                                            jvmId,
                                             filename,
                                             recordingHelper.downloadUrl(jvmId, filename),
                                             recordingHelper.reportUrl(jvmId, filename),

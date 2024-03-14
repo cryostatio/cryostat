@@ -50,6 +50,7 @@ import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
+import org.eclipse.microprofile.graphql.Mutation;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Source;
 import org.jboss.logging.Logger;
@@ -341,7 +342,7 @@ public class ActiveRecordings {
 
         public MetadataLabels() {}
 
-        public MetadataLabels(Map<String, String> labels, Instant expiry) {
+        public MetadataLabels(Map<String, String> labels) {
             this.labels = new HashMap<>(labels);
         }
 

@@ -738,6 +738,7 @@ public class RecordingHelper {
                     new Notification(event.category().category(), event.payload()));
         }
         return new ArchivedRecording(
+                activeRecording.target.jvmId,
                 filename,
                 downloadUrl(activeRecording.target.jvmId, filename),
                 reportUrl(activeRecording.target.jvmId, filename),
