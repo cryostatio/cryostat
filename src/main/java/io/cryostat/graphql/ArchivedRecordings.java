@@ -92,7 +92,7 @@ public class ArchivedRecordings {
                 recording.name(),
                 downloadUrl,
                 reportUrl,
-                new Metadata(metadataInput.getLabels(), metadataInput.getExpiry()),
+                new Metadata(metadataInput.getLabels()),
                 recording.size(),
                 recording.archivedTime());
     }

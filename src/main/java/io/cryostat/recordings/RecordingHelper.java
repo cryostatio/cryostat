@@ -981,8 +981,7 @@ public class RecordingHelper {
         Map<String, String> combinedLabels = new HashMap<>(existingMetadataOpt.get().labels());
         combinedLabels.putAll(newLabels);
 
-        Instant expiry = existingMetadataOpt.get().expiry();
-        Metadata updatedMetadata = new Metadata(combinedLabels, expiry);
+        Metadata updatedMetadata = new Metadata(combinedLabels);
 
         // Update the S3 object tagging with new metadata
         Tagging tagging = createMetadataTagging(updatedMetadata);

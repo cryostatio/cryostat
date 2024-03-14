@@ -338,13 +338,11 @@ public class ActiveRecordings {
     public static class MetadataLabels {
 
         private Map<String, String> labels;
-        private Instant expiry;
 
         public MetadataLabels() {}
 
         public MetadataLabels(Map<String, String> labels, Instant expiry) {
             this.labels = new HashMap<>(labels);
-            this.expiry = expiry;
         }
 
         public Map<String, String> getLabels() {
@@ -353,14 +351,6 @@ public class ActiveRecordings {
 
         public void setLabels(Map<String, String> labels) {
             this.labels = new HashMap<>(labels);
-        }
-
-        public Instant getExpiry() {
-            return expiry;
-        }
-
-        public void setExpiry(Instant expiry) {
-            this.expiry = expiry;
         }
     }
 
