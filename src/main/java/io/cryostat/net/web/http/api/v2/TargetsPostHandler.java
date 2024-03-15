@@ -28,6 +28,8 @@ import java.util.Set;
 
 import javax.inject.Inject;
 
+import org.openjdk.jmc.rjmx.ConnectionToolkit;
+
 import io.cryostat.configuration.CredentialsManager;
 import io.cryostat.core.net.Credentials;
 import io.cryostat.discovery.DiscoveryStorage;
@@ -125,8 +127,19 @@ class TargetsPostHandler extends AbstractV2RequestHandler<ServiceRef> {
         try {
             MultiMap attrs = params.getFormAttributes();
             String connectUrl = attrs.get("connectUrl");
+
             if (StringUtils.isBlank(connectUrl)) {
                 throw new ApiException(400, "\"connectUrl\" form parameter must be provided");
+            }
+            // check incase custom target has short form connection url (i.e `localhost:0`,
+            // etc)
+            connectUrl = connectUrl.strip();
+            boolean isShortForm = connectUrl.matches("^[^\\s/:]+:\\d+$");
+            if (isShortForm) {
+                String[] connectUrlParts = connectUrl.split(":");
+                String host = connectUrlParts[0];
+                int port = Integer.parseInt(connectUrlParts[1]);
+                connectUrl = ConnectionToolkit.createServiceURL(host, port).toString();
             }
             String alias = attrs.get("alias");
             if (StringUtils.isBlank(alias)) {
