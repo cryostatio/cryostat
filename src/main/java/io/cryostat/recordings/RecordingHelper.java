@@ -952,6 +952,7 @@ public class RecordingHelper {
         return new Metadata(labels, expiry);
     }
 
+    @Blocking
     public ActiveRecording updateRecordingMetadata(
             Long recordingId, Map<String, String> newLabels) {
         ActiveRecording recording = ActiveRecording.findById(recordingId);
@@ -968,6 +969,7 @@ public class RecordingHelper {
         return recording;
     }
 
+    @Blocking
     public ArchivedRecording updateArchivedRecordingMetadata(
             String jvmId, String filename, Map<String, String> newLabels) {
         String key = archivedRecordingKey(jvmId, filename);

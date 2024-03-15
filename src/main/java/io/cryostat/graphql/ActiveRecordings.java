@@ -323,6 +323,8 @@ public class ActiveRecordings {
         }
     }
 
+    @Blocking
+    @Transactional
     @Description(
             "Updates the metadata labels for an existing Flight Recorder recording specified by the"
                     + " recording ID.")
@@ -336,6 +338,7 @@ public class ActiveRecordings {
                         });
     }
 
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class MetadataLabels {
 
         private Map<String, String> labels;
