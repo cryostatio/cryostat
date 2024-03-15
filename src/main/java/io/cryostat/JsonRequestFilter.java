@@ -19,6 +19,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,12 +32,17 @@ import jakarta.ws.rs.ext.Provider;
 @Provider
 public class JsonRequestFilter implements ContainerRequestFilter {
 
+    static final Set<String> disallowedFields = Set.of("id");
+    static final Set<String> allowedPaths =
+            Set.of("/api/v2.2/graphql", "/api/v3/graphql", "/api/v2.2/discovery");
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
         if (requestContext.getMediaType() != null
-                && requestContext.getMediaType().isCompatible(MediaType.APPLICATION_JSON_TYPE)) {
+                && requestContext.getMediaType().isCompatible(MediaType.APPLICATION_JSON_TYPE)
+                && !allowedPaths.contains(requestContext.getUriInfo().getPath())) {
             try (InputStream stream = requestContext.getEntityStream()) {
                 JsonNode rootNode = objectMapper.readTree(stream);
 
@@ -56,8 +62,10 @@ public class JsonRequestFilter implements ContainerRequestFilter {
     }
 
     private boolean containsIdField(JsonNode node) {
-        if (node.has("id")) {
-            return true;
+        for (String field : disallowedFields) {
+            if (node.has(field)) {
+                return true;
+            }
         }
         if (node.isContainerNode()) {
             for (JsonNode child : node) {

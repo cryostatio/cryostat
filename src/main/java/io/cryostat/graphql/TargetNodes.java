@@ -15,12 +15,13 @@
  */
 package io.cryostat.graphql;
 
-import java.util.Arrays;
 import java.util.List;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.MBeanMetrics;
 import io.cryostat.discovery.DiscoveryNode;
+import io.cryostat.graphql.ActiveRecordings.ActiveRecordingsFilter;
+import io.cryostat.graphql.ArchivedRecordings.ArchivedRecordingsFilter;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
@@ -30,15 +31,11 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.GraphQLEnumType;
-import graphql.schema.GraphQLEnumValueDefinition;
-import graphql.schema.GraphQLSchema;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Context;
+import io.smallrye.graphql.api.Nullable;
 import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jdk.jfr.RecordingState;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.NonNull;
@@ -50,31 +47,6 @@ public class TargetNodes {
 
     @Inject RecordingHelper recordingHelper;
     @Inject TargetConnectionManager connectionManager;
-
-    public GraphQLSchema.Builder registerRecordingStateEnum(
-            @Observes GraphQLSchema.Builder builder) {
-        return createEnumType(
-                builder, RecordingState.class, "Running state of an active Flight Recording");
-    }
-
-    private static GraphQLSchema.Builder createEnumType(
-            GraphQLSchema.Builder builder, Class<? extends Enum<?>> klazz, String description) {
-        return builder.additionalType(
-                GraphQLEnumType.newEnum()
-                        .name(klazz.getSimpleName())
-                        .description(description)
-                        .values(
-                                Arrays.asList(klazz.getEnumConstants()).stream()
-                                        .map(
-                                                s ->
-                                                        new GraphQLEnumValueDefinition.Builder()
-                                                                .name(s.name())
-                                                                .value(s)
-                                                                .description(s.name())
-                                                                .build())
-                                        .toList())
-                        .build());
-    }
 
     @Blocking
     @Query("targetNodes")
@@ -99,8 +71,35 @@ public class TargetNodes {
     // }
 
     @Blocking
+    public ActiveRecordings activeRecordings(
+            @Source Target target, @Nullable ActiveRecordingsFilter filter) {
+        var fTarget = Target.<Target>findById(target.id);
+        var recordings = new ActiveRecordings();
+        recordings.data =
+                fTarget.activeRecordings.stream()
+                        .filter(r -> filter == null || filter.test(r))
+                        .toList();
+        recordings.aggregate = AggregateInfo.fromActive(recordings.data);
+        return recordings;
+    }
+
+    @Blocking
+    public ArchivedRecordings archivedRecordings(
+            @Source Target target, @Nullable ArchivedRecordingsFilter filter) {
+        var fTarget = Target.<Target>findById(target.id);
+        var recordings = new ArchivedRecordings();
+        recordings.data =
+                recordingHelper.listArchivedRecordings(fTarget).stream()
+                        .filter(r -> filter == null || filter.test(r))
+                        .toList();
+        recordings.aggregate = AggregateInfo.fromArchived(recordings.data);
+        return recordings;
+    }
+
+    @Blocking
     @Description("Get the active and archived recordings belonging to this target")
     public Recordings recordings(@Source Target target, Context context) {
+        var fTarget = Target.<Target>findById(target.id);
         var dfe = context.unwrap(DataFetchingEnvironment.class);
         var requestedFields =
                 dfe.getSelectionSet().getFields().stream().map(field -> field.getName()).toList();
@@ -109,17 +108,14 @@ public class TargetNodes {
 
         if (requestedFields.contains("active")) {
             recordings.active = new ActiveRecordings();
-            recordings.active.data = target.activeRecordings;
+            recordings.active.data = fTarget.activeRecordings;
             recordings.active.aggregate = AggregateInfo.fromActive(recordings.active.data);
         }
 
         if (requestedFields.contains("archived")) {
             recordings.archived = new ArchivedRecordings();
-            recordings.archived.data = recordingHelper.listArchivedRecordings(target);
+            recordings.archived.data = recordingHelper.listArchivedRecordings(fTarget);
             recordings.archived.aggregate = AggregateInfo.fromArchived(recordings.archived.data);
-            recordings.archived.aggregate.count = recordings.archived.data.size();
-            recordings.archived.aggregate.size =
-                    recordings.archived.data.stream().mapToLong(ArchivedRecording::size).sum();
         }
 
         return recordings;
@@ -128,7 +124,8 @@ public class TargetNodes {
     @Blocking
     @Description("Get live MBean metrics snapshot from the specified Target")
     public Uni<MBeanMetrics> mbeanMetrics(@Source Target target) {
-        return connectionManager.executeConnectedTaskUni(target, JFRConnection::getMBeanMetrics);
+        var fTarget = Target.<Target>findById(target.id);
+        return connectionManager.executeConnectedTaskUni(fTarget, JFRConnection::getMBeanMetrics);
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
