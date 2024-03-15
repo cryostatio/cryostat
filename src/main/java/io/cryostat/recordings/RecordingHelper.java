@@ -86,6 +86,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ServerErrorException;
 import jdk.jfr.RecordingState;
@@ -194,6 +195,7 @@ public class RecordingHelper {
         }
     }
 
+    @Transactional
     public Uni<ActiveRecording> startRecording(
             Target target,
             RecordingReplace replace,
@@ -327,6 +329,19 @@ public class RecordingHelper {
 
                     return recording;
                 });
+    }
+
+    public Uni<ActiveRecording> stopRecording(ActiveRecording recording) {
+        recording.state = RecordingState.STOPPED;
+        recording.persist();
+        return Uni.createFrom().item(recording);
+    }
+
+    @Transactional
+    public Uni<ActiveRecording> deleteRecording(ActiveRecording recording) {
+        recording.delete();
+        recording.persist();
+        return Uni.createFrom().item(recording);
     }
 
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
@@ -558,13 +573,12 @@ public class RecordingHelper {
                 .toList();
     }
 
-    public List<ArchivedRecording> listArchivedRecordings(Target target) {
-        return listArchivedRecordingObjects(target.jvmId).stream()
+    public List<ArchivedRecording> listArchivedRecordings(String jvmId) {
+        return listArchivedRecordingObjects(jvmId).stream()
                 .map(
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
-                            String jvmId = parts[0];
                             String filename = parts[1];
                             Metadata metadata =
                                     getArchivedRecordingMetadata(jvmId, filename)
@@ -580,33 +594,30 @@ public class RecordingHelper {
                 .toList();
     }
 
-    public String saveRecording(ActiveRecording recording) throws Exception {
-        return saveRecording(recording, null);
+    public List<ArchivedRecording> listArchivedRecordings(Target target) {
+        return listArchivedRecordings(target.jvmId);
     }
 
-    public String saveRecording(ActiveRecording recording, Instant expiry) throws Exception {
-        return saveRecording(recording, null, expiry);
-    }
-
-    public String saveRecording(ActiveRecording recording, String savename, Instant expiry)
-            throws Exception {
+    public ArchivedRecording archiveRecording(
+            ActiveRecording activeRecording, String savename, Instant expiry) throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
         String transformedAlias =
-                URLDecoder.decode(recording.target.alias, StandardCharsets.UTF_8)
+                URLDecoder.decode(activeRecording.target.alias, StandardCharsets.UTF_8)
                         .replaceAll("[\\._/]+", "-");
-        String timestamp =
-                clock.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
+        Instant now = clock.now();
+        String timestamp = now.truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =
-                String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
+                String.format("%s_%s_%s.jfr", transformedAlias, activeRecording.name, timestamp);
         if (StringUtils.isBlank(savename)) {
             savename = filename;
         }
         int mib = 1024 * 1024;
-        String key = archivedRecordingKey(recording.target.jvmId, filename);
+        String key = archivedRecordingKey(activeRecording.target.jvmId, filename);
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
-        try (var stream = remoteRecordingStreamFactory.open(recording);
+        long accum = 0;
+        try (var stream = remoteRecordingStreamFactory.open(activeRecording);
                 var ch = Channels.newChannel(stream)) {
             ByteBuffer buf = ByteBuffer.allocate(20 * mib);
             CreateMultipartUploadRequest.Builder builder =
@@ -616,14 +627,13 @@ public class RecordingHelper {
                             .contentType(JFR_MIME)
                             .contentDisposition(
                                     String.format("attachment; filename=\"%s\"", savename))
-                            .tagging(createActiveRecordingTagging(recording, expiry));
+                            .tagging(createActiveRecordingTagging(activeRecording, expiry));
             if (expiry != null && expiry.isAfter(Instant.now())) {
                 builder = builder.expires(expiry);
             }
             CreateMultipartUploadRequest request = builder.build();
             multipartId = storage.createMultipartUpload(request).uploadId();
             int read = 0;
-            long accum = 0;
             for (int i = 1; i <= 10_000; i++) {
                 read = ch.read(buf);
 
@@ -704,13 +714,19 @@ public class RecordingHelper {
             var event =
                     new ActiveRecordingEvent(
                             Recordings.RecordingEventCategory.ACTIVE_SAVED,
-                            ActiveRecordingEvent.Payload.of(this, recording));
+                            ActiveRecordingEvent.Payload.of(this, activeRecording));
             bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(event.category().category(), event.payload()));
         }
-        return filename;
+        return new ArchivedRecording(
+                filename,
+                downloadUrl(activeRecording.target.jvmId, filename),
+                reportUrl(activeRecording.target.jvmId, filename),
+                activeRecording.metadata,
+                accum,
+                now.getEpochSecond());
     }
 
     public Optional<Metadata> getArchivedRecordingMetadata(String jvmId, String filename) {
