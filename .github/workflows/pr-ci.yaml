@@ -221,17 +221,17 @@ jobs:
         sleep 90
         wget --spider http://localhost:8181/health
         while [ $? -ne 0 ]; do !! ; sleep 10 ; done
-        wget http://localhost:8181/api -O openapi.json
-        wget http://localhost:8181/api/v3/graphql/schema.graphql -O schema.graphql
+        wget http://localhost:8181/api -O /home/runner/work/cryostat3/cryostat3/openapi.yaml
+        wget http://localhost:8181/api/v3/graphql/schema.graphql -O /home/runner/work/cryostat3/cryostat3/schema.graphql
         kill $pid
     - uses: actions/upload-artifact@v3
       with:
         name: openapi-schema
-        path: openapi.json
+        path: /home/runner/work/cryostat3/cryostat3/openapi.yaml
     - uses: actions/upload-artifact@v3
       with:
         name: graphql-schema
-        path: schema.graphql
+        path: /home/runner/work/cryostat3/cryostat3/schema.graphql
 
   compare-openapi-schema:
     needs: [checkout-branch, retrieve-schemas]
@@ -247,7 +247,7 @@ jobs:
       with:
         name: openapi-schema
     - name: Check schema for changes
-      run: diff schema/openapi.json openapi-schema
+      run: diff /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml /home/runner/work/cryostat3/cryostat3/openapi-schema
 
   compare-graphql-schema:
     needs: [checkout-branch, retrieve-schemas]
@@ -263,4 +263,4 @@ jobs:
       with:
         name: graphql-schema
     - name: Check schema for changes
-      run: diff schema/schema.graphql graphql-schema
+      run: diff /home/runner/work/cryostat3/cryostat3/schema/schema.graphql /home/runner/work/cryostat3/cryostat3/graphql-schema
