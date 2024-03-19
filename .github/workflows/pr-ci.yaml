@@ -195,12 +195,13 @@ jobs:
         fetch-depth: 0
     - name: Compare schemas
       run: |
-        ./mvnw clean test # we don't actually need the test results, but this will trigger testcontainers etc. to be downloaded before we start the devserver
-        ./mvnw quarkus:dev &
+        ./mvnw clean quarkus:dev &
         pid=$!
-        sleep 30
-        wget http://localhost:8080/api -O openapi.json
-        wget http://localhost:8080/api/v3/graphql/schema.graphql -O schema.graphql
+        until [ wget --spider http://localhost:8181/health  ]; do
+          sleep 10
+        done
+        wget http://localhost:8181/api -O openapi.json
+        wget http://localhost:8181/api/v3/graphql/schema.graphql -O schema.graphql
         kill $pid
     - uses: actions/upload-artifact@v3
       with:
