@@ -155,16 +155,8 @@ jobs:
     - name: Set DOCKER_HOST environment variable
       run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
     - name: Build application
-      run: ./mvnw -B -U clean verify
+      run: ./mvnw -B -U -Dquarkus.container-image.build=false clean verify
       continue-on-error: ${{ matrix.java != '17' }}
-    - name: Save cryostat image
-      if: ${{ matrix.java == '17' }}
-      run: podman save -o cryostat.tar --format oci-archive quay.io/cryostat/cryostat:dev
-    - uses: actions/upload-artifact@v3
-      if: ${{ matrix.java == '17' }}
-      with:
-        name: cryostat
-        path: cryostat.tar
 
     - name: Add workflow result as comment on PR
       uses: actions/github-script@v6
@@ -191,32 +183,10 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         status: ${{ job.status }}
 
-
   retrieve-schemas:
-    needs: [checkout-branch, build-and-test]
+    needs: [checkout-branch]
     runs-on: ubuntu-latest
     steps:
-    - name: Install podman v4
-      run: |
-        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
-        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
-        sudo apt -y purge podman
-        sudo apt update && sudo apt -y install podman
-    - name: Emulate docker with podman
-      run: |
-        mkdir -p $HOME/.bin
-        cat <(echo '#!/usr/bin/env bash') <(echo 'exec podman "$@"') > $HOME/.bin/docker
-        chmod +x $HOME/.bin/docker
-        echo "PATH=$HOME/.bin:$PATH" >> "$GITHUB_ENV"
-    - name: Start Podman API
-      run: systemctl --user enable --now podman.socket
-    - name: Set DOCKER_HOST environment variable
-      run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
-    - uses: actions/download-artifact@v3
-      with:
-        name: cryostat
-    - name: Load cryostat image
-      run: podman load -i cryostat.tar
     - uses: actions/checkout@v3
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
@@ -225,9 +195,10 @@ jobs:
         fetch-depth: 0
     - name: Compare schemas
       run: |
-        CRYOSTAT_IMAGE=quay.io/cryostat/cryostat:dev ./smoketest.bash -Op &
+        ./mvnw clean test # we don't actually need the test results, but this will trigger testcontainers etc. to be downloaded before we start the devserver
+        ./mvnw quarkus:dev &
         pid=$!
-        sleep 120
+        sleep 30
         wget http://localhost:8080/api -O openapi.json
         wget http://localhost:8080/api/v3/graphql/schema.graphql -O schema.graphql
         kill $pid
