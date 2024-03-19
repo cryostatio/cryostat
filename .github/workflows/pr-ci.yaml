@@ -200,6 +200,7 @@ jobs:
         cache: 'maven'
     - name: Compare schemas
       run: |
+        ./mvnw clean compile test-compile
         ./mvnw -B -U -DskipTests -Dspotless.check.skip clean quarkus:dev &
         pid=$!
         sleep 60
