@@ -200,9 +200,9 @@ jobs:
       with:
         name: cryostat
     - name: Load cryostat image
-      run: podman load -i cryostat.tar
+      run: docker load -i cryostat.tar
     - name: Tag cryostat image
-      run: podman tag cryostat ghcr.io/${{ github.repository_owner }}/cryostat:latest-schema
+      run: docker tag cryostat ghcr.io/${{ github.repository_owner }}/cryostat:latest-schema
     - uses: actions/checkout@v3
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
@@ -213,7 +213,7 @@ jobs:
       run: |
         CRYOSTAT_IMAGE=ghcr.io/${{ github.repository_owner }}/cryostat:latest-schema ./smoketest.bash -Op &
         pid=$!
-        sleep 60
+        sleep 120
         wget http://localhost:8080/api -O openapi.json
         wget http://localhost:8080/api/v3/graphql/schema.graphql -O schema.graphql
         kill $pid
