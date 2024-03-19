@@ -197,9 +197,8 @@ jobs:
       run: |
         ./mvnw -DskipTests -Dspotless.check.skip clean quarkus:dev &
         pid=$!
-        until [ wget --spider http://localhost:8181/health  ]; do
-          sleep 10
-        done
+        wget --spider http://localhost:8181/health
+        while [ $? -ne 0 ]; do !! ; sleep 10 ; done
         wget http://localhost:8181/api -O openapi.json
         wget http://localhost:8181/api/v3/graphql/schema.graphql -O schema.graphql
         kill $pid
