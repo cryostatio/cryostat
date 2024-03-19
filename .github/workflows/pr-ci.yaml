@@ -193,12 +193,18 @@ jobs:
 
 
   retrieve-schemas:
-    needs: [build-and-test]
+    needs: [checkout-branch, build-and-test]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/download-artifact@v3
       with:
         name: cryostat
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+        submodules: true
+        fetch-depth: 0
     - name: Load cryostat image
       run: podman load -i cryostat.tar
     - name: Tag cryostat image
@@ -206,9 +212,11 @@ jobs:
     - name: Compare schemas
       run: |
         CRYOSTAT_IMAGE=ghcr.io/${{ github.repository_owner }}/cryostat:latest-schema ./smoketest.bash -Op &
+        pid=$!
         sleep 60
         wget http://localhost:8080/api -O openapi.json
         wget http://localhost:8080/api/v3/graphql/schema.graphql -O schema.graphql
+        kill $pid
     - uses: actions/upload-artifact@v3
       with:
         name: openapi-schema
@@ -219,21 +227,33 @@ jobs:
         path: schema.graphql
 
   compare-openapi-schema:
-    needs: [retrieve-schemas]
+    needs: [checkout-branch, retrieve-schemas]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/download-artifact@v3
       with:
         name: openapi-schema
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+        submodules: true
+        fetch-depth: 0
     - name: Check schema for changes
       run: diff schema/openapi.json openapi-schema
 
   compare-graphql-schema:
-    needs: [retrieve-schemas]
+    needs: [checkout-branch, retrieve-schemas]
     runs-on: ubuntu-latest
     steps:
     - uses: actions/download-artifact@v3
       with:
         name: graphql-schema
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+        submodules: true
+        fetch-depth: 0
     - name: Check schema for changes
       run: diff schema/schema.graphql graphql-schema
