@@ -237,6 +237,7 @@ jobs:
     needs: [checkout-branch, retrieve-schemas]
     runs-on: ubuntu-latest
     steps:
+    - uses: chrisdickinson/setup-yq@latest
     - uses: actions/checkout@v3
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
@@ -246,6 +247,10 @@ jobs:
     - uses: actions/download-artifact@v3
       with:
         name: openapi-schema
+    - name: Pretty-print schemas and ensure keys are sorted
+      run: |
+        yq -i -P 'sort_keys(..)' /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml
+        yq -i -P 'sort_keys(..)' /home/runner/work/cryostat3/cryostat3/openapi.yaml
     - name: Check schema for changes
       run: diff -U 10 /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml /home/runner/work/cryostat3/cryostat3/openapi.yaml
 
