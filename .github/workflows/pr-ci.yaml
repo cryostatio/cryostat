@@ -247,7 +247,7 @@ jobs:
       with:
         name: openapi-schema
     - name: Check schema for changes
-      run: diff /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml /home/runner/work/cryostat3/cryostat3/openapi-schema
+      run: diff /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml /home/runner/work/cryostat3/cryostat3/openapi.yaml
 
   compare-graphql-schema:
     needs: [checkout-branch, retrieve-schemas]
@@ -263,4 +263,4 @@ jobs:
       with:
         name: graphql-schema
     - name: Check schema for changes
-      run: diff /home/runner/work/cryostat3/cryostat3/schema/schema.graphql /home/runner/work/cryostat3/cryostat3/graphql-schema
+      run: diff /home/runner/work/cryostat3/cryostat3/schema/schema.graphql /home/runner/work/cryostat3/cryostat3/schema.graphql
