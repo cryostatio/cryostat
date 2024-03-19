@@ -94,8 +94,11 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 logger.infov(
                         "Registered discovery plugin: {0} @ {1}",
                         plugin.realm.name, plugin.callback);
+            } catch (URISyntaxException e) {
+                throw new IllegalArgumentException(e);
             } catch (Exception e) {
                 logger.error("Discovery Plugin ping failed", e);
+                throw e;
             }
         }
     }
