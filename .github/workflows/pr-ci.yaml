@@ -217,8 +217,6 @@ jobs:
         name: cryostat
     - name: Load cryostat image
       run: podman load -i cryostat.tar
-    - name: Tag cryostat image
-      run: podman tag cryostat ghcr.io/${{ github.repository_owner }}/cryostat:latest-schema
     - uses: actions/checkout@v3
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
@@ -227,7 +225,7 @@ jobs:
         fetch-depth: 0
     - name: Compare schemas
       run: |
-        CRYOSTAT_IMAGE=ghcr.io/${{ github.repository_owner }}/cryostat:latest-schema ./smoketest.bash -Op &
+        CRYOSTAT_IMAGE=quay.io/cryostat/cryostat:dev ./smoketest.bash -Op &
         pid=$!
         sleep 120
         wget http://localhost:8080/api -O openapi.json
