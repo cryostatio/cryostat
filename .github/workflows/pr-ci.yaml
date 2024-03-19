@@ -158,8 +158,10 @@ jobs:
       run: ./mvnw -B -U clean verify
       continue-on-error: ${{ matrix.java != '17' }}
     - name: Save cryostat image
+      if: ${{ matrix.java == '17' }}
       run: podman save -o cryostat.tar --format oci-archive quay.io/cryostat/cryostat:dev
     - uses: actions/upload-artifact@v3
+      if: ${{ matrix.java == '17' }}
       with:
         name: cryostat
         path: cryostat.tar
