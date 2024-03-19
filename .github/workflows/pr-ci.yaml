@@ -195,8 +195,9 @@ jobs:
         fetch-depth: 0
     - name: Compare schemas
       run: |
-        ./mvnw -DskipTests -Dspotless.check.skip clean quarkus:dev &
+        ./mvnw -B -U -DskipTests -Dspotless.check.skip clean quarkus:dev &
         pid=$!
+        sleep 60
         wget --spider http://localhost:8181/health
         while [ $? -ne 0 ]; do !! ; sleep 10 ; done
         wget http://localhost:8181/api -O openapi.json
