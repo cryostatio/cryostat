@@ -196,13 +196,29 @@ jobs:
     needs: [checkout-branch, build-and-test]
     runs-on: ubuntu-latest
     steps:
+    - name: Install podman v4
+      run: |
+        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
+        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
+        sudo apt -y purge podman
+        sudo apt update && sudo apt -y install podman
+    - name: Emulate docker with podman
+      run: |
+        mkdir -p $HOME/.bin
+        cat <(echo '#!/usr/bin/env bash') <(echo 'exec podman "$@"') > $HOME/.bin/docker
+        chmod +x $HOME/.bin/docker
+        echo "PATH=$HOME/.bin:$PATH" >> "$GITHUB_ENV"
+    - name: Start Podman API
+      run: systemctl --user enable --now podman.socket
+    - name: Set DOCKER_HOST environment variable
+      run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
     - uses: actions/download-artifact@v3
       with:
         name: cryostat
     - name: Load cryostat image
-      run: docker load -i cryostat.tar
+      run: podman load -i cryostat.tar
     - name: Tag cryostat image
-      run: docker tag cryostat ghcr.io/${{ github.repository_owner }}/cryostat:latest-schema
+      run: podman tag cryostat ghcr.io/${{ github.repository_owner }}/cryostat:latest-schema
     - uses: actions/checkout@v3
       with:
         repository: ${{ needs.checkout-branch.outputs.PR_repo }}
