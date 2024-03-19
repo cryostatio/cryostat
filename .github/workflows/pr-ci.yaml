@@ -195,7 +195,7 @@ jobs:
         fetch-depth: 0
     - name: Compare schemas
       run: |
-        ./mvnw clean quarkus:dev &
+        ./mvnw -DskipTests -Dspotless.check.skip clean quarkus:dev &
         pid=$!
         until [ wget --spider http://localhost:8181/health  ]; do
           sleep 10
