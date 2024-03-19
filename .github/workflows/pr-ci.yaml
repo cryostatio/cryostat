@@ -155,8 +155,14 @@ jobs:
     - name: Set DOCKER_HOST environment variable
       run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
     - name: Build application
-      run: ./mvnw -B -U -Dquarkus.container-image.build=false clean verify
+      run: ./mvnw -B -U clean verify
       continue-on-error: ${{ matrix.java != '17' }}
+    - name: Save cryostat image
+      run: podman save -o cryostat.tar --format oci-archive quay.io/cryostat/cryostat:dev
+    - uses: actions/upload-artifact@v3
+      with:
+        name: cryostat
+        path: cryostat.tar
 
     - name: Add workflow result as comment on PR
       uses: actions/github-script@v6
@@ -183,3 +189,49 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         status: ${{ job.status }}
 
+
+  retrieve-schemas:
+    needs: [build-and-test]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: cryostat
+    - name: Load cryostat image
+      run: podman load -i cryostat.tar
+    - name: Tag cryostat image
+      run: podman tag cryostat ghcr.io/${{ github.repository_owner }}/cryostat:latest-schema
+    - name: Compare schemas
+      run: |
+        CRYOSTAT_IMAGE=ghcr.io/${{ github.repository_owner }}/cryostat:latest-schema ./smoketest.bash -Op &
+        sleep 60
+        wget http://localhost:8080/api -O openapi.json
+        wget http://localhost:8080/api/v3/graphql/schema.graphql -O schema.graphql
+    - uses: actions/upload-artifact@v3
+      with:
+        name: openapi-schema
+        path: openapi.json
+    - uses: actions/upload-artifact@v3
+      with:
+        name: graphql-schema
+        path: schema.graphql
+
+  compare-openapi-schema:
+    needs: [retrieve-schemas]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: openapi-schema
+    - name: Check schema for changes
+      run: diff schema/openapi.json openapi-schema
+
+  compare-graphql-schema:
+    needs: [retrieve-schemas]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: graphql-schema
+    - name: Check schema for changes
+      run: diff schema/schema.graphql graphql-schema
