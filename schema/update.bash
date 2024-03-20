@@ -14,4 +14,3 @@ wget http://localhost:8181/api/v3/graphql/schema.graphql -O "${DIR}/schema.graph
 kill $pid
 
 yq -i -P 'sort_keys(..)' "${DIR}/openapi.yaml"
-yq -i -P 'sort_keys(..)' "${DIR}/schema.graphql"
