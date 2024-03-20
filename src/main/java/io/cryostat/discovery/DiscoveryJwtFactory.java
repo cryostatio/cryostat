@@ -156,8 +156,9 @@ public class DiscoveryJwtFactory {
         return jwt;
     }
 
-    public URI getResourceUri(String pluginId) throws URISyntaxException {
-        URI hostUri = new URI(String.format("http://%s:%d/", httpHost, httpPort));
-        return hostUri.resolve(pluginId);
+    // TODO refactor this, inline into Discovery.java
+    public URI getPluginLocation(String path, String pluginId) throws URISyntaxException {
+        URI hostUri = new URI(String.format("http://%s:%d/%s/", httpHost, httpPort, path));
+        return hostUri.resolve(pluginId).normalize();
     }
 }

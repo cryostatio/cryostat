@@ -144,11 +144,11 @@ public class Discovery {
 
         // TODO apply URI range validation to the remote address
         InetAddress remoteAddress = getRemoteAddress(ctx);
-        URI location = jwtFactory.getResourceUri(pluginId);
         String authzHeader =
                 Optional.ofNullable(ctx.request().headers().get(HttpHeaders.AUTHORIZATION))
                         .orElse("None");
 
+        URI location;
         DiscoveryPlugin plugin;
         if (StringUtils.isNotBlank(pluginId) && StringUtils.isNotBlank(priorToken)) {
             // refresh the JWT for existing registration
@@ -161,6 +161,7 @@ public class Discovery {
             if (!Objects.equals(plugin.callback, callbackUri)) {
                 throw new BadRequestException();
             }
+            location = jwtFactory.getPluginLocation("/api/v2.2/discovery/", plugin.id.toString());
             jwtFactory.parseDiscoveryPluginJwt(
                     priorToken, realmName, location, remoteAddress, false);
         } else {
@@ -174,6 +175,8 @@ public class Discovery {
             plugin.persist();
 
             DiscoveryNode.getUniverse().children.add(plugin.realm);
+
+            location = jwtFactory.getPluginLocation("/api/v2.2/discovery/", plugin.id.toString());
         }
 
         String token =
