@@ -218,6 +218,7 @@ jobs:
         ./mvnw -B -U clean compile test-compile
         ./mvnw -B -U -DskipTests -Dspotless.check.skip -Dquarkus.smallrye-openapi.info-title="Cryostat API" clean quarkus:dev &
         pid=$!
+        set +e
         sleep 90
         wget --spider http://localhost:8181/health
         while [ $? -ne 0 ]; do !! ; sleep 10 ; done
