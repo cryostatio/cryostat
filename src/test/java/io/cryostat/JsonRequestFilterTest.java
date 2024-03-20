@@ -79,7 +79,7 @@ public class JsonRequestFilterTest {
         when(requestContext.getEntityStream()).thenReturn(payloadStream);
         when(requestContext.getMediaType()).thenReturn(MediaType.APPLICATION_JSON_TYPE);
         UriInfo uriInfo = Mockito.mock(UriInfo.class);
-        Mockito.when(uriInfo.getPath()).thenReturn("/some/path");
+        when(uriInfo.getPath()).thenReturn("/some/path");
         when(requestContext.getUriInfo()).thenReturn(uriInfo);
         filter.filter(requestContext);
     }
