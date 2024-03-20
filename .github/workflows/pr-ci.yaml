@@ -226,7 +226,7 @@ jobs:
         wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O "${HOME}/bin/yq"
         chmod +x "${HOME}/bin/yq"
         export PATH="${HOME}/bin:${PATH}"
-        bash /home/runner/work/cryostat3/cryostat3/schema/update.bash
+        bash /home/runner/work/cryostat3/cryostat3/schema/update.bash 90 15
         set +e
         git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml > /home/runner/work/openapi.diff
         echo "openapi_status=$?" >> "$GITHUB_OUTPUT"

@@ -10,7 +10,7 @@ function cleanup() {
 }
 trap cleanup EXIT
 set +e
-sleep 30
+sleep "${1:-30}"
 counter=0
 while true; do
     if [ "${counter}" -gt 10 ]; then
@@ -20,7 +20,7 @@ while true; do
         break
     else
         counter=$((counter + 1))
-        sleep 10
+        sleep "${2:-10}"
     fi
 done
 wget http://localhost:8181/api -O - | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
