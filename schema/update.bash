@@ -24,4 +24,4 @@ while true; do
     fi
 done
 wget http://localhost:8181/api -O - | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
-wget http://localhost:8181/api/v3/graphql/schema.graphql -O "${DIR}/schema.graphql"
+# wget http://localhost:8181/api/v3/graphql/schema.graphql -O "${DIR}/schema.graphql"
