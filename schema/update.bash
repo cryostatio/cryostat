@@ -2,8 +2,8 @@
 
 DIR="$(dirname "$(readlink -f "$0")")"
 
-"${DIR}"/../mvnw -f "${DIR}/pom.xml" -B -U clean compile test-compile
-"${DIR}"/../mvnw -f "${DIR}/pom.xml" -B -U -DskipTests -Dspotless.check.skip -Dquarkus.smallrye-openapi.info-title="Cryostat API" clean quarkus:dev &
+"${DIR}"/../mvnw -f "${DIR}/../pom.xml" -B -U clean compile test-compile
+"${DIR}"/../mvnw -f "${DIR}/../pom.xml" -B -U -DskipTests -Dspotless.check.skip -Dquarkus.smallrye-openapi.info-title="Cryostat API" clean quarkus:dev &
 pid="$!"
 set +e
 sleep 30
