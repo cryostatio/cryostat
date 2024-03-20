@@ -254,12 +254,12 @@ jobs:
       uses: actions/github-script@v6
       with:
         script: |
-          const monoblock = s => {
-            return "```\n" + s + "\n```";
+          const diffFmt = s => {
+            return "```diff\n" + s + "\n```";
           };
           const commentBody = ${{ needs.update-schemas.outputs.OPENAPI_STATUS }} == '0'
             ? `No OpenAPI schema changes detected.`
-            : `OpenAPI schema change detected:\n\n${monoblock(require('fs').readFileSync('${{ needs.update-schemas.outputs.OPENAPI_DIFF_FILE }}'))}`;
+            : `OpenAPI schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.OPENAPI_DIFF_FILE }}'))}`;
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
@@ -278,12 +278,12 @@ jobs:
   #     uses: actions/github-script@v6
   #     with:
   #       script: |
-  #         const monoblock = s => {
-  #           return "```\n" + s + "\n```";
+  #         const diffFmt = s => {
+  #           return "```diff\n" + s + "\n```";
   #         };
   #         const commentBody = ${{ needs.update-schemas.outputs.GRAPHQL_STATUS }} == '0'
   #           ? `No GraphQL schema changes detected.`
-  #           : `GraphQL schema change detected:\n\n${monoblock(require('fs').readFileSync('${{ needs.update-schemas.outputs.GRAPHQL_DIFF_FILE }}'))}`;
+  #           : `GraphQL schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.GRAPHQL_DIFF_FILE }}'))}`;
   #         github.rest.issues.createComment({
   #           issue_number: context.issue.number,
   #           owner: context.repo.owner,
