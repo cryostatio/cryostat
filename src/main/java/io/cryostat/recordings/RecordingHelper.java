@@ -971,7 +971,7 @@ public class RecordingHelper {
 
     @Blocking
     public ArchivedRecording updateArchivedRecordingMetadata(
-            String jvmId, String filename, Map<String, String> newLabels) {
+            String jvmId, String filename, Map<String, String> updatedLabels) {
         String key = archivedRecordingKey(jvmId, filename);
         Optional<Metadata> existingMetadataOpt = getArchivedRecordingMetadata(key);
 
@@ -980,13 +980,8 @@ public class RecordingHelper {
                     "Could not find metadata for archived recording with key: " + key);
         }
 
-        // overwrite existing keys with new values
-        Map<String, String> combinedLabels = new HashMap<>(existingMetadataOpt.get().labels());
-        combinedLabels.putAll(newLabels);
+        Metadata updatedMetadata = new Metadata(updatedLabels);
 
-        Metadata updatedMetadata = new Metadata(combinedLabels);
-
-        // Update the S3 object tagging with new metadata
         Tagging tagging = createMetadataTagging(updatedMetadata);
         storage.putObjectTagging(
                 PutObjectTaggingRequest.builder()
@@ -998,7 +993,6 @@ public class RecordingHelper {
         var response =
                 storage.headObject(
                         HeadObjectRequest.builder().bucket(archiveBucket).key(key).build());
-
         long size = response.contentLength();
         Instant lastModified = response.lastModified();
 
