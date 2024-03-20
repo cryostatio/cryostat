@@ -15,10 +15,17 @@
  */
 package io.cryostat.discovery;
 
+import java.net.InetAddress;
+import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.UnknownHostException;
+import java.text.ParseException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -27,20 +34,27 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jwt.proc.BadJWTException;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
@@ -55,11 +69,13 @@ public class Discovery {
 
     public static final Pattern HOST_PORT_PAIR_PATTERN =
             Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))$");
+    static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
     @Inject Logger logger;
     @Inject ObjectMapper mapper;
     @Inject EventBus bus;
     @Inject TargetConnectionManager connectionManager;
+    @Inject DiscoveryJwtFactory jwtFactory;
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
@@ -103,6 +119,7 @@ public class Discovery {
     @Path("/api/v2.2/discovery/{id}")
     @RolesAllowed("read")
     public RestResponse<Void> checkRegistration(@RestPath UUID id, @RestQuery String token) {
+        // TODO validate the provided token
         DiscoveryPlugin.find("id", id).singleResult();
         return ResponseBuilder.<Void>ok().build();
     }
@@ -110,41 +127,84 @@ public class Discovery {
     @Transactional
     @POST
     @Path("/api/v2.2/discovery")
+    @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
-    public Map<String, Object> register(JsonObject body) throws URISyntaxException {
-        String id = body.getString("id");
+    public Response register(@Context RoutingContext ctx, JsonObject body)
+            throws URISyntaxException,
+                    JOSEException,
+                    UnknownHostException,
+                    SocketException,
+                    ParseException,
+                    BadJWTException {
+        String pluginId = body.getString("id");
         String priorToken = body.getString("token");
-
-        if (StringUtils.isNotBlank(id) && StringUtils.isNotBlank(priorToken)) {
-            // TODO refresh the JWT
-            return Map.of("id", id, "token", priorToken);
-        }
-
         String realmName = body.getString("realm");
         URI callbackUri = new URI(body.getString("callback"));
 
-        DiscoveryPlugin plugin = new DiscoveryPlugin();
-        plugin.callback = callbackUri;
-        plugin.realm = DiscoveryNode.environment(realmName, DiscoveryNode.REALM);
-        plugin.builtin = false;
-        plugin.persist();
+        // TODO apply URI range validation to the remote address
+        InetAddress remoteAddress = getRemoteAddress(ctx);
+        URI location = jwtFactory.getResourceUri(pluginId);
+        String authzHeader =
+                Optional.ofNullable(ctx.request().headers().get(HttpHeaders.AUTHORIZATION))
+                        .orElse("None");
 
-        DiscoveryNode.getUniverse().children.add(plugin.realm);
+        DiscoveryPlugin plugin;
+        if (StringUtils.isNotBlank(pluginId) && StringUtils.isNotBlank(priorToken)) {
+            // refresh the JWT for existing registration
+            plugin =
+                    DiscoveryPlugin.<DiscoveryPlugin>find("id", UUID.fromString(pluginId))
+                            .singleResult();
+            if (!Objects.equals(plugin.realm.name, realmName)) {
+                throw new ForbiddenException();
+            }
+            if (!Objects.equals(plugin.callback, callbackUri)) {
+                throw new BadRequestException();
+            }
+            jwtFactory.parseDiscoveryPluginJwt(
+                    priorToken, realmName, location, remoteAddress, false);
+        } else {
+            // new plugin registration
 
-        return Map.of(
-                "meta",
+            plugin = new DiscoveryPlugin();
+            plugin.callback = callbackUri;
+            plugin.realm =
+                    DiscoveryNode.environment(requireNonBlank(realmName), DiscoveryNode.REALM);
+            plugin.builtin = false;
+            plugin.persist();
+
+            DiscoveryNode.getUniverse().children.add(plugin.realm);
+        }
+
+        String token =
+                jwtFactory.createDiscoveryPluginJwt(
+                        authzHeader, realmName, remoteAddress, location);
+
+        // TODO implement more generic env map passing by some platform detection strategy or
+        // generalized config properties
+        var envMap = new HashMap<String, String>();
+        String insightsProxy = System.getenv("INSIGHTS_PROXY");
+        if (StringUtils.isNotBlank(insightsProxy)) {
+            envMap.put("INSIGHTS_SVC", "INSIGHTS_PROXY");
+        }
+        return Response.created(location)
+                .entity(
                         Map.of(
-                                "mimeType", "JSON",
-                                "status", "OK"),
-                "data",
-                        Map.of(
-                                "result",
-                                Map.of(
-                                        "id",
-                                        plugin.id.toString(),
-                                        "token",
-                                        UUID.randomUUID().toString())));
+                                "meta",
+                                        Map.of(
+                                                "mimeType", "JSON",
+                                                "status", "OK"),
+                                "data",
+                                        Map.of(
+                                                "result",
+                                                Map.of(
+                                                        "id",
+                                                        plugin.id.toString(),
+                                                        "token",
+                                                        token,
+                                                        "env",
+                                                        envMap))))
+                .build();
     }
 
     @Transactional
@@ -154,6 +214,7 @@ public class Discovery {
     @PermitAll
     public Map<String, Map<String, String>> publish(
             @RestPath UUID id, @RestQuery String token, List<DiscoveryNode> body) {
+        // TODO validate the provided token
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         plugin.realm.children.clear();
         plugin.persist();
@@ -180,6 +241,7 @@ public class Discovery {
     @Path("/api/v2.2/discovery/{id}")
     @PermitAll
     public Map<String, Map<String, String>> deregister(@RestPath UUID id, @RestQuery String token) {
+        // TODO validate the provided token
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         if (plugin.builtin) {
             throw new ForbiddenException();
@@ -216,5 +278,35 @@ public class Discovery {
     @RolesAllowed("read")
     public DiscoveryPlugin getPlugin(@RestPath UUID id) throws JsonProcessingException {
         return DiscoveryPlugin.find("id", id).singleResult();
+    }
+
+    private static String requireNonBlank(String in) {
+        if (StringUtils.isBlank(in)) {
+            throw new IllegalArgumentException();
+        }
+        return in;
+    }
+
+    private InetAddress getRemoteAddress(RoutingContext ctx) {
+        InetAddress addr = null;
+        if (ctx.request() != null && ctx.request().remoteAddress() != null) {
+            addr = tryResolveAddress(addr, ctx.request().remoteAddress().host());
+        }
+        if (ctx.request() != null && ctx.request().headers() != null) {
+            addr = tryResolveAddress(addr, ctx.request().headers().get(X_FORWARDED_FOR));
+        }
+        return addr;
+    }
+
+    private InetAddress tryResolveAddress(InetAddress addr, String host) {
+        if (StringUtils.isBlank(host)) {
+            return addr;
+        }
+        try {
+            return InetAddress.getByName(host);
+        } catch (UnknownHostException e) {
+            logger.error("Address resolution exception", e);
+        }
+        return addr;
     }
 }
