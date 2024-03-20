@@ -41,7 +41,8 @@ public class JsonRequestFilter implements ContainerRequestFilter {
     public void filter(ContainerRequestContext requestContext) throws IOException {
         if (requestContext.getMediaType() != null
                 && requestContext.getMediaType().isCompatible(MediaType.APPLICATION_JSON_TYPE)
-                && !allowedPaths.contains(requestContext.getUriInfo().getPath())) {
+                && (requestContext.getUriInfo() != null
+                        && !allowedPaths.contains(requestContext.getUriInfo().getPath()))) {
             try (InputStream stream = requestContext.getEntityStream()) {
                 JsonNode rootNode = objectMapper.readTree(stream);
 
