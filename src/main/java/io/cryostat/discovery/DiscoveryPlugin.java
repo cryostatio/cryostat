@@ -15,7 +15,6 @@
  */
 package io.cryostat.discovery;
 
-import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -26,6 +25,7 @@ import io.cryostat.credentials.Credential;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.CascadeType;
@@ -39,14 +39,13 @@ import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.validation.constraints.NotNull;
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.client.ClientRequestContext;
-import jakarta.ws.rs.client.ClientRequestFilter;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MultivaluedHashMap;
+import jakarta.ws.rs.core.MultivaluedMap;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.microprofile.rest.client.RestClientBuilder;
+import org.eclipse.microprofile.rest.client.ext.ClientHeadersFactory;
 import org.hibernate.annotations.GenericGenerator;
 import org.jboss.logging.Logger;
 
@@ -106,62 +105,83 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     @Path("")
     interface PluginCallback {
 
+        final Logger logger = Logger.getLogger(PluginCallback.class);
+
         @GET
         public void ping();
 
         public static PluginCallback create(DiscoveryPlugin plugin) throws URISyntaxException {
+            if (StringUtils.isBlank(plugin.callback.getUserInfo())) {
+                logger.warnv(
+                        "Plugin with id:{0} realm:{1} callback:{2} did not supply userinfo",
+                        plugin.id, plugin.realm, plugin.callback);
+            }
+
             PluginCallback client =
-                    RestClientBuilder.newBuilder()
+                    QuarkusRestClientBuilder.newBuilder()
                             .baseUri(plugin.callback)
-                            .register(AuthorizationFilter.class)
+                            .clientHeadersFactory(
+                                    new DiscoveryPluginAuthorizationHeaderFactory(plugin))
                             .build(PluginCallback.class);
             return client;
         }
 
-        public static class AuthorizationFilter implements ClientRequestFilter {
+        public static class DiscoveryPluginAuthorizationHeaderFactory
+                implements ClientHeadersFactory {
 
-            final Logger logger = Logger.getLogger(PluginCallback.class);
+            private final DiscoveryPlugin plugin;
+
+            DiscoveryPluginAuthorizationHeaderFactory(DiscoveryPlugin plugin) {
+                this.plugin = plugin;
+            }
 
             @Override
-            public void filter(ClientRequestContext requestContext) throws IOException {
-                String userInfo = requestContext.getUri().getUserInfo();
+            public MultivaluedMap<String, String> update(
+                    MultivaluedMap<String, String> incomingHeaders,
+                    MultivaluedMap<String, String> clientOutgoingHeaders) {
+                var result = new MultivaluedHashMap<String, String>();
+
+                String userInfo = plugin.callback.getUserInfo();
                 if (StringUtils.isBlank(userInfo)) {
-                    return;
+                    logger.error("No stored credentials specified");
+                    return result;
                 }
 
-                if (StringUtils.isNotBlank(userInfo) && userInfo.contains(":")) {
-                    String[] parts = userInfo.split(":");
-                    if (parts.length == 2 && "storedcredentials".equals(parts[0])) {
-                        logger.infov(
-                                "Using stored credentials id:{0} referenced in ping callback"
-                                        + " userinfo",
-                                parts[1]);
-
-                        Credential credential =
-                                Credential.find("id", Long.parseLong(parts[1])).singleResult();
-
-                        requestContext
-                                .getHeaders()
-                                .add(
-                                        HttpHeaders.AUTHORIZATION,
-                                        "Basic "
-                                                + Base64.getEncoder()
-                                                        .encodeToString(
-                                                                (credential.username
-                                                                                + ":"
-                                                                                + credential
-                                                                                        .password)
-                                                                        .getBytes(
-                                                                                StandardCharsets
-                                                                                        .UTF_8)));
-                    } else {
-                        throw new IllegalStateException("Unexpected credential format");
-                    }
-                } else {
-                    throw new IOException(
-                            new BadRequestException(
-                                    "No credentials provided and none found in storage"));
+                if (!userInfo.contains(":")) {
+                    logger.errorv("Unexpected non-basic credential format, found: {0}", userInfo);
+                    return result;
                 }
+
+                String[] parts = userInfo.split(":");
+                if (parts.length != 2) {
+                    logger.errorv("Unexpected basic credential format, found: {0}", userInfo);
+                    return result;
+                }
+
+                if (!"storedcredentials".equals(parts[0])) {
+                    logger.errorv(
+                            "Unexpected credential format, expected \"storedcredentials\" but"
+                                    + " found: {0}",
+                            parts[0]);
+                    return result;
+                }
+
+                logger.infov(
+                        "Using stored credentials id:{0} referenced in ping callback" + " userinfo",
+                        parts[1]);
+
+                Credential credential =
+                        Credential.find("id", Long.parseLong(parts[1])).singleResult();
+
+                result.add(
+                        HttpHeaders.AUTHORIZATION,
+                        "Basic "
+                                + Base64.getEncoder()
+                                        .encodeToString(
+                                                (credential.username + ":" + credential.password)
+                                                        .getBytes(StandardCharsets.UTF_8)));
+
+                return result;
             }
         }
     }
