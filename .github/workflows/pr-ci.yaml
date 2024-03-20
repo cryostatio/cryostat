@@ -221,11 +221,13 @@ jobs:
     - name: Update schemas
       id: schema-update
       run: |
+        set -x
         mkdir ~/bin
         wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O ~/bin/yq
         chmod +x ~/bin/yq
         export PATH="~/bin:$PATH"
         bash /home/runner/work/cryostat3/cryostat3/schema/update.bash
+        set +e
         git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml > /home/runner/work/openapi.diff
         openapi_status=$?
         echo "openapi_status=$openapi_status" >> "$GITHUB_OUTPUT"
