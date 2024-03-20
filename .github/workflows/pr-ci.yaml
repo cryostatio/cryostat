@@ -222,10 +222,10 @@ jobs:
       id: schema-update
       run: |
         set -x
-        mkdir ~/bin
-        wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O ~/bin/yq
-        chmod +x ~/bin/yq
-        export PATH="~/bin:$PATH"
+        mkdir "${HOME}/bin"
+        wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O "${HOME}/bin/yq"
+        chmod +x "${HOME}/bin/yq"
+        export PATH="${HOME}/bin:${PATH}"
         bash /home/runner/work/cryostat3/cryostat3/schema/update.bash
         set +e
         git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml > /home/runner/work/openapi.diff
