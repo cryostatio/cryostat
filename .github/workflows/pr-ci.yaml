@@ -258,6 +258,7 @@ jobs:
       continue-on-error: true
       id: schema-check
       run: |
+        set +e
         diff -U 10 /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml /home/runner/work/cryostat3/cryostat3/openapi.yaml > /home/runner/work/openapi.diff
         status=$?
         echo "sc=$status" >> "$GITHUB_OUTPUT"
@@ -299,6 +300,7 @@ jobs:
       continue-on-error: true
       id: schema-check
       run: |
+        set +e
         diff -U 10 /home/runner/work/cryostat3/cryostat3/schema/schema.graphql /home/runner/work/cryostat3/cryostat3/schema.graphql > /home/runner/work/graphql.diff
         status=$?
         echo "sc=$status" >> "$GITHUB_OUTPUT"
