@@ -9,8 +9,6 @@ set +e
 sleep 30
 wget --spider http://localhost:8181/health
 while [  -ne 0 ]; do !! ; sleep 10 ; done
-wget http://localhost:8181/api -O "${DIR}/openapi.yaml"
+wget http://localhost:8181/api -O - | yq -P 'sort_keys(..)' > "${DIR}/openapi.yaml"
 wget http://localhost:8181/api/v3/graphql/schema.graphql -O "${DIR}/schema.graphql"
 kill $pid
-
-yq -i -P 'sort_keys(..)' "${DIR}/openapi.yaml"
