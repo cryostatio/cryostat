@@ -47,6 +47,7 @@ import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.jwt.proc.BadJWTException;
 import com.nimbusds.jwt.proc.DefaultJWTClaimsVerifier;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
@@ -55,30 +56,19 @@ public class DiscoveryJwtFactory {
     public static final String RESOURCE_CLAIM = "resource";
     public static final String REALM_CLAIM = "realm";
 
-    private final JWSSigner signer;
-    private final JWSVerifier verifier;
-    private final JWEEncrypter encrypter;
-    private final JWEDecrypter decrypter;
-    private final Duration discoveryPingPeriod;
+    @Inject JWSSigner signer;
+    @Inject JWSVerifier verifier;
+    @Inject JWEEncrypter encrypter;
+    @Inject JWEDecrypter decrypter;
+
+    @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
+    Duration discoveryPingPeriod;
 
     @ConfigProperty(name = "quarkus.http.host")
     String httpHost;
 
     @ConfigProperty(name = "cryostat.http.proxy.port")
     int httpPort;
-
-    DiscoveryJwtFactory(
-            JWSSigner signer,
-            JWSVerifier verifier,
-            JWEEncrypter encrypter,
-            JWEDecrypter decrypter,
-            Duration discoveryPingPeriod) {
-        this.signer = signer;
-        this.verifier = verifier;
-        this.encrypter = encrypter;
-        this.decrypter = decrypter;
-        this.discoveryPingPeriod = discoveryPingPeriod;
-    }
 
     public String createDiscoveryPluginJwt(
             String authzHeader, String realm, InetAddress requestAddr, URI resource)
