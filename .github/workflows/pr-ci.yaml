@@ -265,12 +265,12 @@ jobs:
       uses: actions/github-script@v6
       with:
         script: |
-          var monoblock = s => {
+          const monoblock = s => {
             return "```\n" + s + "\n```";
           };
           const commentBody = ${{ steps.schema-check.outputs.sc }} == '0'
             ? `No OpenAPI schema changes detected.`
-            : `OpenAPI schema change detected:\n\n${monoblock(require('fs').readFileSync(${{ steps.schema-check.outputs.diff_file }}))}`;
+            : `OpenAPI schema change detected:\n\n${monoblock(require('fs').readFileSync('${{ steps.schema-check.outputs.diff_file }}'))}`;
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
@@ -303,12 +303,12 @@ jobs:
       uses: actions/github-script@v6
       with:
         script: |
-          var monoblock = s => {
+          const monoblock = s => {
             return "```\n" + s + "\n```";
           };
           const commentBody = ${{ steps.schema-check.outputs.sc }} == '0'
             ? `No GraphQL schema changes detected.`
-            : `GraphQL schema change detected:\n\n${monoblock(require('fs').readFileSync(${{ steps.schema-check.outputs.diff_file }}))}`;
+            : `GraphQL schema change detected:\n\n${monoblock(require('fs').readFileSync('${{ steps.schema-check.outputs.diff_file }}'))}`;
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
