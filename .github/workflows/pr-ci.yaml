@@ -254,7 +254,28 @@ jobs:
         ~/bin/yq -i -P 'sort_keys(..)' /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml
         ~/bin/yq -i -P 'sort_keys(..)' /home/runner/work/cryostat3/cryostat3/openapi.yaml
     - name: Check schema for changes
-      run: diff -U 10 /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml /home/runner/work/cryostat3/cryostat3/openapi.yaml
+      id: schema-check
+      run: |
+        diff -U 10 /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml /home/runner/work/cryostat3/cryostat3/openapi.yaml > /home/runner/work/openapi.diff
+        echo "sc=$? diff_file=/home/runner/work/openapi.diff" >> "$GITHUB_OUTPUT"
+    - name: Comment schema check result
+      env:
+        SC: ${{ steps.schema-check.outputs.sc }}
+      uses: actions/github-script@v6
+      with:
+        script: |
+          var monoblock = s => {
+            return "```\n" + s + "\n```";
+          };
+          const commentBody = ${{ steps.schema-check.outputs.sc }} == '0'
+            ? `No OpenAPI schema changes detected.`
+            : `OpenAPI schema change detected:\n\n${monoblock(require('fs').readFileSync(${{ steps.schema-check.outputs.diff_file }}))}`;
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });
 
   compare-graphql-schema:
     needs: [checkout-branch, retrieve-schemas]
@@ -270,4 +291,25 @@ jobs:
       with:
         name: graphql-schema
     - name: Check schema for changes
-      run: diff -U 10 /home/runner/work/cryostat3/cryostat3/schema/schema.graphql /home/runner/work/cryostat3/cryostat3/schema.graphql
+      id: schema-check
+      run: |
+        diff -U 10 /home/runner/work/cryostat3/cryostat3/schema/schema.graphql /home/runner/work/cryostat3/cryostat3/schema.graphql > /home/runner/work/graphql.diff
+        echo "sc=$? diff_file=/home/runner/work/graphql.diff" >> "$GITHUB_OUTPUT"
+    - name: Comment schema check result
+      env:
+        SC: ${{ steps.schema-check.outputs.sc }}
+      uses: actions/github-script@v6
+      with:
+        script: |
+          var monoblock = s => {
+            return "```\n" + s + "\n```";
+          };
+          const commentBody = ${{ steps.schema-check.outputs.sc }} == '0'
+            ? `No GraphQL schema changes detected.`
+            : `GraphQL schema change detected:\n\n${monoblock(require('fs').readFileSync(${{ steps.schema-check.outputs.diff_file }}))}`;
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });
