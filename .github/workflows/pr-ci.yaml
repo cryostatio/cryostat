@@ -183,9 +183,14 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         status: ${{ job.status }}
 
-  retrieve-schemas:
+  update-schemas:
     needs: [checkout-branch]
     runs-on: ubuntu-latest
+    outputs:
+      OPENAPI_STATUS: ${{ steps.schema-update.outputs.openapi_status }}
+      OPENAPI_DIFF_FILE: ${{ steps.schema-update.outputs.openapi_diff_file }}
+      GRAPHQL_STATUS: ${{ steps.schema-update.outputs.graphql_status }}
+      GRAPHQL_DIFF_FILE: ${{ steps.schema-update.outputs.graphql_diff_file }}
     steps:
     - uses: actions/checkout@v3
       with:
@@ -213,69 +218,47 @@ jobs:
         cd src/main/webui
         yarn install && yarn yarn:frzinstall
         cd -
-    - name: Compare schemas
-      run: |
-        ./mvnw -B -U clean compile test-compile
-        ./mvnw -B -U -DskipTests -Dspotless.check.skip -Dquarkus.smallrye-openapi.info-title="Cryostat API" clean quarkus:dev &
-        pid=$!
-        set +e
-        sleep 90
-        wget --spider http://localhost:8181/health
-        while [ $? -ne 0 ]; do !! ; sleep 10 ; done
-        wget http://localhost:8181/api -O /home/runner/work/cryostat3/cryostat3/openapi.yaml
-        wget http://localhost:8181/api/v3/graphql/schema.graphql -O /home/runner/work/cryostat3/cryostat3/schema.graphql
-        kill $pid
-    - uses: actions/upload-artifact@v3
-      with:
-        name: openapi-schema
-        path: /home/runner/work/cryostat3/cryostat3/openapi.yaml
-    - uses: actions/upload-artifact@v3
-      with:
-        name: graphql-schema
-        path: /home/runner/work/cryostat3/cryostat3/schema.graphql
-
-  compare-openapi-schema:
-    needs: [checkout-branch, retrieve-schemas]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
-        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
-        submodules: true
-        fetch-depth: 0
-    - uses: actions/download-artifact@v3
-      with:
-        name: openapi-schema
-    - name: Pretty-print schemas and ensure keys are sorted
+    - name: Update schemas
+      id: schema-update
       run: |
         mkdir ~/bin
         wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O ~/bin/yq
         chmod +x ~/bin/yq
-        ~/bin/yq -i -P 'sort_keys(..)' /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml
-        ~/bin/yq -i -P 'sort_keys(..)' /home/runner/work/cryostat3/cryostat3/openapi.yaml
-    - name: Check schema for changes
-      continue-on-error: true
-      id: schema-check
-      run: |
-        set +e
-        diff -U 10 /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml /home/runner/work/cryostat3/cryostat3/openapi.yaml > /home/runner/work/openapi.diff
-        status=$?
-        echo "sc=$status" >> "$GITHUB_OUTPUT"
-        echo "diff_file=/home/runner/work/openapi.diff" >> "$GITHUB_OUTPUT"
-        exit $status
+        export PATH="~/bin:$PATH"
+        bash /home/runner/work/cryostat3/cryostat3/schema/update.bash
+        git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml > /home/runner/work/openapi.diff
+        openapi_status=$?
+        echo "openapi_status=$openapi_status" >> "$GITHUB_OUTPUT"
+        echo "openapi_diff_file=/home/runner/work/openapi.diff" >> "$GITHUB_OUTPUT"
+        git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/schema.graphql > /home/runner/work/graphql.diff
+        echo "graphql_status=$graphql_status" >> "$GITHUB_OUTPUT"
+        echo "graphql_diff_file=/home/runner/work/graphql.diff" >> "$GITHUB_OUTPUT"
+    - uses: actions/upload-artifact@v3
+      with:
+        name: openapi-diff
+        path: /home/runner/work/openapi.diff
+    - uses: actions/upload-artifact@v3
+      with:
+        name: graphql-diff
+        path: /home/runner/work/graphql.diff
+
+  compare-openapi-schema:
+    needs: [update-schemas]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: openapi-diff
     - name: Comment schema check result
-      env:
-        SC: ${{ steps.schema-check.outputs.sc }}
       uses: actions/github-script@v6
       with:
         script: |
           const monoblock = s => {
             return "```\n" + s + "\n```";
           };
-          const commentBody = ${{ steps.schema-check.outputs.sc }} == '0'
+          const commentBody = ${{ needs.update-schemas.outputs.OPENAPI_STATUS }} == '0'
             ? `No OpenAPI schema changes detected.`
-            : `OpenAPI schema change detected:\n\n${monoblock(require('fs').readFileSync('${{ steps.schema-check.outputs.diff_file }}'))}`;
+            : `OpenAPI schema change detected:\n\n${monoblock(require('fs').readFileSync('${{ needs.update-schemas.outputs.OPENAPI_DIFF_FILE }}'))}`;
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
@@ -284,40 +267,22 @@ jobs:
           });
 
   compare-graphql-schema:
-    needs: [checkout-branch, retrieve-schemas]
+    needs: [update-schemas]
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-      with:
-        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
-        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
-        submodules: true
-        fetch-depth: 0
     - uses: actions/download-artifact@v3
       with:
-        name: graphql-schema
-    - name: Check schema for changes
-      continue-on-error: true
-      id: schema-check
-      run: |
-        set +e
-        diff -U 10 /home/runner/work/cryostat3/cryostat3/schema/schema.graphql /home/runner/work/cryostat3/cryostat3/schema.graphql > /home/runner/work/graphql.diff
-        status=$?
-        echo "sc=$status" >> "$GITHUB_OUTPUT"
-        echo "diff_file=/home/runner/work/graphql.diff" >> "$GITHUB_OUTPUT"
-        exit $status
+        name: graphql-diff
     - name: Comment schema check result
-      env:
-        SC: ${{ steps.schema-check.outputs.sc }}
       uses: actions/github-script@v6
       with:
         script: |
           const monoblock = s => {
             return "```\n" + s + "\n```";
           };
-          const commentBody = ${{ steps.schema-check.outputs.sc }} == '0'
+          const commentBody = ${{ needs.update-schemas.outputs.GRAPHQL_STATUS }} == '0'
             ? `No GraphQL schema changes detected.`
-            : `GraphQL schema change detected:\n\n${monoblock(require('fs').readFileSync('${{ steps.schema-check.outputs.diff_file }}'))}`;
+            : `GraphQL schema change detected:\n\n${monoblock(require('fs').readFileSync('${{ needs.update-schemas.outputs.GRAPHQL_DIFF_FILE }}'))}`;
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
