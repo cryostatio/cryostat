@@ -1,2069 +1,163 @@
 ---
-openapi: 3.0.3
-info:
-  title: Cryostat API
-  description: Cloud-Native JDK Flight Recorder
-  contact:
-    name: Cryostat Community
-    url: https://cryostat.io
-    email: cryostat-development@googlegroups.com
-  license:
-    name: Apache 2.0
-    url: https://github.com/cryostatio/cryostat3/blob/main/LICENSE
-  version: 3.0.0-snapshot
-paths:
-  /api/beta/fs/recordings:
-    get:
-      tags:
-      - Recordings
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ArchivedRecordingDirectory'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/beta/fs/recordings/{jvmId}:
-    get:
-      tags:
-      - Recordings
-      parameters:
-      - name: jvmId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ArchivedRecordingDirectory'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/beta/fs/recordings/{jvmId}/{filename}:
-    delete:
-      tags:
-      - Recordings
-      parameters:
-      - name: filename
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: jvmId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "204":
-          description: No Content
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/beta/fs/recordings/{jvmId}/{filename}/upload:
-    post:
-      tags:
-      - Recordings
-      parameters:
-      - name: filename
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: jvmId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/beta/matchExpressions:
-    get:
-      tags:
-      - Match Expressions
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: object
-                  additionalProperties: {}
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    post:
-      tags:
-      - Match Expressions
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RequestData'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/V2Response'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/beta/matchExpressions/{id}:
-    get:
-      tags:
-      - Match Expressions
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MatchedExpression'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/beta/recordings/{connectUrl}/{filename}:
-    delete:
-      tags:
-      - Recordings
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: filename
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/beta/recordings/{jvmId}:
-    get:
-      tags:
-      - Recordings
-      parameters:
-      - name: jvmId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ArchivedRecording'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    post:
-      tags:
-      - Recordings
-      parameters:
-      - name: jvmId
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                recording:
-                  $ref: '#/components/schemas/FileUpload'
-                labels:
-                  $ref: '#/components/schemas/JsonObject'
-                maxFiles:
-                  format: int32
-                  type: integer
-      responses:
-        "201":
-          description: Created
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/grafana_dashboard_url:
-    get:
-      tags:
-      - Health
-      responses:
-        "200":
-          description: OK
-  /api/v1/grafana_datasource_url:
-    get:
-      tags:
-      - Health
-      responses:
-        "200":
-          description: OK
-  /api/v1/recordings:
-    get:
-      tags:
-      - Recordings
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/ArchivedRecording'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    post:
-      tags:
-      - Recordings
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                recording:
-                  $ref: '#/components/schemas/FileUpload'
-                labels:
-                  $ref: '#/components/schemas/JsonObject'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: {}
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/recordings/{filename}:
-    delete:
-      tags:
-      - Recordings
-      parameters:
-      - name: filename
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "204":
-          description: No Content
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/reports/{recordingName}:
-    get:
-      tags:
-      - Reports
-      parameters:
-      - name: recordingName
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      deprecated: true
-      security:
-      - SecurityScheme: []
-  /api/v1/targets:
-    get:
-      tags:
-      - Targets
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/targets/{connectUrl}/events:
-    get:
-      tags:
-      - Events
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      - name: q
-        in: query
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/targets/{connectUrl}/recordingOptions:
-    get:
-      tags:
-      - Recordings
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    patch:
-      tags:
-      - Recordings
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/targets/{connectUrl}/recordings:
-    get:
-      tags:
-      - Recordings
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    post:
-      tags:
-      - Recordings
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/targets/{connectUrl}/recordings/{recordingName}:
-    delete:
-      tags:
-      - Recordings
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      - name: recordingName
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    patch:
-      tags:
-      - Recordings
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      - name: recordingName
-        in: path
-        required: true
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/targets/{connectUrl}/recordings/{recordingName}/upload:
-    post:
-      tags:
-      - Recordings
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      - name: recordingName
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/targets/{connectUrl}/snapshot:
-    post:
-      tags:
-      - Recordings
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json: {}
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/targets/{connectUrl}/templates:
-    get:
-      tags:
-      - Event Templates
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/targets/{connectUrl}/templates/{templateName}/type/{templateType}:
-    get:
-      tags:
-      - Event Templates
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      - name: templateName
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: templateType
-        in: path
-        required: true
-        schema:
-          $ref: '#/components/schemas/TemplateType'
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/targets/{targetId}/reports/{recordingName}:
-    get:
-      tags:
-      - Reports
-      parameters:
-      - name: recordingName
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: targetId
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      deprecated: true
-      security:
-      - SecurityScheme: []
-  /api/v1/templates:
-    post:
-      tags:
-      - Event Templates
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                template:
-                  $ref: '#/components/schemas/FileUpload'
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v1/templates/{templateName}:
-    delete:
-      tags:
-      - Event Templates
-      parameters:
-      - name: templateName
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2.1/auth:
-    post:
-      tags:
-      - Auth
-      responses:
-        "200":
-          description: OK
-  /api/v2.1/discovery:
-    get:
-      tags:
-      - Discovery
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2.1/logout:
-    post:
-      tags:
-      - Auth
-      responses:
-        "200":
-          description: OK
-  /api/v2.1/targets/{connectUrl}/templates/{templateName}/type/{templateType}:
-    get:
-      tags:
-      - Event Templates
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      - name: templateName
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: templateType
-        in: path
-        required: true
-        schema:
-          $ref: '#/components/schemas/TemplateType'
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2.2/credentials:
-    get:
-      tags:
-      - Credentials
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/V2Response'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    post:
-      tags:
-      - Credentials
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                matchExpression:
-                  type: string
-                username:
-                  type: string
-                password:
-                  type: string
-      responses:
-        "201":
-          description: Created
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2.2/credentials/{id}:
-    get:
-      tags:
-      - Credentials
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/V2Response'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    delete:
-      tags:
-      - Credentials
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "204":
-          description: No Content
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2.2/discovery:
-    post:
-      tags:
-      - Discovery
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: {}
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2.2/discovery/{id}:
-    get:
-      tags:
-      - Discovery
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '#/components/schemas/UUID'
-      - name: token
-        in: query
-        schema:
-          type: string
-      responses:
-        "204":
-          description: No Content
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    post:
-      tags:
-      - Discovery
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '#/components/schemas/UUID'
-      - name: token
-        in: query
-        schema:
-          type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/DiscoveryNode'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  type: object
-                  additionalProperties:
-                    type: string
-    delete:
-      tags:
-      - Discovery
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '#/components/schemas/UUID'
-      - name: token
-        in: query
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  type: object
-                  additionalProperties:
-                    type: string
-  /api/v2.2/graphql:
-    get:
-      tags:
-      - Graph QL
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    post:
-      tags:
-      - Graph QL
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2/rules:
-    get:
-      tags:
-      - Rules
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/V2Response'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    post:
-      tags:
-      - Rules
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                description:
-                  type: string
-                matchExpression:
-                  type: string
-                eventSpecifier:
-                  type: string
-                archivalPeriodSeconds:
-                  format: int32
-                  type: integer
-                initialDelaySeconds:
-                  format: int32
-                  type: integer
-                preservedArchives:
-                  format: int32
-                  type: integer
-                maxAgeSeconds:
-                  format: int32
-                  type: integer
-                maxSizeBytes:
-                  format: int32
-                  type: integer
-                enabled:
-                  type: boolean
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                name:
-                  type: string
-                description:
-                  type: string
-                matchExpression:
-                  type: string
-                eventSpecifier:
-                  type: string
-                archivalPeriodSeconds:
-                  format: int32
-                  type: integer
-                initialDelaySeconds:
-                  format: int32
-                  type: integer
-                preservedArchives:
-                  format: int32
-                  type: integer
-                maxAgeSeconds:
-                  format: int32
-                  type: integer
-                maxSizeBytes:
-                  format: int32
-                  type: integer
-                enabled:
-                  type: boolean
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Rule'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/V2Response'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2/rules/{name}:
-    get:
-      tags:
-      - Rules
-      parameters:
-      - name: name
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/V2Response'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    delete:
-      tags:
-      - Rules
-      parameters:
-      - name: name
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: clean
-        in: query
-        schema:
-          type: boolean
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/V2Response'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    patch:
-      tags:
-      - Rules
-      parameters:
-      - name: name
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: clean
-        in: query
-        schema:
-          type: boolean
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/JsonObject'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/V2Response'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2/targets:
-    post:
-      tags:
-      - Custom Discovery
-      parameters:
-      - name: dryrun
-        in: query
-        schema:
-          type: boolean
-      - name: storeCredentials
-        in: query
-        schema:
-          type: boolean
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                connectUrl:
-                  format: uri
-                  type: string
-                alias:
-                  type: string
-                username:
-                  type: string
-                password:
-                  type: string
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                connectUrl:
-                  format: uri
-                  type: string
-                alias:
-                  type: string
-                username:
-                  type: string
-                password:
-                  type: string
-          application/json:
-            schema:
-              $ref: '#/components/schemas/Target'
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2/targets/{connectUrl}:
-    delete:
-      tags:
-      - Custom Discovery
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2/targets/{connectUrl}/events:
-    get:
-      tags:
-      - Events
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      - name: q
-        in: query
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/V2Response'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v2/targets/{connectUrl}/snapshot:
-    post:
-      tags:
-      - Recordings
-      parameters:
-      - name: connectUrl
-        in: path
-        required: true
-        schema:
-          format: uri
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json: {}
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/activedownload/{id}:
-    get:
-      tags:
-      - Recordings
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/discovery:
-    get:
-      tags:
-      - Discovery
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DiscoveryNode'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/discovery_plugins:
-    get:
-      tags:
-      - Discovery
-      parameters:
-      - name: realm
-        in: query
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/discovery_plugins/{id}:
-    get:
-      tags:
-      - Discovery
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          $ref: '#/components/schemas/UUID'
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/DiscoveryPlugin'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/download/{encodedKey}:
-    get:
-      tags:
-      - Recordings
-      parameters:
-      - name: encodedKey
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: f
-        in: query
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/event_templates:
-    get:
-      tags:
-      - Event Templates
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Template'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    post:
-      tags:
-      - Event Templates
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                template:
-                  $ref: '#/components/schemas/FileUpload'
-      responses:
-        "201":
-          description: Created
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/event_templates/{templateName}:
-    delete:
-      tags:
-      - Event Templates
-      parameters:
-      - name: templateName
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "204":
-          description: No Content
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/grafana/{encodedKey}:
-    post:
-      tags:
-      - Recordings
-      parameters:
-      - name: encodedKey
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: string
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/reports/{encodedKey}:
-    get:
-      tags:
-      - Reports
-      parameters:
-      - name: encodedKey
-        in: path
-        required: true
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  $ref: '#/components/schemas/AnalysisResult'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/targets:
-    get:
-      tags:
-      - Targets
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Target'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/targets/{id}:
-    get:
-      tags:
-      - Targets
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Target'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    delete:
-      tags:
-      - Custom Discovery
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/targets/{id}/event_templates:
-    get:
-      tags:
-      - Event Templates
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Template'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/targets/{id}/event_templates/{templateType}/{templateName}:
-    get:
-      tags:
-      - Event Templates
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      - name: templateName
-        in: path
-        required: true
-        schema:
-          type: string
-      - name: templateType
-        in: path
-        required: true
-        schema:
-          $ref: '#/components/schemas/TemplateType'
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/targets/{id}/events:
-    get:
-      tags:
-      - Events
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      - name: q
-        in: query
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SerializableEventTypeInfo'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/targets/{id}/recordingOptions:
-    get:
-      tags:
-      - Recordings
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: {}
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    patch:
-      tags:
-      - Recordings
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                toDisk:
-                  type: string
-                maxAge:
-                  type: string
-                maxSize:
-                  type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: {}
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/targets/{id}/recordings:
-    get:
-      tags:
-      - Recordings
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/LinkedRecordingDescriptor'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    post:
-      tags:
-      - Recordings
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              type: object
-              properties:
-                recordingName:
-                  type: string
-                events:
-                  type: string
-                replace:
-                  type: string
-                  nullable: true
-                restart:
-                  type: boolean
-                  nullable: true
-                duration:
-                  format: int64
-                  type: integer
-                  nullable: true
-                toDisk:
-                  type: boolean
-                  nullable: true
-                maxAge:
-                  format: int64
-                  type: integer
-                  nullable: true
-                maxSize:
-                  format: int64
-                  type: integer
-                  nullable: true
-                metadata:
-                  type: string
-                  nullable: true
-                archiveOnStop:
-                  type: boolean
-                  nullable: true
-      responses:
-        "200":
-          description: OK
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/targets/{id}/snapshot:
-    post:
-      tags:
-      - Recordings
-      parameters:
-      - name: id
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json: {}
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/targets/{targetId}/recordings/{remoteId}:
-    delete:
-      tags:
-      - Recordings
-      parameters:
-      - name: remoteId
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      - name: targetId
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "204":
-          description: No Content
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-    patch:
-      tags:
-      - Recordings
-      parameters:
-      - name: remoteId
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      - name: targetId
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: string
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/targets/{targetId}/recordings/{remoteId}/upload:
-    post:
-      tags:
-      - Recordings
-      parameters:
-      - name: remoteId
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      - name: targetId
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: string
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      security:
-      - SecurityScheme: []
-  /api/v3/targets/{targetId}/reports/{recordingId}:
-    get:
-      tags:
-      - Reports
-      parameters:
-      - name: recordingId
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      - name: targetId
-        in: path
-        required: true
-        schema:
-          format: int64
-          type: integer
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties:
-                  $ref: '#/components/schemas/AnalysisResult'
-        "403":
-          description: Not Allowed
-        "401":
-          description: Not Authorized
-      deprecated: true
-      security:
-      - SecurityScheme: []
-  /health:
-    get:
-      tags:
-      - Health
-      responses:
-        "200":
-          description: OK
-  /health/liveness:
-    get:
-      tags:
-      - Health
-      responses:
-        "204":
-          description: No Content
 components:
   schemas:
     AnalysisResult:
-      type: object
       properties:
+        evaluation:
+          $ref: '#/components/schemas/Evaluation'
         name:
-          type: string
-        topic:
           type: string
         score:
           format: double
           type: number
-        evaluation:
-          $ref: '#/components/schemas/Evaluation'
+        topic:
+          type: string
+      type: object
     Annotations:
-      type: object
       properties:
-        platform:
-          type: object
-          additionalProperties:
-            type: string
         cryostat:
-          type: object
           additionalProperties:
             type: string
-    ArchivedRecording:
+          type: object
+        platform:
+          additionalProperties:
+            type: string
+          type: object
       type: object
+    ArchivedRecording:
       properties:
-        name:
-          type: string
-        downloadUrl:
-          type: string
-        reportUrl:
-          type: string
-        metadata:
-          $ref: '#/components/schemas/Metadata'
-        size:
-          format: int64
-          type: integer
         archivedTime:
           format: int64
           type: integer
-    ArchivedRecordingDirectory:
+        downloadUrl:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+        name:
+          type: string
+        reportUrl:
+          type: string
+        size:
+          format: int64
+          type: integer
       type: object
+    ArchivedRecordingDirectory:
       properties:
         connectUrl:
           type: string
         jvmId:
           type: string
         recordings:
-          type: array
           items:
             $ref: '#/components/schemas/ArchivedRecording'
+          type: array
+      type: object
     Data:
       type: object
     DiscoveryNode:
-      required:
-      - name
-      - nodeType
-      - labels
-      type: object
       properties:
+        children:
+          items:
+            $ref: '#/components/schemas/DiscoveryNode'
+          type: array
         id:
           format: int64
           type: integer
+        labels:
+          additionalProperties:
+            type: string
+          type: object
         name:
           pattern: \S
           type: string
         nodeType:
           pattern: \S
           type: string
-        labels:
-          type: object
-          additionalProperties:
-            type: string
-        children:
-          type: array
-          items:
-            $ref: '#/components/schemas/DiscoveryNode'
         target:
           $ref: '#/components/schemas/Target'
-    DiscoveryPlugin:
       required:
-      - id
-      - realm
+        - name
+        - nodeType
+        - labels
       type: object
+    DiscoveryPlugin:
       properties:
+        builtin:
+          type: boolean
+        callback:
+          format: uri
+          type: string
         id:
           $ref: '#/components/schemas/UUID'
         realm:
           $ref: '#/components/schemas/DiscoveryNode'
-        callback:
-          format: uri
-          type: string
-        builtin:
-          type: boolean
-    Evaluation:
+      required:
+        - id
+        - realm
       type: object
+    Evaluation:
       properties:
-        summary:
-          type: string
         explanation:
           type: string
         solution:
           type: string
         suggestions:
-          type: array
           items:
             $ref: '#/components/schemas/Suggestion'
+          type: array
+        summary:
+          type: string
+      type: object
     FileUpload:
       type: object
     Instant:
+      example: 2022-03-10T16:15:50Z
       format: date-time
       type: string
-      example: 2022-03-10T16:15:50Z
     JsonObject:
-      type: array
       items:
-        type: object
         properties:
           key:
             type: string
           value: {}
+        type: object
+      type: array
     LinkedRecordingDescriptor:
-      type: object
       properties:
-        id:
-          format: int64
-          type: integer
-        remoteId:
-          format: int64
-          type: integer
-        state:
-          $ref: '#/components/schemas/RecordingState'
+        continuous:
+          type: boolean
+        downloadUrl:
+          type: string
         duration:
           format: int64
           type: integer
-        startTime:
-          format: int64
-          type: integer
-        continuous:
-          type: boolean
-        toDisk:
-          type: boolean
-        maxSize:
+        id:
           format: int64
           type: integer
         maxAge:
           format: int64
           type: integer
-        name:
-          type: string
-        downloadUrl:
-          type: string
-        reportUrl:
-          type: string
+        maxSize:
+          format: int64
+          type: integer
         metadata:
           $ref: '#/components/schemas/Metadata'
-    MatchExpression:
-      required:
-      - script
+        name:
+          type: string
+        remoteId:
+          format: int64
+          type: integer
+        reportUrl:
+          type: string
+        startTime:
+          format: int64
+          type: integer
+        state:
+          $ref: '#/components/schemas/RecordingState'
+        toDisk:
+          type: boolean
       type: object
+    MatchExpression:
       properties:
         id:
           format: int64
@@ -2071,84 +165,76 @@ components:
         script:
           pattern: \S
           type: string
-    MatchedExpression:
+      required:
+        - script
       type: object
+    MatchedExpression:
       properties:
-        id:
-          format: int64
-          type: integer
         expression:
           type: string
-        targets:
-          type: array
-          items:
-            $ref: '#/components/schemas/Target'
-    Meta:
-      type: object
-      properties:
-        type:
-          type: string
-        status:
-          type: string
-    Metadata:
-      type: object
-      properties:
-        labels:
-          type: object
-          additionalProperties:
-            type: string
-        expiry:
-          $ref: '#/components/schemas/Instant'
-    RecordingState:
-      enum:
-      - NEW
-      - DELAYED
-      - RUNNING
-      - STOPPED
-      - CLOSED
-      type: string
-    RequestData:
-      type: object
-      properties:
-        matchExpression:
-          type: string
-        targets:
-          type: array
-          items:
-            $ref: '#/components/schemas/Target'
-    Rule:
-      required:
-      - name
-      - description
-      - matchExpression
-      - eventSpecifier
-      type: object
-      properties:
         id:
           format: int64
           type: integer
-        name:
-          pattern: \S
+        targets:
+          items:
+            $ref: '#/components/schemas/Target'
+          type: array
+      type: object
+    Meta:
+      properties:
+        status:
           type: string
-        description:
+        type:
           type: string
+      type: object
+    Metadata:
+      properties:
+        expiry:
+          $ref: '#/components/schemas/Instant'
+        labels:
+          additionalProperties:
+            type: string
+          type: object
+      type: object
+    RecordingState:
+      enum:
+        - NEW
+        - DELAYED
+        - RUNNING
+        - STOPPED
+        - CLOSED
+      type: string
+    RequestData:
+      properties:
         matchExpression:
-          $ref: '#/components/schemas/MatchExpression'
-        eventSpecifier:
-          pattern: \S
           type: string
+        targets:
+          items:
+            $ref: '#/components/schemas/Target'
+          type: array
+      type: object
+    Rule:
+      properties:
         archivalPeriodSeconds:
           format: int32
           minimum: 0
+          type: integer
+        description:
+          type: string
+        enabled:
+          type: boolean
+        eventSpecifier:
+          pattern: \S
+          type: string
+        id:
+          format: int64
           type: integer
         initialDelaySeconds:
           format: int32
           minimum: 0
           type: integer
-        preservedArchives:
-          format: int32
-          minimum: 0
-          type: integer
+        matchExpression:
+          $ref: '#/components/schemas/MatchExpression'
         maxAgeSeconds:
           format: int32
           minimum: -1
@@ -2157,36 +243,46 @@ components:
           format: int32
           minimum: -1
           type: integer
-        enabled:
-          type: boolean
-    SerializableEventTypeInfo:
-      type: object
-      properties:
         name:
+          pattern: \S
           type: string
-        typeId:
-          type: string
-        description:
-          type: string
+        preservedArchives:
+          format: int32
+          minimum: 0
+          type: integer
+      required:
+        - name
+        - description
+        - matchExpression
+        - eventSpecifier
+      type: object
+    SerializableEventTypeInfo:
+      properties:
         category:
-          type: array
           items:
             type: string
+          type: array
+        description:
+          type: string
+        name:
+          type: string
         options:
-          type: object
           additionalProperties:
             $ref: '#/components/schemas/SerializableOptionDescriptor'
-    SerializableOptionDescriptor:
+          type: object
+        typeId:
+          type: string
       type: object
+    SerializableOptionDescriptor:
       properties:
-        name:
+        defaultValue:
           type: string
         description:
           type: string
-        defaultValue:
+        name:
           type: string
-    Suggestion:
       type: object
+    Suggestion:
       properties:
         name:
           type: string
@@ -2194,62 +290,1966 @@ components:
           type: string
         value:
           type: string
-    Target:
-      required:
-      - connectUrl
-      - alias
-      - labels
-      - annotations
       type: object
+    Target:
       properties:
-        id:
-          format: int64
-          type: integer
-        connectUrl:
-          format: uri
-          type: string
+        agent:
+          type: boolean
         alias:
           pattern: \S
           type: string
+        annotations:
+          $ref: '#/components/schemas/Annotations'
+        connectUrl:
+          format: uri
+          type: string
+        id:
+          format: int64
+          type: integer
         jvmId:
           type: string
         labels:
-          type: object
           additionalProperties:
             type: string
-        annotations:
-          $ref: '#/components/schemas/Annotations'
-        agent:
-          type: boolean
-    Template:
+          type: object
+      required:
+        - connectUrl
+        - alias
+        - labels
+        - annotations
       type: object
+    Template:
       properties:
-        name:
-          type: string
         description:
+          type: string
+        name:
           type: string
         provider:
           type: string
         type:
           $ref: '#/components/schemas/TemplateType'
+      type: object
     TemplateType:
       enum:
-      - TARGET
-      - CUSTOM
+        - TARGET
+        - CUSTOM
       type: string
     UUID:
       format: uuid
-      pattern: "[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}"
+      pattern: '[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
       type: string
     V2Response:
-      type: object
       properties:
-        meta:
-          $ref: '#/components/schemas/Meta'
         data:
           $ref: '#/components/schemas/Data'
+        meta:
+          $ref: '#/components/schemas/Meta'
+      type: object
   securitySchemes:
     SecurityScheme:
-      type: http
       description: Authentication
       scheme: basic
+      type: http
+info:
+  contact:
+    email: cryostat-development@googlegroups.com
+    name: Cryostat Community
+    url: https://cryostat.io
+  description: Cloud-Native JDK Flight Recorder
+  license:
+    name: Apache 2.0
+    url: https://github.com/cryostatio/cryostat3/blob/main/LICENSE
+  title: Cryostat API
+  version: 3.0.0-snapshot
+openapi: 3.0.3
+paths:
+  /api/beta/fs/recordings:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedRecordingDirectory'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/beta/fs/recordings/{jvmId}:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedRecordingDirectory'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/beta/fs/recordings/{jvmId}/{filename}:
+    delete:
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/beta/fs/recordings/{jvmId}/{filename}/upload:
+    post:
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/beta/matchExpressions:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  additionalProperties: {}
+                  type: object
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Match Expressions
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestData'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Match Expressions
+  /api/beta/matchExpressions/{id}:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchedExpression'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Match Expressions
+  /api/beta/recordings/{connectUrl}/{filename}:
+    delete:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/beta/recordings/{jvmId}:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedRecording'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                labels:
+                  $ref: '#/components/schemas/JsonObject'
+                maxFiles:
+                  format: int32
+                  type: integer
+                recording:
+                  $ref: '#/components/schemas/FileUpload'
+              type: object
+      responses:
+        "201":
+          description: Created
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v1/grafana_dashboard_url:
+    get:
+      responses:
+        "200":
+          description: OK
+      tags:
+        - Health
+  /api/v1/grafana_datasource_url:
+    get:
+      responses:
+        "200":
+          description: OK
+      tags:
+        - Health
+  /api/v1/recordings:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedRecording'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+    post:
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                labels:
+                  $ref: '#/components/schemas/JsonObject'
+                recording:
+                  $ref: '#/components/schemas/FileUpload'
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v1/recordings/{filename}:
+    delete:
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v1/reports/{recordingName}:
+    get:
+      deprecated: true
+      parameters:
+        - in: path
+          name: recordingName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Reports
+  /api/v1/targets:
+    get:
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Targets
+  /api/v1/targets/{connectUrl}/events:
+    get:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+        - in: query
+          name: q
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Events
+  /api/v1/targets/{connectUrl}/recordingOptions:
+    get:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+    patch:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v1/targets/{connectUrl}/recordings:
+    get:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+    post:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v1/targets/{connectUrl}/recordings/{recordingName}:
+    delete:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+        - in: path
+          name: recordingName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+    patch:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+        - in: path
+          name: recordingName
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v1/targets/{connectUrl}/recordings/{recordingName}/upload:
+    post:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+        - in: path
+          name: recordingName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v1/targets/{connectUrl}/snapshot:
+    post:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+      responses:
+        "200":
+          content:
+            application/json: {}
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v1/targets/{connectUrl}/templates:
+    get:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Event Templates
+  /api/v1/targets/{connectUrl}/templates/{templateName}/type/{templateType}:
+    get:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+        - in: path
+          name: templateName
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: templateType
+          required: true
+          schema:
+            $ref: '#/components/schemas/TemplateType'
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Event Templates
+  /api/v1/targets/{targetId}/reports/{recordingName}:
+    get:
+      deprecated: true
+      parameters:
+        - in: path
+          name: recordingName
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Reports
+  /api/v1/templates:
+    post:
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                template:
+                  $ref: '#/components/schemas/FileUpload'
+              type: object
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Event Templates
+  /api/v1/templates/{templateName}:
+    delete:
+      parameters:
+        - in: path
+          name: templateName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Event Templates
+  /api/v2.1/auth:
+    post:
+      responses:
+        "200":
+          description: OK
+      tags:
+        - Auth
+  /api/v2.1/discovery:
+    get:
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Discovery
+  /api/v2.1/logout:
+    post:
+      responses:
+        "200":
+          description: OK
+      tags:
+        - Auth
+  /api/v2.1/targets/{connectUrl}/templates/{templateName}/type/{templateType}:
+    get:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+        - in: path
+          name: templateName
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: templateType
+          required: true
+          schema:
+            $ref: '#/components/schemas/TemplateType'
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Event Templates
+  /api/v2.2/credentials:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Credentials
+    post:
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                matchExpression:
+                  type: string
+                password:
+                  type: string
+                username:
+                  type: string
+              type: object
+      responses:
+        "201":
+          description: Created
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Credentials
+  /api/v2.2/credentials/{id}:
+    delete:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Credentials
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Credentials
+  /api/v2.2/discovery:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonObject'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Discovery
+  /api/v2.2/discovery/{id}:
+    delete:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - in: query
+          name: token
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  additionalProperties:
+                    type: string
+                  type: object
+                type: object
+          description: OK
+      tags:
+        - Discovery
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - in: query
+          name: token
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Discovery
+    post:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - in: query
+          name: token
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              items:
+                $ref: '#/components/schemas/DiscoveryNode'
+              type: array
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  additionalProperties:
+                    type: string
+                  type: object
+                type: object
+          description: OK
+      tags:
+        - Discovery
+  /api/v2.2/graphql:
+    get:
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Graph QL
+    post:
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Graph QL
+  /api/v2/rules:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Rules
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Rule'
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                archivalPeriodSeconds:
+                  format: int32
+                  type: integer
+                description:
+                  type: string
+                enabled:
+                  type: boolean
+                eventSpecifier:
+                  type: string
+                initialDelaySeconds:
+                  format: int32
+                  type: integer
+                matchExpression:
+                  type: string
+                maxAgeSeconds:
+                  format: int32
+                  type: integer
+                maxSizeBytes:
+                  format: int32
+                  type: integer
+                name:
+                  type: string
+                preservedArchives:
+                  format: int32
+                  type: integer
+              type: object
+          multipart/form-data:
+            schema:
+              properties:
+                archivalPeriodSeconds:
+                  format: int32
+                  type: integer
+                description:
+                  type: string
+                enabled:
+                  type: boolean
+                eventSpecifier:
+                  type: string
+                initialDelaySeconds:
+                  format: int32
+                  type: integer
+                matchExpression:
+                  type: string
+                maxAgeSeconds:
+                  format: int32
+                  type: integer
+                maxSizeBytes:
+                  format: int32
+                  type: integer
+                name:
+                  type: string
+                preservedArchives:
+                  format: int32
+                  type: integer
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Rules
+  /api/v2/rules/{name}:
+    delete:
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: clean
+          schema:
+            type: boolean
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Rules
+    get:
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Rules
+    patch:
+      parameters:
+        - in: path
+          name: name
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: clean
+          schema:
+            type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JsonObject'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Rules
+  /api/v2/targets:
+    post:
+      parameters:
+        - in: query
+          name: dryrun
+          schema:
+            type: boolean
+        - in: query
+          name: storeCredentials
+          schema:
+            type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Target'
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                alias:
+                  type: string
+                connectUrl:
+                  format: uri
+                  type: string
+                password:
+                  type: string
+                username:
+                  type: string
+              type: object
+          multipart/form-data:
+            schema:
+              properties:
+                alias:
+                  type: string
+                connectUrl:
+                  format: uri
+                  type: string
+                password:
+                  type: string
+                username:
+                  type: string
+              type: object
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Custom Discovery
+  /api/v2/targets/{connectUrl}:
+    delete:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Custom Discovery
+  /api/v2/targets/{connectUrl}/events:
+    get:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+        - in: query
+          name: q
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Events
+  /api/v2/targets/{connectUrl}/snapshot:
+    post:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+      responses:
+        "200":
+          content:
+            application/json: {}
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v3/activedownload/{id}:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v3/discovery:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryNode'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Discovery
+  /api/v3/discovery_plugins:
+    get:
+      parameters:
+        - in: query
+          name: realm
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Discovery
+  /api/v3/discovery_plugins/{id}:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryPlugin'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Discovery
+  /api/v3/download/{encodedKey}:
+    get:
+      parameters:
+        - in: path
+          name: encodedKey
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: f
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v3/event_templates:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Template'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Event Templates
+    post:
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                template:
+                  $ref: '#/components/schemas/FileUpload'
+              type: object
+      responses:
+        "201":
+          description: Created
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Event Templates
+  /api/v3/event_templates/{templateName}:
+    delete:
+      parameters:
+        - in: path
+          name: templateName
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Event Templates
+  /api/v3/grafana/{encodedKey}:
+    post:
+      parameters:
+        - in: path
+          name: encodedKey
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v3/reports/{encodedKey}:
+    get:
+      parameters:
+        - in: path
+          name: encodedKey
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  $ref: '#/components/schemas/AnalysisResult'
+                type: object
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Reports
+  /api/v3/targets:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Target'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Targets
+  /api/v3/targets/{id}:
+    delete:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Custom Discovery
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Target'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Targets
+  /api/v3/targets/{id}/event_templates:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Template'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Event Templates
+  /api/v3/targets/{id}/event_templates/{templateType}/{templateName}:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: path
+          name: templateName
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: templateType
+          required: true
+          schema:
+            $ref: '#/components/schemas/TemplateType'
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Event Templates
+  /api/v3/targets/{id}/events:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: q
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SerializableEventTypeInfo'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Events
+  /api/v3/targets/{id}/recordingOptions:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+    patch:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                maxAge:
+                  type: string
+                maxSize:
+                  type: string
+                toDisk:
+                  type: string
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v3/targets/{id}/recordings:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/LinkedRecordingDescriptor'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+    post:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                archiveOnStop:
+                  nullable: true
+                  type: boolean
+                duration:
+                  format: int64
+                  nullable: true
+                  type: integer
+                events:
+                  type: string
+                maxAge:
+                  format: int64
+                  nullable: true
+                  type: integer
+                maxSize:
+                  format: int64
+                  nullable: true
+                  type: integer
+                metadata:
+                  nullable: true
+                  type: string
+                recordingName:
+                  type: string
+                replace:
+                  nullable: true
+                  type: string
+                restart:
+                  nullable: true
+                  type: boolean
+                toDisk:
+                  nullable: true
+                  type: boolean
+              type: object
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v3/targets/{id}/snapshot:
+    post:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json: {}
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v3/targets/{targetId}/recordings/{remoteId}:
+    delete:
+      parameters:
+        - in: path
+          name: remoteId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+    patch:
+      parameters:
+        - in: path
+          name: remoteId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v3/targets/{targetId}/recordings/{remoteId}/upload:
+    post:
+      parameters:
+        - in: path
+          name: remoteId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: string
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v3/targets/{targetId}/reports/{recordingId}:
+    get:
+      deprecated: true
+      parameters:
+        - in: path
+          name: recordingId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  $ref: '#/components/schemas/AnalysisResult'
+                type: object
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Reports
+  /health:
+    get:
+      responses:
+        "200":
+          description: OK
+      tags:
+        - Health
+  /health/liveness:
+    get:
+      responses:
+        "204":
+          description: No Content
+      tags:
+        - Health
