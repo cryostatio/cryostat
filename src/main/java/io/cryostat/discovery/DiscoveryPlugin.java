@@ -19,6 +19,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Optional;
 import java.util.UUID;
 
 import io.cryostat.credentials.Credential;
@@ -135,31 +136,26 @@ public class DiscoveryPlugin extends PanacheEntityBase {
 
             private final DiscoveryPlugin plugin;
 
-            DiscoveryPluginAuthorizationHeaderFactory(DiscoveryPlugin plugin) {
+            public DiscoveryPluginAuthorizationHeaderFactory(DiscoveryPlugin plugin) {
                 this.plugin = plugin;
             }
 
-            @Override
-            public MultivaluedMap<String, String> update(
-                    MultivaluedMap<String, String> incomingHeaders,
-                    MultivaluedMap<String, String> clientOutgoingHeaders) {
-                var result = new MultivaluedHashMap<String, String>();
-
+            public Optional<Credential> getCredential() {
                 String userInfo = plugin.callback.getUserInfo();
                 if (StringUtils.isBlank(userInfo)) {
                     logger.error("No stored credentials specified");
-                    return result;
+                    return Optional.empty();
                 }
 
                 if (!userInfo.contains(":")) {
                     logger.errorv("Unexpected non-basic credential format, found: {0}", userInfo);
-                    return result;
+                    return Optional.empty();
                 }
 
                 String[] parts = userInfo.split(":");
                 if (parts.length != 2) {
                     logger.errorv("Unexpected basic credential format, found: {0}", userInfo);
-                    return result;
+                    return Optional.empty();
                 }
 
                 if (!"storedcredentials".equals(parts[0])) {
@@ -167,24 +163,27 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                             "Unexpected credential format, expected \"storedcredentials\" but"
                                     + " found: {0}",
                             parts[0]);
-                    return result;
+                    return Optional.empty();
                 }
 
-                logger.infov(
-                        "Using stored credentials id:{0} referenced in ping callback" + " userinfo",
-                        parts[1]);
+                return Credential.find("id", Long.parseLong(parts[1])).singleResultOptional();
+            }
 
-                Credential credential =
-                        Credential.find("id", Long.parseLong(parts[1])).singleResult();
-
-                result.add(
-                        HttpHeaders.AUTHORIZATION,
-                        "Basic "
-                                + Base64.getEncoder()
-                                        .encodeToString(
-                                                (credential.username + ":" + credential.password)
-                                                        .getBytes(StandardCharsets.UTF_8)));
-
+            @Override
+            public MultivaluedMap<String, String> update(
+                    MultivaluedMap<String, String> incomingHeaders,
+                    MultivaluedMap<String, String> clientOutgoingHeaders) {
+                var result = new MultivaluedHashMap<String, String>();
+                Optional<Credential> opt = getCredential();
+                opt.ifPresent(
+                        credential -> {
+                            String basicAuth = credential.username + ":" + credential.password;
+                            byte[] authBytes = basicAuth.getBytes(StandardCharsets.UTF_8);
+                            String base64Auth = Base64.getEncoder().encodeToString(authBytes);
+                            result.add(
+                                    HttpHeaders.AUTHORIZATION,
+                                    String.format("Basic %s", base64Auth));
+                        });
                 return result;
             }
         }

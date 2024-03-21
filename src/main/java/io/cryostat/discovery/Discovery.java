@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
+import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -350,6 +351,7 @@ public class Discovery {
 
         plugin.realm.delete();
         plugin.delete();
+        getStoredCredential(plugin).ifPresent(Credential::delete);
         DiscoveryNode.getUniverse().children.remove(plugin.realm);
         return Map.of(
                 "meta",
@@ -383,6 +385,11 @@ public class Discovery {
         return DiscoveryPlugin.find("id", id).singleResult();
     }
 
+    Optional<Credential> getStoredCredential(DiscoveryPlugin plugin) {
+        return new DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory(plugin)
+                .getCredential();
+    }
+
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;
 
@@ -413,6 +420,10 @@ public class Discovery {
                             "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
                     plugin.realm.delete();
                     plugin.delete();
+                    new DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory(
+                                    plugin)
+                            .getCredential()
+                            .ifPresent(Credential::delete);
                 }
                 throw new JobExecutionException(e);
             }
