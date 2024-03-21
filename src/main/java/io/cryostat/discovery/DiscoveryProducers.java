@@ -39,8 +39,8 @@ public class DiscoveryProducers {
     @Produces
     @ApplicationScoped
     static SecretKey provideSecretKey(
-            @ConfigProperty(name = "cryostat.discovery.plugins.jwt.algorithm") String alg,
-            @ConfigProperty(name = "cryostat.discovery.plugins.jwt.keysize") int keysize)
+            @ConfigProperty(name = "cryostat.discovery.plugins.jwt.secret.algorithm") String alg,
+            @ConfigProperty(name = "cryostat.discovery.plugins.jwt.secret.keysize") int keysize)
             throws NoSuchAlgorithmException {
         KeyGenerator generator = KeyGenerator.getInstance(alg);
         generator.init(keysize);

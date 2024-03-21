@@ -434,22 +434,12 @@ public class Discovery {
     private InetAddress getRemoteAddress(RoutingContext ctx) {
         InetAddress addr = null;
         if (ctx.request() != null && ctx.request().remoteAddress() != null) {
-            addr = tryResolveAddress(addr, ctx.request().remoteAddress().host());
+            addr = jwtValidator.tryResolveAddress(addr, ctx.request().remoteAddress().host());
         }
         if (ctx.request() != null && ctx.request().headers() != null) {
-            addr = tryResolveAddress(addr, ctx.request().headers().get(X_FORWARDED_FOR));
-        }
-        return addr;
-    }
-
-    static InetAddress tryResolveAddress(InetAddress addr, String host) {
-        if (StringUtils.isBlank(host)) {
-            return addr;
-        }
-        try {
-            return InetAddress.getByName(host);
-        } catch (UnknownHostException e) {
-            Logger.getLogger(Discovery.class).error("Address resolution exception", e);
+            addr =
+                    jwtValidator.tryResolveAddress(
+                            addr, ctx.request().headers().get(X_FORWARDED_FOR));
         }
         return addr;
     }

@@ -69,10 +69,10 @@ public class DiscoveryJwtValidator {
         InetAddress addr = null;
         HttpServerRequest req = ctx.request();
         if (req.remoteAddress() != null) {
-            addr = Discovery.tryResolveAddress(addr, req.remoteAddress().host());
+            addr = tryResolveAddress(addr, req.remoteAddress().host());
         }
         MultiMap headers = req.headers();
-        addr = Discovery.tryResolveAddress(addr, headers.get(Discovery.X_FORWARDED_FOR));
+        addr = tryResolveAddress(addr, headers.get(Discovery.X_FORWARDED_FOR));
 
         URI hostUri =
                 new URI(
@@ -126,5 +126,17 @@ public class DiscoveryJwtValidator {
         }
 
         return parsed;
+    }
+
+    public InetAddress tryResolveAddress(InetAddress addr, String host) {
+        if (StringUtils.isBlank(host)) {
+            return addr;
+        }
+        try {
+            return InetAddress.getByName(host);
+        } catch (UnknownHostException e) {
+            logger.error("Address resolution exception", e);
+        }
+        return addr;
     }
 }

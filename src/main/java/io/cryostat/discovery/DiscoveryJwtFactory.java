@@ -65,6 +65,15 @@ public class DiscoveryJwtFactory {
     @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
     Duration discoveryPingPeriod;
 
+    @ConfigProperty(name = "cryostat.discovery.plugins.jwt.signature.algorithm")
+    String signatureAlgorithm;
+
+    @ConfigProperty(name = "cryostat.discovery.plugins.jwt.encryption.algorithm")
+    String encryptionAlgorithm;
+
+    @ConfigProperty(name = "cryostat.discovery.plugins.jwt.encryption.method")
+    String encryptionMethod;
+
     @ConfigProperty(name = "cryostat.http.proxy.tls-enabled")
     boolean tlsEnabled;
 
@@ -100,11 +109,16 @@ public class DiscoveryJwtFactory {
                         .claim(REALM_CLAIM, plugin.realm.name)
                         .build();
 
-        SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.HS256).build(), claims);
+        SignedJWT jwt =
+                new SignedJWT(
+                        new JWSHeader.Builder(JWSAlgorithm.parse(signatureAlgorithm)).build(),
+                        claims);
         jwt.sign(signer);
 
         JWEHeader header =
-                new JWEHeader.Builder(JWEAlgorithm.DIR, EncryptionMethod.A256GCM)
+                new JWEHeader.Builder(
+                                JWEAlgorithm.parse(encryptionAlgorithm),
+                                EncryptionMethod.parse(encryptionMethod))
                         .contentType("JWT")
                         .build();
         JWEObject jwe = new JWEObject(header, new Payload(jwt));
@@ -176,7 +190,6 @@ public class DiscoveryJwtFactory {
         return jwt;
     }
 
-    // TODO refactor this
     public URI getPluginLocation(DiscoveryPlugin plugin) throws URISyntaxException {
         URI hostUri =
                 new URI(
