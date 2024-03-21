@@ -40,6 +40,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MultivaluedHashMap;
@@ -109,6 +110,9 @@ public class DiscoveryPlugin extends PanacheEntityBase {
 
         @GET
         public void ping();
+
+        @POST
+        public void refresh();
 
         public static PluginCallback create(DiscoveryPlugin plugin) throws URISyntaxException {
             if (StringUtils.isBlank(plugin.callback.getUserInfo())) {

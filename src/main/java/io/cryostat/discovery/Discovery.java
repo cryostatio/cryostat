@@ -22,11 +22,16 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.text.ParseException;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.regex.Pattern;
 
@@ -37,7 +42,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
+import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -59,11 +66,24 @@ import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
+import org.quartz.Job;
+import org.quartz.JobBuilder;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.JobKey;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.SimpleScheduleBuilder;
+import org.quartz.TriggerBuilder;
+import org.quartz.impl.matchers.GroupMatcher;
 
 @Path("")
 public class Discovery {
@@ -72,33 +92,57 @@ public class Discovery {
             Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))$");
     static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
+    private static final String JOB_PERIODIC = "periodic";
+    private static final String JOB_STARTUP = "startup";
+    private static final String PLUGIN_ID_MAP_KEY = "pluginId";
+    private static final String REFRESH_MAP_KEY = "refresh";
+
+    @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
+    Duration discoveryPingPeriod;
+
     @Inject Logger logger;
     @Inject ObjectMapper mapper;
     @Inject EventBus bus;
     @Inject TargetConnectionManager connectionManager;
     @Inject DiscoveryJwtFactory jwtFactory;
     @Inject DiscoveryJwtValidator jwtValidator;
+    @Inject Scheduler scheduler;
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
+        // ensure lazily initialized entries are created
         DiscoveryNode.getUniverse();
 
         DiscoveryPlugin.<DiscoveryPlugin>findAll().list().stream()
                 .filter(p -> !p.builtin)
                 .forEach(
                         plugin -> {
+                            var dataMap = new JobDataMap();
+                            dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
+                            dataMap.put(REFRESH_MAP_KEY, true);
+                            JobDetail jobDetail =
+                                    JobBuilder.newJob(RefreshPluginJob.class)
+                                            .withIdentity(plugin.id.toString(), JOB_STARTUP)
+                                            .usingJobData(dataMap)
+                                            .build();
+                            var trigger =
+                                    TriggerBuilder.newTrigger()
+                                            .usingJobData(jobDetail.getJobDataMap())
+                                            .startNow()
+                                            .withSchedule(
+                                                    SimpleScheduleBuilder.simpleSchedule()
+                                                            .withRepeatCount(0))
+                                            .build();
                             try {
-                                PluginCallback.create(plugin).ping();
-                                logger.infov(
-                                        "Retained discovery plugin: {0} @ {1}",
-                                        plugin.realm, plugin.callback);
-                            } catch (Exception e) {
-                                logger.infov(
-                                        "Pruned discovery plugin: {0} @ {1}",
-                                        plugin.realm, plugin.callback);
-                                plugin.delete();
+                                scheduler.scheduleJob(jobDetail, trigger);
+                            } catch (SchedulerException e) {
+                                logger.warn("Failed to schedule plugin prune job", e);
                             }
                         });
+    }
+
+    void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
+        scheduler.shutdown();
     }
 
     @GET
@@ -145,7 +189,8 @@ public class Discovery {
                     UnknownHostException,
                     SocketException,
                     ParseException,
-                    BadJWTException {
+                    BadJWTException,
+                    SchedulerException {
         String pluginId = body.getString("id");
         String priorToken = body.getString("token");
         String realmName = body.getString("realm");
@@ -186,6 +231,26 @@ public class Discovery {
             DiscoveryNode.getUniverse().children.add(plugin.realm);
 
             location = jwtFactory.getPluginLocation("/api/v2.2/discovery/", plugin.id.toString());
+
+            var dataMap = new JobDataMap();
+            dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
+            dataMap.put(REFRESH_MAP_KEY, true);
+            JobDetail jobDetail =
+                    JobBuilder.newJob(RefreshPluginJob.class)
+                            .withIdentity(plugin.id.toString(), JOB_PERIODIC)
+                            .usingJobData(dataMap)
+                            .build();
+            var trigger =
+                    TriggerBuilder.newTrigger()
+                            .usingJobData(jobDetail.getJobDataMap())
+                            .startAt(Date.from(Instant.now().plus(discoveryPingPeriod)))
+                            .withSchedule(
+                                    SimpleScheduleBuilder.simpleSchedule()
+                                            .repeatForever()
+                                            .withIntervalInSeconds(
+                                                    (int) discoveryPingPeriod.toSeconds()))
+                            .build();
+            scheduler.scheduleJob(jobDetail, trigger);
         }
 
         String token =
@@ -268,12 +333,22 @@ public class Discovery {
                     MalformedURLException,
                     ParseException,
                     JOSEException,
-                    URISyntaxException {
+                    URISyntaxException,
+                    SchedulerException {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         jwtValidator.validateJwt(ctx, plugin, token, false);
         if (plugin.builtin) {
             throw new ForbiddenException();
         }
+
+        Set<JobKey> jobKeys = new HashSet<>();
+        jobKeys.addAll(scheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_PERIODIC)));
+        jobKeys.addAll(scheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_STARTUP)));
+        for (var key : jobKeys) {
+            scheduler.deleteJob(key);
+        }
+
+        plugin.realm.delete();
         plugin.delete();
         DiscoveryNode.getUniverse().children.remove(plugin.realm);
         return Map.of(
@@ -306,6 +381,42 @@ public class Discovery {
     @RolesAllowed("read")
     public DiscoveryPlugin getPlugin(@RestPath UUID id) throws JsonProcessingException {
         return DiscoveryPlugin.find("id", id).singleResult();
+    }
+
+    static class RefreshPluginJob implements Job {
+        @Inject Logger logger;
+
+        @Override
+        @Transactional
+        @Blocking
+        public void execute(JobExecutionContext context) throws JobExecutionException {
+            DiscoveryPlugin plugin = null;
+            try {
+                boolean refresh = context.getMergedJobDataMap().getBoolean(REFRESH_MAP_KEY);
+                plugin =
+                        DiscoveryPlugin.find(
+                                        "id", context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY))
+                                .singleResult();
+                var cb = PluginCallback.create(plugin);
+                if (refresh) {
+                    cb.refresh();
+                    logger.infov(
+                            "Refreshed discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
+                } else {
+                    cb.ping();
+                    logger.infov(
+                            "Retained discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
+                }
+            } catch (Exception e) {
+                if (plugin != null) {
+                    logger.infov(
+                            "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
+                    plugin.realm.delete();
+                    plugin.delete();
+                }
+                throw new JobExecutionException(e);
+            }
+        }
     }
 
     static String requireNonBlank(String in, String name) {
