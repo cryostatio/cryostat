@@ -64,16 +64,26 @@ public class DiscoveryJwtFactory {
     @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
     Duration discoveryPingPeriod;
 
+    @ConfigProperty(name = "cryostat.http.proxy.tls-enabled")
+    boolean tlsEnabled;
+
     @ConfigProperty(name = "cryostat.http.proxy.host")
     String httpHost;
 
     @ConfigProperty(name = "cryostat.http.proxy.port")
     int httpPort;
 
+    @ConfigProperty(name = "cryostat.http.proxy.path")
+    String httpPath;
+
     public String createDiscoveryPluginJwt(
             String authzHeader, String realm, InetAddress requestAddr, URI resource)
             throws SocketException, UnknownHostException, URISyntaxException, JOSEException {
-        URI hostUri = new URI(String.format("http://%s:%d/", httpHost, httpPort));
+        URI hostUri =
+                new URI(
+                        String.format(
+                                "%s://%s:%d%s",
+                                tlsEnabled ? "https" : "http", httpHost, httpPort, httpPath));
         String issuer = hostUri.toString();
         Date now = Date.from(Instant.now());
         Date expiry = Date.from(now.toInstant().plus(discoveryPingPeriod.multipliedBy(2)));
@@ -131,7 +141,15 @@ public class DiscoveryJwtFactory {
         SignedJWT jwt = jwe.getPayload().toSignedJWT();
         jwt.verify(verifier);
 
-        URI hostUri = new URI(String.format("http://%s:%d/", httpHost, httpPort));
+        URI hostUri =
+                new URI(
+                                String.format(
+                                        "%s://%s:%d/%s",
+                                        tlsEnabled ? "https" : "http",
+                                        httpHost,
+                                        httpPort,
+                                        httpPath))
+                        .normalize();
         String issuer = hostUri.toString();
         JWTClaimsSet exactMatchClaims =
                 new JWTClaimsSet.Builder()
@@ -156,9 +174,18 @@ public class DiscoveryJwtFactory {
         return jwt;
     }
 
-    // TODO refactor this, inline into Discovery.java
+    // TODO refactor this
     public URI getPluginLocation(String path, String pluginId) throws URISyntaxException {
-        URI hostUri = new URI(String.format("http://%s:%d/%s/", httpHost, httpPort, path));
+        URI hostUri =
+                new URI(
+                                String.format(
+                                        "%s://%s:%d/%s/%s/",
+                                        tlsEnabled ? "https" : "http",
+                                        httpHost,
+                                        httpPort,
+                                        httpPath,
+                                        path))
+                        .normalize();
         return hostUri.resolve(pluginId).normalize();
     }
 }

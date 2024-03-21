@@ -40,11 +40,17 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class DiscoveryJwtValidator {
 
+    @ConfigProperty(name = "cryostat.http.proxy.tls-enabled")
+    boolean tlsEnabled;
+
     @ConfigProperty(name = "cryostat.http.proxy.host")
     String httpHost;
 
     @ConfigProperty(name = "cryostat.http.proxy.port")
     int httpPort;
+
+    @ConfigProperty(name = "cryostat.http.proxy.path")
+    String httpPath;
 
     @Inject DiscoveryJwtFactory jwtFactory;
     @Inject Logger logger;
@@ -68,7 +74,15 @@ public class DiscoveryJwtValidator {
         MultiMap headers = req.headers();
         addr = Discovery.tryResolveAddress(addr, headers.get(Discovery.X_FORWARDED_FOR));
 
-        URI hostUri = new URI(String.format("http://%s:%d/", httpHost, httpPort));
+        URI hostUri =
+                new URI(
+                                String.format(
+                                        "%s://%s:%d/%s",
+                                        tlsEnabled ? "https" : "http",
+                                        httpHost,
+                                        httpPort,
+                                        httpPath))
+                        .normalize();
 
         JWT parsed;
         try {
@@ -98,10 +112,6 @@ public class DiscoveryJwtValidator {
         } catch (URISyntaxException use) {
             throw new UnauthorizedException(use);
         }
-        logger.infov(
-                "JWT resource claim: {0} comparing to - fullRequestUri: {1} relativeRequestUri:"
-                        + " {2}",
-                resourceClaim, fullRequestUri, relativeRequestUri);
         boolean matchesAbsoluteRequestUri =
                 resourceClaim.isAbsolute() && Objects.equals(fullRequestUri, resourceClaim);
         boolean matchesRelativeRequestUri = Objects.equals(relativeRequestUri, resourceClaim);
