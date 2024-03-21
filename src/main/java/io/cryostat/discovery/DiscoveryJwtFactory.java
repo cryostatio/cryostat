@@ -64,7 +64,7 @@ public class DiscoveryJwtFactory {
     @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
     Duration discoveryPingPeriod;
 
-    @ConfigProperty(name = "quarkus.http.host")
+    @ConfigProperty(name = "cryostat.http.proxy.host")
     String httpHost;
 
     @ConfigProperty(name = "cryostat.http.proxy.port")

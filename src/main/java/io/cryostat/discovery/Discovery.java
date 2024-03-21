@@ -16,6 +16,7 @@
 package io.cryostat.discovery;
 
 import java.net.InetAddress;
+import java.net.MalformedURLException;
 import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -76,6 +77,7 @@ public class Discovery {
     @Inject EventBus bus;
     @Inject TargetConnectionManager connectionManager;
     @Inject DiscoveryJwtFactory jwtFactory;
+    @Inject DiscoveryJwtValidator jwtValidator;
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
@@ -118,9 +120,16 @@ public class Discovery {
     @GET
     @Path("/api/v2.2/discovery/{id}")
     @RolesAllowed("read")
-    public RestResponse<Void> checkRegistration(@RestPath UUID id, @RestQuery String token) {
-        // TODO validate the provided token
-        DiscoveryPlugin.find("id", id).singleResult();
+    public RestResponse<Void> checkRegistration(
+            @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
+            throws SocketException,
+                    UnknownHostException,
+                    MalformedURLException,
+                    ParseException,
+                    JOSEException,
+                    URISyntaxException {
+        DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
+        jwtValidator.validateJwt(ctx, plugin, token, true);
         return ResponseBuilder.<Void>ok().build();
     }
 
@@ -166,11 +175,11 @@ public class Discovery {
                     priorToken, realmName, location, remoteAddress, false);
         } else {
             // new plugin registration
-
             plugin = new DiscoveryPlugin();
             plugin.callback = callbackUri;
             plugin.realm =
-                    DiscoveryNode.environment(requireNonBlank(realmName), DiscoveryNode.REALM);
+                    DiscoveryNode.environment(
+                            requireNonBlank(realmName, "realm"), DiscoveryNode.REALM);
             plugin.builtin = false;
             plugin.persist();
 
@@ -216,9 +225,18 @@ public class Discovery {
     @Consumes(MediaType.APPLICATION_JSON)
     @PermitAll
     public Map<String, Map<String, String>> publish(
-            @RestPath UUID id, @RestQuery String token, List<DiscoveryNode> body) {
-        // TODO validate the provided token
+            @Context RoutingContext ctx,
+            @RestPath UUID id,
+            @RestQuery String token,
+            List<DiscoveryNode> body)
+            throws SocketException,
+                    UnknownHostException,
+                    MalformedURLException,
+                    ParseException,
+                    JOSEException,
+                    URISyntaxException {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
+        jwtValidator.validateJwt(ctx, plugin, token, true);
         plugin.realm.children.clear();
         plugin.persist();
         plugin.realm.children.addAll(body);
@@ -243,9 +261,16 @@ public class Discovery {
     @DELETE
     @Path("/api/v2.2/discovery/{id}")
     @PermitAll
-    public Map<String, Map<String, String>> deregister(@RestPath UUID id, @RestQuery String token) {
-        // TODO validate the provided token
+    public Map<String, Map<String, String>> deregister(
+            @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
+            throws SocketException,
+                    UnknownHostException,
+                    MalformedURLException,
+                    ParseException,
+                    JOSEException,
+                    URISyntaxException {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
+        jwtValidator.validateJwt(ctx, plugin, token, false);
         if (plugin.builtin) {
             throw new ForbiddenException();
         }
@@ -283,9 +308,10 @@ public class Discovery {
         return DiscoveryPlugin.find("id", id).singleResult();
     }
 
-    private static String requireNonBlank(String in) {
+    static String requireNonBlank(String in, String name) {
         if (StringUtils.isBlank(in)) {
-            throw new IllegalArgumentException();
+            throw new IllegalArgumentException(
+                    String.format("Parameter \"%s\" may not be blank", name));
         }
         return in;
     }
@@ -301,14 +327,14 @@ public class Discovery {
         return addr;
     }
 
-    private InetAddress tryResolveAddress(InetAddress addr, String host) {
+    static InetAddress tryResolveAddress(InetAddress addr, String host) {
         if (StringUtils.isBlank(host)) {
             return addr;
         }
         try {
             return InetAddress.getByName(host);
         } catch (UnknownHostException e) {
-            logger.error("Address resolution exception", e);
+            Logger.getLogger(Discovery.class).error("Address resolution exception", e);
         }
         return addr;
     }
