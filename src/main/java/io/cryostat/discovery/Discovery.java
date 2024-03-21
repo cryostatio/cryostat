@@ -63,7 +63,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
-import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
@@ -199,9 +198,6 @@ public class Discovery {
 
         // TODO apply URI range validation to the remote address
         InetAddress remoteAddress = getRemoteAddress(ctx);
-        String authzHeader =
-                Optional.ofNullable(ctx.request().headers().get(HttpHeaders.AUTHORIZATION))
-                        .orElse("None");
 
         URI location;
         DiscoveryPlugin plugin;
@@ -216,9 +212,8 @@ public class Discovery {
             if (!Objects.equals(plugin.callback, callbackUri)) {
                 throw new BadRequestException();
             }
-            location = jwtFactory.getPluginLocation(plugin.id.toString());
-            jwtFactory.parseDiscoveryPluginJwt(
-                    priorToken, realmName, location, remoteAddress, false);
+            location = jwtFactory.getPluginLocation(plugin);
+            jwtFactory.parseDiscoveryPluginJwt(plugin, priorToken, location, remoteAddress, false);
         } else {
             // new plugin registration
             plugin = new DiscoveryPlugin();
@@ -231,7 +226,7 @@ public class Discovery {
 
             DiscoveryNode.getUniverse().children.add(plugin.realm);
 
-            location = jwtFactory.getPluginLocation(plugin.id.toString());
+            location = jwtFactory.getPluginLocation(plugin);
 
             var dataMap = new JobDataMap();
             dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
@@ -254,9 +249,7 @@ public class Discovery {
             scheduler.scheduleJob(jobDetail, trigger);
         }
 
-        String token =
-                jwtFactory.createDiscoveryPluginJwt(
-                        authzHeader, realmName, remoteAddress, location);
+        String token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, location);
 
         // TODO implement more generic env map passing by some platform detection strategy or
         // generalized config properties

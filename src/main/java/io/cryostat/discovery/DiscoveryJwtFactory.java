@@ -78,7 +78,7 @@ public class DiscoveryJwtFactory {
     String httpPath;
 
     public String createDiscoveryPluginJwt(
-            String authzHeader, String realm, InetAddress requestAddr, URI resource)
+            DiscoveryPlugin plugin, InetAddress requestAddr, URI resource)
             throws SocketException, UnknownHostException, URISyntaxException, JOSEException {
         URI hostUri =
                 new URI(
@@ -95,9 +95,9 @@ public class DiscoveryJwtFactory {
                         .issueTime(now)
                         .notBeforeTime(now)
                         .expirationTime(expiry)
-                        .subject(authzHeader)
+                        .subject(plugin.id.toString())
                         .claim(RESOURCE_CLAIM, resource.toASCIIString())
-                        .claim(REALM_CLAIM, realm)
+                        .claim(REALM_CLAIM, plugin.realm.name)
                         .build();
 
         SignedJWT jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.HS256).build(), claims);
@@ -114,19 +114,19 @@ public class DiscoveryJwtFactory {
     }
 
     public JWT parseDiscoveryPluginJwt(
-            String rawToken, String realm, URI resource, InetAddress requestAddr)
+            DiscoveryPlugin plugin, String rawToken, URI resource, InetAddress requestAddr)
             throws ParseException,
                     JOSEException,
                     BadJWTException,
                     SocketException,
                     UnknownHostException,
                     URISyntaxException {
-        return parseDiscoveryPluginJwt(rawToken, realm, resource, requestAddr, true);
+        return parseDiscoveryPluginJwt(plugin, rawToken, resource, requestAddr, true);
     }
 
     public JWT parseDiscoveryPluginJwt(
+            DiscoveryPlugin plugin,
             String rawToken,
-            String realm,
             URI resource,
             InetAddress requestAddr,
             boolean checkTimeClaims)
@@ -156,8 +156,9 @@ public class DiscoveryJwtFactory {
                 new JWTClaimsSet.Builder()
                         .issuer(issuer)
                         .audience(List.of(issuer, requestAddr.getHostAddress()))
+                        .subject(plugin.id.toString())
                         .claim(RESOURCE_CLAIM, resource.toASCIIString())
-                        .claim(REALM_CLAIM, realm)
+                        .claim(REALM_CLAIM, plugin.realm.name)
                         .build();
         Set<String> requiredClaimNames =
                 new HashSet<>(Set.of("iat", "iss", "aud", "sub", REALM_CLAIM));
@@ -176,7 +177,7 @@ public class DiscoveryJwtFactory {
     }
 
     // TODO refactor this
-    public URI getPluginLocation(String pluginId) throws URISyntaxException {
+    public URI getPluginLocation(DiscoveryPlugin plugin) throws URISyntaxException {
         URI hostUri =
                 new URI(
                                 String.format(
@@ -185,6 +186,6 @@ public class DiscoveryJwtFactory {
                         .resolve(httpPath)
                         .resolve(DISCOVERY_API_PATH)
                         .normalize();
-        return hostUri.resolve(pluginId).normalize();
+        return hostUri.resolve(plugin.id.toString()).normalize();
     }
 }

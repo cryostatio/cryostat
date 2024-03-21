@@ -64,7 +64,7 @@ public class DiscoveryJwtValidator {
                     URISyntaxException,
                     MalformedURLException {
         if (StringUtils.isBlank(token)) {
-            throw new UnauthorizedException();
+            throw new UnauthorizedException("Token cannot be blank");
         }
         InetAddress addr = null;
         HttpServerRequest req = ctx.request();
@@ -88,13 +88,13 @@ public class DiscoveryJwtValidator {
         try {
             parsed =
                     jwtFactory.parseDiscoveryPluginJwt(
+                            plugin,
                             token,
-                            plugin.realm.name,
-                            jwtFactory.getPluginLocation(plugin.id.toString()),
+                            jwtFactory.getPluginLocation(plugin),
                             addr,
                             validateTimeClaims);
         } catch (BadJWTException e) {
-            throw new UnauthorizedException(e);
+            throw new UnauthorizedException("Provided JWT was invalid", e);
         }
 
         URI requestUri = new URI(req.absoluteURI());
@@ -109,7 +109,7 @@ public class DiscoveryJwtValidator {
                             parsed.getJWTClaimsSet()
                                     .getStringClaim(DiscoveryJwtFactory.RESOURCE_CLAIM));
         } catch (URISyntaxException use) {
-            throw new UnauthorizedException(use);
+            throw new UnauthorizedException("JWT resource claim was invalid", use);
         }
         boolean matchesAbsoluteRequestUri =
                 resourceClaim.isAbsolute() && Objects.equals(fullRequestUri, resourceClaim);
@@ -119,14 +119,11 @@ public class DiscoveryJwtValidator {
                     "Token resource claim does not match requested resource");
         }
 
-        // try {
-        //     String subject = parsed.getJWTClaimsSet().getSubject();
-        //     if (!auth.validateHttpHeader(() -> subject, resourceActions()).get()) {
-        //         throw new ApiException(401, "Token subject has insufficient permissions");
-        //     }
-        // } catch (ExecutionException | InterruptedException e) {
-        //     throw new ApiException(401, "Token subject permissions could not be determined");
-        // }
+        String subject = parsed.getJWTClaimsSet().getSubject();
+        if (!Objects.equals(subject, plugin.id.toString())) {
+            throw new UnauthorizedException(
+                    "Token subject claim does not match the original subject");
+        }
 
         return parsed;
     }
