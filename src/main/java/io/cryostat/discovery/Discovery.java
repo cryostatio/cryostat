@@ -215,7 +215,7 @@ public class Discovery {
             if (!Objects.equals(plugin.callback, callbackUri)) {
                 throw new BadRequestException();
             }
-            location = jwtFactory.getPluginLocation("/api/v2.2/discovery/", plugin.id.toString());
+            location = jwtFactory.getPluginLocation(plugin.id.toString());
             jwtFactory.parseDiscoveryPluginJwt(
                     priorToken, realmName, location, remoteAddress, false);
         } else {
@@ -230,7 +230,7 @@ public class Discovery {
 
             DiscoveryNode.getUniverse().children.add(plugin.realm);
 
-            location = jwtFactory.getPluginLocation("/api/v2.2/discovery/", plugin.id.toString());
+            location = jwtFactory.getPluginLocation(plugin.id.toString());
 
             var dataMap = new JobDataMap();
             dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);

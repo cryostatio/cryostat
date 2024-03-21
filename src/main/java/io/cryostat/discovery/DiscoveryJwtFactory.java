@@ -55,6 +55,7 @@ public class DiscoveryJwtFactory {
 
     public static final String RESOURCE_CLAIM = "resource";
     public static final String REALM_CLAIM = "realm";
+    static final String DISCOVERY_API_PATH = "/api/v2.2/discovery/";
 
     @Inject JWSSigner signer;
     @Inject JWSVerifier verifier;
@@ -175,16 +176,14 @@ public class DiscoveryJwtFactory {
     }
 
     // TODO refactor this
-    public URI getPluginLocation(String path, String pluginId) throws URISyntaxException {
+    public URI getPluginLocation(String pluginId) throws URISyntaxException {
         URI hostUri =
                 new URI(
                                 String.format(
-                                        "%s://%s:%d/%s/%s/",
-                                        tlsEnabled ? "https" : "http",
-                                        httpHost,
-                                        httpPort,
-                                        httpPath,
-                                        path))
+                                        "%s://%s:%d/",
+                                        tlsEnabled ? "https" : "http", httpHost, httpPort))
+                        .resolve(httpPath)
+                        .resolve(DISCOVERY_API_PATH)
                         .normalize();
         return hostUri.resolve(pluginId).normalize();
     }

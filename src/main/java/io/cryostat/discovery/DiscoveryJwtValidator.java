@@ -90,8 +90,7 @@ public class DiscoveryJwtValidator {
                     jwtFactory.parseDiscoveryPluginJwt(
                             token,
                             plugin.realm.name,
-                            jwtFactory.getPluginLocation(
-                                    "/api/v2.2/discovery", plugin.id.toString()),
+                            jwtFactory.getPluginLocation(plugin.id.toString()),
                             addr,
                             validateTimeClaims);
         } catch (BadJWTException e) {
