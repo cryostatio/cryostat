@@ -25,9 +25,11 @@ import java.util.stream.Stream;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.Mockito;
 
 public class JsonRequestFilterTest {
     private JsonRequestFilter filter;
@@ -76,6 +78,9 @@ public class JsonRequestFilterTest {
                 new ByteArrayInputStream(jsonPayload.getBytes(StandardCharsets.UTF_8));
         when(requestContext.getEntityStream()).thenReturn(payloadStream);
         when(requestContext.getMediaType()).thenReturn(MediaType.APPLICATION_JSON_TYPE);
+        UriInfo uriInfo = Mockito.mock(UriInfo.class);
+        Mockito.when(uriInfo.getPath()).thenReturn("/some/path");
+        when(requestContext.getUriInfo()).thenReturn(uriInfo);
         filter.filter(requestContext);
     }
 }
