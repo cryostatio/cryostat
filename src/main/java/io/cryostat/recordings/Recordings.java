@@ -1191,6 +1191,7 @@ public class Recordings {
     public static final String ACTIVE_RECORDING_DELETED = "ActiveRecordingDeleted";
     public static final String ACTIVE_RECORDING_SAVED = "ActiveRecordingSaved";
     public static final String SNAPSHOT_RECORDING_CREATED = "SnapshotCreated";
+    public static final String RECORDING_METADATA_UPDATED = "RecordingMetadataUpdated";
 
     public enum RecordingEventCategory {
         ACTIVE_CREATED(ACTIVE_RECORDING_CREATED),
@@ -1200,6 +1201,7 @@ public class Recordings {
         ARCHIVED_CREATED(ARCHIVED_RECORDING_CREATED),
         ARCHIVED_DELETED(ARCHIVED_RECORDING_DELETED),
         SNAPSHOT_CREATED(SNAPSHOT_RECORDING_CREATED),
+        METADATA_UPDATED(RECORDING_METADATA_UPDATED),
         ;
 
         private final String category;

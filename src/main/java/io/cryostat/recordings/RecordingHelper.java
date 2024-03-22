@@ -65,6 +65,9 @@ import io.cryostat.events.S3TemplateService;
 import io.cryostat.events.TargetTemplateService;
 import io.cryostat.recordings.ActiveRecording.Listener.ActiveRecordingEvent;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
+import io.cryostat.recordings.RecordingHelper.RecordingOptions;
+import io.cryostat.recordings.RecordingHelper.RecordingReplace;
+import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
@@ -139,6 +142,7 @@ public class RecordingHelper {
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
     @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
+    @Inject RecordingHelper recordingHelper;
 
     @Inject
     @Named(Producers.BASE64_URL)
@@ -961,12 +965,23 @@ public class RecordingHelper {
             throw new NotFoundException("Recording not found for ID: " + recordingId);
         }
 
-        Metadata updatedMetadata = new Metadata(newLabels);
-        recording.setMetadata(updatedMetadata);
+        if (!recording.metadata.labels().equals(newLabels)) {
+            Metadata updatedMetadata = new Metadata(newLabels);
+            recording.setMetadata(updatedMetadata);
+            recording.persist();
 
-        recording.persist();
-
+            notify(
+                    new ActiveRecordingEvent(
+                            Recordings.RecordingEventCategory.METADATA_UPDATED,
+                            ActiveRecordingEvent.Payload.of(recordingHelper, recording)));
+        }
         return recording;
+    }
+
+    private void notify(ActiveRecordingEvent event) {
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
     }
 
     @Blocking
@@ -996,14 +1011,31 @@ public class RecordingHelper {
         long size = response.contentLength();
         Instant lastModified = response.lastModified();
 
-        return new ArchivedRecording(
-                jvmId,
-                filename,
-                downloadUrl(jvmId, filename),
-                reportUrl(jvmId, filename),
-                updatedMetadata,
-                size,
-                lastModified.getEpochSecond());
+        ArchivedRecording updatedRecording =
+                new ArchivedRecording(
+                        jvmId,
+                        filename,
+                        downloadUrl(jvmId, filename),
+                        reportUrl(jvmId, filename),
+                        updatedMetadata,
+                        size,
+                        lastModified.getEpochSecond());
+
+        notifyArchiveMetadataUpdate(updatedRecording);
+        return updatedRecording;
+
+    }
+
+    private void notifyArchiveMetadataUpdate(ArchivedRecording updatedRecording) {
+        var event =
+                new ArchivedRecordingEvent(
+                        Recordings.RecordingEventCategory.METADATA_UPDATED,
+                        new ArchivedRecordingEvent.Payload(
+                                null, updatedRecording));
+        bus.publish(event.category().category(), event.payload().recording());
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
     }
 
     @Blocking
