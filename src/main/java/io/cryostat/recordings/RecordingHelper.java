@@ -1023,15 +1023,13 @@ public class RecordingHelper {
 
         notifyArchiveMetadataUpdate(updatedRecording);
         return updatedRecording;
-
     }
 
     private void notifyArchiveMetadataUpdate(ArchivedRecording updatedRecording) {
         var event =
                 new ArchivedRecordingEvent(
                         Recordings.RecordingEventCategory.METADATA_UPDATED,
-                        new ArchivedRecordingEvent.Payload(
-                                null, updatedRecording));
+                        new ArchivedRecordingEvent.Payload(null, updatedRecording));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
