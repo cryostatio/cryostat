@@ -25,6 +25,7 @@ import java.util.UUID;
 import io.cryostat.credentials.Credential;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -136,6 +137,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
 
             private final DiscoveryPlugin plugin;
 
+            @SuppressFBWarnings("EI_EXPOSE_REP2")
             public DiscoveryPluginAuthorizationHeaderFactory(DiscoveryPlugin plugin) {
                 this.plugin = plugin;
             }

@@ -33,7 +33,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.regex.Pattern;
 
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
@@ -43,6 +42,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
@@ -88,8 +88,6 @@ import org.quartz.impl.matchers.GroupMatcher;
 @Path("")
 public class Discovery {
 
-    public static final Pattern HOST_PORT_PAIR_PATTERN =
-            Pattern.compile("^([^:\\s]+)(?::(\\d{1,5}))$");
     static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
     private static final String JOB_PERIODIC = "periodic";
@@ -389,6 +387,7 @@ public class Discovery {
         @Override
         @Transactional
         @Blocking
+        @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
         public void execute(JobExecutionContext context) throws JobExecutionException {
             DiscoveryPlugin plugin = null;
             try {
