@@ -26,6 +26,7 @@ import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.MediaType;
@@ -40,7 +41,7 @@ public class JsonRequestFilter implements ContainerRequestFilter {
             Set.of("/api/v2.2/discovery", "/api/v2/rules/[\\w]+", "/api/beta/matchExpressions");
 
     private final Map<String, Pattern> compiledPatterns = new HashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Inject ObjectMapper objectMapper;
 
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {
