@@ -24,6 +24,7 @@ import org.openjdk.jmc.rjmx.ConnectionException;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.EntityExistsException;
 
+import com.nimbusds.jwt.proc.BadJWTException;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.smallrye.mutiny.TimeoutException;
 import jakarta.inject.Inject;
@@ -116,6 +117,12 @@ public class ExceptionMappers {
         return ResponseBuilder.create(HttpResponseStatus.CONFLICT.code())
                 .entity(ex.getMessage())
                 .build();
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapBadJwtException(BadJWTException ex) {
+        logger.warn(ex);
+        return RestResponse.status(HttpResponseStatus.UNAUTHORIZED.code());
     }
 
     @ServerExceptionMapper
