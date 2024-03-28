@@ -116,7 +116,7 @@ public class Reports {
     public Response getActiveV1(@RestPath String targetId, @RestPath String recordingName) {
         var target = Target.getTargetByConnectUrl(URI.create(targetId));
         var recording =
-                target.activeRecordings.stream()
+                helper.listActiveRecordings(target).stream()
                         .filter(r -> r.name.equals(recordingName))
                         .findFirst()
                         .orElseThrow();

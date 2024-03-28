@@ -56,7 +56,9 @@ import org.jboss.logging.Logger;
 @EntityListeners(ActiveRecording.Listener.class)
 @Table(
         uniqueConstraints = {
-            @UniqueConstraint(columnNames = {"target_id", "name"}),
+            // remoteId is the unique ID assigned by the JVM to its own recordings, so these IDs are
+            // unique but only within the scope of each JVM. Since they are just sequential numeric
+            // IDs, they will not be unique across different JVMs.
             @UniqueConstraint(columnNames = {"target_id", "remoteId"})
         })
 public class ActiveRecording extends PanacheEntity {

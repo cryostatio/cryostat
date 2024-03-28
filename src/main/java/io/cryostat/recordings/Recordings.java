@@ -425,7 +425,9 @@ public class Recordings {
     @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
-        return target.activeRecordings.stream().map(recordingHelper::toExternalForm).toList();
+        return recordingHelper.listActiveRecordings(target).stream()
+                .map(recordingHelper::toExternalForm)
+                .toList();
     }
 
     @GET
@@ -447,7 +449,7 @@ public class Recordings {
             throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         Optional<ActiveRecording> recording =
-                target.activeRecordings.stream()
+                recordingHelper.listActiveRecordings(target).stream()
                         .filter(rec -> rec.remoteId == remoteId)
                         .findFirst();
         if (!recording.isPresent()) {
@@ -670,7 +672,7 @@ public class Recordings {
         }
         Target target = Target.getTargetByConnectUrl(connectUrl);
         long remoteId =
-                target.activeRecordings.stream()
+                recordingHelper.listActiveRecordings(target).stream()
                         .filter(r -> Objects.equals(r.name, recordingName))
                         .findFirst()
                         .map(r -> r.remoteId)
@@ -765,7 +767,7 @@ public class Recordings {
             @RestPath URI connectUrl, @RestPath String recordingName) {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         long remoteId =
-                target.activeRecordings.stream()
+                recordingHelper.listActiveRecordings(target).stream()
                         .filter(r -> Objects.equals(r.name, recordingName))
                         .findFirst()
                         .map(r -> r.remoteId)

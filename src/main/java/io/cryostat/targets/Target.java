@@ -215,10 +215,10 @@ public class Target extends PanacheEntity {
                     // TODO verify this
                     break;
                 case FOUND:
-                    target.ifPresent(recordingHelper::updateRemoteRecordings);
+                    target.ifPresent(recordingHelper::listActiveRecordings);
                     break;
                 case MODIFIED:
-                    target.ifPresent(recordingHelper::updateRemoteRecordings);
+                    target.ifPresent(recordingHelper::listActiveRecordings);
                     break;
                 default:
                     // no-op

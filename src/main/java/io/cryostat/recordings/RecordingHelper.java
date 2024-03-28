@@ -34,6 +34,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -205,6 +206,53 @@ public class RecordingHelper {
         }
     }
 
+    @Transactional
+    public List<ActiveRecording> listActiveRecordings(Target target) {
+        target = Target.find("id", target.id).singleResult();
+        try {
+            var previousRecordings = target.activeRecordings;
+            var previousIds =
+                    new HashSet<>(previousRecordings.stream().map(r -> r.remoteId).toList());
+            var previousNames =
+                    new HashSet<>(previousRecordings.stream().map(r -> r.name).toList());
+            List<IRecordingDescriptor> descriptors =
+                    connectionManager.executeConnectedTask(
+                            target, conn -> conn.getService().getAvailableRecordings());
+            boolean updated = false;
+            for (var descriptor : descriptors) {
+                if (previousIds.contains(descriptor.getId())) {
+                    continue;
+                }
+                updated |= true;
+                // TODO is there any metadata to attach here?
+                var recording = ActiveRecording.from(target, descriptor, new Metadata(Map.of()));
+                // FIXME this is a hack. Older Cryostat versions enforced that recordings' names
+                // were unique within the target JVM, but this could only be enforced when Cryostat
+                // was originating the recording creation. Recordings already have unique IDs, so
+                // enforcing unique names was only for the purpose of providing a tidier UI. We
+                // should remove this assumption/enforcement and allow recordings to have non-unique
+                // names. However, the UI is currently built with this expectation and often uses
+                // recordings' names as unique keys rather than their IDs.
+                while (previousNames.contains(recording.name)) {
+                    recording.name = String.format("%s-%d", recording.name, recording.remoteId);
+                }
+                previousNames.add(recording.name);
+                previousIds.add(recording.remoteId);
+                recording.persist();
+                target.activeRecordings.add(recording);
+            }
+            if (updated) {
+                target.persist();
+            }
+        } catch (Exception e) {
+            logger.errorv(
+                    e,
+                    "Failure to synchronize existing target recording state for {0}",
+                    target.connectUrl);
+        }
+        return target.activeRecordings;
+    }
+
     public ActiveRecording startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
@@ -224,7 +272,7 @@ public class RecordingHelper {
                             if (!restart) {
                                 throw new EntityExistsException("Recording", recordingName);
                             }
-                            target.activeRecordings.stream()
+                            listActiveRecordings(target).stream()
                                     .filter(r -> r.name.equals(recordingName))
                                     .forEach(this::deleteRecording);
                         });
