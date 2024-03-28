@@ -30,6 +30,7 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -78,6 +79,12 @@ public class ActiveRecording extends PanacheEntity {
     public boolean toDisk;
     @PositiveOrZero public long maxSize;
     @PositiveOrZero public long maxAge;
+
+    /**
+     * true if the recording was discovered on the Target and must have been created by some
+     * external process (not Cryostat), false if created by Cryostat.
+     */
+    @JsonIgnore public boolean external;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
@@ -150,6 +157,9 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
+            if (activeRecording.external) {
+                return;
+            }
             bus.publish(
                     Recordings.RecordingEventCategory.ACTIVE_CREATED.category(), activeRecording);
             notify(
@@ -198,6 +208,9 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostUpdate
         public void postUpdate(ActiveRecording activeRecording) {
+            if (activeRecording.external) {
+                return;
+            }
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 bus.publish(
                         Recordings.RecordingEventCategory.ACTIVE_STOPPED.category(),
@@ -248,6 +261,9 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostRemove
         public void postRemove(ActiveRecording activeRecording) {
+            if (activeRecording.external) {
+                return;
+            }
             bus.publish(
                     Recordings.RecordingEventCategory.ACTIVE_DELETED.category(), activeRecording);
             notify(

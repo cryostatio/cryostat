@@ -221,11 +221,38 @@ public class RecordingHelper {
             boolean updated = false;
             for (var descriptor : descriptors) {
                 if (previousIds.contains(descriptor.getId())) {
+                    var recording = target.getRecordingById(descriptor.getId());
+                    switch (descriptor.getState()) {
+                        case CREATED:
+                            recording.state = RecordingState.DELAYED;
+                            updated |= true;
+                            break;
+                        case RUNNING:
+                            recording.state = RecordingState.RUNNING;
+                            updated |= true;
+                            break;
+                        case STOPPING:
+                            recording.state = RecordingState.RUNNING;
+                            updated |= true;
+                            break;
+                        case STOPPED:
+                            recording.state = RecordingState.STOPPED;
+                            updated |= true;
+                            break;
+                        default:
+                            recording.state = RecordingState.NEW;
+                            updated |= true;
+                            break;
+                    }
+                    if (updated) {
+                        recording.persist();
+                    }
                     continue;
                 }
                 updated |= true;
                 // TODO is there any metadata to attach here?
                 var recording = ActiveRecording.from(target, descriptor, new Metadata(Map.of()));
+                recording.external = true;
                 // FIXME this is a hack. Older Cryostat versions enforced that recordings' names
                 // were unique within the target JVM, but this could only be enforced when Cryostat
                 // was originating the recording creation. Recordings already have unique IDs, so
