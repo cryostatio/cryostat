@@ -23,6 +23,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -52,6 +53,7 @@ public class MessagingServer {
     private final BlockingQueue<Notification> msgQ;
     private final Set<Session> sessions = new CopyOnWriteArraySet<>();
     private final ObjectMapper mapper = new ObjectMapper();
+    private volatile Future<?> task;
 
     MessagingServer(@ConfigProperty(name = "cryostat.messaging.queue.size") int capacity) {
         this.msgQ = new ArrayBlockingQueue<>(capacity);
@@ -89,37 +91,48 @@ public class MessagingServer {
 
     void start(@Observes StartupEvent evt) {
         logger.infov("Starting {0} executor", getClass().getName());
-        executor.execute(
-                () -> {
-                    while (!executor.isShutdown()) {
-                        try {
-                            var notification = msgQ.take();
-                            var map =
-                                    Map.of(
-                                            "meta",
-                                            Map.of("category", notification.category()),
-                                            "message",
-                                            notification.message());
-                            try {
-                                var json = mapper.writeValueAsString(map);
-                                logger.infov("Broadcasting: {0}", map);
-                                logger.debugv("Broadcasting: {0}", json);
-                                sessions.forEach(s -> s.getAsyncRemote().sendText(json));
-                            } catch (JsonProcessingException e) {
-                                logger.error("Unable to serialize message to JSON", e);
+        cancelTask();
+        this.task =
+                executor.submit(
+                        () -> {
+                            loop:
+                            while (!executor.isShutdown() && !Thread.interrupted()) {
+                                try {
+                                    var notification = msgQ.take();
+                                    var map =
+                                            Map.of(
+                                                    "meta",
+                                                    Map.of("category", notification.category()),
+                                                    "message",
+                                                    notification.message());
+                                    try {
+                                        var json = mapper.writeValueAsString(map);
+                                        logger.infov("Broadcasting: {0}", map);
+                                        logger.debugv("Broadcasting: {0}", json);
+                                        sessions.forEach(s -> s.getAsyncRemote().sendText(json));
+                                    } catch (JsonProcessingException e) {
+                                        logger.error("Unable to serialize message to JSON", e);
+                                    }
+                                } catch (InterruptedException ie) {
+                                    logger.warn(ie);
+                                    break loop;
+                                }
                             }
-                        } catch (InterruptedException ie) {
-                            logger.warn(ie);
-                            break;
-                        }
-                    }
-                });
+                        });
     }
 
     void shutdown(@Observes ShutdownEvent evt) {
         logger.infov("Shutting down {0} executor", getClass().getName());
-        executor.shutdown();
+        executor.shutdownNow();
+        cancelTask();
         msgQ.clear();
+    }
+
+    private void cancelTask() {
+        if (this.task != null) {
+            this.task.cancel(true);
+            this.task = null;
+        }
     }
 
     @OnMessage
