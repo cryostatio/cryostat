@@ -1056,11 +1056,12 @@ public class RecordingHelper {
         @Override
         @Transactional
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
-            var recordingId = (long) ctx.getJobDetail().getJobDataMap().get("recordingId");
-            var archive = (boolean) ctx.getJobDetail().getJobDataMap().get("archive");
+            var jobDataMap = ctx.getJobDetail().getJobDataMap();
             try {
-                recordingHelper.stopRecording(
-                        ActiveRecording.find("id", recordingId).singleResult(), archive);
+                ActiveRecording recording =
+                        ActiveRecording.find("id", (Long) jobDataMap.get("recordingId"))
+                                .singleResult();
+                recordingHelper.stopRecording(recording, (Boolean) jobDataMap.get("archive"));
             } catch (Exception e) {
                 throw new JobExecutionException(e);
             }

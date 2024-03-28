@@ -58,14 +58,14 @@ public class MessagingServer {
     }
 
     @OnOpen
-    public void onOpen(Session session) {
+    public void onOpen(Session session) throws InterruptedException {
         logger.debugv("Adding session {0}", session.getId());
         sessions.add(session);
         broadcast(new Notification(CLIENT_ACTIVITY_CATEGORY, Map.of(session.getId(), "connected")));
     }
 
     @OnClose
-    public void onClose(Session session) {
+    public void onClose(Session session) throws InterruptedException {
         logger.debugv("Removing session {0}", session.getId());
         sessions.remove(session);
         broadcast(
@@ -74,7 +74,7 @@ public class MessagingServer {
     }
 
     @OnError
-    public void onError(Session session, Throwable throwable) {
+    public void onError(Session session, Throwable throwable) throws InterruptedException {
         logger.error("Session error", throwable);
         try {
             logger.errorv("Closing session {0}", session.getId());
@@ -128,7 +128,7 @@ public class MessagingServer {
     }
 
     @ConsumeEvent
-    void broadcast(Notification notification) {
-        msgQ.offer(notification);
+    void broadcast(Notification notification) throws InterruptedException {
+        msgQ.put(notification);
     }
 }
