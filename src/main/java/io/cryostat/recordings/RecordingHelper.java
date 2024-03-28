@@ -1085,10 +1085,13 @@ public class RecordingHelper {
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
             var jobDataMap = ctx.getJobDetail().getJobDataMap();
             try {
-                ActiveRecording recording =
+                Optional<ActiveRecording> recording =
                         ActiveRecording.find("id", (Long) jobDataMap.get("recordingId"))
-                                .singleResult();
-                recordingHelper.stopRecording(recording, (Boolean) jobDataMap.get("archive"));
+                                .singleResultOptional();
+                if (recording.isPresent()) {
+                    recordingHelper.stopRecording(
+                            recording.get(), (Boolean) jobDataMap.get("archive"));
+                }
             } catch (Exception e) {
                 throw new JobExecutionException(e);
             }
