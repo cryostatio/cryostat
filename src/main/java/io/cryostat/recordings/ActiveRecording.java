@@ -289,16 +289,19 @@ public class ActiveRecording extends PanacheEntity {
                 Objects.requireNonNull(payload);
             }
 
-            public record Payload(String target, LinkedRecordingDescriptor recording) {
+            public record Payload(
+                    String target, LinkedRecordingDescriptor recording, String jvmId) {
                 public Payload {
                     Objects.requireNonNull(target);
                     Objects.requireNonNull(recording);
+                    Objects.requireNonNull(jvmId);
                 }
 
                 public static Payload of(RecordingHelper helper, ActiveRecording recording) {
                     return new Payload(
                             recording.target.connectUrl.toString(),
-                            helper.toExternalForm(recording));
+                            helper.toExternalForm(recording),
+                            recording.target.jvmId);
                 }
             }
         }
