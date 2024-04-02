@@ -26,6 +26,7 @@ services:
       io.cryostat.jmxPort: "0"
       io.cryostat.jmxUrl: "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi"
     environment:
+      QUARKUS_LOG_LEVEL: TRACE
       QUARKUS_HTTP_HOST: "cryostat"
       QUARKUS_HTTP_PORT: ${CRYOSTAT_HTTP_PORT}
       QUARKUS_HIBERNATE_ORM_LOG_SQL: "true"

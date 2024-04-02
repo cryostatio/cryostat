@@ -107,7 +107,6 @@ public class MessagingServer {
                                                     notification.message());
                                     try {
                                         var json = mapper.writeValueAsString(map);
-                                        logger.infov("Broadcasting: {0}", map);
                                         logger.debugv("Broadcasting: {0}", json);
                                         sessions.forEach(s -> s.getAsyncRemote().sendText(json));
                                     } catch (JsonProcessingException e) {
