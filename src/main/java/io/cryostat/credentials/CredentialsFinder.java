@@ -40,7 +40,6 @@ public class CredentialsFinder {
 
     private final BidiMap<Target, Credential> cache = new DualHashBidiMap<>();
 
-    @Blocking
     @ConsumeEvent(Credential.CREDENTIALS_DELETED)
     void onCredentialsDeleted(Credential credential) {
         cache.removeValue(credential);
