@@ -465,19 +465,21 @@ public class RecordingHelper {
     @Blocking
     @Transactional
     public ActiveRecording deleteRecording(ActiveRecording recording) {
-        return connectionManager.executeConnectedTask(
-                recording.target,
-                conn -> {
-                    var desc = getDescriptorById(conn, recording.remoteId);
-                    if (desc.isEmpty()) {
-                        throw new NotFoundException();
-                    }
-                    conn.getService().close(desc.get());
-                    recording.target.activeRecordings.remove(recording);
-                    recording.target.persist();
-                    recording.delete();
-                    return recording;
-                });
+        var closed =
+                connectionManager.executeConnectedTask(
+                        recording.target,
+                        conn -> {
+                            var desc = getDescriptorById(conn, recording.remoteId);
+                            if (desc.isEmpty()) {
+                                throw new NotFoundException();
+                            }
+                            conn.getService().close(desc.get());
+                            return recording;
+                        });
+        closed.target.activeRecordings.remove(recording);
+        closed.target.persist();
+        closed.delete();
+        return closed;
     }
 
     public LinkedRecordingDescriptor toExternalForm(ActiveRecording recording) {
