@@ -54,6 +54,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
+import io.vertx.ext.web.handler.HttpException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -199,10 +200,22 @@ public class TargetConnectionManager {
                 .transform(this::unwrapRuntimeException)
                 .onFailure()
                 .invoke(logger::warn)
-                .onFailure(t -> isTargetConnectionFailure(t) || isUnknownTargetFailure(t))
+                .onFailure(
+                        t ->
+                                (!isJmxAuthFailure(t)
+                                                && !isJmxSslFailure(t)
+                                                && !isServiceTypeFailure(t))
+                                        && (isTargetConnectionFailure(t)
+                                                || isUnknownTargetFailure(t)))
                 .retry()
                 .withBackOff(failedBackoff)
-                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis());
+                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())
+                .onFailure(t -> isFailedLoginException(t))
+                .transform(t -> new HttpException(427, t))
+                .onFailure(t -> isJmxSslFailure(t))
+                .transform(t -> new HttpException(502, t))
+                .onFailure(t -> isServiceTypeFailure(t))
+                .transform(t -> new HttpException(504, t));
     }
 
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
@@ -223,10 +236,22 @@ public class TargetConnectionManager {
                 .transform(this::unwrapRuntimeException)
                 .onFailure()
                 .invoke(logger::warn)
-                .onFailure(t -> isTargetConnectionFailure(t) || isUnknownTargetFailure(t))
+                .onFailure(
+                        t ->
+                                (!isJmxAuthFailure(t)
+                                                && !isJmxSslFailure(t)
+                                                && !isServiceTypeFailure(t))
+                                        && (isTargetConnectionFailure(t)
+                                                || isUnknownTargetFailure(t)))
                 .retry()
                 .withBackOff(failedBackoff)
-                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis());
+                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())
+                .onFailure(t -> isFailedLoginException(t))
+                .transform(t -> new HttpException(427, t))
+                .onFailure(t -> isJmxSslFailure(t))
+                .transform(t -> new HttpException(502, t))
+                .onFailure(t -> isServiceTypeFailure(t))
+                .transform(t -> new HttpException(504, t));
     }
 
     /**
@@ -393,6 +418,15 @@ public class TargetConnectionManager {
                 || ExceptionUtils.indexOfType(e, FlightRecorderException.class) >= 0;
     }
 
+    public static boolean isFailedLoginException(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
+        return ExceptionUtils.indexOfType(e, javax.security.auth.login.FailedLoginException.class)
+                >= 0;
+    }
+
     public static boolean isJmxAuthFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
@@ -431,13 +465,9 @@ public class TargetConnectionManager {
                 || ExceptionUtils.indexOfType(e, ServiceUnavailableException.class) >= 0;
     }
 
-    @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionOpened")
+    @Name("io.cryostat.targets.TargetConnectionManager.TargetConnectionOpened")
     @Label("Target Connection Opened")
     @Category("Cryostat")
-    // @SuppressFBWarnings(
-    //         value = "URF_UNREAD_FIELD",
-    //         justification = "The event fields are recorded with JFR instead of accessed
-    // directly")
     public static class TargetConnectionOpened extends Event {
         String serviceUri;
         boolean exceptionThrown;
@@ -452,13 +482,9 @@ public class TargetConnectionManager {
         }
     }
 
-    @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionClosed")
+    @Name("io.cryostat.targets.TargetConnectionManager.TargetConnectionClosed")
     @Label("Target Connection Closed")
     @Category("Cryostat")
-    // @SuppressFBWarnings(
-    //         value = "URF_UNREAD_FIELD",
-    //         justification = "The event fields are recorded with JFR instead of accessed
-    // directly")
     public static class TargetConnectionClosed extends Event {
         URI serviceUri;
         boolean exceptionThrown;
