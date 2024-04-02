@@ -223,8 +223,8 @@ public class KubeApiDiscovery {
     }
 
     private void pruneOwnerChain(DiscoveryNode nsNode, TargetTuple targetTuple) {
-        ObjectReference TargetTuple = targetTuple.addr.getTargetRef();
-        if (TargetTuple == null) {
+        ObjectReference targetRef = targetTuple.addr.getTargetRef();
+        if (targetRef == null) {
             logger.errorv(
                     "Address {0} for Endpoint {1} had null target reference",
                     targetTuple.addr.getIp() != null
@@ -234,29 +234,11 @@ public class KubeApiDiscovery {
             return;
         }
 
-        String targetKind = TargetTuple.getKind();
-        KubeDiscoveryNodeType targetType = KubeDiscoveryNodeType.fromKubernetesKind(targetKind);
-
-        Target target;
         try {
-            target = Target.getTargetByConnectUrl(targetTuple.toTarget().connectUrl);
-        } catch (NoResultException e) {
-            return;
-        }
+            Target target = Target.getTargetByConnectUrl(targetTuple.toTarget().connectUrl);
+            DiscoveryNode targetNode = target.discoveryNode;
 
-        DiscoveryNode targetNode = target.discoveryNode;
-
-        if (targetType == KubeDiscoveryNodeType.POD) {
-            Pair<HasMetadata, DiscoveryNode> pod =
-                    queryForNode(
-                            TargetTuple.getNamespace(),
-                            TargetTuple.getName(),
-                            TargetTuple.getKind());
-
-            pod.getRight().children.remove(targetNode);
-            pod.getRight().persist();
-
-            Pair<HasMetadata, DiscoveryNode> node = pod;
+            Pair<HasMetadata, DiscoveryNode> node = Pair.of(null, targetNode);
             while (true) {
                 Pair<HasMetadata, DiscoveryNode> owner = getOwnerNode(node);
                 if (owner == null) {
@@ -269,11 +251,14 @@ public class KubeApiDiscovery {
                 }
                 node = owner;
             }
-        } else {
-            nsNode.children.remove(targetNode);
+
+            target.delete();
+            nsNode.persist();
+        } catch (NoResultException e) {
+            logger.infov(
+                    "Target with service URL {0} does not exist",
+                    targetTuple.toTarget().connectUrl);
         }
-        target.delete();
-        nsNode.persist();
     }
 
     private void buildOwnerChain(DiscoveryNode nsNode, TargetTuple targetTuple) {
