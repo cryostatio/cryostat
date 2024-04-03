@@ -208,7 +208,9 @@ public class TargetConnectionManager {
                 .onFailure(t -> !(t instanceof HttpException))
                 .retry()
                 .withBackOff(failedBackoff)
-                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis());
+                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())
+                .onFailure(this::isTargetConnectionFailure)
+                .transform(t -> new HttpException(504, t));
     }
 
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
