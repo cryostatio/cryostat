@@ -393,6 +393,10 @@ public class TargetConnectionManager {
         int depth = 0;
         Throwable cause = t;
         while (klazz.isInstance(t) && depth++ < maxDepth) {
+            var c = cause.getCause();
+            if (c == null) {
+                break;
+            }
             cause = cause.getCause();
         }
         return cause;
