@@ -92,14 +92,12 @@ public class ExceptionMappers {
     @ServerExceptionMapper
     public RestResponse<Void> mapJmxConnectionException(ConnectionException ex) {
         logger.warn(ex);
-        logger.warn("ServerExceptionMapper ConnectionException", ex);
         return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
     }
 
     @ServerExceptionMapper
     public RestResponse<Void> mapFlightRecorderException(
             org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException ex) {
-        logger.warn("ServerExceptionMapper FlightRecorderException", ex);
         if (TargetConnectionManager.isJmxAuthFailure(ex)) {
             return RestResponse.status(HttpResponseStatus.FORBIDDEN.code());
         }

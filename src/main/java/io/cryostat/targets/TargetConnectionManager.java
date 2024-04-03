@@ -31,7 +31,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 
 import javax.management.remote.JMXServiceURL;
-import javax.naming.ServiceUnavailableException;
 import javax.security.sasl.SaslException;
 
 import org.openjdk.jmc.rjmx.ConnectionException;
@@ -197,25 +196,19 @@ public class TargetConnectionManager {
                                     }
                                 }))
                 .onFailure(RuntimeException.class)
-                .transform(this::unwrapRuntimeException)
+                .transform(t -> unwrapNestedException(RuntimeException.class, t))
                 .onFailure()
                 .invoke(logger::warn)
-                .onFailure(
-                        t ->
-                                (!isJmxAuthFailure(t)
-                                                && !isJmxSslFailure(t)
-                                                && !isServiceTypeFailure(t))
-                                        && (isTargetConnectionFailure(t)
-                                                || isUnknownTargetFailure(t)))
+                .onFailure(TargetConnectionManager::isJmxAuthFailure)
+                .transform(t -> new HttpException(427, t))
+                .onFailure(TargetConnectionManager::isJmxSslFailure)
+                .transform(t -> new HttpException(502, t))
+                .onFailure(TargetConnectionManager::isServiceTypeFailure)
+                .transform(t -> new HttpException(504, t))
+                .onFailure(t -> !(t instanceof HttpException))
                 .retry()
                 .withBackOff(failedBackoff)
-                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())
-                .onFailure(t -> isFailedLoginException(t))
-                .transform(t -> new HttpException(427, t))
-                .onFailure(t -> isJmxSslFailure(t))
-                .transform(t -> new HttpException(502, t))
-                .onFailure(t -> isServiceTypeFailure(t))
-                .transform(t -> new HttpException(504, t));
+                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis());
     }
 
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
@@ -233,24 +226,20 @@ public class TargetConnectionManager {
                                     }
                                 }))
                 .onFailure(RuntimeException.class)
-                .transform(this::unwrapRuntimeException)
+                .transform(t -> unwrapNestedException(RuntimeException.class, t))
                 .onFailure()
                 .invoke(logger::warn)
-                .onFailure(
-                        t ->
-                                (!isJmxAuthFailure(t)
-                                                && !isJmxSslFailure(t)
-                                                && !isServiceTypeFailure(t))
-                                        && (isTargetConnectionFailure(t)
-                                                || isUnknownTargetFailure(t)))
+                .onFailure(TargetConnectionManager::isJmxAuthFailure)
+                .transform(t -> new HttpException(427, t))
+                .onFailure(TargetConnectionManager::isJmxSslFailure)
+                .transform(t -> new HttpException(502, t))
+                .onFailure(TargetConnectionManager::isServiceTypeFailure)
+                .transform(t -> new HttpException(504, t))
+                .onFailure(t -> !(t instanceof HttpException))
                 .retry()
                 .withBackOff(failedBackoff)
                 .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())
-                .onFailure(t -> isFailedLoginException(t))
-                .transform(t -> new HttpException(427, t))
-                .onFailure(t -> isJmxSslFailure(t))
-                .transform(t -> new HttpException(502, t))
-                .onFailure(t -> isServiceTypeFailure(t))
+                .onFailure(TargetConnectionManager::isTargetConnectionFailure)
                 .transform(t -> new HttpException(504, t));
     }
 
@@ -399,11 +388,11 @@ public class TargetConnectionManager {
         T execute(JFRConnection connection) throws Exception;
     }
 
-    public Throwable unwrapRuntimeException(Throwable t) {
+    public Throwable unwrapNestedException(Class<?> klazz, Throwable t) {
         final int maxDepth = 10;
         int depth = 0;
         Throwable cause = t;
-        while (cause instanceof RuntimeException && depth++ < maxDepth) {
+        while (klazz.isInstance(t) && depth++ < maxDepth) {
             cause = cause.getCause();
         }
         return cause;
@@ -418,21 +407,14 @@ public class TargetConnectionManager {
                 || ExceptionUtils.indexOfType(e, FlightRecorderException.class) >= 0;
     }
 
-    public static boolean isFailedLoginException(Throwable t) {
-        if (!(t instanceof Exception)) {
-            return false;
-        }
-        Exception e = (Exception) t;
-        return ExceptionUtils.indexOfType(e, javax.security.auth.login.FailedLoginException.class)
-                >= 0;
-    }
-
     public static boolean isJmxAuthFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
         Exception e = (Exception) t;
-        return ExceptionUtils.indexOfType(e, SecurityException.class) >= 0
+        return ExceptionUtils.indexOfType(e, javax.security.auth.login.FailedLoginException.class)
+                        >= 0
+                || ExceptionUtils.indexOfType(e, SecurityException.class) >= 0
                 || ExceptionUtils.indexOfType(e, SaslException.class) >= 0;
     }
 
@@ -453,16 +435,6 @@ public class TargetConnectionManager {
         Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
                 && ExceptionUtils.indexOfType(e, SocketTimeoutException.class) >= 0;
-    }
-
-    public static boolean isUnknownTargetFailure(Throwable t) {
-        if (!(t instanceof Exception)) {
-            return false;
-        }
-        Exception e = (Exception) t;
-        return ExceptionUtils.indexOfType(e, java.net.UnknownHostException.class) >= 0
-                || ExceptionUtils.indexOfType(e, java.rmi.UnknownHostException.class) >= 0
-                || ExceptionUtils.indexOfType(e, ServiceUnavailableException.class) >= 0;
     }
 
     @Name("io.cryostat.targets.TargetConnectionManager.TargetConnectionOpened")
