@@ -199,11 +199,11 @@ public class TargetConnectionManager {
                 .transform(t -> unwrapNestedException(RuntimeException.class, t))
                 .onFailure()
                 .invoke(logger::warn)
-                .onFailure(TargetConnectionManager::isJmxAuthFailure)
+                .onFailure(this::isJmxAuthFailure)
                 .transform(t -> new HttpException(427, t))
-                .onFailure(TargetConnectionManager::isJmxSslFailure)
+                .onFailure(this::isJmxSslFailure)
                 .transform(t -> new HttpException(502, t))
-                .onFailure(TargetConnectionManager::isServiceTypeFailure)
+                .onFailure(this::isServiceTypeFailure)
                 .transform(t -> new HttpException(504, t))
                 .onFailure(t -> !(t instanceof HttpException))
                 .retry()
@@ -229,17 +229,17 @@ public class TargetConnectionManager {
                 .transform(t -> unwrapNestedException(RuntimeException.class, t))
                 .onFailure()
                 .invoke(logger::warn)
-                .onFailure(TargetConnectionManager::isJmxAuthFailure)
+                .onFailure(this::isJmxAuthFailure)
                 .transform(t -> new HttpException(427, t))
-                .onFailure(TargetConnectionManager::isJmxSslFailure)
+                .onFailure(this::isJmxSslFailure)
                 .transform(t -> new HttpException(502, t))
-                .onFailure(TargetConnectionManager::isServiceTypeFailure)
+                .onFailure(this::isServiceTypeFailure)
                 .transform(t -> new HttpException(504, t))
                 .onFailure(t -> !(t instanceof HttpException))
                 .retry()
                 .withBackOff(failedBackoff)
                 .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())
-                .onFailure(TargetConnectionManager::isTargetConnectionFailure)
+                .onFailure(this::isTargetConnectionFailure)
                 .transform(t -> new HttpException(504, t));
     }
 
@@ -402,7 +402,7 @@ public class TargetConnectionManager {
         return cause;
     }
 
-    public static boolean isTargetConnectionFailure(Throwable t) {
+    private boolean isTargetConnectionFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
@@ -411,7 +411,8 @@ public class TargetConnectionManager {
                 || ExceptionUtils.indexOfType(e, FlightRecorderException.class) >= 0;
     }
 
-    public static boolean isJmxAuthFailure(Throwable t) {
+    /** Check if the exception happened because the connection required authentication, and we had no credentials to present. */
+    private boolean isJmxAuthFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
@@ -422,7 +423,8 @@ public class TargetConnectionManager {
                 || ExceptionUtils.indexOfType(e, SaslException.class) >= 0;
     }
 
-    public static boolean isJmxSslFailure(Throwable t) {
+    /** Check if the exception happened because the connection presented an SSL/TLS cert which we don't trust. */
+    private boolean isJmxSslFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
@@ -432,7 +434,7 @@ public class TargetConnectionManager {
     }
 
     /** Check if the exception happened because the port connected to a non-JMX service. */
-    public static boolean isServiceTypeFailure(Throwable t) {
+    private boolean isServiceTypeFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
