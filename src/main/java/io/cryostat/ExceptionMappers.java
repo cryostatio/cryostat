@@ -19,9 +19,6 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
-import org.openjdk.jmc.rjmx.ConnectionException;
-
-import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.EntityExistsException;
 
 import com.nimbusds.jwt.proc.BadJWTException;
@@ -87,21 +84,6 @@ public class ExceptionMappers {
     public RestResponse<Void> mapIllegalArgumentException(IllegalArgumentException ex) {
         logger.warn(ex);
         return RestResponse.status(HttpResponseStatus.BAD_REQUEST.code());
-    }
-
-    @ServerExceptionMapper
-    public RestResponse<Void> mapJmxConnectionException(ConnectionException ex) {
-        logger.warn(ex);
-        return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
-    }
-
-    @ServerExceptionMapper
-    public RestResponse<Void> mapFlightRecorderException(
-            org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException ex) {
-        if (TargetConnectionManager.isJmxAuthFailure(ex)) {
-            return RestResponse.status(HttpResponseStatus.FORBIDDEN.code());
-        }
-        return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
     }
 
     @ServerExceptionMapper
