@@ -413,7 +413,10 @@ public class TargetConnectionManager {
                 || ExceptionUtils.indexOfType(e, FlightRecorderException.class) >= 0;
     }
 
-    /** Check if the exception happened because the connection required authentication, and we had no credentials to present. */
+    /**
+     * Check if the exception happened because the connection required authentication, and we had no
+     * credentials to present.
+     */
     private boolean isJmxAuthFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
@@ -425,7 +428,10 @@ public class TargetConnectionManager {
                 || ExceptionUtils.indexOfType(e, SaslException.class) >= 0;
     }
 
-    /** Check if the exception happened because the connection presented an SSL/TLS cert which we don't trust. */
+    /**
+     * Check if the exception happened because the connection presented an SSL/TLS cert which we
+     * don't trust.
+     */
     private boolean isJmxSslFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
