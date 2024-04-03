@@ -41,6 +41,7 @@ import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.JFRConnectionToolkit;
 import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpressionEvaluator;
+import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
 
@@ -205,7 +206,10 @@ public class TargetConnectionManager {
                 .transform(t -> new HttpException(502, t))
                 .onFailure(this::isServiceTypeFailure)
                 .transform(t -> new HttpException(504, t))
-                .onFailure(t -> !(t instanceof HttpException))
+                .onFailure(
+                        t ->
+                                !(t instanceof HttpException)
+                                        && !(t instanceof SnapshotCreationException))
                 .retry()
                 .withBackOff(failedBackoff)
                 .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())
@@ -237,7 +241,10 @@ public class TargetConnectionManager {
                 .transform(t -> new HttpException(502, t))
                 .onFailure(this::isServiceTypeFailure)
                 .transform(t -> new HttpException(504, t))
-                .onFailure(t -> !(t instanceof HttpException))
+                .onFailure(
+                        t ->
+                                !(t instanceof HttpException)
+                                        && !(t instanceof SnapshotCreationException))
                 .retry()
                 .withBackOff(failedBackoff)
                 .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())

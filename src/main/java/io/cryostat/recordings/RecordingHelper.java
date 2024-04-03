@@ -957,7 +957,7 @@ public class RecordingHelper {
         }
     }
 
-    static class SnapshotCreationException extends Exception {
+    public static class SnapshotCreationException extends Exception {
         public SnapshotCreationException(String message) {
             super(message);
         }
