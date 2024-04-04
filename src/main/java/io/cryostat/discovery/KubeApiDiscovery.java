@@ -351,7 +351,7 @@ public class KubeApiDiscovery {
                 DiscoveryNode.getNode(
                         n -> {
                             return name.equals(n.name)
-                                    && namespace.equals(n.labels.get("cryostat.io/namespace"));
+                                    && namespace.equals(n.labels.get("io.cryostat/namespace"));
                         });
 
         return Pair.of(
@@ -368,7 +368,7 @@ public class KubeApiDiscovery {
                                             ? kubeObj.getMetadata().getLabels()
                                             : new HashMap<>();
                             // Add namespace to label to retrieve node later
-                            newNode.labels.put("cryostat.io/namespace", namespace);
+                            newNode.labels.put("io.cryostat/namespace", namespace);
                             return newNode;
                         }));
     }
