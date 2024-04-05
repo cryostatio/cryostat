@@ -35,7 +35,6 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.decorator.Decorator;
@@ -75,7 +74,6 @@ class StorageCachingReportsService implements ReportsService {
 
     @Inject Logger logger;
 
-    @Blocking
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
@@ -84,7 +82,6 @@ class StorageCachingReportsService implements ReportsService {
         return delegate.reportFor(recording, predicate);
     }
 
-    @Blocking
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {
