@@ -219,6 +219,15 @@ public class RecordingHelper {
                     connectionManager.executeConnectedTask(
                             target, conn -> conn.getService().getAvailableRecordings());
             boolean updated = false;
+            var it = target.activeRecordings.iterator();
+            while (it.hasNext()) {
+                var r = it.next();
+                if (!previousIds.contains(r.remoteId)) {
+                    r.delete();
+                    it.remove();
+                    updated |= true;
+                }
+            }
             for (var descriptor : descriptors) {
                 if (previousIds.contains(descriptor.getId())) {
                     var recording = target.getRecordingById(descriptor.getId());
@@ -264,17 +273,9 @@ public class RecordingHelper {
                     recording.name = String.format("%s-%d", recording.name, recording.remoteId);
                 }
                 previousNames.add(recording.name);
+                previousIds.add(recording.remoteId);
                 recording.persist();
                 target.activeRecordings.add(recording);
-            }
-            var it = target.activeRecordings.iterator();
-            while (it.hasNext()) {
-                var r = it.next();
-                if (!previousIds.contains(r.remoteId)) {
-                    r.delete();
-                    it.remove();
-                    updated |= true;
-                }
             }
             if (updated) {
                 target.persist();
