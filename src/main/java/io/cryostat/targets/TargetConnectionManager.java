@@ -52,7 +52,6 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -151,25 +150,21 @@ public class TargetConnectionManager {
         }
     }
 
-    @Blocking
-    @ConsumeEvent(Credential.CREDENTIALS_STORED)
+    @ConsumeEvent(value = Credential.CREDENTIALS_STORED, blocking = true)
     void onCredentialsStored(Credential credential) {
         handleCredentialChange(credential);
     }
 
-    @Blocking
-    @ConsumeEvent(Credential.CREDENTIALS_UPDATED)
+    @ConsumeEvent(value = Credential.CREDENTIALS_UPDATED, blocking = true)
     void onCredentialsUpdated(Credential credential) {
         handleCredentialChange(credential);
     }
 
-    @Blocking
-    @ConsumeEvent(Credential.CREDENTIALS_DELETED)
+    @ConsumeEvent(value = Credential.CREDENTIALS_DELETED, blocking = true)
     void onCredentialsDeleted(Credential credential) {
         handleCredentialChange(credential);
     }
 
-    @Blocking
     void handleCredentialChange(Credential credential) {
         for (var entry : connections.asMap().entrySet()) {
             URI key = entry.getKey();
@@ -187,7 +182,6 @@ public class TargetConnectionManager {
         }
     }
 
-    @Blocking
     public <T> Uni<T> executeConnectedTaskUni(Target target, ConnectedTask<T> task) {
         return Uni.createFrom()
                 .completionStage(connections.get(target.connectUrl))
@@ -211,12 +205,10 @@ public class TargetConnectionManager {
                 .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis());
     }
 
-    @Blocking
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
         return executeConnectedTaskUni(target, task).await().atMost(failedTimeout);
     }
 
-    @Blocking
     public <T> Uni<T> executeDirect(
             Target target, Optional<Credential> credentials, ConnectedTask<T> task) {
         return Uni.createFrom()
@@ -315,7 +307,6 @@ public class TargetConnectionManager {
         return connect(connectUrl, credentials);
     }
 
-    @Blocking
     JFRConnection connect(URI connectUrl, Optional<Credential> credentials) throws Exception {
         TargetConnectionOpened evt = new TargetConnectionOpened(connectUrl.toString());
         evt.begin();

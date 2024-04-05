@@ -49,7 +49,6 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.runtime.StartupEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -99,7 +98,6 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     @Override
-    @Blocking
     public Optional<IConstrainedMap<EventOptionID>> getEvents(
             String templateName, TemplateType unused) throws FlightRecorderException {
         try (var stream = getModel(templateName)) {
@@ -115,7 +113,6 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     @Override
-    @Blocking
     public List<Template> getTemplates() throws FlightRecorderException {
         return getObjects().stream()
                 .map(
@@ -132,7 +129,6 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     @Override
-    @Blocking
     public Optional<Document> getXml(String templateName, TemplateType unused)
             throws FlightRecorderException {
         try (var stream = getModel(templateName)) {
@@ -145,13 +141,11 @@ public class S3TemplateService implements MutableTemplateService {
         }
     }
 
-    @Blocking
     private List<S3Object> getObjects() {
         var builder = ListObjectsV2Request.builder().bucket(bucket);
         return storage.listObjectsV2(builder.build()).contents();
     }
 
-    @Blocking
     private Template convertObject(S3Object object) throws InvalidEventTemplateException {
         var req = GetObjectTaggingRequest.builder().bucket(bucket).key(object.key()).build();
         var tagging = storage.getObjectTagging(req);
@@ -193,13 +187,11 @@ public class S3TemplateService implements MutableTemplateService {
         return new Template(label, description, provider, TemplateType.CUSTOM);
     }
 
-    @Blocking
     private InputStream getModel(String name) {
         var req = GetObjectRequest.builder().bucket(bucket).key(name).build();
         return storage.getObject(req);
     }
 
-    @Blocking
     private XMLModel parseXml(InputStream inputStream) throws IOException, ParseException {
         try (inputStream) {
             var model = EventConfiguration.createModel(inputStream);
@@ -215,7 +207,6 @@ public class S3TemplateService implements MutableTemplateService {
         }
     }
 
-    @Blocking
     @Override
     public Template addTemplate(InputStream stream)
             throws InvalidXmlException, InvalidEventTemplateException, IOException {
@@ -267,7 +258,6 @@ public class S3TemplateService implements MutableTemplateService {
         }
     }
 
-    @Blocking
     @Override
     public void deleteTemplate(String templateName) {
         try {

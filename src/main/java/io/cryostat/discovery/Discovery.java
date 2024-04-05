@@ -45,7 +45,6 @@ import com.nimbusds.jwt.proc.BadJWTException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -386,7 +385,6 @@ public class Discovery {
 
         @Override
         @Transactional
-        @Blocking
         @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
         public void execute(JobExecutionContext context) throws JobExecutionException {
             DiscoveryPlugin plugin = null;
