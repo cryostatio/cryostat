@@ -207,6 +207,10 @@ public class RecordingHelper {
     }
 
     @Transactional
+    // FIXME hacky. This opens a remote connection on each call and updates our database with the
+    // data we find there. We should have some remote connection callback (JMX listener, WebSocket)
+    // to the target and update our database when remote recording events occur, rather than doing a
+    // full sync when this method is called.
     public List<ActiveRecording> listActiveRecordings(Target target) {
         target = Target.find("id", target.id).singleResult();
         try {
