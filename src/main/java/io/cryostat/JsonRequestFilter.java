@@ -19,7 +19,10 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,9 +36,13 @@ import jakarta.ws.rs.ext.Provider;
 public class JsonRequestFilter implements ContainerRequestFilter {
 
     static final Set<String> disallowedFields = Set.of("id");
-    static final Set<String> allowedPaths =
-            Set.of("/api/v2.2/discovery", "/api/beta/matchExpressions");
+    static final Set<String> allowedPathPatterns =
+            Set.of(
+                    "/api/v2.2/discovery",
+                    "/api/v2/rules/[\\w]+",
+                    "/api/beta/matchExpressions");
 
+    private final Map<String, Pattern> compiledPatterns = new HashMap<>();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Override
@@ -43,7 +50,7 @@ public class JsonRequestFilter implements ContainerRequestFilter {
         if (requestContext.getMediaType() != null
                 && requestContext.getMediaType().isCompatible(MediaType.APPLICATION_JSON_TYPE)
                 && (requestContext.getUriInfo() != null
-                        && !allowedPaths.contains(requestContext.getUriInfo().getPath()))) {
+                        && !anyPatternMatch(requestContext.getUriInfo().getPath()))) {
             try (InputStream stream = requestContext.getEntityStream()) {
                 JsonNode rootNode = objectMapper.readTree(stream);
 
@@ -76,5 +83,14 @@ public class JsonRequestFilter implements ContainerRequestFilter {
             }
         }
         return false;
+    }
+
+    private boolean anyPatternMatch(String path) {
+        var match = false;
+        for (var p : allowedPathPatterns) {
+            var pattern = compiledPatterns.computeIfAbsent(p, Pattern::compile);
+            match |= pattern.matcher(path).matches();
+        }
+        return match;
     }
 }
