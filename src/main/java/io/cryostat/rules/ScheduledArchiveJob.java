@@ -16,6 +16,7 @@
 package io.cryostat.rules;
 
 import java.util.ArrayDeque;
+import java.util.Comparator;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.regex.Matcher;
@@ -69,7 +70,8 @@ class ScheduledArchiveJob implements Job {
 
     @Transactional
     void initPreviousRecordings(Target target, Rule rule, Queue<String> previousRecordings) {
-        recordingHelper.listArchivedRecordingObjects().parallelStream()
+        recordingHelper.listArchivedRecordingObjects().stream()
+                .sorted((a, b) -> a.lastModified().compareTo(b.lastModified()))
                 .forEach(
                         item -> {
                             String path = item.key().strip();
