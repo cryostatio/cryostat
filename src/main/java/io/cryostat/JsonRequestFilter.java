@@ -34,7 +34,7 @@ public class JsonRequestFilter implements ContainerRequestFilter {
 
     static final Set<String> disallowedFields = Set.of("id");
     static final Set<String> allowedPaths =
-            Set.of("/api/v2.2/discovery", "/api/beta/matchexpressions");
+            Set.of("/api/v2.2/discovery", "/api/beta/matchExpressions");
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
