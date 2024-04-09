@@ -16,7 +16,6 @@
 package io.cryostat.rules;
 
 import java.util.ArrayDeque;
-import java.util.Comparator;
 import java.util.Objects;
 import java.util.Queue;
 import java.util.regex.Matcher;
