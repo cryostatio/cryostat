@@ -440,7 +440,6 @@ public class RecordingHelper {
         }
     }
 
-    @Blocking
     @Transactional
     public ActiveRecording stopRecording(ActiveRecording recording, boolean archive)
             throws Exception {
@@ -469,13 +468,11 @@ public class RecordingHelper {
         return out;
     }
 
-    @Blocking
     @Transactional
     public ActiveRecording stopRecording(ActiveRecording recording) throws Exception {
         return stopRecording(recording, false);
     }
 
-    @Blocking
     @Transactional
     public ActiveRecording deleteRecording(ActiveRecording recording) {
         var closed =
@@ -574,7 +571,6 @@ public class RecordingHelper {
         }
     }
 
-    @Blocking
     Optional<IRecordingDescriptor> getDescriptorById(JFRConnection connection, long remoteId) {
         try {
             return connection.getService().getAvailableRecordings().stream()
@@ -585,13 +581,11 @@ public class RecordingHelper {
         }
     }
 
-    @Blocking
     Optional<IRecordingDescriptor> getDescriptor(
             JFRConnection connection, ActiveRecording activeRecording) {
         return getDescriptorById(connection, activeRecording.remoteId);
     }
 
-    @Blocking
     public Optional<IRecordingDescriptor> getDescriptorByName(
             JFRConnection connection, String recordingName) {
         try {
@@ -879,7 +873,6 @@ public class RecordingHelper {
         return read;
     }
 
-    @Blocking
     void safeCloseRecording(JFRConnection conn, IRecordingDescriptor rec) {
         try {
             conn.getService().close(rec);
