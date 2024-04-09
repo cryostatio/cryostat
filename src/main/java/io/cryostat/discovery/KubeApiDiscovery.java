@@ -193,13 +193,11 @@ public class KubeApiDiscovery {
     public void handleEndpointEvent(TargetTuple tuple, EventKind eventKind) {
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         DiscoveryNode nsNode =
-                DiscoveryNode.environment(
-                        tuple.objRef.getNamespace(), KubeDiscoveryNodeType.NAMESPACE);
-        if (realm.children.contains(nsNode)) {
-            nsNode =
-                    DiscoveryNode.getChild(realm, n -> tuple.objRef.getNamespace().equals(n.name))
-                            .orElseThrow();
-        }
+                DiscoveryNode.getChild(realm, n -> tuple.objRef.getNamespace().equals(n.name))
+                        .orElse(
+                                DiscoveryNode.environment(
+                                        tuple.objRef.getNamespace(),
+                                        KubeDiscoveryNodeType.NAMESPACE));
 
         switch (eventKind) {
             case FOUND:
