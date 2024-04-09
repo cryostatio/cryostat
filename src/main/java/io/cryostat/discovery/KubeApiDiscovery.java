@@ -42,6 +42,7 @@ import io.fabric8.kubernetes.api.model.EndpointPort;
 import io.fabric8.kubernetes.api.model.EndpointSubset;
 import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectReference;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -378,6 +379,8 @@ public class KubeApiDiscovery {
         public static final String KUBERNETES_NAMESPACE_PATH =
                 "/var/run/secrets/kubernetes.io/serviceaccount/namespace";
 
+        private static final String OWN_NAMESPACE = ".";
+
         @Inject Logger logger;
         @Inject FileSystem fs;
 
@@ -389,8 +392,17 @@ public class KubeApiDiscovery {
 
         private KubernetesClient kubeClient;
 
-        List<String> getWatchNamespaces() {
-            return watchNamespaces.orElse(List.of());
+        Collection<String> getWatchNamespaces() {
+            return watchNamespaces.orElse(List.of()).stream()
+                    .map(
+                            n -> {
+                                if (OWN_NAMESPACE.equals(n)) {
+                                    return getOwnNamespace();
+                                }
+                                return n;
+                            })
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
         }
 
         String getOwnNamespace() {
@@ -485,10 +497,11 @@ public class KubeApiDiscovery {
                     queryForNode(objRef.getNamespace(), objRef.getName(), objRef.getKind());
             HasMetadata obj = pair.getLeft();
             try {
-                String targetName = objRef.getName();
+                ObjectMeta metadata = obj.getMetadata();
+                String targetName = metadata.getName();
 
                 String ip = addr.getIp().replaceAll("\\.", "-");
-                String namespace = obj.getMetadata().getNamespace();
+                String namespace = metadata.getNamespace();
 
                 boolean isPod = obj.getKind().equals(KubeDiscoveryNodeType.POD.getKind());
 
@@ -508,9 +521,9 @@ public class KubeApiDiscovery {
                 target.activeRecordings = new ArrayList<>();
                 target.connectUrl = URI.create(jmxUrl.toString());
                 target.alias = targetName;
-                target.labels = obj.getMetadata().getLabels();
+                target.labels = metadata.getLabels();
                 target.annotations = new Annotations();
-                target.annotations.platform().putAll(obj.getMetadata().getAnnotations());
+                target.annotations.platform().putAll(metadata.getAnnotations());
                 target.annotations
                         .cryostat()
                         .putAll(
