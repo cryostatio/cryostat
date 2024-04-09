@@ -91,6 +91,10 @@ public class DiscoveryNode extends PanacheEntity {
         return Objects.hash(id, name, nodeType, labels, children, target);
     }
 
+    public boolean hasChildren() {
+        return !children.isEmpty();
+    }
+
     public static DiscoveryNode getUniverse() {
         return DiscoveryNode.find(NODE_TYPE, BaseNodeType.UNIVERSE.getKind())
                 .<DiscoveryNode>singleResultOptional()

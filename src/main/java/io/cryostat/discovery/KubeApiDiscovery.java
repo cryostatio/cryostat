@@ -42,7 +42,6 @@ import io.fabric8.kubernetes.api.model.EndpointPort;
 import io.fabric8.kubernetes.api.model.EndpointSubset;
 import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.HasMetadata;
-import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectReference;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -51,6 +50,7 @@ import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
+import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -69,6 +69,8 @@ public class KubeApiDiscovery {
     public static final String REALM = "KubernetesApi";
 
     public static final long ENDPOINTS_INFORMER_RESYNC_PERIOD = Duration.ofSeconds(30).toMillis();
+
+    public static final String NAMESPACE_LABEL_KEY = "io.cryostat/namespace";
 
     @Inject Logger logger;
 
@@ -113,7 +115,7 @@ public class KubeApiDiscovery {
             };
 
     @Transactional
-    void onStart(@Observes StartupEvent evt) {
+    void onStart(@Observes @Priority(1) StartupEvent evt) {
         if (!(enabled())) {
             return;
         }
@@ -135,7 +137,9 @@ public class KubeApiDiscovery {
         }
 
         logger.infov("Starting {0} client", REALM);
+    }
 
+    void onAfterStart(@Observes StartupEvent evt) {
         safeGetInformers(); // trigger lazy init
     }
 
@@ -145,6 +149,13 @@ public class KubeApiDiscovery {
         }
 
         logger.infov("Shutting down {0} client", REALM);
+        safeGetInformers()
+                .forEach(
+                        (ns, informer) -> {
+                            informer.close();
+                            logger.infov(
+                                    "Closed Endpoints SharedInformer for namespace \"{0}\"", ns);
+                        });
     }
 
     boolean enabled() {
@@ -165,16 +176,6 @@ public class KubeApiDiscovery {
         return kubeConfig.kubeClient();
     }
 
-    private Map<String, SharedIndexInformer<Endpoints>> safeGetInformers() {
-        Map<String, SharedIndexInformer<Endpoints>> informers;
-        try {
-            informers = nsInformers.get();
-        } catch (ConcurrentException e) {
-            throw new IllegalStateException(e);
-        }
-        return informers;
-    }
-
     private boolean isCompatiblePort(EndpointPort port) {
         return JmxPortNames.orElse(List.of()).contains(port.getName())
                 || JmxPortNumbers.orElse(List.of()).contains(port.getPort());
@@ -189,6 +190,16 @@ public class KubeApiDiscovery {
                 .collect(Collectors.toList());
     }
 
+    private Map<String, SharedIndexInformer<Endpoints>> safeGetInformers() {
+        Map<String, SharedIndexInformer<Endpoints>> informers;
+        try {
+            informers = nsInformers.get();
+        } catch (ConcurrentException e) {
+            throw new IllegalStateException(e);
+        }
+        return informers;
+    }
+
     @Transactional
     public void handleEndpointEvent(TargetTuple tuple, EventKind eventKind) {
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
@@ -199,29 +210,26 @@ public class KubeApiDiscovery {
                                         tuple.objRef.getNamespace(),
                                         KubeDiscoveryNodeType.NAMESPACE));
 
-        switch (eventKind) {
-            case FOUND:
+        try {
+            if (eventKind == EventKind.FOUND) {
                 buildOwnerChain(nsNode, tuple);
                 if (!realm.children.contains(nsNode)) {
                     realm.children.add(nsNode);
-                    realm.persist();
                 }
-                break;
-            case LOST:
+            } else if (eventKind == EventKind.LOST) {
                 pruneOwnerChain(nsNode, tuple);
-                if (nsNode.children.isEmpty()) {
+                if (!nsNode.hasChildren()) {
                     realm.children.remove(nsNode);
-                    realm.persist();
                 }
-                break;
-            default:
-                logger.warnv("Unknown discovery event {0}", eventKind);
-                break;
+            }
+            realm.persist();
+        } catch (Exception e) {
+            logger.warn("Endpoint handler exception", e);
         }
     }
 
     private void pruneOwnerChain(DiscoveryNode nsNode, TargetTuple targetTuple) {
-        ObjectReference targetRef = targetTuple.addr.getTargetRef();
+        ObjectReference targetRef = targetTuple.objRef;
         if (targetRef == null) {
             logger.errorv(
                     "Address {0} for Endpoint {1} had null target reference",
@@ -233,34 +241,40 @@ public class KubeApiDiscovery {
         }
 
         try {
-            Target target = Target.getTargetByConnectUrl(targetTuple.toTarget().connectUrl);
-            DiscoveryNode targetNode = target.discoveryNode;
+            Target t = Target.getTargetByConnectUrl(targetTuple.toTarget().connectUrl);
+            DiscoveryNode targetNode = t.discoveryNode;
 
-            Pair<HasMetadata, DiscoveryNode> node = Pair.of(null, targetNode);
-            while (true) {
-                Pair<HasMetadata, DiscoveryNode> owner = getOwnerNode(node);
-                if (owner == null) {
-                    break;
+            if (nsNode.children.contains(targetNode)) {
+                nsNode.children.remove(targetNode);
+            } else {
+                Pair<HasMetadata, DiscoveryNode> pod =
+                        queryForNode(
+                                targetRef.getNamespace(), targetRef.getName(), targetRef.getKind());
+                pod.getRight().children.remove(targetNode);
+                pod.getRight().persist();
+
+                Pair<HasMetadata, DiscoveryNode> node = pod;
+                while (true) {
+                    Pair<HasMetadata, DiscoveryNode> owner = getOwnerNode(node);
+                    if (owner == null) {
+                        break;
+                    }
+                    DiscoveryNode ownerNode = owner.getRight();
+                    if (!node.getRight().hasChildren()) {
+                        ownerNode.children.remove(pod.getRight());
+                        ownerNode.persist();
+                    }
+                    node = owner;
                 }
-                DiscoveryNode ownerNode = owner.getRight();
-                if (node.getRight().children.isEmpty()) {
-                    ownerNode.children.remove(node.getRight());
-                    ownerNode.persist();
-                }
-                node = owner;
             }
-
-            target.delete();
             nsNode.persist();
+            t.delete();
         } catch (NoResultException e) {
-            logger.infov(
-                    "Target with service URL {0} does not exist",
-                    targetTuple.toTarget().connectUrl);
         }
     }
 
     private void buildOwnerChain(DiscoveryNode nsNode, TargetTuple targetTuple) {
-        ObjectReference targetRef = targetTuple.addr.getTargetRef();
+        ObjectReference targetRef = targetTuple.objRef;
         if (targetRef == null) {
             logger.errorv(
                     "Address {0} for Endpoint {1} had null target reference",
@@ -316,9 +330,6 @@ public class KubeApiDiscovery {
     private Pair<HasMetadata, DiscoveryNode> getOwnerNode(Pair<HasMetadata, DiscoveryNode> child) {
         HasMetadata childRef = child.getLeft();
         if (childRef == null) {
-            logger.errorv(
-                    "Could not locate node named {0} of kind {1} while traversing environment",
-                    child.getRight().name, child.getRight().nodeType);
             return null;
         }
         List<OwnerReference> owners = childRef.getMetadata().getOwnerReferences();
@@ -346,30 +357,29 @@ public class KubeApiDiscovery {
         HasMetadata kubeObj =
                 nodeType.getQueryFunction().apply(client()).apply(namespace).apply(name);
 
-        Optional<DiscoveryNode> node =
+        DiscoveryNode node =
                 DiscoveryNode.getNode(
-                        n -> {
-                            return name.equals(n.name)
-                                    && namespace.equals(n.labels.get("io.cryostat/namespace"));
-                        });
+                                n -> {
+                                    return name.equals(n.name)
+                                            && namespace.equals(n.labels.get(NAMESPACE_LABEL_KEY));
+                                })
+                        .orElseGet(
+                                () -> {
+                                    DiscoveryNode newNode = new DiscoveryNode();
+                                    newNode.name = name;
+                                    newNode.nodeType = nodeType.getKind();
+                                    newNode.children = new ArrayList<>();
+                                    newNode.target = null;
+                                    newNode.labels =
+                                            kubeObj != null
+                                                    ? kubeObj.getMetadata().getLabels()
+                                                    : new HashMap<>();
+                                    // Add namespace to label to retrieve node later
+                                    newNode.labels.put(NAMESPACE_LABEL_KEY, namespace);
+                                    return newNode;
+                                });
 
-        return Pair.of(
-                kubeObj,
-                node.orElseGet(
-                        () -> {
-                            DiscoveryNode newNode = new DiscoveryNode();
-                            newNode.name = name;
-                            newNode.nodeType = nodeType.getKind();
-                            newNode.children = new ArrayList<>();
-                            newNode.target = null;
-                            newNode.labels =
-                                    kubeObj != null
-                                            ? kubeObj.getMetadata().getLabels()
-                                            : new HashMap<>();
-                            // Add namespace to label to retrieve node later
-                            newNode.labels.put("io.cryostat/namespace", namespace);
-                            return newNode;
-                        }));
+        return Pair.of(kubeObj, node);
     }
 
     @ApplicationScoped
@@ -461,8 +471,8 @@ public class KubeApiDiscovery {
             }
             getTargetTuplesFrom(endpoints)
                     .forEach(
-                            (tt) -> {
-                                handleEndpointEvent(tt, EventKind.LOST);
+                            (tuple) -> {
+                                handleEndpointEvent(tuple, EventKind.LOST);
                             });
         }
     }
@@ -495,13 +505,12 @@ public class KubeApiDiscovery {
                     queryForNode(objRef.getNamespace(), objRef.getName(), objRef.getKind());
             HasMetadata obj = pair.getLeft();
             try {
-                ObjectMeta metadata = obj.getMetadata();
-                String targetName = metadata.getName();
+                String targetName = objRef.getName();
 
                 String ip = addr.getIp().replaceAll("\\.", "-");
-                String namespace = metadata.getNamespace();
+                String namespace = objRef.getNamespace();
 
-                boolean isPod = obj.getKind().equals(KubeDiscoveryNodeType.POD.getKind());
+                boolean isPod = objRef.getKind().equals(KubeDiscoveryNodeType.POD.getKind());
 
                 String host = String.format("%s.%s", ip, namespace);
                 if (isPod) {
@@ -519,9 +528,11 @@ public class KubeApiDiscovery {
                 target.activeRecordings = new ArrayList<>();
                 target.connectUrl = URI.create(jmxUrl.toString());
                 target.alias = targetName;
-                target.labels = metadata.getLabels();
+                target.labels = obj != null ? obj.getMetadata().getLabels() : new HashMap<>();
                 target.annotations = new Annotations();
-                target.annotations.platform().putAll(metadata.getAnnotations());
+                target.annotations
+                        .platform()
+                        .putAll(obj != null ? obj.getMetadata().getAnnotations() : Map.of());
                 target.annotations
                         .cryostat()
                         .putAll(
