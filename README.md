@@ -90,7 +90,13 @@ $ systemctl --user enable --now podman.socket
 `$HOME/.bashrc` (or equivalent shell configuration)
 ```bash
 export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
-export TESTCONTAINERS_RYUK_DISABLED=true
+```
+
+`$HOME/.testcontainers.properties`
+```properties
+ryuk.container.privileged=true
+docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
+testcontainers.reuse.enable=false
 ```
 
 Build the container image and run smoketests. This will spin up the cryostat container and its required services.
@@ -114,9 +120,9 @@ $ export LD_PRELOAD=$HOME/bin/lib/libuserhosts.so
 
 You can verify that this setup works by running `smoketest.bash`, and then in another terminal:
 ```bash
-$ LD_PRELOAD=$HOME/bin/libuserhosts.so ping cryostat3
-$ LD_PRELOAD=$HOME/bin/libuserhosts.so curl http://cryostat3:8181
-$ LD_PRELOAD=$HOME/bin/libuserhosts.so firefox http://cryostat3:8181
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so ping auth
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so curl http://auth:8080
+$ LD_PRELOAD=$HOME/bin/libuserhosts.so firefox http://auth:8080
 ```
 
 ### Smoketesting in K8s

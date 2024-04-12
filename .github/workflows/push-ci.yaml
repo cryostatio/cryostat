@@ -41,10 +41,10 @@ jobs:
     needs: [get-pom-properties]
     strategy:
       matrix:
-        java: [ '17', '21' ]
+        # java: [ '17', '21' ]
+        java: ['17']
     env:
       IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
-      TESTCONTAINERS_RYUK_DISABLED: true
       cache-name: cache-yarn
     name: Build and test Java ${{ matrix.java }}
     permissions:
@@ -61,11 +61,6 @@ jobs:
         java-version: ${{ matrix.java }}
         distribution: 'temurin'
         cache: 'maven'
-    - name: maven-settings
-      uses: s4u/maven-settings-action@v2
-      with:
-        servers: '[{"id": "github", "username": "dummy", "password": "${{ secrets.GITHUB_TOKEN }}"}]'
-        githubServer: false
     - run: git submodule init && git submodule update
     - name: Cache yarn packages
       uses: actions/cache@v3
@@ -94,7 +89,10 @@ jobs:
         chmod +x $HOME/.bin/docker
         echo "PATH=$HOME/.bin:$PATH" >> "$GITHUB_ENV"
     - name: Set up testcontainers for podman
-      run:  echo ryuk.container.privileged=true > ~/.testcontainers.properties
+      run: |
+        echo ryuk.container.privileged=true > ~/.testcontainers.properties
+        echo docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy >> ~/.testcontainers.properties
+        echo testcontainers.reuse.enable=false >> ~/.testcontainers.properties
     - name: Start Podman API
       run: systemctl --user enable --now podman.socket
     - name: Set DOCKER_HOST environment variable

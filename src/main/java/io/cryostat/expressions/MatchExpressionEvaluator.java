@@ -19,7 +19,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -29,11 +28,8 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.quarkus.cache.Cache;
-import io.quarkus.cache.CacheInvalidate;
 import io.quarkus.cache.CacheManager;
 import io.quarkus.cache.CacheResult;
-import io.quarkus.cache.CaffeineCache;
 import io.quarkus.cache.CompositeCacheKey;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.annotation.Nullable;
@@ -53,7 +49,7 @@ import org.projectnessie.cel.tools.ScriptHost;
 @ApplicationScoped
 public class MatchExpressionEvaluator {
 
-    private static final String CACHE_NAME = "match-expression-cache";
+    private static final String CACHE_NAME = "matchexpressions";
 
     @Inject ScriptHost scriptHost;
     @Inject Logger logger;
@@ -68,6 +64,9 @@ public class MatchExpressionEvaluator {
                 invalidate(event.expression().script);
                 break;
             case UPDATED:
+                // expression scripts aren't meant to be updatable, but handle them by invalidating
+                // cached results just in case
+                invalidate(event.expression().script);
                 break;
             default:
                 break;
@@ -100,37 +99,20 @@ public class MatchExpressionEvaluator {
         return script.execute(Boolean.class, Map.of("target", SimplifiedTarget.from(target)));
     }
 
-    @CacheInvalidate(cacheName = CACHE_NAME)
-    void invalidate(String matchExpression, Target target) {}
-
     void invalidate(String matchExpression) {
-        Optional<Cache> cache = cacheManager.getCache(CACHE_NAME);
-        if (cache.isPresent()) {
-            var it = cache.get().as(CaffeineCache.class).keySet().iterator();
-            while (it.hasNext()) {
-                CompositeCacheKey entry = (CompositeCacheKey) it.next();
-                String matchExpressionKey = (String) entry.getKeyElements()[0];
-                if (Objects.equals(matchExpression, matchExpressionKey)) {
-                    cache.get()
-                            .invalidate(entry)
-                            .invoke(
-                                    () -> {
-                                        logger.debugv(
-                                                "Expression {0} invalidated in cache {1}",
-                                                matchExpression, CACHE_NAME);
-                                    })
-                            .subscribe()
-                            .with(
-                                    (v) -> {},
-                                    (e) -> {
-                                        logger.errorv(
-                                                "Error invalidating expression {0} in cache {1}:"
-                                                        + " {2}",
-                                                matchExpression, CACHE_NAME, e);
-                                    });
-                }
-            }
-        }
+        // 0-index is important here. the argument order of the load() method determines the
+        // composite key order
+        cacheManager
+                .getCache(CACHE_NAME)
+                .ifPresent(
+                        c ->
+                                c.invalidateIf(
+                                        k ->
+                                                Objects.equals(
+                                                        (String)
+                                                                ((CompositeCacheKey) k)
+                                                                        .getKeyElements()[0],
+                                                        matchExpression)));
     }
 
     public boolean applies(MatchExpression matchExpression, Target target) throws ScriptException {

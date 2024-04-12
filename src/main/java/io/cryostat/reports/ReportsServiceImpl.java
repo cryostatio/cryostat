@@ -35,7 +35,6 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.handler.HttpException;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -57,7 +56,6 @@ class ReportsServiceImpl implements ReportsService {
     @Inject InterruptibleReportGenerator reportGenerator;
     @Inject Logger logger;
 
-    @Blocking
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
@@ -90,7 +88,6 @@ class ReportsServiceImpl implements ReportsService {
         return Uni.createFrom().future(future);
     }
 
-    @Blocking
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {

@@ -16,10 +16,9 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,18 +43,20 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import io.cryostat.StorageBuckets;
 import io.cryostat.V2Response;
 import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.RecordingOptionsCustomizer;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
+import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
-import io.cryostat.util.HttpStatusCodeIdentifier;
+import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -63,6 +64,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -80,26 +82,24 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.commons.validator.routines.UrlValidator;
-import org.apache.hc.core5.http.HttpStatus;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -110,7 +110,6 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 @Path("")
 public class Recordings {
 
-    @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
     @Inject EventBus bus;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
@@ -118,43 +117,38 @@ public class Recordings {
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
     @Inject Clock clock;
     @Inject S3Client storage;
+    @Inject StorageBuckets storageBuckets;
     @Inject S3Presigner presigner;
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ScheduledExecutorService scheduler;
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper recordingHelper;
+    @Inject Logger logger;
 
     @Inject
     @Named(Producers.BASE64_URL)
     Base64 base64Url;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
-    String archiveBucket;
+    String bucket;
 
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURL;
 
+    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_ENABLED)
+    boolean transientArchivesEnabled;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_TTL)
+    Duration transientArchivesTtl;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
+    boolean presignedDownloadsEnabled;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
+    Optional<String> externalStorageUrl;
+
     void onStart(@Observes StartupEvent evt) {
-        boolean exists = false;
-        try {
-            exists =
-                    HttpStatusCodeIdentifier.isSuccessCode(
-                            storage.headBucket(
-                                            HeadBucketRequest.builder()
-                                                    .bucket(archiveBucket)
-                                                    .build())
-                                    .sdkHttpResponse()
-                                    .statusCode());
-        } catch (Exception e) {
-            logger.info(e);
-        }
-        if (!exists) {
-            try {
-                storage.createBucket(CreateBucketRequest.builder().bucket(archiveBucket).build());
-            } catch (Exception e) {
-                logger.error(e);
-            }
-        }
+        storageBuckets.createIfNecessary(bucket);
     }
 
     @GET
@@ -259,7 +253,7 @@ public class Recordings {
                 new Notification(event.category().category(), event.payload()));
         storage.deleteObjects(
                         DeleteObjectsRequest.builder()
-                                .bucket(archiveBucket)
+                                .bucket(bucket)
                                 .delete(
                                         Delete.builder()
                                                 .objects(
@@ -316,13 +310,18 @@ public class Recordings {
     @RolesAllowed("write")
     public Response agentDelete(@RestPath String connectUrl, @RestPath String filename)
             throws Exception {
-        var target = Target.getTargetByConnectUrl(URI.create(connectUrl));
-        if (!recordingHelper.listArchivedRecordingObjects(target.jvmId).stream()
+        String jvmId;
+        if ("uploads".equals(connectUrl)) {
+            jvmId = "uploads";
+        } else {
+            jvmId = Target.getTargetByConnectUrl(URI.create(connectUrl)).jvmId;
+        }
+        if (!recordingHelper.listArchivedRecordingObjects(jvmId).stream()
                 .map(item -> item.key().strip().split("/")[1])
                 .anyMatch(fn -> Objects.equals(fn, filename))) {
             return Response.status(RestResponse.Status.NOT_FOUND).build();
         }
-        recordingHelper.deleteArchivedRecording(target.jvmId, filename);
+        recordingHelper.deleteArchivedRecording(jvmId, filename);
         return Response.status(RestResponse.Status.NO_CONTENT).build();
     }
 
@@ -343,7 +342,7 @@ public class Recordings {
         String key = recordingHelper.archivedRecordingKey(jvmId, filename);
         storage.putObject(
                 PutObjectRequest.builder()
-                        .bucket(archiveBucket)
+                        .bucket(bucket)
                         .key(key)
                         .contentType(RecordingHelper.JFR_MIME)
                         .tagging(recordingHelper.createMetadataTagging(new Metadata(labels)))
@@ -362,7 +361,7 @@ public class Recordings {
                                         recordingHelper.downloadUrl(jvmId, filename),
                                         recordingHelper.reportUrl(jvmId, filename),
                                         metadata,
-                                        0 /*filesize*/,
+                                        recording.size(),
                                         clock.getMonotonicTime())));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
@@ -380,7 +379,7 @@ public class Recordings {
         // TODO scan all prefixes for matching filename? This is an old v1 API problem.
         storage.deleteObject(
                 DeleteObjectRequest.builder()
-                        .bucket(archiveBucket)
+                        .bucket(bucket)
                         .key(String.format("%s/%s", "uploads", filename))
                         .build());
     }
@@ -466,6 +465,12 @@ public class Recordings {
                 return null;
             case "save":
                 try {
+                    // FIXME this operation might take a long time to complete, depending on the
+                    // amount of JFR data in the target and the speed of the connection between the
+                    // target and Cryostat. We should not make the client wait until this operation
+                    // completes before sending a response - it should be async. Here we should just
+                    // return an Accepted response, and if a failure occurs that should be indicated
+                    // as a websocket notification.
                     return recordingHelper.saveRecording(activeRecording);
                 } catch (IOException ioe) {
                     logger.warn(ioe);
@@ -501,65 +506,63 @@ public class Recordings {
 
     @POST
     @Transactional
-    @Blocking
     @Path("/api/v1/targets/{connectUrl}/snapshot")
     @RolesAllowed("write")
-    public Response createSnapshotV1(@RestPath URI connectUrl) throws Exception {
+    public Uni<Response> createSnapshotV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        try {
-            ActiveRecording recording =
-                    connectionManager.executeConnectedTask(
-                            target,
-                            connection -> recordingHelper.createSnapshot(target, connection));
-            return Response.status(Response.Status.OK).entity(recording.name).build();
-        } catch (SnapshotCreationException sce) {
-            return Response.status(Response.Status.ACCEPTED).build();
-        }
+        return connectionManager
+                .executeConnectedTaskUni(
+                        target, connection -> recordingHelper.createSnapshot(target, connection))
+                .onItem()
+                .transform(
+                        recording ->
+                                Response.status(Response.Status.OK).entity(recording.name).build())
+                .onFailure(SnapshotCreationException.class)
+                .recoverWithItem(Response.status(Response.Status.ACCEPTED).build());
     }
 
     @POST
     @Transactional
-    @Blocking
     @Path("/api/v2/targets/{connectUrl}/snapshot")
     @RolesAllowed("write")
-    public Response createSnapshotV2(@RestPath URI connectUrl) throws Exception {
+    public Uni<Response> createSnapshotV2(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        try {
-            ActiveRecording recording =
-                    connectionManager.executeConnectedTask(
-                            target,
-                            connection -> recordingHelper.createSnapshot(target, connection));
-            return Response.status(Response.Status.CREATED)
-                    .entity(
-                            V2Response.json(
-                                    Response.Status.CREATED,
-                                    recordingHelper.toExternalForm(recording)))
-                    .build();
-        } catch (SnapshotCreationException sce) {
-            return Response.status(Response.Status.ACCEPTED)
-                    .entity(V2Response.json(Response.Status.ACCEPTED, null))
-                    .build();
-        }
+        return connectionManager
+                .executeConnectedTaskUni(
+                        target, connection -> recordingHelper.createSnapshot(target, connection))
+                .onItem()
+                .transform(
+                        recording ->
+                                Response.status(Response.Status.CREATED)
+                                        .entity(
+                                                V2Response.json(
+                                                        Response.Status.CREATED,
+                                                        recordingHelper.toExternalForm(recording)))
+                                        .build())
+                .onFailure(SnapshotCreationException.class)
+                .recoverWithItem(
+                        Response.status(Response.Status.ACCEPTED)
+                                .entity(V2Response.json(Response.Status.ACCEPTED, null))
+                                .build());
     }
 
     @POST
     @Transactional
-    @Blocking
     @Path("/api/v3/targets/{id}/snapshot")
     @RolesAllowed("write")
-    public Response createSnapshot(@RestPath long id) throws Exception {
+    public Uni<Response> createSnapshot(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
-        try {
-            ActiveRecording recording =
-                    connectionManager.executeConnectedTask(
-                            target,
-                            connection -> recordingHelper.createSnapshot(target, connection));
-            return Response.status(Response.Status.OK)
-                    .entity(recordingHelper.toExternalForm(recording))
-                    .build();
-        } catch (SnapshotCreationException sce) {
-            return Response.status(Response.Status.ACCEPTED).build();
-        }
+        return connectionManager
+                .executeConnectedTaskUni(
+                        target, connection -> recordingHelper.createSnapshot(target, connection))
+                .onItem()
+                .transform(
+                        recording ->
+                                Response.status(Response.Status.OK)
+                                        .entity(recordingHelper.toExternalForm(recording))
+                                        .build())
+                .onFailure(SnapshotCreationException.class)
+                .recoverWithItem(Response.status(Response.Status.ACCEPTED).build());
     }
 
     @POST
@@ -591,7 +594,9 @@ public class Recordings {
 
         Target target = Target.find("id", id).singleResult();
 
-        Pair<String, TemplateType> template = recordingHelper.parseEventSpecifierToTemplate(events);
+        Pair<String, TemplateType> pair = recordingHelper.parseEventSpecifier(events);
+        Template template =
+                recordingHelper.getPreferredTemplate(target, pair.getKey(), pair.getValue());
 
         ActiveRecording recording =
                 connectionManager.executeConnectedTask(
@@ -631,8 +636,7 @@ public class Recordings {
                             return recordingHelper.startRecording(
                                     target,
                                     recordingOptions,
-                                    template.getLeft(),
-                                    template.getRight(),
+                                    template,
                                     new Metadata(labels),
                                     archiveOnStop.orElse(false),
                                     replacement,
@@ -751,11 +755,11 @@ public class Recordings {
                 connectUrl, metadata);
         logger.infov(
                 "Sending S3 deletion request for {0} {1}",
-                archiveBucket, recordingHelper.archivedRecordingKey(jvmId, filename));
+                bucket, recordingHelper.archivedRecordingKey(jvmId, filename));
         var resp =
                 storage.deleteObject(
                         DeleteObjectRequest.builder()
-                                .bucket(archiveBucket)
+                                .bucket(bucket)
                                 .key(recordingHelper.archivedRecordingKey(jvmId, filename))
                                 .build());
         logger.infov(
@@ -799,7 +803,8 @@ public class Recordings {
     @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}/upload")
     @RolesAllowed("write")
-    public Response uploadToGrafanaV1(@RestPath URI connectUrl, @RestPath String recordingName) {
+    public Response uploadActiveToGrafanaV1(
+            @RestPath URI connectUrl, @RestPath String recordingName) {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         long remoteId =
                 target.activeRecordings.stream()
@@ -820,31 +825,42 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/targets/{targetId}/recordings/{remoteId}/upload")
     @RolesAllowed("write")
-    public Response uploadToGrafana(@RestPath long targetId, @RestPath long remoteId)
+    public Uni<String> uploadActiveToGrafana(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
-        try {
-            URL uploadUrl =
-                    new URL(
-                            grafanaDatasourceURL.orElseThrow(
-                                    () ->
-                                            new HttpException(
-                                                    HttpStatus.SC_BAD_GATEWAY,
-                                                    "GRAFANA_DATASOURCE_URL environment variable"
-                                                            + " does not exist")));
-            boolean isValidUploadUrl =
-                    new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS).isValid(uploadUrl.toString());
-            if (!isValidUploadUrl) {
-                throw new HttpException(
-                        HttpStatus.SC_BAD_GATEWAY,
-                        String.format(
-                                "$%s=%s is an invalid datasource URL",
-                                ConfigProperties.GRAFANA_DATASOURCE_URL, uploadUrl.toString()));
-            }
+        return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
+    }
 
-            return recordingHelper.uploadToJFRDatasource(targetId, remoteId, uploadUrl);
-        } catch (MalformedURLException e) {
-            throw new HttpException(HttpStatus.SC_BAD_GATEWAY, e);
+    @POST
+    @Path("/api/beta/fs/recordings/{jvmId}/{filename}/upload")
+    @RolesAllowed("write")
+    public Response uploadArchivedToGrafanaBeta(@RestPath String jvmId, @RestPath String filename)
+            throws Exception {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/grafana/%s",
+                                        recordingHelper.encodedKey(jvmId, filename))))
+                .build();
+    }
+
+    @POST
+    @Blocking
+    @Path("/api/v3/grafana/{encodedKey}")
+    @RolesAllowed("write")
+    public Uni<String> uploadArchivedToGrafana(@RestPath String encodedKey) throws Exception {
+        var key = recordingHelper.decodedKey(encodedKey);
+        var found =
+                recordingHelper.listArchivedRecordingObjects().stream()
+                        .anyMatch(
+                                o ->
+                                        Objects.equals(
+                                                o.key(),
+                                                recordingHelper.archivedRecordingKey(key)));
+        if (!found) {
+            throw new NotFoundException();
         }
+        return recordingHelper.uploadToJFRDatasource(key);
     }
 
     @GET
@@ -954,20 +970,40 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/activedownload/{id}")
     @RolesAllowed("read")
-    public Response createAndRedirectPresignedDownload(@RestPath long id) throws Exception {
+    public Response handleActiveDownload(@RestPath long id) throws Exception {
         ActiveRecording recording = ActiveRecording.findById(id);
         if (recording == null) {
             throw new NotFoundException();
         }
+        if (!transientArchivesEnabled) {
+            return Response.status(RestResponse.Status.OK)
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            String.format("attachment; filename=\"%s.jfr\"", recording.name))
+                    .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
+                    .entity(recordingHelper.getActiveInputStream(recording))
+                    .build();
+        }
+
+        String savename = recording.name;
         String filename =
                 recordingHelper.saveRecording(
-                        recording, Instant.now().plusSeconds(60)); // TODO make expiry configurable
+                        recording, savename, Instant.now().plus(transientArchivesTtl));
         String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
+        if (!savename.endsWith(".jfr")) {
+            savename += ".jfr";
+        }
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
-                        String.format("attachment; filename=\"%s\"", filename))
-                .location(URI.create(String.format("/api/v3/download/%s", encodedKey)))
+                        String.format("attachment; filename=\"%s\"", savename))
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/download/%s?f=%s",
+                                        encodedKey,
+                                        base64Url.encodeAsString(
+                                                savename.getBytes(StandardCharsets.UTF_8)))))
                 .build();
     }
 
@@ -975,13 +1011,24 @@ public class Recordings {
     @Blocking
     @Path("/api/v3/download/{encodedKey}")
     @RolesAllowed("read")
-    public Response redirectPresignedDownload(@RestPath String encodedKey)
+    public Response handleStorageDownload(@RestPath String encodedKey, @RestQuery String f)
             throws URISyntaxException {
         Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
+
+        if (!presignedDownloadsEnabled) {
+            return Response.status(RestResponse.Status.OK)
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            String.format("attachment; filename=\"%s\"", pair.getValue()))
+                    .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
+                    .entity(recordingHelper.getArchivedRecordingStream(encodedKey))
+                    .build();
+        }
+
         logger.infov("Handling presigned download request for {0}", pair);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
-                        .bucket(archiveBucket)
+                        .bucket(bucket)
                         .key(recordingHelper.archivedRecordingKey(pair))
                         .build();
         GetObjectPresignRequest presignRequest =
@@ -990,9 +1037,32 @@ public class Recordings {
                         .getObjectRequest(getRequest)
                         .build();
         PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(presignedRequest.url().toURI())
-                .build();
+        URI uri = presignedRequest.url().toURI();
+        if (externalStorageUrl.isPresent()) {
+            String extUrl = externalStorageUrl.get();
+            if (StringUtils.isNotBlank(extUrl)) {
+                URI extUri = new URI(extUrl);
+                uri =
+                        new URI(
+                                extUri.getScheme(),
+                                extUri.getAuthority(),
+                                URI.create(String.format("%s/%s", extUri.getPath(), uri.getPath()))
+                                        .normalize()
+                                        .getPath(),
+                                uri.getQuery(),
+                                uri.getFragment());
+            }
+        }
+        ResponseBuilder response = Response.status(RestResponse.Status.PERMANENT_REDIRECT);
+        if (StringUtils.isNotBlank(f)) {
+            response =
+                    response.header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            String.format(
+                                    "attachment; filename=\"%s\"",
+                                    new String(base64Url.decode(f), StandardCharsets.UTF_8)));
+        }
+        return response.location(uri).build();
     }
 
     private static Map<String, Object> getRecordingOptions(

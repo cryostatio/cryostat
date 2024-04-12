@@ -17,6 +17,8 @@ package io.cryostat.recordings;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
@@ -25,6 +27,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
@@ -34,8 +37,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -48,11 +52,15 @@ import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.core.EventOptionsBuilder;
+import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
+import io.cryostat.events.EventTemplates;
+import io.cryostat.events.S3TemplateService;
+import io.cryostat.events.TargetTemplateService;
 import io.cryostat.recordings.ActiveRecording.Listener.ActiveRecordingEvent;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.Recordings.ArchivedRecording;
@@ -60,28 +68,32 @@ import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.Recordings.Metadata;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.EntityExistsException;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import io.quarkus.runtime.StartupEvent;
+import io.smallrye.mutiny.Uni;
+import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import io.vertx.mutiny.ext.web.client.HttpResponse;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.ServerErrorException;
-import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.Response.ResponseBuilder;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.validator.routines.UrlValidator;
+import org.apache.hc.core5.http.HttpStatus;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import org.jboss.resteasy.reactive.server.jaxrs.ResponseBuilderImpl;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -99,7 +111,6 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @ApplicationScoped
 public class RecordingHelper {
@@ -110,28 +121,24 @@ public class RecordingHelper {
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
-    private static final long httpTimeoutSeconds = 5; // TODO: configurable client timeout
+    @Inject S3Client storage;
 
-    @Inject Logger logger;
-    @Inject EntityManager entityManager;
+    @Inject WebClient webClient;
+    @Inject FileSystem fs;
+    @Inject Clock clock;
     @Inject TargetConnectionManager connectionManager;
+    @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
-    @Inject ScheduledExecutorService scheduler;
-    @Inject EventBus bus;
-
-    @Inject Clock clock;
-    @Inject S3Presigner presigner;
+    @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
+    @Inject S3TemplateService customTemplateService;
 
     @Inject
     @Named(Producers.BASE64_URL)
     Base64 base64Url;
 
-    @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
-    @Inject S3Client storage;
-    @Inject FileSystem fs;
-
-    @Inject WebClient webClient;
+    @Inject EventBus bus;
+    @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
@@ -139,19 +146,62 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.AWS_OBJECT_EXPIRATION_LABELS)
     String objectExpirationLabel;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionFailedTimeout;
+
+    @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
+    Optional<String> grafanaDatasourceURLProperty;
+
+    CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
+
+    void onStart(@Observes StartupEvent evt) {
+        if (grafanaDatasourceURLProperty.isEmpty()) {
+            grafanaDatasourceURL.completeExceptionally(
+                    new HttpException(
+                            HttpStatus.SC_BAD_GATEWAY,
+                            String.format(
+                                    "Configuration property %s is not set",
+                                    ConfigProperties.GRAFANA_DATASOURCE_URL)));
+            return;
+        }
+        try {
+            URL uploadUrl =
+                    new URL(grafanaDatasourceURLProperty.orElseThrow(() -> new HttpException()));
+            boolean isValidUploadUrl =
+                    new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS).isValid(uploadUrl.toString());
+            if (!isValidUploadUrl) {
+                grafanaDatasourceURL.completeExceptionally(
+                        new HttpException(
+                                HttpStatus.SC_BAD_GATEWAY,
+                                String.format(
+                                        "Configuration property %s=%s is not acceptable",
+                                        ConfigProperties.GRAFANA_DATASOURCE_URL,
+                                        grafanaDatasourceURLProperty.get())));
+                return;
+            }
+            grafanaDatasourceURL.complete(new URL(grafanaDatasourceURLProperty.get()));
+        } catch (MalformedURLException e) {
+            grafanaDatasourceURL.completeExceptionally(
+                    new HttpException(
+                            HttpStatus.SC_BAD_GATEWAY,
+                            String.format(
+                                    "Configuration property %s=%s is not a valid URL",
+                                    ConfigProperties.GRAFANA_DATASOURCE_URL,
+                                    grafanaDatasourceURLProperty.get())));
+            return;
+        }
+    }
+
     public ActiveRecording startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
-            String templateName,
-            TemplateType templateType,
+            Template eventTemplate,
             Metadata metadata,
             boolean archiveOnStop,
             RecordingReplace replace,
             JFRConnection connection)
             throws Exception {
         String recordingName = (String) recordingOptions.get(RecordingOptionsBuilder.KEY_NAME);
-        TemplateType preferredTemplateType =
-                getPreferredTemplateType(connection, templateName, templateType);
         getDescriptorByName(connection, recordingName)
                 .ifPresent(
                         previous -> {
@@ -159,10 +209,7 @@ public class RecordingHelper {
                             boolean restart =
                                     shouldRestartRecording(replace, previousState, recordingName);
                             if (!restart) {
-                                throw new BadRequestException(
-                                        String.format(
-                                                "Recording with name \"%s\" already exists",
-                                                recordingName));
+                                throw new EntityExistsException("Recording", recordingName);
                             }
                             if (!ActiveRecording.deleteFromTarget(target, recordingName)) {
                                 logger.warnf(
@@ -174,13 +221,11 @@ public class RecordingHelper {
         IRecordingDescriptor desc =
                 connection
                         .getService()
-                        .start(
-                                recordingOptions,
-                                enableEvents(connection, templateName, preferredTemplateType));
+                        .start(recordingOptions, enableEvents(target, eventTemplate));
 
         Map<String, String> labels = metadata.labels();
-        labels.put("template.name", templateName);
-        labels.put("template.type", preferredTemplateType.name());
+        labels.put("template.name", eventTemplate.getName());
+        labels.put("template.type", eventTemplate.getType().toString());
         Metadata meta = new Metadata(labels);
 
         ActiveRecording recording = ActiveRecording.from(target, desc, meta);
@@ -296,7 +341,7 @@ public class RecordingHelper {
                 recording.metadata);
     }
 
-    public Pair<String, TemplateType> parseEventSpecifierToTemplate(String eventSpecifier) {
+    public Pair<String, TemplateType> parseEventSpecifier(String eventSpecifier) {
         if (TEMPLATE_PATTERN.matcher(eventSpecifier).matches()) {
             Matcher m = TEMPLATE_PATTERN.matcher(eventSpecifier);
             m.find();
@@ -311,58 +356,89 @@ public class RecordingHelper {
         throw new BadRequestException(eventSpecifier);
     }
 
-    private IConstrainedMap<EventOptionID> enableAllEvents(JFRConnection connection)
-            throws Exception {
-        EventOptionsBuilder builder = eventOptionsBuilderFactory.create(connection);
+    private IConstrainedMap<EventOptionID> enableAllEvents(Target target) throws Exception {
+        return connectionManager.executeConnectedTask(
+                target,
+                connection -> {
+                    EventOptionsBuilder builder = eventOptionsBuilderFactory.create(connection);
 
-        for (IEventTypeInfo eventTypeInfo : connection.getService().getAvailableEventTypes()) {
-            builder.addEvent(eventTypeInfo.getEventTypeID().getFullKey(), "enabled", "true");
-        }
+                    for (IEventTypeInfo eventTypeInfo :
+                            connection.getService().getAvailableEventTypes()) {
+                        builder.addEvent(
+                                eventTypeInfo.getEventTypeID().getFullKey(), "enabled", "true");
+                    }
 
-        return builder.build();
+                    return builder.build();
+                });
     }
 
-    public IConstrainedMap<EventOptionID> enableEvents(
-            JFRConnection connection, String templateName, TemplateType templateType)
+    private IConstrainedMap<EventOptionID> enableEvents(Target target, Template eventTemplate)
             throws Exception {
-        if (templateName.equals("ALL")) {
-            return enableAllEvents(connection);
+        if (EventTemplates.ALL_EVENTS_TEMPLATE.equals(eventTemplate)) {
+            return enableAllEvents(target);
         }
-        // if template type not specified, try to find a Custom template by that name. If none,
-        // fall back on finding a Target built-in template by the name. If not, throw an
-        // exception and bail out.
-        TemplateType type = getPreferredTemplateType(connection, templateName, templateType);
-        return connection.getTemplateService().getEvents(templateName, type).get();
+        switch (eventTemplate.getType()) {
+            case TARGET:
+                return targetTemplateServiceFactory
+                        .create(target)
+                        .getEvents(eventTemplate.getName(), eventTemplate.getType())
+                        .orElseThrow();
+            case CUSTOM:
+                return customTemplateService
+                        .getEvents(eventTemplate.getName(), eventTemplate.getType())
+                        .orElseThrow();
+            default:
+                throw new BadRequestException(
+                        String.format(
+                                "Invalid/unknown event template %s", eventTemplate.getName()));
+        }
     }
 
-    public TemplateType getPreferredTemplateType(
-            JFRConnection connection, String templateName, TemplateType templateType)
-            throws Exception {
-        if (templateType != null) {
-            return templateType;
+    public Template getPreferredTemplate(
+            Target target, String templateName, TemplateType templateType) throws Exception {
+        Objects.requireNonNull(target);
+        Objects.requireNonNull(templateName);
+        if (templateName.equals(EventTemplates.ALL_EVENTS_TEMPLATE.getName())) {
+            return EventTemplates.ALL_EVENTS_TEMPLATE;
         }
-        if (templateName.equals("ALL")) {
-            // special case for the ALL meta-template
-            return TemplateType.TARGET;
+        Supplier<Optional<Template>> custom =
+                () -> {
+                    try {
+                        return customTemplateService.getTemplates().stream()
+                                .filter(t -> t.getName().equals(templateName))
+                                .findFirst();
+                    } catch (FlightRecorderException e) {
+                        logger.error(e);
+                        return Optional.empty();
+                    }
+                };
+
+        Supplier<Optional<Template>> remote =
+                () -> {
+                    try {
+                        return targetTemplateServiceFactory.create(target).getTemplates().stream()
+                                .filter(t -> t.getName().equals(templateName))
+                                .findFirst();
+                    } catch (FlightRecorderException e) {
+                        logger.error(e);
+                        return Optional.empty();
+                    }
+                };
+        switch (templateType) {
+            case TARGET:
+                return remote.get().orElseThrow();
+            case CUSTOM:
+                return custom.get().orElseThrow();
+            default:
+                return custom.get()
+                        .or(() -> remote.get())
+                        .orElseThrow(
+                                () ->
+                                        new BadRequestException(
+                                                String.format(
+                                                        "Invalid/unknown event template %s",
+                                                        templateName)));
         }
-        List<Template> matchingNameTemplates =
-                connection.getTemplateService().getTemplates().stream()
-                        .filter(t -> t.getName().equals(templateName))
-                        .toList();
-        boolean custom =
-                matchingNameTemplates.stream()
-                        .anyMatch(t -> t.getType().equals(TemplateType.CUSTOM));
-        if (custom) {
-            return TemplateType.CUSTOM;
-        }
-        boolean target =
-                matchingNameTemplates.stream()
-                        .anyMatch(t -> t.getType().equals(TemplateType.TARGET));
-        if (target) {
-            return TemplateType.TARGET;
-        }
-        throw new BadRequestException(
-                String.format("Invalid/unknown event template %s", templateName));
     }
 
     static Optional<IRecordingDescriptor> getDescriptorById(
@@ -432,6 +508,11 @@ public class RecordingHelper {
     }
 
     public String saveRecording(ActiveRecording recording, Instant expiry) throws Exception {
+        return saveRecording(recording, null, expiry);
+    }
+
+    public String saveRecording(ActiveRecording recording, String savename, Instant expiry)
+            throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
         String transformedAlias =
@@ -441,6 +522,9 @@ public class RecordingHelper {
                 clock.now().truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =
                 String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
+        if (StringUtils.isBlank(savename)) {
+            savename = filename;
+        }
         int mib = 1024 * 1024;
         String key = archivedRecordingKey(recording.target.jvmId, filename);
         String multipartId = null;
@@ -453,6 +537,8 @@ public class RecordingHelper {
                             .bucket(archiveBucket)
                             .key(key)
                             .contentType(JFR_MIME)
+                            .contentDisposition(
+                                    String.format("attachment; filename=\"%s\"", savename))
                             .tagging(createActiveRecordingTagging(recording, expiry));
             if (expiry != null && expiry.isAfter(Instant.now())) {
                 builder = builder.expires(expiry);
@@ -583,6 +669,8 @@ public class RecordingHelper {
     }
 
     public String encodedKey(String jvmId, String filename) {
+        Objects.requireNonNull(jvmId);
+        Objects.requireNonNull(filename);
         return base64Url.encodeAsString(
                 (archivedRecordingKey(jvmId, filename)).getBytes(StandardCharsets.UTF_8));
     }
@@ -748,9 +836,7 @@ public class RecordingHelper {
         return new Metadata(labels, expiry);
     }
 
-    // jfr-datasource handling
-    public Response uploadToJFRDatasource(long targetEntityId, long remoteId, URL uploadUrl)
-            throws Exception {
+    public Uni<String> uploadToJFRDatasource(long targetEntityId, long remoteId) throws Exception {
         Target target = Target.getTargetById(targetEntityId);
         Objects.requireNonNull(target, "Target from targetId not found");
         ActiveRecording recording = target.getRecordingById(remoteId);
@@ -766,37 +852,59 @@ public class RecordingHelper {
                                                             target.targetId(), recording.name));
                         });
 
+        return uploadToJFRDatasource(recordingPath);
+    }
+
+    public Uni<String> uploadToJFRDatasource(Pair<String, String> key) throws Exception {
+        Objects.requireNonNull(key);
+        Objects.requireNonNull(key.getKey());
+        Objects.requireNonNull(key.getValue());
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(archivedRecordingKey(key))
+                        .build();
+
+        Path recordingPath = fs.createTempFile(null, null);
+        // the S3 client will create the file at this path, we just need to get a fresh temp file
+        // path but one that does not yet exist
+        fs.deleteIfExists(recordingPath);
+
+        storage.getObject(getRequest, recordingPath);
+
+        return uploadToJFRDatasource(recordingPath);
+    }
+
+    private Uni<String> uploadToJFRDatasource(Path recordingPath)
+            throws URISyntaxException, InterruptedException, ExecutionException {
         MultipartForm form =
                 MultipartForm.create()
                         .binaryFileUpload(
                                 "file", DATASOURCE_FILENAME, recordingPath.toString(), JFR_MIME);
 
-        try {
-            ResponseBuilder builder = new ResponseBuilderImpl();
-            var asyncRequest =
-                    webClient
-                            .postAbs(uploadUrl.toURI().resolve("/load").normalize().toString())
-                            .addQueryParam("overwrite", "true")
-                            .timeout(TimeUnit.SECONDS.toMillis(httpTimeoutSeconds))
-                            .sendMultipartForm(form);
-            return asyncRequest
-                    .onItem()
-                    .transform(
-                            r ->
-                                    builder.status(r.statusCode(), r.statusMessage())
-                                            .entity(r.bodyAsString())
-                                            .build())
-                    .onFailure()
-                    .recoverWithItem(
-                            (failure) -> {
-                                logger.error(failure);
-                                return Response.serverError().build();
-                            })
-                    .await()
-                    .indefinitely(); // The timeout from the request should be sufficient
-        } finally {
-            fs.deleteIfExists(recordingPath);
-        }
+        var asyncRequest =
+                webClient
+                        .postAbs(
+                                grafanaDatasourceURL
+                                        .get()
+                                        .toURI()
+                                        .resolve("/load")
+                                        .normalize()
+                                        .toString())
+                        .addQueryParam("overwrite", "true")
+                        .timeout(connectionFailedTimeout.toMillis())
+                        .sendMultipartForm(form);
+        return asyncRequest
+                .onItem()
+                .transform(HttpResponse::bodyAsString)
+                .eventually(
+                        () -> {
+                            try {
+                                fs.deleteIfExists(recordingPath);
+                            } catch (IOException e) {
+                                logger.warn(e);
+                            }
+                        });
     }
 
     Optional<Path> getRecordingCopyPath(

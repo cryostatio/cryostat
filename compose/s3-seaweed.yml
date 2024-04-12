@@ -1,0 +1,50 @@
+version: "3"
+services:
+  cryostat:
+    environment:
+      STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
+      CRYOSTAT_SERVICES_REPORTS_STORAGE_CACHE_NAME: archivedreports
+      QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:8333
+      STORAGE_EXT_URL: http://localhost:8080/storage/
+      QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
+      QUARKUS_S3_AWS_REGION: us-east-1
+      QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
+      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: access_key
+      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: secret_key
+      AWS_ACCESS_KEY_ID: access_key
+      AWS_SECRET_ACCESS_KEY: secret_key
+  s3:
+    image: ${STORAGE_IMAGE:-quay.io/cryostat/cryostat-storage:latest}
+    hostname: s3
+    environment:
+      CRYOSTAT_BUCKETS: ${PRECREATE_BUCKETS}
+      CRYOSTAT_ACCESS_KEY: access_key
+      CRYOSTAT_SECRET_KEY: secret_key
+      DATA_DIR: /data
+      IP_BIND: 0.0.0.0
+      WEED_V: '4' # glog logging level
+    volumes:
+      - seaweed_data:/data
+    ports:
+      - "8888:8888"
+    expose:
+      - "8333"
+    labels:
+      kompose.service.expose: "seaweed"
+    restart: always
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - timeout
+        - 5s
+        - bash
+        - -c
+        - :> /dev/tcp/127.0.0.1/8333
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+
+volumes:
+  seaweed_data:
+    driver: local

@@ -97,9 +97,9 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java: [ '17', '21' ]
+        # java: [ '17', '21' ]
+        java: ['17']
     env:
-      TESTCONTAINERS_RYUK_DISABLED: true
       cache-name: cache-yarn
     name: Build and test Java ${{ matrix.java }}
     permissions:
@@ -119,11 +119,6 @@ jobs:
         java-version: ${{ matrix.java }}
         distribution: 'temurin'
         cache: 'maven'
-    - name: maven-settings
-      uses: s4u/maven-settings-action@v2
-      with:
-        servers: '[{"id": "github", "username": "dummy", "password": "${{ secrets.GITHUB_TOKEN }}"}]'
-        githubServer: false
     - run: git submodule init && git submodule update
     - name: Cache yarn packages
       uses: actions/cache@v3
@@ -152,7 +147,10 @@ jobs:
         chmod +x $HOME/.bin/docker
         echo "PATH=$HOME/.bin:$PATH" >> "$GITHUB_ENV"
     - name: Set up testcontainers for podman
-      run:  echo ryuk.container.privileged=true > ~/.testcontainers.properties
+      run: |
+        echo ryuk.container.privileged=true > ~/.testcontainers.properties
+        echo docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy >> ~/.testcontainers.properties
+        echo testcontainers.reuse.enable=false >> ~/.testcontainers.properties
     - name: Start Podman API
       run: systemctl --user enable --now podman.socket
     - name: Set DOCKER_HOST environment variable
@@ -169,7 +167,8 @@ jobs:
           const name = '${{github.workflow}}';
           const url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
           const success = '${{ job.status }}' === 'success';
-          const body = `${name}: ${success ? 'All tests pass ✅' : 'At least one test failed ❌'}\n${url}`;
+          const javaVersion = '${{matrix.java}}';
+          const body = `${name}: ${success ? 'All tests pass ✅' : 'At least one test failed ❌'} (JDK${javaVersion})\n${url}`;
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
@@ -185,3 +184,114 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         status: ${{ job.status }}
 
+  update-schemas:
+    needs: [checkout-branch]
+    runs-on: ubuntu-latest
+    outputs:
+      OPENAPI_STATUS: ${{ steps.schema-update.outputs.openapi_status }}
+      OPENAPI_DIFF_FILE: ${{ steps.schema-update.outputs.openapi_diff_file }}
+      # GRAPHQL_STATUS: ${{ steps.schema-update.outputs.graphql_status }}
+      # GRAPHQL_DIFF_FILE: ${{ steps.schema-update.outputs.graphql_diff_file }}
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
+        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+        submodules: true
+        fetch-depth: 0
+    - uses: actions/setup-java@v3
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        cache: 'maven'
+    - run: git submodule init && git submodule update
+    - name: Cache yarn packages
+      uses: actions/cache@v3
+      with:
+        path: "./src/main/webui/.yarn/cache"
+        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+    - name: Initialize web assets
+      run: |
+        cd src/main/webui
+        yarn install && yarn yarn:frzinstall
+        cd -
+    - name: Update schemas
+      id: schema-update
+      run: |
+        set -x
+        mkdir "${HOME}/bin"
+        wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O "${HOME}/bin/yq"
+        chmod +x "${HOME}/bin/yq"
+        export PATH="${HOME}/bin:${PATH}"
+        bash /home/runner/work/cryostat3/cryostat3/schema/update.bash 90 15
+        set +e
+        git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml > /home/runner/work/openapi.diff
+        echo "openapi_status=$?" >> "$GITHUB_OUTPUT"
+        echo "openapi_diff_file=openapi.diff" >> "$GITHUB_OUTPUT"
+        # git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/schema.graphql > /home/runner/work/graphql.diff
+        # echo "graphql_status=$?" >> "$GITHUB_OUTPUT"
+        # echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
+    - uses: actions/upload-artifact@v3
+      with:
+        name: openapi-diff
+        path: /home/runner/work/openapi.diff
+    - uses: actions/upload-artifact@v3
+      with:
+        name: graphql-diff
+        path: /home/runner/work/graphql.diff
+
+  compare-openapi-schema:
+    needs: [update-schemas]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: openapi-diff
+    - name: Comment schema check result
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const diffFmt = s => {
+            return "```diff\n" + s + "\n```";
+          };
+          const commentBody = ${{ needs.update-schemas.outputs.OPENAPI_STATUS }} == '0'
+            ? `No OpenAPI schema changes detected.`
+            : `OpenAPI schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.OPENAPI_DIFF_FILE }}'))}`;
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });
+
+  # compare-graphql-schema:
+  #   needs: [update-schemas]
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     pull-requests: write
+  #   steps:
+  #   - uses: actions/download-artifact@v3
+  #     with:
+  #       name: graphql-diff
+  #   - name: Comment schema check result
+  #     uses: actions/github-script@v6
+  #     with:
+  #       script: |
+  #         const diffFmt = s => {
+  #           return "```diff\n" + s + "\n```";
+  #         };
+  #         const commentBody = ${{ needs.update-schemas.outputs.GRAPHQL_STATUS }} == '0'
+  #           ? `No GraphQL schema changes detected.`
+  #           : `GraphQL schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.GRAPHQL_DIFF_FILE }}'))}`;
+  #         github.rest.issues.createComment({
+  #           issue_number: context.issue.number,
+  #           owner: context.repo.owner,
+  #           repo: context.repo.repo,
+  #           body: commentBody
+  #         });

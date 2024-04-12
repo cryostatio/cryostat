@@ -17,8 +17,19 @@ package io.cryostat;
 
 public class ConfigProperties {
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
+    public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =
+            "storage.buckets.event-templates.name";
     public static final String AWS_OBJECT_EXPIRATION_LABELS =
             "storage.buckets.archives.expiration-label";
+
+    public static final String CONTAINERS_POLL_PERIOD = "cryostat.discovery.containers.poll-period";
+    public static final String CONTAINERS_REQUEST_TIMEOUT =
+            "cryostat.discovery.containers.request-timeout";
+
+    public static final String CONNECTIONS_MAX_OPEN = "cryostat.connections.max-open";
+    public static final String CONNECTIONS_TTL = "cryostat.connections.ttl";
+    public static final String CONNECTIONS_FAILED_BACKOFF = "cryostat.connections.failed-backoff";
+    public static final String CONNECTIONS_FAILED_TIMEOUT = "cryostat.connections.failed-timeout";
 
     public static final String REPORTS_SIDECAR_URL = "cryostat.services.reports.url";
     public static final String MEMORY_CACHE_ENABLED =
@@ -33,4 +44,11 @@ public class ConfigProperties {
     public static final String GRAFANA_DASHBOARD_URL = "grafana-dashboard.url";
     public static final String GRAFANA_DASHBOARD_EXT_URL = "grafana-dashboard-ext.url";
     public static final String GRAFANA_DATASOURCE_URL = "grafana-datasource.url";
+
+    public static final String STORAGE_EXT_URL = "storage-ext.url";
+    public static final String STORAGE_PRESIGNED_DOWNLOADS_ENABLED =
+            "storage.presigned-downloads.enabled";
+    public static final String STORAGE_TRANSIENT_ARCHIVES_ENABLED =
+            "storage.transient-archives.enabled";
+    public static final String STORAGE_TRANSIENT_ARCHIVES_TTL = "storage.transient-archives.ttl";
 }

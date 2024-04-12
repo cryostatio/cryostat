@@ -18,6 +18,7 @@ package io.cryostat.targets;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -35,6 +36,7 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.vertx.ConsumeEvent;
@@ -53,6 +55,8 @@ import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -64,40 +68,44 @@ public class Target extends PanacheEntity {
 
     public static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
 
-    @Column(unique = true, nullable = false, updatable = false)
+    @Column(unique = true, updatable = false)
+    @NotNull
     public URI connectUrl;
 
-    @Column(unique = true, nullable = false)
-    public String alias;
+    @NotBlank public String alias;
 
     public String jvmId;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false)
+    @NotNull
     public Map<String, String> labels = new HashMap<>();
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false)
+    @NotNull
     public Annotations annotations = new Annotations();
 
-    @JsonIgnore
     @OneToMany(
             mappedBy = "target",
             cascade = {CascadeType.ALL},
             orphanRemoval = true)
+    @NotNull
+    @JsonIgnore
     public List<ActiveRecording> activeRecordings = new ArrayList<>();
 
-    @JsonIgnore
     @OneToOne(
             cascade = {CascadeType.ALL},
             orphanRemoval = true)
     @JoinColumn(name = "discoveryNode")
+    @NotNull
+    @JsonIgnore
     public DiscoveryNode discoveryNode;
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     public boolean isAgent() {
         return Set.of("http", "https", "cryostat-agent").contains(connectUrl.getScheme());
     }
 
+    @JsonIgnore
     public String targetId() {
         return this.connectUrl.toString();
     }
@@ -228,13 +236,15 @@ public class Target extends PanacheEntity {
             }
             try {
                 target.jvmId =
-                        connectionManager.executeConnectedTask(target, conn -> conn.getJvmId());
+                        connectionManager
+                                .executeDirect(
+                                        target,
+                                        Optional.empty(),
+                                        conn -> conn.getJvmIdentifier().getHash())
+                                .await()
+                                .atMost(Duration.ofSeconds(10));
             } catch (Exception e) {
-                // TODO tolerate this in the condition that the connection failed because of JMX
-                // auth. In that instance then persist the entity with a null jvmId, but listen for
-                // new Credentials and test them against any targets with null jvmIds to see if we
-                // can populate them.
-                throw new JvmIdException(e);
+                logger.info(e);
             }
         }
 

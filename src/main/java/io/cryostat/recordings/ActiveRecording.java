@@ -31,11 +31,9 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
@@ -49,6 +47,9 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import jakarta.transaction.Transactional;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
 import jdk.jfr.RecordingState;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -65,22 +66,22 @@ public class ActiveRecording extends PanacheEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "target_id")
+    @NotNull
     public Target target;
 
-    @Column(nullable = false)
-    public String name;
+    @NotBlank public String name;
 
-    public long remoteId;
-    public RecordingState state;
-    public long duration;
-    public long startTime;
+    @PositiveOrZero public long remoteId;
+    @NotNull public RecordingState state;
+    @PositiveOrZero public long duration;
+    @PositiveOrZero public long startTime;
     public boolean continuous;
     public boolean toDisk;
-    public long maxSize;
-    public long maxAge;
+    @PositiveOrZero public long maxSize;
+    @PositiveOrZero public long maxAge;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false)
+    @NotNull
     public Metadata metadata;
 
     public static ActiveRecording from(Target target, LinkedRecordingDescriptor descriptor) {
@@ -180,7 +181,6 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         @PreUpdate
-        @Blocking
         public void preUpdate(ActiveRecording activeRecording) throws Exception {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 try {
@@ -231,7 +231,6 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         @PreRemove
-        @Blocking
         public void preRemove(ActiveRecording activeRecording) throws Exception {
             try {
                 activeRecording.target.activeRecordings.remove(activeRecording);
@@ -306,17 +305,18 @@ public class ActiveRecording extends PanacheEntity {
 
             // FIXME the target connectUrl URI may no longer be known if the target
             // has disappeared and we are emitting an event regarding an archived recording
-            // originally
-            // sourced from that target.
+            // originally sourced from that target, or if we are accepting a recording upload from a
+            // client.
             // This should embed the target jvmId and optionally the database ID.
             public record Payload(String target, ArchivedRecording recording) {
                 public Payload {
-                    Objects.requireNonNull(target);
                     Objects.requireNonNull(recording);
                 }
 
                 public static Payload of(URI connectUrl, ArchivedRecording recording) {
-                    return new Payload(connectUrl.toString(), recording);
+                    return new Payload(
+                            Optional.ofNullable(connectUrl).map(URI::toString).orElse(null),
+                            recording);
                 }
             }
         }

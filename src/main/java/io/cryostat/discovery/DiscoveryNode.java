@@ -30,6 +30,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.CascadeType;
@@ -43,6 +44,8 @@ import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
@@ -58,19 +61,22 @@ public class DiscoveryNode extends PanacheEntity {
 
     @Column(unique = false, nullable = false, updatable = false)
     @JsonView(Views.Flat.class)
+    @NotBlank
     public String name;
 
     @Column(unique = false, nullable = false, updatable = false)
     @JsonView(Views.Flat.class)
+    @NotBlank
     public String nodeType;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(nullable = false)
+    @NotNull
     @JsonView(Views.Flat.class)
     public Map<String, String> labels = new HashMap<>();
 
     @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true)
     @JsonView(Views.Nested.class)
+    @Nullable
     public List<DiscoveryNode> children = new ArrayList<>();
 
     @OneToOne(
@@ -78,6 +84,7 @@ public class DiscoveryNode extends PanacheEntity {
             cascade = {CascadeType.ALL},
             fetch = FetchType.LAZY,
             orphanRemoval = true)
+    @Nullable
     @JsonInclude(value = Include.NON_NULL)
     @JsonView(Views.Flat.class)
     public Target target;

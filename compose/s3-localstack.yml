@@ -1,0 +1,38 @@
+version: "3"
+services:
+  cryostat:
+    environment:
+      STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
+      QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:4566
+      STORAGE_EXT_URL: http://localhost:8080/storage/
+      QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
+      QUARKUS_S3_AWS_REGION: us-east-1
+      QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
+      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: unused
+      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: unused
+      AWS_ACCESS_KEY_ID: unused
+      AWS_SECRET_ACCESS_KEY: unused
+  s3:
+    image: ${LOCALSTACK_IMAGE:-docker.io/localstack/localstack:latest}
+    hostname: s3
+    expose:
+      - "4566"
+    environment:
+      SERVICES: s3
+      START_WEB: 1
+      CRYOSTAT_BUCKETS: ${PRECREATE_BUCKETS}
+    volumes:
+      - localstack_cfg:/etc/localstack/init/ready.d:z
+    labels:
+      kompose.service.expose: "s3"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:4566 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+
+volumes:
+  localstack_cfg:
+    external: true

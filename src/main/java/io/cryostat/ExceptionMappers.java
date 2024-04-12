@@ -15,18 +15,28 @@
  */
 package io.cryostat;
 
+import java.util.NoSuchElementException;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+
 import org.openjdk.jmc.rjmx.ConnectionException;
 
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.EntityExistsException;
 
+import com.nimbusds.jwt.proc.BadJWTException;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.smallrye.mutiny.TimeoutException;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import org.projectnessie.cel.tools.ScriptException;
+import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 
 public class ExceptionMappers {
@@ -36,6 +46,17 @@ public class ExceptionMappers {
     @ServerExceptionMapper
     public RestResponse<Void> mapNoResultException(NoResultException ex) {
         return RestResponse.notFound();
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapNoSuchElementException(NoSuchElementException ex) {
+        return RestResponse.notFound();
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapNoSuchBucketException(NoSuchBucketException ex) {
+        logger.error(ex);
+        return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
     }
 
     @ServerExceptionMapper
@@ -82,5 +103,37 @@ public class ExceptionMappers {
             return RestResponse.status(HttpResponseStatus.FORBIDDEN.code());
         }
         return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapMutinyTimeoutException(TimeoutException ex) {
+        logger.warn(ex);
+        return RestResponse.status(HttpResponseStatus.GATEWAY_TIMEOUT.code());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Object> mapEntityExistsException(EntityExistsException ex) {
+        logger.warn(ex);
+        return ResponseBuilder.create(HttpResponseStatus.CONFLICT.code())
+                .entity(ex.getMessage())
+                .build();
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapBadJwtException(BadJWTException ex) {
+        logger.warn(ex);
+        return RestResponse.status(HttpResponseStatus.UNAUTHORIZED.code());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapCompletionException(CompletionException ex) throws Throwable {
+        logger.warn(ex);
+        throw ExceptionUtils.getRootCause(ex);
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapExecutionException(ExecutionException ex) throws Throwable {
+        logger.warn(ex);
+        throw ExceptionUtils.getRootCause(ex);
     }
 }

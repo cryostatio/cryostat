@@ -18,6 +18,7 @@ package io.cryostat.discovery;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.Optional;
@@ -133,8 +134,13 @@ public class CustomDiscovery {
 
             try {
                 target.jvmId =
-                        connectionManager.executeDirect(
-                                target, credential, conn -> conn.getJvmId());
+                        connectionManager
+                                .executeDirect(
+                                        target,
+                                        credential,
+                                        conn -> conn.getJvmIdentifier().getHash())
+                                .await()
+                                .atMost(Duration.ofSeconds(10));
             } catch (Exception e) {
                 logger.error("Target connection failed", e);
                 return Response.status(Response.Status.BAD_REQUEST.getStatusCode())

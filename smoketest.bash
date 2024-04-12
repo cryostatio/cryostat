@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if ! command -v yq; then
+if ! command -v yq >/dev/null 2>&1 ; then
     echo "No 'yq' found"
     exit 1
 fi
@@ -8,7 +8,7 @@ fi
 DIR="$(dirname "$(readlink -f "$0")")"
 
 FILES=(
-    "${DIR}/smoketest/compose/db.yml"
+    "${DIR}/compose/db.yml"
 )
 
 USE_USERHOSTS=${USE_USERHOSTS:-true}
@@ -16,28 +16,33 @@ PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
 OPEN_TABS=${OPEN_TABS:-false}
 
-CRYOSTAT_HTTP_PORT=8080
+PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-archivedrecordings,archivedreports,eventtemplates}
+
+CRYOSTAT_HTTP_HOST=${CRYOSTAT_HTTP_HOST:-cryostat}
+CRYOSTAT_HTTP_PORT=${CRYOSTAT_HTTP_PORT:-8080}
 USE_PROXY=${USE_PROXY:-true}
-DEPLOY_GRAFANA=false
+DEPLOY_GRAFANA=${DEPLOY_GRAFANA:-true}
+DRY_RUN=${DRY_RUN:-false}
 
 display_usage() {
     echo "Usage:"
     echo -e "\t-h\t\t\t\t\t\tprint this Help text."
     echo -e "\t-O\t\t\t\t\t\tOffline mode, do not attempt to pull container images."
     echo -e "\t-p\t\t\t\t\t\tDisable auth Proxy."
-    echo -e "\t-s [minio|seaweed|cloudserver|localstack]\tS3 implementation to spin up (default \"minio\")."
-    echo -e "\t-g\t\t\t\t\t\tinclude Grafana dashboard and jfr-datasource in deployment."
+    echo -e "\t-s [seaweed|minio|cloudserver|localstack]\tS3 implementation to spin up (default \"seaweed\")."
+    echo -e "\t-G\t\t\t\t\t\texclude Grafana dashboard and jfr-datasource from deployment."
     echo -e "\t-r\t\t\t\t\t\tconfigure a cryostat-Reports sidecar instance"
     echo -e "\t-t\t\t\t\t\t\tinclude sample applications for Testing."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
     echo -e "\t-c [podman|docker]\t\t\t\tUse Podman or Docker Container Engine (default \"podman\")."
-    echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. Cryostat web client, Minio console)"
+    echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
+    echo -e "\t-n\t\t\t\t\t\tDo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
 }
 
-s3=minio
+s3=seaweed
 ce=podman
-while getopts "hs:prgtOVXcb" opt; do
+while getopts "hs:prGtOVXcbn" opt; do
     case $opt in
         h)
             display_usage
@@ -49,12 +54,11 @@ while getopts "hs:prgtOVXcb" opt; do
         s)
             s3="${OPTARG}"
             ;;
-        g)
-            FILES+=("${DIR}/smoketest/compose/cryostat-grafana.yml" "${DIR}/smoketest/compose/jfr-datasource.yml")
-            DEPLOY_GRAFANA=true
+        G)
+            DEPLOY_GRAFANA=false
             ;;
         t)
-            FILES+=("${DIR}/smoketest/compose/sample-apps.yml")
+            FILES+=("${DIR}/compose/sample-apps.yml")
             ;;
         O)
             PULL_IMAGES=false
@@ -63,7 +67,7 @@ while getopts "hs:prgtOVXcb" opt; do
             KEEP_VOLUMES=true
             ;;
         X)
-            FILES+=("${DIR}/smoketest/compose/db-viewer.yml")
+            FILES+=("${DIR}/compose/db-viewer.yml")
             ;;
         c)
             ce="${OPTARG}"
@@ -72,7 +76,10 @@ while getopts "hs:prgtOVXcb" opt; do
             OPEN_TABS=true
             ;;
         r)
-            FILES+=('./smoketest/compose/reports.yml')
+            FILES+=('./compose/reports.yml')
+            ;;
+        n)
+            DRY_RUN=true
             ;;
         *)
             display_usage
@@ -81,21 +88,34 @@ while getopts "hs:prgtOVXcb" opt; do
     esac
 done
 
+if [ "${DEPLOY_GRAFANA}" = "true" ]; then
+    FILES+=(
+        "${DIR}/compose/cryostat-grafana.yml"
+        "${DIR}/compose/jfr-datasource.yml"
+    )
+fi
+
+
 if [ "${USE_PROXY}" = "true" ]; then
-    FILES+=("${DIR}/smoketest/compose/auth_proxy.yml")
+    FILES+=("${DIR}/compose/auth_proxy.yml")
+    CRYOSTAT_HTTP_HOST=auth
     CRYOSTAT_HTTP_PORT=8181
     GRAFANA_DASHBOARD_EXT_URL=http://localhost:8080/grafana/
 else
-    FILES+=("${DIR}/smoketest/compose/no_proxy.yml")
+    FILES+=("${DIR}/compose/no_proxy.yml" "${DIR}/compose/s3_no_proxy.yml")
     if [ "${DEPLOY_GRAFANA}" = "true" ]; then
-      FILES+=("${DIR}/smoketest/compose/grafana_no_proxy.yml")
+      FILES+=("${DIR}/compose/grafana_no_proxy.yml")
     fi
     GRAFANA_DASHBOARD_EXT_URL=http://grafana:3000/
 fi
+export CRYOSTAT_HTTP_HOST
 export CRYOSTAT_HTTP_PORT
 export GRAFANA_DASHBOARD_EXT_URL
 
-s3Manifest="${DIR}/smoketest/compose/s3-${s3}.yml"
+s3Manifest="${DIR}/compose/s3-${s3}.yml"
+STORAGE_PORT="$(yq '.services.*.expose[0]' "${s3Manifest}" | grep -v null)"
+export STORAGE_PORT
+export PRECREATE_BUCKETS
 
 if [ ! -f "${s3Manifest}" ]; then
     echo "Unknown S3 selection: ${s3}"
@@ -111,10 +131,10 @@ unshift() {
 }
 
 if [ "${ce}" = "podman" ]; then
-    unshift FILES "${DIR}/smoketest/compose/cryostat.yml"
+    unshift FILES "${DIR}/compose/cryostat.yml"
     container_engine="podman"
 elif [ "${ce}" = "docker" ]; then
-    unshift FILES "${DIR}/smoketest/compose/cryostat_docker.yml"
+    unshift FILES "${DIR}/compose/cryostat_docker.yml"
     container_engine="docker"
 else
     echo "Unknown Container Engine selection: ${ce}"
@@ -122,12 +142,22 @@ else
     exit 2
 fi
 
-set -xe
+if [ ! "${DRY_RUN}" = "true" ]; then
+    set -xe
+fi
 
 CMD=()
 for file in "${FILES[@]}"; do
     CMD+=(-f "${file}")
 done
+
+if [ "${DRY_RUN}" = "true" ]; then
+    set +xe
+    docker-compose \
+        "${CMD[@]}" \
+        config
+    exit 0
+fi
 
 PIDS=()
 
@@ -142,9 +172,14 @@ cleanup() {
     docker-compose \
         "${CMD[@]}" \
         down "${downFlags[@]}"
-    ${container_engine} rm proxy_cfg_helper
-    ${container_engine} volume rm auth_proxy_cfg
-    # podman kill hoster || true
+    if [ "${USE_PROXY}" = "true" ]; then
+        ${container_engine} rm proxy_cfg_helper || true
+        ${container_engine} volume rm auth_proxy_cfg || true
+    fi
+    if [ "${s3}" = "localstack" ]; then
+        ${container_engine} rm localstack_cfg_helper || true
+        ${container_engine} volume rm localstack_cfg || true
+    fi
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
         kill -0 "${i}" && kill "${i}"
@@ -157,24 +192,27 @@ cleanup
 createProxyCfgVolume() {
     "${container_engine}" volume create auth_proxy_cfg
     "${container_engine}" container create --name proxy_cfg_helper -v auth_proxy_cfg:/tmp busybox
-    "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
-    "${container_engine}" cp "${DIR}/smoketest/compose/auth_proxy_alpha_config.yaml" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
+    local cfg
+    cfg="$(mktemp)"
+    chmod 644 "${cfg}"
+    envsubst '$STORAGE_PORT' < "${DIR}/compose/auth_proxy_alpha_config.yaml" > "${cfg}"
+    "${container_engine}" cp "${DIR}/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
+    "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
 }
-createProxyCfgVolume
+if [ "${USE_PROXY}" = "true" ]; then
+    createProxyCfgVolume
+fi
+
+createLocalstackCfgVolume() {
+    "${container_engine}" volume create localstack_cfg
+    "${container_engine}" container create --name localstack_cfg_helper -v localstack_cfg:/tmp busybox
+    "${container_engine}" cp "${DIR}/compose/localstack_buckets.sh" localstack_cfg_helper:/tmp
+}
+if [ "${s3}" = "localstack" ]; then
+    createLocalstackCfgVolume
+fi
 
 setupUserHosts() {
-    # FIXME this is broken: it puts the containers' bridge-internal IP addresses
-    # into the user hosts file, but these IPs are in a subnet not reachable from the host.
-    # podman run \
-    #     --detach \
-    #     --rm  \
-    #     --name hoster \
-    #     --user=0 \
-    #     --security-opt label=disable \
-    #     -v "${XDG_RUNTIME_DIR}/podman/podman.sock:/tmp/docker.sock:Z" \
-    #     -v "${HOME}/.hosts:/tmp/hosts" \
-    #     dvdarias/docker-hoster
-    #
     # This requires https://github.com/figiel/hosts to work. See README.
     truncate -s 0 "${HOSTSFILE}"
     for file in "${FILES[@]}" ; do
@@ -254,4 +292,7 @@ fi
 
 docker-compose \
     "${CMD[@]}" \
-    up
+    up \
+        --renew-anon-volumes \
+        --remove-orphans \
+        --abort-on-container-exit

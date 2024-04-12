@@ -21,6 +21,7 @@ import io.cryostat.expressions.MatchExpression;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -38,6 +39,7 @@ import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 
 @Entity
@@ -50,17 +52,19 @@ import jakarta.validation.constraints.PositiveOrZero;
 public class Rule extends PanacheEntity {
     public static final String RULE_ADDRESS = "io.cryostat.rules.Rule";
 
-    @Column(unique = true, nullable = false, updatable = false)
+    @Column(unique = true, updatable = false)
+    @NotBlank
     public String name;
 
-    public String description;
+    @NotNull public String description;
 
     @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     @JoinColumn(name = "matchExpression")
+    @NotNull
     public MatchExpression matchExpression;
 
     @Column(nullable = false)
-    @NotBlank(message = "eventSpecifier cannot be blank")
+    @NotBlank
     public String eventSpecifier;
 
     @PositiveOrZero(message = "archivalPeriodSeconds must be positive or zero")
@@ -72,10 +76,10 @@ public class Rule extends PanacheEntity {
     @PositiveOrZero(message = "archivalPeriodSeconds must be positive or zero")
     public int preservedArchives;
 
-    @Min(message = "maxAgeSeconds must be greater than 0 or -1", value = -1)
+    @Min(message = "maxAgeSeconds must be greater than -1", value = -1)
     public int maxAgeSeconds;
 
-    @Min(message = "maxAgeSeconds must be greater than 0 or -1", value = -1)
+    @Min(message = "maxAgeSeconds must be greater than -1", value = -1)
     public int maxSizeBytes;
 
     public boolean enabled;
@@ -84,11 +88,13 @@ public class Rule extends PanacheEntity {
         return this.name;
     }
 
+    @JsonIgnore
     public String getRecordingName() {
         // FIXME do something other than simply prepending "auto_"
         return String.format("auto_%s", name);
     }
 
+    @JsonIgnore
     public boolean isArchiver() {
         return preservedArchives > 0 && archivalPeriodSeconds > 0;
     }
