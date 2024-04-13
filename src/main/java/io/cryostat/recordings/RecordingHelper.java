@@ -955,7 +955,7 @@ public class RecordingHelper {
 
     @Blocking
     public ActiveRecording updateRecordingMetadata(
-            Long recordingId, Map<String, String> newLabels) {
+            long recordingId, Map<String, String> newLabels) {
         ActiveRecording recording = ActiveRecording.findById(recordingId);
 
         if (recording == null) {

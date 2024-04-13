@@ -325,9 +325,7 @@ public class ActiveRecordings {
 
     @Blocking
     @Transactional
-    @Description(
-            "Updates the metadata labels for an existing Flight Recorder recording specified by the"
-                    + " recording ID.")
+    @Description("Updates the metadata labels for an existing Flight Recording.")
     public Uni<ActiveRecording> doPutMetadata(
             @Source ActiveRecording recording, MetadataLabels metadataInput) {
         return Uni.createFrom()
