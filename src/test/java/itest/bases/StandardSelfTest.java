@@ -211,6 +211,24 @@ public abstract class StandardSelfTest {
         }
     }
 
+    public static long getSelfReferenceTargetId() {
+        try {
+            tryDefineSelfCustomTarget();
+            String path = URI.create(selfCustomTargetLocation).getPath();
+            HttpResponse<Buffer> resp = webClient.extensions().get(path, REQUEST_TIMEOUT_SECONDS);
+            JsonObject body = resp.bodyAsJsonObject();
+            logger.infov(
+                    "GET {0} -> HTTP {1} {2}: [{3}] = {4}",
+                    path, resp.statusCode(), resp.statusMessage(), resp.headers(), body);
+            if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
+                throw new IllegalStateException(Integer.toString(resp.statusCode()));
+            }
+            return body.getLong("id");
+        } catch (Exception e) {
+            throw new RuntimeException("Could not determine own connectUrl", e);
+        }
+    }
+
     public static String getSelfReferenceConnectUrl() {
         try {
             tryDefineSelfCustomTarget();
