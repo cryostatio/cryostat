@@ -40,7 +40,7 @@ class MemoryCachingReportsListener {
     @ConfigProperty(name = "quarkus.cache.enabled")
     boolean quarkusCache;
 
-    @ConfigProperty(name = ConfigProperties.MEMORY_CACHE_ENABLED)
+    @ConfigProperty(name = ConfigProperties.REPORTS_MEMORY_CACHE_ENABLED)
     boolean memoryCache;
 
     @Inject

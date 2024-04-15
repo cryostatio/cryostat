@@ -34,7 +34,7 @@ import software.amazon.awssdk.services.s3.model.S3Exception;
 @ApplicationScoped
 class StorageCachingReportsListener {
 
-    @ConfigProperty(name = ConfigProperties.STORAGE_CACHE_ENABLED)
+    @ConfigProperty(name = ConfigProperties.REPORTS_STORAGE_CACHE_ENABLED)
     boolean enabled;
 
     @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_STORAGE_CACHE_NAME)
