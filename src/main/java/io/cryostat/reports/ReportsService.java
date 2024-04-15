@@ -29,16 +29,12 @@ public interface ReportsService {
     Uni<Map<String, AnalysisResult>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate);
 
-    default Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
-        return reportFor(recording, r -> true);
-    }
+    Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording);
 
     Uni<Map<String, AnalysisResult>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate);
 
-    default Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
-        return reportFor(jvmId, filename, r -> true);
-    }
+    Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename);
 
     static String key(ActiveRecording recording) {
         return String.format("%s/%d", recording.target.jvmId, recording.id);

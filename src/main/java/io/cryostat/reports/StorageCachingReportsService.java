@@ -157,4 +157,14 @@ class StorageCachingReportsService implements ReportsService {
                             }
                         });
     }
+
+    @Override
+    public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
+        return reportFor(recording, r -> true);
+    }
+
+    @Override
+    public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
+        return reportFor(jvmId, filename, r -> true);
+    }
 }
