@@ -288,7 +288,11 @@ public class AgentClient {
                 .map(
                         resp -> {
                             int statusCode = resp.statusCode();
-                            if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                            if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)
+                                    || statusCode == 404) {
+                                // if the request succeeded we're OK. We're also OK if the recording
+                                // could not be found - it was probably already deleted, so this is
+                                // not a failure
                                 return null;
                             } else if (statusCode == 403) {
                                 throw new ForbiddenException(
