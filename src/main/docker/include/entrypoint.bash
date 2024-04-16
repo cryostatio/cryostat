@@ -13,8 +13,8 @@ function banner() {
     echo   "+------------------------------------------+"
 }
 
-USRFILE="/tmp/jmxremote.access"
 PWFILE="/tmp/jmxremote.password"
+USRFILE="/tmp/jmxremote.access"
 function createJmxCredentials() {
     if [ -z "$CRYOSTAT_RJMX_USER" ]; then
         CRYOSTAT_RJMX_USER="cryostat"
