@@ -222,7 +222,7 @@ public class TargetConnectionManager {
 
     private <T> Uni<T> executeInternal(Uni<T> uni) {
         return uni.onFailure(RuntimeException.class)
-                .transform(this::unwrapRuntimeException)
+                .transform(t -> unwrapNestedException(RuntimeException.class, t))
                 .onFailure()
                 .invoke(logger::warn)
                 .onFailure(this::isJmxAuthFailure)
