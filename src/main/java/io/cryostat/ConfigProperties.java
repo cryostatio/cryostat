@@ -19,6 +19,8 @@ public class ConfigProperties {
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
     public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =
             "storage.buckets.event-templates.name";
+    public static final String AWS_BUCKET_NAME_PROBE_TEMPLATES =
+            "storage.buckets.probe-templates.name";
     public static final String AWS_OBJECT_EXPIRATION_LABELS =
             "storage.buckets.archives.expiration-label";
 
