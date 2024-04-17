@@ -36,6 +36,7 @@
     <quarkus-quinoa.version>2.3.6</quarkus-quinoa.version>
     <io.netty.version>4.1.101.Final</io.netty.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.5.0</org.codehaus.mojo.build.helper.plugin.version>
+    <assembly-plugin.version>3.7.1</assembly-plugin.version>
 
     <com.github.spotbugs.version>4.8.4</com.github.spotbugs.version>
     <com.github.spotbugs.plugin.version>4.8.4.0</com.github.spotbugs.plugin.version>
@@ -502,5 +503,31 @@
       </dependencies>
     </profile>
 
+    <profile>
+      <id>dist</id>
+      <build>
+        <plugins>
+          <plugin>
+            <artifactId>maven-assembly-plugin</artifactId>
+            <version>${assembly-plugin.version}</version>
+            <configuration>
+              <descriptors>
+                <descriptor>src/assembly/quarkus-app.xml</descriptor>
+              </descriptors>
+              <tarLongFileMode>posix</tarLongFileMode>
+            </configuration>
+            <executions>
+              <execution>
+                <id>assemble-quarkus-app</id>
+                <phase>package</phase>
+                <goals>
+                  <goal>single</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 </project>
