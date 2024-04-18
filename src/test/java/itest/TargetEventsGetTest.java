@@ -114,7 +114,7 @@ public class TargetEventsGetTest extends StandardSelfTest {
         LinkedHashMap<String, Object> expectedResults = new LinkedHashMap<String, Object>();
         expectedResults.put("name", "Target Connection Opened");
         expectedResults.put(
-                "typeId", "io.cryostat.net.TargetConnectionManager.TargetConnectionOpened");
+                "typeId", "io.cryostat.targets.TargetConnectionManager.TargetConnectionOpened");
         expectedResults.put("description", "");
         expectedResults.put("category", List.of("Cryostat"));
         expectedResults.put(

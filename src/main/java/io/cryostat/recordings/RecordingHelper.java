@@ -74,7 +74,6 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.runtime.StartupEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -193,7 +192,6 @@ public class RecordingHelper {
         }
     }
 
-    @Blocking
     public ActiveRecording startRecording(
             Target target,
             IConstrainedMap<String> recordingOptions,
@@ -241,7 +239,6 @@ public class RecordingHelper {
         return recording;
     }
 
-    @Blocking
     public ActiveRecording createSnapshot(Target target, JFRConnection connection)
             throws Exception {
         IRecordingDescriptor desc = connection.getService().getSnapshotRecording();
@@ -249,7 +246,7 @@ public class RecordingHelper {
         String rename = String.format("%s-%d", desc.getName().toLowerCase(), desc.getId());
 
         RecordingOptionsBuilder recordingOptionsBuilder =
-                recordingOptionsBuilderFactory.create(connection.getService());
+                recordingOptionsBuilderFactory.create(target);
         recordingOptionsBuilder.name(rename);
 
         connection.getService().updateRecordingOptions(desc, recordingOptionsBuilder.build());
@@ -299,7 +296,6 @@ public class RecordingHelper {
         return recording;
     }
 
-    @Blocking
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
         if (!connectionManager.markConnectionInUse(target)) {
             throw new IOException(
@@ -360,7 +356,6 @@ public class RecordingHelper {
         throw new BadRequestException(eventSpecifier);
     }
 
-    @Blocking
     private IConstrainedMap<EventOptionID> enableAllEvents(Target target) throws Exception {
         return connectionManager.executeConnectedTask(
                 target,
@@ -377,7 +372,6 @@ public class RecordingHelper {
                 });
     }
 
-    @Blocking
     private IConstrainedMap<EventOptionID> enableEvents(Target target, Template eventTemplate)
             throws Exception {
         if (EventTemplates.ALL_EVENTS_TEMPLATE.equals(eventTemplate)) {
@@ -400,7 +394,6 @@ public class RecordingHelper {
         }
     }
 
-    @Blocking
     public Template getPreferredTemplate(
             Target target, String templateName, TemplateType templateType) throws Exception {
         Objects.requireNonNull(target);
@@ -491,12 +484,10 @@ public class RecordingHelper {
         }
     }
 
-    @Blocking
     public List<S3Object> listArchivedRecordingObjects() {
         return listArchivedRecordingObjects(null);
     }
 
-    @Blocking
     public List<S3Object> listArchivedRecordingObjects(String jvmId) {
         var builder = ListObjectsV2Request.builder().bucket(archiveBucket);
         if (StringUtils.isNotBlank(jvmId)) {
@@ -520,7 +511,6 @@ public class RecordingHelper {
         return saveRecording(recording, null, expiry);
     }
 
-    @Blocking
     public String saveRecording(ActiveRecording recording, String savename, Instant expiry)
             throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
@@ -650,7 +640,6 @@ public class RecordingHelper {
         return getArchivedRecordingMetadata(archivedRecordingKey(jvmId, filename));
     }
 
-    @Blocking
     public Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
         try {
             return Optional.of(
@@ -708,7 +697,6 @@ public class RecordingHelper {
         return getArchivedRecordingStream(encodedKey(jvmId, recordingName));
     }
 
-    @Blocking
     public InputStream getArchivedRecordingStream(String encodedKey) {
         String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
 
@@ -735,7 +723,6 @@ public class RecordingHelper {
         return String.format("/api/v3/reports/%s", encodedKey(jvmId, filename));
     }
 
-    @Blocking
     private int retryRead(ReadableByteChannel channel, ByteBuffer buffer) throws IOException {
         int attempts = 30;
         int read = 0;
@@ -758,7 +745,6 @@ public class RecordingHelper {
     }
 
     /* Archived Recording Helpers */
-    @Blocking
     public void deleteArchivedRecording(String jvmId, String filename) {
         storage.deleteObject(
                 DeleteObjectRequest.builder()
@@ -850,7 +836,6 @@ public class RecordingHelper {
         return new Metadata(labels, expiry);
     }
 
-    @Blocking
     public Uni<String> uploadToJFRDatasource(long targetEntityId, long remoteId) throws Exception {
         Target target = Target.getTargetById(targetEntityId);
         Objects.requireNonNull(target, "Target from targetId not found");
@@ -870,7 +855,6 @@ public class RecordingHelper {
         return uploadToJFRDatasource(recordingPath);
     }
 
-    @Blocking
     public Uni<String> uploadToJFRDatasource(Pair<String, String> key) throws Exception {
         Objects.requireNonNull(key);
         Objects.requireNonNull(key.getKey());
@@ -923,7 +907,6 @@ public class RecordingHelper {
                         });
     }
 
-    @Blocking
     Optional<Path> getRecordingCopyPath(
             JFRConnection connection, Target target, String recordingName) throws Exception {
         return connection.getService().getAvailableRecordings().stream()
@@ -974,7 +957,7 @@ public class RecordingHelper {
         }
     }
 
-    static class SnapshotCreationException extends Exception {
+    public static class SnapshotCreationException extends Exception {
         public SnapshotCreationException(String message) {
             super(message);
         }

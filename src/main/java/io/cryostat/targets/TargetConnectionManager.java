@@ -31,7 +31,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 
 import javax.management.remote.JMXServiceURL;
-import javax.naming.ServiceUnavailableException;
 import javax.security.sasl.SaslException;
 
 import org.openjdk.jmc.rjmx.ConnectionException;
@@ -42,6 +41,7 @@ import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.JFRConnectionToolkit;
 import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpressionEvaluator;
+import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
 
@@ -52,9 +52,9 @@ import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
+import io.vertx.ext.web.handler.HttpException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -151,25 +151,21 @@ public class TargetConnectionManager {
         }
     }
 
-    @Blocking
-    @ConsumeEvent(Credential.CREDENTIALS_STORED)
+    @ConsumeEvent(value = Credential.CREDENTIALS_STORED, blocking = true)
     void onCredentialsStored(Credential credential) {
         handleCredentialChange(credential);
     }
 
-    @Blocking
-    @ConsumeEvent(Credential.CREDENTIALS_UPDATED)
+    @ConsumeEvent(value = Credential.CREDENTIALS_UPDATED, blocking = true)
     void onCredentialsUpdated(Credential credential) {
         handleCredentialChange(credential);
     }
 
-    @Blocking
-    @ConsumeEvent(Credential.CREDENTIALS_DELETED)
+    @ConsumeEvent(value = Credential.CREDENTIALS_DELETED, blocking = true)
     void onCredentialsDeleted(Credential credential) {
         handleCredentialChange(credential);
     }
 
-    @Blocking
     void handleCredentialChange(Credential credential) {
         for (var entry : connections.asMap().entrySet()) {
             URI key = entry.getKey();
@@ -187,7 +183,6 @@ public class TargetConnectionManager {
         }
     }
 
-    @Blocking
     public <T> Uni<T> executeConnectedTaskUni(Target target, ConnectedTask<T> task) {
         return Uni.createFrom()
                 .completionStage(connections.get(target.connectUrl))
@@ -202,21 +197,30 @@ public class TargetConnectionManager {
                                     }
                                 }))
                 .onFailure(RuntimeException.class)
-                .transform(this::unwrapRuntimeException)
+                .transform(t -> unwrapNestedException(RuntimeException.class, t))
                 .onFailure()
                 .invoke(logger::warn)
-                .onFailure(t -> isTargetConnectionFailure(t) || isUnknownTargetFailure(t))
+                .onFailure(this::isJmxAuthFailure)
+                .transform(t -> new HttpException(427, t))
+                .onFailure(this::isJmxSslFailure)
+                .transform(t -> new HttpException(502, t))
+                .onFailure(this::isServiceTypeFailure)
+                .transform(t -> new HttpException(504, t))
+                .onFailure(
+                        t ->
+                                !(t instanceof HttpException)
+                                        && !(t instanceof SnapshotCreationException))
                 .retry()
                 .withBackOff(failedBackoff)
-                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis());
+                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())
+                .onFailure(this::isTargetConnectionFailure)
+                .transform(t -> new HttpException(504, t));
     }
 
-    @Blocking
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
         return executeConnectedTaskUni(target, task).await().atMost(failedTimeout);
     }
 
-    @Blocking
     public <T> Uni<T> executeDirect(
             Target target, Optional<Credential> credentials, ConnectedTask<T> task) {
         return Uni.createFrom()
@@ -228,13 +232,24 @@ public class TargetConnectionManager {
                                     }
                                 }))
                 .onFailure(RuntimeException.class)
-                .transform(this::unwrapRuntimeException)
+                .transform(t -> unwrapNestedException(RuntimeException.class, t))
                 .onFailure()
                 .invoke(logger::warn)
-                .onFailure(t -> isTargetConnectionFailure(t) || isUnknownTargetFailure(t))
+                .onFailure(this::isJmxAuthFailure)
+                .transform(t -> new HttpException(427, t))
+                .onFailure(this::isJmxSslFailure)
+                .transform(t -> new HttpException(502, t))
+                .onFailure(this::isServiceTypeFailure)
+                .transform(t -> new HttpException(504, t))
+                .onFailure(
+                        t ->
+                                !(t instanceof HttpException)
+                                        && !(t instanceof SnapshotCreationException))
                 .retry()
                 .withBackOff(failedBackoff)
-                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis());
+                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())
+                .onFailure(this::isTargetConnectionFailure)
+                .transform(t -> new HttpException(504, t));
     }
 
     /**
@@ -315,7 +330,6 @@ public class TargetConnectionManager {
         return connect(connectUrl, credentials);
     }
 
-    @Blocking
     JFRConnection connect(URI connectUrl, Optional<Credential> credentials) throws Exception {
         TargetConnectionOpened evt = new TargetConnectionOpened(connectUrl.toString());
         evt.begin();
@@ -383,17 +397,21 @@ public class TargetConnectionManager {
         T execute(JFRConnection connection) throws Exception;
     }
 
-    public Throwable unwrapRuntimeException(Throwable t) {
+    public Throwable unwrapNestedException(Class<?> klazz, Throwable t) {
         final int maxDepth = 10;
         int depth = 0;
         Throwable cause = t;
-        while (cause instanceof RuntimeException && depth++ < maxDepth) {
+        while (klazz.isInstance(t) && depth++ < maxDepth) {
+            var c = cause.getCause();
+            if (c == null) {
+                break;
+            }
             cause = cause.getCause();
         }
         return cause;
     }
 
-    public static boolean isTargetConnectionFailure(Throwable t) {
+    private boolean isTargetConnectionFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
@@ -402,16 +420,26 @@ public class TargetConnectionManager {
                 || ExceptionUtils.indexOfType(e, FlightRecorderException.class) >= 0;
     }
 
-    public static boolean isJmxAuthFailure(Throwable t) {
+    /**
+     * Check if the exception happened because the connection required authentication, and we had no
+     * credentials to present.
+     */
+    private boolean isJmxAuthFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
         Exception e = (Exception) t;
-        return ExceptionUtils.indexOfType(e, SecurityException.class) >= 0
+        return ExceptionUtils.indexOfType(e, javax.security.auth.login.FailedLoginException.class)
+                        >= 0
+                || ExceptionUtils.indexOfType(e, SecurityException.class) >= 0
                 || ExceptionUtils.indexOfType(e, SaslException.class) >= 0;
     }
 
-    public static boolean isJmxSslFailure(Throwable t) {
+    /**
+     * Check if the exception happened because the connection presented an SSL/TLS cert which we
+     * don't trust.
+     */
+    private boolean isJmxSslFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
@@ -421,7 +449,7 @@ public class TargetConnectionManager {
     }
 
     /** Check if the exception happened because the port connected to a non-JMX service. */
-    public static boolean isServiceTypeFailure(Throwable t) {
+    private boolean isServiceTypeFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
@@ -430,23 +458,9 @@ public class TargetConnectionManager {
                 && ExceptionUtils.indexOfType(e, SocketTimeoutException.class) >= 0;
     }
 
-    public static boolean isUnknownTargetFailure(Throwable t) {
-        if (!(t instanceof Exception)) {
-            return false;
-        }
-        Exception e = (Exception) t;
-        return ExceptionUtils.indexOfType(e, java.net.UnknownHostException.class) >= 0
-                || ExceptionUtils.indexOfType(e, java.rmi.UnknownHostException.class) >= 0
-                || ExceptionUtils.indexOfType(e, ServiceUnavailableException.class) >= 0;
-    }
-
-    @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionOpened")
+    @Name("io.cryostat.targets.TargetConnectionManager.TargetConnectionOpened")
     @Label("Target Connection Opened")
     @Category("Cryostat")
-    // @SuppressFBWarnings(
-    //         value = "URF_UNREAD_FIELD",
-    //         justification = "The event fields are recorded with JFR instead of accessed
-    // directly")
     public static class TargetConnectionOpened extends Event {
         String serviceUri;
         boolean exceptionThrown;
@@ -461,13 +475,9 @@ public class TargetConnectionManager {
         }
     }
 
-    @Name("io.cryostat.net.TargetConnectionManager.TargetConnectionClosed")
+    @Name("io.cryostat.targets.TargetConnectionManager.TargetConnectionClosed")
     @Label("Target Connection Closed")
     @Category("Cryostat")
-    // @SuppressFBWarnings(
-    //         value = "URF_UNREAD_FIELD",
-    //         justification = "The event fields are recorded with JFR instead of accessed
-    // directly")
     public static class TargetConnectionClosed extends Event {
         URI serviceUri;
         boolean exceptionThrown;

@@ -18,6 +18,7 @@ OPEN_TABS=${OPEN_TABS:-false}
 
 PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-archivedrecordings,archivedreports,eventtemplates,probes}
 
+CRYOSTAT_HTTP_HOST=${CRYOSTAT_HTTP_HOST:-cryostat}
 CRYOSTAT_HTTP_PORT=${CRYOSTAT_HTTP_PORT:-8080}
 USE_PROXY=${USE_PROXY:-true}
 DEPLOY_GRAFANA=${DEPLOY_GRAFANA:-true}
@@ -97,6 +98,7 @@ fi
 
 if [ "${USE_PROXY}" = "true" ]; then
     FILES+=("${DIR}/compose/auth_proxy.yml")
+    CRYOSTAT_HTTP_HOST=auth
     CRYOSTAT_HTTP_PORT=8181
     GRAFANA_DASHBOARD_EXT_URL=http://localhost:8080/grafana/
 else
@@ -106,6 +108,7 @@ else
     fi
     GRAFANA_DASHBOARD_EXT_URL=http://grafana:3000/
 fi
+export CRYOSTAT_HTTP_HOST
 export CRYOSTAT_HTTP_PORT
 export GRAFANA_DASHBOARD_EXT_URL
 

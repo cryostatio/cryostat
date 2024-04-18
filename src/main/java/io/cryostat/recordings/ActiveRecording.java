@@ -31,7 +31,6 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -182,7 +181,6 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         @PreUpdate
-        @Blocking
         public void preUpdate(ActiveRecording activeRecording) throws Exception {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 try {
@@ -233,7 +231,6 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         @PreRemove
-        @Blocking
         public void preRemove(ActiveRecording activeRecording) throws Exception {
             try {
                 activeRecording.target.activeRecordings.remove(activeRecording);

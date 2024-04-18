@@ -19,11 +19,9 @@ import java.util.NoSuchElementException;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 
-import org.openjdk.jmc.rjmx.ConnectionException;
-
-import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.EntityExistsException;
 
+import com.nimbusds.jwt.proc.BadJWTException;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.smallrye.mutiny.TimeoutException;
 import jakarta.inject.Inject;
@@ -89,22 +87,6 @@ public class ExceptionMappers {
     }
 
     @ServerExceptionMapper
-    public RestResponse<Void> mapJmxConnectionException(ConnectionException ex) {
-        logger.warn(ex);
-        return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
-    }
-
-    @ServerExceptionMapper
-    public RestResponse<Void> mapFlightRecorderException(
-            org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException ex) {
-        logger.warn(ex);
-        if (TargetConnectionManager.isJmxAuthFailure(ex)) {
-            return RestResponse.status(HttpResponseStatus.FORBIDDEN.code());
-        }
-        return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
-    }
-
-    @ServerExceptionMapper
     public RestResponse<Void> mapMutinyTimeoutException(TimeoutException ex) {
         logger.warn(ex);
         return RestResponse.status(HttpResponseStatus.GATEWAY_TIMEOUT.code());
@@ -116,6 +98,12 @@ public class ExceptionMappers {
         return ResponseBuilder.create(HttpResponseStatus.CONFLICT.code())
                 .entity(ex.getMessage())
                 .build();
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapBadJwtException(BadJWTException ex) {
+        logger.warn(ex);
+        return RestResponse.status(HttpResponseStatus.UNAUTHORIZED.code());
     }
 
     @ServerExceptionMapper

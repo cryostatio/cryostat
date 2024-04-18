@@ -4,11 +4,13 @@ services:
     expose:
       - "${CRYOSTAT_HTTP_PORT}"
     environment:
+      CRYOSTAT_HTTP_PROXY_HOST: auth
+      CRYOSTAT_HTTP_PROXY_PORT: '8080'
       QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING: 'true'
       QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED: 'true'
       QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST: 'true'
       QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_PREFIX: 'true'
-      QUARKUS_HTTP_PROXY_TRUSTED_PROXIES: localhost:8080,auth:8080
+      QUARKUS_HTTP_PROXY_TRUSTED_PROXIES: 127.0.0.1:${CRYOSTAT_HTTP_PORT}
     healthcheck:
       test: curl --fail http://cryostat:8181/health/liveness || exit 1
       interval: 10s

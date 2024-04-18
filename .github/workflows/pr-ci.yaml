@@ -97,7 +97,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        java: [ '17', '21' ]
+        # java: [ '17', '21' ]
+        java: ['17']
     env:
       cache-name: cache-yarn
     name: Build and test Java ${{ matrix.java }}

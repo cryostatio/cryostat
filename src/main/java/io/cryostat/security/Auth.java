@@ -15,6 +15,7 @@
  */
 package io.cryostat.security;
 
+import java.net.URI;
 import java.util.Map;
 
 import io.cryostat.V2Response;
@@ -27,6 +28,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
 public class Auth {
@@ -36,7 +38,9 @@ public class Auth {
     @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
     public Response logout(@Context RoutingContext context) {
-        return Response.noContent().build();
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create("/oauth2/sign_out"))
+                .build();
     }
 
     @POST
