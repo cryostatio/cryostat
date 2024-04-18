@@ -278,7 +278,7 @@ public class RecordingHelper {
                             String.format("%s-%d", desc.getName().toLowerCase(), desc.getId());
 
                     RecordingOptionsBuilder recordingOptionsBuilder =
-                            recordingOptionsBuilderFactory.create(target);
+                            recordingOptionsBuilderFactory.create(target).name(rename);
 
                     connection
                             .getService()
