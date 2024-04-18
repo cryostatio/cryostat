@@ -197,7 +197,6 @@ public class Target extends PanacheEntity {
         public TargetDiscovery {
             Objects.requireNonNull(kind);
             Objects.requireNonNull(serviceRef);
-            Objects.requireNonNull(jvmId);
         }
     }
 
