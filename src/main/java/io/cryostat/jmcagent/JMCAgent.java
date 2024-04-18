@@ -143,29 +143,29 @@ public class JMCAgent {
     @Blocking
     @GET
     @Path("/api/v3/targets/{id}/probes")
-    public List<String> getProbes(@RestPath long id) {
+    public List<Event> getProbes(@RestPath long id) {
         try {
             Target target = Target.getTargetById(id);
             return connectionManager.executeConnectedTask(
                     target,
                     connection -> {
-                        List<String> response = new ArrayList<String>();
                         AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
+                        List<Event> result = new ArrayList<>();
+                        String probes = helper.retrieveEventProbes();
                         try {
-                            String probes = helper.retrieveEventProbes();
                             if (probes != null && !probes.isBlank()) {
                                 ProbeTemplate template = new ProbeTemplate();
                                 template.deserialize(
                                         new ByteArrayInputStream(
                                                 probes.getBytes(StandardCharsets.UTF_8)));
                                 for (Event e : template.getEvents()) {
-                                    response.add(e.toString());
+                                    result.add(e);
                                 }
                             }
+                            return result;
                         } catch (Exception e) {
                             throw new BadRequestException(e);
                         }
-                        return response;
                     });
         } catch (Exception e) {
             logger.warn("Caught exception" + e.toString(), e);
