@@ -249,7 +249,7 @@ public class JMCAgent {
     @Blocking
     @POST
     @Path("/api/v2/probes")
-    public Response postProbeTemplatesv2(
+    public Response postProbeTemplatev2(
             @RestForm("probeTemplate") FileUpload body, @RestPath String probeTemplateName) {
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(URI.create(String.format("/api/v3/probes/%s", probeTemplateName)))

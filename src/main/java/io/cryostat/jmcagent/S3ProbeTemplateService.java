@@ -201,7 +201,8 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
-                            TEMPLATE_UPLOADED_CATEGORY, Map.of("probeTemplate", template)));
+                            TEMPLATE_UPLOADED_CATEGORY,
+                            Map.of("probeTemplate", template.getFileName())));
             return template;
         }
     }
@@ -210,7 +211,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
             String templateName, String classPrefix, String allowToString, String allowConverter) {
         var map =
                 Map.of(
-                        "label",
+                        "fileName",
                         templateName,
                         "classPrefix",
                         classPrefix,
