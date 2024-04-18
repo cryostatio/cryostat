@@ -31,6 +31,8 @@ components:
           type: integer
         downloadUrl:
           type: string
+        jvmId:
+          type: string
         metadata:
           $ref: '#/components/schemas/Metadata'
         name:
@@ -382,6 +384,31 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
+  /api/beta/fs/recordings/{jvmId}:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedRecordingDirectory'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
   /api/beta/fs/recordings/{jvmId}/{filename}:
     delete:
       parameters:
@@ -497,6 +524,30 @@ paths:
         - Match Expressions
   /api/beta/recordings/{connectUrl}/{filename}:
     delete:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/beta/recordings/{connectUrl}/{filename}/upload:
+    post:
       parameters:
         - in: path
           name: connectUrl
@@ -1242,6 +1293,31 @@ paths:
           description: OK
       tags:
         - Discovery
+  /api/v2.2/graphql:
+    get:
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Graph QL
+    post:
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Graph QL
   /api/v2/rules:
     get:
       responses:
