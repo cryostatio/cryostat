@@ -55,7 +55,7 @@ import software.amazon.awssdk.services.s3.model.Tagging;
 
 public class S3ProbeTemplateService implements ProbeTemplateService {
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_PROBE_TEMPLATES)
     String bucket;
 
     @Inject S3Client storage;
