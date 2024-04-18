@@ -23,10 +23,6 @@ jobs:
   get-pom-properties:
     runs-on: ubuntu-latest
     steps:
-    - name: Install qemu
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static
     - uses: actions/checkout@v3
       with:
         submodules: true
@@ -56,6 +52,10 @@ jobs:
       contents: read
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
+    - name: Install qemu
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-user-static
     - uses: actions/checkout@v3
       with:
         submodules: true
