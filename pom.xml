@@ -16,7 +16,6 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-    <build.os>linux</build.os>
     <build.arch>amd64</build.arch>
 
     <io.cryostat.core.version>2.30.1</io.cryostat.core.version>
@@ -432,7 +431,7 @@
         </property>
       </activation>
       <properties>
-        <io.netty.netty-transport-native-epoll.classifier>${build.os}-x86_64</io.netty.netty-transport-native-epoll.classifier>
+        <io.netty.netty-transport-native-epoll.classifier>linux-x86_64</io.netty.netty-transport-native-epoll.classifier>
         <io.netty.netty-transport-native-epoll.scope>compile</io.netty.netty-transport-native-epoll.scope>
       </properties>
     </profile>
@@ -445,7 +444,7 @@
         </property>
       </activation>
       <properties>
-        <io.netty.netty-transport-native-epoll.classifier>${build.os}-x86_64</io.netty.netty-transport-native-epoll.classifier>
+        <io.netty.netty-transport-native-epoll.classifier>linux-x86_64</io.netty.netty-transport-native-epoll.classifier>
         <io.netty.netty-transport-native-epoll.scope>compile</io.netty.netty-transport-native-epoll.scope>
       </properties>
     </profile>
@@ -458,7 +457,7 @@
         </property>
       </activation>
       <properties>
-        <io.netty.netty-transport-native-epoll.classifier>${build.os}-aarch_64</io.netty.netty-transport-native-epoll.classifier>
+        <io.netty.netty-transport-native-epoll.classifier>linux-aarch_64</io.netty.netty-transport-native-epoll.classifier>
         <io.netty.netty-transport-native-epoll.scope>compile</io.netty.netty-transport-native-epoll.scope>
       </properties>
     </profile>
@@ -490,7 +489,7 @@
         </property>
       </activation>
       <properties>
-        <io.netty.netty-transport-native-epoll.classifier>${build.os}-x86_64</io.netty.netty-transport-native-epoll.classifier>
+        <io.netty.netty-transport-native-epoll.classifier>linux-x86_64</io.netty.netty-transport-native-epoll.classifier>
         <io.netty.netty-transport-native-epoll.scope>provided</io.netty.netty-transport-native-epoll.scope>
       </properties>
       <dependencies>
