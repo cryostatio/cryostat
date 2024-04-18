@@ -79,7 +79,7 @@ public class JMCAgent {
                                 MessagingServer.class.getName(),
                                 new Notification(
                                         TEMPLATE_APPLIED_CATEGORY,
-                                        Map.of("probeTemplate", template)));
+                                        Map.of("probeTemplate", template.getFileName())));
                         return Response.status(RestResponse.Status.OK).build();
                     });
         } catch (Exception e) {
@@ -143,13 +143,13 @@ public class JMCAgent {
     @Blocking
     @GET
     @Path("/api/v3/targets/{id}/probes")
-    public List<Event> getProbes(@RestPath long id) {
+    public List<String> getProbes(@RestPath long id) {
         try {
             Target target = Target.getTargetById(id);
             return connectionManager.executeConnectedTask(
                     target,
                     connection -> {
-                        List<Event> response = new ArrayList<Event>();
+                        List<String> response = new ArrayList<String>();
                         AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
                         try {
                             String probes = helper.retrieveEventProbes();
@@ -159,7 +159,7 @@ public class JMCAgent {
                                         new ByteArrayInputStream(
                                                 probes.getBytes(StandardCharsets.UTF_8)));
                                 for (Event e : template.getEvents()) {
-                                    response.add(e);
+                                    response.add(e.toString());
                                 }
                             }
                         } catch (Exception e) {
@@ -189,9 +189,11 @@ public class JMCAgent {
     @Blocking
     @GET
     @Path("/api/v3/probes")
-    public List<ProbeTemplate> getProbeTemplates() {
+    public List<SerializableProbeTemplateInfo> getProbeTemplates() {
         try {
-            return service.getTemplates();
+            return service.getTemplates().stream()
+                    .map(SerializableProbeTemplateInfo::fromProbeTemplate)
+                    .toList();
         } catch (Exception e) {
             logger.warn("Caught exception" + e.toString(), e);
             throw new BadRequestException(e);
