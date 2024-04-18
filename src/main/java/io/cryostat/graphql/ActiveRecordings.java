@@ -119,7 +119,7 @@ public class ActiveRecordings {
                                         .map(n -> n.target))
                 .flatMap(
                         t ->
-                                t.activeRecordings.stream()
+                                recordingHelper.listActiveRecordings(t).stream()
                                         .filter(r -> recordings == null || recordings.test(r)))
                 .map(
                         recording -> {
@@ -148,7 +148,7 @@ public class ActiveRecordings {
                                         .map(n -> n.target))
                 .flatMap(
                         t ->
-                                t.activeRecordings.stream()
+                                recordingHelper.listActiveRecordings(t).stream()
                                         .filter(r -> recordings == null || recordings.test(r)))
                 .map(
                         recording -> {
@@ -172,23 +172,16 @@ public class ActiveRecordings {
                     + " the subtrees of the discovery nodes matching the given filter")
     public List<ActiveRecording> deleteRecording(
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings) {
-        var activeRecordings =
-                DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
-                        .flatMap(
-                                node ->
-                                        RootNode.recurseChildren(node, n -> n.target != null)
-                                                .stream()
-                                                .map(n -> n.target))
-                        .flatMap(
-                                t ->
-                                        t.activeRecordings.stream()
-                                                .filter(
-                                                        r ->
-                                                                recordings == null
-                                                                        || recordings.test(r)))
-                        .toList();
-        return activeRecordings.stream()
+        return DiscoveryNode.<DiscoveryNode>listAll().stream()
+                .filter(nodes)
+                .flatMap(
+                        node ->
+                                RootNode.recurseChildren(node, n -> n.target != null).stream()
+                                        .map(n -> n.target))
+                .flatMap(
+                        t ->
+                                recordingHelper.listActiveRecordings(t).stream()
+                                        .filter(r -> recordings == null || recordings.test(r)))
                 .map(
                         recording -> {
                             try {

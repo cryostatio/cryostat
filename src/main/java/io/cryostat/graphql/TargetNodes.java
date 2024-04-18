@@ -76,7 +76,7 @@ public class TargetNodes {
         var fTarget = Target.<Target>findById(target.id);
         var recordings = new ActiveRecordings();
         recordings.data =
-                fTarget.activeRecordings.stream()
+                recordingHelper.listActiveRecordings(fTarget).stream()
                         .filter(r -> filter == null || filter.test(r))
                         .toList();
         recordings.aggregate = AggregateInfo.fromActive(recordings.data);
@@ -108,7 +108,7 @@ public class TargetNodes {
 
         if (requestedFields.contains("active")) {
             recordings.active = new ActiveRecordings();
-            recordings.active.data = fTarget.activeRecordings;
+            recordings.active.data = recordingHelper.listActiveRecordings(fTarget);
             recordings.active.aggregate = AggregateInfo.fromActive(recordings.active.data);
         }
 
