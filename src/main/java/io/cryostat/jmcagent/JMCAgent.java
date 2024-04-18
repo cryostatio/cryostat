@@ -63,7 +63,6 @@ public class JMCAgent {
     @POST
     @Path("/api/v3/targets/{id}/probes/{probeTemplateName}")
     public Response postProbe(@RestPath long id, @RestPath String probeTemplateName) {
-        logger.info("Did we get here? postProbe");
         try {
             Target target = Target.getTargetById(id);
             return connectionManager.executeConnectedTask(
@@ -107,7 +106,6 @@ public class JMCAgent {
     @DELETE
     @Path("/api/v3/targets/{id}/probes")
     public Response deleteProbe(@RestPath long id) {
-        logger.info("Did we get here? deleteProbe");
         try {
             Target target = Target.getTargetById(id);
             return connectionManager.executeConnectedTask(
@@ -192,7 +190,6 @@ public class JMCAgent {
     @GET
     @Path("/api/v3/probes")
     public List<ProbeTemplate> getProbeTemplates() {
-        logger.info("Did we get here? getProbeTemplates");
         try {
             return service.getTemplates();
         } catch (Exception e) {
@@ -214,7 +211,6 @@ public class JMCAgent {
     @DELETE
     @Path("/api/v3/probes/{probeTemplateName}")
     public Response deleteProbeTemplate(@RestPath String probeTemplateName) {
-        logger.info("Did we get here? deleteProbeTemplate");
         try {
             service.deleteTemplate(probeTemplateName);
             return Response.status(RestResponse.Status.OK).build();
@@ -238,7 +234,6 @@ public class JMCAgent {
     @Path("/api/v3/probes/{probeTemplateName}")
     public Response uploadProbeTemplate(
             @RestForm("probeTemplate") FileUpload body, @RestPath String probeTemplateName) {
-        logger.info("Did we get here? uploadProbeTemplate");
         if (body == null || body.filePath() == null || !"probeTemplate".equals(body.name())) {
             throw new BadRequestException();
         }
