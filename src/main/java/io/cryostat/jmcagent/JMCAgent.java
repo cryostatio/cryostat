@@ -179,11 +179,7 @@ public class JMCAgent {
     public Response getProbesv2(@RestPath URI connectUrl) {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/probes",
-                                        target.id)))
+                .location(URI.create(String.format("/api/v3/targets/%d/probes", target.id)))
                 .build();
     }
 
