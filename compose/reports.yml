@@ -2,7 +2,7 @@ version: "3"
 services:
   cryostat:
     environment:
-      - CRYOSTAT_SERVICES_REPORTS_URL=http://reports:10001
+      - QUARKUS_REST_CLIENT_REPORTS_URL=http://reports:10001
   reports:
     image: ${CRYOSTAT_REPORTS_IMAGE:-quay.io/cryostat/cryostat-reports:latest}
     hostname: reports

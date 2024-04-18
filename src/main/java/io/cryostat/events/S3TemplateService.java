@@ -54,9 +54,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.hc.core5.http.ContentType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jsoup.Jsoup;
@@ -239,7 +239,7 @@ public class S3TemplateService implements MutableTemplateService {
                     PutObjectRequest.builder()
                             .bucket(bucket)
                             .key(templateName)
-                            .contentType(ContentType.APPLICATION_XML.getMimeType())
+                            .contentType(MediaType.APPLICATION_XML)
                             .tagging(createTemplateTagging(templateName, description, provider))
                             .build(),
                     RequestBody.fromString(model.toString()));

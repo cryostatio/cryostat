@@ -91,12 +91,12 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ServerErrorException;
+import jakarta.ws.rs.core.Response;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.validator.routines.UrlValidator;
-import org.apache.hc.core5.http.HttpStatus;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
@@ -178,7 +178,7 @@ public class RecordingHelper {
         if (grafanaDatasourceURLProperty.isEmpty()) {
             grafanaDatasourceURL.completeExceptionally(
                     new HttpException(
-                            HttpStatus.SC_BAD_GATEWAY,
+                            Response.Status.BAD_GATEWAY.getStatusCode(),
                             String.format(
                                     "Configuration property %s is not set",
                                     ConfigProperties.GRAFANA_DATASOURCE_URL)));
@@ -192,7 +192,7 @@ public class RecordingHelper {
             if (!isValidUploadUrl) {
                 grafanaDatasourceURL.completeExceptionally(
                         new HttpException(
-                                HttpStatus.SC_BAD_GATEWAY,
+                                Response.Status.BAD_GATEWAY.getStatusCode(),
                                 String.format(
                                         "Configuration property %s=%s is not acceptable",
                                         ConfigProperties.GRAFANA_DATASOURCE_URL,
@@ -203,7 +203,7 @@ public class RecordingHelper {
         } catch (MalformedURLException e) {
             grafanaDatasourceURL.completeExceptionally(
                     new HttpException(
-                            HttpStatus.SC_BAD_GATEWAY,
+                            Response.Status.BAD_GATEWAY.getStatusCode(),
                             String.format(
                                     "Configuration property %s=%s is not a valid URL",
                                     ConfigProperties.GRAFANA_DATASOURCE_URL,
