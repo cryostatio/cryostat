@@ -26,12 +26,12 @@ import java.util.Objects;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
-import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.agent.ProbeTemplate;
 import io.cryostat.core.agent.ProbeTemplateService;
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
 import io.quarkus.runtime.StartupEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.eventbus.EventBus;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -69,13 +69,15 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
 
     @Inject Logger logger;
 
+    private static final String TEMPLATE_DELETED_CATEGORY = "ProbeTemplateDeleted";
+    private static final String TEMPLATE_UPLOADED_CATEGORY = "ProbeTemplateUploaded";
+
     void onStart(@Observes StartupEvent evt) {
         storageBuckets.createIfNecessary(bucket);
     }
 
     @Override
-    @Blocking
-    public List<ProbeTemplate> getTemplates() throws FlightRecorderException {
+    public List<ProbeTemplate> getTemplates() {
         return getObjects().stream()
                 .map(
                         t -> {
@@ -90,7 +92,6 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                 .toList();
     }
 
-    @Blocking
     public String getTemplateContent(String fileName) {
         try (var stream = getModel(fileName)) {
             ProbeTemplate template = new ProbeTemplate();
@@ -103,33 +104,30 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
         }
     }
 
-    @Blocking
     public void deleteTemplate(String templateName) {
-        try {
-            var template =
-                    getTemplates().stream()
-                            .filter(t -> t.getFileName().equals(templateName))
-                            .findFirst()
-                            .orElseThrow();
-            var req = DeleteObjectRequest.builder().bucket(bucket).key(templateName).build();
-        } catch (FlightRecorderException e) {
-            logger.error(e);
+        var template =
+                getTemplates().stream()
+                        .filter(t -> t.getFileName().equals(templateName))
+                        .findFirst()
+                        .orElseThrow();
+        var req = DeleteObjectRequest.builder().bucket(bucket).key(templateName).build();
+        if (storage.deleteObject(req).sdkHttpResponse().isSuccessful()) {
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(TEMPLATE_DELETED_CATEGORY, Map.of("probeTemplate", template)));
         }
     }
 
-    @Blocking
     private InputStream getModel(String name) {
         var req = GetObjectRequest.builder().bucket(bucket).key(name).build();
         return storage.getObject(req);
     }
 
-    @Blocking
     private List<S3Object> getObjects() {
         var builder = ListObjectsV2Request.builder().bucket(bucket);
         return storage.listObjectsV2(builder.build()).contents();
     }
 
-    @Blocking
     private ProbeTemplate convertObject(S3Object object) throws Exception {
         var req = GetObjectTaggingRequest.builder().bucket(bucket).key(object.key()).build();
         var tagging = storage.getObjectTagging(req);
@@ -181,7 +179,6 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                 Boolean.valueOf(allowConverter));
     }
 
-    @Blocking
     public ProbeTemplate addTemplate(InputStream stream, String fileName)
             throws IOException, SAXException {
         try (stream) {
@@ -201,6 +198,9 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                                             String.valueOf(template.getAllowConverter())))
                             .build(),
                     RequestBody.fromString(template.serialize()));
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(TEMPLATE_UPLOADED_CATEGORY, Map.of("template", template)));
             return template;
         }
     }

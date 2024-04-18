@@ -16,9 +16,11 @@
 package io.cryostat.jmcagent;
 
 import java.io.ByteArrayInputStream;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import io.cryostat.core.agent.AgentJMXHelper;
 import io.cryostat.core.agent.Event;
@@ -26,7 +28,11 @@ import io.cryostat.core.agent.ProbeTemplate;
 import io.cryostat.core.sys.FileSystem;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
+import io.smallrye.common.annotation.Blocking;
+import io.vertx.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
@@ -43,16 +49,23 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 @Path("")
 public class JMCAgent {
 
+    private static final String PROBES_REMOVED_CATEGORY = "ProbesRemoved";
+    private static final String TEMPLATE_APPLIED_CATEGORY = "ProbeTemplateApplied";
+
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
     @Inject S3ProbeTemplateService service;
     @Inject FileSystem fs;
 
+    @Inject EventBus bus;
+
+    @Blocking
     @POST
     @Path("/api/v3/targets/{id}/probes/{probeTemplateName}")
     public Response postProbe(@RestPath long id, @RestPath String probeTemplateName) {
+        logger.info("Did we get here? postProbe");
         try {
-            Target target = Target.find("id", id).singleResult();
+            Target target = Target.getTargetById(id);
             return connectionManager.executeConnectedTask(
                     target,
                     connection -> {
@@ -63,18 +76,40 @@ public class JMCAgent {
                         template.deserialize(
                                 new ByteArrayInputStream(
                                         templateContent.getBytes(StandardCharsets.UTF_8)));
+                        bus.publish(
+                                MessagingServer.class.getName(),
+                                new Notification(
+                                        TEMPLATE_APPLIED_CATEGORY,
+                                        Map.of("probeTemplate", template)));
                         return Response.status(RestResponse.Status.OK).build();
                     });
         } catch (Exception e) {
+            logger.warn("Caught exception" + e.toString(), e);
             throw new BadRequestException(e);
         }
     }
 
+    @Blocking
+    @POST
+    @Path("/api/v2/targets/{connectUrl}/probes/{probeTemplateName}")
+    public Response postProbev2(@RestPath URI connectUrl, @RestPath String probeTemplateName) {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/probes/%s",
+                                        Target.getTargetByConnectUrl(connectUrl).id,
+                                        probeTemplateName)))
+                .build();
+    }
+
+    @Blocking
     @DELETE
     @Path("/api/v3/targets/{id}/probes")
     public Response deleteProbe(@RestPath long id) {
+        logger.info("Did we get here? deleteProbe");
         try {
-            Target target = Target.find("id", id).singleResult();
+            Target target = Target.getTargetById(id);
             return connectionManager.executeConnectedTask(
                     target,
                     connection -> {
@@ -82,18 +117,37 @@ public class JMCAgent {
                         // The convention for removing probes in the agent controller mbean is to
                         // call defineEventProbes with a null argument.
                         helper.defineEventProbes(null);
+                        bus.publish(
+                                MessagingServer.class.getName(),
+                                new Notification(
+                                        PROBES_REMOVED_CATEGORY, Map.of("target", target.id)));
                         return Response.status(RestResponse.Status.OK).build();
                     });
         } catch (Exception e) {
+            logger.warn("Caught exception" + e.toString(), e);
             throw new BadRequestException(e);
         }
     }
 
+    @Blocking
+    @DELETE
+    @Path("/api/v2/targets/{connectUrl}/probes")
+    public Response deleteProbev2(@RestPath URI connectUrl) {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/probes",
+                                        Target.getTargetByConnectUrl(connectUrl).id)))
+                .build();
+    }
+
+    @Blocking
     @GET
     @Path("/api/v3/targets/{id}/probes")
     public List<Event> getProbes(@RestPath long id) {
         try {
-            Target target = Target.find("id", id).singleResult();
+            Target target = Target.getTargetById(id);
             return connectionManager.executeConnectedTask(
                     target,
                     connection -> {
@@ -116,25 +170,75 @@ public class JMCAgent {
                         return response;
                     });
         } catch (Exception e) {
+            logger.warn("Caught exception" + e.toString(), e);
             throw new BadRequestException(e);
         }
     }
 
+    @Blocking
+    @GET
+    @Path("/api/v2/targets/{connectUrl}/probes")
+    public Response getProbesv2(@RestPath URI connectUrl) {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/targets/%d/probes",
+                                        Target.getTargetByConnectUrl(connectUrl).id)))
+                .build();
+    }
+
+    @Blocking
+    @GET
+    @Path("/api/v3/probes")
+    public List<ProbeTemplate> getProbeTemplates() {
+        logger.info("Did we get here? getProbeTemplates");
+        try {
+            return service.getTemplates();
+        } catch (Exception e) {
+            logger.warn("Caught exception" + e.toString(), e);
+            throw new BadRequestException(e);
+        }
+    }
+
+    @Blocking
+    @GET
+    @Path("/api/v2/probes")
+    public Response getProbeTemplatesv2() {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create("/api/v3/probes"))
+                .build();
+    }
+
+    @Blocking
     @DELETE
     @Path("/api/v3/probes/{probeTemplateName}")
     public Response deleteProbeTemplate(@RestPath String probeTemplateName) {
+        logger.info("Did we get here? deleteProbeTemplate");
         try {
             service.deleteTemplate(probeTemplateName);
             return Response.status(RestResponse.Status.OK).build();
         } catch (Exception e) {
+            logger.warn("Caught exception" + e.toString(), e);
             throw new BadRequestException(e);
         }
     }
 
+    @Blocking
+    @DELETE
+    @Path("/api/v2/probes")
+    public Response deleteProbeTemplatesv2(@RestPath String probeTemplateName) {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create(String.format("/api/v3/probes/%s", probeTemplateName)))
+                .build();
+    }
+
+    @Blocking
     @POST
     @Path("/api/v3/probes/{probeTemplateName}")
     public Response uploadProbeTemplate(
             @RestForm("probeTemplate") FileUpload body, @RestPath String probeTemplateName) {
+        logger.info("Did we get here? uploadProbeTemplate");
         if (body == null || body.filePath() == null || !"probeTemplate".equals(body.name())) {
             throw new BadRequestException();
         }
@@ -145,5 +249,15 @@ public class JMCAgent {
             logger.error(e.getMessage(), e);
             throw new BadRequestException(e);
         }
+    }
+
+    @Blocking
+    @POST
+    @Path("/api/v2/probes")
+    public Response postProbeTemplatesv2(
+            @RestForm("probeTemplate") FileUpload body, @RestPath String probeTemplateName) {
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create(String.format("/api/v3/probes/%s", probeTemplateName)))
+                .build();
     }
 }
