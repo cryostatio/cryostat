@@ -211,9 +211,7 @@ public class RecordingHelper {
                 target,
                 conn -> {
                     RecordingOptionsBuilder optionsBuilder =
-                            recordingOptionsBuilderFactory
-                                    .create(conn.getService())
-                                    .name(options.name());
+                            recordingOptionsBuilderFactory.create(target).name(options.name());
                     if (options.duration().isPresent()) {
                         optionsBuilder =
                                 optionsBuilder.duration(
@@ -280,8 +278,7 @@ public class RecordingHelper {
                             String.format("%s-%d", desc.getName().toLowerCase(), desc.getId());
 
                     RecordingOptionsBuilder recordingOptionsBuilder =
-                            recordingOptionsBuilderFactory.create(connection.getService());
-                    recordingOptionsBuilder.name(rename);
+                            recordingOptionsBuilderFactory.create(target);
 
                     connection
                             .getService()
@@ -1146,7 +1143,7 @@ public class RecordingHelper {
         }
     }
 
-    static class SnapshotCreationException extends Exception {
+    public static class SnapshotCreationException extends Exception {
         public SnapshotCreationException(String message) {
             super(message);
         }
