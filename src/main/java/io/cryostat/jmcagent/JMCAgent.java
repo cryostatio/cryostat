@@ -177,12 +177,13 @@ public class JMCAgent {
     @GET
     @Path("/api/v2/targets/{connectUrl}/probes")
     public Response getProbesv2(@RestPath URI connectUrl) {
+        Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(
                         URI.create(
                                 String.format(
                                         "/api/v3/targets/%d/probes",
-                                        Target.getTargetByConnectUrl(connectUrl).id)))
+                                        target.id)))
                 .build();
     }
 
@@ -224,7 +225,7 @@ public class JMCAgent {
 
     @Blocking
     @DELETE
-    @Path("/api/v2/probes")
+    @Path("/api/v2/probes/{probeTemplateName}")
     public Response deleteProbeTemplatesv2(@RestPath String probeTemplateName) {
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(URI.create(String.format("/api/v3/probes/%s", probeTemplateName)))
@@ -250,7 +251,7 @@ public class JMCAgent {
 
     @Blocking
     @POST
-    @Path("/api/v2/probes")
+    @Path("/api/v2/probes/{probeTemplateName}")
     public Response postProbeTemplatev2(
             @RestForm("probeTemplate") FileUpload body, @RestPath String probeTemplateName) {
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
