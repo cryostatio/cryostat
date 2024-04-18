@@ -48,11 +48,11 @@ public class MessagingServer {
 
     private static final String CLIENT_ACTIVITY_CATEGORY = "WsClientActivity";
 
+    @Inject ObjectMapper mapper;
     @Inject Logger logger;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final BlockingQueue<Notification> msgQ;
     private final Set<Session> sessions = new CopyOnWriteArraySet<>();
-    private final ObjectMapper mapper = new ObjectMapper();
     private volatile Future<?> task;
 
     MessagingServer(@ConfigProperty(name = "cryostat.messaging.queue.size") int capacity) {

@@ -270,28 +270,28 @@ jobs:
             body: commentBody
           });
 
-  # compare-graphql-schema:
-  #   needs: [update-schemas]
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     pull-requests: write
-  #   steps:
-  #   - uses: actions/download-artifact@v3
-  #     with:
-  #       name: graphql-diff
-  #   - name: Comment schema check result
-  #     uses: actions/github-script@v6
-  #     with:
-  #       script: |
-  #         const diffFmt = s => {
-  #           return "```diff\n" + s + "\n```";
-  #         };
-  #         const commentBody = ${{ needs.update-schemas.outputs.GRAPHQL_STATUS }} == '0'
-  #           ? `No GraphQL schema changes detected.`
-  #           : `GraphQL schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.GRAPHQL_DIFF_FILE }}'))}`;
-  #         github.rest.issues.createComment({
-  #           issue_number: context.issue.number,
-  #           owner: context.repo.owner,
-  #           repo: context.repo.repo,
-  #           body: commentBody
-  #         });
+  compare-graphql-schema:
+    needs: [update-schemas]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+    - uses: actions/download-artifact@v3
+      with:
+        name: graphql-diff
+    - name: Comment schema check result
+      uses: actions/github-script@v6
+      with:
+        script: |
+          const diffFmt = s => {
+            return "```diff\n" + s + "\n```";
+          };
+          const commentBody = ${{ needs.update-schemas.outputs.GRAPHQL_STATUS }} == '0'
+            ? `No GraphQL schema changes detected.`
+            : `GraphQL schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.GRAPHQL_DIFF_FILE }}'))}`;
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });

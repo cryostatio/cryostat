@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -49,6 +48,7 @@ import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
+import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
@@ -152,29 +152,7 @@ public class Recordings {
     @Path("/api/v1/recordings")
     @RolesAllowed("read")
     public List<ArchivedRecording> listArchivesV1() {
-        var result = new ArrayList<ArchivedRecording>();
-        recordingHelper
-                .listArchivedRecordingObjects()
-                .forEach(
-                        item -> {
-                            String path = item.key().strip();
-                            String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            String filename = parts[1];
-                            Metadata metadata =
-                                    recordingHelper
-                                            .getArchivedRecordingMetadata(jvmId, filename)
-                                            .orElseGet(Metadata::empty);
-                            result.add(
-                                    new ArchivedRecording(
-                                            filename,
-                                            recordingHelper.downloadUrl(jvmId, filename),
-                                            recordingHelper.reportUrl(jvmId, filename),
-                                            metadata,
-                                            item.size(),
-                                            item.lastModified().getEpochSecond()));
-                        });
-        return result;
+        return recordingHelper.listArchivedRecordings();
     }
 
     @POST
@@ -188,6 +166,8 @@ public class Recordings {
         if (rawLabels != null) {
             rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
         }
+        labels.put("jvmId", "uploads");
+        labels.put("connectUrl", "uploads");
         Metadata metadata = new Metadata(labels);
         return doUpload(recording, metadata, "uploads");
     }
@@ -237,6 +217,7 @@ public class Recordings {
                         ArchivedRecordingEvent.Payload.of(
                                 target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
+                                        jvmId,
                                         recording.fileName(),
                                         recordingHelper.downloadUrl(jvmId, recording.fileName()),
                                         recordingHelper.reportUrl(jvmId, recording.fileName()),
@@ -290,6 +271,7 @@ public class Recordings {
                                             .orElseGet(Metadata::empty);
                             result.add(
                                     new ArchivedRecording(
+                                            jvmId,
                                             filename,
                                             recordingHelper.downloadUrl(jvmId, filename),
                                             recordingHelper.reportUrl(jvmId, filename),
@@ -353,6 +335,7 @@ public class Recordings {
                         ArchivedRecordingEvent.Payload.of(
                                 target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
+                                        jvmId,
                                         filename,
                                         recordingHelper.downloadUrl(jvmId, filename),
                                         recordingHelper.reportUrl(jvmId, filename),
@@ -410,6 +393,45 @@ public class Recordings {
                                                             connectUrl, id, new ArrayList<>()));
                             dir.recordings.add(
                                     new ArchivedRecording(
+                                            jvmId,
+                                            filename,
+                                            recordingHelper.downloadUrl(jvmId, filename),
+                                            recordingHelper.reportUrl(jvmId, filename),
+                                            metadata,
+                                            item.size(),
+                                            item.lastModified().getEpochSecond()));
+                        });
+        return map.values();
+    }
+
+    @GET
+    @Blocking
+    @Path("/api/beta/fs/recordings/{jvmId}")
+    @RolesAllowed("read")
+    public Collection<ArchivedRecordingDirectory> listFsArchives(@RestPath String jvmId) {
+        var map = new HashMap<String, ArchivedRecordingDirectory>();
+        recordingHelper
+                .listArchivedRecordingObjects(jvmId)
+                .forEach(
+                        item -> {
+                            String filename = item.key().strip().replace(jvmId + "/", "");
+
+                            Metadata metadata =
+                                    recordingHelper
+                                            .getArchivedRecordingMetadata(jvmId, filename)
+                                            .orElseGet(Metadata::empty);
+
+                            String connectUrl =
+                                    metadata.labels.computeIfAbsent("connectUrl", k -> jvmId);
+                            var dir =
+                                    map.computeIfAbsent(
+                                            jvmId,
+                                            id ->
+                                                    new ArchivedRecordingDirectory(
+                                                            connectUrl, id, new ArrayList<>()));
+                            dir.recordings.add(
+                                    new ArchivedRecording(
+                                            jvmId,
                                             filename,
                                             recordingHelper.downloadUrl(jvmId, filename),
                                             recordingHelper.reportUrl(jvmId, filename),
@@ -458,7 +480,7 @@ public class Recordings {
         ActiveRecording activeRecording = recording.get();
         switch (body.toLowerCase()) {
             case "stop":
-                recordingHelper.stopRecording(activeRecording);
+                recordingHelper.stopRecording(activeRecording).await().indefinitely();
                 return null;
             case "save":
                 try {
@@ -468,7 +490,7 @@ public class Recordings {
                     // completes before sending a response - it should be async. Here we should just
                     // return an Accepted response, and if a failure occurs that should be indicated
                     // as a websocket notification.
-                    return recordingHelper.saveRecording(activeRecording);
+                    return recordingHelper.archiveRecording(activeRecording, null, null).name();
                 } catch (IOException ioe) {
                     logger.warn(ioe);
                     return null;
@@ -507,9 +529,8 @@ public class Recordings {
     @RolesAllowed("write")
     public Uni<Response> createSnapshotV1(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        return connectionManager
-                .executeConnectedTaskUni(
-                        target, connection -> recordingHelper.createSnapshot(target, connection))
+        return recordingHelper
+                .createSnapshot(target)
                 .onItem()
                 .transform(
                         recording ->
@@ -524,9 +545,8 @@ public class Recordings {
     @RolesAllowed("write")
     public Uni<Response> createSnapshotV2(@RestPath URI connectUrl) throws Exception {
         Target target = Target.getTargetByConnectUrl(connectUrl);
-        return connectionManager
-                .executeConnectedTaskUni(
-                        target, connection -> recordingHelper.createSnapshot(target, connection))
+        return recordingHelper
+                .createSnapshot(target)
                 .onItem()
                 .transform(
                         recording ->
@@ -549,9 +569,8 @@ public class Recordings {
     @RolesAllowed("write")
     public Uni<Response> createSnapshot(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
-        return connectionManager
-                .executeConnectedTaskUni(
-                        target, connection -> recordingHelper.createSnapshot(target, connection))
+        return recordingHelper
+                .createSnapshot(target)
                 .onItem()
                 .transform(
                         recording ->
@@ -595,50 +614,32 @@ public class Recordings {
         Template template =
                 recordingHelper.getPreferredTemplate(target, pair.getKey(), pair.getValue());
 
+        Map<String, String> labels = new HashMap<>();
+        if (rawMetadata.isPresent()) {
+            labels.putAll(mapper.readValue(rawMetadata.get(), Metadata.class).labels);
+        }
+        RecordingReplace replacement = RecordingReplace.NEVER;
+        if (replace.isPresent()) {
+            replacement = RecordingReplace.fromString(replace.get());
+        } else if (restart.isPresent()) {
+            replacement = restart.get() ? RecordingReplace.ALWAYS : RecordingReplace.NEVER;
+        }
         ActiveRecording recording =
-                connectionManager.executeConnectedTask(
-                        target,
-                        connection -> {
-                            RecordingOptionsBuilder optionsBuilder =
-                                    recordingOptionsBuilderFactory
-                                            .create(target)
-                                            .name(recordingName);
-                            if (duration.isPresent()) {
-                                optionsBuilder.duration(TimeUnit.SECONDS.toMillis(duration.get()));
-                            }
-                            if (toDisk.isPresent()) {
-                                optionsBuilder.toDisk(toDisk.get());
-                            }
-                            if (maxAge.isPresent()) {
-                                optionsBuilder.maxAge(maxAge.get());
-                            }
-                            if (maxSize.isPresent()) {
-                                optionsBuilder.maxSize(maxSize.get());
-                            }
-                            Map<String, String> labels = new HashMap<>();
-                            if (rawMetadata.isPresent()) {
-                                labels.putAll(
-                                        mapper.readValue(rawMetadata.get(), Metadata.class).labels);
-                            }
-                            RecordingReplace replacement = RecordingReplace.NEVER;
-                            if (replace.isPresent()) {
-                                replacement = RecordingReplace.fromString(replace.get());
-                            } else if (restart.isPresent()) {
-                                replacement =
-                                        restart.get()
-                                                ? RecordingReplace.ALWAYS
-                                                : RecordingReplace.NEVER;
-                            }
-                            IConstrainedMap<String> recordingOptions = optionsBuilder.build();
-                            return recordingHelper.startRecording(
-                                    target,
-                                    recordingOptions,
-                                    template,
-                                    new Metadata(labels),
-                                    archiveOnStop.orElse(false),
-                                    replacement,
-                                    connection);
-                        });
+                recordingHelper
+                        .startRecording(
+                                target,
+                                replacement,
+                                template,
+                                new RecordingOptions(
+                                        recordingName,
+                                        toDisk,
+                                        archiveOnStop,
+                                        duration,
+                                        maxSize,
+                                        maxAge),
+                                labels)
+                        .await()
+                        .atMost(Duration.ofSeconds(10));
 
         return Response.status(Response.Status.CREATED)
                 .entity(recordingHelper.toExternalForm(recording))
@@ -742,6 +743,7 @@ public class Recordings {
                             ArchivedRecordingEvent.Payload.of(
                                     URI.create(connectUrl),
                                     new ArchivedRecording(
+                                            jvmId,
                                             filename,
                                             recordingHelper.downloadUrl(jvmId, filename),
                                             recordingHelper.reportUrl(jvmId, filename),
@@ -791,10 +793,25 @@ public class Recordings {
     }
 
     @POST
+    @Path("/api/beta/recordings/{connectUrl}/{filename}/upload")
+    @RolesAllowed("write")
+    public Response uploadArchivedToGrafanaBeta(
+            @RestPath String connectUrl, @RestPath String filename) throws Exception {
+        var jvmId = Target.getTargetByConnectUrl(URI.create(connectUrl)).jvmId;
+        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(
+                        URI.create(
+                                String.format(
+                                        "/api/v3/grafana/%s",
+                                        recordingHelper.encodedKey(jvmId, filename))))
+                .build();
+    }
+
+    @POST
     @Path("/api/beta/fs/recordings/{jvmId}/{filename}/upload")
     @RolesAllowed("write")
-    public Response uploadArchivedToGrafanaBeta(@RestPath String jvmId, @RestPath String filename)
-            throws Exception {
+    public Response uploadArchivedToGrafanaFromPath(
+            @RestPath String jvmId, @RestPath String filename) throws Exception {
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(
                         URI.create(
@@ -946,8 +963,10 @@ public class Recordings {
 
         String savename = recording.name;
         String filename =
-                recordingHelper.saveRecording(
-                        recording, savename, Instant.now().plus(transientArchivesTtl));
+                recordingHelper
+                        .archiveRecording(
+                                recording, savename, Instant.now().plus(transientArchivesTtl))
+                        .name();
         String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
         if (!savename.endsWith(".jfr")) {
             savename += ".jfr";
@@ -1088,6 +1107,7 @@ public class Recordings {
 
     // TODO include jvmId and filename
     public record ArchivedRecording(
+            String jvmId,
             String name,
             String downloadUrl,
             String reportUrl,
@@ -1095,6 +1115,7 @@ public class Recordings {
             long size,
             long archivedTime) {
         public ArchivedRecording {
+            Objects.requireNonNull(jvmId);
             Objects.requireNonNull(name);
             Objects.requireNonNull(downloadUrl);
             Objects.requireNonNull(reportUrl);
@@ -1144,6 +1165,7 @@ public class Recordings {
     public static final String ACTIVE_RECORDING_DELETED = "ActiveRecordingDeleted";
     public static final String ACTIVE_RECORDING_SAVED = "ActiveRecordingSaved";
     public static final String SNAPSHOT_RECORDING_CREATED = "SnapshotCreated";
+    public static final String RECORDING_METADATA_UPDATED = "RecordingMetadataUpdated";
 
     public enum RecordingEventCategory {
         ACTIVE_CREATED(ACTIVE_RECORDING_CREATED),
@@ -1153,6 +1175,7 @@ public class Recordings {
         ARCHIVED_CREATED(ARCHIVED_RECORDING_CREATED),
         ARCHIVED_DELETED(ARCHIVED_RECORDING_DELETED),
         SNAPSHOT_CREATED(SNAPSHOT_RECORDING_CREATED),
+        METADATA_UPDATED(RECORDING_METADATA_UPDATED),
         ;
 
         private final String category;
