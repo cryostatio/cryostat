@@ -2184,6 +2184,19 @@ paths:
         - SecurityScheme: []
       tags:
         - Reports
+  /api/v3/tls/certs:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                type: array
+          description: OK
+      tags:
+        - Trust Store
   /health:
     get:
       responses:
