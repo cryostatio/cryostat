@@ -200,7 +200,8 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                     RequestBody.fromString(template.serialize()));
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(TEMPLATE_UPLOADED_CATEGORY, Map.of("probeTemplate", template)));
+                    new Notification(
+                            TEMPLATE_UPLOADED_CATEGORY, Map.of("probeTemplate", template)));
             return template;
         }
     }
