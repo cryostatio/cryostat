@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import io.cryostat.V2Response;
 import io.cryostat.core.agent.AgentJMXHelper;
 import io.cryostat.core.agent.Event;
 import io.cryostat.core.agent.ProbeTemplate;
@@ -143,7 +144,7 @@ public class JMCAgent {
     @Blocking
     @GET
     @Path("/api/v3/targets/{id}/probes")
-    public List<Event> getProbes(@RestPath long id) {
+    public V2Response getProbes(@RestPath long id) {
         try {
             Target target = Target.getTargetById(id);
             return connectionManager.executeConnectedTask(
@@ -162,7 +163,7 @@ public class JMCAgent {
                                     result.add(e);
                                 }
                             }
-                            return result;
+                            return V2Response.json(Response.Status.OK, result);
                         } catch (Exception e) {
                             throw new BadRequestException(e);
                         }
@@ -186,11 +187,13 @@ public class JMCAgent {
     @Blocking
     @GET
     @Path("/api/v3/probes")
-    public List<SerializableProbeTemplateInfo> getProbeTemplates() {
+    public V2Response getProbeTemplates() {
         try {
-            return service.getTemplates().stream()
-                    .map(SerializableProbeTemplateInfo::fromProbeTemplate)
-                    .toList();
+            return V2Response.json(
+                    Response.Status.OK,
+                    service.getTemplates().stream()
+                            .map(SerializableProbeTemplateInfo::fromProbeTemplate)
+                            .toList());
         } catch (Exception e) {
             logger.warn("Caught exception" + e.toString(), e);
             throw new BadRequestException(e);
