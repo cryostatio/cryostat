@@ -23,10 +23,6 @@ jobs:
   get-pom-properties:
     runs-on: ubuntu-latest
     steps:
-    - name: Install qemu
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static
     - uses: actions/checkout@v3
       with:
         submodules: true
@@ -56,6 +52,10 @@ jobs:
       contents: read
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
+    - name: Install qemu
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y qemu-user-static
     - uses: actions/checkout@v3
       with:
         submodules: true
@@ -105,7 +105,7 @@ jobs:
       run: ./mvnw -B -U clean verify
       continue-on-error: ${{ matrix.java != '17' }}
     - name: Delete local integration test image
-      run: podman rmi ${{ env.CI_IMG }}:latest ${{ env.CI_IMG }}:dev ${{ env.CI_IMG }}:${{ env.IMAGE_VERSION }}
+      run: podman rmi ${{ env.CI_IMG }}:dev ${{ env.CI_IMG }}:${{ env.IMAGE_VERSION }}
       continue-on-error: true
     - name: Build container images and manifest
       if: ${{ matrix.java == '17' && github.repository_owner == 'cryostatio' }}
