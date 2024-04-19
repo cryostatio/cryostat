@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 
+import javax.management.InstanceNotFoundException;
 import javax.management.remote.JMXServiceURL;
 import javax.security.sasl.SaslException;
 
@@ -200,6 +201,8 @@ public class TargetConnectionManager {
                 .transform(t -> unwrapNestedException(RuntimeException.class, t))
                 .onFailure()
                 .invoke(logger::warn)
+                .onFailure(this::isInstanceNotFoundFailure)
+                .transform(t -> new HttpException(400, t))
                 .onFailure(this::isJmxAuthFailure)
                 .transform(t -> new HttpException(427, t))
                 .onFailure(this::isJmxSslFailure)
@@ -235,6 +238,8 @@ public class TargetConnectionManager {
                 .transform(t -> unwrapNestedException(RuntimeException.class, t))
                 .onFailure()
                 .invoke(logger::warn)
+                .onFailure(this::isInstanceNotFoundFailure)
+                .transform(t -> new HttpException(400, t))
                 .onFailure(this::isJmxAuthFailure)
                 .transform(t -> new HttpException(427, t))
                 .onFailure(this::isJmxSslFailure)
@@ -456,6 +461,15 @@ public class TargetConnectionManager {
         Exception e = (Exception) t;
         return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
                 && ExceptionUtils.indexOfType(e, SocketTimeoutException.class) >= 0;
+    }
+
+    /** Check if the exception happened because an MBean was not found */
+    private boolean isInstanceNotFoundFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
+        return ExceptionUtils.indexOfType(e, InstanceNotFoundException.class) >= 0;
     }
 
     @Name("io.cryostat.targets.TargetConnectionManager.TargetConnectionOpened")
