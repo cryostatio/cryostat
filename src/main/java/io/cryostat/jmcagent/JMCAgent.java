@@ -24,6 +24,7 @@ import java.util.Map;
 
 import io.cryostat.V2Response;
 import io.cryostat.core.agent.AgentJMXHelper;
+import io.cryostat.core.agent.AgentJMXHelper.ProbeDefinitionException;
 import io.cryostat.core.agent.Event;
 import io.cryostat.core.agent.ProbeTemplate;
 import io.cryostat.core.sys.FileSystem;
@@ -84,7 +85,7 @@ public class JMCAgent {
                                             TEMPLATE_APPLIED_CATEGORY,
                                             Map.of("probeTemplate", template.getFileName())));
                             return Response.status(RestResponse.Status.OK).build();
-                        } catch (Exception e) {
+                        } catch (ProbeDefinitionException e) {
                             // Cleanup the probes if something went wrong, calling defineEventProbes
                             // with a null argument will remove any active probes.
                             helper.defineEventProbes(null);
