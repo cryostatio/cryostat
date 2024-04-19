@@ -2098,6 +2098,7 @@ paths:
                   nullable: true
                   type: string
                 restart:
+                  deprecated: true
                   nullable: true
                   type: boolean
                 toDisk:
