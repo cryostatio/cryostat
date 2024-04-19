@@ -17,6 +17,7 @@ package io.cryostat.graphql;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.MBeanMetrics;
@@ -63,6 +64,7 @@ public class TargetNodes {
                 // the one we end up selecting for here.
                 // .filter(distinctWith(t -> t.jvmId))
                 .map(t -> t.discoveryNode)
+                .filter(Objects::nonNull)
                 .filter(n -> filter == null ? true : filter.test(n))
                 .toList();
     }
