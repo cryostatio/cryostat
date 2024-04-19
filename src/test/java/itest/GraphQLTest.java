@@ -110,6 +110,7 @@ class GraphQLTest extends StandardSelfTest {
             assertThat(actualChild.name, is(expectedChildNode.name));
             assertThat(actualChild.nodeType, is(expectedChildNode.nodeType));
         }
+        //
     }
 
     @Disabled
