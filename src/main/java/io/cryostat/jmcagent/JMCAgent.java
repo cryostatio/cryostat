@@ -69,19 +69,24 @@ public class JMCAgent {
             return connectionManager.executeConnectedTask(
                     target,
                     connection -> {
-                        AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
-                        String templateContent = service.getTemplateContent(probeTemplateName);
-                        helper.defineEventProbes(templateContent);
-                        ProbeTemplate template = new ProbeTemplate();
-                        template.deserialize(
-                                new ByteArrayInputStream(
-                                        templateContent.getBytes(StandardCharsets.UTF_8)));
-                        bus.publish(
-                                MessagingServer.class.getName(),
-                                new Notification(
-                                        TEMPLATE_APPLIED_CATEGORY,
-                                        Map.of("probeTemplate", template.getFileName())));
-                        return Response.status(RestResponse.Status.OK).build();
+                        try {
+                            AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
+                            String templateContent = service.getTemplateContent(probeTemplateName);
+                            helper.defineEventProbes(templateContent);
+                            ProbeTemplate template = new ProbeTemplate();
+                            template.deserialize(
+                                    new ByteArrayInputStream(
+                                            templateContent.getBytes(StandardCharsets.UTF_8)));
+                            bus.publish(
+                                    MessagingServer.class.getName(),
+                                    new Notification(
+                                            TEMPLATE_APPLIED_CATEGORY,
+                                            Map.of("probeTemplate", template.getFileName())));
+                            return Response.status(RestResponse.Status.OK).build();
+                        } catch (Exception e) {
+                            return Response.status(RestResponse.Status.INTERNAL_SERVER_ERROR)
+                                    .build();
+                        }
                     });
         } catch (Exception e) {
             logger.warn("Caught exception" + e.toString(), e);
@@ -112,15 +117,21 @@ public class JMCAgent {
             return connectionManager.executeConnectedTask(
                     target,
                     connection -> {
-                        AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
-                        // The convention for removing probes in the agent controller mbean is to
-                        // call defineEventProbes with a null argument.
-                        helper.defineEventProbes(null);
-                        bus.publish(
-                                MessagingServer.class.getName(),
-                                new Notification(
-                                        PROBES_REMOVED_CATEGORY, Map.of("target", target.id)));
-                        return Response.status(RestResponse.Status.OK).build();
+                        try {
+                            AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
+                            // The convention for removing probes in the agent controller mbean is
+                            // to
+                            // call defineEventProbes with a null argument.
+                            helper.defineEventProbes(null);
+                            bus.publish(
+                                    MessagingServer.class.getName(),
+                                    new Notification(
+                                            PROBES_REMOVED_CATEGORY, Map.of("target", target.id)));
+                            return Response.status(RestResponse.Status.OK).build();
+                        } catch (Exception e) {
+                            return Response.status(RestResponse.Status.INTERNAL_SERVER_ERROR)
+                                    .build();
+                        }
                     });
         } catch (Exception e) {
             logger.warn("Caught exception" + e.toString(), e);
