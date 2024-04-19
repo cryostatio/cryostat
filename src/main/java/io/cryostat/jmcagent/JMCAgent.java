@@ -83,7 +83,13 @@ public class JMCAgent {
                                     MessagingServer.class.getName(),
                                     new Notification(
                                             TEMPLATE_APPLIED_CATEGORY,
-                                            Map.of("probeTemplate", template.getFileName())));
+                                            Map.of(
+                                                    "jvmId",
+                                                    target.jvmId,
+                                                    "events",
+                                                    template.getEvents(),
+                                                    "probeTemplate",
+                                                    template.getFileName())));
                             return Response.status(RestResponse.Status.OK).build();
                         } catch (ProbeDefinitionException e) {
                             // Cleanup the probes if something went wrong, calling defineEventProbes
@@ -125,13 +131,13 @@ public class JMCAgent {
                         try {
                             AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
                             // The convention for removing probes in the agent controller mbean is
-                            // to
-                            // call defineEventProbes with a null argument.
+                            // to call defineEventProbes with a null argument.
                             helper.defineEventProbes(null);
                             bus.publish(
                                     MessagingServer.class.getName(),
                                     new Notification(
-                                            PROBES_REMOVED_CATEGORY, Map.of("target", target.id)));
+                                            PROBES_REMOVED_CATEGORY,
+                                            Map.of("jvmId", target.jvmId)));
                             return Response.status(RestResponse.Status.OK).build();
                         } catch (Exception e) {
                             return Response.status(RestResponse.Status.INTERNAL_SERVER_ERROR)
