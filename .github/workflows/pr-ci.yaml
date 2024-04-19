@@ -190,8 +190,8 @@ jobs:
     outputs:
       OPENAPI_STATUS: ${{ steps.schema-update.outputs.openapi_status }}
       OPENAPI_DIFF_FILE: ${{ steps.schema-update.outputs.openapi_diff_file }}
-      # GRAPHQL_STATUS: ${{ steps.schema-update.outputs.graphql_status }}
-      # GRAPHQL_DIFF_FILE: ${{ steps.schema-update.outputs.graphql_diff_file }}
+      GRAPHQL_STATUS: ${{ steps.schema-update.outputs.graphql_status }}
+      GRAPHQL_DIFF_FILE: ${{ steps.schema-update.outputs.graphql_diff_file }}
     steps:
     - uses: actions/checkout@v3
       with:
