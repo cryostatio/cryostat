@@ -351,7 +351,7 @@ public class ActiveRecordings {
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class RecordingMetadata {
-        public @Nullable Map<String, String> labels;
+        public @Nullable Map<String, String> labels = new HashMap<>();
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
