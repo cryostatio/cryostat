@@ -232,9 +232,9 @@ jobs:
         git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml > /home/runner/work/openapi.diff
         echo "openapi_status=$?" >> "$GITHUB_OUTPUT"
         echo "openapi_diff_file=openapi.diff" >> "$GITHUB_OUTPUT"
-        # git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/schema.graphql > /home/runner/work/graphql.diff
-        # echo "graphql_status=$?" >> "$GITHUB_OUTPUT"
-        # echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
+        git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/schema.graphql > /home/runner/work/graphql.diff
+        echo "graphql_status=$?" >> "$GITHUB_OUTPUT"
+        echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
     - uses: actions/upload-artifact@v3
       with:
         name: openapi-diff
