@@ -69,14 +69,15 @@ public class JMCAgent {
             return connectionManager.executeConnectedTask(
                     target,
                     connection -> {
+                        AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
                         try {
-                            AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
-                            String templateContent = service.getTemplateContent(probeTemplateName);
-                            helper.defineEventProbes(templateContent);
                             ProbeTemplate template = new ProbeTemplate();
+                            // Retrieve template and deserialize to validate
+                            String templateContent = service.getTemplateContent(probeTemplateName);
                             template.deserialize(
                                     new ByteArrayInputStream(
                                             templateContent.getBytes(StandardCharsets.UTF_8)));
+                            helper.defineEventProbes(templateContent);
                             bus.publish(
                                     MessagingServer.class.getName(),
                                     new Notification(
@@ -84,6 +85,9 @@ public class JMCAgent {
                                             Map.of("probeTemplate", template.getFileName())));
                             return Response.status(RestResponse.Status.OK).build();
                         } catch (Exception e) {
+                            // Cleanup the probes if something went wrong, calling defineEventProbes
+                            // with a null argument will remove any active probes.
+                            helper.defineEventProbes(null);
                             return Response.status(RestResponse.Status.INTERNAL_SERVER_ERROR)
                                     .build();
                         }
