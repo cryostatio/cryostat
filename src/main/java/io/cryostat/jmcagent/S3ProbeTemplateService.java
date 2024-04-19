@@ -114,7 +114,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
         if (storage.deleteObject(req).sdkHttpResponse().isSuccessful()) {
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(TEMPLATE_DELETED_CATEGORY, Map.of("probeTemplate", template)));
+                    new Notification(TEMPLATE_DELETED_CATEGORY, Map.of("probeTemplate", template.getFileName())));
         }
     }
 
