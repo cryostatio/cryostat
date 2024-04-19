@@ -443,6 +443,7 @@ public class Recordings {
     }
 
     @GET
+    @Transactional
     @Path("/api/v3/targets/{id}/recordings")
     @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
@@ -763,6 +764,7 @@ public class Recordings {
 
     @POST
     @Blocking
+    @Transactional
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}/upload")
     @RolesAllowed("write")
     public Response uploadActiveToGrafanaV1(
@@ -947,10 +949,7 @@ public class Recordings {
     @Path("/api/v3/activedownload/{id}")
     @RolesAllowed("read")
     public Response handleActiveDownload(@RestPath long id) throws Exception {
-        ActiveRecording recording = ActiveRecording.findById(id);
-        if (recording == null) {
-            throw new NotFoundException();
-        }
+        ActiveRecording recording = ActiveRecording.find("id", id).singleResult();
         if (!transientArchivesEnabled) {
             return Response.status(RestResponse.Status.OK)
                     .header(

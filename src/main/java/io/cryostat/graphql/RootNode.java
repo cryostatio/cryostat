@@ -24,6 +24,7 @@ import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
@@ -33,12 +34,14 @@ import org.eclipse.microprofile.graphql.Source;
 @GraphQLApi
 public class RootNode {
 
+    @Blocking
     @Query("rootNode")
     @Description("Get the root target discovery node")
     public DiscoveryNode getRootNode() {
         return DiscoveryNode.getUniverse();
     }
 
+    @Blocking
     @Description(
             "Get target nodes that are descendants of this node. That is, get the set of leaf nodes"
                     + " from anywhere below this node's subtree.")

@@ -31,6 +31,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -109,6 +110,7 @@ public class Reports {
 
     @GET
     @Blocking
+    @Transactional
     @Path("/api/v1/targets/{targetId}/reports/{recordingName}")
     @Produces({MediaType.APPLICATION_JSON})
     @RolesAllowed("read")
@@ -137,10 +139,7 @@ public class Reports {
     @Deprecated(since = "3.0", forRemoval = true)
     public Uni<Map<String, AnalysisResult>> getActive(
             @RestPath long targetId, @RestPath long recordingId) throws Exception {
-        var target = Target.<Target>findById(targetId);
-        if (target == null) {
-            throw new NotFoundException();
-        }
+        var target = Target.getTargetById(targetId);
         var recording = target.getRecordingById(recordingId);
         if (recording == null) {
             throw new NotFoundException();
