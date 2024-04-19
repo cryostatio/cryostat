@@ -147,6 +147,13 @@ public class Target extends PanacheEntity {
         public Annotations() {
             this(new HashMap<>(), new HashMap<>());
         }
+
+        public Map<String, String> merged() {
+            Map<String, String> merged = new HashMap<>();
+            cryostat().entrySet().forEach((e) -> merged.put(e.getKey(), e.getValue()));
+            merged.putAll(platform());
+            return merged;
+        }
     }
 
     @Override
@@ -181,7 +188,7 @@ public class Target extends PanacheEntity {
     }
 
     @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
-    public record TargetDiscovery(EventKind kind, Target serviceRef) {
+    public record TargetDiscovery(EventKind kind, Target serviceRef, String jvmId) {
         public TargetDiscovery {
             Objects.requireNonNull(kind);
             Objects.requireNonNull(serviceRef);
@@ -268,13 +275,18 @@ public class Target extends PanacheEntity {
                     MessagingServer.class.getName(),
                     new Notification(
                             TARGET_JVM_DISCOVERY,
-                            new TargetDiscoveryEvent(new TargetDiscovery(eventKind, target))));
-            bus.publish(TARGET_JVM_DISCOVERY, new TargetDiscovery(eventKind, target));
+                            new TargetDiscoveryEvent(
+                                    new TargetDiscovery(eventKind, target, target.jvmId))));
+            bus.publish(TARGET_JVM_DISCOVERY, new TargetDiscovery(eventKind, target, target.jvmId));
         }
 
         public record TargetDiscoveryEvent(TargetDiscovery event) {
             public TargetDiscoveryEvent {
                 Objects.requireNonNull(event);
+            }
+
+            public String jvmId() {
+                return event.serviceRef().jvmId;
             }
         }
     }

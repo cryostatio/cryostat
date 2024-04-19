@@ -16,10 +16,9 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 
-    <build.os>linux</build.os>
     <build.arch>amd64</build.arch>
 
-    <io.cryostat.core.version>2.30.1</io.cryostat.core.version>
+    <io.cryostat.core.version>2.30.2</io.cryostat.core.version>
 
     <org.apache.commons.codec.version>1.16.1</org.apache.commons.codec.version>
     <org.apache.commons.io.version>2.13.0</org.apache.commons.io.version>
@@ -108,6 +107,10 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-smallrye-openapi</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-smallrye-graphql</artifactId>
     </dependency>
     <dependency>
       <groupId>io.smallrye.reactive</groupId>
@@ -432,7 +435,7 @@
         </property>
       </activation>
       <properties>
-        <io.netty.netty-transport-native-epoll.classifier>${build.os}-x86_64</io.netty.netty-transport-native-epoll.classifier>
+        <io.netty.netty-transport-native-epoll.classifier>linux-x86_64</io.netty.netty-transport-native-epoll.classifier>
         <io.netty.netty-transport-native-epoll.scope>compile</io.netty.netty-transport-native-epoll.scope>
       </properties>
     </profile>
@@ -445,7 +448,7 @@
         </property>
       </activation>
       <properties>
-        <io.netty.netty-transport-native-epoll.classifier>${build.os}-x86_64</io.netty.netty-transport-native-epoll.classifier>
+        <io.netty.netty-transport-native-epoll.classifier>linux-x86_64</io.netty.netty-transport-native-epoll.classifier>
         <io.netty.netty-transport-native-epoll.scope>compile</io.netty.netty-transport-native-epoll.scope>
       </properties>
     </profile>
@@ -458,7 +461,7 @@
         </property>
       </activation>
       <properties>
-        <io.netty.netty-transport-native-epoll.classifier>${build.os}-aarch_64</io.netty.netty-transport-native-epoll.classifier>
+        <io.netty.netty-transport-native-epoll.classifier>linux-aarch_64</io.netty.netty-transport-native-epoll.classifier>
         <io.netty.netty-transport-native-epoll.scope>compile</io.netty.netty-transport-native-epoll.scope>
       </properties>
     </profile>
@@ -490,7 +493,7 @@
         </property>
       </activation>
       <properties>
-        <io.netty.netty-transport-native-epoll.classifier>${build.os}-x86_64</io.netty.netty-transport-native-epoll.classifier>
+        <io.netty.netty-transport-native-epoll.classifier>linux-x86_64</io.netty.netty-transport-native-epoll.classifier>
         <io.netty.netty-transport-native-epoll.scope>provided</io.netty.netty-transport-native-epoll.scope>
       </properties>
       <dependencies>

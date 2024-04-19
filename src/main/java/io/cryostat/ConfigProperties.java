@@ -53,4 +53,6 @@ public class ConfigProperties {
     public static final String STORAGE_TRANSIENT_ARCHIVES_ENABLED =
             "storage.transient-archives.enabled";
     public static final String STORAGE_TRANSIENT_ARCHIVES_TTL = "storage.transient-archives.ttl";
+
+    public static final String SSL_TRUSTSTORE_DIR = "ssl.truststore.dir";
 }
