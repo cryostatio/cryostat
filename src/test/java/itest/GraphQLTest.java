@@ -71,8 +71,6 @@ class GraphQLTest extends StandardSelfTest {
                 "query { environmentNodes(filter: { name: \"Custom Targets\" }) { name nodeType"
                         + " children { name nodeType } } }");
 
-        System.out.println("+++ Query sent: " + query.encodePrettily());
-
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
@@ -110,10 +108,9 @@ class GraphQLTest extends StandardSelfTest {
             assertThat(actualChild.name, is(expectedChildNode.name));
             assertThat(actualChild.nodeType, is(expectedChildNode.nodeType));
         }
-        //
     }
 
-    @Disabled
+    // @Disabled
     @Test
     @Order(1)
     void testOtherContainersFound() throws Exception {
