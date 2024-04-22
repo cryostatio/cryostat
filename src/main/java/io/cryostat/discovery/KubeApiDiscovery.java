@@ -27,7 +27,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 
 import javax.management.remote.JMXServiceURL;
@@ -49,6 +48,7 @@ import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -265,11 +265,12 @@ public class KubeApiDiscovery {
                     target.connectUrl);
             return;
         }
+
         DiscoveryNode targetNode = target.discoveryNode;
 
         DiscoveryNode child = targetNode;
         while (true) {
-            DiscoveryNode parent = targetNode.parent;
+            DiscoveryNode parent = child.parent;
             if (parent == null) {
                 break;
             }
@@ -463,7 +464,7 @@ public class KubeApiDiscovery {
             if (kubeClient == null) {
                 kubeClient =
                         new KubernetesClientBuilder()
-                                .withTaskExecutor(ForkJoinPool.commonPool())
+                                .withTaskExecutor(Infrastructure.getDefaultWorkerPool())
                                 .build();
             }
             return kubeClient;
