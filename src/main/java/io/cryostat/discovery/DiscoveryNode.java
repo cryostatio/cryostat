@@ -116,6 +116,10 @@ public class DiscoveryNode extends PanacheEntity {
         return nodes.stream().filter(predicate).findFirst();
     }
 
+    public static List<DiscoveryNode> findAllByNodeType(NodeType nodeType) {
+        return DiscoveryNode.find(DiscoveryNode.NODE_TYPE, nodeType.getKind()).list();
+    }
+
     public static DiscoveryNode environment(String name, NodeType nodeType) {
         DiscoveryNode node = new DiscoveryNode();
         node.name = name;
