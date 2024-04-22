@@ -218,7 +218,12 @@ public class KubeApiDiscovery {
 
         try {
             List<DiscoveryNode> targetNodes =
-                    DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT);
+                    DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT).stream()
+                            .filter(
+                                    (n) ->
+                                            namespace.equals(
+                                                    n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY)))
+                            .collect(Collectors.toList());
             Map<Target, ObjectReference> targetRefMap = new HashMap<>();
             safeGetInformers().get(namespace).getStore().list().stream()
                     .map((endpoint) -> getTargetTuplesFrom(endpoint))
@@ -549,10 +554,10 @@ public class KubeApiDiscovery {
                                 "",
                                 0,
                                 "/jndi/rmi://" + host + ':' + port.getPort() + "/jmxrmi");
+                URI connectUrl = URI.create(jmxUrl.toString());
 
-                Target target;
                 try {
-                    return Target.getTargetByConnectUrl(URI.create(jmxUrl.toString()));
+                    return Target.getTargetByConnectUrl(connectUrl);
                 } catch (NoResultException e) {
                 }
 
@@ -562,9 +567,9 @@ public class KubeApiDiscovery {
 
                 HasMetadata obj = pair.getLeft();
 
-                target = new Target();
+                Target target = new Target();
                 target.activeRecordings = new ArrayList<>();
-                target.connectUrl = URI.create(jmxUrl.toString());
+                target.connectUrl = connectUrl;
                 target.alias = objRef.getName();
                 target.labels = obj != null ? obj.getMetadata().getLabels() : new HashMap<>();
                 target.annotations = new Annotations();
