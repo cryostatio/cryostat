@@ -245,6 +245,7 @@ public class KubeApiDiscovery {
 
             if (!nsNode.hasChildren()) {
                 realm.children.remove(nsNode);
+                nsNode.parent = null;
             } else if (!realm.children.contains(nsNode)) {
                 realm.children.add(nsNode);
                 nsNode.parent = realm;
@@ -275,6 +276,7 @@ public class KubeApiDiscovery {
             }
 
             parent.children.remove(child);
+            child.parent = null;
             parent.persist();
 
             if (parent.hasChildren()

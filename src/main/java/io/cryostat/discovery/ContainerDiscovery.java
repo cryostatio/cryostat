@@ -177,7 +177,7 @@ public abstract class ContainerDiscovery {
             universe.persist();
         }
 
-        logger.info(String.format("Starting %s client", getRealm()));
+        logger.infov("Starting {0} client", getRealm());
 
         queryContainers();
         this.timerId = vertx.setPeriodic(pollPeriod.toMillis(), unused -> queryContainers());
@@ -187,7 +187,7 @@ public abstract class ContainerDiscovery {
         if (!enabled()) {
             return;
         }
-        logger.info(String.format("Shutting down %s client", getRealm()));
+        logger.infov("Shutting down {0} client", getRealm());
         vertx.cancelTimer(timerId);
     }
 
@@ -396,6 +396,7 @@ public abstract class ContainerDiscovery {
             } else {
                 realm.children.remove(t.discoveryNode);
             }
+            t.discoveryNode.parent = null;
             realm.persist();
             t.delete();
         }

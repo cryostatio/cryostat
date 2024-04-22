@@ -214,6 +214,7 @@ public class CustomDiscovery {
         Target target = Target.find("id", id).singleResult();
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         realm.children.remove(target.discoveryNode);
+        target.discoveryNode = null;
         realm.persist();
         target.delete();
         return Response.noContent().build();
