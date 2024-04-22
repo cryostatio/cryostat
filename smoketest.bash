@@ -16,7 +16,7 @@ PULL_IMAGES=${PULL_IMAGES:-true}
 KEEP_VOLUMES=${KEEP_VOLUMES:-false}
 OPEN_TABS=${OPEN_TABS:-false}
 
-PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-archivedrecordings,archivedreports,eventtemplates}
+PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-archivedrecordings,archivedreports,eventtemplates,probes}
 
 CRYOSTAT_HTTP_HOST=${CRYOSTAT_HTTP_HOST:-cryostat}
 CRYOSTAT_HTTP_PORT=${CRYOSTAT_HTTP_PORT:-8080}

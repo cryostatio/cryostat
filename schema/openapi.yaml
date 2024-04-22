@@ -1318,6 +1318,46 @@ paths:
         - SecurityScheme: []
       tags:
         - Graph QL
+  /api/v2/probes:
+    get:
+      responses:
+        "200":
+          description: OK
+      tags:
+        - JMC Agent
+  /api/v2/probes/{probeTemplateName}:
+    delete:
+      parameters:
+        - in: path
+          name: probeTemplateName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+      tags:
+        - JMC Agent
+    post:
+      parameters:
+        - in: path
+          name: probeTemplateName
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                probeTemplate:
+                  $ref: '#/components/schemas/FileUpload'
+              type: object
+      responses:
+        "200":
+          description: OK
+      tags:
+        - JMC Agent
   /api/v2/rules:
     get:
       responses:
@@ -1595,6 +1635,52 @@ paths:
         - SecurityScheme: []
       tags:
         - Events
+  /api/v2/targets/{connectUrl}/probes:
+    delete:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+      responses:
+        "200":
+          description: OK
+      tags:
+        - JMC Agent
+    get:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+      responses:
+        "200":
+          description: OK
+      tags:
+        - JMC Agent
+  /api/v2/targets/{connectUrl}/probes/{probeTemplateName}:
+    post:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            format: uri
+            type: string
+        - in: path
+          name: probeTemplateName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+      tags:
+        - JMC Agent
   /api/v2/targets/{connectUrl}/snapshot:
     post:
       parameters:
@@ -1799,6 +1885,50 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
+  /api/v3/probes:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+      tags:
+        - JMC Agent
+  /api/v3/probes/{probeTemplateName}:
+    delete:
+      parameters:
+        - in: path
+          name: probeTemplateName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+      tags:
+        - JMC Agent
+    post:
+      parameters:
+        - in: path
+          name: probeTemplateName
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                probeTemplate:
+                  $ref: '#/components/schemas/FileUpload'
+              type: object
+      responses:
+        "200":
+          description: OK
+      tags:
+        - JMC Agent
   /api/v3/reports/{encodedKey}:
     get:
       parameters:
@@ -1972,6 +2102,56 @@ paths:
         - SecurityScheme: []
       tags:
         - Events
+  /api/v3/targets/{id}/probes:
+    delete:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          description: OK
+      tags:
+        - JMC Agent
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+      tags:
+        - JMC Agent
+  /api/v3/targets/{id}/probes/{probeTemplateName}:
+    post:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: path
+          name: probeTemplateName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+      tags:
+        - JMC Agent
   /api/v3/targets/{id}/recordingOptions:
     get:
       parameters:
