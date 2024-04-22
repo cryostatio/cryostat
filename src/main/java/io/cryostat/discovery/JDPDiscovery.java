@@ -74,6 +74,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
             plugin.realm = node;
             plugin.builtin = true;
             universe.children.add(node);
+            node.parent = universe;
             plugin.persist();
             universe.persist();
         }
@@ -143,6 +144,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
 
                 target.discoveryNode = node;
                 realm.children.add(node);
+                node.parent = realm;
                 target.persist();
                 node.persist();
                 realm.persist();

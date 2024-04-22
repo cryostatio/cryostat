@@ -79,9 +79,10 @@ public class DiscoveryNode extends PanacheEntity {
     @Nullable
     public List<DiscoveryNode> children = new ArrayList<>();
 
-    @ManyToOne(cascade = {CascadeType.ALL})
-    @JsonIgnore
+    @Nullable
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parentNode")
+    @JsonIgnore
     public DiscoveryNode parent;
 
     @OneToOne(

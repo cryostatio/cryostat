@@ -172,6 +172,7 @@ public abstract class ContainerDiscovery {
             plugin.realm = node;
             plugin.builtin = true;
             universe.children.add(node);
+            node.parent = universe;
             plugin.persist();
             universe.persist();
         }
@@ -361,7 +362,9 @@ public abstract class ContainerDiscovery {
                         DiscoveryNode.environment(podName, ContainerDiscoveryNodeType.POD);
                 if (!realm.children.contains(pod)) {
                     pod.children.add(node);
+                    node.parent = pod;
                     realm.children.add(pod);
+                    pod.parent = realm;
                 } else {
                     pod =
                             DiscoveryNode.getChild(
@@ -373,10 +376,12 @@ public abstract class ContainerDiscovery {
                                                                     .equals(n.nodeType))
                                     .orElseThrow();
                     pod.children.add(node);
+                    node.parent = pod;
                 }
                 pod.persist();
             } else {
                 realm.children.add(node);
+                node.parent = realm;
             }
             target.persist();
             node.persist();
