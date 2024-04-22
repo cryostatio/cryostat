@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.stream.Collectors;
 
@@ -59,6 +60,7 @@ import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.concurrent.ConcurrentException;
 import org.apache.commons.lang3.concurrent.LazyInitializer;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.commons.lang3.tuple.Triple;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -82,6 +84,11 @@ public class KubeApiDiscovery {
 
     @ConfigProperty(name = "cryostat.discovery.k8s.port-numbers")
     Optional<List<Integer>> JmxPortNumbers;
+
+    private final Map<Triple<String, String, String>, Pair<HasMetadata, DiscoveryNode>>
+            discoveryNodeCache = new ConcurrentHashMap<>();
+    private final Map<Triple<String, String, String>, Object> queryLocks =
+            new ConcurrentHashMap<>();
 
     private final LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>> nsInformers =
             new LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>>() {
@@ -245,6 +252,9 @@ public class KubeApiDiscovery {
             realm.persist();
         } catch (Exception e) {
             logger.warn("Endpoint handler exception", e);
+        } finally {
+            discoveryNodeCache.clear();
+            queryLocks.clear();
         }
     }
 
@@ -296,8 +306,8 @@ public class KubeApiDiscovery {
             // add that to the Namespace
 
             Pair<HasMetadata, DiscoveryNode> pod =
-                    queryForNode(
-                            targetRef.getNamespace(), targetRef.getName(), targetRef.getKind());
+                    discoveryNodeCache.computeIfAbsent(
+                            cacheKey(targetRef.getNamespace(), targetRef), this::queryForNode);
 
             pod.getRight().children.add(targetNode);
             targetNode.parent = pod.getRight();
@@ -349,43 +359,60 @@ public class KubeApiDiscovery {
                         .filter(o -> KubeDiscoveryNodeType.fromKubernetesKind(o.getKind()) != null)
                         .findFirst()
                         .orElse(owners.get(0));
-        return queryForNode(namespace, owner.getName(), owner.getKind());
+        return discoveryNodeCache.computeIfAbsent(cacheKey(namespace, owner), this::queryForNode);
+    }
+
+    private Triple<String, String, String> cacheKey(String ns, OwnerReference resource) {
+        return Triple.of(ns, resource.getKind(), resource.getName());
+    }
+
+    // Unfortunately, ObjectReference and OwnerReference both independently implement getKind and
+    // getName - they don't come from a common base class.
+    private Triple<String, String, String> cacheKey(String ns, ObjectReference resource) {
+        return Triple.of(ns, resource.getKind(), resource.getName());
     }
 
     private Pair<HasMetadata, DiscoveryNode> queryForNode(
-            String namespace, String name, String kind) {
-        KubeDiscoveryNodeType nodeType = KubeDiscoveryNodeType.fromKubernetesKind(kind);
+            Triple<String, String, String> lookupKey) {
+
+        String namespace = lookupKey.getLeft();
+        String name = lookupKey.getRight();
+        KubeDiscoveryNodeType nodeType =
+                KubeDiscoveryNodeType.fromKubernetesKind(lookupKey.getMiddle());
         if (nodeType == null) {
             return null;
         }
 
-        HasMetadata kubeObj =
-                nodeType.getQueryFunction().apply(client()).apply(namespace).apply(name);
+        synchronized (queryLocks.computeIfAbsent(lookupKey, k -> new Object())) {
+            HasMetadata kubeObj =
+                    nodeType.getQueryFunction().apply(client()).apply(namespace).apply(name);
 
-        DiscoveryNode node =
-                DiscoveryNode.getNode(
-                                n -> {
-                                    return name.equals(n.name)
-                                            && namespace.equals(
-                                                    n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY));
-                                })
-                        .orElseGet(
-                                () -> {
-                                    DiscoveryNode newNode = new DiscoveryNode();
-                                    newNode.name = name;
-                                    newNode.nodeType = nodeType.getKind();
-                                    newNode.children = new ArrayList<>();
-                                    newNode.target = null;
-                                    newNode.labels =
-                                            kubeObj != null
-                                                    ? kubeObj.getMetadata().getLabels()
-                                                    : new HashMap<>();
-                                    // Add namespace to label to retrieve node later
-                                    newNode.labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
-                                    return newNode;
-                                });
-
-        return Pair.of(kubeObj, node);
+            DiscoveryNode node =
+                    DiscoveryNode.getNode(
+                                    n -> {
+                                        return name.equals(n.name)
+                                                && namespace.equals(
+                                                        n.labels.get(
+                                                                DISCOVERY_NAMESPACE_LABEL_KEY));
+                                    })
+                            .orElseGet(
+                                    () -> {
+                                        DiscoveryNode newNode = new DiscoveryNode();
+                                        newNode.name = name;
+                                        newNode.nodeType = nodeType.getKind();
+                                        newNode.children = new ArrayList<>();
+                                        newNode.target = null;
+                                        newNode.labels =
+                                                kubeObj != null
+                                                        ? kubeObj.getMetadata().getLabels()
+                                                        : new HashMap<>();
+                                        // Add namespace to label to retrieve node later
+                                        newNode.labels.put(
+                                                DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
+                                        return newNode;
+                                    });
+            return Pair.of(kubeObj, node);
+        }
     }
 
     @ApplicationScoped
@@ -523,7 +550,9 @@ public class KubeApiDiscovery {
                 }
 
                 Pair<HasMetadata, DiscoveryNode> pair =
-                        queryForNode(objRef.getNamespace(), objRef.getName(), objRef.getKind());
+                        discoveryNodeCache.computeIfAbsent(
+                                cacheKey(namespace, objRef), KubeApiDiscovery.this::queryForNode);
+
                 HasMetadata obj = pair.getLeft();
 
                 target = new Target();
