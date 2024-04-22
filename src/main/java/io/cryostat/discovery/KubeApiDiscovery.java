@@ -69,7 +69,6 @@ public class KubeApiDiscovery {
     public static final long ENDPOINTS_INFORMER_RESYNC_PERIOD = Duration.ofSeconds(30).toMillis();
 
     public static final String DISCOVERY_NAMESPACE_LABEL_KEY = "discovery.cryostat.io/namespace";
-    public static final String DISCOVERY_PARENT_LABEL_KEY = "discovery.cryostat.io/parent";
 
     @Inject Logger logger;
 
@@ -131,6 +130,7 @@ public class KubeApiDiscovery {
             plugin.realm = node;
             plugin.builtin = true;
             universe.children.add(node);
+            node.parent = universe;
             plugin.persist();
             universe.persist();
         }
@@ -240,6 +240,7 @@ public class KubeApiDiscovery {
                 realm.children.remove(nsNode);
             } else if (!realm.children.contains(nsNode)) {
                 realm.children.add(nsNode);
+                nsNode.parent = realm;
             }
             realm.persist();
         } catch (Exception e) {
@@ -256,36 +257,22 @@ public class KubeApiDiscovery {
         }
         DiscoveryNode targetNode = target.discoveryNode;
 
-        if (nsNode.children.contains(targetNode)) {
-            nsNode.children.remove(targetNode);
-        } else {
-            final String namespace = nsNode.name;
-            DiscoveryNode child = targetNode;
-            while (true) {
-                String[] parentInfo = child.labels.get(DISCOVERY_PARENT_LABEL_KEY).split("/");
-                Optional<DiscoveryNode> owner =
-                        DiscoveryNode.getNode(
-                                n -> {
-                                    return n.name.equals(parentInfo[1])
-                                            && n.nodeType.equals(parentInfo[0])
-                                            && namespace.equals(
-                                                    n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY));
-                                });
-
-                if (owner.isEmpty()) {
-                    break;
-                }
-                logger.debugv("Found owner {0}", owner.get().name);
-
-                owner.get().children.remove(child);
-                if (owner.get().hasChildren()
-                        || owner.get().nodeType.equals(KubeDiscoveryNodeType.NAMESPACE.getKind())) {
-                    break;
-                }
-
-                child = owner.get();
+        DiscoveryNode child = targetNode;
+        while (true) {
+            DiscoveryNode parent = targetNode.parent;
+            if (parent == null) {
+                break;
             }
+
+            parent.children.remove(child);
+            if (parent.hasChildren()
+                    || parent.nodeType.equals(KubeDiscoveryNodeType.NAMESPACE.getKind())) {
+                break;
+            }
+
+            child = parent;
         }
+
         nsNode.persist();
         target.delete();
     }
@@ -313,12 +300,7 @@ public class KubeApiDiscovery {
                             targetRef.getNamespace(), targetRef.getName(), targetRef.getKind());
 
             pod.getRight().children.add(targetNode);
-            targetNode.labels.put(
-                    DISCOVERY_PARENT_LABEL_KEY,
-                    String.format(
-                            "%s/%s",
-                            pod.getRight().nodeType,
-                            pod.getRight().name)); // Add a reference to parent node
+            targetNode.parent = pod.getRight();
             pod.getRight().persist();
 
             Pair<HasMetadata, DiscoveryNode> child = pod;
@@ -332,30 +314,19 @@ public class KubeApiDiscovery {
                 DiscoveryNode childNode = child.getRight();
 
                 ownerNode.children.add(childNode);
-                childNode.labels.put(
-                        DISCOVERY_PARENT_LABEL_KEY,
-                        String.format(
-                                "%s/%s",
-                                ownerNode.nodeType,
-                                ownerNode.name)); // Add a reference to parent node
-                ownerNode.persist();
+                childNode.parent = ownerNode;
 
+                ownerNode.persist();
                 child = owner;
             }
 
             nsNode.children.add(child.getRight());
-            child.getRight()
-                    .labels
-                    .put(
-                            DISCOVERY_PARENT_LABEL_KEY,
-                            String.format(
-                                    "%s/%s",
-                                    nsNode.nodeType,
-                                    nsNode.name)); // Add a reference to parent node
+            child.getRight().parent = nsNode;
         } else {
             // if the Endpoint points to something else(?) than a Pod, just add the target straight
             // to the Namespace
             nsNode.children.add(targetNode);
+            targetNode.parent = nsNode;
         }
 
         nsNode.persist();

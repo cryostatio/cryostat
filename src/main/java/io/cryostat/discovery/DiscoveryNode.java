@@ -25,6 +25,7 @@ import java.util.function.Predicate;
 
 import io.cryostat.targets.Target;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonView;
@@ -38,6 +39,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PostPersist;
@@ -71,10 +74,15 @@ public class DiscoveryNode extends PanacheEntity {
     @JsonView(Views.Flat.class)
     public Map<String, String> labels = new HashMap<>();
 
-    @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true)
+    @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true, mappedBy = "parent")
     @JsonView(Views.Nested.class)
     @Nullable
     public List<DiscoveryNode> children = new ArrayList<>();
+
+    @ManyToOne
+    @JsonIgnore
+    @JoinColumn(name = "parentNode")
+    public DiscoveryNode parent;
 
     @OneToOne(
             mappedBy = "discoveryNode",
