@@ -231,13 +231,13 @@ public class KubeApiDiscovery {
                     targetNodes.stream().map(node -> node.target).collect(Collectors.toSet());
             Set<Target> observedTargets = targetRefMap.keySet();
 
-            // Add newly added endpoints
+            // Add new targets
             Target.compare(persistedTargets)
                     .to(observedTargets)
                     .added()
                     .forEach((t) -> buildOwnerChain(nsNode, t, targetRefMap.get(t)));
 
-            // Prune deleted endpoints
+            // Prune deleted targets
             Target.compare(persistedTargets)
                     .to(observedTargets)
                     .removed()
@@ -266,16 +266,17 @@ public class KubeApiDiscovery {
             return;
         }
 
-        DiscoveryNode targetNode = target.discoveryNode;
-
-        DiscoveryNode child = targetNode;
+        DiscoveryNode child = target.discoveryNode;
         while (true) {
             DiscoveryNode parent = child.parent;
+
             if (parent == null) {
                 break;
             }
 
             parent.children.remove(child);
+            parent.persist();
+
             if (parent.hasChildren()
                     || parent.nodeType.equals(KubeDiscoveryNodeType.NAMESPACE.getKind())) {
                 break;
@@ -328,6 +329,8 @@ public class KubeApiDiscovery {
                 childNode.parent = ownerNode;
 
                 ownerNode.persist();
+                childNode.persist();
+
                 child = owner;
             }
 
@@ -338,6 +341,7 @@ public class KubeApiDiscovery {
             // to the Namespace
             nsNode.children.add(targetNode);
             targetNode.parent = nsNode;
+            targetNode.persist();
         }
 
         nsNode.persist();

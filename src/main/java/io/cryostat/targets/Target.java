@@ -204,16 +204,16 @@ public class Target extends PanacheEntity {
         }
 
         public Collection<Target> added() {
-            return removeAllUpdatedRefs(addedOrUpdatedRefs(), updated());
+            return removeAllUpdatedRefs(addedOrUpdatedRefs(), updated(false));
         }
 
         public Collection<Target> removed() {
-            return removeAllUpdatedRefs(removedOrUpdatedRefs(), updated());
+            return removeAllUpdatedRefs(removedOrUpdatedRefs(), updated(true));
         }
 
-        public Collection<Target> updated() {
+        public Collection<Target> updated(boolean keepOld) {
             Collection<Target> updated = new HashSet<>();
-            intersection(removedOrUpdatedRefs(), addedOrUpdatedRefs(), false)
+            intersection(removedOrUpdatedRefs(), addedOrUpdatedRefs(), keepOld)
                     .forEach((ref) -> updated.add(ref));
             return updated;
         }

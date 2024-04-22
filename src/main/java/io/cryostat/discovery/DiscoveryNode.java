@@ -79,7 +79,7 @@ public class DiscoveryNode extends PanacheEntity {
     @Nullable
     public List<DiscoveryNode> children = new ArrayList<>();
 
-    @ManyToOne
+    @ManyToOne(cascade = {CascadeType.ALL})
     @JsonIgnore
     @JoinColumn(name = "parentNode")
     public DiscoveryNode parent;
