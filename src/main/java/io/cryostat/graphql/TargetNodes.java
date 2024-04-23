@@ -15,7 +15,9 @@
  */
 package io.cryostat.graphql;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.MBeanMetrics;
@@ -36,6 +38,7 @@ import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.NonNull;
@@ -61,6 +64,7 @@ public class TargetNodes {
                 // the one we end up selecting for here.
                 // .filter(distinctWith(t -> t.jvmId))
                 .map(t -> t.discoveryNode)
+                .filter(Objects::nonNull)
                 .filter(n -> filter == null ? true : filter.test(n))
                 .toList();
     }
@@ -75,11 +79,13 @@ public class TargetNodes {
             @Source Target target, @Nullable ActiveRecordingsFilter filter) {
         var fTarget = Target.<Target>findById(target.id);
         var recordings = new ActiveRecordings();
-        recordings.data =
-                fTarget.activeRecordings.stream()
-                        .filter(r -> filter == null || filter.test(r))
-                        .toList();
-        recordings.aggregate = AggregateInfo.fromActive(recordings.data);
+        if (StringUtils.isNotBlank(fTarget.jvmId)) {
+            recordings.data =
+                    recordingHelper.listActiveRecordings(fTarget).stream()
+                            .filter(r -> filter == null || filter.test(r))
+                            .toList();
+            recordings.aggregate = AggregateInfo.fromActive(recordings.data);
+        }
         return recordings;
     }
 
@@ -88,11 +94,13 @@ public class TargetNodes {
             @Source Target target, @Nullable ArchivedRecordingsFilter filter) {
         var fTarget = Target.<Target>findById(target.id);
         var recordings = new ArchivedRecordings();
-        recordings.data =
-                recordingHelper.listArchivedRecordings(fTarget).stream()
-                        .filter(r -> filter == null || filter.test(r))
-                        .toList();
-        recordings.aggregate = AggregateInfo.fromArchived(recordings.data);
+        if (StringUtils.isNotBlank(fTarget.jvmId)) {
+            recordings.data =
+                    recordingHelper.listArchivedRecordings(fTarget).stream()
+                            .filter(r -> filter == null || filter.test(r))
+                            .toList();
+            recordings.aggregate = AggregateInfo.fromArchived(recordings.data);
+        }
         return recordings;
     }
 
@@ -100,15 +108,17 @@ public class TargetNodes {
     @Description("Get the active and archived recordings belonging to this target")
     public Recordings recordings(@Source Target target, Context context) {
         var fTarget = Target.<Target>findById(target.id);
+        var recordings = new Recordings();
+        if (StringUtils.isBlank(fTarget.jvmId)) {
+            return recordings;
+        }
         var dfe = context.unwrap(DataFetchingEnvironment.class);
         var requestedFields =
                 dfe.getSelectionSet().getFields().stream().map(field -> field.getName()).toList();
 
-        var recordings = new Recordings();
-
         if (requestedFields.contains("active")) {
             recordings.active = new ActiveRecordings();
-            recordings.active.data = fTarget.activeRecordings;
+            recordings.active.data = recordingHelper.listActiveRecordings(fTarget);
             recordings.active.aggregate = AggregateInfo.fromActive(recordings.active.data);
         }
 
@@ -130,20 +140,20 @@ public class TargetNodes {
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class Recordings {
-        public @NonNull ActiveRecordings active;
-        public @NonNull ArchivedRecordings archived;
+        public @NonNull ActiveRecordings active = new ActiveRecordings();
+        public @NonNull ArchivedRecordings archived = new ArchivedRecordings();
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class ActiveRecordings {
-        public @NonNull List<ActiveRecording> data;
-        public @NonNull AggregateInfo aggregate;
+        public @NonNull List<ActiveRecording> data = new ArrayList<>();
+        public @NonNull AggregateInfo aggregate = AggregateInfo.fromActive(data);
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class ArchivedRecordings {
-        public @NonNull List<ArchivedRecording> data;
-        public @NonNull AggregateInfo aggregate;
+        public @NonNull List<ArchivedRecording> data = new ArrayList<>();
+        public @NonNull AggregateInfo aggregate = AggregateInfo.fromArchived(data);
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")

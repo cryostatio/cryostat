@@ -26,6 +26,7 @@ import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.container.ContainerRequestFilter;
 import jakarta.ws.rs.core.MediaType;
@@ -45,7 +46,7 @@ public class JsonRequestFilter implements ContainerRequestFilter {
                     "/api/v3/graphql");
 
     private final Map<String, Pattern> compiledPatterns = new HashMap<>();
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @Inject ObjectMapper objectMapper;
 
     @Override
     public void filter(ContainerRequestContext requestContext) throws IOException {

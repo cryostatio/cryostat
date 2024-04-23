@@ -29,15 +29,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
-import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
 import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
 import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
@@ -47,7 +44,6 @@ import io.cryostat.StorageBuckets;
 import io.cryostat.V2Response;
 import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.RecordingOptionsCustomizer;
-import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
@@ -121,7 +117,6 @@ public class Recordings {
     @Inject StorageBuckets storageBuckets;
     @Inject S3Presigner presigner;
     @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
-    @Inject ScheduledExecutorService scheduler;
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper recordingHelper;
     @Inject Logger logger;
@@ -452,7 +447,9 @@ public class Recordings {
     @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
-        return target.activeRecordings.stream().map(recordingHelper::toExternalForm).toList();
+        return recordingHelper.listActiveRecordings(target).stream()
+                .map(recordingHelper::toExternalForm)
+                .toList();
     }
 
     @GET
@@ -474,7 +471,7 @@ public class Recordings {
             throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         Optional<ActiveRecording> recording =
-                target.activeRecordings.stream()
+                recordingHelper.listActiveRecordings(target).stream()
                         .filter(rec -> rec.remoteId == remoteId)
                         .findFirst();
         if (!recording.isPresent()) {
@@ -513,7 +510,7 @@ public class Recordings {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         Optional<IRecordingDescriptor> recording =
                 connectionManager.executeConnectedTask(
-                        target, conn -> RecordingHelper.getDescriptorByName(conn, recordingName));
+                        target, conn -> recordingHelper.getDescriptorByName(conn, recordingName));
         if (recording.isEmpty()) {
             throw new NotFoundException();
         }
@@ -596,7 +593,7 @@ public class Recordings {
             @RestForm Optional<String> replace,
             // restart param is deprecated, only 'replace' should be used and takes priority if both
             // are provided
-            @RestForm Optional<Boolean> restart,
+            @Deprecated @RestForm Optional<Boolean> restart,
             @RestForm Optional<Long> duration,
             @RestForm Optional<Boolean> toDisk,
             @RestForm Optional<Long> maxAge,
@@ -644,33 +641,9 @@ public class Recordings {
                         .await()
                         .atMost(Duration.ofSeconds(10));
 
-        if (recording.duration > 0) {
-            scheduler.schedule(
-                    () -> stopRecording(recording.id, archiveOnStop.orElse(false)),
-                    recording.duration,
-                    TimeUnit.MILLISECONDS);
-        }
-
         return Response.status(Response.Status.CREATED)
                 .entity(recordingHelper.toExternalForm(recording))
                 .build();
-    }
-
-    @Transactional
-    void stopRecording(long id, boolean archive) {
-        ActiveRecording.<ActiveRecording>findByIdOptional(id)
-                .ifPresent(
-                        recording -> {
-                            try {
-                                recording.state = RecordingState.STOPPED;
-                                recording.persist();
-                                if (archive) {
-                                    recordingHelper.archiveRecording(recording, null, null);
-                                }
-                            } catch (Exception e) {
-                                logger.error("couldn't update recording", e);
-                            }
-                        });
     }
 
     @POST
@@ -700,7 +673,7 @@ public class Recordings {
         }
         Target target = Target.getTargetByConnectUrl(connectUrl);
         long remoteId =
-                target.activeRecordings.stream()
+                recordingHelper.listActiveRecordings(target).stream()
                         .filter(r -> Objects.equals(r.name, recordingName))
                         .findFirst()
                         .map(r -> r.remoteId)
@@ -720,14 +693,11 @@ public class Recordings {
     @RolesAllowed("write")
     public void deleteRecording(@RestPath long targetId, @RestPath long remoteId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
-        target.activeRecordings.stream()
-                .filter(r -> r.remoteId == remoteId)
-                .findFirst()
-                .ifPresentOrElse(
-                        recordingHelper::deleteRecording,
-                        () -> {
-                            throw new NotFoundException();
-                        });
+        var recording = target.getRecordingById(remoteId);
+        if (recording == null) {
+            throw new NotFoundException();
+        }
+        recordingHelper.deleteRecording(recording);
     }
 
     @DELETE
@@ -791,16 +761,6 @@ public class Recordings {
         }
     }
 
-    static void safeCloseRecording(JFRConnection conn, IRecordingDescriptor rec, Logger logger) {
-        try {
-            conn.getService().close(rec);
-        } catch (FlightRecorderException e) {
-            logger.error("Failed to stop remote recording", e);
-        } catch (Exception e) {
-            logger.error("Unexpected exception", e);
-        }
-    }
-
     @POST
     @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}/upload")
@@ -809,7 +769,7 @@ public class Recordings {
             @RestPath URI connectUrl, @RestPath String recordingName) {
         Target target = Target.getTargetByConnectUrl(connectUrl);
         long remoteId =
-                target.activeRecordings.stream()
+                recordingHelper.listActiveRecordings(target).stream()
                         .filter(r -> Objects.equals(r.name, recordingName))
                         .findFirst()
                         .map(r -> r.remoteId)

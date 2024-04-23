@@ -274,6 +274,7 @@ input DiscoveryNodeFilterInput {
   name: String
   names: [String]
   nodeTypes: [String]
+  targetIds: [BigInteger]
 }
 
 input Entry_String_StringInput {

@@ -30,6 +30,7 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -42,11 +43,8 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
-import jakarta.persistence.PreRemove;
-import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -59,7 +57,9 @@ import org.jboss.logging.Logger;
 @EntityListeners(ActiveRecording.Listener.class)
 @Table(
         uniqueConstraints = {
-            @UniqueConstraint(columnNames = {"target_id", "name"}),
+            // remoteId is the unique ID assigned by the JVM to its own recordings, so these IDs are
+            // unique but only within the scope of each JVM. Since they are just sequential numeric
+            // IDs, they will not be unique across different JVMs.
             @UniqueConstraint(columnNames = {"target_id", "remoteId"})
         })
 public class ActiveRecording extends PanacheEntity {
@@ -79,6 +79,12 @@ public class ActiveRecording extends PanacheEntity {
     public boolean toDisk;
     @PositiveOrZero public long maxSize;
     @PositiveOrZero public long maxAge;
+
+    /**
+     * true if the recording was discovered on the Target and must have been created by some
+     * external process (not Cryostat), false if created by Cryostat.
+     */
+    @JsonIgnore public boolean external;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
@@ -145,27 +151,6 @@ public class ActiveRecording extends PanacheEntity {
         this.metadata = metadata;
     }
 
-    @Transactional
-    public static boolean deleteFromTarget(Target target, String recordingName) {
-        Optional<ActiveRecording> recording =
-                target.activeRecordings.stream()
-                        .filter(r -> r.name.equals(recordingName))
-                        .findFirst();
-        boolean found = recording.isPresent();
-        if (found) {
-            Logger.getLogger(ActiveRecording.class)
-                    .debugv("Found and deleting match: {0} / {1}", target.alias, recording.get());
-            recording.get().delete();
-            getEntityManager().flush();
-        } else {
-            Logger.getLogger(ActiveRecording.class)
-                    .debugv(
-                            "No match found for recording {0} in target {1}",
-                            recordingName, target.alias);
-        }
-        return found;
-    }
-
     @ApplicationScoped
     static class Listener {
 
@@ -176,6 +161,9 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
+            if (activeRecording.external) {
+                return;
+            }
             bus.publish(
                     Recordings.RecordingEventCategory.ACTIVE_CREATED.category(), activeRecording);
             notify(
@@ -184,45 +172,11 @@ public class ActiveRecording extends PanacheEntity {
                             ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
         }
 
-        @PreUpdate
-        public void preUpdate(ActiveRecording activeRecording) throws Exception {
-            if (RecordingState.STOPPED.equals(activeRecording.state)) {
-                try {
-                    connectionManager.executeConnectedTask(
-                            activeRecording.target,
-                            conn -> {
-                                RecordingHelper.getDescriptorById(conn, activeRecording.remoteId)
-                                        .ifPresent(
-                                                d -> {
-                                                    // this connection can fail if we are removing
-                                                    // this recording as a cascading operation after
-                                                    // the owner target was lost. It isn't too
-                                                    // important in that case that we are unable to
-                                                    // connect to the target and close the actual
-                                                    // recording, because the target probably went
-                                                    // offline or we otherwise just can't reach it.
-                                                    try {
-                                                        if (!d.getState()
-                                                                .equals(
-                                                                        IRecordingDescriptor
-                                                                                .RecordingState
-                                                                                .STOPPED)) {
-                                                            conn.getService().stop(d);
-                                                        }
-                                                    } catch (Exception e) {
-                                                        throw new RuntimeException(e);
-                                                    }
-                                                });
-                                return null;
-                            });
-                } catch (Exception e) {
-                    logger.error("Failed to stop remote recording", e);
-                }
-            }
-        }
-
         @PostUpdate
         public void postUpdate(ActiveRecording activeRecording) {
+            if (activeRecording.external) {
+                return;
+            }
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 bus.publish(
                         Recordings.RecordingEventCategory.ACTIVE_STOPPED.category(),
@@ -234,37 +188,11 @@ public class ActiveRecording extends PanacheEntity {
             }
         }
 
-        @PreRemove
-        public void preRemove(ActiveRecording activeRecording) throws Exception {
-            try {
-                activeRecording.target.activeRecordings.remove(activeRecording);
-                connectionManager.executeConnectedTask(
-                        activeRecording.target,
-                        conn -> {
-                            // this connection can fail if we are removing this recording as a
-                            // cascading operation after the owner target was lost. It isn't too
-                            // important in that case that we are unable to connect to the target
-                            // and close the actual recording, because the target probably went
-                            // offline or we otherwise just can't reach it.
-                            try {
-                                RecordingHelper.getDescriptor(conn, activeRecording)
-                                        .ifPresent(
-                                                rec ->
-                                                        Recordings.safeCloseRecording(
-                                                                conn, rec, logger));
-                            } catch (Exception e) {
-                                logger.info(e);
-                            }
-                            return null;
-                        });
-            } catch (Exception e) {
-                logger.error(e);
-                throw e;
-            }
-        }
-
         @PostRemove
         public void postRemove(ActiveRecording activeRecording) {
+            if (activeRecording.external) {
+                return;
+            }
             bus.publish(
                     Recordings.RecordingEventCategory.ACTIVE_DELETED.category(), activeRecording);
             notify(

@@ -23,7 +23,6 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -41,6 +40,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.JFRConnectionToolkit;
 import io.cryostat.credentials.Credential;
+import io.cryostat.credentials.CredentialsFinder;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target.EventKind;
@@ -74,7 +74,8 @@ public class TargetConnectionManager {
 
     private final JFRConnectionToolkit jfrConnectionToolkit;
     private final MatchExpressionEvaluator matchExpressionEvaluator;
-    private final AgentConnectionFactory agentConnectionFactory;
+    private final CredentialsFinder credentialsFinder;
+    private final AgentConnection.Factory agentConnectionFactory;
     private final Logger logger;
 
     private final AsyncLoadingCache<URI, JFRConnection> connections;
@@ -93,7 +94,8 @@ public class TargetConnectionManager {
     TargetConnectionManager(
             JFRConnectionToolkit jfrConnectionToolkit,
             MatchExpressionEvaluator matchExpressionEvaluator,
-            AgentConnectionFactory agentConnectionFactory,
+            CredentialsFinder credentialsFinder,
+            AgentConnection.Factory agentConnectionFactory,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_MAX_OPEN) int maxOpen,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_TTL) Duration ttl,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_BACKOFF)
@@ -106,6 +108,7 @@ public class TargetConnectionManager {
         FlightRecorder.register(TargetConnectionClosed.class);
         this.jfrConnectionToolkit = jfrConnectionToolkit;
         this.matchExpressionEvaluator = matchExpressionEvaluator;
+        this.credentialsFinder = credentialsFinder;
         this.agentConnectionFactory = agentConnectionFactory;
         this.failedBackoff = failedBackoff;
         this.failedTimeout = failedTimeout;
@@ -185,39 +188,19 @@ public class TargetConnectionManager {
     }
 
     public <T> Uni<T> executeConnectedTaskUni(Target target, ConnectedTask<T> task) {
-        return Uni.createFrom()
-                .completionStage(connections.get(target.connectUrl))
-                .onItem()
-                .transform(
-                        Unchecked.function(
-                                conn -> {
-                                    synchronized (
-                                            targetLocks.computeIfAbsent(
-                                                    target.connectUrl, k -> new Object())) {
-                                        return task.execute(conn);
-                                    }
-                                }))
-                .onFailure(RuntimeException.class)
-                .transform(t -> unwrapNestedException(RuntimeException.class, t))
-                .onFailure()
-                .invoke(logger::warn)
-                .onFailure(this::isInstanceNotFoundFailure)
-                .transform(t -> new HttpException(400, t))
-                .onFailure(this::isJmxAuthFailure)
-                .transform(t -> new HttpException(427, t))
-                .onFailure(this::isJmxSslFailure)
-                .transform(t -> new HttpException(502, t))
-                .onFailure(this::isServiceTypeFailure)
-                .transform(t -> new HttpException(504, t))
-                .onFailure(
-                        t ->
-                                !(t instanceof HttpException)
-                                        && !(t instanceof SnapshotCreationException))
-                .retry()
-                .withBackOff(failedBackoff)
-                .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())
-                .onFailure(this::isTargetConnectionFailure)
-                .transform(t -> new HttpException(504, t));
+        return executeInternal(
+                Uni.createFrom()
+                        .completionStage(connections.get(target.connectUrl))
+                        .onItem()
+                        .transform(
+                                Unchecked.function(
+                                        conn -> {
+                                            synchronized (
+                                                    targetLocks.computeIfAbsent(
+                                                            target.connectUrl, k -> new Object())) {
+                                                return task.execute(conn);
+                                            }
+                                        })));
     }
 
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
@@ -226,15 +209,20 @@ public class TargetConnectionManager {
 
     public <T> Uni<T> executeDirect(
             Target target, Optional<Credential> credentials, ConnectedTask<T> task) {
-        return Uni.createFrom()
-                .item(
-                        Unchecked.supplier(
-                                () -> {
-                                    try (var conn = connect(target.connectUrl, credentials)) {
-                                        return task.execute(conn);
-                                    }
-                                }))
-                .onFailure(RuntimeException.class)
+        return executeInternal(
+                Uni.createFrom()
+                        .item(
+                                Unchecked.supplier(
+                                        () -> {
+                                            try (var conn =
+                                                    connect(target.connectUrl, credentials)) {
+                                                return task.execute(conn);
+                                            }
+                                        })));
+    }
+
+    private <T> Uni<T> executeInternal(Uni<T> uni) {
+        return uni.onFailure(RuntimeException.class)
                 .transform(t -> unwrapNestedException(RuntimeException.class, t))
                 .onFailure()
                 .invoke(logger::warn)
@@ -271,7 +259,7 @@ public class TargetConnectionManager {
      *     cache, true if it is still active and was refreshed
      */
     public boolean markConnectionInUse(Target target) {
-        return connections.getIfPresent(target.connectUrl) != null;
+        return connections.synchronous().getIfPresent(target.connectUrl) != null;
     }
 
     private void closeConnection(URI connectUrl, JFRConnection connection, RemovalCause cause) {
@@ -312,26 +300,7 @@ public class TargetConnectionManager {
 
     @Transactional
     JFRConnection connect(URI connectUrl) throws Exception {
-        var credentials =
-                Target.find("connectUrl", connectUrl)
-                        .<Target>firstResultOptional()
-                        .map(
-                                t ->
-                                        Credential.<Credential>listAll().stream()
-                                                .filter(
-                                                        c -> {
-                                                            try {
-                                                                return matchExpressionEvaluator
-                                                                        .applies(
-                                                                                c.matchExpression,
-                                                                                t);
-                                                            } catch (ScriptException e) {
-                                                                logger.error(e);
-                                                                return false;
-                                                            }
-                                                        })
-                                                .findFirst()
-                                                .orElse(null));
+        var credentials = credentialsFinder.getCredentialsForConnectUrl(connectUrl);
         return connect(connectUrl, credentials);
     }
 
@@ -343,8 +312,9 @@ public class TargetConnectionManager {
                 semaphore.get().acquire();
             }
 
-            if (Set.of("http", "https", "cryostat-agent").contains(connectUrl.getScheme())) {
-                return agentConnectionFactory.createConnection(connectUrl);
+            if (AgentConnection.isAgentConnection(connectUrl)) {
+                return agentConnectionFactory.createConnection(
+                        Target.getTargetByConnectUrl(connectUrl));
             }
 
             return jfrConnectionToolkit.connect(

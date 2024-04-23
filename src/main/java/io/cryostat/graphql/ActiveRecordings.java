@@ -119,7 +119,7 @@ public class ActiveRecordings {
                                         .map(n -> n.target))
                 .flatMap(
                         t ->
-                                t.activeRecordings.stream()
+                                recordingHelper.listActiveRecordings(t).stream()
                                         .filter(r -> recordings == null || recordings.test(r)))
                 .map(
                         recording -> {
@@ -148,7 +148,7 @@ public class ActiveRecordings {
                                         .map(n -> n.target))
                 .flatMap(
                         t ->
-                                t.activeRecordings.stream()
+                                recordingHelper.listActiveRecordings(t).stream()
                                         .filter(r -> recordings == null || recordings.test(r)))
                 .map(
                         recording -> {
@@ -172,23 +172,16 @@ public class ActiveRecordings {
                     + " the subtrees of the discovery nodes matching the given filter")
     public List<ActiveRecording> deleteRecording(
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings) {
-        var activeRecordings =
-                DiscoveryNode.<DiscoveryNode>listAll().stream()
-                        .filter(nodes)
-                        .flatMap(
-                                node ->
-                                        RootNode.recurseChildren(node, n -> n.target != null)
-                                                .stream()
-                                                .map(n -> n.target))
-                        .flatMap(
-                                t ->
-                                        t.activeRecordings.stream()
-                                                .filter(
-                                                        r ->
-                                                                recordings == null
-                                                                        || recordings.test(r)))
-                        .toList();
-        return activeRecordings.stream()
+        return DiscoveryNode.<DiscoveryNode>listAll().stream()
+                .filter(nodes)
+                .flatMap(
+                        node ->
+                                RootNode.recurseChildren(node, n -> n.target != null).stream()
+                                        .map(n -> n.target))
+                .flatMap(
+                        t ->
+                                recordingHelper.listActiveRecordings(t).stream()
+                                        .filter(r -> recordings == null || recordings.test(r)))
                 .map(
                         recording -> {
                             try {
@@ -261,7 +254,7 @@ public class ActiveRecordings {
     @Blocking
     @Transactional
     @Description("Stop the specified Flight Recording")
-    public Uni<ActiveRecording> doStop(@Source ActiveRecording recording) {
+    public Uni<ActiveRecording> doStop(@Source ActiveRecording recording) throws Exception {
         var ar = ActiveRecording.<ActiveRecording>findById(recording.id);
         return recordingHelper.stopRecording(ar);
     }
@@ -358,7 +351,7 @@ public class ActiveRecordings {
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class RecordingMetadata {
-        public @Nullable Map<String, String> labels;
+        public @Nullable Map<String, String> labels = new HashMap<>();
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
