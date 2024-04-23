@@ -217,7 +217,9 @@ fi
 createJmxTlsCertVolume() {
     "${container_engine}" volume create jmxtls_cfg
     "${container_engine}" container create --name jmxtls_cfg_helper -v jmxtls_cfg:/truststore busybox
-    "${container_engine}" cp "${DIR}/truststore" jmxtls_cfg_helper:/truststore
+    if [ -d "${DIR}/truststore" ]; then
+        "${container_engine}" cp "${DIR}/truststore" jmxtls_cfg_helper:/truststore
+    fi
 }
 createJmxTlsCertVolume
 
