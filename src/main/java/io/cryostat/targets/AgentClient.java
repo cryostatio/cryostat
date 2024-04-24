@@ -39,7 +39,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.MBeanMetrics;
 import io.cryostat.core.serialization.SerializableRecordingDescriptor;
 import io.cryostat.credentials.Credential;
-import io.cryostat.discovery.DiscoveryPlugin;
+import io.cryostat.credentials.CredentialsFinder;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -63,6 +63,7 @@ import jakarta.ws.rs.ForbiddenException;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+import org.apache.hc.client5.http.auth.InvalidCredentialsException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -74,14 +75,20 @@ public class AgentClient {
     private final WebClient webClient;
     private final Duration httpTimeout;
     private final ObjectMapper mapper;
+    private final CredentialsFinder credentialsFinder;
     private final Logger logger = Logger.getLogger(getClass());
 
     private AgentClient(
-            Target target, WebClient webClient, ObjectMapper mapper, Duration httpTimeout) {
+            Target target,
+            WebClient webClient,
+            ObjectMapper mapper,
+            Duration httpTimeout,
+            CredentialsFinder credentialsFinder) {
         this.target = target;
         this.webClient = webClient;
         this.mapper = mapper;
         this.httpTimeout = httpTimeout;
+        this.credentialsFinder = credentialsFinder;
     }
 
     Target getTarget() {
@@ -395,13 +402,20 @@ public class AgentClient {
                         .timeout(httpTimeout.toMillis())
                         .followRedirects(true)
                         .as(codec);
-        Credential credential =
-                DiscoveryPlugin.<DiscoveryPlugin>find("callback", getUri())
-                        .singleResult()
-                        .credential;
-        req =
-                req.authentication(
-                        new UsernamePasswordCredentials(credential.username, credential.password));
+        try {
+            Credential credential =
+                    credentialsFinder.getCredentialsForConnectUrl(getUri()).orElse(null);
+            if (credential == null || credential.username == null || credential.password == null) {
+                throw new InvalidCredentialsException(NULL_CREDENTIALS + " " + getUri());
+            }
+            req =
+                    req.authentication(
+                            new UsernamePasswordCredentials(
+                                    credential.username, credential.password));
+        } catch (InvalidCredentialsException e) {
+            logger.error("Authentication exception", e);
+            throw new IllegalStateException(e);
+        }
 
         Uni<HttpResponse<T>> uni;
         if (payload != null) {
@@ -417,13 +431,14 @@ public class AgentClient {
 
         @Inject ObjectMapper mapper;
         @Inject WebClient webClient;
+        @Inject CredentialsFinder credentialsFinder;
         @Inject Logger logger;
 
         @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
         Duration timeout;
 
         public AgentClient create(Target target) {
-            return new AgentClient(target, webClient, mapper, timeout);
+            return new AgentClient(target, webClient, mapper, timeout, credentialsFinder);
         }
     }
 
