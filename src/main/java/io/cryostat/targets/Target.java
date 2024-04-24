@@ -20,7 +20,9 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -183,6 +185,73 @@ public class Target extends PanacheEntity {
                 && Objects.equals(connectUrl, other.connectUrl)
                 && Objects.equals(jvmId, other.jvmId)
                 && Objects.equals(labels, other.labels);
+    }
+
+    public static Compare compare(Collection<Target> src) {
+        return new Compare(src);
+    }
+
+    public static class Compare {
+        private Collection<Target> previous, current;
+
+        public Compare(Collection<Target> previous) {
+            this.previous = new HashSet<>(previous);
+        }
+
+        public Compare to(Collection<Target> current) {
+            this.current = new HashSet<>(current);
+            return this;
+        }
+
+        public Collection<Target> added() {
+            return removeAllUpdatedRefs(addedOrUpdatedRefs(), updated(false));
+        }
+
+        public Collection<Target> removed() {
+            return removeAllUpdatedRefs(removedOrUpdatedRefs(), updated(true));
+        }
+
+        public Collection<Target> updated(boolean keepOld) {
+            Collection<Target> updated = new HashSet<>();
+            intersection(removedOrUpdatedRefs(), addedOrUpdatedRefs(), keepOld)
+                    .forEach((ref) -> updated.add(ref));
+            return updated;
+        }
+
+        private Collection<Target> addedOrUpdatedRefs() {
+            Collection<Target> added = new HashSet<>(current);
+            added.removeAll(previous);
+            return added;
+        }
+
+        private Collection<Target> removedOrUpdatedRefs() {
+            Collection<Target> removed = new HashSet<>(previous);
+            removed.removeAll(current);
+            return removed;
+        }
+
+        private Collection<Target> removeAllUpdatedRefs(
+                Collection<Target> src, Collection<Target> updated) {
+            Collection<Target> tnSet = new HashSet<>(src);
+            intersection(src, updated, true).stream().forEach((ref) -> tnSet.remove(ref));
+            return tnSet;
+        }
+
+        private Collection<Target> intersection(
+                Collection<Target> src, Collection<Target> other, boolean keepOld) {
+            final Collection<Target> intersection = new HashSet<>();
+
+            // Manual removal since Target also compares jvmId
+            for (Target srcTarget : src) {
+                for (Target otherTarget : other) {
+                    if (Objects.equals(srcTarget.connectUrl, otherTarget.connectUrl)) {
+                        intersection.add(keepOld ? srcTarget : otherTarget);
+                    }
+                }
+            }
+
+            return intersection;
+        }
     }
 
     public enum EventKind {

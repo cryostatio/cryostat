@@ -195,7 +195,6 @@ public class Discovery {
 
         // TODO apply URI range validation to the remote address
         InetAddress remoteAddress = getRemoteAddress(ctx);
-
         URI location;
         DiscoveryPlugin plugin;
         if (StringUtils.isNotBlank(pluginId) && StringUtils.isNotBlank(priorToken)) {
@@ -217,7 +216,7 @@ public class Discovery {
             plugin.callback = callbackUri;
             plugin.realm =
                     DiscoveryNode.environment(
-                            requireNonBlank(realmName, "realm"), DiscoveryNode.REALM);
+                            requireNonBlank(realmName, "realm"), BaseNodeType.REALM);
             plugin.builtin = false;
             plugin.persist();
 

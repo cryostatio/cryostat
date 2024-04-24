@@ -70,10 +70,11 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
         DiscoveryNode universe = DiscoveryNode.getUniverse();
         if (DiscoveryNode.getRealm(REALM).isEmpty()) {
             DiscoveryPlugin plugin = new DiscoveryPlugin();
-            DiscoveryNode node = DiscoveryNode.environment(REALM, DiscoveryNode.REALM);
+            DiscoveryNode node = DiscoveryNode.environment(REALM, BaseNodeType.REALM);
             plugin.realm = node;
             plugin.builtin = true;
             universe.children.add(node);
+            node.parent = universe;
             plugin.persist();
             universe.persist();
         }
@@ -139,10 +140,11 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
                                         "PORT", // "AnnotationKey.PORT,
                                         Integer.toString(rmiTarget.getPort())));
 
-                DiscoveryNode node = DiscoveryNode.target(target);
+                DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
 
                 target.discoveryNode = node;
                 realm.children.add(node);
+                node.parent = realm;
                 target.persist();
                 node.persist();
                 realm.persist();
@@ -150,6 +152,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
             case LOST:
                 Target t = Target.getTargetByConnectUrl(connectUrl);
                 realm.children.remove(t.discoveryNode);
+                t.discoveryNode.parent = null;
                 realm.persist();
                 t.delete();
                 break;

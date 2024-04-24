@@ -78,10 +78,11 @@ public class CustomDiscovery {
         DiscoveryNode universe = DiscoveryNode.getUniverse();
         if (DiscoveryNode.getRealm(REALM).isEmpty()) {
             DiscoveryPlugin plugin = new DiscoveryPlugin();
-            DiscoveryNode node = DiscoveryNode.environment(REALM, DiscoveryNode.REALM);
+            DiscoveryNode node = DiscoveryNode.environment(REALM, BaseNodeType.REALM);
             plugin.realm = node;
             plugin.builtin = true;
             universe.children.add(node);
+            node.parent = universe;
             plugin.persist();
             universe.persist();
         }
@@ -167,11 +168,12 @@ public class CustomDiscovery {
             target.annotations = new Annotations();
             target.annotations.cryostat().putAll(Map.of("REALM", REALM));
 
-            DiscoveryNode node = DiscoveryNode.target(target);
+            DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
             target.discoveryNode = node;
             DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
 
             realm.children.add(node);
+            node.parent = realm;
             target.persist();
             node.persist();
             realm.persist();
@@ -212,6 +214,7 @@ public class CustomDiscovery {
         Target target = Target.find("id", id).singleResult();
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         realm.children.remove(target.discoveryNode);
+        target.discoveryNode.parent = null;
         realm.persist();
         target.delete();
         return Response.noContent().build();

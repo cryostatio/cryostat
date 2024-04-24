@@ -25,6 +25,7 @@ import java.util.function.Predicate;
 
 import io.cryostat.targets.Target;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonView;
@@ -38,6 +39,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PostPersist;
@@ -55,9 +58,6 @@ import org.jboss.logging.Logger;
 public class DiscoveryNode extends PanacheEntity {
 
     public static final String NODE_TYPE = "nodeType";
-    public static final String UNIVERSE = "Universe";
-    public static final String REALM = "Realm";
-    public static final String POD = "Pod";
 
     @Column(unique = false, nullable = false, updatable = false)
     @JsonView(Views.Flat.class)
@@ -74,10 +74,16 @@ public class DiscoveryNode extends PanacheEntity {
     @JsonView(Views.Flat.class)
     public Map<String, String> labels = new HashMap<>();
 
-    @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true)
+    @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true, mappedBy = "parent")
     @JsonView(Views.Nested.class)
     @Nullable
     public List<DiscoveryNode> children = new ArrayList<>();
+
+    @Nullable
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parentNode")
+    @JsonIgnore
+    public DiscoveryNode parent;
 
     @OneToOne(
             mappedBy = "discoveryNode",
@@ -94,10 +100,15 @@ public class DiscoveryNode extends PanacheEntity {
         return Objects.hash(id, name, nodeType, labels, children, target);
     }
 
+    public boolean hasChildren() {
+        return !children.isEmpty();
+    }
+
     public static DiscoveryNode getUniverse() {
-        return DiscoveryNode.find(NODE_TYPE, UNIVERSE)
+        return DiscoveryNode.find(NODE_TYPE, BaseNodeType.UNIVERSE.getKind())
                 .<DiscoveryNode>singleResultOptional()
-                .orElseGet(() -> environment(UNIVERSE, UNIVERSE));
+                .orElseGet(
+                        () -> environment(BaseNodeType.UNIVERSE.toString(), BaseNodeType.UNIVERSE));
     }
 
     public static Optional<DiscoveryNode> getRealm(String name) {
@@ -109,10 +120,19 @@ public class DiscoveryNode extends PanacheEntity {
         return node.children.stream().filter(predicate).findFirst();
     }
 
-    public static DiscoveryNode environment(String name, String nodeType) {
+    public static Optional<DiscoveryNode> getNode(Predicate<DiscoveryNode> predicate) {
+        List<DiscoveryNode> nodes = listAll();
+        return nodes.stream().filter(predicate).findFirst();
+    }
+
+    public static List<DiscoveryNode> findAllByNodeType(NodeType nodeType) {
+        return DiscoveryNode.find(DiscoveryNode.NODE_TYPE, nodeType.getKind()).list();
+    }
+
+    public static DiscoveryNode environment(String name, NodeType nodeType) {
         DiscoveryNode node = new DiscoveryNode();
         node.name = name;
-        node.nodeType = nodeType;
+        node.nodeType = nodeType.getKind();
         node.labels = new HashMap<>();
         node.children = new ArrayList<>();
         node.target = null;
@@ -120,10 +140,10 @@ public class DiscoveryNode extends PanacheEntity {
         return node;
     }
 
-    public static DiscoveryNode target(Target target) {
+    public static DiscoveryNode target(Target target, NodeType nodeType) {
         DiscoveryNode node = new DiscoveryNode();
         node.name = target.connectUrl.toString();
-        node.nodeType = "JVM";
+        node.nodeType = nodeType.getKind();
         node.labels = new HashMap<>(target.labels);
         node.children = null;
         node.target = target;
