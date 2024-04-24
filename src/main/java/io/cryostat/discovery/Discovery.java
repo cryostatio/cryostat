@@ -342,10 +342,8 @@ public class Discovery {
             scheduler.deleteJob(key);
         }
 
-        plugin.realm.delete();
-        plugin.delete();
         getStoredCredential(plugin).ifPresent(Credential::delete);
-        DiscoveryNode.getUniverse().children.remove(plugin.realm);
+        plugin.delete();
         return Map.of(
                 "meta",
                         Map.of(
