@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
@@ -78,10 +79,10 @@ public class KubeApiDiscovery {
     boolean enabled;
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.port-names")
-    List<String> jmxPortNames;
+    Optional<List<String>> jmxPortNames;
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.port-numbers")
-    List<Integer> jmxPortNumbers;
+    Optional<List<Integer>> jmxPortNumbers;
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.resync-period")
     Duration informerResyncPeriod;
@@ -187,7 +188,8 @@ public class KubeApiDiscovery {
     }
 
     private boolean isCompatiblePort(EndpointPort port) {
-        return jmxPortNames.contains(port.getName()) || jmxPortNumbers.contains(port.getPort());
+        return jmxPortNames.orElse(List.of()).contains(port.getName())
+                || jmxPortNumbers.orElse(List.of()).contains(port.getPort());
     }
 
     private List<TargetTuple> getTargetTuplesFrom(Endpoints endpoints) {
@@ -440,7 +442,7 @@ public class KubeApiDiscovery {
         @Inject FileSystem fs;
 
         @ConfigProperty(name = "cryostat.discovery.kubernetes.namespaces")
-        List<String> watchNamespaces;
+        Optional<List<String>> watchNamespaces;
 
         @ConfigProperty(name = "kubernetes.service.host")
         String serviceHost;
@@ -454,7 +456,7 @@ public class KubeApiDiscovery {
                         .build();
 
         Collection<String> getWatchNamespaces() {
-            return watchNamespaces.stream()
+            return watchNamespaces.orElse(List.of()).stream()
                     .map(
                             n -> {
                                 if (OWN_NAMESPACE.equals(n)) {
