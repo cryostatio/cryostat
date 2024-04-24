@@ -33,7 +33,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -42,6 +41,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.json.JsonObject;
@@ -75,7 +75,6 @@ import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
 import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
@@ -340,7 +339,6 @@ public class Discovery {
             scheduler.deleteJob(key);
         }
 
-        getStoredCredential(plugin).ifPresent(Credential::delete);
         plugin.delete();
         return Map.of(
                 "meta",
@@ -381,38 +379,50 @@ public class Discovery {
         @Override
         @Transactional
         @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
-        public void execute(JobExecutionContext context) throws JobExecutionException {
-            DiscoveryPlugin plugin = null;
-            try {
-                boolean refresh = context.getMergedJobDataMap().getBoolean(REFRESH_MAP_KEY);
-                plugin =
-                        DiscoveryPlugin.find(
-                                        "id", context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY))
-                                .singleResult();
-                var cb = PluginCallback.create(plugin);
-                if (refresh) {
-                    cb.refresh();
-                    logger.debugv(
-                            "Refreshed discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
-                } else {
-                    cb.ping();
-                    logger.debugv(
-                            "Retained discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
-                }
-            } catch (Exception e) {
-                if (plugin != null) {
-                    logger.debugv(
-                            e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
-                    plugin.delete();
-                } else {
-                    try {
-                        scheduler.deleteJob(context.getJobDetail().getKey());
-                    } catch (SchedulerException se) {
-                        logger.warn(se);
-                    }
-                }
-                throw new JobExecutionException(e);
-            }
+        public void execute(JobExecutionContext context) {
+            QuarkusTransaction.requiringNew()
+                    .run(
+                            () -> {
+                                DiscoveryPlugin plugin = null;
+                                try {
+                                    boolean refresh =
+                                            context.getMergedJobDataMap()
+                                                    .getBoolean(REFRESH_MAP_KEY);
+                                    plugin =
+                                            DiscoveryPlugin.find(
+                                                            "id",
+                                                            context.getMergedJobDataMap()
+                                                                    .get(PLUGIN_ID_MAP_KEY))
+                                                    .singleResult();
+                                    var cb = PluginCallback.create(plugin);
+                                    if (refresh) {
+                                        cb.refresh();
+                                        logger.debugv(
+                                                "Refreshed discovery plugin: {0} @ {1}",
+                                                plugin.realm, plugin.callback);
+                                    } else {
+                                        cb.ping();
+                                        logger.debugv(
+                                                "Retained discovery plugin: {0} @ {1}",
+                                                plugin.realm, plugin.callback);
+                                    }
+                                } catch (Exception e) {
+                                    if (plugin != null) {
+                                        logger.debugv(
+                                                e,
+                                                "Pruned discovery plugin: {0} @ {1}",
+                                                plugin.realm,
+                                                plugin.callback);
+                                        plugin.delete();
+                                    } else {
+                                        try {
+                                            scheduler.deleteJob(context.getJobDetail().getKey());
+                                        } catch (SchedulerException se) {
+                                            logger.warn(se);
+                                        }
+                                    }
+                                }
+                            });
         }
     }
 
