@@ -77,7 +77,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     public URI callback;
 
     @OneToOne(
-            optional = false,
+            optional = true, // only nullable for builtins
             cascade = {CascadeType.ALL},
             orphanRemoval = true,
             fetch = FetchType.LAZY)
