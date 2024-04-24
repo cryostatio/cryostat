@@ -48,7 +48,7 @@ class MemoryCachingReportsService implements ReportsService {
     @ConfigProperty(name = "quarkus.cache.enabled")
     boolean quarkusCache;
 
-    @ConfigProperty(name = ConfigProperties.MEMORY_CACHE_ENABLED)
+    @ConfigProperty(name = ConfigProperties.REPORTS_MEMORY_CACHE_ENABLED)
     boolean memoryCache;
 
     @Inject
@@ -97,5 +97,15 @@ class MemoryCachingReportsService implements ReportsService {
                     logger.tracev("reportFor {0} cache miss", k);
                     return delegate.reportFor(jvmId, filename);
                 });
+    }
+
+    @Override
+    public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
+        return reportFor(recording, r -> true);
+    }
+
+    @Override
+    public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
+        return reportFor(jvmId, filename, r -> true);
     }
 }

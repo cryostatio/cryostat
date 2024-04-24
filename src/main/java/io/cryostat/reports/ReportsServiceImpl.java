@@ -115,6 +115,16 @@ class ReportsServiceImpl implements ReportsService {
         return Uni.createFrom().future(future);
     }
 
+    @Override
+    public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
+        return reportFor(recording, r -> true);
+    }
+
+    @Override
+    public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
+        return reportFor(jvmId, filename, r -> true);
+    }
+
     private Future<Map<String, AnalysisResult>> process(
             InputStream stream, Predicate<IRule> predicate) {
         return reportGenerator.generateEvalMapInterruptibly(

@@ -46,7 +46,7 @@ import org.jboss.resteasy.reactive.RestResponse;
 @Path("")
 public class Reports {
 
-    @ConfigProperty(name = ConfigProperties.STORAGE_CACHE_ENABLED)
+    @ConfigProperty(name = ConfigProperties.REPORTS_STORAGE_CACHE_ENABLED)
     boolean storageCacheEnabled;
 
     @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_STORAGE_CACHE_NAME)
