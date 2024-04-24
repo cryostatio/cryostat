@@ -410,12 +410,11 @@ public class Discovery {
                 if (plugin != null) {
                     logger.debugv(
                             e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
-                    plugin.realm.delete();
-                    plugin.delete();
                     new DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory(
                                     plugin)
                             .getCredential()
                             .ifPresent(Credential::delete);
+                    plugin.delete();
                 } else {
                     try {
                         scheduler.deleteJob(context.getJobDetail().getKey());
