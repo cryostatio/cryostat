@@ -58,7 +58,6 @@ import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.builder.EqualsBuilder;
 import org.apache.commons.lang3.concurrent.ConcurrentException;
 import org.apache.commons.lang3.concurrent.LazyInitializer;
 import org.apache.commons.lang3.tuple.Pair;
@@ -627,28 +626,6 @@ public class KubeApiDiscovery {
                 logger.warn("Target conversion exception", e);
                 return null;
             }
-        }
-
-        @Override
-        public boolean equals(Object other) {
-            if (other == null) {
-                return false;
-            }
-            if (other == this) {
-                return true;
-            }
-            if (!(other instanceof TargetTuple)) {
-                return false;
-            }
-            TargetTuple sr = (TargetTuple) other;
-            return new EqualsBuilder()
-                    .append(objRef.getApiVersion(), sr.objRef.getApiVersion())
-                    .append(objRef.getKind(), sr.objRef.getKind())
-                    .append(objRef.getNamespace(), sr.objRef.getNamespace())
-                    .append(objRef.getName(), sr.objRef.getName())
-                    .append(addr.getIp(), sr.addr.getIp())
-                    .append(port.getPort(), sr.port.getPort())
-                    .build();
         }
     }
 }
