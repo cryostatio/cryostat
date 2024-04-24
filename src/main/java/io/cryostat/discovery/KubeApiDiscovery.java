@@ -24,9 +24,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import javax.management.remote.JMXServiceURL;
@@ -68,8 +68,6 @@ import org.jboss.logging.Logger;
 public class KubeApiDiscovery {
     public static final String REALM = "KubernetesApi";
 
-    public static final long ENDPOINTS_INFORMER_RESYNC_PERIOD = Duration.ofSeconds(30).toMillis();
-
     public static final String DISCOVERY_NAMESPACE_LABEL_KEY = "discovery.cryostat.io/namespace";
 
     @Inject Logger logger;
@@ -79,11 +77,14 @@ public class KubeApiDiscovery {
     @ConfigProperty(name = "cryostat.discovery.kubernetes.enabled")
     boolean enabled;
 
-    @ConfigProperty(name = "cryostat.discovery.k8s.port-names")
-    Optional<List<String>> JmxPortNames;
+    @ConfigProperty(name = "cryostat.discovery.kubernetes.port-names")
+    List<String> jmxPortNames;
 
-    @ConfigProperty(name = "cryostat.discovery.k8s.port-numbers")
-    Optional<List<Integer>> JmxPortNumbers;
+    @ConfigProperty(name = "cryostat.discovery.kubernetes.port-numbers")
+    List<Integer> jmxPortNumbers;
+
+    @ConfigProperty(name = "cryostat.discovery.kubernetes.resync-period")
+    Duration informerResyncPeriod;
 
     private final Map<Triple<String, String, String>, Pair<HasMetadata, DiscoveryNode>>
             discoveryNodeCache = new ConcurrentHashMap<>();
@@ -109,7 +110,7 @@ public class KubeApiDiscovery {
                                                         .inNamespace(ns)
                                                         .inform(
                                                                 new EndpointsHandler(),
-                                                                ENDPOINTS_INFORMER_RESYNC_PERIOD));
+                                                                informerResyncPeriod.toMillis()));
                                         logger.infov(
                                                 "Started Endpoints SharedInformer for"
                                                         + " namespace \"{0}\"",
@@ -119,9 +120,11 @@ public class KubeApiDiscovery {
                 }
             };
 
+    // Priority is set higher than default 0 such that onStart is called first before onAfterStart
+    // This ensures realm node is persisted before initializing informers
     @Transactional
     void onStart(@Observes @Priority(1) StartupEvent evt) {
-        if (!(enabled())) {
+        if (!enabled()) {
             return;
         }
 
@@ -172,7 +175,7 @@ public class KubeApiDiscovery {
     boolean available() {
         try {
             boolean hasNamespace = StringUtils.isNotBlank(kubeConfig.getOwnNamespace());
-            return kubeConfig.kubeApiAvailable() || hasNamespace;
+            return kubeConfig.kubeApiAvailable() && hasNamespace;
         } catch (Exception e) {
             logger.info(e);
         }
@@ -184,8 +187,7 @@ public class KubeApiDiscovery {
     }
 
     private boolean isCompatiblePort(EndpointPort port) {
-        return JmxPortNames.orElse(List.of()).contains(port.getName())
-                || JmxPortNumbers.orElse(List.of()).contains(port.getPort());
+        return jmxPortNames.contains(port.getName()) || jmxPortNumbers.contains(port.getPort());
     }
 
     private List<TargetTuple> getTargetTuplesFrom(Endpoints endpoints) {
@@ -332,7 +334,9 @@ public class KubeApiDiscovery {
                 DiscoveryNode ownerNode = owner.getRight();
                 DiscoveryNode childNode = child.getRight();
 
-                ownerNode.children.add(childNode);
+                if (!ownerNode.children.contains(childNode)) {
+                    ownerNode.children.add(childNode);
+                }
                 childNode.parent = ownerNode;
 
                 ownerNode.persist();
@@ -402,7 +406,8 @@ public class KubeApiDiscovery {
             DiscoveryNode node =
                     DiscoveryNode.getNode(
                                     n -> {
-                                        return name.equals(n.name)
+                                        return nodeType.getKind().equals(n.nodeType)
+                                                && name.equals(n.name)
                                                 && namespace.equals(
                                                         n.labels.get(
                                                                 DISCOVERY_NAMESPACE_LABEL_KEY));
@@ -429,24 +434,27 @@ public class KubeApiDiscovery {
 
     @ApplicationScoped
     static final class KubeConfig {
-        public static final String KUBERNETES_NAMESPACE_PATH =
-                "/var/run/secrets/kubernetes.io/serviceaccount/namespace";
-
         private static final String OWN_NAMESPACE = ".";
 
         @Inject Logger logger;
         @Inject FileSystem fs;
 
-        @ConfigProperty(name = "cryostat.discovery.k8s.namespaces")
-        Optional<List<String>> watchNamespaces;
+        @ConfigProperty(name = "cryostat.discovery.kubernetes.namespaces")
+        List<String> watchNamespaces;
 
         @ConfigProperty(name = "kubernetes.service.host")
-        Optional<String> serviceHost;
+        String serviceHost;
 
-        private KubernetesClient kubeClient;
+        @ConfigProperty(name = "cryostat.discovery.kubernetes.namespace-path")
+        String namespacePath;
+
+        private final KubernetesClient kubeClient =
+                new KubernetesClientBuilder()
+                        .withTaskExecutor(Infrastructure.getDefaultWorkerPool())
+                        .build();
 
         Collection<String> getWatchNamespaces() {
-            return watchNamespaces.orElse(List.of()).stream()
+            return watchNamespaces.stream()
                     .map(
                             n -> {
                                 if (OWN_NAMESPACE.equals(n)) {
@@ -454,13 +462,13 @@ public class KubeApiDiscovery {
                                 }
                                 return n;
                             })
-                    .filter((n) -> !n.isBlank())
+                    .filter(StringUtils::isNotBlank)
                     .collect(Collectors.toSet());
         }
 
         String getOwnNamespace() {
             try {
-                return fs.readString(Path.of(KUBERNETES_NAMESPACE_PATH));
+                return fs.readString(Path.of(namespacePath));
             } catch (Exception e) {
                 logger.trace(e);
                 return null;
@@ -468,16 +476,10 @@ public class KubeApiDiscovery {
         }
 
         boolean kubeApiAvailable() {
-            return serviceHost.isPresent();
+            return StringUtils.isNotBlank(serviceHost);
         }
 
         KubernetesClient kubeClient() {
-            if (kubeClient == null) {
-                kubeClient =
-                        new KubernetesClientBuilder()
-                                .withTaskExecutor(Infrastructure.getDefaultWorkerPool())
-                                .build();
-            }
             return kubeClient;
         }
     }
@@ -485,7 +487,7 @@ public class KubeApiDiscovery {
     private final class EndpointsHandler implements ResourceEventHandler<Endpoints> {
         @Override
         public void onAdd(Endpoints endpoints) {
-            logger.infov(
+            logger.debugv(
                     "Endpoint {0} created in namespace {1}",
                     endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
             handleEndpointEvent(endpoints.getMetadata().getNamespace());
@@ -493,7 +495,7 @@ public class KubeApiDiscovery {
 
         @Override
         public void onUpdate(Endpoints oldEndpoints, Endpoints newEndpoints) {
-            logger.infov(
+            logger.debugv(
                     "Endpoint {0} modified in namespace {1}",
                     newEndpoints.getMetadata().getName(),
                     newEndpoints.getMetadata().getNamespace());
@@ -502,7 +504,7 @@ public class KubeApiDiscovery {
 
         @Override
         public void onDelete(Endpoints endpoints, boolean deletedFinalStateUnknown) {
-            logger.infov(
+            logger.debugv(
                     "Endpoint {0} deleted in namespace {1}",
                     endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
             if (deletedFinalStateUnknown) {
@@ -557,7 +559,18 @@ public class KubeApiDiscovery {
                 URI connectUrl = URI.create(jmxUrl.toString());
 
                 try {
-                    return Target.getTargetByConnectUrl(connectUrl);
+                    Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
+                    DiscoveryNode targetNode = persistedTarget.discoveryNode;
+                    if (!targetNode.nodeType.equals(KubeDiscoveryNodeType.ENDPOINT.getKind())) {
+                        logger.warnv(
+                                "Expected persisted target with serviceURL {0} to have node type"
+                                        + " {1} but found {2} ",
+                                persistedTarget.connectUrl,
+                                KubeDiscoveryNodeType.ENDPOINT.getKind(),
+                                targetNode.nodeType);
+                        throw new IllegalStateException();
+                    }
+                    return persistedTarget;
                 } catch (NoResultException e) {
                 }
 
@@ -619,5 +632,69 @@ public class KubeApiDiscovery {
                     .append(port.getPort(), sr.port.getPort())
                     .build();
         }
+    }
+}
+
+enum KubeDiscoveryNodeType implements NodeType {
+    NAMESPACE("Namespace"),
+    STATEFULSET(
+            "StatefulSet",
+            c -> ns -> n -> c.apps().statefulSets().inNamespace(ns).withName(n).get()),
+    DAEMONSET("DaemonSet", c -> ns -> n -> c.apps().daemonSets().inNamespace(ns).withName(n).get()),
+    DEPLOYMENT(
+            "Deployment", c -> ns -> n -> c.apps().deployments().inNamespace(ns).withName(n).get()),
+    REPLICASET(
+            "ReplicaSet", c -> ns -> n -> c.apps().replicaSets().inNamespace(ns).withName(n).get()),
+    REPLICATIONCONTROLLER(
+            "ReplicationController",
+            c -> ns -> n -> c.replicationControllers().inNamespace(ns).withName(n).get()),
+    POD("Pod", c -> ns -> n -> c.pods().inNamespace(ns).withName(n).get()),
+    ENDPOINT("Endpoint", c -> ns -> n -> c.endpoints().inNamespace(ns).withName(n).get()),
+    // OpenShift resources
+    DEPLOYMENTCONFIG("DeploymentConfig"),
+    ;
+
+    private final String kubernetesKind;
+    private final transient Function<
+                    KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
+            getFn;
+
+    KubeDiscoveryNodeType(String kubernetesKind) {
+        this(kubernetesKind, client -> namespace -> name -> null);
+    }
+
+    KubeDiscoveryNodeType(
+            String kubernetesKind,
+            Function<KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
+                    getFn) {
+        this.kubernetesKind = kubernetesKind;
+        this.getFn = getFn;
+    }
+
+    @Override
+    public String getKind() {
+        return kubernetesKind;
+    }
+
+    public Function<KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
+            getQueryFunction() {
+        return getFn;
+    }
+
+    public static KubeDiscoveryNodeType fromKubernetesKind(String kubernetesKind) {
+        if (kubernetesKind == null) {
+            return null;
+        }
+        for (KubeDiscoveryNodeType nt : values()) {
+            if (kubernetesKind.equalsIgnoreCase(nt.kubernetesKind)) {
+                return nt;
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public String toString() {
+        return getKind();
     }
 }

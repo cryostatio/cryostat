@@ -431,3 +431,25 @@ public abstract class ContainerDiscovery {
 
     static record Config(String Hostname) {}
 }
+
+enum ContainerDiscoveryNodeType implements NodeType {
+    // represents a container pod managed by Podman
+    POD("Pod"),
+    ;
+
+    private final String kind;
+
+    ContainerDiscoveryNodeType(String kind) {
+        this.kind = kind;
+    }
+
+    @Override
+    public String getKind() {
+        return kind;
+    }
+
+    @Override
+    public String toString() {
+        return getKind();
+    }
+}
