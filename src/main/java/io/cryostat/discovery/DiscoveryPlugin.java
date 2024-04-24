@@ -81,7 +81,6 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             cascade = {CascadeType.ALL},
             orphanRemoval = true,
             fetch = FetchType.LAZY)
-    @NotNull
     public Credential credential;
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
