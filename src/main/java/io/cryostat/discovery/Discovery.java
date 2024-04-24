@@ -30,7 +30,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -297,15 +296,14 @@ public class Discovery {
         jwtValidator.validateJwt(ctx, plugin, token, true);
         plugin.realm.children.clear();
         plugin.realm.children.addAll(body);
-        body.forEach(
-                b -> {
-                    if (b.target != null) {
-                        b.target.discoveryNode = b;
-                        b.target.discoveryNode.parent = plugin.realm;
-                        b.parent = plugin.realm;
-                    }
-                    b.persist();
-                });
+        for (var b : body) {
+            if (b.target != null) {
+                b.target.discoveryNode = b;
+                b.target.discoveryNode.parent = plugin.realm;
+                b.parent = plugin.realm;
+            }
+            b.persist();
+        }
         plugin.persist();
 
         return Map.of(
@@ -376,11 +374,6 @@ public class Discovery {
         return DiscoveryPlugin.find("id", id).singleResult();
     }
 
-    Optional<Credential> getStoredCredential(DiscoveryPlugin plugin) {
-        return new DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory(plugin)
-                .getCredential();
-    }
-
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;
         @Inject Scheduler scheduler;
@@ -410,10 +403,6 @@ public class Discovery {
                 if (plugin != null) {
                     logger.debugv(
                             e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
-                    new DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory(
-                                    plugin)
-                            .getCredential()
-                            .ifPresent(Credential::delete);
                     plugin.delete();
                 } else {
                     try {
