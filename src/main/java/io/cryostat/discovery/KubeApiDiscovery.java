@@ -461,7 +461,7 @@ public class KubeApiDiscovery {
         Optional<List<String>> watchNamespaces;
 
         @ConfigProperty(name = "kubernetes.service.host")
-        String serviceHost;
+        Optional<String> serviceHost;
 
         @ConfigProperty(name = "cryostat.discovery.kubernetes.namespace-path")
         String namespacePath;
@@ -494,7 +494,7 @@ public class KubeApiDiscovery {
         }
 
         boolean kubeApiAvailable() {
-            return StringUtils.isNotBlank(serviceHost);
+            return StringUtils.isNotBlank(serviceHost.orElse(""));
         }
 
         KubernetesClient kubeClient() {
