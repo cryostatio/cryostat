@@ -63,6 +63,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -191,19 +192,6 @@ public class Discovery {
         String realmName = body.getString("realm");
         URI callbackUri = new URI(body.getString("callback"));
 
-        DiscoveryPlugin.<DiscoveryPlugin>find("callback", callbackUri)
-                .singleResultOptional()
-                .ifPresent(
-                        plugin -> {
-                            try {
-                                var cb = PluginCallback.create(plugin);
-                                cb.ping();
-                            } catch (Exception e) {
-                                logger.error(e);
-                                plugin.delete();
-                            }
-                        });
-
         // TODO apply URI range validation to the remote address
         InetAddress remoteAddress = getRemoteAddress(ctx);
         URI location;
@@ -222,6 +210,28 @@ public class Discovery {
             location = jwtFactory.getPluginLocation(plugin);
             jwtFactory.parseDiscoveryPluginJwt(plugin, priorToken, location, remoteAddress, false);
         } else {
+            // check if a plugin record with the same callback already exists. If it does, ping it:
+            // if it's still there reject this request as a duplicate, otherwise delete the previous
+            // record and accept this new one as a replacement
+            URI unauthCallback = UriBuilder.fromUri(callbackUri).userInfo(null).build();
+            DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
+                    .singleResultOptional()
+                    .ifPresent(
+                            p -> {
+                                try {
+                                    var cb = PluginCallback.create(p);
+                                    cb.ping();
+                                    throw new IllegalArgumentException(
+                                            String.format(
+                                                    "Plugin with callback %s already exists and is"
+                                                            + " still reachable",
+                                                    unauthCallback));
+                                } catch (Exception e) {
+                                    logger.error(e);
+                                    p.delete();
+                                }
+                            });
+
             // new plugin registration
             plugin = new DiscoveryPlugin();
             plugin.callback = callbackUri;
