@@ -383,6 +383,7 @@ public class Discovery {
 
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;
+        @Inject Scheduler scheduler;
 
         @Override
         @Transactional
@@ -415,6 +416,12 @@ public class Discovery {
                                     plugin)
                             .getCredential()
                             .ifPresent(Credential::delete);
+                } else {
+                    try {
+                        scheduler.deleteJob(context.getJobDetail().getKey());
+                    } catch (SchedulerException se) {
+                        logger.warn(se);
+                    }
                 }
                 throw new JobExecutionException(e);
             }
