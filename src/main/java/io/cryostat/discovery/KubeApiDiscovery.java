@@ -47,6 +47,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -211,61 +212,76 @@ public class KubeApiDiscovery {
         return informers;
     }
 
-    @Transactional
     public void handleEndpointEvent(String namespace) {
-        DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
-        DiscoveryNode nsNode =
-                DiscoveryNode.getChild(realm, n -> n.name.equals(namespace))
-                        .orElse(
-                                DiscoveryNode.environment(
-                                        namespace, KubeDiscoveryNodeType.NAMESPACE));
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () -> {
+                            DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
+                            DiscoveryNode nsNode =
+                                    DiscoveryNode.getChild(realm, n -> n.name.equals(namespace))
+                                            .orElse(
+                                                    DiscoveryNode.environment(
+                                                            namespace,
+                                                            KubeDiscoveryNodeType.NAMESPACE));
 
-        try {
-            List<DiscoveryNode> targetNodes =
-                    DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT).stream()
-                            .filter(
-                                    (n) ->
-                                            namespace.equals(
-                                                    n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY)))
-                            .collect(Collectors.toList());
-            Map<Target, ObjectReference> targetRefMap = new HashMap<>();
-            safeGetInformers().get(namespace).getStore().list().stream()
-                    .map((endpoint) -> getTargetTuplesFrom(endpoint))
-                    .flatMap(List::stream)
-                    .filter((tuple) -> Objects.nonNull(tuple.objRef))
-                    .collect(Collectors.toList())
-                    .forEach((tuple) -> targetRefMap.put(tuple.toTarget(), tuple.objRef));
+                            try {
+                                List<DiscoveryNode> targetNodes =
+                                        DiscoveryNode.findAllByNodeType(
+                                                        KubeDiscoveryNodeType.ENDPOINT)
+                                                .stream()
+                                                .filter(
+                                                        (n) ->
+                                                                namespace.equals(
+                                                                        n.labels.get(
+                                                                                DISCOVERY_NAMESPACE_LABEL_KEY)))
+                                                .collect(Collectors.toList());
+                                Map<Target, ObjectReference> targetRefMap = new HashMap<>();
+                                safeGetInformers().get(namespace).getStore().list().stream()
+                                        .map((endpoint) -> getTargetTuplesFrom(endpoint))
+                                        .flatMap(List::stream)
+                                        .filter((tuple) -> Objects.nonNull(tuple.objRef))
+                                        .collect(Collectors.toList())
+                                        .forEach(
+                                                (tuple) ->
+                                                        targetRefMap.put(
+                                                                tuple.toTarget(), tuple.objRef));
 
-            Set<Target> persistedTargets =
-                    targetNodes.stream().map(node -> node.target).collect(Collectors.toSet());
-            Set<Target> observedTargets = targetRefMap.keySet();
+                                Set<Target> persistedTargets =
+                                        targetNodes.stream()
+                                                .map(node -> node.target)
+                                                .collect(Collectors.toSet());
+                                Set<Target> observedTargets = targetRefMap.keySet();
 
-            // Add new targets
-            Target.compare(persistedTargets)
-                    .to(observedTargets)
-                    .added()
-                    .forEach((t) -> buildOwnerChain(nsNode, t, targetRefMap.get(t)));
+                                // Add new targets
+                                Target.compare(persistedTargets)
+                                        .to(observedTargets)
+                                        .added()
+                                        .forEach(
+                                                (t) ->
+                                                        buildOwnerChain(
+                                                                nsNode, t, targetRefMap.get(t)));
 
-            // Prune deleted targets
-            Target.compare(persistedTargets)
-                    .to(observedTargets)
-                    .removed()
-                    .forEach((t) -> pruneOwnerChain(nsNode, t));
+                                // Prune deleted targets
+                                Target.compare(persistedTargets)
+                                        .to(observedTargets)
+                                        .removed()
+                                        .forEach((t) -> pruneOwnerChain(nsNode, t));
 
-            if (!nsNode.hasChildren()) {
-                realm.children.remove(nsNode);
-                nsNode.parent = null;
-            } else if (!realm.children.contains(nsNode)) {
-                realm.children.add(nsNode);
-                nsNode.parent = realm;
-            }
-            realm.persist();
-        } catch (Exception e) {
-            logger.warn("Endpoint handler exception", e);
-        } finally {
-            discoveryNodeCache.clear();
-            queryLocks.clear();
-        }
+                                if (!nsNode.hasChildren()) {
+                                    realm.children.remove(nsNode);
+                                    nsNode.parent = null;
+                                } else if (!realm.children.contains(nsNode)) {
+                                    realm.children.add(nsNode);
+                                    nsNode.parent = realm;
+                                }
+                                realm.persist();
+                            } catch (Exception e) {
+                                logger.warn("Endpoint handler exception", e);
+                            } finally {
+                                discoveryNodeCache.clear();
+                                queryLocks.clear();
+                            }
+                        });
     }
 
     private void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
