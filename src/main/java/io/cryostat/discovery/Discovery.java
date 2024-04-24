@@ -191,6 +191,19 @@ public class Discovery {
         String realmName = body.getString("realm");
         URI callbackUri = new URI(body.getString("callback"));
 
+        DiscoveryPlugin.<DiscoveryPlugin>find("callback", callbackUri)
+                .singleResultOptional()
+                .ifPresent(
+                        plugin -> {
+                            try {
+                                var cb = PluginCallback.create(plugin);
+                                cb.ping();
+                            } catch (Exception e) {
+                                logger.error(e);
+                                plugin.delete();
+                            }
+                        });
+
         // TODO apply URI range validation to the remote address
         InetAddress remoteAddress = getRemoteAddress(ctx);
         URI location;
