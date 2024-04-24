@@ -36,8 +36,8 @@ import graphql.schema.DataFetchingEnvironment;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
-import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
@@ -75,9 +75,10 @@ public class TargetNodes {
     // }
 
     @Blocking
+    @Transactional
     public ActiveRecordings activeRecordings(
             @Source Target target, @Nullable ActiveRecordingsFilter filter) {
-        var fTarget = Target.<Target>findById(target.id);
+        var fTarget = Target.getTargetById(target.id);
         var recordings = new ActiveRecordings();
         if (StringUtils.isNotBlank(fTarget.jvmId)) {
             recordings.data =
@@ -92,7 +93,7 @@ public class TargetNodes {
     @Blocking
     public ArchivedRecordings archivedRecordings(
             @Source Target target, @Nullable ArchivedRecordingsFilter filter) {
-        var fTarget = Target.<Target>findById(target.id);
+        var fTarget = Target.getTargetById(target.id);
         var recordings = new ArchivedRecordings();
         if (StringUtils.isNotBlank(fTarget.jvmId)) {
             recordings.data =
@@ -105,9 +106,10 @@ public class TargetNodes {
     }
 
     @Blocking
+    @Transactional
     @Description("Get the active and archived recordings belonging to this target")
     public Recordings recordings(@Source Target target, Context context) {
-        var fTarget = Target.<Target>findById(target.id);
+        var fTarget = Target.getTargetById(target.id);
         var recordings = new Recordings();
         if (StringUtils.isBlank(fTarget.jvmId)) {
             return recordings;
@@ -133,9 +135,9 @@ public class TargetNodes {
 
     @Blocking
     @Description("Get live MBean metrics snapshot from the specified Target")
-    public Uni<MBeanMetrics> mbeanMetrics(@Source Target target) {
-        var fTarget = Target.<Target>findById(target.id);
-        return connectionManager.executeConnectedTaskUni(fTarget, JFRConnection::getMBeanMetrics);
+    public MBeanMetrics mbeanMetrics(@Source Target target) {
+        var fTarget = Target.getTargetById(target.id);
+        return connectionManager.executeConnectedTask(fTarget, JFRConnection::getMBeanMetrics);
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")

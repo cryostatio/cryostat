@@ -78,6 +78,7 @@ public class ArchivedRecordings {
         return recording;
     }
 
+    @Blocking
     @NonNull
     public ArchivedRecording doPutMetadata(
             @Source ArchivedRecording recording, MetadataLabels metadataInput) {

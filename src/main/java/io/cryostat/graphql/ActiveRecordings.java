@@ -26,6 +26,7 @@ import java.util.function.Predicate;
 
 import org.openjdk.jmc.common.unit.QuantityConversionException;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.discovery.DiscoveryNode;
@@ -44,10 +45,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Nullable;
 import io.smallrye.graphql.execution.ExecutionException;
-import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.Mutation;
@@ -60,6 +61,9 @@ public class ActiveRecordings {
 
     @Inject RecordingHelper recordingHelper;
     @Inject Logger logger;
+
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration timeout;
 
     @Blocking
     @Transactional
@@ -226,53 +230,55 @@ public class ActiveRecordings {
     @Blocking
     @Transactional
     @Description("Start a new Flight Recording on the specified Target")
-    public Uni<ActiveRecording> doStartRecording(
+    public ActiveRecording doStartRecording(
             @Source Target target, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
-        var fTarget = Target.<Target>findById(target.id);
+        var fTarget = Target.getTargetById(target.id);
         Template template =
                 recordingHelper.getPreferredTemplate(
                         fTarget, recording.template, TemplateType.valueOf(recording.templateType));
-        return recordingHelper.startRecording(
-                fTarget,
-                Optional.ofNullable(recording.replace)
-                        .map(RecordingReplace::valueOf)
-                        .orElse(RecordingReplace.STOPPED),
-                template,
-                recording.asOptions(),
-                Optional.ofNullable(recording.metadata).map(s -> s.labels).orElse(Map.of()));
+        return recordingHelper
+                .startRecording(
+                        fTarget,
+                        Optional.ofNullable(recording.replace)
+                                .map(RecordingReplace::valueOf)
+                                .orElse(RecordingReplace.STOPPED),
+                        template,
+                        recording.asOptions(),
+                        Optional.ofNullable(recording.metadata).map(s -> s.labels).orElse(Map.of()))
+                .await()
+                .atMost(timeout);
     }
 
     @Blocking
     @Transactional
     @Description("Create a new Flight Recorder Snapshot on the specified Target")
-    public Uni<ActiveRecording> doSnapshot(@Source Target target) {
-        var fTarget = Target.<Target>findById(target.id);
-        return recordingHelper.createSnapshot(fTarget);
+    public ActiveRecording doSnapshot(@Source Target target) {
+        var fTarget = Target.getTargetById(target.id);
+        return recordingHelper.createSnapshot(fTarget).await().atMost(timeout);
     }
 
     @Blocking
     @Transactional
     @Description("Stop the specified Flight Recording")
-    public Uni<ActiveRecording> doStop(@Source ActiveRecording recording) throws Exception {
-        var ar = ActiveRecording.<ActiveRecording>findById(recording.id);
-        return recordingHelper.stopRecording(ar);
+    public ActiveRecording doStop(@Source ActiveRecording recording) throws Exception {
+        var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
+        return recordingHelper.stopRecording(ar).await().atMost(timeout);
     }
 
     @Blocking
     @Transactional
     @Description("Delete the specified Flight Recording")
-    public Uni<ActiveRecording> doDelete(@Source ActiveRecording recording) {
-        var ar = ActiveRecording.<ActiveRecording>findById(recording.id);
-        return recordingHelper.deleteRecording(ar);
+    public ActiveRecording doDelete(@Source ActiveRecording recording) {
+        var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
+        return recordingHelper.deleteRecording(ar).await().atMost(timeout);
     }
 
     @Blocking
-    @Transactional
     @Description("Archive the specified Flight Recording")
-    public Uni<ArchivedRecording> doArchive(@Source ActiveRecording recording) throws Exception {
-        var ar = ActiveRecording.<ActiveRecording>findById(recording.id);
-        return Uni.createFrom().item(recordingHelper.archiveRecording(ar, null, null));
+    public ArchivedRecording doArchive(@Source ActiveRecording recording) throws Exception {
+        var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
+        return recordingHelper.archiveRecording(ar, null, null);
     }
 
     public TargetNodes.ActiveRecordings active(
@@ -319,14 +325,9 @@ public class ActiveRecordings {
     @Blocking
     @Transactional
     @Description("Updates the metadata labels for an existing Flight Recording.")
-    public Uni<ActiveRecording> doPutMetadata(
+    public ActiveRecording doPutMetadata(
             @Source ActiveRecording recording, MetadataLabels metadataInput) {
-        return Uni.createFrom()
-                .item(
-                        () -> {
-                            return recordingHelper.updateRecordingMetadata(
-                                    recording.id, metadataInput.getLabels());
-                        });
+        return recordingHelper.updateRecordingMetadata(recording.id, metadataInput.getLabels());
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")

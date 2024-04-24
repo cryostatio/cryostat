@@ -106,6 +106,7 @@ import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 import org.quartz.JobKey;
 import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 import software.amazon.awssdk.core.exception.SdkClientException;
@@ -305,87 +306,92 @@ public class RecordingHelper {
             Map<String, String> rawLabels)
             throws QuantityConversionException {
         String recordingName = options.name();
-        return connectionManager.executeConnectedTaskUni(
-                target,
-                conn -> {
-                    RecordingOptionsBuilder optionsBuilder =
-                            recordingOptionsBuilderFactory.create(target).name(options.name());
-                    if (options.duration().isPresent()) {
-                        optionsBuilder =
-                                optionsBuilder.duration(
-                                        TimeUnit.SECONDS.toMillis(options.duration().get()));
-                    }
-                    if (options.toDisk().isPresent()) {
-                        optionsBuilder = optionsBuilder.toDisk(options.toDisk().get());
-                    }
-                    if (options.maxAge().isPresent()) {
-                        optionsBuilder = optionsBuilder.maxAge(options.maxAge().get());
-                    }
-                    if (options.maxSize().isPresent()) {
-                        optionsBuilder = optionsBuilder.maxSize(options.maxSize().get());
-                    }
-                    IConstrainedMap<String> recordingOptions = optionsBuilder.build();
-                    getDescriptorByName(conn, options.name())
-                            .ifPresent(
-                                    previous -> {
-                                        RecordingState previousState = mapState(previous);
-                                        boolean restart =
-                                                shouldRestartRecording(
-                                                        replace, previousState, options.name());
-                                        if (!restart) {
-                                            throw new EntityExistsException(
-                                                    "Recording", options.name());
-                                        }
-                                        listActiveRecordings(target).stream()
-                                                .filter(r -> r.name.equals(recordingName))
-                                                .forEach(this::deleteRecording);
-                                    });
 
-                    IRecordingDescriptor desc =
-                            conn.getService()
+        RecordingState previousState =
+                connectionManager.executeConnectedTask(
+                        target,
+                        conn ->
+                                getDescriptorByName(conn, recordingName)
+                                        .map(this::mapState)
+                                        .orElse(null));
+        boolean restart =
+                previousState == null
+                        || shouldRestartRecording(replace, previousState, recordingName);
+        if (!restart) {
+            throw new EntityExistsException("Recording", recordingName);
+        }
+        listActiveRecordings(target).stream()
+                .filter(r -> r.name.equals(recordingName))
+                .forEach(this::deleteRecording);
+        var desc =
+                connectionManager.executeConnectedTask(
+                        target,
+                        conn -> {
+                            RecordingOptionsBuilder optionsBuilder =
+                                    recordingOptionsBuilderFactory
+                                            .create(target)
+                                            .name(recordingName);
+                            if (options.duration().isPresent()) {
+                                optionsBuilder =
+                                        optionsBuilder.duration(
+                                                TimeUnit.SECONDS.toMillis(
+                                                        options.duration().get()));
+                            }
+                            if (options.toDisk().isPresent()) {
+                                optionsBuilder = optionsBuilder.toDisk(options.toDisk().get());
+                            }
+                            if (options.maxAge().isPresent()) {
+                                optionsBuilder = optionsBuilder.maxAge(options.maxAge().get());
+                            }
+                            if (options.maxSize().isPresent()) {
+                                optionsBuilder = optionsBuilder.maxSize(options.maxSize().get());
+                            }
+                            IConstrainedMap<String> recordingOptions = optionsBuilder.build();
+
+                            return conn.getService()
                                     .start(
                                             recordingOptions,
                                             template.getName(),
                                             template.getType());
+                        });
 
-                    Map<String, String> labels = new HashMap<>(rawLabels);
-                    labels.put("template.name", template.getName());
-                    labels.put("template.type", template.getType().toString());
-                    Metadata meta = new Metadata(labels);
+        Map<String, String> labels = new HashMap<>(rawLabels);
+        labels.put("template.name", template.getName());
+        labels.put("template.type", template.getType().toString());
+        Metadata meta = new Metadata(labels);
 
-                    ActiveRecording recording = ActiveRecording.from(target, desc, meta);
-                    recording.persist();
+        ActiveRecording recording = ActiveRecording.from(target, desc, meta);
+        recording.persist();
 
-                    target.activeRecordings.add(recording);
-                    target.persist();
+        target.activeRecordings.add(recording);
+        target.persist();
 
-                    if (!recording.continuous) {
-                        JobDetail jobDetail =
-                                JobBuilder.newJob(StopRecordingJob.class)
-                                        .withIdentity(recording.name, target.jvmId)
-                                        .build();
-                        if (!jobs.contains(jobDetail.getKey())) {
-                            Map<String, Object> data = jobDetail.getJobDataMap();
-                            data.put("recordingId", recording.id);
-                            data.put("archive", options.archiveOnStop().orElse(false));
-                            Trigger trigger =
-                                    TriggerBuilder.newTrigger()
-                                            .withIdentity(recording.name, target.jvmId)
-                                            .usingJobData(jobDetail.getJobDataMap())
-                                            .startAt(
-                                                    new Date(
-                                                            System.currentTimeMillis()
-                                                                    + recording.duration))
-                                            .build();
-                            scheduler.scheduleJob(jobDetail, trigger);
-                        }
-                    }
+        if (!recording.continuous) {
+            JobDetail jobDetail =
+                    JobBuilder.newJob(StopRecordingJob.class)
+                            .withIdentity(recording.name, target.jvmId)
+                            .build();
+            if (!jobs.contains(jobDetail.getKey())) {
+                Map<String, Object> data = jobDetail.getJobDataMap();
+                data.put("recordingId", recording.id);
+                data.put("archive", options.archiveOnStop().orElse(false));
+                Trigger trigger =
+                        TriggerBuilder.newTrigger()
+                                .withIdentity(recording.name, target.jvmId)
+                                .usingJobData(jobDetail.getJobDataMap())
+                                .startAt(new Date(System.currentTimeMillis() + recording.duration))
+                                .build();
+                try {
+                    scheduler.scheduleJob(jobDetail, trigger);
+                } catch (SchedulerException e) {
+                    logger.warn(e);
+                }
+            }
+        }
 
-                    logger.tracev(
-                            "Started recording: {0} {1}",
-                            target.connectUrl, target.activeRecordings);
-                    return recording;
-                });
+        logger.tracev("Started recording: {0} {1}", target.connectUrl, target.activeRecordings);
+
+        return Uni.createFrom().item(recording);
     }
 
     public Uni<ActiveRecording> createSnapshot(Target target) {
@@ -901,7 +907,7 @@ public class RecordingHelper {
     }
 
     public InputStream getActiveInputStream(long targetId, long remoteId) throws Exception {
-        var target = Target.<Target>findById(targetId);
+        var target = Target.getTargetById(targetId);
         var recording = target.getRecordingById(remoteId);
         var stream = remoteRecordingStreamFactory.open(recording);
         return stream;
@@ -1063,11 +1069,7 @@ public class RecordingHelper {
 
     public ActiveRecording updateRecordingMetadata(
             long recordingId, Map<String, String> newLabels) {
-        ActiveRecording recording = ActiveRecording.findById(recordingId);
-
-        if (recording == null) {
-            throw new NotFoundException("Recording not found for ID: " + recordingId);
-        }
+        ActiveRecording recording = ActiveRecording.find("id", recordingId).singleResult();
 
         if (!recording.metadata.labels().equals(newLabels)) {
             Metadata updatedMetadata = new Metadata(newLabels);
