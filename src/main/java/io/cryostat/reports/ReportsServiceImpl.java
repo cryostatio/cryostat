@@ -17,9 +17,7 @@ package io.cryostat.reports;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
-import java.net.URI;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
@@ -41,8 +39,10 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 class ReportsServiceImpl implements ReportsService {
 
+    private static final String NO_SIDECAR_URL = "http://localhost/";
+
     @ConfigProperty(name = ConfigProperties.REPORTS_SIDECAR_URL)
-    Optional<URI> sidecarUri;
+    String sidecarUri;
 
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper helper;
@@ -53,51 +53,41 @@ class ReportsServiceImpl implements ReportsService {
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
             ActiveRecording recording, Predicate<IRule> predicate) {
-        return sidecarUri
-                .map(
-                        uri -> {
-                            logger.tracev(
-                                    "sidecar reportFor active recording {0} {1}",
-                                    recording.target.jvmId, recording.remoteId);
-                            try {
-                                return fireRequest(uri, helper.getActiveInputStream(recording));
-                            } catch (Exception e) {
-                                throw new ReportGenerationException(e);
-                            }
-                        })
-                .orElseGet(
-                        () -> {
-                            logger.tracev(
-                                    "inprocess reportFor active recording {0} {1}",
-                                    recording.target.jvmId, recording.remoteId);
-                            try {
-                                return process(helper.getActiveInputStream(recording), predicate);
-                            } catch (Exception e) {
-                                throw new ReportGenerationException(e);
-                            }
-                        });
+        InputStream stream;
+        try {
+            stream = helper.getActiveInputStream(recording);
+        } catch (Exception e) {
+            throw new ReportGenerationException(e);
+        }
+        if (NO_SIDECAR_URL.equals(sidecarUri)) {
+            logger.tracev(
+                    "inprocess reportFor active recording {0} {1}",
+                    recording.target.jvmId, recording.remoteId);
+            return process(stream, predicate);
+        } else {
+            logger.tracev(
+                    "sidecar reportFor active recording {0} {1}",
+                    recording.target.jvmId, recording.remoteId);
+            return fireRequest(stream);
+        }
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
             String jvmId, String filename, Predicate<IRule> predicate) {
-        return sidecarUri
-                .map(
-                        uri -> {
-                            logger.tracev(
-                                    "sidecar reportFor archived recording {0} {1}",
-                                    jvmId, filename);
-                            return fireRequest(
-                                    uri, helper.getArchivedRecordingStream(jvmId, filename));
-                        })
-                .orElseGet(
-                        () -> {
-                            logger.tracev(
-                                    "inprocess reportFor archived recording {0} {1}",
-                                    jvmId, filename);
-                            return process(
-                                    helper.getArchivedRecordingStream(jvmId, filename), predicate);
-                        });
+        InputStream stream;
+        try {
+            stream = helper.getArchivedRecordingStream(jvmId, filename);
+        } catch (Exception e) {
+            throw new ReportGenerationException(e);
+        }
+        if (NO_SIDECAR_URL.equals(sidecarUri)) {
+            logger.tracev("inprocess reportFor archived recording {0} {1}", jvmId, filename);
+            return process(stream, predicate);
+        } else {
+            logger.tracev("sidecar reportFor archived recording {0} {1}", jvmId, filename);
+            return fireRequest(stream);
+        }
     }
 
     @Override
@@ -118,7 +108,7 @@ class ReportsServiceImpl implements ReportsService {
                                 new BufferedInputStream(stream), predicate));
     }
 
-    private Uni<Map<String, AnalysisResult>> fireRequest(URI uri, InputStream stream) {
+    private Uni<Map<String, AnalysisResult>> fireRequest(InputStream stream) {
         return sidecar.generate(stream);
     }
 
