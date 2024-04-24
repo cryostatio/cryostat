@@ -218,9 +218,12 @@ public class Discovery {
                     DiscoveryNode.environment(
                             requireNonBlank(realmName, "realm"), BaseNodeType.REALM);
             plugin.builtin = false;
-            plugin.persist();
 
-            DiscoveryNode.getUniverse().children.add(plugin.realm);
+            var universe = DiscoveryNode.getUniverse();
+            plugin.realm.parent = universe;
+            plugin.persist();
+            universe.children.add(plugin.realm);
+            universe.persist();
 
             location = jwtFactory.getPluginLocation(plugin);
 
@@ -293,12 +296,13 @@ public class Discovery {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         jwtValidator.validateJwt(ctx, plugin, token, true);
         plugin.realm.children.clear();
-        plugin.persist();
         plugin.realm.children.addAll(body);
         body.forEach(
                 b -> {
                     if (b.target != null) {
                         b.target.discoveryNode = b;
+                        b.target.discoveryNode.parent = plugin.realm;
+                        b.parent = plugin.realm;
                     }
                     b.persist();
                 });
