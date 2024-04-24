@@ -63,7 +63,6 @@ import jakarta.ws.rs.ForbiddenException;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.hc.client5.http.auth.InvalidCredentialsException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -402,20 +401,14 @@ public class AgentClient {
                         .timeout(httpTimeout.toMillis())
                         .followRedirects(true)
                         .as(codec);
-        try {
-            Credential credential =
-                    credentialsFinder.getCredentialsForConnectUrl(getUri()).orElse(null);
-            if (credential == null || credential.username == null || credential.password == null) {
-                throw new InvalidCredentialsException(NULL_CREDENTIALS + " " + getUri());
-            }
-            req =
-                    req.authentication(
-                            new UsernamePasswordCredentials(
-                                    credential.username, credential.password));
-        } catch (InvalidCredentialsException e) {
-            logger.error("Authentication exception", e);
-            throw new IllegalStateException(e);
+        Credential credential =
+                credentialsFinder.getCredentialsForConnectUrl(getUri()).orElse(null);
+        if (credential == null || credential.username == null || credential.password == null) {
+            throw new IllegalStateException(NULL_CREDENTIALS + " " + getUri());
         }
+        req =
+                req.authentication(
+                        new UsernamePasswordCredentials(credential.username, credential.password));
 
         Uni<HttpResponse<T>> uni;
         if (payload != null) {

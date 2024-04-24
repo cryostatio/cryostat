@@ -23,7 +23,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
-import org.apache.hc.core5.net.URIBuilder;
 import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
@@ -33,22 +32,11 @@ public class GraphQL {
     @Path("/api/v2.2/graphql")
     @RolesAllowed("write")
     public Response redirectGet(UriInfo info) throws Exception {
-        var uriBuilder = new URIBuilder();
-        info.getQueryParameters()
-                .entrySet()
-                .forEach(
-                        entry -> {
-                            if (entry.getValue().size() != 1) {
-                                return;
-                            }
-                            uriBuilder.addParameter(entry.getKey(), entry.getValue().get(0));
-                        });
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/graphql?%s",
-                                        String.join("&", uriBuilder.build().getRawQuery()))))
+                                        "/api/v3/graphql?%s", info.getRequestUri().getRawQuery())))
                 .build();
     }
 

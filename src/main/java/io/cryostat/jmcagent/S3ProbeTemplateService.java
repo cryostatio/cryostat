@@ -36,9 +36,9 @@ import io.vertx.core.eventbus.EventBus;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.tuple.Pair;
-import org.apache.hc.core5.http.ContentType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.xml.sax.SAXException;
@@ -191,7 +191,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                     PutObjectRequest.builder()
                             .bucket(bucket)
                             .key(fileName)
-                            .contentType(ContentType.APPLICATION_XML.getMimeType())
+                            .contentType(MediaType.APPLICATION_XML)
                             .tagging(
                                     createTemplateTagging(
                                             fileName,

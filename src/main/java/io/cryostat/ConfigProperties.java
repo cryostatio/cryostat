@@ -33,7 +33,7 @@ public class ConfigProperties {
     public static final String CONNECTIONS_FAILED_BACKOFF = "cryostat.connections.failed-backoff";
     public static final String CONNECTIONS_FAILED_TIMEOUT = "cryostat.connections.failed-timeout";
 
-    public static final String REPORTS_SIDECAR_URL = "cryostat.services.reports.url";
+    public static final String REPORTS_SIDECAR_URL = "quarkus.rest-client.reports.url";
     public static final String REPORTS_MEMORY_CACHE_ENABLED =
             "cryostat.services.reports.memory-cache.enabled";
     public static final String REPORTS_STORAGE_CACHE_ENABLED =
