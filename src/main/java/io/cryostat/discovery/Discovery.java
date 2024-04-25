@@ -179,6 +179,7 @@ public class Discovery {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
+    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     public Response register(@Context RoutingContext ctx, JsonObject body)
             throws URISyntaxException,
                     JOSEException,
@@ -395,13 +396,12 @@ public class Discovery {
         return DiscoveryPlugin.find("id", id).singleResult();
     }
 
+    @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;
         @Inject Scheduler scheduler;
 
         @Override
-        @Transactional
-        @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
         public void execute(JobExecutionContext context) {
             QuarkusTransaction.requiringNew()
                     .run(
