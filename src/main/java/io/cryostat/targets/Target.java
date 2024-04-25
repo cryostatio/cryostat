@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Predicate;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.JvmIdentifier;
@@ -127,6 +128,11 @@ public class Target extends PanacheEntity {
 
     public static Optional<Target> getTargetByJvmId(String jvmId) {
         return find("jvmId", jvmId).firstResultOptional();
+    }
+
+    public static Optional<Target> getTarget(Predicate<Target> predicate) {
+        List<Target> targets = listAll();
+        return targets.stream().filter(predicate).findFirst();
     }
 
     public static boolean deleteByConnectUrl(URI connectUrl) {
