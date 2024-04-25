@@ -252,7 +252,7 @@ public class Discovery {
         var envMap = new HashMap<String, String>();
         String insightsProxy = System.getenv("INSIGHTS_PROXY");
         if (StringUtils.isNotBlank(insightsProxy)) {
-            envMap.put("INSIGHTS_SVC", "INSIGHTS_PROXY");
+            envMap.put("INSIGHTS_SVC", insightsProxy);
         }
         return Response.created(location)
                 .entity(
