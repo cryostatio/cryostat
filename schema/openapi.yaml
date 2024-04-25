@@ -54,24 +54,6 @@ components:
             $ref: '#/components/schemas/ArchivedRecording'
           type: array
       type: object
-    Credential:
-      properties:
-        id:
-          format: int64
-          type: integer
-        matchExpression:
-          $ref: '#/components/schemas/MatchExpression'
-        password:
-          pattern: \S
-          type: string
-        username:
-          pattern: \S
-          type: string
-      required:
-        - matchExpression
-        - username
-        - password
-      type: object
     Data:
       type: object
     DiscoveryNode:
@@ -107,8 +89,6 @@ components:
         callback:
           format: uri
           type: string
-        credential:
-          $ref: '#/components/schemas/Credential'
         id:
           $ref: '#/components/schemas/UUID'
         realm:
