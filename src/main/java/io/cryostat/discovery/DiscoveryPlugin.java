@@ -23,10 +23,12 @@ import java.util.UUID;
 
 import io.cryostat.credentials.Credential;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
+import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.CascadeType;
@@ -78,9 +80,10 @@ public class DiscoveryPlugin extends PanacheEntityBase {
 
     @OneToOne(
             optional = true, // only nullable for builtins
-            cascade = {CascadeType.ALL},
-            orphanRemoval = true,
-            fetch = FetchType.LAZY)
+            fetch = FetchType.LAZY,
+            cascade = CascadeType.REMOVE)
+    @JsonIgnore
+    @Nullable
     public Credential credential;
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
