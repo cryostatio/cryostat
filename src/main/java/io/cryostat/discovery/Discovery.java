@@ -192,6 +192,7 @@ public class Discovery {
         String priorToken = body.getString("token");
         String realmName = body.getString("realm");
         URI callbackUri = new URI(body.getString("callback"));
+        URI unauthCallback = UriBuilder.fromUri(callbackUri).userInfo(null).build();
 
         // TODO apply URI range validation to the remote address
         InetAddress remoteAddress = getRemoteAddress(ctx);
@@ -205,7 +206,7 @@ public class Discovery {
             if (!Objects.equals(plugin.realm.name, realmName)) {
                 throw new ForbiddenException();
             }
-            if (!Objects.equals(plugin.callback, callbackUri)) {
+            if (!Objects.equals(plugin.callback, unauthCallback)) {
                 throw new BadRequestException();
             }
             location = jwtFactory.getPluginLocation(plugin);
@@ -214,7 +215,6 @@ public class Discovery {
             // check if a plugin record with the same callback already exists. If it does, ping it:
             // if it's still there reject this request as a duplicate, otherwise delete the previous
             // record and accept this new one as a replacement
-            URI unauthCallback = UriBuilder.fromUri(callbackUri).userInfo(null).build();
             DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
                     .singleResultOptional()
                     .ifPresent(
