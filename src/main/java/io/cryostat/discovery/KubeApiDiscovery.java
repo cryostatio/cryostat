@@ -71,6 +71,10 @@ public class KubeApiDiscovery {
 
     public static final String DISCOVERY_NAMESPACE_LABEL_KEY = "discovery.cryostat.io/namespace";
 
+    private static final List<String> EMPTY_PORT_NAMES = new ArrayList<>();
+
+    private static final List<Integer> EMPTY_PORT_NUMBERS = new ArrayList<>();
+
     @Inject Logger logger;
 
     @Inject KubeConfig kubeConfig;
@@ -188,9 +192,8 @@ public class KubeApiDiscovery {
     }
 
     private boolean isCompatiblePort(EndpointPort port) {
-        return (port.getName() != null && jmxPortNames.orElse(List.of()).contains(port.getName()))
-                || (port.getPort() != null
-                        && jmxPortNumbers.orElse(List.of()).contains(port.getPort()));
+        return jmxPortNames.orElse(EMPTY_PORT_NAMES).contains(port.getName())
+                || jmxPortNumbers.orElse(EMPTY_PORT_NUMBERS).contains(port.getPort());
     }
 
     private List<TargetTuple> getTargetTuplesFrom(Endpoints endpoints) {
