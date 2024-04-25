@@ -72,7 +72,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     @NotNull
     public DiscoveryNode realm;
 
-    @Column(unique = true, updatable = false)
+    @Column(nullable = true, unique = true, updatable = false)
     @Convert(converter = UriConverter.class)
     public URI callback;
 
