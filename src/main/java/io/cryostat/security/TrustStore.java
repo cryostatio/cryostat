@@ -44,6 +44,14 @@ public class TrustStore {
     @Path("/api/v3/tls/certs")
     @Produces(MediaType.APPLICATION_JSON)
     public List<String> listCerts() throws IOException {
+        var accessible =
+                Files.exists(trustStoreDir)
+                        && Files.isDirectory(trustStoreDir)
+                        && Files.isReadable(trustStoreDir)
+                        && Files.isExecutable(trustStoreDir);
+        if (!accessible) {
+            return List.of();
+        }
         return Files.walk(trustStoreDir)
                 .map(java.nio.file.Path::toFile)
                 .filter(File::isFile)
