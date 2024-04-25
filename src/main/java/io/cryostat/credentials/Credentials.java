@@ -98,8 +98,7 @@ public class Credentials {
     @RolesAllowed("write")
     @Path("/{id}")
     public void delete(@RestPath long id) {
-        Credential credential = Credential.find("id", id).singleResult();
-        credential.delete();
+        Credential.find("id", id).singleResult().delete();
     }
 
     static Map<String, Object> notificationResult(Credential credential) throws ScriptException {
