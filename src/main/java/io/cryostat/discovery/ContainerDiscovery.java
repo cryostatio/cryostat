@@ -359,7 +359,10 @@ public abstract class ContainerDiscovery {
             String podName = desc.PodName;
             if (StringUtils.isNotBlank(podName)) {
                 DiscoveryNode pod =
-                        DiscoveryNode.environment(podName, ContainerDiscoveryNodeType.POD);
+                        DiscoveryNode.getChild(realm, (n) -> n.name.equals(podName))
+                                .orElse(
+                                        DiscoveryNode.environment(
+                                                podName, ContainerDiscoveryNodeType.POD));
                 if (!realm.children.contains(pod)) {
                     pod.children.add(node);
                     node.parent = pod;
@@ -388,15 +391,25 @@ public abstract class ContainerDiscovery {
             realm.persist();
         } else {
             Target t = Target.getTargetByConnectUrl(connectUrl);
-            String podName = desc.PodName;
-            if (StringUtils.isNotBlank(podName)) {
-                DiscoveryNode pod =
-                        DiscoveryNode.environment(podName, ContainerDiscoveryNodeType.POD);
-                pod.children.remove(t.discoveryNode);
-            } else {
-                realm.children.remove(t.discoveryNode);
+            DiscoveryNode node = t.discoveryNode;
+
+            while (true) {
+                DiscoveryNode parent = node.parent;
+                if (parent == null) {
+                    break;
+                }
+
+                parent.children.remove(node);
+                parent.persist();
+                node.parent = null;
+
+                if (parent.hasChildren() || node.nodeType.equals(BaseNodeType.REALM.getKind())) {
+                    break;
+                }
+
+                node = parent;
             }
-            t.discoveryNode.parent = null;
+
             realm.persist();
             t.delete();
         }
