@@ -101,9 +101,11 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 plugin.delete();
                 throw new IllegalArgumentException();
             }
-            var credential = getCredential(plugin);
-            plugin.credential = credential;
-            plugin.callback = UriBuilder.fromUri(plugin.callback).userInfo(null).build();
+            if (plugin.credential == null) {
+                var credential = getCredential(plugin);
+                plugin.credential = credential;
+                plugin.callback = UriBuilder.fromUri(plugin.callback).userInfo(null).build();
+            }
             try {
                 PluginCallback.create(plugin).ping();
                 logger.infov(
