@@ -395,21 +395,22 @@ public class AgentClient {
     private <T> Uni<HttpResponse<T>> invoke(
             HttpMethod mtd, String path, Buffer payload, BodyCodec<T> codec) {
         logger.debugv("{0} {1} {2}", mtd, getUri(), path);
+
+        Credential credential =
+                DiscoveryPlugin.<DiscoveryPlugin>find("callback", getUri())
+                        .singleResult()
+                        .credential;
+
         HttpRequest<T> req =
                 webClient
                         .request(mtd, getUri().getPort(), getUri().getHost(), path)
                         .ssl("https".equals(getUri().getScheme()))
                         .timeout(httpTimeout.toMillis())
                         .followRedirects(true)
-                        .as(codec);
-
-        Credential credential =
-                DiscoveryPlugin.<DiscoveryPlugin>find("callback", getUri())
-                        .singleResult()
-                        .credential;
-        req =
-                req.authentication(
-                        new UsernamePasswordCredentials(credential.username, credential.password));
+                        .as(codec)
+                        .authentication(
+                                new UsernamePasswordCredentials(
+                                        credential.username, credential.password));
 
         Uni<HttpResponse<T>> uni;
         if (payload != null) {
