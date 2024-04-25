@@ -58,7 +58,6 @@ import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.ext.web.handler.HttpException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.FlightRecorder;
@@ -298,7 +297,6 @@ public class TargetConnectionManager {
         }
     }
 
-    @Transactional
     JFRConnection connect(URI connectUrl) throws Exception {
         var credentials = credentialsFinder.getCredentialsForConnectUrl(connectUrl);
         return connect(connectUrl, credentials);

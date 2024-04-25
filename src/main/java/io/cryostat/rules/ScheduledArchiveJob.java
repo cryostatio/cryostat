@@ -47,6 +47,7 @@ class ScheduledArchiveJob implements Job {
     String archiveBucket;
 
     @Override
+    @Transactional
     public void execute(JobExecutionContext ctx) throws JobExecutionException {
         try {
             var rule = (Rule) ctx.getJobDetail().getJobDataMap().get("rule");
@@ -67,7 +68,6 @@ class ScheduledArchiveJob implements Job {
         }
     }
 
-    @Transactional
     void initPreviousRecordings(Target target, Rule rule, Queue<String> previousRecordings) {
         recordingHelper.listArchivedRecordingObjects().stream()
                 .sorted((a, b) -> a.lastModified().compareTo(b.lastModified()))
@@ -89,14 +89,12 @@ class ScheduledArchiveJob implements Job {
                         });
     }
 
-    @Transactional
     void performArchival(ActiveRecording recording, Queue<String> previousRecordings)
             throws Exception {
         String filename = recordingHelper.archiveRecording(recording, null, null).name();
         previousRecordings.add(filename);
     }
 
-    @Transactional
     void pruneArchive(Target target, Queue<String> previousRecordings, String filename)
             throws Exception {
         recordingHelper.deleteArchivedRecording(target.jvmId, filename);

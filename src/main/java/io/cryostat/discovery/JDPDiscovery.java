@@ -31,6 +31,7 @@ import io.cryostat.core.net.discovery.JvmDiscoveryClient.JvmDiscoveryEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -99,11 +100,14 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
 
     @Override
     public void accept(JvmDiscoveryEvent evt) {
-        Infrastructure.getDefaultWorkerPool().execute(() -> this.handleJdpEvent(evt));
+        Infrastructure.getDefaultWorkerPool()
+                .execute(
+                        () ->
+                                QuarkusTransaction.joiningExisting()
+                                        .run(() -> this.handleJdpEvent(evt)));
     }
 
-    @Transactional
-    public synchronized void handleJdpEvent(JvmDiscoveryEvent evt) {
+    void handleJdpEvent(JvmDiscoveryEvent evt) {
         logger.infov(
                 "JDP Discovery Event {0} {1}",
                 evt.getEventKind(), evt.getJvmDescriptor().getMainClass());

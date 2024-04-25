@@ -73,6 +73,7 @@ public class RuleService {
     private final Map<Long, CopyOnWriteArrayList<ActiveRecording>> ruleRecordingMap =
             new ConcurrentHashMap<>();
 
+    @Transactional
     void onStart(@Observes StartupEvent ev) {
         logger.trace("RuleService started");
         try (Stream<Rule> rules = Rule.streamAll()) {
@@ -86,6 +87,7 @@ public class RuleService {
     }
 
     @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true)
+    @Transactional
     public void handleRuleModification(RuleEvent event) {
         Rule rule = event.rule();
         var relatedRecordings =
@@ -130,8 +132,7 @@ public class RuleService {
                 });
     }
 
-    @Transactional
-    public void activate(Rule rule, Target target) throws Exception {
+    void activate(Rule rule, Target target) throws Exception {
         var options = createRecordingOptions(rule);
 
         Pair<String, TemplateType> pair = recordingHelper.parseEventSpecifier(rule.eventSpecifier);
@@ -168,7 +169,6 @@ public class RuleService {
                 Optional.ofNullable((long) rule.maxAgeSeconds));
     }
 
-    @Transactional
     void applyRuleToMatchingTargets(Rule rule) {
         try (Stream<Target> targets = Target.streamAll()) {
             targets.filter(
