@@ -188,8 +188,9 @@ public class KubeApiDiscovery {
     }
 
     private boolean isCompatiblePort(EndpointPort port) {
-        return jmxPortNames.orElse(List.of()).contains(port.getName())
-                || jmxPortNumbers.orElse(List.of()).contains(port.getPort());
+        return (port.getName() != null && jmxPortNames.orElse(List.of()).contains(port.getName()))
+                || (port.getPort() != null
+                        && jmxPortNumbers.orElse(List.of()).contains(port.getPort()));
     }
 
     private List<TargetTuple> getTargetTuplesFrom(Endpoints endpoints) {
