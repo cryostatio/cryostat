@@ -189,8 +189,8 @@ public class Discovery {
                     SchedulerException {
         String pluginId = body.getString("id");
         String priorToken = body.getString("token");
-        String realmName = body.getString("realm");
-        URI callbackUri = new URI(body.getString("callback"));
+        String realmName = requireNonBlank(body.getString("realm"), "realm");
+        URI callbackUri = new URI(requireNonBlank(body.getString("callback"), "callback"));
 
         // TODO apply URI range validation to the remote address
         InetAddress remoteAddress = getRemoteAddress(ctx);
