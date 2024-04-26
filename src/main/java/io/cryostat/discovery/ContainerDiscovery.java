@@ -57,6 +57,7 @@ import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.core.net.SocketAddress;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.codec.BodyCodec;
+import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -152,14 +153,16 @@ public abstract class ContainerDiscovery {
 
     protected final CopyOnWriteArrayList<ContainerSpec> containers = new CopyOnWriteArrayList<>();
 
+    // Priority is set higher than default 0 such that onStart is called first before onAfterStart
+    // This ensures realm node is persisted before querying for containers
     @Transactional
-    void onStart(@Observes StartupEvent evt) {
+    void onStart(@Observes @Priority(1) StartupEvent evt) {
         if (!enabled()) {
             return;
         }
 
         Path socketPath = Path.of(getSocket().path());
-        if (!(fs.exists(socketPath) && fs.isReadable(socketPath))) {
+        if (!available()) {
             logger.errorv(
                     "{0} enabled but socket {1} is not accessible!",
                     getClass().getName(), socketPath);
@@ -179,6 +182,12 @@ public abstract class ContainerDiscovery {
         }
 
         logger.infov("Starting {0} client", getRealm());
+    }
+
+    void onAfterStart(@Observes StartupEvent evt) {
+        if (!(enabled() && available())) {
+            return;
+        }
 
         queryContainers();
         this.timerId = vertx.setPeriodic(pollPeriod.toMillis(), unused -> queryContainers());
@@ -190,6 +199,11 @@ public abstract class ContainerDiscovery {
         }
         logger.infov("Shutting down {0} client", getRealm());
         vertx.cancelTimer(timerId);
+    }
+
+    boolean available() {
+        Path socketPath = Path.of(getSocket().path());
+        return fs.exists(socketPath) && fs.isReadable(socketPath);
     }
 
     private Target toTarget(ContainerSpec desc) {
