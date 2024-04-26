@@ -51,6 +51,7 @@ import com.sun.security.auth.module.UnixSystem;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.core.net.SocketAddress;
@@ -257,54 +258,74 @@ public abstract class ContainerDiscovery {
     private void queryContainers() {
         doContainerListRequest(
                 current -> {
-                    QuarkusTransaction.joiningExisting()
-                            .run(
+                    Infrastructure.getDefaultWorkerPool()
+                            .execute(
                                     () -> {
-                                        List<DiscoveryNode> targetNodes =
-                                                DiscoveryNode.findAllByNodeType(BaseNodeType.JVM)
-                                                        .stream()
-                                                        .filter(
-                                                                (n) ->
-                                                                        getRealm()
-                                                                                .equals(
-                                                                                        n.target
-                                                                                                .annotations
-                                                                                                .cryostat()
-                                                                                                .get(
-                                                                                                        "REALM")))
-                                                        .collect(Collectors.toList());
+                                        QuarkusTransaction.joiningExisting()
+                                                .run(
+                                                        () -> {
+                                                            List<DiscoveryNode> targetNodes =
+                                                                    DiscoveryNode.findAllByNodeType(
+                                                                                    BaseNodeType
+                                                                                            .JVM)
+                                                                            .stream()
+                                                                            .filter(
+                                                                                    (n) ->
+                                                                                            getRealm()
+                                                                                                    .equals(
+                                                                                                            n.target
+                                                                                                                    .annotations
+                                                                                                                    .cryostat()
+                                                                                                                    .get(
+                                                                                                                            "REALM")))
+                                                                            .collect(
+                                                                                    Collectors
+                                                                                            .toList());
 
-                                        Map<Target, ContainerSpec> containerRefMap =
-                                                new HashMap<>();
-                                        current.forEach(
-                                                (desc) ->
-                                                        containerRefMap.put(toTarget(desc), desc));
+                                                            Map<Target, ContainerSpec>
+                                                                    containerRefMap =
+                                                                            new HashMap<>();
+                                                            current.forEach(
+                                                                    (desc) ->
+                                                                            containerRefMap.put(
+                                                                                    toTarget(desc),
+                                                                                    desc));
 
-                                        Set<Target> persistedTargets =
-                                                targetNodes.stream()
-                                                        .map((n) -> n.target)
-                                                        .collect(Collectors.toSet());
-                                        Set<Target> observedTargets = containerRefMap.keySet();
+                                                            Set<Target> persistedTargets =
+                                                                    targetNodes.stream()
+                                                                            .map((n) -> n.target)
+                                                                            .collect(
+                                                                                    Collectors
+                                                                                            .toSet());
+                                                            Set<Target> observedTargets =
+                                                                    containerRefMap.keySet();
 
-                                        Target.compare(persistedTargets)
-                                                .to(observedTargets)
-                                                .added()
-                                                .forEach(
-                                                        (t) ->
-                                                                handleContainerEvent(
-                                                                        containerRefMap.get(t),
-                                                                        t,
-                                                                        EventKind.FOUND));
+                                                            Target.compare(persistedTargets)
+                                                                    .to(observedTargets)
+                                                                    .added()
+                                                                    .forEach(
+                                                                            (t) ->
+                                                                                    handleContainerEvent(
+                                                                                            containerRefMap
+                                                                                                    .get(
+                                                                                                            t),
+                                                                                            t,
+                                                                                            EventKind
+                                                                                                    .FOUND));
 
-                                        Target.compare(persistedTargets)
-                                                .to(observedTargets)
-                                                .removed()
-                                                .forEach(
-                                                        (t) ->
-                                                                handleContainerEvent(
-                                                                        containerRefMap.get(t),
-                                                                        t,
-                                                                        EventKind.LOST));
+                                                            Target.compare(persistedTargets)
+                                                                    .to(observedTargets)
+                                                                    .removed()
+                                                                    .forEach(
+                                                                            (t) ->
+                                                                                    handleContainerEvent(
+                                                                                            containerRefMap
+                                                                                                    .get(
+                                                                                                            t),
+                                                                                            t,
+                                                                                            EventKind
+                                                                                                    .LOST));
+                                                        });
                                     });
                 });
     }
