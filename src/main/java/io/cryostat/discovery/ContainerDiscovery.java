@@ -61,6 +61,7 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -244,6 +245,20 @@ public abstract class ContainerDiscovery {
         } catch (MalformedURLException | URISyntaxException e) {
             logger.warnv(e, "Invalid {0} target observed", getRealm());
             return null;
+        }
+
+        try {
+            Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
+            DiscoveryNode targetNode = persistedTarget.discoveryNode;
+            if (!getRealm().equals(persistedTarget.annotations.cryostat().get("REALM"))) {
+                logger.warnv(
+                        "Expected persisted target with serviceURL {0} to have node type"
+                                + " {1} but found {2} ",
+                        persistedTarget.connectUrl, getRealm(), targetNode.nodeType);
+                throw new IllegalStateException();
+            }
+            return persistedTarget;
+        } catch (NoResultException e) {
         }
 
         Target target = new Target();
