@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -151,8 +150,6 @@ public abstract class ContainerDiscovery {
 
     protected long timerId;
 
-    protected final CopyOnWriteArrayList<ContainerSpec> containers = new CopyOnWriteArrayList<>();
-
     // Priority is set higher than default 0 such that onStart is called first before onAfterStart
     // This ensures realm node is persisted before querying for containers
     @Transactional
@@ -235,7 +232,6 @@ public abstract class ContainerDiscovery {
                                         .Config
                                         .Hostname;
                     } catch (InterruptedException | TimeoutException | ExecutionException e) {
-                        containers.remove(desc);
                         logger.warnv(e, "Invalid {0} target observed", getRealm());
                         return null;
                     }
@@ -244,7 +240,6 @@ public abstract class ContainerDiscovery {
             serviceUrl = connectionToolkit.createServiceURL(hostname, jmxPort);
             connectUrl = URI.create(serviceUrl.toString());
         } catch (MalformedURLException | URISyntaxException e) {
-            containers.remove(desc);
             logger.warnv(e, "Invalid {0} target observed", getRealm());
             return null;
         }
