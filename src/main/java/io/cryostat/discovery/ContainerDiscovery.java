@@ -48,6 +48,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.security.auth.module.UnixSystem;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.http.HttpMethod;
@@ -256,40 +257,55 @@ public abstract class ContainerDiscovery {
     private void queryContainers() {
         doContainerListRequest(
                 current -> {
-                    List<DiscoveryNode> targetNodes =
-                            DiscoveryNode.findAllByNodeType(BaseNodeType.JVM).stream()
-                                    .filter(
-                                            (n) ->
-                                                    getRealm()
-                                                            .equals(
-                                                                    n.target
-                                                                            .annotations
-                                                                            .cryostat()
-                                                                            .get("REALM")))
-                                    .collect(Collectors.toList());
+                    QuarkusTransaction.joiningExisting()
+                            .run(
+                                    () -> {
+                                        List<DiscoveryNode> targetNodes =
+                                                DiscoveryNode.findAllByNodeType(BaseNodeType.JVM)
+                                                        .stream()
+                                                        .filter(
+                                                                (n) ->
+                                                                        getRealm()
+                                                                                .equals(
+                                                                                        n.target
+                                                                                                .annotations
+                                                                                                .cryostat()
+                                                                                                .get(
+                                                                                                        "REALM")))
+                                                        .collect(Collectors.toList());
 
-                    Map<Target, ContainerSpec> containerRefMap = new HashMap<>();
-                    current.forEach((desc) -> containerRefMap.put(toTarget(desc), desc));
+                                        Map<Target, ContainerSpec> containerRefMap =
+                                                new HashMap<>();
+                                        current.forEach(
+                                                (desc) ->
+                                                        containerRefMap.put(toTarget(desc), desc));
 
-                    Set<Target> persistedTargets =
-                            targetNodes.stream().map((n) -> n.target).collect(Collectors.toSet());
-                    Set<Target> observedTargets = containerRefMap.keySet();
+                                        Set<Target> persistedTargets =
+                                                targetNodes.stream()
+                                                        .map((n) -> n.target)
+                                                        .collect(Collectors.toSet());
+                                        Set<Target> observedTargets = containerRefMap.keySet();
 
-                    Target.compare(persistedTargets)
-                            .to(observedTargets)
-                            .added()
-                            .forEach(
-                                    (t) ->
-                                            handleContainerEvent(
-                                                    containerRefMap.get(t), t, EventKind.FOUND));
+                                        Target.compare(persistedTargets)
+                                                .to(observedTargets)
+                                                .added()
+                                                .forEach(
+                                                        (t) ->
+                                                                handleContainerEvent(
+                                                                        containerRefMap.get(t),
+                                                                        t,
+                                                                        EventKind.FOUND));
 
-                    Target.compare(persistedTargets)
-                            .to(observedTargets)
-                            .removed()
-                            .forEach(
-                                    (t) ->
-                                            handleContainerEvent(
-                                                    containerRefMap.get(t), t, EventKind.LOST));
+                                        Target.compare(persistedTargets)
+                                                .to(observedTargets)
+                                                .removed()
+                                                .forEach(
+                                                        (t) ->
+                                                                handleContainerEvent(
+                                                                        containerRefMap.get(t),
+                                                                        t,
+                                                                        EventKind.LOST));
+                                    });
                 });
     }
 
@@ -351,7 +367,6 @@ public abstract class ContainerDiscovery {
         return result;
     }
 
-    @Transactional
     public void handleContainerEvent(ContainerSpec desc, Target target, EventKind evtKind) {
         DiscoveryNode realm = DiscoveryNode.getRealm(getRealm()).orElseThrow();
 
