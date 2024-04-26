@@ -11,7 +11,7 @@ SSL_TRUSTSTORE=cryostat-truststore.p12
 SSL_KEYSTORE_PASS_FILE=keystore.pass
 
 if [ -z "$JAVA_HOME" ]; then
-    JAVA_HOME=$(readlink -f /usr/bin/java | grep -oP '.*?openjdk')
+    JAVA_HOME=/usr/lib/jvm/java
 fi
 
 cleanup() {
