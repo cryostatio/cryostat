@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -62,6 +63,7 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -338,7 +340,7 @@ public abstract class ContainerDiscovery {
                                     DiscoveryNode.findAllByNodeType(BaseNodeType.JVM).stream()
                                             .filter(
                                                     (n) ->
-                                                            n.target != null
+                                                            Objects.nonNull(n.target)
                                                                     && getRealm()
                                                                             .equals(
                                                                                     n.target
@@ -349,7 +351,13 @@ public abstract class ContainerDiscovery {
                                             .collect(Collectors.toList());
 
                             Map<Target, ContainerSpec> containerRefMap = new HashMap<>();
-                            current.forEach((desc) -> containerRefMap.put(toTarget(desc), desc));
+                            current.stream()
+                                    .map((desc) -> Pair.of(desc, toTarget(desc)))
+                                    .filter((pair) -> Objects.nonNull(pair.getRight()))
+                                    .forEach(
+                                            (pair) ->
+                                                    containerRefMap.put(
+                                                            pair.getRight(), pair.getLeft()));
 
                             Set<Target> persistedTargets =
                                     targetNodes.stream()
