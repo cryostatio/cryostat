@@ -396,7 +396,11 @@ public abstract class ContainerDiscovery {
         } else {
             Optional<Target> target =
                     Target.getTarget(
-                            (t) -> desc.Id.equals(t.discoveryNode.labels.get(CONTAINER_ID_LABEL)));
+                            (t) ->
+                                    realm.name.equals(t.annotations.cryostat().get("REALM"))
+                                            && desc.Id.equals(
+                                                    t.discoveryNode.labels.get(
+                                                            CONTAINER_ID_LABEL)));
             if (target.isEmpty()) {
                 return;
             }
