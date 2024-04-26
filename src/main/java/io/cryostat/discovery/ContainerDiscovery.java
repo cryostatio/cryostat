@@ -347,7 +347,7 @@ public abstract class ContainerDiscovery {
         return result;
     }
 
-    public void handleContainerEvent(List<ContainerSpec> current) {
+    public synchronized void handleContainerEvent(List<ContainerSpec> current) {
         QuarkusTransaction.joiningExisting()
                 .run(
                         () -> {
