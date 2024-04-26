@@ -133,6 +133,7 @@ public abstract class ContainerDiscovery {
     public static final String JMX_URL_LABEL = "io.cryostat.jmxUrl";
     public static final String JMX_HOST_LABEL = "io.cryostat.jmxHost";
     public static final String JMX_PORT_LABEL = "io.cryostat.jmxPort";
+    public static final String CONTAINER_ID_LABEL = "io.cryostat.containerId";
 
     @Inject Logger logger;
     @Inject FileSystem fs;
@@ -292,51 +293,51 @@ public abstract class ContainerDiscovery {
 
     @Transactional
     public void handleContainerEvent(ContainerSpec desc, EventKind evtKind) {
-        URI connectUrl;
-        String hostname;
-        int jmxPort;
-        try {
-            JMXServiceURL serviceUrl;
-            URI rmiTarget;
-            if (desc.Labels.containsKey(JMX_URL_LABEL)) {
-                serviceUrl = new JMXServiceURL(desc.Labels.get(JMX_URL_LABEL));
-                connectUrl = URI.create(serviceUrl.toString());
-                try {
-                    rmiTarget = URIUtil.getRmiTarget(serviceUrl);
-                    hostname = rmiTarget.getHost();
-                    jmxPort = rmiTarget.getPort();
-                } catch (IllegalArgumentException e) {
-                    hostname = serviceUrl.getHost();
-                    jmxPort = serviceUrl.getPort();
-                }
-            } else {
-                jmxPort = Integer.parseInt(desc.Labels.get(JMX_PORT_LABEL));
-                hostname = desc.Labels.get(JMX_HOST_LABEL);
-                if (hostname == null) {
-                    try {
-                        hostname =
-                                doContainerInspectRequest(desc)
-                                        .get(2, TimeUnit.SECONDS)
-                                        .Config
-                                        .Hostname;
-                    } catch (InterruptedException | TimeoutException | ExecutionException e) {
-                        containers.remove(desc);
-                        logger.warnv(e, "Invalid {0} target observed", getRealm());
-                        return;
-                    }
-                }
-            }
-            serviceUrl = connectionToolkit.createServiceURL(hostname, jmxPort);
-            connectUrl = URI.create(serviceUrl.toString());
-        } catch (MalformedURLException | URISyntaxException e) {
-            containers.remove(desc);
-            logger.warnv(e, "Invalid {0} target observed", getRealm());
-            return;
-        }
-
         DiscoveryNode realm = DiscoveryNode.getRealm(getRealm()).orElseThrow();
 
         if (evtKind == EventKind.FOUND) {
+            URI connectUrl;
+            String hostname;
+            int jmxPort;
+            try {
+                JMXServiceURL serviceUrl;
+                URI rmiTarget;
+                if (desc.Labels.containsKey(JMX_URL_LABEL)) {
+                    serviceUrl = new JMXServiceURL(desc.Labels.get(JMX_URL_LABEL));
+                    connectUrl = URI.create(serviceUrl.toString());
+                    try {
+                        rmiTarget = URIUtil.getRmiTarget(serviceUrl);
+                        hostname = rmiTarget.getHost();
+                        jmxPort = rmiTarget.getPort();
+                    } catch (IllegalArgumentException e) {
+                        hostname = serviceUrl.getHost();
+                        jmxPort = serviceUrl.getPort();
+                    }
+                } else {
+                    jmxPort = Integer.parseInt(desc.Labels.get(JMX_PORT_LABEL));
+                    hostname = desc.Labels.get(JMX_HOST_LABEL);
+                    if (hostname == null) {
+                        try {
+                            hostname =
+                                    doContainerInspectRequest(desc)
+                                            .get(2, TimeUnit.SECONDS)
+                                            .Config
+                                            .Hostname;
+                        } catch (InterruptedException | TimeoutException | ExecutionException e) {
+                            containers.remove(desc);
+                            logger.warnv(e, "Invalid {0} target observed", getRealm());
+                            return;
+                        }
+                    }
+                }
+                serviceUrl = connectionToolkit.createServiceURL(hostname, jmxPort);
+                connectUrl = URI.create(serviceUrl.toString());
+            } catch (MalformedURLException | URISyntaxException e) {
+                containers.remove(desc);
+                logger.warnv(e, "Invalid {0} target observed", getRealm());
+                return;
+            }
+
             Target target = new Target();
             target.activeRecordings = new ArrayList<>();
             target.connectUrl = connectUrl;
@@ -355,11 +356,17 @@ public abstract class ContainerDiscovery {
                                     Integer.toString(jmxPort)));
 
             DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
+            node.labels.put(
+                    CONTAINER_ID_LABEL, desc.Id); // Add container Id retrieve node during deletion
             target.discoveryNode = node;
+
             String podName = desc.PodName;
             if (StringUtils.isNotBlank(podName)) {
                 DiscoveryNode pod =
-                        DiscoveryNode.environment(podName, ContainerDiscoveryNodeType.POD);
+                        DiscoveryNode.getChild(realm, (n) -> n.name.equals(podName))
+                                .orElse(
+                                        DiscoveryNode.environment(
+                                                podName, ContainerDiscoveryNodeType.POD));
                 if (!realm.children.contains(pod)) {
                     pod.children.add(node);
                     node.parent = pod;
@@ -387,18 +394,38 @@ public abstract class ContainerDiscovery {
             node.persist();
             realm.persist();
         } else {
-            Target t = Target.getTargetByConnectUrl(connectUrl);
-            String podName = desc.PodName;
-            if (StringUtils.isNotBlank(podName)) {
-                DiscoveryNode pod =
-                        DiscoveryNode.environment(podName, ContainerDiscoveryNodeType.POD);
-                pod.children.remove(t.discoveryNode);
-            } else {
-                realm.children.remove(t.discoveryNode);
+            Optional<Target> target =
+                    Target.getTarget(
+                            (t) ->
+                                    realm.name.equals(t.annotations.cryostat().get("REALM"))
+                                            && desc.Id.equals(
+                                                    t.discoveryNode.labels.get(
+                                                            CONTAINER_ID_LABEL)));
+            if (target.isEmpty()) {
+                return;
             }
-            t.discoveryNode.parent = null;
+
+            DiscoveryNode node = target.get().discoveryNode;
+
+            while (true) {
+                DiscoveryNode parent = node.parent;
+                if (parent == null) {
+                    break;
+                }
+
+                parent.children.remove(node);
+                parent.persist();
+                node.parent = null;
+
+                if (parent.hasChildren() || node.nodeType.equals(BaseNodeType.REALM.getKind())) {
+                    break;
+                }
+
+                node = parent;
+            }
+
             realm.persist();
-            t.delete();
+            target.get().delete();
         }
     }
 
