@@ -259,74 +259,7 @@ public abstract class ContainerDiscovery {
         doContainerListRequest(
                 current -> {
                     Infrastructure.getDefaultWorkerPool()
-                            .execute(
-                                    () -> {
-                                        QuarkusTransaction.joiningExisting()
-                                                .run(
-                                                        () -> {
-                                                            List<DiscoveryNode> targetNodes =
-                                                                    DiscoveryNode.findAllByNodeType(
-                                                                                    BaseNodeType
-                                                                                            .JVM)
-                                                                            .stream()
-                                                                            .filter(
-                                                                                    (n) ->
-                                                                                            getRealm()
-                                                                                                    .equals(
-                                                                                                            n.target
-                                                                                                                    .annotations
-                                                                                                                    .cryostat()
-                                                                                                                    .get(
-                                                                                                                            "REALM")))
-                                                                            .collect(
-                                                                                    Collectors
-                                                                                            .toList());
-
-                                                            Map<Target, ContainerSpec>
-                                                                    containerRefMap =
-                                                                            new HashMap<>();
-                                                            current.forEach(
-                                                                    (desc) ->
-                                                                            containerRefMap.put(
-                                                                                    toTarget(desc),
-                                                                                    desc));
-
-                                                            Set<Target> persistedTargets =
-                                                                    targetNodes.stream()
-                                                                            .map((n) -> n.target)
-                                                                            .collect(
-                                                                                    Collectors
-                                                                                            .toSet());
-                                                            Set<Target> observedTargets =
-                                                                    containerRefMap.keySet();
-
-                                                            Target.compare(persistedTargets)
-                                                                    .to(observedTargets)
-                                                                    .added()
-                                                                    .forEach(
-                                                                            (t) ->
-                                                                                    handleContainerEvent(
-                                                                                            containerRefMap
-                                                                                                    .get(
-                                                                                                            t),
-                                                                                            t,
-                                                                                            EventKind
-                                                                                                    .FOUND));
-
-                                                            Target.compare(persistedTargets)
-                                                                    .to(observedTargets)
-                                                                    .removed()
-                                                                    .forEach(
-                                                                            (t) ->
-                                                                                    handleContainerEvent(
-                                                                                            containerRefMap
-                                                                                                    .get(
-                                                                                                            t),
-                                                                                            t,
-                                                                                            EventKind
-                                                                                                    .LOST));
-                                                        });
-                                    });
+                            .execute(() -> handleContainerEvent(current));
                 });
     }
 
@@ -388,7 +321,56 @@ public abstract class ContainerDiscovery {
         return result;
     }
 
-    public void handleContainerEvent(ContainerSpec desc, Target target, EventKind evtKind) {
+    public void handleContainerEvent(List<ContainerSpec> current) {
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () -> {
+                            List<DiscoveryNode> targetNodes =
+                                    DiscoveryNode.findAllByNodeType(BaseNodeType.JVM).stream()
+                                            .filter(
+                                                    (n) ->
+                                                            n.target != null
+                                                                    && getRealm()
+                                                                            .equals(
+                                                                                    n.target
+                                                                                            .annotations
+                                                                                            .cryostat()
+                                                                                            .get(
+                                                                                                    "REALM")))
+                                            .collect(Collectors.toList());
+
+                            Map<Target, ContainerSpec> containerRefMap = new HashMap<>();
+                            current.forEach((desc) -> containerRefMap.put(toTarget(desc), desc));
+
+                            Set<Target> persistedTargets =
+                                    targetNodes.stream()
+                                            .map((n) -> n.target)
+                                            .collect(Collectors.toSet());
+                            Set<Target> observedTargets = containerRefMap.keySet();
+
+                            Target.compare(persistedTargets)
+                                    .to(observedTargets)
+                                    .added()
+                                    .forEach(
+                                            (t) ->
+                                                    updateDiscoveryTree(
+                                                            containerRefMap.get(t),
+                                                            t,
+                                                            EventKind.FOUND));
+
+                            Target.compare(persistedTargets)
+                                    .to(observedTargets)
+                                    .removed()
+                                    .forEach(
+                                            (t) ->
+                                                    updateDiscoveryTree(
+                                                            containerRefMap.get(t),
+                                                            t,
+                                                            EventKind.LOST));
+                        });
+    }
+
+    public void updateDiscoveryTree(ContainerSpec desc, Target target, EventKind evtKind) {
         DiscoveryNode realm = DiscoveryNode.getRealm(getRealm()).orElseThrow();
 
         if (evtKind == EventKind.FOUND) {
