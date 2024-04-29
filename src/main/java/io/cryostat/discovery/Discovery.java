@@ -76,6 +76,7 @@ import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
 import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
@@ -399,53 +400,37 @@ public class Discovery {
     @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;
-        @Inject Scheduler scheduler;
 
         @Override
-        public void execute(JobExecutionContext context) {
-            QuarkusTransaction.requiringNew()
-                    .run(
-                            () -> {
-                                DiscoveryPlugin plugin = null;
-                                try {
-                                    boolean refresh =
-                                            context.getMergedJobDataMap()
-                                                    .getBoolean(REFRESH_MAP_KEY);
-                                    plugin =
-                                            DiscoveryPlugin.find(
-                                                            "id",
-                                                            context.getMergedJobDataMap()
-                                                                    .get(PLUGIN_ID_MAP_KEY))
-                                                    .singleResult();
-                                    var cb = PluginCallback.create(plugin);
-                                    if (refresh) {
-                                        cb.refresh();
-                                        logger.debugv(
-                                                "Refreshed discovery plugin: {0} @ {1}",
-                                                plugin.realm, plugin.callback);
-                                    } else {
-                                        cb.ping();
-                                        logger.debugv(
-                                                "Retained discovery plugin: {0} @ {1}",
-                                                plugin.realm, plugin.callback);
-                                    }
-                                } catch (Exception e) {
-                                    if (plugin != null) {
-                                        logger.debugv(
-                                                e,
-                                                "Pruned discovery plugin: {0} @ {1}",
-                                                plugin.realm,
-                                                plugin.callback);
-                                        plugin.delete();
-                                    } else {
-                                        try {
-                                            scheduler.deleteJob(context.getJobDetail().getKey());
-                                        } catch (SchedulerException se) {
-                                            logger.warn(se);
-                                        }
-                                    }
-                                }
-                            });
+        public void execute(JobExecutionContext context) throws JobExecutionException {
+            DiscoveryPlugin plugin = null;
+            try {
+                boolean refresh = context.getMergedJobDataMap().getBoolean(REFRESH_MAP_KEY);
+                plugin =
+                        DiscoveryPlugin.find(
+                                        "id", context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY))
+                                .singleResult();
+                var cb = PluginCallback.create(plugin);
+                if (refresh) {
+                    cb.refresh();
+                    logger.debugv(
+                            "Refreshed discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
+                } else {
+                    cb.ping();
+                    logger.debugv(
+                            "Retained discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
+                }
+            } catch (Exception e) {
+                if (plugin != null) {
+                    logger.debugv(
+                            e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
+                    QuarkusTransaction.requiringNew().run(plugin::delete);
+                } else {
+                    var ex = new JobExecutionException(e);
+                    ex.setUnscheduleFiringTrigger(true);
+                    throw ex;
+                }
+            }
         }
     }
 
