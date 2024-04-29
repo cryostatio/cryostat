@@ -94,7 +94,7 @@ public class MessagingServer {
             logger.errorv(e, "Unable to serialize message to JSON: {0}", notification);
             return;
         }
-        logger.infov("Broadcasting: {0}", json);
+        logger.debugv("Broadcasting: {0}", json);
         sessions.forEach(
                 s ->
                         s.getAsyncRemote()
