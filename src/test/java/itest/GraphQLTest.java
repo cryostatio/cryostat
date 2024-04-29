@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.util.HttpMimeType;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
@@ -110,15 +111,14 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    // @Disabled
     @Test
     @Order(1)
     void testOtherContainersFound() throws Exception {
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "query { targetNodes { name nodeType labels target { alias connectUrl annotations {"
-                        + " cryostat platform } } } }");
+                "query { targetNodes { name nodeType labels { key value } target { alias connectUrl"
+                        + " annotations { cryostat { key value } platform { key value } } } } }");
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
@@ -129,47 +129,24 @@ class GraphQLTest extends StandardSelfTest {
 
         TargetNodesQueryResponse actual =
                 mapper.readValue(resp.bodyAsString(), TargetNodesQueryResponse.class);
+
         MatcherAssert.assertThat(actual.data.targetNodes, Matchers.hasSize(1));
 
         TargetNode cryostat = new TargetNode();
         Target cryostatTarget = new Target();
-        cryostatTarget.alias = "io.cryostat.Cryostat";
-        cryostatTarget.connectUrl = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
-        cryostat.name = cryostatTarget.connectUrl;
-        cryostat.target = cryostatTarget;
-        cryostat.nodeType = "JVM";
+        cryostatTarget.setAlias("selftest");
+        cryostatTarget.setConnectUrl("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi");
+        cryostat.setName(cryostatTarget.getConnectUrl());
+        cryostat.setTarget(cryostatTarget);
+        cryostat.setNodeType("JVM");
         Annotations cryostatAnnotations = new Annotations();
-        cryostatAnnotations.cryostat =
-                Map.of(
-                        "REALM",
-                        "JDP",
-                        "JAVA_MAIN",
-                        "io.cryostat.Cryostat",
-                        "HOST",
-                        "localhost",
-                        "PORT",
-                        "0");
-        cryostatAnnotations.platform = Map.of();
-        cryostatTarget.annotations = cryostatAnnotations;
-        cryostat.labels = Map.of();
+        cryostatAnnotations.setCryostat(Arrays.asList(new KeyValue("REALM", "Custom Targets")));
+        cryostatAnnotations.setPlatform(new ArrayList<>());
+        cryostatTarget.setAnnotations(cryostatAnnotations);
+        cryostat.setLabels(new ArrayList<>());
         MatcherAssert.assertThat(actual.data.targetNodes, Matchers.hasItem(cryostat));
-
-        String uri = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
-        String mainClass = "es.andrewazor.demo.Main";
-        TargetNode ext = new TargetNode();
-        Target target = new Target();
-        target.alias = mainClass;
-        target.connectUrl = uri;
-        ext.name = target.connectUrl;
-        ext.target = target;
-        ext.nodeType = "JVM";
-        Annotations annotations = new Annotations();
-        annotations.cryostat =
-                Map.of("REALM", "JDP", "JAVA_MAIN", mainClass, "HOST", "localhost", "PORT", "0");
-        annotations.platform = Map.of();
-        target.annotations = annotations;
-        ext.labels = Map.of();
-        MatcherAssert.assertThat(actual.data.targetNodes, Matchers.hasItem(ext));
+        assertThat(actual.data.targetNodes.get(0).name, is(cryostat.name));
+        assertThat(actual.data.targetNodes.get(0).nodeType, is(cryostat.nodeType));
     }
 
     @Disabled
@@ -1181,6 +1158,30 @@ class GraphQLTest extends StandardSelfTest {
         String connectUrl;
         Annotations annotations;
 
+        public String getAlias() {
+            return alias;
+        }
+
+        public void setAlias(String alias) {
+            this.alias = alias;
+        }
+
+        public String getConnectUrl() {
+            return connectUrl;
+        }
+
+        public void setConnectUrl(String connectUrl) {
+            this.connectUrl = connectUrl;
+        }
+
+        public Annotations getAnnotations() {
+            return annotations;
+        }
+
+        public void setAnnotations(Annotations annotations) {
+            this.annotations = annotations;
+        }
+
         @Override
         public int hashCode() {
             return Objects.hash(alias, connectUrl, annotations);
@@ -1202,11 +1203,93 @@ class GraphQLTest extends StandardSelfTest {
                     && Objects.equals(connectUrl, other.connectUrl)
                     && Objects.equals(annotations, other.annotations);
         }
+
+        @Override
+        public String toString() {
+            return "Target [alias="
+                    + alias
+                    + ", connectUrl="
+                    + connectUrl
+                    + ", annotations="
+                    + annotations
+                    + "]";
+        }
     }
 
-    static class Annotations {
-        Map<String, String> platform;
-        Map<String, String> cryostat;
+    public static class KeyValue {
+        private String key;
+        private String value;
+
+        public KeyValue() {}
+
+        public KeyValue(String key, String value) {
+            this.key = key;
+            this.value = value;
+        }
+
+        public String getKey() {
+            return key;
+        }
+
+        public void setKey(String key) {
+            this.key = key;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public void setValue(String value) {
+            this.value = value;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            KeyValue keyValue = (KeyValue) o;
+            return Objects.equals(key, keyValue.key) && Objects.equals(value, keyValue.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(key, value);
+        }
+
+        @Override
+        public String toString() {
+            return "KeyValue{" + "key='" + key + '\'' + ", value='" + value + '\'' + '}';
+        }
+    }
+
+    public static class Annotations {
+        private List<KeyValue> cryostat;
+        private List<KeyValue> platform;
+
+        public List<KeyValue> getCryostat() {
+            return cryostat;
+        }
+
+        public void setCryostat(List<KeyValue> cryostat) {
+            this.cryostat = cryostat;
+        }
+
+        public List<KeyValue> getPlatform() {
+            return platform;
+        }
+
+        public void setPlatform(List<KeyValue> platform) {
+            this.platform = platform;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Annotations that = (Annotations) o;
+            return Objects.equals(cryostat, that.cryostat)
+                    && Objects.equals(platform, that.platform);
+        }
 
         @Override
         public int hashCode() {
@@ -1214,19 +1297,8 @@ class GraphQLTest extends StandardSelfTest {
         }
 
         @Override
-        public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null) {
-                return false;
-            }
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
-            Annotations other = (Annotations) obj;
-            return Objects.equals(cryostat, other.cryostat)
-                    && Objects.equals(platform, other.platform);
+        public String toString() {
+            return "Annotations{" + "cryostat=" + cryostat + ", platform=" + platform + '}';
         }
     }
 
@@ -1372,12 +1444,60 @@ class GraphQLTest extends StandardSelfTest {
     }
 
     static class TargetNode {
-        String name;
-        String nodeType;
-        Map<String, String> labels;
-        Target target;
-        Recordings recordings;
-        ActiveRecording doStartRecording;
+        private String name;
+        private String nodeType;
+        private List<Label> labels;
+        private Target target;
+        private Recordings recordings;
+        private ActiveRecording doStartRecording;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getNodeType() {
+            return nodeType;
+        }
+
+        public void setNodeType(String nodeType) {
+            this.nodeType = nodeType;
+        }
+
+        public List<Label> getLabels() {
+            return labels;
+        }
+
+        public void setLabels(List<Label> labels) {
+            this.labels = labels;
+        }
+
+        public Target getTarget() {
+            return target;
+        }
+
+        public void setTarget(Target target) {
+            this.target = target;
+        }
+
+        public Recordings getRecordings() {
+            return recordings;
+        }
+
+        public void setRecordings(Recordings recordings) {
+            this.recordings = recordings;
+        }
+
+        public ActiveRecording getDoStartRecording() {
+            return doStartRecording;
+        }
+
+        public void setDoStartRecording(ActiveRecording doStartRecording) {
+            this.doStartRecording = doStartRecording;
+        }
 
         @Override
         public String toString() {
@@ -1403,15 +1523,8 @@ class GraphQLTest extends StandardSelfTest {
 
         @Override
         public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null) {
-                return false;
-            }
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
+            if (this == obj) return true;
+            if (obj == null || getClass() != obj.getClass()) return false;
             TargetNode other = (TargetNode) obj;
             return Objects.equals(doStartRecording, other.doStartRecording)
                     && Objects.equals(labels, other.labels)
@@ -1422,9 +1535,51 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    static class TargetNodes {
+    public static class Label {
+        private String key;
+        private String value;
 
-        List<TargetNode> targetNodes;
+        public String getKey() {
+            return key;
+        }
+
+        public void setKey(String key) {
+            this.key = key;
+        }
+
+        public String getValue() {
+            return value;
+        }
+
+        public void setValue(String value) {
+            this.value = value;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            Label label = (Label) o;
+            return Objects.equals(key, label.key) && Objects.equals(value, label.value);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(key, value);
+        }
+    }
+
+    static class TargetNodes {
+        @JsonProperty("targetNodes")
+        private List<TargetNode> targetNodes;
+
+        public List<TargetNode> getTargetNodes() {
+            return targetNodes;
+        }
+
+        public void setTargetNodes(List<TargetNode> targetNodes) {
+            this.targetNodes = targetNodes;
+        }
 
         @Override
         public int hashCode() {
@@ -1453,7 +1608,27 @@ class GraphQLTest extends StandardSelfTest {
     }
 
     static class TargetNodesQueryResponse {
-        TargetNodes data;
+        private Data data;
+
+        public Data getData() {
+            return data;
+        }
+
+        public void setData(Data data) {
+            this.data = data;
+        }
+
+        public static class Data {
+            private List<TargetNode> targetNodes;
+
+            public List<TargetNode> getTargetNodes() {
+                return targetNodes;
+            }
+
+            public void setTargetNodes(List<TargetNode> targetNodes) {
+                this.targetNodes = targetNodes;
+            }
+        }
 
         @Override
         public int hashCode() {
@@ -1473,6 +1648,11 @@ class GraphQLTest extends StandardSelfTest {
             }
             TargetNodesQueryResponse other = (TargetNodesQueryResponse) obj;
             return Objects.equals(data, other.data);
+        }
+
+        @Override
+        public String toString() {
+            return "TargetNodesQueryResponse{" + "data=" + data + '}';
         }
     }
 
