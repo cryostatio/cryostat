@@ -26,13 +26,12 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
 
 class ScheduledArchiveJob implements Job {
 
@@ -47,25 +46,25 @@ class ScheduledArchiveJob implements Job {
     String archiveBucket;
 
     @Override
-    @Transactional
-    public void execute(JobExecutionContext ctx) throws JobExecutionException {
-        try {
-            var rule = (Rule) ctx.getJobDetail().getJobDataMap().get("rule");
-            var target = (Target) ctx.getJobDetail().getJobDataMap().get("target");
-            var recording = (ActiveRecording) ctx.getJobDetail().getJobDataMap().get("recording");
+    public void execute(JobExecutionContext ctx) {
+        var rule = (Rule) ctx.getJobDetail().getJobDataMap().get("rule");
+        var target = (Target) ctx.getJobDetail().getJobDataMap().get("target");
+        var recording = (ActiveRecording) ctx.getJobDetail().getJobDataMap().get("recording");
 
-            Queue<String> previousRecordings = new ArrayDeque<>(rule.preservedArchives);
+        Queue<String> previousRecordings = new ArrayDeque<>(rule.preservedArchives);
 
-            initPreviousRecordings(target, rule, previousRecordings);
+        initPreviousRecordings(target, rule, previousRecordings);
 
-            while (previousRecordings.size() >= rule.preservedArchives) {
-                pruneArchive(target, previousRecordings, previousRecordings.remove());
-            }
-            performArchival(recording, previousRecordings);
-        } catch (Exception e) {
-            logger.error(e);
-            // TODO: Handle JMX/SSL errors
+        while (previousRecordings.size() >= rule.preservedArchives) {
+            pruneArchive(target, previousRecordings, previousRecordings.remove());
         }
+        previousRecordings.add(
+                QuarkusTransaction.joiningExisting()
+                        .call(
+                                () ->
+                                        recordingHelper
+                                                .archiveRecording(recording, null, null)
+                                                .name()));
     }
 
     void initPreviousRecordings(Target target, Rule rule, Queue<String> previousRecordings) {
@@ -89,14 +88,7 @@ class ScheduledArchiveJob implements Job {
                         });
     }
 
-    void performArchival(ActiveRecording recording, Queue<String> previousRecordings)
-            throws Exception {
-        String filename = recordingHelper.archiveRecording(recording, null, null).name();
-        previousRecordings.add(filename);
-    }
-
-    void pruneArchive(Target target, Queue<String> previousRecordings, String filename)
-            throws Exception {
+    void pruneArchive(Target target, Queue<String> previousRecordings, String filename) {
         recordingHelper.deleteArchivedRecording(target.jvmId, filename);
         previousRecordings.remove(filename);
     }

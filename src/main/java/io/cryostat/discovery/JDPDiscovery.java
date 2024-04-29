@@ -101,10 +101,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @Override
     public void accept(JvmDiscoveryEvent evt) {
         Infrastructure.getDefaultWorkerPool()
-                .execute(
-                        () ->
-                                QuarkusTransaction.joiningExisting()
-                                        .run(() -> this.handleJdpEvent(evt)));
+                .execute(() -> QuarkusTransaction.joiningExisting().run(() -> handleJdpEvent(evt)));
     }
 
     void handleJdpEvent(JvmDiscoveryEvent evt) {
