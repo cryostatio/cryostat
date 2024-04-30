@@ -149,15 +149,15 @@ class GraphQLTest extends StandardSelfTest {
         assertThat(actual.data.targetNodes.get(0).nodeType, is(cryostat.nodeType));
     }
 
-    @Disabled
     @Test
     @Order(2)
     void testQueryForSpecificTargetWithSpecificFields() throws Exception {
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "query { targetNodes(filter: { annotations: \"PORT == 0\" }) { name nodeType }"
-                        + " }");
+                "query { targetNodes(filter: { annotations: \"key:REALM, value:Custom Targets\" })"
+                        + " { name nodeType target { connectUrl annotations { cryostat(key:"
+                        + " [\"REALM\"]) { key value } } } } }");
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
@@ -170,10 +170,15 @@ class GraphQLTest extends StandardSelfTest {
                 mapper.readValue(resp.bodyAsString(), TargetNodesQueryResponse.class);
         MatcherAssert.assertThat(actual.data.targetNodes, Matchers.hasSize(1));
 
-        String uri = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
         TargetNode ext = new TargetNode();
-        ext.name = uri;
-        ext.nodeType = "JVM";
+        Target extTarget = new Target();
+        extTarget.setConnectUrl("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi");
+        ext.setName(extTarget.getConnectUrl());
+        ext.setTarget(extTarget);
+        ext.setNodeType("JVM");
+        Annotations extAnnotations = new Annotations();
+        extAnnotations.setCryostat(Arrays.asList(new KeyValue("REALM", "Custom Targets")));
+        extTarget.setAnnotations(extAnnotations);
         MatcherAssert.assertThat(actual.data.targetNodes, Matchers.hasItem(ext));
     }
 
