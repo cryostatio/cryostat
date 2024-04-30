@@ -179,6 +179,8 @@ public class CustomDiscovery {
             node.persist();
             realm.persist();
 
+            QuarkusTransaction.commit();
+
             return Response.created(URI.create("/api/v3/targets/" + target.id))
                     .entity(V2Response.json(Response.Status.CREATED, target))
                     .build();
