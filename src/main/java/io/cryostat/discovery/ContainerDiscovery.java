@@ -51,9 +51,11 @@ import com.sun.security.auth.module.UnixSystem;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
+import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.mutiny.core.Vertx;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.core.net.SocketAddress;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.codec.BodyCodec;
@@ -137,6 +139,8 @@ public abstract class ContainerDiscovery {
     public static final String JMX_URL_LABEL = "io.cryostat.jmxUrl";
     public static final String JMX_HOST_LABEL = "io.cryostat.jmxHost";
     public static final String JMX_PORT_LABEL = "io.cryostat.jmxPort";
+    public static final String CONTAINER_DISCOVERY_ADDRESS =
+            "io.cryostat.discovery.ContainerDiscovery";
 
     @Inject Logger logger;
     @Inject FileSystem fs;
@@ -144,6 +148,7 @@ public abstract class ContainerDiscovery {
     @Inject WebClient webClient;
     @Inject JFRConnectionToolkit connectionToolkit;
     @Inject ObjectMapper mapper;
+    @Inject EventBus bus;
 
     @ConfigProperty(name = ConfigProperties.CONTAINERS_POLL_PERIOD)
     Duration pollPeriod;
@@ -194,7 +199,7 @@ public abstract class ContainerDiscovery {
     }
 
     void onStop(@Observes ShutdownEvent evt) {
-        if (!enabled()) {
+        if (!(enabled() && available())) {
             return;
         }
         logger.infov("Shutting down {0} client", getRealm());
@@ -249,12 +254,12 @@ public abstract class ContainerDiscovery {
 
         try {
             Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
-            DiscoveryNode targetNode = persistedTarget.discoveryNode;
-            if (!getRealm().equals(persistedTarget.annotations.cryostat().get("REALM"))) {
+            String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
+            if (!getRealm().equals(realmOfTarget)) {
                 logger.warnv(
-                        "Expected persisted target with serviceURL {0} to have node type"
-                                + " {1} but found {2} ",
-                        persistedTarget.connectUrl, getRealm(), targetNode.nodeType);
+                        "Expected persisted target with serviceURL {0} to be under realm {1}"
+                                + "but found under {2} ",
+                        persistedTarget.connectUrl, getRealm(), realmOfTarget);
                 throw new IllegalStateException();
             }
             return persistedTarget;
@@ -285,7 +290,10 @@ public abstract class ContainerDiscovery {
         doContainerListRequest(
                 current -> {
                     Infrastructure.getDefaultWorkerPool()
-                            .execute(() -> handleContainerEvent(current));
+                            .execute(
+                                    () ->
+                                            QuarkusTransaction.joiningExisting()
+                                                    .run(() -> handleContainerEvent(current)));
                 });
     }
 
@@ -347,72 +355,63 @@ public abstract class ContainerDiscovery {
         return result;
     }
 
-    public synchronized void handleContainerEvent(List<ContainerSpec> current) {
-        QuarkusTransaction.joiningExisting()
-                .run(
-                        () -> {
-                            List<DiscoveryNode> targetNodes =
-                                    DiscoveryNode.findAllByNodeType(BaseNodeType.JVM).stream()
-                                            .filter(
-                                                    (n) ->
-                                                            Objects.nonNull(n.target)
-                                                                    && getRealm()
-                                                                            .equals(
-                                                                                    n.target
-                                                                                            .annotations
-                                                                                            .cryostat()
-                                                                                            .get(
-                                                                                                    "REALM")))
-                                            .collect(Collectors.toList());
+    private void handleContainerEvent(List<ContainerSpec> current) {
+        List<DiscoveryNode> targetNodes =
+                DiscoveryNode.findAllByNodeType(BaseNodeType.JVM).stream()
+                        .filter(
+                                (n) ->
+                                        Objects.nonNull(n.target)
+                                                && getRealm()
+                                                        .equals(
+                                                                n.target
+                                                                        .annotations
+                                                                        .cryostat()
+                                                                        .get("REALM")))
+                        .collect(Collectors.toList());
 
-                            Map<Target, ContainerSpec> containerRefMap = new HashMap<>();
-                            current.stream()
-                                    .map((desc) -> Pair.of(desc, toTarget(desc)))
-                                    .filter((pair) -> Objects.nonNull(pair.getRight()))
-                                    .forEach(
-                                            (pair) ->
-                                                    containerRefMap.put(
-                                                            pair.getRight(), pair.getLeft()));
+        Map<Target, ContainerSpec> containerRefMap = new HashMap<>();
+        current.stream()
+                .map((desc) -> Pair.of(desc, toTarget(desc)))
+                .filter((pair) -> Objects.nonNull(pair.getRight()))
+                .forEach((pair) -> containerRefMap.put(pair.getRight(), pair.getLeft()));
 
-                            Set<Target> persistedTargets =
-                                    targetNodes.stream()
-                                            .map((n) -> n.target)
-                                            .collect(Collectors.toSet());
-                            Set<Target> observedTargets = containerRefMap.keySet();
+        Set<Target> persistedTargets =
+                targetNodes.stream().map((n) -> n.target).collect(Collectors.toSet());
+        Set<Target> observedTargets = containerRefMap.keySet();
 
-                            Target.compare(persistedTargets)
-                                    .to(observedTargets)
-                                    .added()
-                                    .forEach(
-                                            (t) ->
-                                                    updateDiscoveryTree(
-                                                            containerRefMap.get(t),
-                                                            t,
-                                                            EventKind.FOUND));
+        Target.compare(persistedTargets)
+                .to(observedTargets)
+                .added()
+                .forEach(
+                        (t) ->
+                                notify(
+                                        ContainerDiscoveryEvent.from(
+                                                containerRefMap.get(t), t, EventKind.FOUND)));
 
-                            Target.compare(persistedTargets)
-                                    .to(observedTargets)
-                                    .removed()
-                                    .forEach(
-                                            (t) ->
-                                                    updateDiscoveryTree(
-                                                            containerRefMap.get(t),
-                                                            t,
-                                                            EventKind.LOST));
-                        });
+        Target.compare(persistedTargets)
+                .to(observedTargets)
+                .removed()
+                .forEach(
+                        (t) ->
+                                notify(
+                                        ContainerDiscoveryEvent.from(
+                                                containerRefMap.get(t), t, EventKind.LOST)));
     }
 
-    public void updateDiscoveryTree(ContainerSpec desc, Target target, EventKind evtKind) {
+    private void notify(ContainerDiscoveryEvent evt) {
+        bus.publish(CONTAINER_DISCOVERY_ADDRESS, evt);
+    }
+
+    @Transactional
+    @ConsumeEvent(value = "io.cryostat.discovery.ContainerDiscovery", blocking = true)
+    public void updateDiscoveryTree(ContainerDiscoveryEvent evt) {
+        EventKind evtKind = evt.eventKind;
+        Target target = evt.target;
+        ContainerSpec desc = evt.desc;
+
         DiscoveryNode realm = DiscoveryNode.getRealm(getRealm()).orElseThrow();
 
         if (evtKind == EventKind.FOUND) {
-            if (target.isPersistent()) {
-                logger.infov(
-                        "Target with serviceURL {0} already exist in discovery tree. Skipped"
-                                + " adding",
-                        target.connectUrl);
-                return;
-            }
             DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
             target.discoveryNode = node;
 
@@ -450,14 +449,6 @@ public abstract class ContainerDiscovery {
             node.persist();
             realm.persist();
         } else {
-            if (!target.isPersistent()) {
-                logger.infov(
-                        "Target with serviceURL {0} does not exist in discovery tree. Skipped"
-                                + " deleting",
-                        target.connectUrl);
-                return;
-            }
-
             DiscoveryNode node = target.discoveryNode;
 
             while (true) {
@@ -510,6 +501,13 @@ public abstract class ContainerDiscovery {
     static record ContainerDetails(Config Config) {}
 
     static record Config(String Hostname) {}
+
+    static record ContainerDiscoveryEvent(ContainerSpec desc, Target target, EventKind eventKind) {
+        static ContainerDiscoveryEvent from(
+                ContainerSpec spec, Target target, EventKind eventKind) {
+            return new ContainerDiscoveryEvent(spec, target, eventKind);
+        }
+    }
 }
 
 enum ContainerDiscoveryNodeType implements NodeType {
