@@ -18,20 +18,12 @@ package io.cryostat.ws;
 import java.io.IOException;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArraySet;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.quarkus.runtime.ShutdownEvent;
-import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.websocket.OnClose;
 import jakarta.websocket.OnError;
@@ -39,7 +31,6 @@ import jakarta.websocket.OnMessage;
 import jakarta.websocket.OnOpen;
 import jakarta.websocket.Session;
 import jakarta.websocket.server.ServerEndpoint;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
@@ -50,14 +41,7 @@ public class MessagingServer {
 
     @Inject ObjectMapper mapper;
     @Inject Logger logger;
-    private final ExecutorService executor = Executors.newSingleThreadExecutor();
-    private final BlockingQueue<Notification> msgQ;
     private final Set<Session> sessions = new CopyOnWriteArraySet<>();
-    private volatile Future<?> task;
-
-    MessagingServer(@ConfigProperty(name = "cryostat.messaging.queue.size") int capacity) {
-        this.msgQ = new ArrayBlockingQueue<>(capacity);
-    }
 
     @OnOpen
     public void onOpen(Session session) throws InterruptedException {
@@ -84,54 +68,10 @@ public class MessagingServer {
         } catch (IOException ioe) {
             logger.error("Unable to close session", ioe);
         }
+        sessions.remove(session);
         broadcast(
                 new Notification(
                         CLIENT_ACTIVITY_CATEGORY, Map.of(session.getId(), "disconnected")));
-    }
-
-    void start(@Observes StartupEvent evt) {
-        logger.infov("Starting {0} executor", getClass().getName());
-        cancelTask();
-        this.task =
-                executor.submit(
-                        () -> {
-                            loop:
-                            while (!executor.isShutdown() && !Thread.interrupted()) {
-                                try {
-                                    var notification = msgQ.take();
-                                    var map =
-                                            Map.of(
-                                                    "meta",
-                                                    Map.of("category", notification.category()),
-                                                    "message",
-                                                    notification.message());
-                                    try {
-                                        var json = mapper.writeValueAsString(map);
-                                        logger.debugv("Broadcasting: {0}", json);
-                                        sessions.forEach(s -> s.getAsyncRemote().sendText(json));
-                                    } catch (JsonProcessingException e) {
-                                        logger.error("Unable to serialize message to JSON", e);
-                                    }
-                                } catch (InterruptedException ie) {
-                                    logger.warn(ie);
-                                    break loop;
-                                }
-                            }
-                        });
-    }
-
-    void shutdown(@Observes ShutdownEvent evt) {
-        logger.infov("Shutting down {0} executor", getClass().getName());
-        executor.shutdownNow();
-        cancelTask();
-        msgQ.clear();
-    }
-
-    private void cancelTask() {
-        if (this.task != null) {
-            this.task.cancel(true);
-            this.task = null;
-        }
     }
 
     @OnMessage
@@ -139,8 +79,31 @@ public class MessagingServer {
         logger.debugv("{0} message: \"{1}\"", session.getId(), message);
     }
 
-    @ConsumeEvent
-    void broadcast(Notification notification) throws InterruptedException {
-        msgQ.put(notification);
+    @ConsumeEvent(blocking = true, ordered = true)
+    void broadcast(Notification notification) {
+        var map =
+                Map.of(
+                        "meta",
+                        Map.of("category", notification.category()),
+                        "message",
+                        notification.message());
+        String json;
+        try {
+            json = mapper.writeValueAsString(map);
+        } catch (JsonProcessingException e) {
+            logger.errorv(e, "Unable to serialize message to JSON: {0}", notification);
+            return;
+        }
+        logger.debugv("Broadcasting: {0}", json);
+        sessions.forEach(
+                s ->
+                        s.getAsyncRemote()
+                                .sendText(
+                                        json,
+                                        h -> {
+                                            if (!h.isOK()) {
+                                                logger.warn(h.getException());
+                                            }
+                                        }));
     }
 }
