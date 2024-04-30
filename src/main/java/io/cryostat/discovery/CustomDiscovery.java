@@ -133,7 +133,8 @@ public class CustomDiscovery {
             Optional<Credential> credential,
             boolean dryrun,
             boolean storeCredentials) {
-        if (!QuarkusTransaction.isActive()) {
+        var beginTx = !QuarkusTransaction.isActive();
+        if (beginTx) {
             QuarkusTransaction.begin();
         }
         try {
@@ -179,12 +180,16 @@ public class CustomDiscovery {
             node.persist();
             realm.persist();
 
-            QuarkusTransaction.commit();
+            if (beginTx) {
+                QuarkusTransaction.commit();
+            }
 
             return Response.created(URI.create("/api/v3/targets/" + target.id))
                     .entity(V2Response.json(Response.Status.CREATED, target))
                     .build();
         } catch (Exception e) {
+            // roll back regardless of whether we initiated this database transaction or a caller
+            // did
             QuarkusTransaction.rollback();
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
