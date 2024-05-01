@@ -139,8 +139,6 @@ public abstract class ContainerDiscovery {
     public static final String JMX_URL_LABEL = "io.cryostat.jmxUrl";
     public static final String JMX_HOST_LABEL = "io.cryostat.jmxHost";
     public static final String JMX_PORT_LABEL = "io.cryostat.jmxPort";
-    public static final String CONTAINER_DISCOVERY_ADDRESS =
-            "io.cryostat.discovery.ContainerDiscovery";
 
     @Inject Logger logger;
     @Inject FileSystem fs;
@@ -398,15 +396,12 @@ public abstract class ContainerDiscovery {
     }
 
     private void notify(ContainerDiscoveryEvent evt) {
-        bus.publish(CONTAINER_DISCOVERY_ADDRESS, evt);
+        bus.publish(ContainerDiscovery.class.getName(), evt);
     }
 
     @Transactional
-    @ConsumeEvent(value = "io.cryostat.discovery.ContainerDiscovery", blocking = true)
+    @ConsumeEvent(blocking = true)
     public void updateDiscoveryTree(ContainerDiscoveryEvent evt) {
-        if (!(enabled() && available())) {
-            return;
-        }
         EventKind evtKind = evt.eventKind;
         Target target = evt.target;
         ContainerSpec desc = evt.desc;
