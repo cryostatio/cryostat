@@ -52,6 +52,7 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.mutiny.core.Vertx;
@@ -181,16 +182,16 @@ public abstract class ContainerDiscovery {
     // Priority is set higher than default 0 such that onStart is called first before onAfterStart
     // This ensures realm node is persisted before querying for containers
     @Transactional
+    @Blocking
     void onStart(@Observes @Priority(1) StartupEvent evt) {
         if (!enabled()) {
             return;
         }
 
-        Path socketPath = Path.of(getSocket().path());
         if (!available()) {
             logger.errorv(
                     "{0} enabled but socket {1} is not accessible!",
-                    getClass().getName(), socketPath);
+                    getClass().getName(), Path.of(getSocket().path()));
             return;
         }
 
@@ -209,6 +210,7 @@ public abstract class ContainerDiscovery {
         logger.infov("Starting {0} client", getRealm());
     }
 
+    @Blocking
     void onAfterStart(@Observes StartupEvent evt) {
         if (!(enabled() && available())) {
             return;
@@ -218,6 +220,7 @@ public abstract class ContainerDiscovery {
         this.timerId = vertx.setPeriodic(pollPeriod.toMillis(), unused -> queryContainers());
     }
 
+    @Blocking
     void onStop(@Observes ShutdownEvent evt) {
         if (!(enabled() && available())) {
             return;
@@ -409,18 +412,21 @@ public abstract class ContainerDiscovery {
         ContainerSpec desc = evt.desc;
 
         Target target = evt.target;
-        try {
-            Target persistedTarget = Target.getTargetByConnectUrl(target.connectUrl);
-            String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
-            if (!getRealm().equals(realmOfTarget)) {
-                logger.warnv(
-                        "Expected persisted target with serviceURL {0} to be under realm {1}"
-                                + " but found under {2} ",
-                        persistedTarget.connectUrl, getRealm(), realmOfTarget);
-                throw new IllegalStateException();
+        // Check for any targets with the same connectUrl in other realms
+        // during EventKind.FOUND event.
+        if (!target.isPersistent()) {
+            try {
+                Target persistedTarget = Target.getTargetByConnectUrl(target.connectUrl);
+                String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
+                if (!getRealm().equals(realmOfTarget)) {
+                    logger.warnv(
+                            "Expected persisted target with serviceURL {0} to be under realm {1}"
+                                    + " but found under {2} ",
+                            persistedTarget.connectUrl, getRealm(), realmOfTarget);
+                    throw new IllegalStateException();
+                }
+            } catch (NoResultException e) {
             }
-            target = persistedTarget;
-        } catch (NoResultException e) {
         }
 
         DiscoveryNode realm = DiscoveryNode.getRealm(getRealm()).orElseThrow();
