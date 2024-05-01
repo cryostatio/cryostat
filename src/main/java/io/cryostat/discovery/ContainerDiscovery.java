@@ -101,6 +101,15 @@ class PodmanDiscovery extends ContainerDiscovery {
     protected boolean enabled() {
         return enabled;
     }
+
+    @ConsumeEvent(
+            value = "io.cryostat.discovery.ContainerDiscovery",
+            blocking = true,
+            ordered = true)
+    @Transactional
+    void handleContainerEvent(ContainerDiscoveryEvent evt) {
+        updateDiscoveryTree(evt);
+    }
 }
 
 @ApplicationScoped
@@ -132,6 +141,15 @@ class DockerDiscovery extends ContainerDiscovery {
     protected boolean enabled() {
         return enabled;
     }
+
+    @ConsumeEvent(
+            value = "io.cryostat.discovery.ContainerDiscovery",
+            blocking = true,
+            ordered = true)
+    @Transactional
+    void handleContainerEvent(ContainerDiscoveryEvent evt) {
+        updateDiscoveryTree(evt);
+    }
 }
 
 public abstract class ContainerDiscovery {
@@ -139,6 +157,8 @@ public abstract class ContainerDiscovery {
     public static final String JMX_URL_LABEL = "io.cryostat.jmxUrl";
     public static final String JMX_HOST_LABEL = "io.cryostat.jmxHost";
     public static final String JMX_PORT_LABEL = "io.cryostat.jmxPort";
+    public static final String CONTAINER_DISCOVERY_ADDRESS =
+            "io.cryostat.discovery.ContainerDiscovery";
 
     @Inject Logger logger;
     @Inject FileSystem fs;
@@ -209,6 +229,7 @@ public abstract class ContainerDiscovery {
         return fs.exists(socketPath) && fs.isReadable(socketPath);
     }
 
+    // Construct a target representation (non-persistent) from ContainerSpec
     private Target toTarget(ContainerSpec desc) {
         URI connectUrl;
         String hostname;
@@ -250,20 +271,6 @@ public abstract class ContainerDiscovery {
             return null;
         }
 
-        try {
-            Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
-            String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
-            if (!getRealm().equals(realmOfTarget)) {
-                logger.warnv(
-                        "Expected persisted target with serviceURL {0} to be under realm {1}"
-                                + "but found under {2} ",
-                        persistedTarget.connectUrl, getRealm(), realmOfTarget);
-                throw new IllegalStateException();
-            }
-            return persistedTarget;
-        } catch (NoResultException e) {
-        }
-
         Target target = new Target();
         target.activeRecordings = new ArrayList<>();
         target.connectUrl = connectUrl;
@@ -291,7 +298,7 @@ public abstract class ContainerDiscovery {
                             .execute(
                                     () ->
                                             QuarkusTransaction.joiningExisting()
-                                                    .run(() -> handleContainerEvent(current)));
+                                                    .run(() -> handleObservedContainers(current)));
                 });
     }
 
@@ -352,7 +359,7 @@ public abstract class ContainerDiscovery {
         return result;
     }
 
-    private void handleContainerEvent(List<ContainerSpec> current) {
+    private void handleObservedContainers(List<ContainerSpec> current) {
         List<DiscoveryNode> targetNodes =
                 DiscoveryNode.findAllByNodeType(BaseNodeType.JVM).stream()
                         .filter(
@@ -368,9 +375,9 @@ public abstract class ContainerDiscovery {
 
         Map<Target, ContainerSpec> containerRefMap = new HashMap<>();
         current.stream()
-                .map((desc) -> Pair.of(desc, toTarget(desc)))
-                .filter((pair) -> Objects.nonNull(pair.getRight()))
-                .forEach((pair) -> containerRefMap.put(pair.getRight(), pair.getLeft()));
+                .map((desc) -> Pair.of(toTarget(desc), desc))
+                .filter((pair) -> Objects.nonNull(pair.getLeft()))
+                .forEach((pair) -> containerRefMap.put(pair.getLeft(), pair.getRight()));
 
         Set<Target> persistedTargets =
                 targetNodes.stream().map((n) -> n.target).collect(Collectors.toSet());
@@ -395,20 +402,29 @@ public abstract class ContainerDiscovery {
                                                 containerRefMap.get(t), t, EventKind.LOST)));
     }
 
-    private void notify(ContainerDiscoveryEvent evt) {
-        bus.publish(ContainerDiscovery.class.getName(), evt);
-    }
-
-    @Transactional
-    @ConsumeEvent(blocking = true)
     public void updateDiscoveryTree(ContainerDiscoveryEvent evt) {
         EventKind evtKind = evt.eventKind;
-        Target target = evt.target;
         ContainerSpec desc = evt.desc;
+
+        Target target = evt.target;
+        try {
+            Target persistedTarget = Target.getTargetByConnectUrl(target.connectUrl);
+            String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
+            if (!getRealm().equals(realmOfTarget)) {
+                logger.warnv(
+                        "Expected persisted target with serviceURL {0} to be under realm {1}"
+                                + " but found under {2} ",
+                        persistedTarget.connectUrl, getRealm(), realmOfTarget);
+                throw new IllegalStateException();
+            }
+            target = persistedTarget;
+        } catch (NoResultException e) {
+        }
 
         DiscoveryNode realm = DiscoveryNode.getRealm(getRealm()).orElseThrow();
 
         if (evtKind == EventKind.FOUND) {
+
             DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
             target.discoveryNode = node;
 
@@ -468,6 +484,10 @@ public abstract class ContainerDiscovery {
             realm.persist();
             target.delete();
         }
+    }
+
+    protected void notify(ContainerDiscoveryEvent evt) {
+        bus.publish(ContainerDiscovery.class.getName(), evt);
     }
 
     protected abstract SocketAddress getSocket();
