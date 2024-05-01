@@ -102,13 +102,15 @@ class PodmanDiscovery extends ContainerDiscovery {
         return enabled;
     }
 
-    @ConsumeEvent(
-            value = "io.cryostat.discovery.ContainerDiscovery",
-            blocking = true,
-            ordered = true)
+    @ConsumeEvent(blocking = true, ordered = true)
     @Transactional
     void handleContainerEvent(ContainerDiscoveryEvent evt) {
         updateDiscoveryTree(evt);
+    }
+
+    @Override
+    protected String notificationAddress() {
+        return PodmanDiscovery.class.getName();
     }
 }
 
@@ -142,13 +144,15 @@ class DockerDiscovery extends ContainerDiscovery {
         return enabled;
     }
 
-    @ConsumeEvent(
-            value = "io.cryostat.discovery.ContainerDiscovery",
-            blocking = true,
-            ordered = true)
+    @ConsumeEvent(blocking = true, ordered = true)
     @Transactional
     void handleContainerEvent(ContainerDiscoveryEvent evt) {
         updateDiscoveryTree(evt);
+    }
+
+    @Override
+    protected String notificationAddress() {
+        return DockerDiscovery.class.getName();
     }
 }
 
@@ -487,7 +491,7 @@ public abstract class ContainerDiscovery {
     }
 
     protected void notify(ContainerDiscoveryEvent evt) {
-        bus.publish(ContainerDiscovery.class.getName(), evt);
+        bus.publish(notificationAddress(), evt);
     }
 
     protected abstract SocketAddress getSocket();
@@ -499,6 +503,8 @@ public abstract class ContainerDiscovery {
     protected abstract String getContainerQueryURL(ContainerSpec spec);
 
     protected abstract boolean enabled();
+
+    protected abstract String notificationAddress();
 
     static record PortSpec(
             long container_port, String host_ip, long host_port, String protocol, long range) {}
