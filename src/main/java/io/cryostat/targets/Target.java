@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.JvmIdentifier;
@@ -137,6 +138,14 @@ public class Target extends PanacheEntity {
 
     public static boolean deleteByConnectUrl(URI connectUrl) {
         return delete("connectUrl", connectUrl) > 0;
+    }
+
+    public static List<Target> findByRealm(String realm) {
+        List<Target> targets = findAll().list();
+
+        return targets.stream()
+                .filter((t) -> realm.equals(t.annotations.cryostat().get("REALM")))
+                .collect(Collectors.toList());
     }
 
     public ActiveRecording getRecordingById(long remoteId) {

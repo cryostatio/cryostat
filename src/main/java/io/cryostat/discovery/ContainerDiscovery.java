@@ -52,7 +52,6 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.mutiny.core.Vertx;
@@ -67,7 +66,6 @@ import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -182,7 +180,6 @@ public abstract class ContainerDiscovery {
     // Priority is set higher than default 0 such that onStart is called first before onAfterStart
     // This ensures realm node is persisted before querying for containers
     @Transactional
-    @Blocking
     void onStart(@Observes @Priority(1) StartupEvent evt) {
         if (!enabled()) {
             return;
@@ -210,7 +207,6 @@ public abstract class ContainerDiscovery {
         logger.infov("Starting {0} client", getRealm());
     }
 
-    @Blocking
     void onAfterStart(@Observes StartupEvent evt) {
         if (!(enabled() && available())) {
             return;
@@ -220,7 +216,6 @@ public abstract class ContainerDiscovery {
         this.timerId = vertx.setPeriodic(pollPeriod.toMillis(), unused -> queryContainers());
     }
 
-    @Blocking
     void onStop(@Observes ShutdownEvent evt) {
         if (!(enabled() && available())) {
             return;
@@ -234,7 +229,6 @@ public abstract class ContainerDiscovery {
         return fs.exists(socketPath) && fs.isReadable(socketPath);
     }
 
-    // Construct a target representation (non-persistent) from ContainerSpec
     private Target toTarget(ContainerSpec desc) {
         URI connectUrl;
         String hostname;
@@ -274,6 +268,20 @@ public abstract class ContainerDiscovery {
         } catch (MalformedURLException | URISyntaxException e) {
             logger.warnv(e, "Invalid {0} target observed", getRealm());
             return null;
+        }
+
+        // Check for any targets with the same connectUrl in other realms
+        try {
+            Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
+            String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
+            if (!getRealm().equals(realmOfTarget)) {
+                logger.warnv(
+                        "Expected persisted target with serviceURL {0} to be under realm"
+                                + " {1} but found under {2} ",
+                        persistedTarget.connectUrl, getRealm(), realmOfTarget);
+                return null;
+            }
+        } catch (NoResultException e) {
         }
 
         Target target = new Target();
@@ -365,28 +373,22 @@ public abstract class ContainerDiscovery {
     }
 
     private void handleObservedContainers(List<ContainerSpec> current) {
-        List<DiscoveryNode> targetNodes =
-                DiscoveryNode.findAllByNodeType(BaseNodeType.JVM).stream()
-                        .filter(
-                                (n) ->
-                                        Objects.nonNull(n.target)
-                                                && getRealm()
-                                                        .equals(
-                                                                n.target
-                                                                        .annotations
-                                                                        .cryostat()
-                                                                        .get("REALM")))
-                        .collect(Collectors.toList());
-
-        Map<Target, ContainerSpec> containerRefMap = new HashMap<>();
-        current.stream()
-                .map((desc) -> Pair.of(toTarget(desc), desc))
-                .filter((pair) -> Objects.nonNull(pair.getLeft()))
-                .forEach((pair) -> containerRefMap.put(pair.getLeft(), pair.getRight()));
+        Map<URI, ContainerSpec> containerRefMap = new HashMap<>();
 
         Set<Target> persistedTargets =
-                targetNodes.stream().map((n) -> n.target).collect(Collectors.toSet());
-        Set<Target> observedTargets = containerRefMap.keySet();
+                Target.findByRealm(getRealm()).stream().collect(Collectors.toSet());
+        Set<Target> observedTargets =
+                current.stream()
+                        .map(
+                                (desc) -> {
+                                    Target t = toTarget(desc);
+                                    if (Objects.nonNull(t)) {
+                                        containerRefMap.put(t.connectUrl, desc);
+                                    }
+                                    return t;
+                                })
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toSet());
 
         Target.compare(persistedTargets)
                 .to(observedTargets)
@@ -395,7 +397,9 @@ public abstract class ContainerDiscovery {
                         (t) ->
                                 notify(
                                         ContainerDiscoveryEvent.from(
-                                                containerRefMap.get(t), t, EventKind.FOUND)));
+                                                containerRefMap.get(t.connectUrl),
+                                                t,
+                                                EventKind.FOUND)));
 
         Target.compare(persistedTargets)
                 .to(observedTargets)
@@ -404,35 +408,25 @@ public abstract class ContainerDiscovery {
                         (t) ->
                                 notify(
                                         ContainerDiscoveryEvent.from(
-                                                containerRefMap.get(t), t, EventKind.LOST)));
+                                                containerRefMap.get(t.connectUrl),
+                                                t,
+                                                EventKind.LOST)));
     }
 
     public void updateDiscoveryTree(ContainerDiscoveryEvent evt) {
         EventKind evtKind = evt.eventKind;
         ContainerSpec desc = evt.desc;
-
         Target target = evt.target;
-        // Check for any targets with the same connectUrl in other realms
-        // during EventKind.FOUND event.
-        if (!target.isPersistent()) {
-            try {
-                Target persistedTarget = Target.getTargetByConnectUrl(target.connectUrl);
-                String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
-                if (!getRealm().equals(realmOfTarget)) {
-                    logger.warnv(
-                            "Expected persisted target with serviceURL {0} to be under realm {1}"
-                                    + " but found under {2} ",
-                            persistedTarget.connectUrl, getRealm(), realmOfTarget);
-                    throw new IllegalStateException();
-                }
-            } catch (NoResultException e) {
-            }
-        }
 
         DiscoveryNode realm = DiscoveryNode.getRealm(getRealm()).orElseThrow();
 
         if (evtKind == EventKind.FOUND) {
-
+            if (target.isPersistent()) {
+                logger.infov(
+                        "Target with serviceURL {0} already exist in discovery tree. Skip adding",
+                        target.connectUrl);
+                return;
+            }
             DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
             target.discoveryNode = node;
 
@@ -470,6 +464,13 @@ public abstract class ContainerDiscovery {
             node.persist();
             realm.persist();
         } else {
+            if (!target.isPersistent()) {
+                logger.infov(
+                        "Target with serviceURL {0} does not exist in discovery tree. Skip"
+                                + " deleting",
+                        target.connectUrl);
+                return;
+            }
             DiscoveryNode node = target.discoveryNode;
 
             while (true) {
