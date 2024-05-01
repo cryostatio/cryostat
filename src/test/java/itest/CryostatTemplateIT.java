@@ -18,10 +18,10 @@ package itest;
 import java.io.File;
 import java.util.concurrent.TimeUnit;
 
-import org.openjdk.jmc.flightrecorder.controlpanel.ui.configuration.model.xml.XMLAttributeInstance;
-import org.openjdk.jmc.flightrecorder.controlpanel.ui.configuration.model.xml.XMLModel;
-import org.openjdk.jmc.flightrecorder.controlpanel.ui.configuration.model.xml.XMLTagInstance;
-import org.openjdk.jmc.flightrecorder.controlpanel.ui.model.EventConfiguration;
+import org.openjdk.jmc.flightrecorder.configuration.events.EventConfiguration;
+import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLAttributeInstance;
+import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLModel;
+import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLTagInstance;
 
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import itest.bases.StandardSelfTest;

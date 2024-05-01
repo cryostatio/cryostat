@@ -6,6 +6,26 @@
   <artifactId>cryostat3</artifactId>
   <version>3.0.0-SNAPSHOT</version>
 
+  <repositories>
+    <repository>
+      <id>s01.oss.sonatype.org-snapshot</id>
+      <url>https://s01.oss.sonatype.org/content/repositories/snapshots/</url>
+      <releases>
+        <enabled>false</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+        <updatePolicy>always</updatePolicy>
+      </snapshots>
+    </repository>
+    <repository>
+      <id>jmc-libs</id>
+      <name>Adoptium JDK Mission Control Core Libraries</name>
+      <url>https://adoptium.jfrog.io/artifactory/jmc-libs</url>
+      <layout>default</layout>
+    </repository>
+  </repositories>
+
   <properties>
     <quarkus.application.version>${cryostat.imageVersionLower}</quarkus.application.version>
     <java.version>17</java.version>
@@ -18,7 +38,8 @@
 
     <build.arch>amd64</build.arch>
 
-    <io.cryostat.core.version>2.30.3</io.cryostat.core.version>
+    <io.cryostat.core.version>3.0.0-SNAPSHOT</io.cryostat.core.version>
+    <org.openjdk.jmc.version>9.0.0</org.openjdk.jmc.version>
 
     <org.apache.commons.codec.version>1.16.1</org.apache.commons.codec.version>
     <org.apache.commons.io.version>2.13.0</org.apache.commons.io.version>
@@ -93,6 +114,41 @@
       <groupId>io.cryostat</groupId>
       <artifactId>cryostat-core</artifactId>
       <version>${io.cryostat.core.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmc</groupId>
+      <artifactId>common</artifactId>
+      <version>${org.openjdk.jmc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmc</groupId>
+      <artifactId>flightrecorder</artifactId>
+      <version>${org.openjdk.jmc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmc</groupId>
+      <artifactId>flightrecorder.configuration</artifactId>
+      <version>${org.openjdk.jmc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmc</groupId>
+      <artifactId>flightrecorder.rules</artifactId>
+      <version>${org.openjdk.jmc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmc</groupId>
+      <artifactId>flightrecorder.rules.jdk</artifactId>
+      <version>${org.openjdk.jmc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmc</groupId>
+      <artifactId>jdp</artifactId>
+      <version>${org.openjdk.jmc.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openjdk.jmc</groupId>
+      <artifactId>rjmx.common</artifactId>
+      <version>${org.openjdk.jmc.version}</version>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>

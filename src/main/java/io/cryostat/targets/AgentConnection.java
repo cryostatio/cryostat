@@ -24,9 +24,9 @@ import javax.management.IntrospectionException;
 import javax.management.ReflectionException;
 import javax.management.remote.JMXServiceURL;
 
-import org.openjdk.jmc.rjmx.ConnectionException;
-import org.openjdk.jmc.rjmx.IConnectionHandle;
-import org.openjdk.jmc.rjmx.ServiceNotAvailableException;
+import org.openjdk.jmc.rjmx.common.ConnectionException;
+import org.openjdk.jmc.rjmx.common.IConnectionHandle;
+import org.openjdk.jmc.rjmx.common.ServiceNotAvailableException;
 
 import io.cryostat.core.JvmIdentifier;
 import io.cryostat.core.net.CryostatFlightRecorderService;

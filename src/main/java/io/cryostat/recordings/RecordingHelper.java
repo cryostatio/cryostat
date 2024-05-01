@@ -49,8 +49,8 @@ import java.util.regex.Pattern;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.QuantityConversionException;
+import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
-import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
@@ -499,8 +499,8 @@ public class RecordingHelper {
                             if (!desc.get()
                                     .getState()
                                     .equals(
-                                            org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor
-                                                    .RecordingState.STOPPED)) {
+                                            org.openjdk.jmc.flightrecorder.configuration
+                                                    .IRecordingDescriptor.RecordingState.STOPPED)) {
                                 conn.getService().stop(desc.get());
                             }
                             recording.state = RecordingState.STOPPED;
@@ -967,7 +967,7 @@ public class RecordingHelper {
     void safeCloseRecording(JFRConnection conn, IRecordingDescriptor rec) {
         try {
             conn.getService().close(rec);
-        } catch (org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException e) {
+        } catch (org.openjdk.jmc.flightrecorder.configuration.FlightRecorderException e) {
             logger.error("Failed to stop remote recording", e);
         } catch (Exception e) {
             logger.error("Unexpected exception", e);

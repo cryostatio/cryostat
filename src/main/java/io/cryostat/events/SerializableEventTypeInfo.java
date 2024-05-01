@@ -21,7 +21,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
-import org.openjdk.jmc.rjmx.services.jfr.IEventTypeInfo;
+import org.openjdk.jmc.flightrecorder.configuration.events.IEventTypeInfo;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
