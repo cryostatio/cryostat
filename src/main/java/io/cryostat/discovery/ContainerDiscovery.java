@@ -161,8 +161,6 @@ public abstract class ContainerDiscovery {
     public static final String JMX_URL_LABEL = "io.cryostat.jmxUrl";
     public static final String JMX_HOST_LABEL = "io.cryostat.jmxHost";
     public static final String JMX_PORT_LABEL = "io.cryostat.jmxPort";
-    public static final String CONTAINER_DISCOVERY_ADDRESS =
-            "io.cryostat.discovery.ContainerDiscovery";
 
     @Inject Logger logger;
     @Inject FileSystem fs;
