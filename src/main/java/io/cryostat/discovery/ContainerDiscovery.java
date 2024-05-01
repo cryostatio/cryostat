@@ -298,7 +298,6 @@ public abstract class ContainerDiscovery {
     }
 
     private void doContainerListRequest(Consumer<List<ContainerSpec>> successHandler) {
-        logger.trace(String.format("Shutting down %s client", getRealm()));
         URI requestPath = URI.create(getContainersQueryURL());
         try {
             webClient
@@ -405,6 +404,9 @@ public abstract class ContainerDiscovery {
     @Transactional
     @ConsumeEvent(value = "io.cryostat.discovery.ContainerDiscovery", blocking = true)
     public void updateDiscoveryTree(ContainerDiscoveryEvent evt) {
+        if (!(enabled() && available())) {
+            return;
+        }
         EventKind evtKind = evt.eventKind;
         Target target = evt.target;
         ContainerSpec desc = evt.desc;
