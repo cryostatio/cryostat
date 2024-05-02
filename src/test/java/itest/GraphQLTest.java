@@ -22,6 +22,7 @@ import static org.hamcrest.Matchers.is;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -308,13 +309,11 @@ class GraphQLTest extends StandardSelfTest {
                 "query",
                 "mutation { createRecording( nodes:{annotations: ["
                         + "\"REALM = Custom Targets\""
-                        + "]}, recording: { name: \"graphql-itest\", template:"
+                        + "]}, recording: { name: \"test\", template:"
                         + " \"Profiling\", templateType: \"TARGET\", duration: 30, continuous:"
                         + " false, archiveOnStop: true, toDisk: true }) { name state duration"
                         + " continuous metadata { labels { key value } } } }");
 
-        Map<String, String> expectedLabels =
-                Map.of("template.name", "Profiling", "template.type", "TARGET");
         Future<JsonObject> f =
                 worker.submit(
                         () -> {
@@ -350,27 +349,34 @@ class GraphQLTest extends StandardSelfTest {
 
         JsonObject notificationRecording =
                 notification.getJsonObject("message").getJsonObject("recording");
-        MatcherAssert.assertThat(
-                notificationRecording.getString("name"), Matchers.equalTo("graphql-itest"));
-        MatcherAssert.assertThat(
-                notificationRecording.getString("archiveOnStop"), Matchers.equalTo("true"));
+        MatcherAssert.assertThat(notificationRecording.getString("name"), Matchers.equalTo("test"));
         MatcherAssert.assertThat(
                 notification.getJsonObject("message").getString("target"),
                 Matchers.equalTo(
                         String.format(
                                 "service:jmx:rmi:///jndi/rmi://%s:%d/jmxrmi", "localhost", 0)));
-        Map<String, Object> notificationLabels =
-                notificationRecording.getJsonObject("metadata").getJsonObject("labels").getMap();
-        for (var entry : expectedLabels.entrySet()) {
-            MatcherAssert.assertThat(
-                    notificationLabels, Matchers.hasEntry(entry.getKey(), entry.getValue()));
-        }
+        JsonArray notificationLabels =
+                notificationRecording.getJsonObject("metadata").getJsonArray("labels");
+        Map<String, String> expectedLabels =
+                Map.of("template.name", "Profiling", "template.type", "TARGET");
+        MatcherAssert.assertThat(
+                notificationLabels,
+                Matchers.containsInAnyOrder(
+                        expectedLabels.entrySet().stream()
+                                .map(
+                                        e ->
+                                                new JsonObject(
+                                                        Map.of(
+                                                                "key",
+                                                                e.getKey(),
+                                                                "value",
+                                                                e.getValue())))
+                                .toArray()));
 
         ActiveRecording recording = new ActiveRecording();
         recording.name = "test";
         recording.duration = 30_000L;
         recording.state = "RUNNING";
-        recording.archiveOnStop = true;
         recording.metadata = RecordingMetadata.of(expectedLabels);
 
         MatcherAssert.assertThat(actual2.data.recordings, Matchers.equalTo(List.of(recording)));
@@ -1851,7 +1857,6 @@ class GraphQLTest extends StandardSelfTest {
         long maxSize;
         long maxAge;
         List<KeyValue> labels;
-        boolean archiveOnStop;
 
         ArchivedRecording doArchive;
         ActiveRecording doDelete;
@@ -1866,7 +1871,6 @@ class GraphQLTest extends StandardSelfTest {
                     duration,
                     maxAge,
                     maxSize,
-                    archiveOnStop,
                     metadata,
                     name,
                     reportUrl,
@@ -1894,7 +1898,6 @@ class GraphQLTest extends StandardSelfTest {
                     && duration == other.duration
                     && maxAge == other.maxAge
                     && maxSize == other.maxSize
-                    && archiveOnStop == other.archiveOnStop
                     && Objects.equals(metadata, other.metadata)
                     && Objects.equals(name, other.name)
                     && Objects.equals(reportUrl, other.reportUrl)
@@ -1919,8 +1922,6 @@ class GraphQLTest extends StandardSelfTest {
                     + maxAge
                     + ", maxSize="
                     + maxSize
-                    + ", archiveOnStop="
-                    + archiveOnStop
                     + ", metadata="
                     + metadata
                     + ", name="
@@ -1965,7 +1966,8 @@ class GraphQLTest extends StandardSelfTest {
                 return false;
             }
             RecordingMetadata other = (RecordingMetadata) obj;
-            return Objects.equals(labels, other.labels);
+            return labels.size() == other.labels.size()
+                    && (Objects.equals(new HashSet<>(labels), new HashSet<>(other.labels)));
         }
 
         @Override
