@@ -66,6 +66,7 @@ import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.resource.spi.IllegalStateException;
 import jakarta.transaction.Transactional;
+import jakarta.transaction.Transactional.TxType;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -103,8 +104,8 @@ class PodmanDiscovery extends ContainerDiscovery {
     }
 
     @ConsumeEvent(blocking = true, ordered = true)
-    @Transactional
-    protected void handleContainerEvent(ContainerDiscoveryEvent evt) {
+    @Transactional(TxType.REQUIRES_NEW)
+    public void handleContainerEvent(ContainerDiscoveryEvent evt) {
         try {
             updateDiscoveryTree(evt);
         } catch (IllegalStateException e) {
@@ -149,8 +150,8 @@ class DockerDiscovery extends ContainerDiscovery {
     }
 
     @ConsumeEvent(blocking = true, ordered = true)
-    @Transactional
-    protected void handleContainerEvent(ContainerDiscoveryEvent evt) {
+    @Transactional(TxType.REQUIRES_NEW)
+    public void handleContainerEvent(ContainerDiscoveryEvent evt) {
         try {
             updateDiscoveryTree(evt);
         } catch (IllegalStateException e) {
@@ -323,7 +324,7 @@ public abstract class ContainerDiscovery {
                     Infrastructure.getDefaultWorkerPool()
                             .execute(
                                     () ->
-                                            QuarkusTransaction.joiningExisting()
+                                            QuarkusTransaction.requiringNew()
                                                     .run(() -> handleObservedContainers(current)));
                 });
     }
@@ -518,7 +519,7 @@ public abstract class ContainerDiscovery {
 
     protected abstract String notificationAddress();
 
-    protected abstract void handleContainerEvent(ContainerDiscoveryEvent evt);
+    public abstract void handleContainerEvent(ContainerDiscoveryEvent evt);
 
     static record PortSpec(
             long container_port, String host_ip, long host_port, String protocol, long range) {}
