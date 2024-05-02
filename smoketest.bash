@@ -65,6 +65,7 @@ while getopts "hs:prGtOVXcbn" opt; do
             ;;
         V)
             KEEP_VOLUMES=true
+            DATABASE_GENERATION=update
             ;;
         X)
             FILES+=("${DIR}/compose/db-viewer.yml")
@@ -111,6 +112,7 @@ fi
 export CRYOSTAT_HTTP_HOST
 export CRYOSTAT_HTTP_PORT
 export GRAFANA_DASHBOARD_EXT_URL
+export DATABASE_GENERATION
 
 s3Manifest="${DIR}/compose/s3-${s3}.yml"
 STORAGE_PORT="$(yq '.services.*.expose[0]' "${s3Manifest}" | grep -v null)"
