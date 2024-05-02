@@ -36,7 +36,12 @@ class LabelSelectorMatcherTest {
     @CsvSource({
         "foo=bar, true",
         "something=wrong, false",
-        "my.prefixed/label = expectedValue, true"
+        "my.prefixed/label = expectedValue, true",
+        "env = Expected Value, false",
+        "env = prod, true",
+        "env = prod , true",
+        "env = dev, false",
+        "env = dev , false",
     })
     void testSingleEquality(String expr, boolean pass) {
         LabelSelectorMatcher matcher = LabelSelectorMatcher.parse(expr);

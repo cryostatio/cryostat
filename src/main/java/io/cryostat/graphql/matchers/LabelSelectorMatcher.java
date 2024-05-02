@@ -33,7 +33,7 @@ public class LabelSelectorMatcher implements Predicate<Map<String, String>> {
     // must loosely look like a k8s label (not strictly enforced here), right side must loosely look
     // like a k8s label value, which may be empty. Allowed operators are "=", "==", "!=".
     static final Pattern EQUALITY_PATTERN =
-            Pattern.compile("^(?<key>[^!=\\s]+)\\s*(?<op>=|==|!=)\\s*(?<value>[^!=\\s]*)$");
+            Pattern.compile("^(?<key>[^!=\\s]+)\\s*(?<op>=|==|!=)\\s*(?<value>[^!=]*)\\s*$");
 
     // ex. "environment in (production, qa)" or "tier NotIn (frontend, backend)". Tests if the given
     // label has or does not have any of the specified values.
