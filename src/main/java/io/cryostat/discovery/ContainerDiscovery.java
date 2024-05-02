@@ -281,6 +281,7 @@ public abstract class ContainerDiscovery {
                         persistedTarget.connectUrl, getRealm(), realmOfTarget);
                 return null;
             }
+            return persistedTarget;
         } catch (NoResultException e) {
         }
 
