@@ -36,6 +36,7 @@ import java.util.stream.Collectors;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.util.HttpMimeType;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.quarkus.test.junit.QuarkusTest;
@@ -157,7 +158,7 @@ class GraphQLTest extends StandardSelfTest {
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "query { targetNodes(filter: { annotations: \"key:REALM, value:Custom Targets\" })"
+                "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] })"
                         + " { name nodeType target { connectUrl annotations { cryostat(key:"
                         + " [\"REALM\"]) { key value } } } } }");
         HttpResponse<Buffer> resp =
@@ -283,30 +284,31 @@ class GraphQLTest extends StandardSelfTest {
     @Order(3)
     void testStartRecordingMutationOnSpecificTarget() throws Exception {
         CountDownLatch latch = new CountDownLatch(2);
-        JsonObject query1 = new JsonObject();
-        query1.put(
-                "query",
-                "query { targetNodes(filter: { annotations: \"key:REALM, value:Custom Targets\" })"
-                    + " { id name nodeType target { connectUrl jvmId annotations { cryostat(key:"
-                    + " [\"REALM\"]) { key value } } } } }");
-        HttpResponse<Buffer> resp1 =
-                webClient
-                        .extensions()
-                        .post("/api/v3/graphql", query1.toBuffer(), REQUEST_TIMEOUT_SECONDS);
-        TargetNodesQueryResponse actual1 =
-                mapper.readValue(resp1.bodyAsString(), TargetNodesQueryResponse.class);
-        System.out.println("+++RESP3(A)" + resp1.bodyAsString());
+        // JsonObject query1 = new JsonObject();
+        // query1.put(
+        //         "query",
+        //         "query { targetNodes(filter: { annotations: \"key:REALM, value:Custom Targets\"
+        // })"
+        //             + " { id name nodeType target { connectUrl jvmId annotations { cryostat(key:"
+        //             + " [\"REALM\"]) { key value } } } } }");
+        // HttpResponse<Buffer> resp1 =
+        //         webClient
+        //                 .extensions()
+        //                 .post("/api/v3/graphql", query1.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+        // TargetNodesQueryResponse actual1 =
+        //         mapper.readValue(resp1.bodyAsString(), TargetNodesQueryResponse.class);
+        // System.out.println("+++RESP3(A)" + resp1.bodyAsString());
         // BigInteger id = actual1.data.targetNodes.get(0).getId();
-        String targetJvmId = actual1.data.targetNodes.get(0).target.getJvmId();
+        // String targetJvmId = actual1.data.targetNodes.get(0).target.getJvmId();
         // System.out.println("+++TARGET ID3: " + id);
-        System.out.println("+++TARGET JVM ID3: " + targetJvmId);
+        // System.out.println("+++TARGET JVM ID3: " + targetJvmId);
 
         JsonObject query2 = new JsonObject();
         query2.put(
                 "query",
-                "mutation { createRecording( nodes:{id: "
-                        + 7
-                        + ", recording: { name: \"test\", template:"
+                "mutation { createRecording( nodes:{annotations: ["
+                        + "\"REALM = Custom Targets\""
+                        + "]}, recording: { name: \"graphql-itest\", template:"
                         + " \"Profiling\", templateType: \"TARGET\", duration: 30, continuous:"
                         + " false, archiveOnStop: true, toDisk: true }) { name state duration"
                         + " continuous metadata { labels { key value } } } }");
@@ -337,8 +339,8 @@ class GraphQLTest extends StandardSelfTest {
                 resp2.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
         System.out.println("+++RESP3: " + resp2.bodyAsString());
-        StartRecordingMutationResponse actual2 =
-                mapper.readValue(resp2.bodyAsString(), StartRecordingMutationResponse.class);
+        CreateRecordingMutationResponse actual2 =
+                mapper.readValue(resp2.bodyAsString(), CreateRecordingMutationResponse.class);
         System.out.println("+++RESP Actual3: " + actual2);
 
         latch.await(30, TimeUnit.SECONDS);
@@ -364,8 +366,6 @@ class GraphQLTest extends StandardSelfTest {
                     notificationLabels, Matchers.hasEntry(entry.getKey(), entry.getValue()));
         }
 
-        RecordingNodes nodes = new RecordingNodes();
-
         ActiveRecording recording = new ActiveRecording();
         recording.name = "test";
         recording.duration = 30_000L;
@@ -373,12 +373,7 @@ class GraphQLTest extends StandardSelfTest {
         recording.archiveOnStop = true;
         recording.metadata = RecordingMetadata.of(expectedLabels);
 
-        StartRecording startRecording = new StartRecording();
-        startRecording.doStartRecording = recording;
-
-        nodes.targetNodes = List.of(startRecording);
-
-        MatcherAssert.assertThat(actual2.data, Matchers.equalTo(nodes));
+        MatcherAssert.assertThat(actual2.data.recordings, Matchers.equalTo(List.of(recording)));
     }
 
     @Disabled
@@ -1840,7 +1835,10 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     static class ActiveRecording {
+        long id;
+        long remoteId;
         String name;
         String reportUrl;
         String downloadUrl;
@@ -1852,6 +1850,7 @@ class GraphQLTest extends StandardSelfTest {
         boolean toDisk;
         long maxSize;
         long maxAge;
+        List<KeyValue> labels;
         boolean archiveOnStop;
 
         ArchivedRecording doArchive;
@@ -1939,10 +1938,14 @@ class GraphQLTest extends StandardSelfTest {
     }
 
     static class RecordingMetadata {
-        Map<String, String> labels;
+        List<KeyValue> labels;
 
         public static RecordingMetadata of(Map<String, String> of) {
-            return null;
+            var list = new ArrayList<KeyValue>();
+            of.forEach((k, v) -> list.add(new KeyValue(k, v)));
+            var rm = new RecordingMetadata();
+            rm.labels = list;
+            return rm;
         }
 
         @Override
@@ -2039,15 +2042,53 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    static class StartRecordingMutationResponse {
-        @JsonProperty("data")
-        RecordingNodes data;
+    static class CreateRecording {
+        @JsonProperty("createRecording")
+        List<ActiveRecording> recordings;
 
-        public RecordingNodes getData() {
+        public List<ActiveRecording> getRecordings() {
+            return recordings;
+        }
+
+        public void setData(List<ActiveRecording> recordings) {
+            this.recordings = recordings;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(recordings);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            CreateRecording other = (CreateRecording) obj;
+            return Objects.equals(recordings, other.recordings);
+        }
+
+        @Override
+        public String toString() {
+            return "CreateRecording [recordings=" + recordings + "]";
+        }
+    }
+
+    static class CreateRecordingMutationResponse {
+        @JsonProperty("data")
+        CreateRecording data;
+
+        public CreateRecording getData() {
             return data;
         }
 
-        public void setData(RecordingNodes data) {
+        public void setData(CreateRecording data) {
             this.data = data;
         }
 
@@ -2067,13 +2108,13 @@ class GraphQLTest extends StandardSelfTest {
             if (getClass() != obj.getClass()) {
                 return false;
             }
-            StartRecordingMutationResponse other = (StartRecordingMutationResponse) obj;
+            CreateRecordingMutationResponse other = (CreateRecordingMutationResponse) obj;
             return Objects.equals(data, other.data);
         }
 
         @Override
         public String toString() {
-            return "StartRecordingMutationResponse [data=" + data + "]";
+            return "CreateRecordingMutationResponse [data=" + data + "]";
         }
     }
 
