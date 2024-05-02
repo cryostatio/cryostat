@@ -103,7 +103,7 @@ class PodmanDiscovery extends ContainerDiscovery {
 
     @ConsumeEvent(blocking = true, ordered = true)
     @Transactional
-    void handleContainerEvent(ContainerDiscoveryEvent evt) {
+    protected void handleContainerEvent(ContainerDiscoveryEvent evt) {
         updateDiscoveryTree(evt);
     }
 
@@ -145,7 +145,7 @@ class DockerDiscovery extends ContainerDiscovery {
 
     @ConsumeEvent(blocking = true, ordered = true)
     @Transactional
-    void handleContainerEvent(ContainerDiscoveryEvent evt) {
+    protected void handleContainerEvent(ContainerDiscoveryEvent evt) {
         updateDiscoveryTree(evt);
     }
 
@@ -510,6 +510,8 @@ public abstract class ContainerDiscovery {
     protected abstract boolean enabled();
 
     protected abstract String notificationAddress();
+
+    protected abstract void handleContainerEvent(ContainerDiscoveryEvent evt);
 
     static record PortSpec(
             long container_port, String host_ip, long host_port, String protocol, long range) {}
