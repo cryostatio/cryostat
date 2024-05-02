@@ -299,12 +299,12 @@ public abstract class ContainerDiscovery {
         return target;
     }
 
-    private boolean isTargetUnderRealm(String realm, URI connectUrl) throws IllegalStateException {
+    private boolean isTargetUnderRealm(URI connectUrl) throws IllegalStateException {
         // Check for any targets with the same connectUrl in other realms
         try {
             Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
             String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
-            if (!realm.equals(realmOfTarget)) {
+            if (!getRealm().equals(realmOfTarget)) {
                 logger.warnv(
                         "Expected persisted target with serviceURL {0} to be under realm"
                                 + " {1} but found under {2} ",
@@ -428,7 +428,7 @@ public abstract class ContainerDiscovery {
         DiscoveryNode realm = DiscoveryNode.getRealm(getRealm()).orElseThrow();
 
         if (evtKind == EventKind.FOUND) {
-            if (isTargetUnderRealm(getRealm(), target.connectUrl)) {
+            if (isTargetUnderRealm(target.connectUrl)) {
                 logger.infov(
                         "Target with serviceURL {0} already exist in discovery tree. Skip adding",
                         target.connectUrl);
@@ -471,7 +471,7 @@ public abstract class ContainerDiscovery {
             node.persist();
             realm.persist();
         } else {
-            if (!isTargetUnderRealm(getRealm(), target.connectUrl)) {
+            if (!isTargetUnderRealm(target.connectUrl)) {
                 logger.infov(
                         "Target with serviceURL {0} does not exist in discovery tree. Skip"
                                 + " deleting",
