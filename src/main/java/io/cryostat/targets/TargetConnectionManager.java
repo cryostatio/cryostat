@@ -33,8 +33,8 @@ import javax.management.InstanceNotFoundException;
 import javax.management.remote.JMXServiceURL;
 import javax.security.sasl.SaslException;
 
-import org.openjdk.jmc.rjmx.ConnectionException;
-import org.openjdk.jmc.rjmx.services.jfr.FlightRecorderException;
+import org.openjdk.jmc.flightrecorder.configuration.FlightRecorderException;
+import org.openjdk.jmc.rjmx.common.ConnectionException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;

@@ -34,9 +34,9 @@ import java.util.regex.Pattern;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
+import org.openjdk.jmc.flightrecorder.configuration.IFlightRecorderService;
+import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
-import org.openjdk.jmc.rjmx.services.jfr.IFlightRecorderService;
-import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;

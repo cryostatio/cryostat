@@ -20,7 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.openjdk.jmc.common.unit.UnitLookup;
-import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
+import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
 import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;

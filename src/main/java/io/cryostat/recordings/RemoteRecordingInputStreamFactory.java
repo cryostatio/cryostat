@@ -17,7 +17,7 @@ package io.cryostat.recordings;
 
 import java.io.InputStream;
 
-import org.openjdk.jmc.rjmx.services.jfr.IRecordingDescriptor;
+import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
 import io.cryostat.ProgressInputStream;
 import io.cryostat.core.net.JFRConnection;
