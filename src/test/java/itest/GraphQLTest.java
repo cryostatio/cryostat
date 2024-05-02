@@ -19,6 +19,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
 
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -182,27 +183,135 @@ class GraphQLTest extends StandardSelfTest {
         MatcherAssert.assertThat(actual.data.targetNodes, Matchers.hasItem(ext));
     }
 
-    @Disabled
+    // @Disabled
+    /*
+     * @Test
+     *
+     * @Order(3)
+     * void testStartRecordingMutationOnSpecificTarget() throws Exception {
+     * CountDownLatch latch = new CountDownLatch(2);
+     * JsonObject query = new JsonObject();
+     * query.put(
+     * "query",
+     * "query { targetNodes(filter: { annotations: \"PORT == 0\" }) {"
+     * + " doStartRecording(recording: { name: \"graphql-itest\", duration: 30,"
+     * + " template: \"Profiling\", templateType: \"TARGET\", archiveOnStop: true,"
+     * +
+     * " metadata: { labels: [ { key: \"newLabel\", value: \"someValue\"} ] }  }) {"
+     * + " name state duration archiveOnStop }} }");
+     * Map<String, String> expectedLabels =
+     * Map.of(
+     * "template.name",
+     * "Profiling",
+     * "template.type",
+     * "TARGET",
+     * "newLabel",
+     * "someValue");
+     * Future<JsonObject> f =
+     * worker.submit(
+     * () -> {
+     * try {
+     * return expectNotification(
+     * "ActiveRecordingCreated", 15, TimeUnit.SECONDS)
+     * .get();
+     * } catch (Exception e) {
+     * throw new RuntimeException(e);
+     * } finally {
+     * latch.countDown();
+     * }
+     * });
+     *
+     * Thread.sleep(5000); // Sleep to setup notification listening before query
+     * resolves
+     *
+     * HttpResponse<Buffer> resp =
+     * webClient
+     * .extensions()
+     * .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+     * MatcherAssert.assertThat(
+     * resp.statusCode(),
+     * Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300))
+     * );
+     *
+     * StartRecordingMutationResponse actual =
+     * mapper.readValue(resp.bodyAsString(), StartRecordingMutationResponse.class);
+     *
+     * latch.await(30, TimeUnit.SECONDS);
+     *
+     * // Ensure ActiveRecordingCreated notification emitted matches expected values
+     * JsonObject notification = f.get(5, TimeUnit.SECONDS);
+     *
+     * JsonObject notificationRecording =
+     * notification.getJsonObject("message").getJsonObject("recording");
+     * MatcherAssert.assertThat(
+     * notificationRecording.getString("name"), Matchers.equalTo("graphql-itest"));
+     * MatcherAssert.assertThat(
+     * notificationRecording.getString("archiveOnStop"), Matchers.equalTo("true"));
+     * MatcherAssert.assertThat(
+     * notification.getJsonObject("message").getString("target"),
+     * Matchers.equalTo(
+     * String.format(
+     * "service:jmx:rmi:///jndi/rmi://%s:%d/jmxrmi", "localhost", 0)));
+     * Map<String, Object> notificationLabels =
+     * notificationRecording.getJsonObject("metadata").getJsonObject("labels").
+     * getMap();
+     * for (var entry : expectedLabels.entrySet()) {
+     * MatcherAssert.assertThat(
+     * notificationLabels, Matchers.hasEntry(entry.getKey(), entry.getValue()));
+     * }
+     *
+     * RecordingNodes nodes = new RecordingNodes();
+     *
+     * ActiveRecording recording = new ActiveRecording();
+     * recording.name = "graphql-itest";
+     * recording.duration = 30_000L;
+     * recording.state = "RUNNING";
+     * recording.archiveOnStop = true;
+     * recording.metadata = RecordingMetadata.of(expectedLabels);
+     *
+     * StartRecording startRecording = new StartRecording();
+     * startRecording.doStartRecording = recording;
+     *
+     * nodes.targetNodes = List.of(startRecording);
+     *
+     * MatcherAssert.assertThat(actual.data, Matchers.equalTo(nodes));
+     * }
+     */
+
     @Test
     @Order(3)
     void testStartRecordingMutationOnSpecificTarget() throws Exception {
         CountDownLatch latch = new CountDownLatch(2);
-        JsonObject query = new JsonObject();
-        query.put(
+        JsonObject query1 = new JsonObject();
+        query1.put(
                 "query",
-                "query { targetNodes(filter: { annotations: \"PORT == 0\" }) {"
-                    + " doStartRecording(recording: { name: \"graphql-itest\", duration: 30,"
-                    + " template: \"Profiling\", templateType: \"TARGET\", archiveOnStop: true,"
-                    + " metadata: { labels: [ { key: \"newLabel\", value: \"someValue\"} ] }  }) {"
-                    + " name state duration archiveOnStop }} }");
+                "query { targetNodes(filter: { annotations: \"key:REALM, value:Custom Targets\" })"
+                    + " { id name nodeType target { connectUrl jvmId annotations { cryostat(key:"
+                    + " [\"REALM\"]) { key value } } } } }");
+        HttpResponse<Buffer> resp1 =
+                webClient
+                        .extensions()
+                        .post("/api/v3/graphql", query1.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+        TargetNodesQueryResponse actual1 =
+                mapper.readValue(resp1.bodyAsString(), TargetNodesQueryResponse.class);
+        System.out.println("+++RESP3(A)" + resp1.bodyAsString());
+        // BigInteger id = actual1.data.targetNodes.get(0).getId();
+        String targetJvmId = actual1.data.targetNodes.get(0).target.getJvmId();
+        // System.out.println("+++TARGET ID3: " + id);
+        System.out.println("+++TARGET JVM ID3: " + targetJvmId);
+
+        JsonObject query2 = new JsonObject();
+        query2.put(
+                "query",
+                "mutation { createRecording( nodes:{id: "
+                        + 7
+                        + ", recording: { name: \"test\", template:"
+                        + " \"Profiling\", templateType: \"TARGET\", duration: 30, continuous:"
+                        + " false, archiveOnStop: true, toDisk: true }) { name state duration"
+                        + " continuous metadata { labels { key value } } } }");
+
         Map<String, String> expectedLabels =
-                Map.of(
-                        "template.name",
-                        "Profiling",
-                        "template.type",
-                        "TARGET",
-                        "newLabel",
-                        "someValue");
+                Map.of("template.name", "Profiling", "template.type", "TARGET");
         Future<JsonObject> f =
                 worker.submit(
                         () -> {
@@ -219,16 +328,17 @@ class GraphQLTest extends StandardSelfTest {
 
         Thread.sleep(5000); // Sleep to setup notification listening before query resolves
 
-        HttpResponse<Buffer> resp =
+        HttpResponse<Buffer> resp2 =
                 webClient
                         .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v3/graphql", query2.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
-                resp.statusCode(),
+                resp2.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-
-        StartRecordingMutationResponse actual =
-                mapper.readValue(resp.bodyAsString(), StartRecordingMutationResponse.class);
+        System.out.println("+++RESP3: " + resp2.bodyAsString());
+        StartRecordingMutationResponse actual2 =
+                mapper.readValue(resp2.bodyAsString(), StartRecordingMutationResponse.class);
+        System.out.println("+++RESP Actual3: " + actual2);
 
         latch.await(30, TimeUnit.SECONDS);
 
@@ -256,7 +366,7 @@ class GraphQLTest extends StandardSelfTest {
         RecordingNodes nodes = new RecordingNodes();
 
         ActiveRecording recording = new ActiveRecording();
-        recording.name = "graphql-itest";
+        recording.name = "test";
         recording.duration = 30_000L;
         recording.state = "RUNNING";
         recording.archiveOnStop = true;
@@ -267,7 +377,7 @@ class GraphQLTest extends StandardSelfTest {
 
         nodes.targetNodes = List.of(startRecording);
 
-        MatcherAssert.assertThat(actual.data, Matchers.equalTo(nodes));
+        MatcherAssert.assertThat(actual2.data, Matchers.equalTo(nodes));
     }
 
     @Disabled
@@ -448,38 +558,46 @@ class GraphQLTest extends StandardSelfTest {
                         "^es-andrewazor-demo-Main_graphql-itest_[0-9]{8}T[0-9]{6}Z\\.jfr$"));
     }
 
-    /* @Disabled
-    @Test
-    @Order(8)
-    void testNodesHaveIds() throws Exception {
-        JsonObject query = new JsonObject();
-        query.put(
-                "query",
-                "query { environmentNodes(filter: { name: \"JDP\" }) { id descendantTargets { id }"
-                        + " } }");
-        HttpResponse<Buffer> resp =
-                webClient
-                        .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
-        MatcherAssert.assertThat(
-                resp.statusCode(),
-                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-
-        // if any of the nodes in the query did not have an ID property then the request
-        // would fail
-        EnvironmentNodesResponse actual =
-                mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
-        Set<Integer> observedIds = new HashSet<>();
-        for (var env : actual.data.environmentNodes) {
-            // ids should be unique
-            MatcherAssert.assertThat(observedIds, Matchers.not(Matchers.contains(env.id)));
-            observedIds.add(env.id);
-            for (var target : env.descendantTargets) {
-                MatcherAssert.assertThat(observedIds, Matchers.not(Matchers.contains(target.id)));
-                observedIds.add(target.id);
-            }
-        }
-    } */
+    /*
+     * @Disabled
+     *
+     * @Test
+     *
+     * @Order(8)
+     * void testNodesHaveIds() throws Exception {
+     * JsonObject query = new JsonObject();
+     * query.put(
+     * "query",
+     * "query { environmentNodes(filter: { name: \"JDP\" }) { id descendantTargets { id }"
+     * + " } }");
+     * HttpResponse<Buffer> resp =
+     * webClient
+     * .extensions()
+     * .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+     * MatcherAssert.assertThat(
+     * resp.statusCode(),
+     * Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300))
+     * );
+     *
+     * // if any of the nodes in the query did not have an ID property then the
+     * request
+     * // would fail
+     * EnvironmentNodesResponse actual =
+     * mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
+     * Set<Integer> observedIds = new HashSet<>();
+     * for (var env : actual.data.environmentNodes) {
+     * // ids should be unique
+     * MatcherAssert.assertThat(observedIds,
+     * Matchers.not(Matchers.contains(env.id)));
+     * observedIds.add(env.id);
+     * for (var target : env.descendantTargets) {
+     * MatcherAssert.assertThat(observedIds,
+     * Matchers.not(Matchers.contains(target.id)));
+     * observedIds.add(target.id);
+     * }
+     * }
+     * }
+     */
 
     @Disabled
     @Test
@@ -877,38 +995,44 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    /* @Disabled
-    @Test
-    @Order(12)
-    public void testQueryforFilteredEnvironmentNodesByNames() throws Exception {
-        JsonObject query = new JsonObject();
-        query.put(
-                "query",
-                "query { environmentNodes(filter: { names: [\"anotherName1\","
-                        + " \"JDP\",\"anotherName2\"] }) { name nodeType } }");
-        HttpResponse<Buffer> resp =
-                webClient
-                        .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
-        MatcherAssert.assertThat(
-                resp.statusCode(),
-                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-
-        EnvironmentNodesResponse actual =
-                mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
-        List<EnvironmentNode> environmentNodes = actual.data.environmentNodes;
-
-        Assertions.assertEquals(1, environmentNodes.size(), "The list filtered should be 1");
-
-        boolean nameExists = false;
-        for (EnvironmentNode environmentNode : environmentNodes) {
-            if (environmentNode.name.matches("JDP")) {
-                nameExists = true;
-                break;
-            }
-        }
-        Assertions.assertTrue(nameExists, "Name not found");
-    } */
+    /*
+     * @Disabled
+     *
+     * @Test
+     *
+     * @Order(12)
+     * public void testQueryforFilteredEnvironmentNodesByNames() throws Exception {
+     * JsonObject query = new JsonObject();
+     * query.put(
+     * "query",
+     * "query { environmentNodes(filter: { names: [\"anotherName1\","
+     * + " \"JDP\",\"anotherName2\"] }) { name nodeType } }");
+     * HttpResponse<Buffer> resp =
+     * webClient
+     * .extensions()
+     * .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+     * MatcherAssert.assertThat(
+     * resp.statusCode(),
+     * Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300))
+     * );
+     *
+     * EnvironmentNodesResponse actual =
+     * mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
+     * List<EnvironmentNode> environmentNodes = actual.data.environmentNodes;
+     *
+     * Assertions.assertEquals(1, environmentNodes.size(),
+     * "The list filtered should be 1");
+     *
+     * boolean nameExists = false;
+     * for (EnvironmentNode environmentNode : environmentNodes) {
+     * if (environmentNode.name.matches("JDP")) {
+     * nameExists = true;
+     * break;
+     * }
+     * }
+     * Assertions.assertTrue(nameExists, "Name not found");
+     * }
+     */
 
     @Disabled
     @Test
@@ -1161,10 +1285,19 @@ class GraphQLTest extends StandardSelfTest {
     static class Target {
         String alias;
         String connectUrl;
+        String jvmId;
         Annotations annotations;
 
         public String getAlias() {
             return alias;
+        }
+
+        public String getJvmId() {
+            return jvmId;
+        }
+
+        public void setJvmId(String jvmId) {
+            this.jvmId = jvmId;
         }
 
         public void setAlias(String alias) {
@@ -1206,6 +1339,7 @@ class GraphQLTest extends StandardSelfTest {
             Target other = (Target) obj;
             return Objects.equals(alias, other.alias)
                     && Objects.equals(connectUrl, other.connectUrl)
+                    && Objects.equals(jvmId, other.jvmId)
                     && Objects.equals(annotations, other.annotations);
         }
 
@@ -1215,6 +1349,8 @@ class GraphQLTest extends StandardSelfTest {
                     + alias
                     + ", connectUrl="
                     + connectUrl
+                    + ", jvmId="
+                    + jvmId
                     + ", annotations="
                     + annotations
                     + "]";
@@ -1450,6 +1586,7 @@ class GraphQLTest extends StandardSelfTest {
 
     static class TargetNode {
         private String name;
+        private BigInteger id;
         private String nodeType;
         private List<Label> labels;
         private Target target;
@@ -1458,6 +1595,14 @@ class GraphQLTest extends StandardSelfTest {
 
         public String getName() {
             return name;
+        }
+
+        public BigInteger getId() {
+            return id;
+        }
+
+        public void setId(BigInteger id) {
+            this.id = id;
         }
 
         public void setName(String name) {
@@ -1512,6 +1657,8 @@ class GraphQLTest extends StandardSelfTest {
                     + labels
                     + ", name="
                     + name
+                    + ", id="
+                    + id
                     + ", nodeType="
                     + nodeType
                     + ", recordings="
@@ -1523,7 +1670,7 @@ class GraphQLTest extends StandardSelfTest {
 
         @Override
         public int hashCode() {
-            return Objects.hash(doStartRecording, labels, name, nodeType, recordings, target);
+            return Objects.hash(doStartRecording, labels, name, id, nodeType, recordings, target);
         }
 
         @Override
@@ -1534,6 +1681,7 @@ class GraphQLTest extends StandardSelfTest {
             return Objects.equals(doStartRecording, other.doStartRecording)
                     && Objects.equals(labels, other.labels)
                     && Objects.equals(name, other.name)
+                    && Objects.equals(id, other.id)
                     && Objects.equals(nodeType, other.nodeType)
                     && Objects.equals(recordings, other.recordings)
                     && Objects.equals(target, other.target);
@@ -1891,7 +2039,16 @@ class GraphQLTest extends StandardSelfTest {
     }
 
     static class StartRecordingMutationResponse {
+        @JsonProperty("data")
         RecordingNodes data;
+
+        public RecordingNodes getData() {
+            return data;
+        }
+
+        public void setData(RecordingNodes data) {
+            this.data = data;
+        }
 
         @Override
         public int hashCode() {
