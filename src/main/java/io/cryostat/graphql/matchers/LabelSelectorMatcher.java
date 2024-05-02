@@ -74,7 +74,9 @@ public class LabelSelectorMatcher implements Predicate<Map<String, String>> {
                 return new LabelSelectorMatcher(List.of(matcher));
             }
         }
-        return new LabelSelectorMatcher();
+        throw new IllegalArgumentException(
+                String.format(
+                        "No LabelSelectorMatcher case matched given expression: \"%s\"", clause));
     }
 
     private static LabelMatcher parseEqualities(String clause) {

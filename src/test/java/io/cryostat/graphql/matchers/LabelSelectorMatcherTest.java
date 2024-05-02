@@ -19,8 +19,10 @@ import java.util.Map;
 
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 class LabelSelectorMatcherTest {
 
@@ -31,6 +33,13 @@ class LabelSelectorMatcherTest {
                     "my.prefixed/label", "expectedValue",
                     "env", "prod",
                     "present", "irrelevant");
+
+    @ParameterizedTest
+    @ValueSource(strings = {"this is not a valid expression"})
+    void testDoesNotMatchBadSyntax(String expr) {
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> LabelSelectorMatcher.parse(expr));
+    }
 
     @ParameterizedTest
     @CsvSource({
