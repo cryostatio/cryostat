@@ -597,6 +597,16 @@ public class RecordingHelper {
                         return Optional.empty();
                     }
                 };
+        if (templateType == null) {
+            return custom.get()
+                    .or(() -> remote.get())
+                    .orElseThrow(
+                            () ->
+                                    new BadRequestException(
+                                            String.format(
+                                                    "Invalid/unknown event template %s",
+                                                    templateName)));
+        }
         switch (templateType) {
             case TARGET:
                 return remote.get().orElseThrow();
