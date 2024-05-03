@@ -31,16 +31,17 @@ import io.cryostat.core.net.discovery.JvmDiscoveryClient.JvmDiscoveryEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
+import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.core.Vertx;
+import io.vertx.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.transaction.Transactional.TxType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -58,6 +59,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @Inject Logger logger;
     @Inject JvmDiscoveryClient jdp;
     @Inject Vertx vertx;
+    @Inject EventBus eventBus;
 
     @ConfigProperty(name = "cryostat.discovery.jdp.enabled")
     boolean enabled;
@@ -100,10 +102,11 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
 
     @Override
     public void accept(JvmDiscoveryEvent evt) {
-        Infrastructure.getDefaultWorkerPool()
-                .execute(() -> QuarkusTransaction.joiningExisting().run(() -> handleJdpEvent(evt)));
+        eventBus.publish(getClass().getName(), evt);
     }
 
+    @ConsumeEvent(blocking = true, ordered = true)
+    @Transactional(TxType.REQUIRES_NEW)
     void handleJdpEvent(JvmDiscoveryEvent evt) {
         logger.infov(
                 "JDP Discovery Event {0} {1}",
