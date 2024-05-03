@@ -239,6 +239,7 @@ public abstract class ContainerDiscovery {
         return fs.exists(socketPath) && fs.isReadable(socketPath);
     }
 
+    // Construct a target representation (non-persistent) of the container spec
     private Target toTarget(ContainerSpec desc) {
         URI connectUrl;
         String hostname;
@@ -479,6 +480,10 @@ public abstract class ContainerDiscovery {
                         target.connectUrl);
                 return;
             }
+            // Retrieve the latest snapshot of the target
+            // The target received from event message is outdated as it belongs to the previous
+            // transaction
+            target = Target.getTargetByConnectUrl(target.connectUrl);
             DiscoveryNode node = target.discoveryNode;
 
             while (true) {
