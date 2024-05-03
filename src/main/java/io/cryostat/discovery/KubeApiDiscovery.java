@@ -349,6 +349,11 @@ public class KubeApiDiscovery {
             return;
         }
 
+        // Retrieve the latest snapshot of the target
+        // The target received from event message is outdated as it belongs to the previous
+        // transaction
+        target = Target.getTargetByConnectUrl(target.connectUrl);
+
         DiscoveryNode child = target.discoveryNode;
         while (true) {
             DiscoveryNode parent = child.parent;
