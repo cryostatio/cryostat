@@ -59,6 +59,7 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
+import jakarta.transaction.Transactional.TxType;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.concurrent.ConcurrentException;
 import org.apache.commons.lang3.concurrent.LazyInitializer;
@@ -253,7 +254,7 @@ public class KubeApiDiscovery {
     }
 
     @ConsumeEvent(blocking = true, ordered = true)
-    @Transactional
+    @Transactional(TxType.REQUIRES_NEW)
     public void handleEndpointEvent(EndpointDiscoveryEvent evt) {
         String namespace = evt.namespace;
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
