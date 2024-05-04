@@ -44,7 +44,6 @@ import io.cryostat.targets.Target;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Nullable;
-import io.smallrye.graphql.execution.ExecutionException;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
@@ -72,39 +71,39 @@ public class ActiveRecordings {
             "Start a new Flight Recording on all Targets under the subtrees of the discovery nodes"
                     + " matching the given filter")
     public List<ActiveRecording> createRecording(
-            @NonNull DiscoveryNodeFilter nodes, @NonNull RecordingSettings recording) {
-        return DiscoveryNode.<DiscoveryNode>listAll().stream()
-                .filter(nodes)
-                .flatMap(
-                        node ->
-                                RootNode.recurseChildren(node, n -> n.target != null).stream()
-                                        .map(n -> n.target))
-                .map(
-                        target -> {
-                            var template =
-                                    recordingHelper.getPreferredTemplate(
-                                            target,
-                                            recording.template,
-                                            TemplateType.valueOf(recording.templateType));
-                            try {
-                                return recordingHelper
-                                        .startRecording(
-                                                target,
-                                                Optional.ofNullable(recording.replace)
-                                                        .map(RecordingReplace::valueOf)
-                                                        .orElse(RecordingReplace.STOPPED),
-                                                template,
-                                                recording.asOptions(),
-                                                Optional.ofNullable(recording.metadata)
-                                                        .map(s -> s.labels)
-                                                        .orElse(Map.of()))
-                                        .await()
-                                        .atMost(Duration.ofSeconds(10));
-                            } catch (QuantityConversionException qce) {
-                                throw new ExecutionException(qce);
-                            }
-                        })
-                .toList();
+            @NonNull DiscoveryNodeFilter nodes, @NonNull RecordingSettings recording)
+            throws QuantityConversionException {
+        var list =
+                DiscoveryNode.<DiscoveryNode>listAll().stream()
+                        .filter(nodes)
+                        .flatMap(
+                                node ->
+                                        RootNode.recurseChildren(node, n -> n.target != null)
+                                                .stream()
+                                                .map(n -> n.target))
+                        .toList();
+        var recordings = new ArrayList<ActiveRecording>();
+        for (var t : list) {
+            var template =
+                    recordingHelper.getPreferredTemplate(
+                            t, recording.template, TemplateType.valueOf(recording.templateType));
+            var r =
+                    recordingHelper
+                            .startRecording(
+                                    t,
+                                    Optional.ofNullable(recording.replace)
+                                            .map(RecordingReplace::valueOf)
+                                            .orElse(RecordingReplace.STOPPED),
+                                    template,
+                                    recording.asOptions(),
+                                    Optional.ofNullable(recording.metadata)
+                                            .map(s -> s.labels)
+                                            .orElse(Map.of()))
+                            .await()
+                            .atMost(Duration.ofSeconds(10));
+            recordings.add(r);
+        }
+        return recordings;
     }
 
     @Blocking
@@ -114,26 +113,29 @@ public class ActiveRecordings {
             "Archive an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
     public List<ArchivedRecording> archiveRecording(
-            @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings) {
-        return DiscoveryNode.<DiscoveryNode>listAll().stream()
-                .filter(nodes)
-                .flatMap(
-                        node ->
-                                RootNode.recurseChildren(node, n -> n.target != null).stream()
-                                        .map(n -> n.target))
-                .flatMap(
-                        t ->
-                                recordingHelper.listActiveRecordings(t).stream()
-                                        .filter(r -> recordings == null || recordings.test(r)))
-                .map(
-                        recording -> {
-                            try {
-                                return recordingHelper.archiveRecording(recording, null, null);
-                            } catch (Exception e) {
-                                throw new ExecutionException(e);
-                            }
-                        })
-                .toList();
+            @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings)
+            throws Exception {
+        var list =
+                DiscoveryNode.<DiscoveryNode>listAll().stream()
+                        .filter(nodes)
+                        .flatMap(
+                                node ->
+                                        RootNode.recurseChildren(node, n -> n.target != null)
+                                                .stream()
+                                                .map(n -> n.target))
+                        .flatMap(
+                                t ->
+                                        recordingHelper.listActiveRecordings(t).stream()
+                                                .filter(
+                                                        r ->
+                                                                recordings == null
+                                                                        || recordings.test(r)))
+                        .toList();
+        var archives = new ArrayList<ArchivedRecording>();
+        for (var r : list) {
+            archives.add(recordingHelper.archiveRecording(r, null, null));
+        }
+        return archives;
     }
 
     @Blocking
@@ -143,29 +145,28 @@ public class ActiveRecordings {
             "Stop an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
     public List<ActiveRecording> stopRecording(
-            @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings) {
-        return DiscoveryNode.<DiscoveryNode>listAll().stream()
-                .filter(nodes)
-                .flatMap(
-                        node ->
-                                RootNode.recurseChildren(node, n -> n.target != null).stream()
-                                        .map(n -> n.target))
-                .flatMap(
-                        t ->
-                                recordingHelper.listActiveRecordings(t).stream()
-                                        .filter(r -> recordings == null || recordings.test(r)))
-                .map(
-                        recording -> {
-                            try {
-                                return recordingHelper
-                                        .stopRecording(recording)
-                                        .await()
-                                        .atMost(Duration.ofSeconds(10));
-                            } catch (Exception e) {
-                                throw new ExecutionException(e);
-                            }
-                        })
-                .toList();
+            @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings)
+            throws Exception {
+        var list =
+                DiscoveryNode.<DiscoveryNode>listAll().stream()
+                        .filter(nodes)
+                        .flatMap(
+                                node ->
+                                        RootNode.recurseChildren(node, n -> n.target != null)
+                                                .stream()
+                                                .map(n -> n.target))
+                        .flatMap(
+                                t ->
+                                        recordingHelper.listActiveRecordings(t).stream()
+                                                .filter(
+                                                        r ->
+                                                                recordings == null
+                                                                        || recordings.test(r)))
+                        .toList();
+        for (var r : list) {
+            recordingHelper.stopRecording(r).await().atMost(Duration.ofSeconds(10));
+        }
+        return list;
     }
 
     @Blocking
@@ -176,28 +177,26 @@ public class ActiveRecordings {
                     + " the subtrees of the discovery nodes matching the given filter")
     public List<ActiveRecording> deleteRecording(
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings) {
-        return DiscoveryNode.<DiscoveryNode>listAll().stream()
-                .filter(nodes)
-                .flatMap(
-                        node ->
-                                RootNode.recurseChildren(node, n -> n.target != null).stream()
-                                        .map(n -> n.target))
-                .flatMap(
-                        t ->
-                                recordingHelper.listActiveRecordings(t).stream()
-                                        .filter(r -> recordings == null || recordings.test(r)))
-                .map(
-                        recording -> {
-                            try {
-                                return recordingHelper
-                                        .deleteRecording(recording)
-                                        .await()
-                                        .atMost(Duration.ofSeconds(10));
-                            } catch (Exception e) {
-                                throw new ExecutionException(e);
-                            }
-                        })
-                .toList();
+        var list =
+                DiscoveryNode.<DiscoveryNode>listAll().stream()
+                        .filter(nodes)
+                        .flatMap(
+                                node ->
+                                        RootNode.recurseChildren(node, n -> n.target != null)
+                                                .stream()
+                                                .map(n -> n.target))
+                        .flatMap(
+                                t ->
+                                        recordingHelper.listActiveRecordings(t).stream()
+                                                .filter(
+                                                        r ->
+                                                                recordings == null
+                                                                        || recordings.test(r)))
+                        .toList();
+        for (var r : list) {
+            recordingHelper.deleteRecording(r).await().atMost(Duration.ofSeconds(10));
+        }
+        return list;
     }
 
     @Blocking
@@ -207,24 +206,20 @@ public class ActiveRecordings {
             "Create a Flight Recorder Snapshot on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
     public List<ActiveRecording> createSnapshot(@NonNull DiscoveryNodeFilter nodes) {
-        return DiscoveryNode.<DiscoveryNode>listAll().stream()
-                .filter(nodes)
-                .flatMap(
-                        node ->
-                                RootNode.recurseChildren(node, n -> n.target != null).stream()
-                                        .map(n -> n.target))
-                .map(
-                        target -> {
-                            try {
-                                return recordingHelper
-                                        .createSnapshot(target)
-                                        .await()
-                                        .atMost(Duration.ofSeconds(10));
-                            } catch (Exception e) {
-                                throw new ExecutionException(e);
-                            }
-                        })
-                .toList();
+        var targets =
+                DiscoveryNode.<DiscoveryNode>listAll().stream()
+                        .filter(nodes)
+                        .flatMap(
+                                node ->
+                                        RootNode.recurseChildren(node, n -> n.target != null)
+                                                .stream()
+                                                .map(n -> n.target))
+                        .toList();
+        var snapshots = new ArrayList<ActiveRecording>();
+        for (var t : targets) {
+            snapshots.add(recordingHelper.createSnapshot(t).await().atMost(Duration.ofSeconds(10)));
+        }
+        return snapshots;
     }
 
     @Blocking
