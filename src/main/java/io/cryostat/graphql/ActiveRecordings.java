@@ -66,11 +66,12 @@ public class ActiveRecordings {
     Duration timeout;
 
     @Transactional
+    @Blocking
     @Mutation
     @Description(
             "Start a new Flight Recording on all Targets under the subtrees of the discovery nodes"
                     + " matching the given filter")
-    public Multi<ActiveRecording> createRecording(
+    public Uni<List<ActiveRecording>> createRecording(
             @NonNull DiscoveryNodeFilter nodes, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
         return Multi.createFrom()
@@ -105,15 +106,18 @@ public class ActiveRecordings {
                                 logger.warn(e);
                                 throw new ExecutionException(e);
                             }
-                        });
+                        })
+                .collect()
+                .asList();
     }
 
     @Transactional
+    @Blocking
     @Mutation
     @Description(
             "Archive an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
-    public Multi<ArchivedRecording> archiveRecording(
+    public Uni<List<ArchivedRecording>> archiveRecording(
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings)
             throws Exception {
         return Multi.createFrom()
@@ -140,15 +144,18 @@ public class ActiveRecordings {
                                 logger.warn(e);
                                 throw new ExecutionException(e);
                             }
-                        });
+                        })
+                .collect()
+                .asList();
     }
 
     @Transactional
+    @Blocking
     @Mutation
     @Description(
             "Stop an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
-    public Multi<ActiveRecording> stopRecording(
+    public Uni<List<ActiveRecording>> stopRecording(
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings)
             throws Exception {
         return Multi.createFrom()
@@ -175,15 +182,18 @@ public class ActiveRecordings {
                                 logger.warn(e);
                                 throw new ExecutionException(e);
                             }
-                        });
+                        })
+                .collect()
+                .asList();
     }
 
     @Transactional
+    @Blocking
     @Mutation
     @Description(
             "Delete an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
-    public Multi<ActiveRecording> deleteRecording(
+    public Uni<List<ActiveRecording>> deleteRecording(
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings) {
         return Multi.createFrom()
                 .items(DiscoveryNode.<DiscoveryNode>listAll().stream())
@@ -201,15 +211,18 @@ public class ActiveRecordings {
                                         .filter(r -> recordings == null || recordings.test(r))
                                         .toList())
                 .onItem()
-                .transformToUniAndMerge(recordingHelper::deleteRecording);
+                .transformToUniAndMerge(recordingHelper::deleteRecording)
+                .collect()
+                .asList();
     }
 
     @Transactional
+    @Blocking
     @Mutation
     @Description(
             "Create a Flight Recorder Snapshot on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
-    public Multi<ActiveRecording> createSnapshot(@NonNull DiscoveryNodeFilter nodes) {
+    public Uni<List<ActiveRecording>> createSnapshot(@NonNull DiscoveryNodeFilter nodes) {
         return Multi.createFrom()
                 .items(DiscoveryNode.<DiscoveryNode>listAll().stream())
                 .filter(nodes)
@@ -220,10 +233,13 @@ public class ActiveRecordings {
                                         .map(n -> n.target)
                                         .toList())
                 .onItem()
-                .transformToUniAndMerge(recordingHelper::createSnapshot);
+                .transformToUniAndMerge(recordingHelper::createSnapshot)
+                .collect()
+                .asList();
     }
 
     @Transactional
+    @Blocking
     @Description("Start a new Flight Recording on the specified Target")
     public Uni<ActiveRecording> doStartRecording(
             @Source Target target, @NonNull RecordingSettings recording)
@@ -243,6 +259,7 @@ public class ActiveRecordings {
     }
 
     @Transactional
+    @Blocking
     @Description("Create a new Flight Recorder Snapshot on the specified Target")
     public Uni<ActiveRecording> doSnapshot(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
@@ -250,6 +267,7 @@ public class ActiveRecordings {
     }
 
     @Transactional
+    @Blocking
     @Description("Stop the specified Flight Recording")
     public Uni<ActiveRecording> doStop(@Source ActiveRecording recording) throws Exception {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
@@ -257,6 +275,7 @@ public class ActiveRecordings {
     }
 
     @Transactional
+    @Blocking
     @Description("Delete the specified Flight Recording")
     public Uni<ActiveRecording> doDelete(@Source ActiveRecording recording) {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
