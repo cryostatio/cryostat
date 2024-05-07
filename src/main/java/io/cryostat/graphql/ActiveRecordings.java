@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
-import java.util.stream.Collectors;
 
 import org.openjdk.jmc.common.unit.QuantityConversionException;
 
@@ -59,10 +58,8 @@ import org.jboss.logging.Logger;
 @GraphQLApi
 public class ActiveRecordings {
 
-    @Inject
-    RecordingHelper recordingHelper;
-    @Inject
-    Logger logger;
+    @Inject RecordingHelper recordingHelper;
+    @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
@@ -70,8 +67,9 @@ public class ActiveRecordings {
     @Blocking
     @Transactional
     @Mutation
-    @Description("Start a new Flight Recording on all Targets under the subtrees of the discovery nodes"
-            + " matching the given filter")
+    @Description(
+            "Start a new Flight Recording on all Targets under the subtrees of the discovery nodes"
+                    + " matching the given filter")
     public List<ActiveRecording> createRecording(
             @NonNull DiscoveryNodeFilter nodes, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
@@ -111,8 +109,9 @@ public class ActiveRecordings {
     @Blocking
     @Transactional
     @Mutation
-    @Description("Archive an existing Flight Recording matching the given filter, on all Targets under"
-            + " the subtrees of the discovery nodes matching the given filter")
+    @Description(
+            "Archive an existing Flight Recording matching the given filter, on all Targets under"
+                    + " the subtrees of the discovery nodes matching the given filter")
     public List<ArchivedRecording> archiveRecording(
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings)
             throws Exception {
@@ -142,8 +141,9 @@ public class ActiveRecordings {
     @Blocking
     @Transactional
     @Mutation
-    @Description("Stop an existing Flight Recording matching the given filter, on all Targets under"
-            + " the subtrees of the discovery nodes matching the given filter")
+    @Description(
+            "Stop an existing Flight Recording matching the given filter, on all Targets under"
+                    + " the subtrees of the discovery nodes matching the given filter")
     public List<ActiveRecording> stopRecording(
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings)
             throws Exception {
@@ -172,9 +172,10 @@ public class ActiveRecordings {
     @Blocking
     @Transactional
     @Mutation
-    @Description("Delete an existing Flight Recording matching the given filter, on all Targets under"
-            + " the subtrees of the discovery nodes matching the given filter")
-    public Uni<List<ActiveRecording>> deleteRecording(
+    @Description(
+            "Delete an existing Flight Recording matching the given filter, on all Targets under"
+                    + " the subtrees of the discovery nodes matching the given filter")
+    public List<ActiveRecording> deleteRecording(
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings) {
         var list =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
@@ -201,8 +202,9 @@ public class ActiveRecordings {
     @Blocking
     @Transactional
     @Mutation
-    @Description("Create a Flight Recorder Snapshot on all Targets under"
-            + " the subtrees of the discovery nodes matching the given filter")
+    @Description(
+            "Create a Flight Recorder Snapshot on all Targets under"
+                    + " the subtrees of the discovery nodes matching the given filter")
     public List<ActiveRecording> createSnapshot(@NonNull DiscoveryNodeFilter nodes) {
         var targets =
                 DiscoveryNode.<DiscoveryNode>listAll().stream()
@@ -227,8 +229,9 @@ public class ActiveRecordings {
             @Source Target target, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
         var fTarget = Target.getTargetById(target.id);
-        Template template = recordingHelper.getPreferredTemplate(
-                fTarget, recording.template, TemplateType.valueOf(recording.templateType));
+        Template template =
+                recordingHelper.getPreferredTemplate(
+                        fTarget, recording.template, TemplateType.valueOf(recording.templateType));
         return recordingHelper
                 .startRecording(
                         fTarget,
@@ -281,7 +284,8 @@ public class ActiveRecordings {
 
         var in = recordings.active;
         if (in != null && in.data != null) {
-            out.data = in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
+            out.data =
+                    in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
             out.aggregate = AggregateInfo.fromActive(out.data);
         }
 
@@ -326,8 +330,7 @@ public class ActiveRecordings {
 
         private Map<String, String> labels;
 
-        public MetadataLabels() {
-        }
+        public MetadataLabels() {}
 
         public MetadataLabels(Map<String, String> labels) {
             this.labels = new HashMap<>(labels);
@@ -362,36 +365,44 @@ public class ActiveRecordings {
 
         @Override
         public boolean test(ActiveRecording r) {
-            Predicate<ActiveRecording> matchesName = n -> name == null || Objects.equals(name, n.name);
+            Predicate<ActiveRecording> matchesName =
+                    n -> name == null || Objects.equals(name, n.name);
             Predicate<ActiveRecording> matchesNames = n -> names == null || names.contains(n.name);
-            Predicate<ActiveRecording> matchesLabels = n -> labels == null
-                    || labels.stream()
-                            .allMatch(
-                                    label -> LabelSelectorMatcher.parse(label)
-                                            .test(n.metadata.labels()));
+            Predicate<ActiveRecording> matchesLabels =
+                    n ->
+                            labels == null
+                                    || labels.stream()
+                                            .allMatch(
+                                                    label ->
+                                                            LabelSelectorMatcher.parse(label)
+                                                                    .test(n.metadata.labels()));
             Predicate<ActiveRecording> matchesState = n -> state == null || n.state.equals(state);
-            Predicate<ActiveRecording> matchesContinuous = n -> continuous == null || continuous.equals(n.continuous);
-            Predicate<ActiveRecording> matchesToDisk = n -> toDisk == null || toDisk.equals(n.toDisk);
-            Predicate<ActiveRecording> matchesDurationGte = n -> durationMsGreaterThanEqual == null
-                    || durationMsGreaterThanEqual >= n.duration;
-            Predicate<ActiveRecording> matchesDurationLte = n -> durationMsLessThanEqual == null
-                    || durationMsLessThanEqual <= n.duration;
-            Predicate<ActiveRecording> matchesStartTimeAfter = n -> startTimeMsAfterEqual == null
-                    || startTimeMsAfterEqual >= n.startTime;
-            Predicate<ActiveRecording> matchesStartTimeBefore = n -> startTimeMsBeforeEqual == null
-                    || startTimeMsBeforeEqual <= n.startTime;
+            Predicate<ActiveRecording> matchesContinuous =
+                    n -> continuous == null || continuous.equals(n.continuous);
+            Predicate<ActiveRecording> matchesToDisk =
+                    n -> toDisk == null || toDisk.equals(n.toDisk);
+            Predicate<ActiveRecording> matchesDurationGte =
+                    n ->
+                            durationMsGreaterThanEqual == null
+                                    || durationMsGreaterThanEqual >= n.duration;
+            Predicate<ActiveRecording> matchesDurationLte =
+                    n -> durationMsLessThanEqual == null || durationMsLessThanEqual <= n.duration;
+            Predicate<ActiveRecording> matchesStartTimeAfter =
+                    n -> startTimeMsAfterEqual == null || startTimeMsAfterEqual >= n.startTime;
+            Predicate<ActiveRecording> matchesStartTimeBefore =
+                    n -> startTimeMsBeforeEqual == null || startTimeMsBeforeEqual <= n.startTime;
 
             return List.of(
-                    matchesName,
-                    matchesNames,
-                    matchesLabels,
-                    matchesState,
-                    matchesContinuous,
-                    matchesToDisk,
-                    matchesDurationGte,
-                    matchesDurationLte,
-                    matchesStartTimeBefore,
-                    matchesStartTimeAfter)
+                            matchesName,
+                            matchesNames,
+                            matchesLabels,
+                            matchesState,
+                            matchesContinuous,
+                            matchesToDisk,
+                            matchesDurationGte,
+                            matchesDurationLte,
+                            matchesStartTimeBefore,
+                            matchesStartTimeAfter)
                     .stream()
                     .reduce(x -> true, Predicate::and)
                     .test(r);
