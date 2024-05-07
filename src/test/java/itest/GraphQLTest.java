@@ -174,7 +174,6 @@ class GraphQLTest extends StandardSelfTest {
         TargetNodesQueryResponse actual =
                 mapper.readValue(resp.bodyAsString(), TargetNodesQueryResponse.class);
         MatcherAssert.assertThat(actual.data.targetNodes, Matchers.hasSize(1));
-        System.out.println("+++Actaul" + actual);
         TargetNode ext = new TargetNode();
         Target extTarget = new Target();
         extTarget.setConnectUrl("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi");
@@ -269,12 +268,13 @@ class GraphQLTest extends StandardSelfTest {
 
         MatcherAssert.assertThat(actual.data.recordings, Matchers.equalTo(List.of(recording)));
 
+        // delete the created recording
         JsonObject query2 = new JsonObject();
         query2.put(
                 "query",
-                "mutation { deleteRecording( nodes:{annotations: ["
+                "mutation { deleteRecording( nodes: {annotations: ["
                         + "\"REALM = Custom Targets\""
-                        + "]}, recordings: { name: \"test\") { name state } }");
+                        + "]}, recordings: { name: \"test\" }) { name state } }");
 
         HttpResponse<Buffer> resp2 =
                 webClient
@@ -285,10 +285,6 @@ class GraphQLTest extends StandardSelfTest {
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-        DeleteMutationResponse actual2 =
-                mapper.readValue(resp2.bodyAsString(), DeleteMutationResponse.class);
-        System.out.println("+++RESP Actual3(DELETE): " + actual2);
-        System.out.println("+++PASS");
     }
 
     @Disabled
