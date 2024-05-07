@@ -26,12 +26,13 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
 
 class ScheduledArchiveJob implements Job {
 
@@ -46,25 +47,27 @@ class ScheduledArchiveJob implements Job {
     String archiveBucket;
 
     @Override
-    public void execute(JobExecutionContext ctx) {
-        var rule = (Rule) ctx.getJobDetail().getJobDataMap().get("rule");
-        var target = (Target) ctx.getJobDetail().getJobDataMap().get("target");
-        var recording = (ActiveRecording) ctx.getJobDetail().getJobDataMap().get("recording");
+    @Transactional
+    public void execute(JobExecutionContext ctx) throws JobExecutionException {
+        long ruleId = (long) ctx.getJobDetail().getJobDataMap().get("rule");
+        Rule rule = Rule.find("id", ruleId).singleResult();
+        long targetId = (long) ctx.getJobDetail().getJobDataMap().get("target");
+        Target target = Target.find("id", id).singleResult();
+        long recordingId = (long) ctx.getJobDetail().getJobDataMap().get("recording");
+        ActiveRecording recording = ActiveRecording.find("id", recordingId).singleResult();
 
         Queue<String> previousRecordings = new ArrayDeque<>(rule.preservedArchives);
 
         initPreviousRecordings(target, rule, previousRecordings);
-
         while (previousRecordings.size() >= rule.preservedArchives) {
             pruneArchive(target, previousRecordings, previousRecordings.remove());
         }
-        previousRecordings.add(
-                QuarkusTransaction.joiningExisting()
-                        .call(
-                                () ->
-                                        recordingHelper
-                                                .archiveRecording(recording, null, null)
-                                                .name()));
+
+        try {
+            previousRecordings.add(recordingHelper.archiveRecording(recording, null, null).name());
+        } catch (Exception e) {
+            throw new JobExecutionException(e);
+        }
     }
 
     void initPreviousRecordings(Target target, Rule rule, Queue<String> previousRecordings) {

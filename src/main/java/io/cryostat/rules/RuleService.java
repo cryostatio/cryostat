@@ -208,9 +208,9 @@ public class RuleService {
         }
 
         Map<String, Object> data = jobDetail.getJobDataMap();
-        data.put("rule", rule);
-        data.put("target", target);
-        data.put("recording", recording);
+        data.put("rule", rule.id);
+        data.put("target", target.id);
+        data.put("recording", recording.id);
 
         Trigger trigger =
                 TriggerBuilder.newTrigger()
