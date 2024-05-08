@@ -102,7 +102,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
 
     @Override
     public void accept(JvmDiscoveryEvent evt) {
-        eventBus.publish(getClass().getName(), evt);
+        eventBus.publish(JDPDiscovery.class.getName(), evt);
     }
 
     @ConsumeEvent(blocking = true, ordered = true)
