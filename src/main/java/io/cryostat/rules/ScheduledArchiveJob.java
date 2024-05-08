@@ -47,27 +47,29 @@ class ScheduledArchiveJob implements Job {
     String archiveBucket;
 
     @Override
+    @Transactional
     public void execute(JobExecutionContext ctx) throws JobExecutionException {
+        long ruleId = (long) ctx.getJobDetail().getJobDataMap().get("rule");
+        Rule rule = Rule.find("id", ruleId).singleResult();
+        long targetId = (long) ctx.getJobDetail().getJobDataMap().get("target");
+        Target target = Target.find("id", targetId).singleResult();
+        long recordingId = (long) ctx.getJobDetail().getJobDataMap().get("recording");
+        ActiveRecording recording = ActiveRecording.find("id", recordingId).singleResult();
+
+        Queue<String> previousRecordings = new ArrayDeque<>(rule.preservedArchives);
+
+        initPreviousRecordings(target, rule, previousRecordings);
+        while (previousRecordings.size() >= rule.preservedArchives) {
+            pruneArchive(target, previousRecordings, previousRecordings.remove());
+        }
+
         try {
-            var rule = (Rule) ctx.getJobDetail().getJobDataMap().get("rule");
-            var target = (Target) ctx.getJobDetail().getJobDataMap().get("target");
-            var recording = (ActiveRecording) ctx.getJobDetail().getJobDataMap().get("recording");
-
-            Queue<String> previousRecordings = new ArrayDeque<>(rule.preservedArchives);
-
-            initPreviousRecordings(target, rule, previousRecordings);
-
-            while (previousRecordings.size() >= rule.preservedArchives) {
-                pruneArchive(target, previousRecordings, previousRecordings.remove());
-            }
-            performArchival(recording, previousRecordings);
+            previousRecordings.add(recordingHelper.archiveRecording(recording, null, null).name());
         } catch (Exception e) {
-            logger.error(e);
-            // TODO: Handle JMX/SSL errors
+            throw new JobExecutionException(e);
         }
     }
 
-    @Transactional
     void initPreviousRecordings(Target target, Rule rule, Queue<String> previousRecordings) {
         recordingHelper.listArchivedRecordingObjects().stream()
                 .sorted((a, b) -> a.lastModified().compareTo(b.lastModified()))
@@ -89,16 +91,7 @@ class ScheduledArchiveJob implements Job {
                         });
     }
 
-    @Transactional
-    void performArchival(ActiveRecording recording, Queue<String> previousRecordings)
-            throws Exception {
-        String filename = recordingHelper.archiveRecording(recording, null, null).name();
-        previousRecordings.add(filename);
-    }
-
-    @Transactional
-    void pruneArchive(Target target, Queue<String> previousRecordings, String filename)
-            throws Exception {
+    void pruneArchive(Target target, Queue<String> previousRecordings, String filename) {
         recordingHelper.deleteArchivedRecording(target.jvmId, filename);
         previousRecordings.remove(filename);
     }

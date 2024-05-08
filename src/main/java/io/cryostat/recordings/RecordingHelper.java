@@ -76,6 +76,7 @@ import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.handler.HttpException;
@@ -87,7 +88,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import jakarta.transaction.Transactional;
+import jakarta.persistence.PersistenceException;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ServerErrorException;
@@ -217,6 +218,10 @@ public class RecordingHelper {
     // to the target and update our database when remote recording events occur, rather than doing a
     // full sync when this method is called.
     public List<ActiveRecording> listActiveRecordings(Target target) {
+        return QuarkusTransaction.joiningExisting().call(() -> listActiveRecordingsImpl(target));
+    }
+
+    private List<ActiveRecording> listActiveRecordingsImpl(Target target) {
         target = Target.find("id", target.id).singleResult();
         try {
             var previousRecordings = target.activeRecordings;
@@ -263,7 +268,11 @@ public class RecordingHelper {
                             break;
                     }
                     if (updated) {
-                        recording.persist();
+                        try {
+                            recording.persist();
+                        } catch (PersistenceException e) {
+                            logger.warn(e);
+                        }
                     }
                     continue;
                 }
@@ -305,6 +314,16 @@ public class RecordingHelper {
             RecordingOptions options,
             Map<String, String> rawLabels)
             throws QuantityConversionException {
+        return QuarkusTransaction.joiningExisting()
+                .call(() -> startRecordingImpl(target, replace, template, options, rawLabels));
+    }
+
+    private Uni<ActiveRecording> startRecordingImpl(
+            Target target,
+            RecordingReplace replace,
+            Template template,
+            RecordingOptions options,
+            Map<String, String> rawLabels) {
         String recordingName = options.name();
 
         RecordingState previousState =
@@ -506,11 +525,15 @@ public class RecordingHelper {
                             recording.state = RecordingState.STOPPED;
                             return recording;
                         });
-        out.persist();
-        if (archive) {
-            archiveRecording(out, null, null);
-        }
-        return Uni.createFrom().item(out);
+        return QuarkusTransaction.joiningExisting()
+                .call(
+                        () -> {
+                            out.persist();
+                            if (archive) {
+                                archiveRecording(out, null, null);
+                            }
+                            return Uni.createFrom().item(out);
+                        });
     }
 
     public Uni<ActiveRecording> stopRecording(ActiveRecording recording) throws Exception {
@@ -529,10 +552,14 @@ public class RecordingHelper {
                             conn.getService().close(desc.get());
                             return recording;
                         });
-        closed.target.activeRecordings.remove(recording);
-        closed.target.persist();
-        closed.delete();
-        return Uni.createFrom().item(closed);
+        return QuarkusTransaction.joiningExisting()
+                .call(
+                        () -> {
+                            closed.target.activeRecordings.remove(recording);
+                            closed.target.persist();
+                            closed.delete();
+                            return Uni.createFrom().item(closed);
+                        });
     }
 
     public LinkedRecordingDescriptor toExternalForm(ActiveRecording recording) {
@@ -1079,19 +1106,24 @@ public class RecordingHelper {
 
     public ActiveRecording updateRecordingMetadata(
             long recordingId, Map<String, String> newLabels) {
-        ActiveRecording recording = ActiveRecording.find("id", recordingId).singleResult();
+        return QuarkusTransaction.joiningExisting()
+                .call(
+                        () -> {
+                            ActiveRecording recording =
+                                    ActiveRecording.find("id", recordingId).singleResult();
 
-        if (!recording.metadata.labels().equals(newLabels)) {
-            Metadata updatedMetadata = new Metadata(newLabels);
-            recording.setMetadata(updatedMetadata);
-            recording.persist();
+                            if (!recording.metadata.labels().equals(newLabels)) {
+                                Metadata updatedMetadata = new Metadata(newLabels);
+                                recording.setMetadata(updatedMetadata);
+                                recording.persist();
 
-            notify(
-                    new ActiveRecordingEvent(
-                            Recordings.RecordingEventCategory.METADATA_UPDATED,
-                            ActiveRecordingEvent.Payload.of(this, recording)));
-        }
-        return recording;
+                                notify(
+                                        new ActiveRecordingEvent(
+                                                Recordings.RecordingEventCategory.METADATA_UPDATED,
+                                                ActiveRecordingEvent.Payload.of(this, recording)));
+                            }
+                            return recording;
+                        });
     }
 
     private void notify(ActiveRecordingEvent event) {
@@ -1275,7 +1307,6 @@ public class RecordingHelper {
         @Inject Logger logger;
 
         @Override
-        @Transactional
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
             var jobDataMap = ctx.getJobDetail().getJobDataMap();
             try {
