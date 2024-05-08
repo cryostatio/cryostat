@@ -45,6 +45,7 @@ import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
+import io.cryostat.util.URIRange;
 
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
@@ -84,6 +85,19 @@ public class TargetConnectionManager {
 
     private final Duration failedBackoff;
     private final Duration failedTimeout;
+
+    @ConfigProperty(name = "cryostat.target.uri-range")
+    String uriRangeSetting;
+
+    public void connectToTarget(String urlString) throws Exception {
+        URI uri = new URI(urlString);
+        URIRange range = URIRange.fromString(uriRangeSetting);
+
+        if (!range.validate(uri)) {
+            throw new SecurityException(
+                    "Connection to " + uri + " is not allowed under current settings.");
+        }
+    }
 
     @Inject
     @SuppressFBWarnings(
