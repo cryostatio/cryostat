@@ -154,7 +154,7 @@ public class KubeApiDiscovery {
 
     @Transactional
     void onAfterStart(@Observes StartupEvent evt) {
-        if (!(enabled() && available())) {
+        if (!enabled() || !available()) {
             return;
         }
         safeGetInformers();

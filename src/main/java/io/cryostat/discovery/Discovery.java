@@ -30,11 +30,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -43,6 +41,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.json.JsonObject;
@@ -64,6 +63,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -180,6 +180,7 @@ public class Discovery {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
+    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     public Response register(@Context RoutingContext ctx, JsonObject body)
             throws URISyntaxException,
                     JOSEException,
@@ -192,6 +193,7 @@ public class Discovery {
         String priorToken = body.getString("token");
         String realmName = body.getString("realm");
         URI callbackUri = new URI(body.getString("callback"));
+        URI unauthCallback = UriBuilder.fromUri(callbackUri).userInfo(null).build();
 
         // TODO apply URI range validation to the remote address
         InetAddress remoteAddress = getRemoteAddress(ctx);
@@ -205,12 +207,33 @@ public class Discovery {
             if (!Objects.equals(plugin.realm.name, realmName)) {
                 throw new ForbiddenException();
             }
-            if (!Objects.equals(plugin.callback, callbackUri)) {
+            if (!Objects.equals(plugin.callback, unauthCallback)) {
                 throw new BadRequestException();
             }
             location = jwtFactory.getPluginLocation(plugin);
             jwtFactory.parseDiscoveryPluginJwt(plugin, priorToken, location, remoteAddress, false);
         } else {
+            // check if a plugin record with the same callback already exists. If it does, ping it:
+            // if it's still there reject this request as a duplicate, otherwise delete the previous
+            // record and accept this new one as a replacement
+            DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
+                    .singleResultOptional()
+                    .ifPresent(
+                            p -> {
+                                try {
+                                    var cb = PluginCallback.create(p);
+                                    cb.ping();
+                                    throw new IllegalArgumentException(
+                                            String.format(
+                                                    "Plugin with callback %s already exists and is"
+                                                            + " still reachable",
+                                                    unauthCallback));
+                                } catch (Exception e) {
+                                    logger.error(e);
+                                    p.delete();
+                                }
+                            });
+
             // new plugin registration
             plugin = new DiscoveryPlugin();
             plugin.callback = callbackUri;
@@ -218,9 +241,12 @@ public class Discovery {
                     DiscoveryNode.environment(
                             requireNonBlank(realmName, "realm"), BaseNodeType.REALM);
             plugin.builtin = false;
-            plugin.persist();
 
-            DiscoveryNode.getUniverse().children.add(plugin.realm);
+            var universe = DiscoveryNode.getUniverse();
+            plugin.realm.parent = universe;
+            plugin.persist();
+            universe.children.add(plugin.realm);
+            universe.persist();
 
             location = jwtFactory.getPluginLocation(plugin);
 
@@ -293,15 +319,15 @@ public class Discovery {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         jwtValidator.validateJwt(ctx, plugin, token, true);
         plugin.realm.children.clear();
-        plugin.persist();
         plugin.realm.children.addAll(body);
-        body.forEach(
-                b -> {
-                    if (b.target != null) {
-                        b.target.discoveryNode = b;
-                    }
-                    b.persist();
-                });
+        for (var b : body) {
+            if (b.target != null) {
+                b.target.discoveryNode = b;
+                b.target.discoveryNode.parent = plugin.realm;
+                b.parent = plugin.realm;
+            }
+            b.persist();
+        }
         plugin.persist();
 
         return Map.of(
@@ -338,10 +364,7 @@ public class Discovery {
             scheduler.deleteJob(key);
         }
 
-        plugin.realm.delete();
         plugin.delete();
-        getStoredCredential(plugin).ifPresent(Credential::delete);
-        DiscoveryNode.getUniverse().children.remove(plugin.realm);
         return Map.of(
                 "meta",
                         Map.of(
@@ -374,17 +397,11 @@ public class Discovery {
         return DiscoveryPlugin.find("id", id).singleResult();
     }
 
-    Optional<Credential> getStoredCredential(DiscoveryPlugin plugin) {
-        return new DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory(plugin)
-                .getCredential();
-    }
-
+    @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;
 
         @Override
-        @Transactional
-        @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
         public void execute(JobExecutionContext context) throws JobExecutionException {
             DiscoveryPlugin plugin = null;
             try {
@@ -407,14 +424,12 @@ public class Discovery {
                 if (plugin != null) {
                     logger.debugv(
                             e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
-                    plugin.realm.delete();
-                    plugin.delete();
-                    new DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory(
-                                    plugin)
-                            .getCredential()
-                            .ifPresent(Credential::delete);
+                    QuarkusTransaction.requiringNew().run(plugin::delete);
+                } else {
+                    var ex = new JobExecutionException(e);
+                    ex.setUnscheduleFiringTrigger(true);
+                    throw ex;
                 }
-                throw new JobExecutionException(e);
             }
         }
     }

@@ -30,6 +30,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -130,25 +131,33 @@ public class DiscoveryNode extends PanacheEntity {
     }
 
     public static DiscoveryNode environment(String name, NodeType nodeType) {
-        DiscoveryNode node = new DiscoveryNode();
-        node.name = name;
-        node.nodeType = nodeType.getKind();
-        node.labels = new HashMap<>();
-        node.children = new ArrayList<>();
-        node.target = null;
-        node.persist();
-        return node;
+        return QuarkusTransaction.joiningExisting()
+                .call(
+                        () -> {
+                            DiscoveryNode node = new DiscoveryNode();
+                            node.name = name;
+                            node.nodeType = nodeType.getKind();
+                            node.labels = new HashMap<>();
+                            node.children = new ArrayList<>();
+                            node.target = null;
+                            node.persist();
+                            return node;
+                        });
     }
 
     public static DiscoveryNode target(Target target, NodeType nodeType) {
-        DiscoveryNode node = new DiscoveryNode();
-        node.name = target.connectUrl.toString();
-        node.nodeType = nodeType.getKind();
-        node.labels = new HashMap<>(target.labels);
-        node.children = null;
-        node.target = target;
-        node.persist();
-        return node;
+        return QuarkusTransaction.joiningExisting()
+                .call(
+                        () -> {
+                            DiscoveryNode node = new DiscoveryNode();
+                            node.name = target.connectUrl.toString();
+                            node.nodeType = nodeType.getKind();
+                            node.labels = new HashMap<>(target.labels);
+                            node.children = null;
+                            node.target = target;
+                            node.persist();
+                            return node;
+                        });
     }
 
     @Override

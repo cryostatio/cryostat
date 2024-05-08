@@ -34,8 +34,8 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -128,13 +128,15 @@ public class CustomDiscovery {
         return doV2Create(target, Optional.ofNullable(credential), dryrun, storeCredentials);
     }
 
-    @Transactional
-    @Blocking
     Response doV2Create(
             Target target,
             Optional<Credential> credential,
             boolean dryrun,
             boolean storeCredentials) {
+        var beginTx = !QuarkusTransaction.isActive();
+        if (beginTx) {
+            QuarkusTransaction.begin();
+        }
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
 
@@ -178,10 +180,17 @@ public class CustomDiscovery {
             node.persist();
             realm.persist();
 
+            if (beginTx) {
+                QuarkusTransaction.commit();
+            }
+
             return Response.created(URI.create("/api/v3/targets/" + target.id))
                     .entity(V2Response.json(Response.Status.CREATED, target))
                     .build();
         } catch (Exception e) {
+            // roll back regardless of whether we initiated this database transaction or a caller
+            // did
+            QuarkusTransaction.rollback();
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
                 return Response.status(Response.Status.BAD_REQUEST.getStatusCode())

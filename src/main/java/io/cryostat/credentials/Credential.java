@@ -15,13 +15,16 @@
  */
 package io.cryostat.credentials;
 
+import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.CascadeType;
@@ -67,6 +70,16 @@ public class Credential extends PanacheEntity {
     @NotBlank
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public String password;
+
+    @OneToOne(
+            optional = true,
+            fetch = FetchType.LAZY,
+            mappedBy = "credential",
+            cascade = CascadeType.REMOVE)
+    @JoinColumn(name = "discoveryPlugin_id")
+    @JsonIgnore
+    @Nullable
+    public DiscoveryPlugin discoveryPlugin;
 
     @ApplicationScoped
     static class Listener {

@@ -40,6 +40,7 @@ import io.cryostat.core.net.MBeanMetrics;
 import io.cryostat.core.serialization.SerializableRecordingDescriptor;
 import io.cryostat.credentials.Credential;
 import io.cryostat.credentials.CredentialsFinder;
+import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -394,21 +395,22 @@ public class AgentClient {
     private <T> Uni<HttpResponse<T>> invoke(
             HttpMethod mtd, String path, Buffer payload, BodyCodec<T> codec) {
         logger.debugv("{0} {1} {2}", mtd, getUri(), path);
+
+        Credential credential =
+                DiscoveryPlugin.<DiscoveryPlugin>find("callback", getUri())
+                        .singleResult()
+                        .credential;
+
         HttpRequest<T> req =
                 webClient
                         .request(mtd, getUri().getPort(), getUri().getHost(), path)
                         .ssl("https".equals(getUri().getScheme()))
                         .timeout(httpTimeout.toMillis())
                         .followRedirects(true)
-                        .as(codec);
-        Credential credential =
-                credentialsFinder.getCredentialsForConnectUrl(getUri()).orElse(null);
-        if (credential == null || credential.username == null || credential.password == null) {
-            throw new IllegalStateException(NULL_CREDENTIALS + " " + getUri());
-        }
-        req =
-                req.authentication(
-                        new UsernamePasswordCredentials(credential.username, credential.password));
+                        .as(codec)
+                        .authentication(
+                                new UsernamePasswordCredentials(
+                                        credential.username, credential.password));
 
         Uni<HttpResponse<T>> uni;
         if (payload != null) {

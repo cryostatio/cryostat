@@ -19,15 +19,16 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.Optional;
 import java.util.UUID;
 
 import io.cryostat.credentials.Credential;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
+import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.CascadeType;
@@ -40,6 +41,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
+import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -47,6 +49,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
+import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.rest.client.ext.ClientHeadersFactory;
 import org.hibernate.annotations.GenericGenerator;
@@ -71,9 +74,17 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     @NotNull
     public DiscoveryNode realm;
 
-    @Column(unique = true, updatable = false)
+    @Column(nullable = true, unique = true, updatable = false)
     @Convert(converter = UriConverter.class)
     public URI callback;
+
+    @OneToOne(
+            optional = true, // only nullable for builtins
+            fetch = FetchType.LAZY,
+            cascade = CascadeType.REMOVE)
+    @JsonIgnore
+    @Nullable
+    public Credential credential;
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     public boolean builtin;
@@ -84,14 +95,19 @@ public class DiscoveryPlugin extends PanacheEntityBase {
         @Inject Logger logger;
 
         @PrePersist
+        @Transactional
         public void prePersist(DiscoveryPlugin plugin) {
             if (plugin.builtin) {
                 return;
             }
             if (plugin.callback == null) {
-                plugin.realm.delete();
                 plugin.delete();
                 throw new IllegalArgumentException();
+            }
+            if (plugin.credential == null) {
+                var credential = getCredential(plugin);
+                plugin.credential = credential;
+                plugin.callback = UriBuilder.fromUri(plugin.callback).userInfo(null).build();
             }
             try {
                 PluginCallback.create(plugin).ping();
@@ -99,15 +115,42 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                         "Registered discovery plugin: {0} @ {1}",
                         plugin.realm.name, plugin.callback);
             } catch (URISyntaxException e) {
-                plugin.realm.delete();
                 plugin.delete();
                 throw new IllegalArgumentException(e);
             } catch (Exception e) {
-                plugin.realm.delete();
                 plugin.delete();
                 logger.error("Discovery Plugin ping failed", e);
                 throw e;
             }
+        }
+
+        private Credential getCredential(DiscoveryPlugin plugin) {
+            String userInfo = plugin.callback.getUserInfo();
+            if (StringUtils.isBlank(userInfo)) {
+                throw new IllegalArgumentException("No stored credentials specified");
+            }
+
+            if (!userInfo.contains(":")) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Unexpected non-basic credential format, found: %s", userInfo));
+            }
+
+            String[] parts = userInfo.split(":");
+            if (parts.length != 2) {
+                throw new IllegalArgumentException(
+                        String.format("Unexpected basic credential format, found: %s", userInfo));
+            }
+
+            if (!"storedcredentials".equals(parts[0])) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Unexpected credential format, expected \"storedcredentials\" but"
+                                        + " found: %s",
+                                parts[0]));
+            }
+
+            return Credential.find("id", Long.parseLong(parts[1])).singleResult();
         }
     }
 
@@ -123,12 +166,6 @@ public class DiscoveryPlugin extends PanacheEntityBase {
         public void refresh();
 
         public static PluginCallback create(DiscoveryPlugin plugin) throws URISyntaxException {
-            if (StringUtils.isBlank(plugin.callback.getUserInfo())) {
-                logger.warnv(
-                        "Plugin with id:{0} realm:{1} callback:{2} did not supply userinfo",
-                        plugin.id, plugin.realm, plugin.callback);
-            }
-
             PluginCallback client =
                     QuarkusRestClientBuilder.newBuilder()
                             .baseUri(plugin.callback)
@@ -148,50 +185,16 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 this.plugin = plugin;
             }
 
-            public Optional<Credential> getCredential() {
-                String userInfo = plugin.callback.getUserInfo();
-                if (StringUtils.isBlank(userInfo)) {
-                    logger.error("No stored credentials specified");
-                    return Optional.empty();
-                }
-
-                if (!userInfo.contains(":")) {
-                    logger.errorv("Unexpected non-basic credential format, found: {0}", userInfo);
-                    return Optional.empty();
-                }
-
-                String[] parts = userInfo.split(":");
-                if (parts.length != 2) {
-                    logger.errorv("Unexpected basic credential format, found: {0}", userInfo);
-                    return Optional.empty();
-                }
-
-                if (!"storedcredentials".equals(parts[0])) {
-                    logger.errorv(
-                            "Unexpected credential format, expected \"storedcredentials\" but"
-                                    + " found: {0}",
-                            parts[0]);
-                    return Optional.empty();
-                }
-
-                return Credential.find("id", Long.parseLong(parts[1])).singleResultOptional();
-            }
-
             @Override
             public MultivaluedMap<String, String> update(
                     MultivaluedMap<String, String> incomingHeaders,
                     MultivaluedMap<String, String> clientOutgoingHeaders) {
                 var result = new MultivaluedHashMap<String, String>();
-                Optional<Credential> opt = getCredential();
-                opt.ifPresent(
-                        credential -> {
-                            String basicAuth = credential.username + ":" + credential.password;
-                            byte[] authBytes = basicAuth.getBytes(StandardCharsets.UTF_8);
-                            String base64Auth = Base64.getEncoder().encodeToString(authBytes);
-                            result.add(
-                                    HttpHeaders.AUTHORIZATION,
-                                    String.format("Basic %s", base64Auth));
-                        });
+                var credential = plugin.credential;
+                String basicAuth = String.format("%s:%s", credential.username, credential.password);
+                byte[] authBytes = basicAuth.getBytes(StandardCharsets.UTF_8);
+                String base64Auth = Base64.getEncoder().encodeToString(authBytes);
+                result.add(HttpHeaders.AUTHORIZATION, String.format("Basic %s", base64Auth));
                 return result;
             }
         }
