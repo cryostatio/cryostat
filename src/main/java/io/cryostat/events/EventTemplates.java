@@ -21,6 +21,7 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.sys.FileSystem;
 import io.cryostat.core.templates.MutableTemplateService.InvalidEventTemplateException;
 import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
@@ -37,6 +38,7 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
@@ -94,12 +96,15 @@ public class EventTemplates {
         try (var validation = fs.newInputStream(body.filePath());
                 var stream = fs.newInputStream(body.filePath())) {
             var template = fsTemplateService.createTemplate(fsTemplateService.parseXml(validation));
-            if (fsTemplateService.hasTemplate(template.getName())) {
-                throw new BadRequestException(e);
+            if (fsTemplateService.hasTemplate(template.getName())
+                    || customTemplateService.hasTemplate(template.getName())) {
+                throw new BadRequestException();
             }
             customTemplateService.addTemplate(stream);
         } catch (InvalidEventTemplateException | InvalidXmlException | ParseException e) {
             throw new BadRequestException(e);
+        } catch (FlightRecorderException e) {
+            throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, e);
         }
     }
 

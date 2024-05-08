@@ -108,6 +108,10 @@ public class S3TemplateService extends AbstractFileBasedTemplateService
         }
     }
 
+    public boolean hasTemplate(String name) throws FlightRecorderException {
+        return getTemplates().stream().anyMatch(t -> t.getName().equals(name));
+    }
+
     @Override
     public List<Template> getTemplates() throws FlightRecorderException {
         return getObjects().stream()
