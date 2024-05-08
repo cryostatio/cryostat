@@ -34,7 +34,7 @@ import io.cryostat.core.templates.TemplateType;
 
 public abstract class AbstractFileBasedTemplateService implements TemplateService {
 
-    protected XMLModel parseXml(InputStream inputStream) throws IOException, ParseException {
+    XMLModel parseXml(InputStream inputStream) throws IOException, ParseException {
         try (inputStream) {
             var model = EventConfiguration.createModel(inputStream);
             model.checkErrors();
@@ -49,7 +49,7 @@ public abstract class AbstractFileBasedTemplateService implements TemplateServic
         }
     }
 
-    protected Template createTemplate(XMLModel model) throws IOException, ParseException {
+    Template createTemplate(XMLModel model) throws IOException, ParseException {
         XMLTagInstance configuration = model.getRoot();
         XMLAttributeInstance labelAttr = null;
         for (XMLAttributeInstance attr : configuration.getAttributeInstances()) {

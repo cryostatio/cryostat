@@ -17,6 +17,7 @@ package io.cryostat.events;
 
 import java.io.IOException;
 import java.net.URI;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -90,9 +91,14 @@ public class EventTemplates {
         if (body == null || body.filePath() == null || !"template".equals(body.name())) {
             throw new BadRequestException();
         }
-        try (var stream = fs.newInputStream(body.filePath())) {
+        try (var validation = fs.newInputStream(body.filePath());
+                var stream = fs.newInputStream(body.filePath())) {
+            var template = fsTemplateService.createTemplate(fsTemplateService.parseXml(validation));
+            if (fsTemplateService.hasTemplate(template.getName())) {
+                throw new BadRequestException(e);
+            }
             customTemplateService.addTemplate(stream);
-        } catch (InvalidEventTemplateException | InvalidXmlException e) {
+        } catch (InvalidEventTemplateException | InvalidXmlException | ParseException e) {
             throw new BadRequestException(e);
         }
     }
