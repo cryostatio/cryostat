@@ -52,7 +52,7 @@ class ScheduledArchiveJob implements Job {
         long ruleId = (long) ctx.getJobDetail().getJobDataMap().get("rule");
         Rule rule = Rule.find("id", ruleId).singleResult();
         long targetId = (long) ctx.getJobDetail().getJobDataMap().get("target");
-        Target target = Target.find("id", id).singleResult();
+        Target target = Target.find("id", targetId).singleResult();
         long recordingId = (long) ctx.getJobDetail().getJobDataMap().get("recording");
         ActiveRecording recording = ActiveRecording.find("id", recordingId).singleResult();
 
