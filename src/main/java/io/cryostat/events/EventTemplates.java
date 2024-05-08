@@ -60,6 +60,7 @@ public class EventTemplates {
     @Inject FileSystem fs;
     @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
+    @Inject FileSystemTemplateService fsTemplateService;
     @Inject Logger logger;
 
     @GET
@@ -110,6 +111,9 @@ public class EventTemplates {
     @Path("/api/v3/event_templates/{templateName}")
     @RolesAllowed("write")
     public void deleteTemplates(@RestPath String templateName) {
+        if (fsTemplateService.hasTemplate(templateName)) {
+            throw new BadRequestException();
+        }
         customTemplateService.deleteTemplate(templateName);
     }
 
@@ -155,6 +159,7 @@ public class EventTemplates {
         var list = new ArrayList<Template>();
         list.add(ALL_EVENTS_TEMPLATE);
         list.addAll(customTemplateService.getTemplates());
+        list.addAll(fsTemplateService.getTemplates());
         return list;
     }
 
@@ -166,6 +171,7 @@ public class EventTemplates {
         Target target = Target.find("id", id).singleResult();
         var list = new ArrayList<Template>();
         list.add(ALL_EVENTS_TEMPLATE);
+        list.addAll(fsTemplateService.getTemplates());
         list.addAll(targetTemplateServiceFactory.create(target).getTemplates());
         list.addAll(customTemplateService.getTemplates());
         return list;
@@ -189,7 +195,11 @@ public class EventTemplates {
                                 .orElseThrow();
                 break;
             case CUSTOM:
-                doc = customTemplateService.getXml(templateName, templateType).orElseThrow();
+                doc =
+                        customTemplateService
+                                .getXml(templateName, templateType)
+                                .or(() -> fsTemplateService.getXml(templateName, templateType))
+                                .orElseThrow();
                 break;
             default:
                 throw new BadRequestException();

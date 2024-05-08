@@ -41,6 +41,7 @@ nb-configuration.xml
 
 .quinoa/
 truststore/
+templates/
 certs/*.p12
 certs/*.pass
 *.jfr

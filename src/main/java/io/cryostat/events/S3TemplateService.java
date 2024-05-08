@@ -30,11 +30,6 @@ import org.openjdk.jmc.common.unit.SimpleConstrainedMap;
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventConfiguration;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
-import org.openjdk.jmc.flightrecorder.configuration.model.xml.JFCGrammar;
-import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLAttributeInstance;
-import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLModel;
-import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLTagInstance;
-import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLValidationResult;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
@@ -74,7 +69,8 @@ import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 
 @ApplicationScoped
-public class S3TemplateService implements MutableTemplateService {
+public class S3TemplateService extends AbstractFileBasedTemplateService
+        implements MutableTemplateService {
 
     static final String EVENT_TEMPLATE_CREATED = "TemplateUploaded";
     static final String EVENT_TEMPLATE_DELETED = "TemplateDeleted";
@@ -192,59 +188,25 @@ public class S3TemplateService implements MutableTemplateService {
         return storage.getObject(req);
     }
 
-    private XMLModel parseXml(InputStream inputStream) throws IOException, ParseException {
-        try (inputStream) {
-            var model = EventConfiguration.createModel(inputStream);
-            model.checkErrors();
-
-            for (XMLValidationResult result : model.getResults()) {
-                if (result.isError()) {
-                    throw new IllegalArgumentException(
-                            new InvalidEventTemplateException(result.getText()));
-                }
-            }
-            return model;
-        }
-    }
-
     @Override
     public Template addTemplate(InputStream stream)
             throws InvalidXmlException, InvalidEventTemplateException, IOException {
         try (stream) {
-            XMLModel model = parseXml(stream);
-
-            XMLTagInstance configuration = model.getRoot();
-            XMLAttributeInstance labelAttr = null;
-            for (XMLAttributeInstance attr : configuration.getAttributeInstances()) {
-                if (attr.getAttribute().getName().equals("label")) {
-                    labelAttr = attr;
-                    break;
-                }
-            }
-
-            if (labelAttr == null) {
-                throw new IllegalArgumentException(
-                        new InvalidEventTemplateException(
-                                "Template has no configuration label attribute"));
-            }
-
-            String templateName = labelAttr.getExplicitValue().replaceAll("[\\W]+", "_");
-
-            XMLTagInstance root = model.getRoot();
-            root.setValue(JFCGrammar.ATTRIBUTE_LABEL_MANDATORY, templateName);
-
-            String description = getAttributeValue(root, "description");
-            String provider = getAttributeValue(root, "provider");
+            var model = parseXml(stream);
+            var template = createTemplate(model);
             storage.putObject(
                     PutObjectRequest.builder()
                             .bucket(bucket)
-                            .key(templateName)
+                            .key(template.getName())
                             .contentType(MediaType.APPLICATION_XML)
-                            .tagging(createTemplateTagging(templateName, description, provider))
+                            .tagging(
+                                    createTemplateTagging(
+                                            template.getName(),
+                                            template.getDescription(),
+                                            template.getProvider()))
                             .build(),
                     RequestBody.fromString(model.toString()));
 
-            var template = new Template(templateName, description, provider, TemplateType.CUSTOM);
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(EVENT_TEMPLATE_CREATED, Map.of("template", template)));
@@ -301,13 +263,5 @@ public class S3TemplateService implements MutableTemplateService {
                                                 .build())
                         .toList());
         return Tagging.builder().tagSet(tags).build();
-    }
-
-    protected String getAttributeValue(XMLTagInstance node, String valueKey) {
-        return node.getAttributeInstances().stream()
-                .filter(i -> Objects.equals(valueKey, i.getAttribute().getName()))
-                .map(i -> i.getValue())
-                .findFirst()
-                .get();
     }
 }
