@@ -86,7 +86,7 @@ public class TargetConnectionManager {
     private final Duration failedBackoff;
     private final Duration failedTimeout;
 
-    @ConfigProperty(name = "cryostat.target.uri-range")
+    @ConfigProperty(name = ConfigProperties.URI_RANGE, defaultValue = "PUBLIC")
     String uriRangeSetting;
 
     public void connectToTarget(String urlString) throws Exception {
