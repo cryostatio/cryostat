@@ -184,6 +184,8 @@ cleanup() {
     fi
     ${container_engine} rm jmxtls_cfg_helper || true
     ${container_engine} volume rm jmxtls_cfg || true
+    ${container_engine} rm templates_helper || true
+    ${container_engine} volume rm templates || true
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
         kill -0 "${i}" && kill "${i}"
@@ -224,6 +226,15 @@ createJmxTlsCertVolume() {
     fi
 }
 createJmxTlsCertVolume
+
+createEventTemplateVolume() {
+    "${container_engine}" volume create templates
+    "${container_engine}" container create --name templates_helper -v templates:/templates busybox
+    if [ -d "${DIR}/templates" ]; then
+        "${container_engine}" cp "${DIR}/templates" templates_helper:/templates
+    fi
+}
+createEventTemplateVolume
 
 setupUserHosts() {
     # This requires https://github.com/figiel/hosts to work. See README.

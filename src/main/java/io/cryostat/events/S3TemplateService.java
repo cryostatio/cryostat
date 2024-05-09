@@ -18,6 +18,8 @@ package io.cryostat.events;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -82,6 +84,9 @@ public class S3TemplateService implements MutableTemplateService {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
     String bucket;
 
+    @ConfigProperty(name = ConfigProperties.TEMPLATES_DIR)
+    Path dir;
+
     @Inject S3Client storage;
     @Inject StorageBuckets storageBuckets;
 
@@ -95,6 +100,28 @@ public class S3TemplateService implements MutableTemplateService {
 
     void onStart(@Observes StartupEvent evt) {
         storageBuckets.createIfNecessary(bucket);
+        if (!checkDir()) {
+            return;
+        }
+        try {
+            Files.walk(dir)
+                    .filter(Files::isRegularFile)
+                    .filter(Files::isReadable)
+                    .forEach(
+                            p -> {
+                                try (var is = Files.newInputStream(p)) {
+                                    logger.debugv(
+                                            "Uploading template from {0} to S3", p.toString());
+                                    addTemplate(is);
+                                } catch (IOException
+                                        | InvalidXmlException
+                                        | InvalidEventTemplateException e) {
+                                    logger.warn(e);
+                                }
+                            });
+        } catch (IOException e) {
+            logger.warn(e);
+        }
     }
 
     @Override
@@ -192,59 +219,30 @@ public class S3TemplateService implements MutableTemplateService {
         return storage.getObject(req);
     }
 
-    private XMLModel parseXml(InputStream inputStream) throws IOException, ParseException {
-        try (inputStream) {
-            var model = EventConfiguration.createModel(inputStream);
-            model.checkErrors();
-
-            for (XMLValidationResult result : model.getResults()) {
-                if (result.isError()) {
-                    throw new IllegalArgumentException(
-                            new InvalidEventTemplateException(result.getText()));
-                }
-            }
-            return model;
-        }
-    }
-
     @Override
     public Template addTemplate(InputStream stream)
             throws InvalidXmlException, InvalidEventTemplateException, IOException {
         try (stream) {
-            XMLModel model = parseXml(stream);
-
-            XMLTagInstance configuration = model.getRoot();
-            XMLAttributeInstance labelAttr = null;
-            for (XMLAttributeInstance attr : configuration.getAttributeInstances()) {
-                if (attr.getAttribute().getName().equals("label")) {
-                    labelAttr = attr;
-                    break;
-                }
-            }
-
-            if (labelAttr == null) {
+            var model = parseXml(stream);
+            var template = createTemplate(model);
+            var existing = getTemplates();
+            if (existing.stream().anyMatch(t -> Objects.equals(t.getName(), template.getName()))) {
                 throw new IllegalArgumentException(
-                        new InvalidEventTemplateException(
-                                "Template has no configuration label attribute"));
+                        String.format("Duplicate event template name: %s", template.getName()));
             }
-
-            String templateName = labelAttr.getExplicitValue().replaceAll("[\\W]+", "_");
-
-            XMLTagInstance root = model.getRoot();
-            root.setValue(JFCGrammar.ATTRIBUTE_LABEL_MANDATORY, templateName);
-
-            String description = getAttributeValue(root, "description");
-            String provider = getAttributeValue(root, "provider");
             storage.putObject(
                     PutObjectRequest.builder()
                             .bucket(bucket)
-                            .key(templateName)
+                            .key(template.getName())
                             .contentType(MediaType.APPLICATION_XML)
-                            .tagging(createTemplateTagging(templateName, description, provider))
+                            .tagging(
+                                    createTemplateTagging(
+                                            template.getName(),
+                                            template.getDescription(),
+                                            template.getProvider()))
                             .build(),
                     RequestBody.fromString(model.toString()));
 
-            var template = new Template(templateName, description, provider, TemplateType.CUSTOM);
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(EVENT_TEMPLATE_CREATED, Map.of("template", template)));
@@ -255,6 +253,8 @@ public class S3TemplateService implements MutableTemplateService {
             throw new IllegalArgumentException("Unable to parse XML stream", ioe);
         } catch (ParseException | IllegalArgumentException e) {
             throw new IllegalArgumentException(new InvalidEventTemplateException("Invalid XML", e));
+        } catch (FlightRecorderException e) {
+            throw new IOException(e);
         }
     }
 
@@ -303,7 +303,56 @@ public class S3TemplateService implements MutableTemplateService {
         return Tagging.builder().tagSet(tags).build();
     }
 
-    protected String getAttributeValue(XMLTagInstance node, String valueKey) {
+    private boolean checkDir() {
+        return Files.exists(dir)
+                && Files.isReadable(dir)
+                && Files.isExecutable(dir)
+                && Files.isDirectory(dir);
+    }
+
+    private XMLModel parseXml(InputStream inputStream) throws IOException, ParseException {
+        try (inputStream) {
+            var model = EventConfiguration.createModel(inputStream);
+            model.checkErrors();
+
+            for (XMLValidationResult result : model.getResults()) {
+                if (result.isError()) {
+                    throw new IllegalArgumentException(
+                            new InvalidEventTemplateException(result.getText()));
+                }
+            }
+            return model;
+        }
+    }
+
+    private Template createTemplate(XMLModel model) throws IOException, ParseException {
+        XMLTagInstance configuration = model.getRoot();
+        XMLAttributeInstance labelAttr = null;
+        for (XMLAttributeInstance attr : configuration.getAttributeInstances()) {
+            if (attr.getAttribute().getName().equals("label")) {
+                labelAttr = attr;
+                break;
+            }
+        }
+
+        if (labelAttr == null) {
+            throw new IllegalArgumentException(
+                    new InvalidEventTemplateException(
+                            "Template has no configuration label attribute"));
+        }
+
+        String templateName = labelAttr.getExplicitValue().replaceAll("[\\W]+", "_");
+
+        XMLTagInstance root = model.getRoot();
+        root.setValue(JFCGrammar.ATTRIBUTE_LABEL_MANDATORY, templateName);
+
+        String description = getAttributeValue(root, "description");
+        String provider = getAttributeValue(root, "provider");
+
+        return new Template(templateName, description, provider, TemplateType.CUSTOM);
+    }
+
+    private String getAttributeValue(XMLTagInstance node, String valueKey) {
         return node.getAttributeInstances().stream()
                 .filter(i -> Objects.equals(valueKey, i.getAttribute().getName()))
                 .map(i -> i.getValue())
