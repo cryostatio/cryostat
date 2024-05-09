@@ -17,11 +17,9 @@ package io.cryostat.events;
 
 import java.io.IOException;
 import java.net.URI;
-import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.sys.FileSystem;
 import io.cryostat.core.templates.MutableTemplateService.InvalidEventTemplateException;
 import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
@@ -38,7 +36,6 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
@@ -63,7 +60,6 @@ public class EventTemplates {
     @Inject FileSystem fs;
     @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
-    @Inject FileSystemTemplateService fsTemplateService;
     @Inject Logger logger;
 
     @GET
@@ -93,18 +89,10 @@ public class EventTemplates {
         if (body == null || body.filePath() == null || !"template".equals(body.name())) {
             throw new BadRequestException();
         }
-        try (var validation = fs.newInputStream(body.filePath());
-                var stream = fs.newInputStream(body.filePath())) {
-            var template = fsTemplateService.createTemplate(fsTemplateService.parseXml(validation));
-            if (fsTemplateService.hasTemplate(template.getName())
-                    || customTemplateService.hasTemplate(template.getName())) {
-                throw new BadRequestException();
-            }
+        try (var stream = fs.newInputStream(body.filePath())) {
             customTemplateService.addTemplate(stream);
-        } catch (InvalidEventTemplateException | InvalidXmlException | ParseException e) {
+        } catch (InvalidEventTemplateException | InvalidXmlException e) {
             throw new BadRequestException(e);
-        } catch (FlightRecorderException e) {
-            throw new ServerErrorException(Response.Status.INTERNAL_SERVER_ERROR, e);
         }
     }
 
@@ -122,9 +110,6 @@ public class EventTemplates {
     @Path("/api/v3/event_templates/{templateName}")
     @RolesAllowed("write")
     public void deleteTemplates(@RestPath String templateName) {
-        if (fsTemplateService.hasTemplate(templateName)) {
-            throw new BadRequestException();
-        }
         customTemplateService.deleteTemplate(templateName);
     }
 
@@ -170,7 +155,6 @@ public class EventTemplates {
         var list = new ArrayList<Template>();
         list.add(ALL_EVENTS_TEMPLATE);
         list.addAll(customTemplateService.getTemplates());
-        list.addAll(fsTemplateService.getTemplates());
         return list;
     }
 
@@ -182,7 +166,6 @@ public class EventTemplates {
         Target target = Target.find("id", id).singleResult();
         var list = new ArrayList<Template>();
         list.add(ALL_EVENTS_TEMPLATE);
-        list.addAll(fsTemplateService.getTemplates());
         list.addAll(targetTemplateServiceFactory.create(target).getTemplates());
         list.addAll(customTemplateService.getTemplates());
         return list;
@@ -206,11 +189,7 @@ public class EventTemplates {
                                 .orElseThrow();
                 break;
             case CUSTOM:
-                doc =
-                        customTemplateService
-                                .getXml(templateName, templateType)
-                                .or(() -> fsTemplateService.getXml(templateName, templateType))
-                                .orElseThrow();
+                doc = customTemplateService.getXml(templateName, templateType).orElseThrow();
                 break;
             default:
                 throw new BadRequestException();

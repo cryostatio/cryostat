@@ -18,6 +18,8 @@ package io.cryostat.events;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +32,11 @@ import org.openjdk.jmc.common.unit.SimpleConstrainedMap;
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventConfiguration;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
+import org.openjdk.jmc.flightrecorder.configuration.model.xml.JFCGrammar;
+import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLAttributeInstance;
+import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLModel;
+import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLTagInstance;
+import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLValidationResult;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
@@ -69,14 +76,16 @@ import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 
 @ApplicationScoped
-public class S3TemplateService extends AbstractFileBasedTemplateService
-        implements MutableTemplateService {
+public class S3TemplateService implements MutableTemplateService {
 
     static final String EVENT_TEMPLATE_CREATED = "TemplateUploaded";
     static final String EVENT_TEMPLATE_DELETED = "TemplateDeleted";
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
     String bucket;
+
+    @ConfigProperty(name = ConfigProperties.TEMPLATES_DIR)
+    Path dir;
 
     @Inject S3Client storage;
     @Inject StorageBuckets storageBuckets;
@@ -91,6 +100,42 @@ public class S3TemplateService extends AbstractFileBasedTemplateService
 
     void onStart(@Observes StartupEvent evt) {
         storageBuckets.createIfNecessary(bucket);
+        if (!checkDir()) {
+            return;
+        }
+        try {
+            var existing = getTemplates();
+            Files.walk(dir)
+                    .filter(Files::isRegularFile)
+                    .filter(Files::isReadable)
+                    .forEach(
+                            p -> {
+                                try (var parse = Files.newInputStream(p)) {
+                                    var template = (createTemplate(parseXml(parse)));
+                                    if (existing.stream()
+                                            .anyMatch(
+                                                    t ->
+                                                            Objects.equals(
+                                                                    t.getName(),
+                                                                    template.getName()))) {
+                                        return;
+                                    }
+                                    logger.debugv(
+                                            "Uploading template {0} from {1} to S3",
+                                            template.getName(), p.toString());
+                                    try (var is = Files.newInputStream(p)) {
+                                        addTemplate(is);
+                                    }
+                                } catch (IOException
+                                        | ParseException
+                                        | InvalidXmlException
+                                        | InvalidEventTemplateException e) {
+                                    logger.warn(e);
+                                }
+                            });
+        } catch (IOException | FlightRecorderException e) {
+            logger.warn(e);
+        }
     }
 
     @Override
@@ -106,10 +151,6 @@ public class S3TemplateService extends AbstractFileBasedTemplateService
             logger.error(e);
             return Optional.empty();
         }
-    }
-
-    public boolean hasTemplate(String name) throws FlightRecorderException {
-        return getTemplates().stream().anyMatch(t -> t.getName().equals(name));
     }
 
     @Override
@@ -198,6 +239,11 @@ public class S3TemplateService extends AbstractFileBasedTemplateService
         try (stream) {
             var model = parseXml(stream);
             var template = createTemplate(model);
+            var existing = getTemplates();
+            if (existing.stream().anyMatch(t -> Objects.equals(t.getName(), template.getName()))) {
+                throw new IllegalArgumentException(
+                        String.format("Duplicate event template name: %s", template.getName()));
+            }
             storage.putObject(
                     PutObjectRequest.builder()
                             .bucket(bucket)
@@ -221,6 +267,8 @@ public class S3TemplateService extends AbstractFileBasedTemplateService
             throw new IllegalArgumentException("Unable to parse XML stream", ioe);
         } catch (ParseException | IllegalArgumentException e) {
             throw new IllegalArgumentException(new InvalidEventTemplateException("Invalid XML", e));
+        } catch (FlightRecorderException e) {
+            throw new IOException(e);
         }
     }
 
@@ -267,5 +315,62 @@ public class S3TemplateService extends AbstractFileBasedTemplateService
                                                 .build())
                         .toList());
         return Tagging.builder().tagSet(tags).build();
+    }
+
+    private boolean checkDir() {
+        return Files.exists(dir)
+                && Files.isReadable(dir)
+                && Files.isExecutable(dir)
+                && Files.isDirectory(dir);
+    }
+
+    private XMLModel parseXml(InputStream inputStream) throws IOException, ParseException {
+        try (inputStream) {
+            var model = EventConfiguration.createModel(inputStream);
+            model.checkErrors();
+
+            for (XMLValidationResult result : model.getResults()) {
+                if (result.isError()) {
+                    throw new IllegalArgumentException(
+                            new InvalidEventTemplateException(result.getText()));
+                }
+            }
+            return model;
+        }
+    }
+
+    private Template createTemplate(XMLModel model) throws IOException, ParseException {
+        XMLTagInstance configuration = model.getRoot();
+        XMLAttributeInstance labelAttr = null;
+        for (XMLAttributeInstance attr : configuration.getAttributeInstances()) {
+            if (attr.getAttribute().getName().equals("label")) {
+                labelAttr = attr;
+                break;
+            }
+        }
+
+        if (labelAttr == null) {
+            throw new IllegalArgumentException(
+                    new InvalidEventTemplateException(
+                            "Template has no configuration label attribute"));
+        }
+
+        String templateName = labelAttr.getExplicitValue().replaceAll("[\\W]+", "_");
+
+        XMLTagInstance root = model.getRoot();
+        root.setValue(JFCGrammar.ATTRIBUTE_LABEL_MANDATORY, templateName);
+
+        String description = getAttributeValue(root, "description");
+        String provider = getAttributeValue(root, "provider");
+
+        return new Template(templateName, description, provider, TemplateType.CUSTOM);
+    }
+
+    private String getAttributeValue(XMLTagInstance node, String valueKey) {
+        return node.getAttributeInstances().stream()
+                .filter(i -> Objects.equals(valueKey, i.getAttribute().getName()))
+                .map(i -> i.getValue())
+                .findFirst()
+                .get();
     }
 }
