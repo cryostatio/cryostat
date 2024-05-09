@@ -18,85 +18,90 @@ package io.cryostat.util;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.List;
 import java.util.function.Predicate;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.stream.Collectors;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public enum URIRange {
-    LOOPBACK(
-            uri -> {
-                try {
-                    return uri.getHost() != null
-                            && InetAddress.getByName(uri.getHost()).isLoopbackAddress();
-                } catch (UnknownHostException e) {
-                    return false;
-                }
-            }),
+    LOOPBACK(u -> check(u, u2 -> true, InetAddress::isLoopbackAddress)),
     LINK_LOCAL(
-            uri -> {
-                try {
-                    return uri.getHost() != null
-                            && InetAddress.getByName(uri.getHost()).isLinkLocalAddress();
-                } catch (UnknownHostException e) {
-                    return false;
-                }
-            }),
+            u ->
+                    check(
+                            u,
+                            u2 -> StringUtils.isNotBlank(u2.getHost()),
+                            InetAddress::isLinkLocalAddress)),
     SITE_LOCAL(
-            uri -> {
-                try {
-                    return uri.getHost() != null
-                            && InetAddress.getByName(uri.getHost()).isSiteLocalAddress();
-                } catch (UnknownHostException e) {
-                    return false;
-                }
-            }),
+            u ->
+                    check(
+                            u,
+                            u2 -> StringUtils.isNotBlank(u2.getHost()),
+                            InetAddress::isSiteLocalAddress)),
     DNS_LOCAL(
-            uri -> {
-                return uri.getHost() != null
-                        && (uri.getHost().endsWith(".local")
-                                || uri.getHost().endsWith(".localhost"));
-            }),
-    PUBLIC(uri -> true);
+            u ->
+                    StringUtils.isNotBlank(u.getHost())
+                            && (u.getHost().endsWith(".local")
+                                    || u.getHost().endsWith(".localhost"))),
+    PUBLIC(u -> true),
+    ;
 
-    private static final Logger logger = Logger.getLogger(URIRange.class.getName());
-    private final Predicate<URI> validation;
+    private static final Logger log = LoggerFactory.getLogger(URIRange.class);
 
-    URIRange(Predicate<URI> validation) {
-        this.validation = validation;
+    private URIRange(Predicate<URI> fn) {
+        this.fn = fn;
     }
 
-    private static boolean isAddressType(URI uri, Predicate<InetAddress> addressTypeChecker) {
+    private final Predicate<URI> fn;
+
+    private static boolean check(URI uri, Predicate<URI> f1, Predicate<InetAddress> f2) {
         try {
-            return uri.getHost() != null
-                    && addressTypeChecker.test(InetAddress.getByName(uri.getHost()));
-        } catch (UnknownHostException e) {
-            logger.log(Level.SEVERE, "DNS resolution failed for host: " + uri.getHost(), e);
+            return f1.test(uri) && f2.test(InetAddress.getByName(uri.getHost()));
+        } catch (UnknownHostException uhe) {
+            log.error("Failed to resolve host", uhe);
             return false;
         }
     }
 
-    private static boolean isLoopback(URI uri) {
-        return isAddressType(uri, InetAddress::isLoopbackAddress);
-    }
-
-    private static boolean isLinkLocal(URI uri) {
-        return isAddressType(uri, InetAddress::isLinkLocalAddress);
-    }
-
-    private static boolean isSiteLocal(URI uri) {
-        return isAddressType(uri, InetAddress::isSiteLocalAddress);
+    private boolean test(URI uri) {
+        return fn.test(uri);
     }
 
     public boolean validate(URI uri) {
-        return validation.test(uri);
+        List<URIRange> ranges =
+                List.of(URIRange.values()).stream()
+                        .filter(r -> r.ordinal() <= this.ordinal())
+                        .collect(Collectors.toList());
+        boolean match = false;
+        for (URIRange range : ranges) {
+            match |= range.test(uri);
+        }
+        return match;
     }
 
-    public static URIRange fromString(String name) {
-        for (URIRange r : values()) {
-            if (r.name().equalsIgnoreCase(name)) {
+    public static URIRange fromString(String s) {
+        for (URIRange r : URIRange.values()) {
+            if (r.name().equalsIgnoreCase(s)) {
                 return r;
             }
         }
-        throw new IllegalArgumentException("Unknown URIRange: " + name);
+        return SITE_LOCAL;
+    }
+
+    public class StringUtils {
+        private StringUtils() {}
+
+        public static boolean isBlank(String s) {
+            return s == null || s.isBlank();
+        }
+
+        public static boolean isNotBlank(String s) {
+            return !isBlank(s);
+        }
+
+        public static String defaultValue(String in, String def) {
+            return isNotBlank(in) ? in : def;
+        }
     }
 }

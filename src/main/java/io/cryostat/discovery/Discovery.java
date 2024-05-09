@@ -35,6 +35,7 @@ import java.util.UUID;
 
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.URIRange;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -95,6 +96,9 @@ public class Discovery {
 
     @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
     Duration discoveryPingPeriod;
+
+    @ConfigProperty(name = "cryostat.target.uri-range")
+    String uriRangeSetting;
 
     @Inject Logger logger;
     @Inject ObjectMapper mapper;
@@ -193,6 +197,18 @@ public class Discovery {
         String realmName = body.getString("realm");
         URI callbackUri = new URI(body.getString("callback"));
         URI unauthCallback = UriBuilder.fromUri(callbackUri).userInfo(null).build();
+
+        // URI range validation
+        URIRange range = URIRange.fromString(uriRangeSetting);
+        if (!range.validate(callbackUri)) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(
+                            String.format(
+                                    "cryostat.target.callback URI of \"%s\" is unacceptable with"
+                                            + " URI range \"%s\"",
+                                    callbackUri, uriRangeSetting))
+                    .build();
+        }
 
         // TODO apply URI range validation to the remote address
         InetAddress remoteAddress = getRemoteAddress(ctx);

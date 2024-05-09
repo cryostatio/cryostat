@@ -33,6 +33,7 @@ import io.cryostat.targets.JvmIdException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.URIRange;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
@@ -70,6 +71,9 @@ public class CustomDiscovery {
     @Inject EventBus bus;
     @Inject TargetConnectionManager connectionManager;
 
+    @ConfigProperty(name = "cryostat.target.uri-range")
+    String uriRangeSetting;
+
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
@@ -95,6 +99,21 @@ public class CustomDiscovery {
     @RolesAllowed("write")
     public Response create(
             Target target, @RestQuery boolean dryrun, @RestQuery boolean storeCredentials) {
+        try {
+            URIRange range = URIRange.fromString(uriRangeSetting);
+            if (!range.validate(target.connectUrl)) {
+                throw new SecurityException(
+                        "Connection to "
+                                + target.connectUrl
+                                + " is not allowed under current settings.");
+            }
+            // Continue with target creation if URI is valid...
+        } catch (Exception e) {
+            logger.error("Target validation failed", e);
+            return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
+                    .entity(V2Response.json(Response.Status.BAD_REQUEST, e))
+                    .build();
+        }
         // TODO handle credentials embedded in JSON body
         return doV2Create(target, Optional.empty(), dryrun, storeCredentials);
     }
@@ -139,6 +158,14 @@ public class CustomDiscovery {
         }
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
+
+            URIRange range = URIRange.fromString(uriRangeSetting);
+            if (!range.validate(target.connectUrl)) {
+                throw new SecurityException(
+                        "Connection to "
+                                + target.connectUrl
+                                + " is not allowed under current settings.");
+            }
 
             try {
                 target.jvmId =

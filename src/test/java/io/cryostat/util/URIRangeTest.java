@@ -15,68 +15,154 @@
  */
 package io.cryostat.util;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import java.net.URI;
+import java.net.URISyntaxException;
 
-import org.junit.jupiter.api.Test;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 public class URIRangeTest {
 
-    @Test
-    void testLoopbackRangeValid() throws Exception {
-        URI uri = new URI("http://127.0.0.1");
-        assertTrue(URIRange.LOOPBACK.validate(uri), "Should validate loopback address");
+    @ParameterizedTest
+    @CsvSource({
+        "127.0.0.1, true",
+        "localhost, true",
+        "svc.localhost, true",
+        "169.254.0.0, false",
+        "169.254.10.5, false",
+        "168.254.1.1, false",
+        "10.0.0.10, false",
+        "10.0.10.10, false",
+        "10.10.10.10, false",
+        "11.10.10.10, false",
+        "172.16.0.0, false",
+        "172.16.10.5, false",
+        "172.17.10.5, false",
+        "172.100.10.5, false",
+        "192.168.1.1, false",
+        "192.168.2.1, false",
+        "192.169.2.1, false",
+        "svc.local, false",
+        "example.svc.cluster.local, false",
+        "example.com, false"
+    })
+    public void testLoopbackRange(String s, String v) throws URISyntaxException {
+        test(URIRange.LOOPBACK, s, v);
     }
 
-    @Test
-    void testLoopbackRangeInvalid() throws Exception {
-        URI uri = new URI("http://192.168.0.1");
-        assertFalse(URIRange.LOOPBACK.validate(uri), "Should not validate non-loopback address");
+    @ParameterizedTest
+    @CsvSource({
+        "127.0.0.1, true",
+        "localhost, true",
+        "svc.localhost, true",
+        "169.254.0.0, true",
+        "169.254.10.5, true",
+        "168.254.1.1, false",
+        "10.0.0.10, false",
+        "10.0.10.10, false",
+        "10.10.10.10, false",
+        "11.10.10.10, false",
+        "172.16.0.0, false",
+        "172.16.10.5, false",
+        "172.17.10.5, false",
+        "172.100.10.5, false",
+        "192.168.1.1, false",
+        "192.168.2.1, false",
+        "192.169.2.1, false",
+        "svc.local, false",
+        "example.svc.cluster.local, false",
+        "example.com, false"
+    })
+    public void testLinkLocalRange(String s, String v) throws URISyntaxException {
+        test(URIRange.LINK_LOCAL, s, v);
     }
 
-    @Test
-    void testLinkLocalRangeValid() throws Exception {
-        URI uri = new URI("http://169.254.0.1");
-        assertTrue(URIRange.LINK_LOCAL.validate(uri), "Should validate link-local address");
+    @ParameterizedTest
+    @CsvSource({
+        "127.0.0.1, true",
+        "localhost, true",
+        "svc.localhost, true",
+        "169.254.0.0, true",
+        "169.254.10.5, true",
+        "168.254.1.1, false",
+        "10.0.0.10, true",
+        "10.0.10.10, true",
+        "10.10.10.10, true",
+        "11.10.10.10, false",
+        "172.16.0.0, true",
+        "172.16.10.5, true",
+        "172.17.10.5, true",
+        "172.100.10.5, false",
+        "192.168.1.1, true",
+        "192.168.2.1, true",
+        "192.170.2.1, false",
+        "svc.local, false",
+        "example.svc.cluster.local, false",
+        "example.com, false"
+    })
+    public void testSiteLocalRange(String s, String v) throws URISyntaxException {
+        test(URIRange.SITE_LOCAL, s, v);
     }
 
-    @Test
-    void testLinkLocalRangeInvalid() throws Exception {
-        URI uri = new URI("http://192.168.0.1");
-        assertFalse(
-                URIRange.LINK_LOCAL.validate(uri), "Should not validate non-link-local address");
+    @ParameterizedTest
+    @CsvSource({
+        "127.0.0.1, true",
+        "localhost, true",
+        "svc.localhost, true",
+        "169.254.0.0, true",
+        "169.254.10.5, true",
+        "168.254.1.1, false",
+        "10.0.0.10, true",
+        "10.0.10.10, true",
+        "10.10.10.10, true",
+        "11.10.10.10, false",
+        "172.16.0.0, true",
+        "172.16.10.5, true",
+        "172.17.10.5, true",
+        "172.100.10.5, false",
+        "192.168.1.1, true",
+        "192.168.2.1, true",
+        "192.169.2.1, false",
+        "svc.local, true",
+        "example.svc.cluster.local, true",
+        "example.com, false"
+    })
+    public void testDnsLocalRange(String s, String v) throws URISyntaxException {
+        test(URIRange.DNS_LOCAL, s, v);
     }
 
-    @Test
-    void testSiteLocalRangeValid() throws Exception {
-        URI uri = new URI("http://192.168.1.100");
-        assertTrue(URIRange.SITE_LOCAL.validate(uri), "Should validate site-local address");
+    @ParameterizedTest
+    @CsvSource({
+        "127.0.0.1, true",
+        "localhost, true",
+        "svc.localhost, true",
+        "169.254.0.0, true",
+        "169.254.10.5, true",
+        "168.254.1.1, true",
+        "10.0.0.10, true",
+        "10.0.10.10, true",
+        "10.10.10.10, true",
+        "11.10.10.10, true",
+        "172.16.0.0, true",
+        "172.16.10.5, true",
+        "172.17.10.5, true",
+        "172.100.10.5, true",
+        "192.168.1.1, true",
+        "192.168.2.1, true",
+        "192.169.2.1, true",
+        "svc.local, true",
+        "example.svc.cluster.local, true",
+        "example.com, true"
+    })
+    public void testPublicRange(String s, String v) throws URISyntaxException {
+        test(URIRange.PUBLIC, s, v);
     }
 
-    @Test
-    void testSiteLocalRangeInvalid() throws Exception {
-        URI uri = new URI("http://8.8.8.8");
-        assertFalse(
-                URIRange.SITE_LOCAL.validate(uri), "Should not validate non-site-local address");
-    }
-
-    @Test
-    void testDnsLocalRangeValid() throws Exception {
-        URI uri = new URI("http://hostname.local");
-        assertTrue(URIRange.DNS_LOCAL.validate(uri), "Should validate DNS local address");
-    }
-
-    @Test
-    void testDnsLocalRangeInvalid() throws Exception {
-        URI uri = new URI("http://example.com");
-        assertFalse(URIRange.DNS_LOCAL.validate(uri), "Should not validate non-DNS local address");
-    }
-
-    @Test
-    void testPublicRangeAlwaysTrue() throws Exception {
-        URI uri = new URI("http://example.com");
-        assertTrue(URIRange.PUBLIC.validate(uri), "Public range should always return true");
+    private void test(URIRange range, String s, String v) throws URISyntaxException {
+        boolean expected = Boolean.parseBoolean(v);
+        URI u = new URI(String.format("http://%s:1234", s));
+        MatcherAssert.assertThat(s, range.validate(u), Matchers.is(expected));
     }
 }
