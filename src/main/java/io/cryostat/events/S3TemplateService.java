@@ -110,24 +110,11 @@ public class S3TemplateService implements MutableTemplateService {
                     .filter(Files::isReadable)
                     .forEach(
                             p -> {
-                                try (var parse = Files.newInputStream(p)) {
-                                    var template = (createTemplate(parseXml(parse)));
-                                    if (existing.stream()
-                                            .anyMatch(
-                                                    t ->
-                                                            Objects.equals(
-                                                                    t.getName(),
-                                                                    template.getName()))) {
-                                        return;
-                                    }
+                                try (var is = Files.newInputStream(p)) {
                                     logger.debugv(
-                                            "Uploading template {0} from {1} to S3",
-                                            template.getName(), p.toString());
-                                    try (var is = Files.newInputStream(p)) {
-                                        addTemplate(is);
-                                    }
+                                            "Uploading template from {0} to S3", p.toString());
+                                    addTemplate(is);
                                 } catch (IOException
-                                        | ParseException
                                         | InvalidXmlException
                                         | InvalidEventTemplateException e) {
                                     logger.warn(e);
