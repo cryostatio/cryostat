@@ -104,7 +104,6 @@ public class S3TemplateService implements MutableTemplateService {
             return;
         }
         try {
-            var existing = getTemplates();
             Files.walk(dir)
                     .filter(Files::isRegularFile)
                     .filter(Files::isReadable)
@@ -120,7 +119,7 @@ public class S3TemplateService implements MutableTemplateService {
                                     logger.warn(e);
                                 }
                             });
-        } catch (IOException | FlightRecorderException e) {
+        } catch (IOException e) {
             logger.warn(e);
         }
     }
