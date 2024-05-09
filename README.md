@@ -42,7 +42,25 @@ Run Requirements:
 
 ### Setup Dependencies
 
-Initialize submodules:
+For ease and convenience, it is suggested to use `podman` with the following configurations:
+
+```bash
+$ systemctl --user enable --now podman.socket
+```
+
+`$HOME/.bashrc` (or equivalent shell configuration)
+```bash
+export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
+```
+
+`$HOME/.testcontainers.properties`
+```properties
+ryuk.container.privileged=true
+docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
+testcontainers.reuse.enable=false
+```
+
+Initialize submodules before building:
 
 ```bash
 $ git submodule init && git submodule update
@@ -81,31 +99,19 @@ This will run Cryostat as a local JVM process hooked up to its frontend, and req
 
 ### Local Smoketesting
 
-Development on this project is primarily done using `podman`, though things should generally work when using `docker` as well. For ease and convenience, it is suggested to use `podman` with the following configurations:
+Development on this project is primarily done using `podman`, though things should generally work when using `docker` as well.
+Ensure you have performed the `podman` setup above first, then build the container image and run smoketests.
+This will spin up the cryostat container and its required services.
 
 ```bash
-$ systemctl --user enable --now podman.socket
-```
-
-`$HOME/.bashrc` (or equivalent shell configuration)
-```bash
-export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
-```
-
-`$HOME/.testcontainers.properties`
-```properties
-ryuk.container.privileged=true
-docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
-testcontainers.reuse.enable=false
-```
-
-Build the container image and run smoketests. This will spin up the cryostat container and its required services.
-
-```bash
-# build Cryostat container, clean up any dangling references
+# build Cryostat container, clean up any dangling container images/layers
+$ ./mvnw package ; podman image prune -f
+# alternatively, use Quarkus CLI instead of the Maven wrapper
 $ quarkus build ; podman image prune -f
+# check the available smoketest options
+$ bash smoketest.bash -h
 # run a smoketest scenario
-$ bash smoketest.bash
+$ bash smoketest.bash -O # without the -O flag, the smoketest will pull the latest development image version, rather than the one you just built
 ```
 
 To make containers' names DNS-resolvable from the host machine, do:
