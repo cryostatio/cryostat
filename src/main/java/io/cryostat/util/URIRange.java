@@ -89,7 +89,7 @@ public enum URIRange {
         return SITE_LOCAL;
     }
 
-    public class StringUtils {
+    public static class StringUtils {
         private StringUtils() {}
 
         public static boolean isBlank(String s) {
