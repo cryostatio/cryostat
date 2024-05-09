@@ -30,7 +30,6 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.jsoup.nodes.Document;
 
 public class TargetTemplateService implements TemplateService {
 
@@ -62,11 +61,15 @@ public class TargetTemplateService implements TemplateService {
     }
 
     @Override
-    public Optional<Document> getXml(String templateName, TemplateType unused)
+    public Optional<String> getXml(String templateName, TemplateType unused)
             throws FlightRecorderException {
-        return connectionManager.executeConnectedTask(
-                target,
-                conn -> conn.getTemplateService().getXml(templateName, TemplateType.TARGET));
+        Optional doc =
+                connectionManager.executeConnectedTask(
+                        target,
+                        conn ->
+                                conn.getTemplateService()
+                                        .getXml(templateName, TemplateType.TARGET));
+        return doc.isPresent() ? Optional.of(doc.toString()) : Optional.empty();
     }
 
     @Override

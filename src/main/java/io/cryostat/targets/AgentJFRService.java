@@ -260,8 +260,7 @@ class AgentJFRService implements CryostatFlightRecorderService {
                             null,
                             templateService
                                     .getXml(templateName, preferredTemplateType)
-                                    .orElseThrow()
-                                    .outerHtml(),
+                                    .orElseThrow(),
                             duration,
                             maxSize,
                             maxAge);

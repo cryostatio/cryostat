@@ -62,7 +62,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.jsoup.parser.Parser;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -156,12 +155,12 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     @Override
-    public Optional<Document> getXml(String templateName, TemplateType unused)
+    public Optional<String> getXml(String templateName, TemplateType unused)
             throws FlightRecorderException {
         try (var stream = getModel(templateName)) {
             Document doc =
                     Jsoup.parse(stream, StandardCharsets.UTF_8.name(), "", Parser.xmlParser());
-            return Optional.of(doc);
+            return Optional.of(doc.outerHtml());
         } catch (IOException e) {
             logger.error(e);
             return Optional.empty();
