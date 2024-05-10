@@ -89,6 +89,7 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
 import jakarta.persistence.PersistenceException;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ServerErrorException;
@@ -1307,6 +1308,7 @@ public class RecordingHelper {
         @Inject Logger logger;
 
         @Override
+        @Transactional
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
             var jobDataMap = ctx.getJobDetail().getJobDataMap();
             try {
