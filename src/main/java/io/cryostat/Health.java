@@ -91,9 +91,7 @@ class Health {
         } else {
             reportsURL = Optional.of(reportsClientURL);
         }
-        reportsURL.ifPresentOrElse(
-                u -> checkUri(Optional.of(u), "/health", reportsAvailable),
-                () -> reportsAvailable.complete(true));
+        checkUri(reportsURL, "/health", reportsAvailable);
 
         return new PermittedResponseBuilder(
                         Response.ok(
