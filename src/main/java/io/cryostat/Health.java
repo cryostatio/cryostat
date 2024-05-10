@@ -87,12 +87,13 @@ class Health {
         // other value then this means sidecar report generation is requested, so it is configured
         // and the availability must be tested.
         boolean reportsConfigured =
-                !StringUtils.isBlank(reportsClientURL)
+                StringUtils.isNotBlank(reportsClientURL)
                         && !Objects.equals(LOCAL_REPORT_GENERATION_URL, reportsClientURL);
-        checkUri(
-                reportsConfigured ? Optional.of(reportsClientURL) : Optional.empty(),
-                "/health",
-                reportsAvailable);
+        if (reportsConfigured) {
+            checkUri(Optional.of(reportsClientURL), "/health", reportsAvailable);
+        } else {
+            reportsAvailable.complete(true);
+        }
 
         return new PermittedResponseBuilder(
                         Response.ok(
