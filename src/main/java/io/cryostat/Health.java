@@ -45,6 +45,8 @@ import org.jboss.logging.Logger;
 @Path("")
 class Health {
 
+    private static final String LOCAL_REPORT_GENERATION_URL = "http://localhost/";
+
     @ConfigProperty(name = "quarkus.application.name")
     String name;
 
@@ -84,14 +86,13 @@ class Health {
         // this case as reports being unconfigured, but available. If the URL is overridden to some
         // other value then this means sidecar report generation is requested, so it is configured
         // and the availability must be tested.
-        Optional<String> reportsURL;
-        if (Objects.equals("http://localhost/", reportsClientURL)
-                || StringUtils.isBlank(reportsClientURL)) {
-            reportsURL = Optional.empty();
-        } else {
-            reportsURL = Optional.of(reportsClientURL);
-        }
-        checkUri(reportsURL, "/health", reportsAvailable);
+        boolean reportsConfigured =
+                !StringUtils.isBlank(reportsClientURL)
+                        && !Objects.equals(LOCAL_REPORT_GENERATION_URL, reportsClientURL);
+        checkUri(
+                reportsConfigured ? Optional.of(reportsClientURL) : Optional.empty(),
+                "/health",
+                reportsAvailable);
 
         return new PermittedResponseBuilder(
                         Response.ok(
@@ -107,7 +108,7 @@ class Health {
                                         "datasourceAvailable",
                                         datasourceAvailable.join(),
                                         "reportsConfigured",
-                                        reportsURL.isPresent(),
+                                        reportsConfigured,
                                         "reportsAvailable",
                                         reportsAvailable.join())))
                 .build();
