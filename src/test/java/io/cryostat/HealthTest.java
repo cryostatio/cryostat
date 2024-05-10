@@ -66,7 +66,7 @@ public class HealthTest {
                         "datasourceConfigured", is(true),
                         "datasourceAvailable", is(true),
                         "reportsConfigured", is(false),
-                        "reportsAvailable", is(false));
+                        "reportsAvailable", is(true));
     }
 
     @Test

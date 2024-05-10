@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
@@ -37,11 +38,14 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.Response.ResponseBuilder;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 @Path("")
 class Health {
+
+    private static final String LOCAL_REPORT_GENERATION_URL = "http://localhost/";
 
     @ConfigProperty(name = "quarkus.application.name")
     String name;
@@ -58,6 +62,9 @@ class Health {
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> datasourceURL;
 
+    @ConfigProperty(name = ConfigProperties.REPORTS_SIDECAR_URL)
+    String reportsClientURL;
+
     @Inject Logger logger;
     @Inject WebClient webClient;
 
@@ -72,7 +79,21 @@ class Health {
 
         checkUri(dashboardURL, "/api/health", dashboardAvailable);
         checkUri(datasourceURL, "/", datasourceAvailable);
-        reportsAvailable.complete(false);
+
+        // the reports URL is always present as it is required for the generated client, so the
+        // value "http://localhost/" is used to indicate that no sidecar report generation service
+        // is configured and the Cryostat instance itself should handle report generation. Consider
+        // this case as reports being unconfigured, but available. If the URL is overridden to some
+        // other value then this means sidecar report generation is requested, so it is configured
+        // and the availability must be tested.
+        boolean reportsConfigured =
+                StringUtils.isNotBlank(reportsClientURL)
+                        && !Objects.equals(LOCAL_REPORT_GENERATION_URL, reportsClientURL);
+        if (reportsConfigured) {
+            checkUri(Optional.of(reportsClientURL), "/health", reportsAvailable);
+        } else {
+            reportsAvailable.complete(true);
+        }
 
         return new PermittedResponseBuilder(
                         Response.ok(
@@ -88,9 +109,9 @@ class Health {
                                         "datasourceAvailable",
                                         datasourceAvailable.join(),
                                         "reportsConfigured",
-                                        false,
+                                        reportsConfigured,
                                         "reportsAvailable",
-                                        false)))
+                                        reportsAvailable.join())))
                 .build();
     }
 
