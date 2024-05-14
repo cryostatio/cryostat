@@ -102,15 +102,18 @@ public class CustomDiscovery {
         try {
             URIRange range = URIRange.fromString(uriRangeSetting);
             if (!range.validate(target.connectUrl)) {
-                throw new SecurityException(
-                        "Connection to "
-                                + target.connectUrl
-                                + " is not allowed under current settings.");
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(
+                                String.format(
+                                        "The provided callback URI \"%s\" is unacceptable with the"
+                                                + " current URI range settings \"%s\".",
+                                        target.connectUrl, uriRangeSetting))
+                        .build();
             }
             // Continue with target creation if URI is valid...
         } catch (Exception e) {
             logger.error("Target validation failed", e);
-            return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
+            return Response.status(Response.Status.BAD_REQUEST)
                     .entity(V2Response.json(Response.Status.BAD_REQUEST, e))
                     .build();
         }
@@ -155,16 +158,21 @@ public class CustomDiscovery {
         var beginTx = !QuarkusTransaction.isActive();
         if (beginTx) {
             QuarkusTransaction.begin();
+        } else {
+            // No changes needed for this error
         }
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
 
             URIRange range = URIRange.fromString(uriRangeSetting);
             if (!range.validate(target.connectUrl)) {
-                throw new SecurityException(
-                        "Connection to "
-                                + target.connectUrl
-                                + " is not allowed under current settings.");
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(
+                                String.format(
+                                        "Connection to \"%s\" is not allowed under the current URI"
+                                                + " range settings \"%s\".",
+                                        target.connectUrl, uriRangeSetting))
+                        .build();
             }
 
             try {

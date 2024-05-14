@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -89,7 +90,7 @@ public enum URIRange {
         return SITE_LOCAL;
     }
 
-    public static class StringUtils {
+    /* public static class StringUtils {
         private StringUtils() {}
 
         public static boolean isBlank(String s) {
@@ -103,5 +104,5 @@ public enum URIRange {
         public static String defaultValue(String in, String def) {
             return isNotBlank(in) ? in : def;
         }
-    }
+    } */
 }
