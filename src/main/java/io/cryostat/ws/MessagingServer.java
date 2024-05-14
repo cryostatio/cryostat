@@ -17,6 +17,7 @@ package io.cryostat.ws;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -40,7 +41,8 @@ import org.jboss.logging.Logger;
 public class MessagingServer {
 
     private static final String CLIENT_ACTIVITY_CATEGORY = "WsClientActivity";
-    private static final ByteBuffer PING_MSG = ByteBuffer.wrap("ping".getBytes());
+    private static final ByteBuffer PING_MSG =
+            ByteBuffer.wrap("ping".getBytes(StandardCharsets.UTF_8));
 
     @Inject ObjectMapper mapper;
     @Inject Logger logger;
