@@ -16,10 +16,8 @@
 package io.cryostat;
 
 import java.net.URI;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ScheduledExecutorService;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.sys.Clock;
@@ -32,7 +30,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Named;
-import org.apache.commons.codec.binary.Base32;
 import org.apache.commons.codec.binary.Base64;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.projectnessie.cel.tools.ScriptHost;
@@ -62,30 +59,10 @@ public class Producers {
 
     @Produces
     @ApplicationScoped
-    public static Base32 produceBase32() {
-        return new Base32();
-    }
-
-    @Produces
-    @ApplicationScoped
     @DefaultBean
     @Named(BASE64_URL)
     public static Base64 produceBase64Url() {
         return new Base64(0, null, true);
-    }
-
-    @Produces
-    @ApplicationScoped
-    @DefaultBean
-    public static ExecutorService produceExecutorService() {
-        return ForkJoinPool.commonPool();
-    }
-
-    @Produces
-    @ApplicationScoped
-    @DefaultBean
-    public static ScheduledExecutorService produceScheduledExecutorService() {
-        return Executors.newSingleThreadScheduledExecutor();
     }
 
     @Produces

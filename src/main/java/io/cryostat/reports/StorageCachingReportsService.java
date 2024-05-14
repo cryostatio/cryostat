@@ -20,7 +20,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
 import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
@@ -66,7 +65,6 @@ class StorageCachingReportsService implements ReportsService {
     Duration expiry;
 
     @Inject S3Client storage;
-    @Inject ExecutorService worker;
     @Inject RecordingHelper recordingHelper;
     @Inject ObjectMapper mapper;
 

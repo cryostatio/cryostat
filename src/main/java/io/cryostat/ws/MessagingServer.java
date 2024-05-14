@@ -16,12 +16,15 @@
 package io.cryostat.ws;
 
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CopyOnWriteArraySet;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.scheduler.Scheduled;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -38,6 +41,8 @@ import org.jboss.logging.Logger;
 public class MessagingServer {
 
     private static final String CLIENT_ACTIVITY_CATEGORY = "WsClientActivity";
+    private static final ByteBuffer PING_MSG =
+            ByteBuffer.wrap("ping".getBytes(StandardCharsets.UTF_8));
 
     @Inject ObjectMapper mapper;
     @Inject Logger logger;
@@ -105,5 +110,17 @@ public class MessagingServer {
                                                 logger.warn(h.getException());
                                             }
                                         }));
+    }
+
+    @Scheduled(every = "${cryostat.websocket.ping-period:20s}")
+    void pingClients() {
+        sessions.forEach(
+                session -> {
+                    try {
+                        session.getBasicRemote().sendPing(PING_MSG);
+                    } catch (IOException e) {
+                        logger.debug(e);
+                    }
+                });
     }
 }
