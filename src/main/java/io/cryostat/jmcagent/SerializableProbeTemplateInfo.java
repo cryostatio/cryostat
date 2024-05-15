@@ -17,7 +17,7 @@ package io.cryostat.jmcagent;
 
 import java.util.Objects;
 
-import io.cryostat.core.agent.ProbeTemplate;
+import io.cryostat.core.jmcagent.ProbeTemplate;
 
 public record SerializableProbeTemplateInfo(String name, String xml) {
 
