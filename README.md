@@ -33,10 +33,6 @@ Run Requirements:
 - [`kompose`](https://kompose.io/installation/) v1.31.2+
 - [docker-compose](https://docs.docker.com/compose/install/) v1.29.2
 - [podman-docker](https://packages.fedoraproject.org/pkgs/podman/podman-docker/) (Optional)
-- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/) / [oc](https://docs.openshift.com/container-platform/latest/cli_reference/openshift_cli/getting-started-cli.html)
-- [kubectl multi-forward](https://github.com/njnygaard/kubectl-multiforward) (requires [Krew](https://krew.sigs.k8s.io/docs/user-guide/setup/install/)) (Optional)
-- [kind](https://kind.sigs.k8s.io/docs/user/quick-start) v0.20.0+ (Optional)
-
 
 ## BUILD
 
@@ -129,22 +125,4 @@ You can verify that this setup works by running `smoketest.bash`, and then in an
 $ LD_PRELOAD=$HOME/bin/libuserhosts.so ping auth
 $ LD_PRELOAD=$HOME/bin/libuserhosts.so curl http://auth:8080
 $ LD_PRELOAD=$HOME/bin/libuserhosts.so firefox http://auth:8080
-```
-
-### Smoketesting in K8s
-
-To run similar smoketest scenarios in a Kubernetes/OpenShift cluster, do:
-
-```bash
-$ cd smoketest/k8s
-$ bash smoketest.bash kind # This launches a kind k8s cluster, otherwise skip this if you have another cluster accessible via kubectl/oc.
-```
-
-If you get an error during the 'ensuring node image' step while creating cluster "kind", manually pull the podman image by running the command `podman pull docker.io/kindest/node@IMAGE_DIGEST` where IMAGE_DIGEST is the sha256 of the image. Then rerun `bash smoketest.bash kind`.
-
-Generate k8s yaml configurations and apply them to create k8s objects. You can optionally port-forward to the cluster's services to access the Cryostat application from `localhost`.
-
-```bash
-$ bash smoketest.bash generate apply
-$ bash smoketest.bash forward # if you need to use port-forwarding to get access to the cluster's services
 ```
