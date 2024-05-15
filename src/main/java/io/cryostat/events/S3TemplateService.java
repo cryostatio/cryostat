@@ -43,8 +43,6 @@ import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.templates.MutableTemplateService;
-import io.cryostat.core.templates.MutableTemplateService.InvalidEventTemplateException;
-import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.ws.MessagingServer;
@@ -158,9 +156,9 @@ public class S3TemplateService implements MutableTemplateService {
     public Optional<String> getXml(String templateName, TemplateType unused)
             throws FlightRecorderException {
         try (var stream = getModel(templateName)) {
-            Document doc =
-                    Jsoup.parse(stream, StandardCharsets.UTF_8.name(), "", Parser.xmlParser());
-            return Optional.of(doc.outerHtml());
+            return Optional.of(
+                    Jsoup.parse(stream, StandardCharsets.UTF_8.name(), "", Parser.xmlParser())
+                            .outerHtml());
         } catch (IOException e) {
             logger.error(e);
             return Optional.empty();
