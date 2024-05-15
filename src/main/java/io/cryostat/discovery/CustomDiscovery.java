@@ -166,6 +166,7 @@ public class CustomDiscovery {
 
             URIRange range = URIRange.fromString(uriRangeSetting);
             if (!range.validate(target.connectUrl)) {
+                logger.info("+++Invalid URI range: {}" + target.connectUrl);
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(
                                 String.format(

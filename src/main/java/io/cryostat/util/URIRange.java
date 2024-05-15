@@ -89,20 +89,4 @@ public enum URIRange {
         }
         return SITE_LOCAL;
     }
-
-    /* public static class StringUtils {
-        private StringUtils() {}
-
-        public static boolean isBlank(String s) {
-            return s == null || s.isBlank();
-        }
-
-        public static boolean isNotBlank(String s) {
-            return !isBlank(s);
-        }
-
-        public static String defaultValue(String in, String def) {
-            return isNotBlank(in) ? in : def;
-        }
-    } */
 }
