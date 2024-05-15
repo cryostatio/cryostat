@@ -26,8 +26,8 @@ import java.util.Objects;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
-import io.cryostat.core.agent.ProbeTemplate;
-import io.cryostat.core.agent.ProbeTemplateService;
+import io.cryostat.core.jmcagent.ProbeTemplate;
+import io.cryostat.core.jmcagent.ProbeTemplateService;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 

@@ -23,10 +23,10 @@ import java.util.List;
 import java.util.Map;
 
 import io.cryostat.V2Response;
-import io.cryostat.core.agent.AgentJMXHelper;
-import io.cryostat.core.agent.AgentJMXHelper.ProbeDefinitionException;
-import io.cryostat.core.agent.Event;
-import io.cryostat.core.agent.ProbeTemplate;
+import io.cryostat.core.jmcagent.Event;
+import io.cryostat.core.jmcagent.JMCAgentJMXHelper;
+import io.cryostat.core.jmcagent.JMCAgentJMXHelper.ProbeDefinitionException;
+import io.cryostat.core.jmcagent.ProbeTemplate;
 import io.cryostat.core.sys.FileSystem;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
@@ -70,7 +70,7 @@ public class JMCAgent {
             return connectionManager.executeConnectedTask(
                     target,
                     connection -> {
-                        AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
+                        JMCAgentJMXHelper helper = new JMCAgentJMXHelper(connection.getHandle());
                         try {
                             ProbeTemplate template = new ProbeTemplate();
                             // Retrieve template and deserialize to validate
@@ -129,7 +129,8 @@ public class JMCAgent {
                     target,
                     connection -> {
                         try {
-                            AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
+                            JMCAgentJMXHelper helper =
+                                    new JMCAgentJMXHelper(connection.getHandle());
                             // The convention for removing probes in the agent controller mbean is
                             // to call defineEventProbes with a null argument.
                             helper.defineEventProbes(null);
@@ -172,7 +173,7 @@ public class JMCAgent {
             return connectionManager.executeConnectedTask(
                     target,
                     connection -> {
-                        AgentJMXHelper helper = new AgentJMXHelper(connection.getHandle());
+                        JMCAgentJMXHelper helper = new JMCAgentJMXHelper(connection.getHandle());
                         List<Event> result = new ArrayList<>();
                         String probes = helper.retrieveEventProbes();
                         try {
