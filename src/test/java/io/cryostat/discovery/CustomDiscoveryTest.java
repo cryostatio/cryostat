@@ -17,10 +17,12 @@ package io.cryostat.discovery;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import java.net.URI;
+import java.util.Optional;
 
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
@@ -42,24 +44,53 @@ public class CustomDiscoveryTest {
 
     @Test
     @Transactional
-    public void testCreateTargetWithValidJmxUrl() throws Exception {
-        // Arrange
+    public void testCreateAndDeleteTargetWithValidJmxUrl() throws Exception {
+
         Target target = new Target();
         target.connectUrl = new URI("service:jmx:rmi:///jndi/rmi://localhost:9999/jmxrmi");
         target.alias = "test-alias";
 
-        // Mock connection manager to return a sample JVM ID
         when(connectionManager.executeDirect(any(), any(), any()))
                 .thenReturn(Uni.createFrom().item("some-jvm-id"));
 
-        // Act
         Response response = customDiscovery.create(target, false, false);
 
-        // Assert
         assertEquals(Response.Status.CREATED.getStatusCode(), response.getStatus());
         Target createdTarget = Target.find("connectUrl", target.connectUrl).singleResult();
         assertNotNull(createdTarget);
         assertEquals("some-jvm-id", createdTarget.jvmId);
+
+        // Delete the Target by connect URL
+        Response deleteResponse = customDiscovery.delete(target.connectUrl);
+        assertEquals(
+                Response.Status.PERMANENT_REDIRECT.getStatusCode(), deleteResponse.getStatus());
+
+        // Extract the ID from the redirect location
+        String location = deleteResponse.getLocation().getPath();
+        long targetId = Long.parseLong(location.substring(location.lastIndexOf('/') + 1));
+
+        Response finalDeleteResponse = customDiscovery.delete(targetId);
+        assertEquals(Response.Status.NO_CONTENT.getStatusCode(), finalDeleteResponse.getStatus());
+
+        // Verify deletion
+        Optional<Target> deletedTarget =
+                Target.find("connectUrl", target.connectUrl).singleResultOptional();
+        assertTrue(deletedTarget.isEmpty());
     }
 
+    @Test
+    @Transactional
+    public void testCreateTargetWithInvalidJmxUrl() throws Exception {
+
+        Target target = new Target();
+        target.connectUrl = new URI("service:jmx:rmi:///jndi/rmi://invalid-host:9999/jmxrmi");
+        target.alias = "test-invalid-alias";
+
+        when(connectionManager.executeDirect(any(), any(), any()))
+                .thenReturn(Uni.createFrom().failure(new RuntimeException("Connection failed")));
+
+        Response response = customDiscovery.create(target, false, false);
+
+        assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+    }
 }
