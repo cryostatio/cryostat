@@ -21,6 +21,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -295,8 +296,10 @@ public class KubeApiDiscovery {
 
         Map<URI, ObjectReference> targetRefMap = new HashMap<>();
 
-        Set<Target> persistedTargets =
-                targetNodes.stream().map(node -> node.target).collect(Collectors.toSet());
+        Set<Target> persistedTargets = new HashSet<>();
+        for (DiscoveryNode node : targetNodes) {
+            persistedTargets.add(node.target);
+        }
 
         Set<Target> observedTargets =
                 safeGetInformers().get(namespace).getStore().list().stream()
