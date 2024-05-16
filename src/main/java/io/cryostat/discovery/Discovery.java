@@ -41,7 +41,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.json.JsonObject;
@@ -402,6 +401,7 @@ public class Discovery {
         @Inject Logger logger;
 
         @Override
+        @Transactional
         public void execute(JobExecutionContext context) throws JobExecutionException {
             DiscoveryPlugin plugin = null;
             try {
@@ -424,7 +424,7 @@ public class Discovery {
                 if (plugin != null) {
                     logger.debugv(
                             e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
-                    QuarkusTransaction.requiringNew().run(plugin::delete);
+                    plugin.delete();
                 } else {
                     var ex = new JobExecutionException(e);
                     ex.setUnscheduleFiringTrigger(true);
