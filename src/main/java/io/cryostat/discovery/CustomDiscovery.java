@@ -71,8 +71,8 @@ public class CustomDiscovery {
     @Inject EventBus bus;
     @Inject TargetConnectionManager connectionManager;
 
-    @ConfigProperty(name = "cryostat.target.uri-range")
-    String uriRangeSetting;
+    @ConfigProperty(name = ConfigProperties.URI_RANGE)
+    String uriRange;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
@@ -100,14 +100,14 @@ public class CustomDiscovery {
     public Response create(
             Target target, @RestQuery boolean dryrun, @RestQuery boolean storeCredentials) {
         try {
-            URIRange range = URIRange.fromString(uriRangeSetting);
+            URIRange range = URIRange.fromString(uriRange);
             if (!range.validate(target.connectUrl)) {
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(
                                 String.format(
                                         "The provided callback URI \"%s\" is unacceptable with the"
                                                 + " current URI range settings \"%s\".",
-                                        target.connectUrl, uriRangeSetting))
+                                        target.connectUrl, uriRange))
                         .build();
             }
             // Continue with target creation if URI is valid...
@@ -164,14 +164,14 @@ public class CustomDiscovery {
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
 
-            URIRange range = URIRange.fromString(uriRangeSetting);
+            URIRange range = URIRange.fromString(uriRange);
             if (!range.validate(target.connectUrl)) {
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(
                                 String.format(
                                         "Connection to \"%s\" is not allowed under the current URI"
                                                 + " range settings \"%s\".",
-                                        target.connectUrl, uriRangeSetting))
+                                        target.connectUrl, uriRange))
                         .build();
             }
 
@@ -223,7 +223,8 @@ public class CustomDiscovery {
                     .entity(V2Response.json(Response.Status.CREATED, target))
                     .build();
         } catch (Exception e) {
-            // roll back regardless of whether we initiated this database transaction or a caller
+            // roll back regardless of whether we initiated this database transaction or a
+            // caller
             // did
             QuarkusTransaction.rollback();
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
