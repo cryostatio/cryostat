@@ -81,6 +81,16 @@ public enum URIRange {
         return match;
     }
 
+    /*
+     * public boolean validate(JMXServiceURL url) {
+     *
+     * String jmxHost = ConnectionToolkit.getHostName(url);
+     * int jmxPort = ConnectionToolkit.getPort(url);
+     *
+     * return jmxHost != null && jmxPort > 0;
+     * }
+     */
+
     public static URIRange fromString(String s) {
         for (URIRange r : URIRange.values()) {
             if (r.name().equalsIgnoreCase(s)) {

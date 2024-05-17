@@ -15,8 +15,13 @@
  */
 package io.cryostat.util;
 
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+
+import javax.management.remote.JMXServiceURL;
+
+import org.openjdk.jmc.rjmx.common.ConnectionToolkit;
 
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -48,7 +53,8 @@ public class URIRangeTest {
         "example.svc.cluster.local, false",
         "example.com, false"
     })
-    public void testLoopbackRange(String s, String v) throws URISyntaxException {
+    public void testLoopbackRange(String s, String v)
+            throws URISyntaxException, MalformedURLException {
         test(URIRange.LOOPBACK, s, v);
     }
 
@@ -75,7 +81,8 @@ public class URIRangeTest {
         "example.svc.cluster.local, false",
         "example.com, false"
     })
-    public void testLinkLocalRange(String s, String v) throws URISyntaxException {
+    public void testLinkLocalRange(String s, String v)
+            throws URISyntaxException, MalformedURLException {
         test(URIRange.LINK_LOCAL, s, v);
     }
 
@@ -102,7 +109,8 @@ public class URIRangeTest {
         "example.svc.cluster.local, false",
         "example.com, false"
     })
-    public void testSiteLocalRange(String s, String v) throws URISyntaxException {
+    public void testSiteLocalRange(String s, String v)
+            throws URISyntaxException, MalformedURLException {
         test(URIRange.SITE_LOCAL, s, v);
     }
 
@@ -129,7 +137,8 @@ public class URIRangeTest {
         "example.svc.cluster.local, true",
         "example.com, false"
     })
-    public void testDnsLocalRange(String s, String v) throws URISyntaxException {
+    public void testDnsLocalRange(String s, String v)
+            throws URISyntaxException, MalformedURLException {
         test(URIRange.DNS_LOCAL, s, v);
     }
 
@@ -156,13 +165,30 @@ public class URIRangeTest {
         "example.svc.cluster.local, true",
         "example.com, true"
     })
-    public void testPublicRange(String s, String v) throws URISyntaxException {
+    public void testPublicRange(String s, String v)
+            throws URISyntaxException, MalformedURLException {
         test(URIRange.PUBLIC, s, v);
     }
 
-    private void test(URIRange range, String s, String v) throws URISyntaxException {
+    private void test(URIRange range, String s, String v)
+            throws URISyntaxException, MalformedURLException {
         boolean expected = Boolean.parseBoolean(v);
-        URI u = new URI(String.format("http://%s:1234", s));
-        MatcherAssert.assertThat(s, range.validate(u), Matchers.is(expected));
+        URI httpUri = new URI(String.format("http://%s:1234", s));
+        System.out.println("+++httpUri: " + httpUri);
+
+        MatcherAssert.assertThat(s, range.validate(httpUri), Matchers.is(expected));
+
+        JMXServiceURL jmxUrl =
+                new JMXServiceURL(String.format("service:jmx:rmi:///jndi/rmi://%s:9091/jmxrmi", s));
+
+        String jmxHost = ConnectionToolkit.getHostName(jmxUrl);
+        System.out.println("+++Host: " + jmxHost);
+        int jmxPort = ConnectionToolkit.getPort(jmxUrl);
+        System.out.println("+++Port: " + jmxPort);
+
+        // Create a new URI with the extracted host and port from JMX URL
+        URI jmxUri = new URI("http", "//" + jmxHost + ":" + jmxPort, null);
+        System.out.println("+++jmxUri: " + jmxUri);
+        MatcherAssert.assertThat(s, range.validate(jmxUri), Matchers.is(expected));
     }
 }
