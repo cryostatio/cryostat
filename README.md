@@ -1,21 +1,21 @@
-# Cryostat3
+# Cryostat
 
 [![CI build and push](https://github.com/cryostatio/cryostat3/actions/workflows/push-ci.yaml/badge.svg)](https://github.com/cryostatio/cryostat3/actions/workflows/push-ci.yaml)
 [![Google Group : Cryostat Development](https://img.shields.io/badge/Google%20Group-Cryostat%20Development-blue.svg)](https://groups.google.com/g/cryostat-development)
 
-This project uses Quarkus, the Supersonic Subatomic Java Framework.
+## USING
 
-If you want to learn more about Quarkus, please visit its website: https://quarkus.io/ .
+Most users will be best served starting at [`cryostat.io`](https://cryostat.io), the documentation website for Cryostat.
+Here you will find instructions on how to install Cryostat using the [Cryostat Operator](https://github.com/cryostatio/cryostat-operator),
+how to configure your applications to enable connectivity, and how to use the Cryostat application.
 
-## PREVIEW
-
-This repository is in an active development, early preview state, and will eventually be used for `3.x` release
-versions of Cryostat. See [cryostatio/cryostat](https://github.com/cryostatio/cryostat) for the old repository
-containing the `< 3.0` codebase.
+This repository contains the source code for Cryostat versions 3.0 and later. Cryostat (née "container-jfr") versions prior to 3.0
+are located at [cryostatio/cryostat](https://github.com/cryostatio/cryostat). Container images from both are published to the same
+[`quay.io`](https://quay.io/repository/cryostat/cryostat) repository.
 
 ## CONTRIBUTING
 
-We welcome and appreciate any contributions from our community. Please visit our guide on how you can take part in improving Cryostat3.
+We welcome and appreciate any contributions from our community. Please visit our guide on how you can take part in improving Cryostat.
 
 [See contribution guide →](./CONTRIBUTING.md)
 
@@ -35,6 +35,10 @@ Run Requirements:
 - [podman-docker](https://packages.fedoraproject.org/pkgs/podman/podman-docker/) (Optional)
 
 ## BUILD
+
+This project uses Quarkus, the Supersonic Subatomic Java Framework.
+
+If you want to learn more about Quarkus, please visit its website: https://quarkus.io/ .
 
 ### Setup Dependencies
 
