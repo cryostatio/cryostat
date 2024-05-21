@@ -43,8 +43,6 @@ import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.templates.MutableTemplateService;
-import io.cryostat.core.templates.MutableTemplateService.InvalidEventTemplateException;
-import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.ws.MessagingServer;
@@ -62,7 +60,6 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
 import org.jsoup.parser.Parser;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -156,12 +153,12 @@ public class S3TemplateService implements MutableTemplateService {
     }
 
     @Override
-    public Optional<Document> getXml(String templateName, TemplateType unused)
+    public Optional<String> getXml(String templateName, TemplateType unused)
             throws FlightRecorderException {
         try (var stream = getModel(templateName)) {
-            Document doc =
-                    Jsoup.parse(stream, StandardCharsets.UTF_8.name(), "", Parser.xmlParser());
-            return Optional.of(doc);
+            return Optional.of(
+                    Jsoup.parse(stream, StandardCharsets.UTF_8.name(), "", Parser.xmlParser())
+                            .outerHtml());
         } catch (IOException e) {
             logger.error(e);
             return Optional.empty();

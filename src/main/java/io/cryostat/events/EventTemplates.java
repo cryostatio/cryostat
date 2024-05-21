@@ -43,7 +43,6 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
-import org.jsoup.nodes.Document;
 
 @Path("")
 public class EventTemplates {
@@ -179,24 +178,24 @@ public class EventTemplates {
             @RestPath long id, @RestPath TemplateType templateType, @RestPath String templateName)
             throws Exception {
         Target target = Target.find("id", id).singleResult();
-        Document doc;
+        String xml;
         switch (templateType) {
             case TARGET:
-                doc =
+                xml =
                         targetTemplateServiceFactory
                                 .create(target)
                                 .getXml(templateName, templateType)
                                 .orElseThrow();
                 break;
             case CUSTOM:
-                doc = customTemplateService.getXml(templateName, templateType).orElseThrow();
+                xml = customTemplateService.getXml(templateName, templateType).orElseThrow();
                 break;
             default:
                 throw new BadRequestException();
         }
         return Response.status(RestResponse.Status.OK)
                 .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.JFC.mime())
-                .entity(doc.toString())
+                .entity(xml)
                 .build();
     }
 }
