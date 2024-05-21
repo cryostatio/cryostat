@@ -1,6 +1,9 @@
 version: "3"
 services:
   cryostat:
+    depends_on:
+      s3:
+        condition: service_healthy
     environment:
       STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
       QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:9000
