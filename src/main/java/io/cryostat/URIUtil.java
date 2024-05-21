@@ -20,6 +20,10 @@ import java.net.URISyntaxException;
 
 import javax.management.remote.JMXServiceURL;
 
+import org.openjdk.jmc.rjmx.common.ConnectionToolkit;
+
+import io.cryostat.util.URIRange;
+
 public class URIUtil {
     private URIUtil() {}
 
@@ -48,5 +52,14 @@ public class URIUtil {
         public RelativeURIException(URI u) {
             super(u.toString(), "Not a valid absolute URI");
         }
+    }
+
+    public static boolean validateUri(URI uri, URIRange range) {
+        return range.validate(uri.getHost());
+    }
+
+    public static boolean validateJmxServiceURL(JMXServiceURL jmxUrl, URIRange range) {
+        String hostname = ConnectionToolkit.getHostName(jmxUrl);
+        return range.validate(hostname);
     }
 }

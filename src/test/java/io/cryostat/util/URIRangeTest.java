@@ -21,7 +21,7 @@ import java.net.URISyntaxException;
 
 import javax.management.remote.JMXServiceURL;
 
-import org.openjdk.jmc.rjmx.common.ConnectionToolkit;
+import io.cryostat.URIUtil;
 
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -174,21 +174,12 @@ public class URIRangeTest {
             throws URISyntaxException, MalformedURLException {
         boolean expected = Boolean.parseBoolean(v);
         URI httpUri = new URI(String.format("http://%s:1234", s));
-        System.out.println("+++httpUri: " + httpUri);
 
-        MatcherAssert.assertThat(s, range.validate(httpUri), Matchers.is(expected));
+        MatcherAssert.assertThat(s, URIUtil.validateUri(httpUri, range), Matchers.is(expected));
 
         JMXServiceURL jmxUrl =
                 new JMXServiceURL(String.format("service:jmx:rmi:///jndi/rmi://%s:9091/jmxrmi", s));
-
-        String jmxHost = ConnectionToolkit.getHostName(jmxUrl);
-        System.out.println("+++Host: " + jmxHost);
-        int jmxPort = ConnectionToolkit.getPort(jmxUrl);
-        System.out.println("+++Port: " + jmxPort);
-
-        // Create a new URI with the extracted host and port from JMX URL
-        URI jmxUri = new URI("http", "//" + jmxHost + ":" + jmxPort, null);
-        System.out.println("+++jmxUri: " + jmxUri);
-        MatcherAssert.assertThat(s, range.validate(jmxUri), Matchers.is(expected));
+        MatcherAssert.assertThat(
+                s, URIUtil.validateJmxServiceURL(jmxUrl, range), Matchers.is(expected));
     }
 }

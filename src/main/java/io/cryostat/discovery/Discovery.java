@@ -34,6 +34,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.URIUtil;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIRange;
@@ -201,7 +202,7 @@ public class Discovery {
 
         // URI range validation
         URIRange range = URIRange.fromString(uriRange);
-        if (!range.validate(callbackUri)) {
+        if (!URIUtil.validateUri(callbackUri, range)) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(
                             String.format(

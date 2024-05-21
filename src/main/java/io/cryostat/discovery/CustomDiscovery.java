@@ -25,7 +25,10 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.management.remote.JMXServiceURL;
+
 import io.cryostat.ConfigProperties;
+import io.cryostat.URIUtil;
 import io.cryostat.V2Response;
 import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpression;
@@ -101,14 +104,28 @@ public class CustomDiscovery {
             Target target, @RestQuery boolean dryrun, @RestQuery boolean storeCredentials) {
         try {
             URIRange range = URIRange.fromString(uriRange);
-            if (!range.validate(target.connectUrl)) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(
-                                String.format(
-                                        "The provided callback URI \"%s\" is unacceptable with the"
-                                                + " current URI range settings \"%s\".",
-                                        target.connectUrl, uriRange))
-                        .build();
+            // Determine if the target.connectUrl is a JMX URL
+            if (target.connectUrl.toString().startsWith("service:jmx:")) {
+                JMXServiceURL jmxUrl = new JMXServiceURL(target.connectUrl.toString());
+                if (!URIUtil.validateJmxServiceURL(jmxUrl, range)) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                            .entity(
+                                    String.format(
+                                            "The provided JMX URI \"%s\" is unacceptable with the"
+                                                    + " current URI range settings \"%s\".",
+                                            target.connectUrl, uriRange))
+                            .build();
+                }
+            } else {
+                if (!URIUtil.validateUri(target.connectUrl, range)) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                            .entity(
+                                    String.format(
+                                            "The provided URI \"%s\" is unacceptable with the"
+                                                    + " current URI range settings \"%s\".",
+                                            target.connectUrl, uriRange))
+                            .build();
+                }
             }
             // Continue with target creation if URI is valid...
         } catch (Exception e) {
@@ -165,14 +182,27 @@ public class CustomDiscovery {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
 
             URIRange range = URIRange.fromString(uriRange);
-            if (!range.validate(target.connectUrl)) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(
-                                String.format(
-                                        "Connection to \"%s\" is not allowed under the current URI"
-                                                + " range settings \"%s\".",
-                                        target.connectUrl, uriRange))
-                        .build();
+            if (target.connectUrl.toString().startsWith("service:jmx:")) {
+                JMXServiceURL jmxUrl = new JMXServiceURL(target.connectUrl.toString());
+                if (!URIUtil.validateJmxServiceURL(jmxUrl, range)) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                            .entity(
+                                    String.format(
+                                            "The provided JMX URI \"%s\" is unacceptable with the"
+                                                    + " current URI range settings \"%s\".",
+                                            target.connectUrl, uriRange))
+                            .build();
+                }
+            } else {
+                if (!URIUtil.validateUri(target.connectUrl, range)) {
+                    return Response.status(Response.Status.BAD_REQUEST)
+                            .entity(
+                                    String.format(
+                                            "The provided URI \"%s\" is unacceptable with the"
+                                                    + " current URI range settings \"%s\".",
+                                            target.connectUrl, uriRange))
+                            .build();
+                }
             }
 
             try {
