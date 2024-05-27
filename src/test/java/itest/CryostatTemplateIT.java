@@ -53,7 +53,6 @@ public class CryostatTemplateIT extends StandardSelfTest {
     @Test
     public void shouldHaveCryostatTemplate() throws Exception {
         XMLModel model = EventConfiguration.createModel(file);
-        System.out.println("+++" + model);
         model.checkErrors();
 
         Assertions.assertFalse(model.hasErrors());
