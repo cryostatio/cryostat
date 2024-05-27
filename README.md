@@ -57,18 +57,23 @@ We welcome and appreciate any contributions from our community. Please visit our
 
 ## REQUIREMENTS
 
-Build Requirements:
-- Git
-- JDK v17+
+Build requirements:
+- git
+- JDK 17+
 - Maven v3+
 - [Quarkus CLI](https://quarkus.io/guides/cli-tooling) v3.4.1+ (Recommended)
 - [Podman](https://podman.io/docs/installation) 4.7+
 
-Run Requirements:
+Smoketest run requirements:
 - [`yq`](https://github.com/mikefarah/yq) v4.35.1+
 - [`kompose`](https://kompose.io/installation/) v1.31.2+
 - [docker-compose](https://docs.docker.com/compose/install/) v1.29.2
 - [podman-docker](https://packages.fedoraproject.org/pkgs/podman/podman-docker/) (Optional)
+
+General run requirements:
+- an OpenShift or Kubernetes cluster
+  - recommended installation methods: [`cryostat-operator`](https://github.com/cryostatio/cryostat-operator) or [`cryostat-helm`](https://github.com/cryostatio/cryostat-helm)
+- OR any other container platform which can host OCI containers
 
 ## BUILD
 
