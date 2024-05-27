@@ -1,14 +1,47 @@
-# Cryostat
+<a target="_blank" href="https://cryostat.io">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/images/cryostat_logo_hori_rgb_reverse.svg">
+    <img src="./docs/images/cryostat_logo_hori_rgb_default.svg">
+  </picture>
+</a>
 
 [![CI build and push](https://github.com/cryostatio/cryostat3/actions/workflows/push-ci.yaml/badge.svg "Continuous Integration")](https://github.com/cryostatio/cryostat3/actions/workflows/push-ci.yaml)
 [![Quay Repository](https://img.shields.io/badge/Container_Image-cryostat/cryostat-teal.svg "Quay Repository")](https://quay.io/repository/cryostat/cryostat)
 [![Google Group : Cryostat Development](https://img.shields.io/badge/Google_Group-Cryostat_Development-blue.svg "Mailing List")](https://groups.google.com/g/cryostat-development)
 
-## USING
+A container-native JVM application which acts as a bridge to other containerized JVMs and exposes a secure API for producing, analyzing, and retrieving JDK Flight Recorder data from your cloud workloads.
 
-Most users will be best served starting at [`cryostat.io`](https://cryostat.io), the documentation website for Cryostat.
-Here you will find instructions on how to install Cryostat using the [Cryostat Operator](https://github.com/cryostatio/cryostat-operator),
-how to configure your applications to enable connectivity, and how to use the Cryostat application.
+## SEE ALSO
+
+* [cryostat.io](https://cryostat.io) : upstream documentation website with user
+  guides, tutorials, blog posts, and other user-facing content. Start here if
+  what you've read so far sounds interesting and you want to know more as a
+  **user**, rather than as a _developer_. Here you will find instructions on
+  how to install Cryostat using the
+  [Cryostat Operator](https://github.com/cryostatio/cryostat-operator), how to
+  configure your applications to enable connectivity, and how to use the
+  Cryostat application.
+
+* [cryostat-core](https://github.com/cryostatio/cryostat-core) : the core library
+  providing a convenience wrapper and headless stubs for use of JFR using
+  JDK Mission Control internals.
+
+* [cryostat-operator](https://github.com/cryostatio/cryostat-operator) : an Operator
+  for deploying Cryostat in your OpenShift or Kubernetes cluster.
+
+* [cryostat-helm](https://github.com/cryostatio/cryostat-helm): a Helm Chart for
+  deploying Cryostat in your OpenShift or Kubernetes cluster
+
+* [cryostat-web](https://github.com/cryostatio/cryostat-web) : the React frontend
+  included as a submodule in Cryostat and built into Cryostat's OCI images.
+
+* [JDK Mission Control](https://github.com/openjdk/jmc) : the desktop application
+  complement to JFR. Some parts of JMC are borrowed and re-used to form the basis of
+  Cryostat. JMC is still a recommended tool for more full-featured analysis of JFR
+  files beyond what Cryostat currently implements.
+
+* [binjr](https://github.com/binjr/binjr) : a timeseries visualization desktop
+  application which supports reading JFR files
 
 This repository contains the source code for Cryostat versions 3.0 and later. Cryostat (née "container-jfr") versions prior to 3.0
 are located at [cryostatio/cryostat](https://github.com/cryostatio/cryostat). Container images from both are published to the same
@@ -22,18 +55,23 @@ We welcome and appreciate any contributions from our community. Please visit our
 
 ## REQUIREMENTS
 
-Build Requirements:
-- Git
-- JDK v17+
+Build requirements:
+- git
+- JDK 17+
 - Maven v3+
 - [Quarkus CLI](https://quarkus.io/guides/cli-tooling) v3.4.1+ (Recommended)
 - [Podman](https://podman.io/docs/installation) 4.7+
 
-Run Requirements:
+Smoketest run requirements:
 - [`yq`](https://github.com/mikefarah/yq) v4.35.1+
 - [`kompose`](https://kompose.io/installation/) v1.31.2+
 - [docker-compose](https://docs.docker.com/compose/install/) v1.29.2
 - [podman-docker](https://packages.fedoraproject.org/pkgs/podman/podman-docker/) (Optional)
+
+General run requirements:
+- an OpenShift or Kubernetes cluster
+  - recommended installation methods: [`cryostat-operator`](https://github.com/cryostatio/cryostat-operator) or [`cryostat-helm`](https://github.com/cryostatio/cryostat-helm)
+- OR any other container platform which can host OCI containers
 
 ## BUILD
 
