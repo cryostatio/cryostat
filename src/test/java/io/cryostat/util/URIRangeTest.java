@@ -173,13 +173,13 @@ public class URIRangeTest {
     private void test(URIRange range, String s, String v)
             throws URISyntaxException, MalformedURLException {
         boolean expected = Boolean.parseBoolean(v);
-        URI httpUri = new URI(String.format("http://%s:1234", s));
+        URIUtil uriUtil = new URIUtil(range);
 
-        MatcherAssert.assertThat(s, URIUtil.validateUri(httpUri, range), Matchers.is(expected));
+        URI httpUri = new URI(String.format("http://%s:1234", s));
+        MatcherAssert.assertThat(s, uriUtil.validateUri(httpUri), Matchers.is(expected));
 
         JMXServiceURL jmxUrl =
                 new JMXServiceURL(String.format("service:jmx:rmi:///jndi/rmi://%s:9091/jmxrmi", s));
-        MatcherAssert.assertThat(
-                s, URIUtil.validateJmxServiceURL(jmxUrl, range), Matchers.is(expected));
+        MatcherAssert.assertThat(s, uriUtil.validateJmxServiceURL(jmxUrl), Matchers.is(expected));
     }
 }

@@ -177,6 +177,7 @@ public abstract class ContainerDiscovery {
     @Inject JFRConnectionToolkit connectionToolkit;
     @Inject ObjectMapper mapper;
     @Inject EventBus bus;
+    @Inject URIUtil uriUtil;
 
     @ConfigProperty(name = ConfigProperties.CONTAINERS_POLL_PERIOD)
     Duration pollPeriod;
@@ -242,7 +243,7 @@ public abstract class ContainerDiscovery {
                 serviceUrl = new JMXServiceURL(desc.Labels.get(JMX_URL_LABEL));
                 connectUrl = URI.create(serviceUrl.toString());
                 try {
-                    rmiTarget = URIUtil.getRmiTarget(serviceUrl);
+                    rmiTarget = uriUtil.getRmiTarget(serviceUrl);
                     hostname = rmiTarget.getHost();
                     jmxPort = rmiTarget.getPort();
                 } catch (IllegalArgumentException e) {

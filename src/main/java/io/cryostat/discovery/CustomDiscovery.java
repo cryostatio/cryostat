@@ -36,7 +36,6 @@ import io.cryostat.targets.JvmIdException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
-import io.cryostat.util.URIRange;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
@@ -73,6 +72,7 @@ public class CustomDiscovery {
     @Inject Logger logger;
     @Inject EventBus bus;
     @Inject TargetConnectionManager connectionManager;
+    @Inject URIUtil uriUtil;
 
     @ConfigProperty(name = ConfigProperties.URI_RANGE)
     String uriRange;
@@ -103,11 +103,10 @@ public class CustomDiscovery {
     public Response create(
             Target target, @RestQuery boolean dryrun, @RestQuery boolean storeCredentials) {
         try {
-            URIRange range = URIRange.fromString(uriRange);
             // Determine if the target.connectUrl is a JMX URL
             if (target.connectUrl.toString().startsWith("service:jmx:")) {
                 JMXServiceURL jmxUrl = new JMXServiceURL(target.connectUrl.toString());
-                if (!URIUtil.validateJmxServiceURL(jmxUrl, range)) {
+                if (!uriUtil.validateJmxServiceURL(jmxUrl)) {
                     return Response.status(Response.Status.BAD_REQUEST)
                             .entity(
                                     String.format(
@@ -117,7 +116,7 @@ public class CustomDiscovery {
                             .build();
                 }
             } else {
-                if (!URIUtil.validateUri(target.connectUrl, range)) {
+                if (!uriUtil.validateUri(target.connectUrl)) {
                     return Response.status(Response.Status.BAD_REQUEST)
                             .entity(
                                     String.format(
@@ -181,10 +180,9 @@ public class CustomDiscovery {
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
 
-            URIRange range = URIRange.fromString(uriRange);
             if (target.connectUrl.toString().startsWith("service:jmx:")) {
                 JMXServiceURL jmxUrl = new JMXServiceURL(target.connectUrl.toString());
-                if (!URIUtil.validateJmxServiceURL(jmxUrl, range)) {
+                if (!uriUtil.validateJmxServiceURL(jmxUrl)) {
                     return Response.status(Response.Status.BAD_REQUEST)
                             .entity(
                                     String.format(
@@ -194,7 +192,7 @@ public class CustomDiscovery {
                             .build();
                 }
             } else {
-                if (!URIUtil.validateUri(target.connectUrl, range)) {
+                if (!uriUtil.validateUri(target.connectUrl)) {
                     return Response.status(Response.Status.BAD_REQUEST)
                             .entity(
                                     String.format(

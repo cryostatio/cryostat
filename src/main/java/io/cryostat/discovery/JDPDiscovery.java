@@ -60,6 +60,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @Inject JvmDiscoveryClient jdp;
     @Inject Vertx vertx;
     @Inject EventBus eventBus;
+    @Inject URIUtil uriUtil;
 
     @ConfigProperty(name = "cryostat.discovery.jdp.enabled")
     boolean enabled;
@@ -116,7 +117,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
         try {
             JMXServiceURL serviceUrl = evt.getJvmDescriptor().getJmxServiceUrl();
             connectUrl = URI.create(serviceUrl.toString());
-            rmiTarget = URIUtil.getRmiTarget(serviceUrl);
+            rmiTarget = uriUtil.getRmiTarget(serviceUrl);
         } catch (MalformedURLException | URISyntaxException e) {
             logger.warn("Invalid JDP target observed", e);
             return;

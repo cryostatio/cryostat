@@ -22,6 +22,7 @@ import java.util.concurrent.ForkJoinPool;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.sys.FileSystem;
+import io.cryostat.util.URIRange;
 
 import io.quarkus.arc.DefaultBean;
 import io.vertx.mutiny.core.Vertx;
@@ -42,6 +43,17 @@ import software.amazon.awssdk.utils.StringUtils;
 public class Producers {
 
     public static final String BASE64_URL = "BASE64_URL";
+
+    @ConfigProperty(name = ConfigProperties.URI_RANGE)
+    String uriRange;
+
+    @Produces
+    @ApplicationScoped
+    @DefaultBean
+    public URIUtil produceURIUtil() {
+        URIRange range = URIRange.fromString(uriRange);
+        return new URIUtil(range);
+    }
 
     @Produces
     @ApplicationScoped

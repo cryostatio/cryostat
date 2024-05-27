@@ -25,9 +25,14 @@ import org.openjdk.jmc.rjmx.common.ConnectionToolkit;
 import io.cryostat.util.URIRange;
 
 public class URIUtil {
-    private URIUtil() {}
 
-    public static URI createAbsolute(String uri) throws URISyntaxException, RelativeURIException {
+    private URIRange uriRange;
+
+    public URIUtil(URIRange uriRange) {
+        this.uriRange = uriRange;
+    }
+
+    public URI createAbsolute(String uri) throws URISyntaxException, RelativeURIException {
         URI u = new URI(uri);
         if (!u.isAbsolute()) {
             throw new RelativeURIException(u);
@@ -35,11 +40,11 @@ public class URIUtil {
         return u;
     }
 
-    public static URI convert(JMXServiceURL serviceUrl) throws URISyntaxException {
+    public URI convert(JMXServiceURL serviceUrl) throws URISyntaxException {
         return new URI(serviceUrl.toString());
     }
 
-    public static URI getRmiTarget(JMXServiceURL serviceUrl) throws URISyntaxException {
+    public URI getRmiTarget(JMXServiceURL serviceUrl) throws URISyntaxException {
         String rmiPart = "/jndi/rmi://";
         String pathPart = serviceUrl.getURLPath();
         if (!pathPart.startsWith(rmiPart)) {
@@ -48,18 +53,18 @@ public class URIUtil {
         return new URI(pathPart.substring("/jndi/".length(), pathPart.length()));
     }
 
+    public boolean validateUri(URI uri) {
+        return uriRange.validate(uri.getHost());
+    }
+
+    public boolean validateJmxServiceURL(JMXServiceURL jmxUrl) {
+        String hostname = ConnectionToolkit.getHostName(jmxUrl);
+        return uriRange.validate(hostname);
+    }
+
     public static class RelativeURIException extends URISyntaxException {
         public RelativeURIException(URI u) {
             super(u.toString(), "Not a valid absolute URI");
         }
-    }
-
-    public static boolean validateUri(URI uri, URIRange range) {
-        return range.validate(uri.getHost());
-    }
-
-    public static boolean validateJmxServiceURL(JMXServiceURL jmxUrl, URIRange range) {
-        String hostname = ConnectionToolkit.getHostName(jmxUrl);
-        return range.validate(hostname);
     }
 }

@@ -37,7 +37,6 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.URIUtil;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
-import io.cryostat.util.URIRange;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -109,6 +108,7 @@ public class Discovery {
     @Inject DiscoveryJwtFactory jwtFactory;
     @Inject DiscoveryJwtValidator jwtValidator;
     @Inject Scheduler scheduler;
+    @Inject URIUtil uriUtil;
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
@@ -201,8 +201,7 @@ public class Discovery {
         URI unauthCallback = UriBuilder.fromUri(callbackUri).userInfo(null).build();
 
         // URI range validation
-        URIRange range = URIRange.fromString(uriRange);
-        if (!URIUtil.validateUri(callbackUri, range)) {
+        if (!uriUtil.validateUri(callbackUri)) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(
                             String.format(
