@@ -1,5 +1,12 @@
 # Cryostat
 
+<a target="_blank" href="https://cryostat.io">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="./docs/images/cryostat_logo_hori_rgb_reverse.svg">
+    <img src="./docs/images/cryostat_logo_hori_rgb_default.svg">
+  </picture>
+</a>
+
 [![CI build and push](https://github.com/cryostatio/cryostat3/actions/workflows/push-ci.yaml/badge.svg "Continuous Integration")](https://github.com/cryostatio/cryostat3/actions/workflows/push-ci.yaml)
 [![Quay Repository](https://img.shields.io/badge/Container_Image-cryostat/cryostat-teal.svg "Quay Repository")](https://quay.io/repository/cryostat/cryostat)
 [![Google Group : Cryostat Development](https://img.shields.io/badge/Google_Group-Cryostat_Development-blue.svg "Mailing List")](https://groups.google.com/g/cryostat-development)
