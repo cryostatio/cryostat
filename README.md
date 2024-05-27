@@ -1,5 +1,3 @@
-# Cryostat
-
 <a target="_blank" href="https://cryostat.io">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="./docs/images/cryostat_logo_hori_rgb_reverse.svg">
