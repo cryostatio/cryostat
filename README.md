@@ -1,8 +1,8 @@
 # Cryostat
 
-[![CI build and push](https://github.com/cryostatio/cryostat3/actions/workflows/push-ci.yaml/badge.svg)](https://github.com/cryostatio/cryostat3/actions/workflows/push-ci.yaml)
-[![Quay Repository](https://quay.io/repository/cryostat/cryostat/status "Quay Repository")](https://quay.io/repository/cryostat/cryostat)
-[![Google Group : Cryostat Development](https://img.shields.io/badge/Google%20Group-Cryostat%20Development-blue.svg)](https://groups.google.com/g/cryostat-development)
+[![CI build and push](https://github.com/cryostatio/cryostat3/actions/workflows/push-ci.yaml/badge.svg "Continuous Integration")](https://github.com/cryostatio/cryostat3/actions/workflows/push-ci.yaml)
+[![Quay Repository](https://img.shields.io/badge/Container_Image-cryostat/cryostat-teal.svg "Quay Repository")](https://quay.io/repository/cryostat/cryostat)
+[![Google Group : Cryostat Development](https://img.shields.io/badge/Google_Group-Cryostat_Development-blue.svg "Mailing List")](https://groups.google.com/g/cryostat-development)
 
 ## USING
 
