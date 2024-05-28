@@ -28,6 +28,7 @@ import io.cryostat.core.net.JFRConnectionToolkit;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.core.UriBuilder;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
@@ -39,7 +40,11 @@ public class URIRangeChecker {
     String uriRange;
 
     public URI getRmiTarget(JMXServiceURL serviceUrl) throws URISyntaxException {
-        return new URI(toolkit.getHostName(serviceUrl));
+        var ub =
+                UriBuilder.newInstance()
+                        .host(toolkit.getHostName(serviceUrl))
+                        .port(toolkit.getPort(serviceUrl));
+        return ub.build();
     }
 
     public boolean validateUri(URI uri) throws MalformedURLException {
