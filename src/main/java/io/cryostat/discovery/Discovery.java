@@ -33,7 +33,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-import io.cryostat.ConfigProperties;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
@@ -97,9 +96,6 @@ public class Discovery {
 
     @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
     Duration discoveryPingPeriod;
-
-    @ConfigProperty(name = ConfigProperties.URI_RANGE)
-    String uriRange;
 
     @Inject Logger logger;
     @Inject ObjectMapper mapper;
@@ -206,9 +202,9 @@ public class Discovery {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity(
                             String.format(
-                                    "cryostat.target.callback URI of \"%s\" is unacceptable with"
-                                            + " URI range \"%s\"",
-                                    callbackUri, uriRange))
+                                    "cryostat.target.callback of \"%s\" is unacceptable with the"
+                                            + " current URI range settings",
+                                    callbackUri))
                     .build();
         }
 

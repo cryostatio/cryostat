@@ -72,9 +72,6 @@ public class CustomDiscovery {
     @Inject TargetConnectionManager connectionManager;
     @Inject URIUtil uriUtil;
 
-    @ConfigProperty(name = ConfigProperties.URI_RANGE)
-    String uriRange;
-
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
@@ -106,8 +103,8 @@ public class CustomDiscovery {
                         .entity(
                                 String.format(
                                         "The provided URI \"%s\" is unacceptable with the"
-                                                + " current URI range settings \"%s\".",
-                                        target.connectUrl, uriRange))
+                                                + " current URI range settings.",
+                                        target.connectUrl))
                         .build();
             }
             // Continue with target creation if URI is valid...
@@ -168,8 +165,8 @@ public class CustomDiscovery {
                         .entity(
                                 String.format(
                                         "The provided URI \"%s\" is unacceptable with the"
-                                                + " current URI range settings \"%s\".",
-                                        target.connectUrl, uriRange))
+                                                + " current URI range settings.",
+                                        target.connectUrl))
                         .build();
             }
 
