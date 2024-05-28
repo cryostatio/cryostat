@@ -365,6 +365,39 @@ info:
   version: 3.0.0-snapshot
 openapi: 3.0.3
 paths:
+  /api/beta/credentials/{connectUrl}:
+    post:
+      parameters:
+        - in: path
+          name: connectUrl
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                password:
+                  type: string
+                username:
+                  type: string
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/V2Response'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Credentials Test
   /api/beta/fs/recordings:
     get:
       responses:
