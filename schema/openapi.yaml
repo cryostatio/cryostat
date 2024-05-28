@@ -397,7 +397,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Credentials Test
+        - Credential Check
   /api/beta/fs/recordings:
     get:
       responses:
