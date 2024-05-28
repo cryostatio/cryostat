@@ -40,11 +40,10 @@ public class URIUtil {
     String uriRange;
 
     public URI getRmiTarget(JMXServiceURL serviceUrl) throws URISyntaxException {
-        var ub =
-                UriBuilder.newInstance()
-                        .host(toolkit.getHostName(serviceUrl))
-                        .port(toolkit.getPort(serviceUrl));
-        return ub.build();
+        return UriBuilder.newInstance()
+                .host(toolkit.getHostName(serviceUrl))
+                .port(toolkit.getPort(serviceUrl))
+                .build();
     }
 
     public boolean validateUri(URI uri) throws MalformedURLException {
