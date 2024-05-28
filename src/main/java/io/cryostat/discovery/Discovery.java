@@ -34,9 +34,9 @@ import java.util.Set;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.URIUtil;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.URIRangeChecker;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -108,7 +108,7 @@ public class Discovery {
     @Inject DiscoveryJwtFactory jwtFactory;
     @Inject DiscoveryJwtValidator jwtValidator;
     @Inject Scheduler scheduler;
-    @Inject URIUtil uriUtil;
+    @Inject URIRangeChecker uriUtil;
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
@@ -188,6 +188,7 @@ public class Discovery {
     @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     public Response register(@Context RoutingContext ctx, JsonObject body)
             throws URISyntaxException,
+                    MalformedURLException,
                     JOSEException,
                     UnknownHostException,
                     SocketException,

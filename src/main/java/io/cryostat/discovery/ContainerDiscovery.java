@@ -37,12 +37,12 @@ import java.util.stream.Collectors;
 import javax.management.remote.JMXServiceURL;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.URIUtil;
 import io.cryostat.core.net.JFRConnectionToolkit;
 import io.cryostat.core.sys.FileSystem;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.EventKind;
+import io.cryostat.util.URIRangeChecker;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -177,7 +177,7 @@ public abstract class ContainerDiscovery {
     @Inject JFRConnectionToolkit connectionToolkit;
     @Inject ObjectMapper mapper;
     @Inject EventBus bus;
-    @Inject URIUtil uriUtil;
+    @Inject URIRangeChecker uriUtil;
 
     @ConfigProperty(name = ConfigProperties.CONTAINERS_POLL_PERIOD)
     Duration pollPeriod;

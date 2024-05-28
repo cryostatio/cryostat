@@ -21,14 +21,39 @@ import java.net.URISyntaxException;
 
 import javax.management.remote.JMXServiceURL;
 
-import io.cryostat.URIUtil;
+import io.cryostat.core.net.JFRConnectionToolkit;
 
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.Mockito;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
 
 public class URIRangeTest {
+
+    JFRConnectionToolkit toolkit;
+
+    @BeforeEach
+    void setup() {
+        this.toolkit = Mockito.mock(JFRConnectionToolkit.class);
+        Mockito.when(toolkit.getHostName(Mockito.any()))
+                .thenAnswer(
+                        new Answer<String>() {
+                            @Override
+                            public String answer(InvocationOnMock invocation) throws Throwable {
+                                JMXServiceURL serviceUrl = invocation.getArgument(0);
+                                String rmiPart = "/jndi/rmi://";
+                                String pathPart = serviceUrl.getURLPath();
+                                if (!pathPart.startsWith(rmiPart)) {
+                                    throw new IllegalArgumentException(serviceUrl.getURLPath());
+                                }
+                                return pathPart.substring("/jndi/".length(), pathPart.length());
+                            }
+                        });
+    }
 
     @ParameterizedTest
     @CsvSource({
@@ -173,7 +198,9 @@ public class URIRangeTest {
     private void test(URIRange range, String s, String v)
             throws URISyntaxException, MalformedURLException {
         boolean expected = Boolean.parseBoolean(v);
-        URIUtil uriUtil = new URIUtil(range);
+        URIRangeChecker uriUtil = new URIRangeChecker();
+        uriUtil.toolkit = toolkit;
+        uriUtil.uriRange = range.toString();
 
         URI httpUri = new URI(String.format("http://%s:1234", s));
         MatcherAssert.assertThat(s, uriUtil.validateUri(httpUri), Matchers.is(expected));

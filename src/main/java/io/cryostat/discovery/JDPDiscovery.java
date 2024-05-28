@@ -25,11 +25,11 @@ import java.util.function.Consumer;
 
 import javax.management.remote.JMXServiceURL;
 
-import io.cryostat.URIUtil;
 import io.cryostat.core.net.discovery.JvmDiscoveryClient;
 import io.cryostat.core.net.discovery.JvmDiscoveryClient.JvmDiscoveryEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
+import io.cryostat.util.URIRangeChecker;
 
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
@@ -60,7 +60,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @Inject JvmDiscoveryClient jdp;
     @Inject Vertx vertx;
     @Inject EventBus eventBus;
-    @Inject URIUtil uriUtil;
+    @Inject URIRangeChecker uriUtil;
 
     @ConfigProperty(name = "cryostat.discovery.jdp.enabled")
     boolean enabled;
