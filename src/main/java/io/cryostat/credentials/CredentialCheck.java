@@ -34,7 +34,7 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 
 @Path("")
-public class CredentialsTest {
+public class CredentialCheck {
 
     @Inject TargetConnectionManager connectionManager;
 
@@ -42,7 +42,7 @@ public class CredentialsTest {
     @Blocking
     @RolesAllowed("read")
     @Path("/api/beta/credentials/{connectUrl}")
-    public Uni<V2Response> testCredentialForTarget(
+    public Uni<V2Response> checkCredentialForTarget(
             @RestPath String connectUrl, @RestForm String username, @RestForm String password)
             throws URISyntaxException {
         Target target = Target.getTargetByConnectUrl(new URI(connectUrl));
