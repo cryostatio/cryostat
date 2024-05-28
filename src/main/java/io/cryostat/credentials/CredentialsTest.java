@@ -68,7 +68,11 @@ public class CredentialsTest {
                                                 conn.connect();
                                                 return CredentialTestResult.SUCCESS;
                                             })
-                                    .onFailure()
+                                    .onFailure(
+                                            t ->
+                                                    connectionManager.isJmxAuthFailure(t)
+                                                            || connectionManager.isAgentAuthFailure(
+                                                                    t))
                                     .recoverWithItem(t -> CredentialTestResult.FAILURE);
                         })
                 .map(r -> V2Response.json(Status.OK, r));
