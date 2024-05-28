@@ -33,7 +33,7 @@ import io.cryostat.targets.JvmIdException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
-import io.cryostat.util.URIRangeChecker;
+import io.cryostat.util.URIUtil;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
@@ -70,7 +70,7 @@ public class CustomDiscovery {
     @Inject Logger logger;
     @Inject EventBus bus;
     @Inject TargetConnectionManager connectionManager;
-    @Inject URIRangeChecker uriUtil;
+    @Inject URIUtil uriUtil;
 
     @ConfigProperty(name = ConfigProperties.URI_RANGE)
     String uriRange;

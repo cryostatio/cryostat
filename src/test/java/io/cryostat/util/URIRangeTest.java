@@ -198,7 +198,7 @@ public class URIRangeTest {
     private void test(URIRange range, String s, String v)
             throws URISyntaxException, MalformedURLException {
         boolean expected = Boolean.parseBoolean(v);
-        URIRangeChecker uriUtil = new URIRangeChecker();
+        URIUtil uriUtil = new URIUtil();
         uriUtil.toolkit = toolkit;
         uriUtil.uriRange = range.toString();
 

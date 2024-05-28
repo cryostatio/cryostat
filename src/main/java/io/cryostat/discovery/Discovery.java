@@ -36,7 +36,7 @@ import java.util.UUID;
 import io.cryostat.ConfigProperties;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
-import io.cryostat.util.URIRangeChecker;
+import io.cryostat.util.URIUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -108,7 +108,7 @@ public class Discovery {
     @Inject DiscoveryJwtFactory jwtFactory;
     @Inject DiscoveryJwtValidator jwtValidator;
     @Inject Scheduler scheduler;
-    @Inject URIRangeChecker uriUtil;
+    @Inject URIUtil uriUtil;
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {

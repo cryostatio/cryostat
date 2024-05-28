@@ -32,7 +32,7 @@ import jakarta.ws.rs.core.UriBuilder;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
-public class URIRangeChecker {
+public class URIUtil {
 
     @Inject JFRConnectionToolkit toolkit;
 
