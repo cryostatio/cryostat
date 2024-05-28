@@ -39,7 +39,6 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.MBeanMetrics;
 import io.cryostat.core.serialization.SerializableRecordingDescriptor;
 import io.cryostat.credentials.Credential;
-import io.cryostat.credentials.CredentialsFinder;
 import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
@@ -75,20 +74,14 @@ public class AgentClient {
     private final WebClient webClient;
     private final Duration httpTimeout;
     private final ObjectMapper mapper;
-    private final CredentialsFinder credentialsFinder;
     private final Logger logger = Logger.getLogger(getClass());
 
     private AgentClient(
-            Target target,
-            WebClient webClient,
-            ObjectMapper mapper,
-            Duration httpTimeout,
-            CredentialsFinder credentialsFinder) {
+            Target target, WebClient webClient, ObjectMapper mapper, Duration httpTimeout) {
         this.target = target;
         this.webClient = webClient;
         this.mapper = mapper;
         this.httpTimeout = httpTimeout;
-        this.credentialsFinder = credentialsFinder;
     }
 
     Target getTarget() {
@@ -426,14 +419,13 @@ public class AgentClient {
 
         @Inject ObjectMapper mapper;
         @Inject WebClient webClient;
-        @Inject CredentialsFinder credentialsFinder;
         @Inject Logger logger;
 
         @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
         Duration timeout;
 
         public AgentClient create(Target target) {
-            return new AgentClient(target, webClient, mapper, timeout, credentialsFinder);
+            return new AgentClient(target, webClient, mapper, timeout);
         }
     }
 
