@@ -28,28 +28,22 @@ import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
 public class CryostatTemplateIT extends StandardSelfTest {
 
-    File file;
-
-    @BeforeEach
-    void setup() throws Exception {
+    @Test
+    public void shouldHaveCryostatTemplate() throws Exception {
         String url =
                 String.format(
                         "/api/v1/targets/%s/templates/Cryostat/type/TARGET",
                         getSelfReferenceConnectUrlEncoded());
-        file =
+        File file =
                 downloadFile(url, "cryostat", ".jfc")
                         .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                         .toFile();
-    }
 
-    @Test
-    public void shouldHaveCryostatTemplate() throws Exception {
         XMLModel model = EventConfiguration.createModel(file);
         model.checkErrors();
 
