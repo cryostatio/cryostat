@@ -33,6 +33,7 @@ import io.cryostat.targets.JvmIdException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.URIUtil;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
@@ -69,6 +70,7 @@ public class CustomDiscovery {
     @Inject Logger logger;
     @Inject EventBus bus;
     @Inject TargetConnectionManager connectionManager;
+    @Inject URIUtil uriUtil;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
@@ -95,6 +97,23 @@ public class CustomDiscovery {
     @RolesAllowed("write")
     public Response create(
             Target target, @RestQuery boolean dryrun, @RestQuery boolean storeCredentials) {
+        try {
+            if (!uriUtil.validateUri(target.connectUrl)) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(
+                                String.format(
+                                        "The provided URI \"%s\" is unacceptable with the"
+                                                + " current URI range settings.",
+                                        target.connectUrl))
+                        .build();
+            }
+            // Continue with target creation if URI is valid...
+        } catch (Exception e) {
+            logger.error("Target validation failed", e);
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(V2Response.json(Response.Status.BAD_REQUEST, e))
+                    .build();
+        }
         // TODO handle credentials embedded in JSON body
         return doV2Create(target, Optional.empty(), dryrun, storeCredentials);
     }
@@ -136,9 +155,20 @@ public class CustomDiscovery {
         var beginTx = !QuarkusTransaction.isActive();
         if (beginTx) {
             QuarkusTransaction.begin();
+        } else {
+            // No changes needed for this error
         }
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
+            if (!uriUtil.validateUri(target.connectUrl)) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity(
+                                String.format(
+                                        "The provided URI \"%s\" is unacceptable with the"
+                                                + " current URI range settings.",
+                                        target.connectUrl))
+                        .build();
+            }
 
             try {
                 target.jvmId =
@@ -188,7 +218,8 @@ public class CustomDiscovery {
                     .entity(V2Response.json(Response.Status.CREATED, target))
                     .build();
         } catch (Exception e) {
-            // roll back regardless of whether we initiated this database transaction or a caller
+            // roll back regardless of whether we initiated this database transaction or a
+            // caller
             // did
             QuarkusTransaction.rollback();
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {

@@ -35,6 +35,7 @@ import java.util.UUID;
 
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.util.URIUtil;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -103,6 +104,7 @@ public class Discovery {
     @Inject DiscoveryJwtFactory jwtFactory;
     @Inject DiscoveryJwtValidator jwtValidator;
     @Inject Scheduler scheduler;
+    @Inject URIUtil uriUtil;
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
@@ -182,6 +184,7 @@ public class Discovery {
     @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     public Response register(@Context RoutingContext ctx, JsonObject body)
             throws URISyntaxException,
+                    MalformedURLException,
                     JOSEException,
                     UnknownHostException,
                     SocketException,
@@ -193,6 +196,17 @@ public class Discovery {
         String realmName = body.getString("realm");
         URI callbackUri = new URI(body.getString("callback"));
         URI unauthCallback = UriBuilder.fromUri(callbackUri).userInfo(null).build();
+
+        // URI range validation
+        if (!uriUtil.validateUri(callbackUri)) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(
+                            String.format(
+                                    "cryostat.target.callback of \"%s\" is unacceptable with the"
+                                            + " current URI range settings",
+                                    callbackUri))
+                    .build();
+        }
 
         // TODO apply URI range validation to the remote address
         InetAddress remoteAddress = getRemoteAddress(ctx);
@@ -212,8 +226,10 @@ public class Discovery {
             location = jwtFactory.getPluginLocation(plugin);
             jwtFactory.parseDiscoveryPluginJwt(plugin, priorToken, location, remoteAddress, false);
         } else {
-            // check if a plugin record with the same callback already exists. If it does, ping it:
-            // if it's still there reject this request as a duplicate, otherwise delete the previous
+            // check if a plugin record with the same callback already exists. If it does,
+            // ping it:
+            // if it's still there reject this request as a duplicate, otherwise delete the
+            // previous
             // record and accept this new one as a replacement
             DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
                     .singleResultOptional()
@@ -272,7 +288,8 @@ public class Discovery {
 
         String token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, location);
 
-        // TODO implement more generic env map passing by some platform detection strategy or
+        // TODO implement more generic env map passing by some platform detection
+        // strategy or
         // generalized config properties
         var envMap = new HashMap<String, String>();
         String insightsProxy = System.getenv("INSIGHTS_PROXY");
@@ -283,19 +300,19 @@ public class Discovery {
                 .entity(
                         Map.of(
                                 "meta",
-                                        Map.of(
-                                                "mimeType", "JSON",
-                                                "status", "OK"),
+                                Map.of(
+                                        "mimeType", "JSON",
+                                        "status", "OK"),
                                 "data",
+                                Map.of(
+                                        "result",
                                         Map.of(
-                                                "result",
-                                                Map.of(
-                                                        "id",
-                                                        plugin.id.toString(),
-                                                        "token",
-                                                        token,
-                                                        "env",
-                                                        envMap))))
+                                                "id",
+                                                plugin.id.toString(),
+                                                "token",
+                                                token,
+                                                "env",
+                                                envMap))))
                 .build();
     }
 
@@ -331,10 +348,11 @@ public class Discovery {
 
         return Map.of(
                 "meta",
-                        Map.of(
-                                "mimeType", "JSON",
-                                "status", "OK"),
-                "data", Map.of("result", plugin.id.toString()));
+                Map.of(
+                        "mimeType", "JSON",
+                        "status", "OK"),
+                "data",
+                Map.of("result", plugin.id.toString()));
     }
 
     @Transactional
@@ -366,10 +384,11 @@ public class Discovery {
         plugin.delete();
         return Map.of(
                 "meta",
-                        Map.of(
-                                "mimeType", "JSON",
-                                "status", "OK"),
-                "data", Map.of("result", plugin.id.toString()));
+                Map.of(
+                        "mimeType", "JSON",
+                        "status", "OK"),
+                "data",
+                Map.of("result", plugin.id.toString()));
     }
 
     @GET
