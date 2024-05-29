@@ -3,7 +3,7 @@
      see Window -> Flight Recorder Template Manager.
 -->
 <configuration version="2.0" label="Cryostat" description="Continuous self-profiling for Cryostat" provider="Cryostat">
- <event name="io.cryostat.net.TargetConnectionManager.JMXConnectionOpened">
+ <event name="io.cryostat.targets.TargetConnectionManager.TargetConnectionOpened">
   <setting name="enabled">
   true
   </setting>
@@ -11,7 +11,7 @@
   0 ms
   </setting>
  </event>
- <event name="io.cryostat.net.TargetConnectionManager.JMXConnectionClosed">
+ <event name="io.cryostat.targets.TargetConnectionManager.TargetConnectionClosed">
   <setting name="enabled">
    true
   </setting>
