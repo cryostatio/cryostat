@@ -63,13 +63,9 @@ public class TargetTemplateService implements TemplateService {
     @Override
     public Optional<String> getXml(String templateName, TemplateType unused)
             throws FlightRecorderException {
-        Optional doc =
-                connectionManager.executeConnectedTask(
-                        target,
-                        conn ->
-                                conn.getTemplateService()
-                                        .getXml(templateName, TemplateType.TARGET));
-        return doc.isPresent() ? Optional.of(doc.toString()) : Optional.empty();
+        return connectionManager.executeConnectedTask(
+                target,
+                conn -> conn.getTemplateService().getXml(templateName, TemplateType.TARGET));
     }
 
     @Override

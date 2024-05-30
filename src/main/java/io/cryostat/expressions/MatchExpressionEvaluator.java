@@ -74,7 +74,7 @@ public class MatchExpressionEvaluator {
     }
 
     Script createScript(String matchExpression) throws ScriptCreateException {
-        ScriptCreationEvent evt = new ScriptCreationEvent();
+        ScriptCreation evt = new ScriptCreation();
         try {
             evt.begin();
             return scriptHost
@@ -113,7 +113,7 @@ public class MatchExpressionEvaluator {
     }
 
     public boolean applies(MatchExpression matchExpression, Target target) throws ScriptException {
-        MatchExpressionAppliesEvent evt = new MatchExpressionAppliesEvent(matchExpression);
+        MatchExpressionApplies evt = new MatchExpressionApplies(matchExpression);
         try {
             evt.begin();
             return load(matchExpression.script, target);
@@ -147,27 +147,27 @@ public class MatchExpressionEvaluator {
         }
     }
 
-    @Name("io.cryostat.rules.MatchExpressionEvaluator.MatchExpressionAppliesEvent")
+    @Name("io.cryostat.rules.MatchExpressionEvaluator.MatchExpressionApplies")
     @Label("Match Expression Evaluation")
     @Category("Cryostat")
     @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "URF_UNREAD_FIELD"})
-    public static class MatchExpressionAppliesEvent extends Event {
+    public static class MatchExpressionApplies extends Event {
 
         String matchExpression;
 
-        MatchExpressionAppliesEvent(MatchExpression matchExpression) {
+        MatchExpressionApplies(MatchExpression matchExpression) {
             this.matchExpression = matchExpression.script;
         }
     }
 
-    @Name("io.cryostat.rules.MatchExpressionEvaluator.ScriptCreationEvent")
+    @Name("io.cryostat.rules.MatchExpressionEvaluator.ScriptCreation")
     @Label("Match Expression Script Creation")
     @Category("Cryostat")
     // @SuppressFBWarnings(
     //         value = "URF_UNREAD_FIELD",
     //         justification = "The event fields are recorded with JFR instead of accessed
     // directly")
-    public static class ScriptCreationEvent extends Event {}
+    public static class ScriptCreation extends Event {}
 
     /**
      * Restricted view of a {@link io.cryostat.targets.Target} with only particular
