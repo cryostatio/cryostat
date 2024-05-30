@@ -2,32 +2,7 @@
 
 set -e
 
-DIR="$(dirname "$(realpath "$0")")"
-source "${DIR}/genpass.bash"
-
-function banner() {
-    echo   "+------------------------------------------+"
-    printf "| %-40s |\n" "$(date)"
-    echo   "|                                          |"
-    printf "| %-40s |\n" "$@"
-    echo   "+------------------------------------------+"
-}
-
-PWFILE="/tmp/jmxremote.password"
-USRFILE="/tmp/jmxremote.access"
-function createJmxCredentials() {
-    if [ -z "$CRYOSTAT_RJMX_USER" ]; then
-        CRYOSTAT_RJMX_USER="cryostat"
-    fi
-    if [ -z "$CRYOSTAT_RJMX_PASS" ]; then
-        CRYOSTAT_RJMX_PASS="$(genpass)"
-    fi
-
-    echo -n "$CRYOSTAT_RJMX_USER $CRYOSTAT_RJMX_PASS" > "$PWFILE"
-    chmod 400 "$PWFILE"
-    echo -n "$CRYOSTAT_RJMX_USER readwrite" > "$USRFILE"
-    chmod 400 "$USRFILE"
-}
+FLAGS=()
 
 function importTrustStores() {
     if [ -z "$CONF_DIR" ]; then
@@ -38,10 +13,10 @@ function importTrustStores() {
     fi
 
     if [ ! -d "$SSL_TRUSTSTORE_DIR" ]; then
-        banner "$SSL_TRUSTSTORE_DIR does not exist; no certificates to import"
+        echo "$SSL_TRUSTSTORE_DIR does not exist; no certificates to import"
         return 0
     elif [ ! "$(ls -A "$SSL_TRUSTSTORE_DIR")" ]; then
-        banner "$SSL_TRUSTSTORE_DIR is empty; no certificates to import"
+        echo "$SSL_TRUSTSTORE_DIR is empty; no certificates to import"
         return 0
     fi
 
@@ -64,19 +39,7 @@ function importTrustStores() {
         "-Djavax.net.ssl.trustStorePassword=$SSL_TRUSTSTORE_PASS"
     )
 }
-
-FLAGS=()
 importTrustStores
-
-if [ "$CRYOSTAT_DISABLE_JMX_AUTH" = "true" ]; then
-    banner "JMX Auth Disabled"
-    FLAGS+=("-Dcom.sun.management.jmxremote.authenticate=false")
-else
-    createJmxCredentials
-    FLAGS+=("-Dcom.sun.management.jmxremote.authenticate=true")
-    FLAGS+=("-Dcom.sun.management.jmxremote.password.file=$PWFILE")
-    FLAGS+=("-Dcom.sun.management.jmxremote.access.file=$USRFILE")
-fi
 
 export JAVA_OPTS_APPEND="${JAVA_OPTS_APPEND} ${FLAGS[*]}"
 exec $1
