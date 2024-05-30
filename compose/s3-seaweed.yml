@@ -1,6 +1,9 @@
 version: "3"
 services:
   cryostat:
+    depends_on:
+      s3:
+        condition: service_healthy
     environment:
       STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
       CRYOSTAT_SERVICES_REPORTS_STORAGE_CACHE_NAME: archivedreports

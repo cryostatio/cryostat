@@ -103,7 +103,10 @@ if [ "${USE_PROXY}" = "true" ]; then
     CRYOSTAT_HTTP_PORT=8181
     GRAFANA_DASHBOARD_EXT_URL=http://localhost:8080/grafana/
 else
-    FILES+=("${DIR}/compose/no_proxy.yml" "${DIR}/compose/s3_no_proxy.yml")
+    FILES+=("${DIR}/compose/no_proxy.yml")
+    if [ "${s3}" != "none" ]; then
+        FILES+=("${DIR}/compose/s3_no_proxy.yml")
+    fi
     if [ "${DEPLOY_GRAFANA}" = "true" ]; then
       FILES+=("${DIR}/compose/grafana_no_proxy.yml")
     fi
@@ -115,16 +118,19 @@ export GRAFANA_DASHBOARD_EXT_URL
 export DATABASE_GENERATION
 
 s3Manifest="${DIR}/compose/s3-${s3}.yml"
-STORAGE_PORT="$(yq '.services.*.expose[0]' "${s3Manifest}" | grep -v null)"
-export STORAGE_PORT
-export PRECREATE_BUCKETS
-
 if [ ! -f "${s3Manifest}" ]; then
     echo "Unknown S3 selection: ${s3}"
     display_usage
     exit 2
 fi
 FILES+=("${s3Manifest}")
+if [ "${s3}" = "none" ]; then
+    STORAGE_PORT="4566"
+else
+    STORAGE_PORT="$(yq '.services.*.expose[0]' "${s3Manifest}" | grep -v null)"
+fi
+export STORAGE_PORT
+export PRECREATE_BUCKETS
 
 unshift() {
     local -n ary=$1;

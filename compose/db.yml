@@ -1,6 +1,9 @@
 version: "3"
 services:
   cryostat:
+    depends_on:
+      db:
+        condition: service_healthy
     environment:
       QUARKUS_HIBERNATE_ORM_DATABASE_GENERATION: ${DATABASE_GENERATION:-drop-and-create}
       QUARKUS_DATASOURCE_USERNAME: cryostat3
