@@ -390,7 +390,7 @@ public class TargetConnectionManager {
         return cause;
     }
 
-    private boolean isTargetConnectionFailure(Throwable t) {
+    public boolean isTargetConnectionFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
@@ -403,7 +403,7 @@ public class TargetConnectionManager {
      * Check if the exception happened because the connection required authentication, and we had no
      * credentials to present.
      */
-    private boolean isJmxAuthFailure(Throwable t) {
+    public boolean isJmxAuthFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
@@ -414,11 +414,20 @@ public class TargetConnectionManager {
                 || ExceptionUtils.indexOfType(e, SaslException.class) >= 0;
     }
 
+    public boolean isAgentAuthFailure(Throwable t) {
+        int index = ExceptionUtils.indexOfType(t, ConnectionException.class);
+        if (index >= 0) {
+            Throwable ce = ExceptionUtils.getThrowableList(t).get(index);
+            return ce.getMessage().contains(AgentClient.NULL_CREDENTIALS);
+        }
+        return false;
+    }
+
     /**
      * Check if the exception happened because the connection presented an SSL/TLS cert which we
      * don't trust.
      */
-    private boolean isJmxSslFailure(Throwable t) {
+    public boolean isJmxSslFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
@@ -428,7 +437,7 @@ public class TargetConnectionManager {
     }
 
     /** Check if the exception happened because the port connected to a non-JMX service. */
-    private boolean isServiceTypeFailure(Throwable t) {
+    public boolean isServiceTypeFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
@@ -438,7 +447,7 @@ public class TargetConnectionManager {
     }
 
     /** Check if the exception happened because an MBean was not found */
-    private boolean isInstanceNotFoundFailure(Throwable t) {
+    public boolean isInstanceNotFoundFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
         }
