@@ -17,10 +17,6 @@ services:
     user: "1000"
     labels:
       kompose.service.expose: "cryostat3"
-      io.cryostat.discovery: "true"
-      io.cryostat.jmxHost: "localhost"
-      io.cryostat.jmxPort: "0"
-      io.cryostat.jmxUrl: "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi"
     environment:
       QUARKUS_LOG_LEVEL: ALL
       QUARKUS_HTTP_HOST: "cryostat"
