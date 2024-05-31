@@ -35,7 +35,6 @@ import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
@@ -152,12 +151,6 @@ public class CustomDiscovery {
             Optional<Credential> credential,
             boolean dryrun,
             boolean storeCredentials) {
-        var beginTx = !QuarkusTransaction.isActive();
-        if (beginTx) {
-            QuarkusTransaction.begin();
-        } else {
-            // No changes needed for this error
-        }
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
             if (!uriUtil.validateUri(target.connectUrl)) {
@@ -170,19 +163,47 @@ public class CustomDiscovery {
                         .build();
             }
 
+            if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
+                return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
+                        .entity(
+                                V2Response.json(
+                                        Response.Status.BAD_REQUEST, "Duplicate connection URL"))
+                        .build();
+            }
+
             try {
-                target.jvmId =
-                        connectionManager
-                                .executeDirect(
-                                        target,
-                                        credential,
-                                        conn -> conn.getJvmIdentifier().getHash())
-                                .await()
-                                .atMost(timeout);
+                String jvmId =
+                        target.jvmId =
+                                connectionManager
+                                        .executeDirect(
+                                                target,
+                                                credential,
+                                                conn -> conn.getJvmIdentifier().getHash())
+                                        .await()
+                                        .atMost(timeout);
+
+                if (Target.find("jvmId", jvmId).count() > 0) {
+                    return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
+                            .entity(
+                                    V2Response.json(
+                                            Response.Status.BAD_REQUEST,
+                                            String.format(
+                                                    "Target with JVM ID \"%s\" already discovered",
+                                                    jvmId)))
+                            .build();
+                }
             } catch (Exception e) {
                 logger.error("Target connection failed", e);
+                String msg =
+                        connectionManager.isJmxSslFailure(e)
+                                ? "Untrusted JMX SSL/TLS certificate"
+                                : connectionManager.isJmxAuthFailure(e)
+                                        ? "JMX authentication failure"
+                                        : connectionManager.isServiceTypeFailure(e)
+                                                ? "Unexpected service type on port"
+                                                : "Target connection failed";
                 return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(V2Response.json(Response.Status.BAD_REQUEST, e))
+                        .entity(V2Response.json(Response.Status.BAD_REQUEST, msg))
                         .build();
             }
 
@@ -210,22 +231,16 @@ public class CustomDiscovery {
             node.persist();
             realm.persist();
 
-            if (beginTx) {
-                QuarkusTransaction.commit();
-            }
-
             return Response.created(URI.create("/api/v3/targets/" + target.id))
                     .entity(V2Response.json(Response.Status.CREATED, target))
                     .build();
         } catch (Exception e) {
-            // roll back regardless of whether we initiated this database transaction or a
-            // caller
-            // did
-            QuarkusTransaction.rollback();
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
                 return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(V2Response.json(Response.Status.BAD_REQUEST, e))
+                        .entity(
+                                V2Response.json(
+                                        Response.Status.BAD_REQUEST, "Duplicate connection URL"))
                         .build();
             }
             logger.error("Unknown error", e);
