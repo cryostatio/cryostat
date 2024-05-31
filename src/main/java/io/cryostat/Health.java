@@ -200,11 +200,7 @@ class Health {
                     .header("Access-Control-Allow-Origin", "http://localhost:9000")
                     .header(
                             "Access-Control-Allow-Headers",
-                            "accept, origin, authorization, content-type,"
-                                    + " x-requested-with, x-jmx-authorization")
-                    .header(
-                            "Access-Control-Expose-Headers",
-                            "x-www-authenticate, x-jmx-authenticate")
+                            "accept, origin, authorization, content-type," + " x-requested-with")
                     .header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
                     .header("Access-Control-Allow-Credentials", "true");
         }
