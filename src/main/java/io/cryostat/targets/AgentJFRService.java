@@ -224,8 +224,6 @@ class AgentJFRService implements CryostatFlightRecorderService {
                     ParseException,
                     IOException,
                     QuantityConversionException {
-        StartRecordingRequest req;
-        String recordingName = recordingOptions.get("name").toString();
         long duration =
                 (Optional.ofNullable(
                                         (ITypedQuantity)
@@ -247,7 +245,14 @@ class AgentJFRService implements CryostatFlightRecorderService {
                                                         RecordingOptionsBuilder.KEY_MAX_AGE))
                                 .orElse(UnitLookup.MILLISECOND.quantity(0)))
                         .longValueIn(UnitLookup.MILLISECOND);
-        req = new StartRecordingRequest(recordingName, null, template, duration, maxSize, maxAge);
+        StartRecordingRequest req =
+                new StartRecordingRequest(
+                        recordingOptions.get("name").toString(),
+                        null,
+                        template,
+                        duration,
+                        maxSize,
+                        maxAge);
         return client.startRecording(req).await().atMost(client.getTimeout());
     }
 
@@ -264,39 +269,41 @@ class AgentJFRService implements CryostatFlightRecorderService {
                     QuantityConversionException,
                     EventOptionException,
                     EventTypeException {
-        StartRecordingRequest req;
-        String recordingName = recordingOptions.get("name").toString();
         if (template.getType().equals(TemplateType.CUSTOM)) {
             return start(
                     recordingOptions,
                     templateService.getXml(template.getName(), template.getType()).orElseThrow());
-        } else {
-            long duration =
-                    (Optional.ofNullable(
-                                            (ITypedQuantity)
-                                                    recordingOptions.get(
-                                                            RecordingOptionsBuilder.KEY_DURATION))
-                                    .orElse(UnitLookup.MILLISECOND.quantity(0)))
-                            .longValueIn(UnitLookup.MILLISECOND);
-            long maxSize =
-                    (Optional.ofNullable(
-                                            (ITypedQuantity)
-                                                    recordingOptions.get(
-                                                            RecordingOptionsBuilder.KEY_MAX_SIZE))
-                                    .orElse(UnitLookup.BYTE.quantity(0)))
-                            .longValueIn(UnitLookup.BYTE);
-            long maxAge =
-                    (Optional.ofNullable(
-                                            (ITypedQuantity)
-                                                    recordingOptions.get(
-                                                            RecordingOptionsBuilder.KEY_MAX_AGE))
-                                    .orElse(UnitLookup.MILLISECOND.quantity(0)))
-                            .longValueIn(UnitLookup.MILLISECOND);
-            req =
-                    new StartRecordingRequest(
-                            recordingName, template.getName(), null, duration, maxSize, maxAge);
-            return client.startRecording(req).await().atMost(client.getTimeout());
         }
+        long duration =
+                (Optional.ofNullable(
+                                        (ITypedQuantity)
+                                                recordingOptions.get(
+                                                        RecordingOptionsBuilder.KEY_DURATION))
+                                .orElse(UnitLookup.MILLISECOND.quantity(0)))
+                        .longValueIn(UnitLookup.MILLISECOND);
+        long maxSize =
+                (Optional.ofNullable(
+                                        (ITypedQuantity)
+                                                recordingOptions.get(
+                                                        RecordingOptionsBuilder.KEY_MAX_SIZE))
+                                .orElse(UnitLookup.BYTE.quantity(0)))
+                        .longValueIn(UnitLookup.BYTE);
+        long maxAge =
+                (Optional.ofNullable(
+                                        (ITypedQuantity)
+                                                recordingOptions.get(
+                                                        RecordingOptionsBuilder.KEY_MAX_AGE))
+                                .orElse(UnitLookup.MILLISECOND.quantity(0)))
+                        .longValueIn(UnitLookup.MILLISECOND);
+        StartRecordingRequest req =
+                new StartRecordingRequest(
+                        recordingOptions.get("name").toString(),
+                        template.getName(),
+                        null,
+                        duration,
+                        maxSize,
+                        maxAge);
+        return client.startRecording(req).await().atMost(client.getTimeout());
     }
 
     public static class UnimplementedException extends IllegalStateException {}
