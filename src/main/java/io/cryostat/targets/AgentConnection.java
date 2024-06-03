@@ -36,6 +36,7 @@ import io.cryostat.core.net.MBeanMetrics;
 import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.RemoteTemplateService;
 import io.cryostat.core.templates.TemplateService;
+import io.cryostat.events.S3TemplateService;
 
 import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -45,10 +46,12 @@ import org.jboss.logging.Logger;
 class AgentConnection implements JFRConnection {
 
     private final AgentClient client;
+    private final TemplateService customTemplateService;
     private final Logger logger = Logger.getLogger(getClass());
 
-    AgentConnection(AgentClient client) {
+    AgentConnection(AgentClient client, TemplateService customTemplateService) {
         this.client = client;
+        this.customTemplateService = customTemplateService;
     }
 
     @Override
@@ -113,7 +116,7 @@ class AgentConnection implements JFRConnection {
     @Override
     public CryostatFlightRecorderService getService()
             throws ConnectionException, IOException, ServiceNotAvailableException {
-        return new AgentJFRService(client, getTemplateService());
+        return new AgentJFRService(client, customTemplateService);
     }
 
     @Override
@@ -141,10 +144,11 @@ class AgentConnection implements JFRConnection {
     public static class Factory {
 
         @Inject AgentClient.Factory clientFactory;
+        @Inject S3TemplateService customTemplateService;
         @Inject Logger logger;
 
         public AgentConnection createConnection(Target target) {
-            return new AgentConnection(clientFactory.create(target));
+            return new AgentConnection(clientFactory.create(target), customTemplateService);
         }
     }
 }
