@@ -19,6 +19,7 @@ import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.ParseException;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +47,7 @@ import org.openjdk.jmc.rjmx.common.ServiceNotAvailableException;
 import io.cryostat.core.EventOptionsBuilder.EventOptionException;
 import io.cryostat.core.EventOptionsBuilder.EventTypeException;
 import io.cryostat.core.net.CryostatFlightRecorderService;
+import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateService;
 import io.cryostat.core.templates.TemplateType;
 
@@ -217,21 +219,11 @@ class AgentJFRService implements CryostatFlightRecorderService {
 
     @Blocking
     @Override
-    public IRecordingDescriptor start(
-            IConstrainedMap<String> recordingOptions,
-            String templateName,
-            TemplateType preferredTemplateType)
-            throws io.cryostat.core.FlightRecorderException,
-                    FlightRecorderException,
-                    ConnectionException,
+    public IRecordingDescriptor start(IConstrainedMap<String> recordingOptions, String template)
+            throws FlightRecorderException,
+                    ParseException,
                     IOException,
-                    FlightRecorderException,
-                    ServiceNotAvailableException,
-                    QuantityConversionException,
-                    EventOptionException,
-                    EventTypeException {
-        StartRecordingRequest req;
-        String recordingName = recordingOptions.get("name").toString();
+                    QuantityConversionException {
         long duration =
                 (Optional.ofNullable(
                                         (ITypedQuantity)
@@ -253,22 +245,64 @@ class AgentJFRService implements CryostatFlightRecorderService {
                                                         RecordingOptionsBuilder.KEY_MAX_AGE))
                                 .orElse(UnitLookup.MILLISECOND.quantity(0)))
                         .longValueIn(UnitLookup.MILLISECOND);
-        if (preferredTemplateType.equals(TemplateType.CUSTOM)) {
-            req =
-                    new StartRecordingRequest(
-                            recordingName,
-                            null,
-                            templateService
-                                    .getXml(templateName, preferredTemplateType)
-                                    .orElseThrow(),
-                            duration,
-                            maxSize,
-                            maxAge);
-        } else {
-            req =
-                    new StartRecordingRequest(
-                            recordingName, templateName, null, duration, maxSize, maxAge);
+        StartRecordingRequest req =
+                new StartRecordingRequest(
+                        recordingOptions.get("name").toString(),
+                        null,
+                        template,
+                        duration,
+                        maxSize,
+                        maxAge);
+        return client.startRecording(req).await().atMost(client.getTimeout());
+    }
+
+    @Blocking
+    @Override
+    public IRecordingDescriptor start(IConstrainedMap<String> recordingOptions, Template template)
+            throws io.cryostat.core.FlightRecorderException,
+                    FlightRecorderException,
+                    ConnectionException,
+                    ParseException,
+                    IOException,
+                    FlightRecorderException,
+                    ServiceNotAvailableException,
+                    QuantityConversionException,
+                    EventOptionException,
+                    EventTypeException {
+        if (template.getType().equals(TemplateType.CUSTOM)) {
+            return start(
+                    recordingOptions,
+                    templateService.getXml(template.getName(), template.getType()).orElseThrow());
         }
+        long duration =
+                (Optional.ofNullable(
+                                        (ITypedQuantity)
+                                                recordingOptions.get(
+                                                        RecordingOptionsBuilder.KEY_DURATION))
+                                .orElse(UnitLookup.MILLISECOND.quantity(0)))
+                        .longValueIn(UnitLookup.MILLISECOND);
+        long maxSize =
+                (Optional.ofNullable(
+                                        (ITypedQuantity)
+                                                recordingOptions.get(
+                                                        RecordingOptionsBuilder.KEY_MAX_SIZE))
+                                .orElse(UnitLookup.BYTE.quantity(0)))
+                        .longValueIn(UnitLookup.BYTE);
+        long maxAge =
+                (Optional.ofNullable(
+                                        (ITypedQuantity)
+                                                recordingOptions.get(
+                                                        RecordingOptionsBuilder.KEY_MAX_AGE))
+                                .orElse(UnitLookup.MILLISECOND.quantity(0)))
+                        .longValueIn(UnitLookup.MILLISECOND);
+        StartRecordingRequest req =
+                new StartRecordingRequest(
+                        recordingOptions.get("name").toString(),
+                        template.getName(),
+                        null,
+                        duration,
+                        maxSize,
+                        maxAge);
         return client.startRecording(req).await().atMost(client.getTimeout());
     }
 

@@ -369,11 +369,22 @@ public class RecordingHelper {
                             }
                             IConstrainedMap<String> recordingOptions = optionsBuilder.build();
 
-                            return conn.getService()
-                                    .start(
-                                            recordingOptions,
-                                            template.getName(),
-                                            template.getType());
+                            switch (template.getType()) {
+                                case CUSTOM:
+                                    return conn.getService()
+                                            .start(
+                                                    recordingOptions,
+                                                    customTemplateService
+                                                            .getXml(
+                                                                    template.getName(),
+                                                                    TemplateType.CUSTOM)
+                                                            .orElseThrow());
+                                case TARGET:
+                                    return conn.getService().start(recordingOptions, template);
+                                default:
+                                    throw new IllegalStateException(
+                                            "Unknown template type: " + template.getType());
+                            }
                         });
 
         Map<String, String> labels = new HashMap<>(rawLabels);
