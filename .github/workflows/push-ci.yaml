@@ -105,7 +105,7 @@ jobs:
     - name: Set DOCKER_HOST environment variable
       run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
     - name: Build application
-      run: ./mvnw -B -U clean verify
+      run: ./mvnw -B -U -Dquarkus.container-image.additional-tags= clean verify
       continue-on-error: ${{ matrix.java != '17' }}
     - name: Delete local integration test image
       run: podman rmi ${{ env.CI_IMG }}:dev ${{ env.CI_IMG }}:${{ env.IMAGE_VERSION }}
