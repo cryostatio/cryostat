@@ -229,8 +229,7 @@ public class Discovery {
             // check if a plugin record with the same callback already exists. If it does,
             // ping it:
             // if it's still there reject this request as a duplicate, otherwise delete the
-            // previous
-            // record and accept this new one as a replacement
+            // previous record and accept this new one as a replacement
             DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
                     .singleResultOptional()
                     .ifPresent(

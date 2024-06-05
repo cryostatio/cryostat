@@ -55,6 +55,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.NamedQueries;
+import jakarta.persistence.NamedQuery;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PostPersist;
@@ -73,6 +75,7 @@ import org.projectnessie.cel.tools.ScriptException;
 
 @Entity
 @EntityListeners(Target.Listener.class)
+@NamedQueries({@NamedQuery(name = "Target.unconnected", query = "from Target where jvmId is null")})
 public class Target extends PanacheEntity {
 
     public static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
@@ -319,9 +322,9 @@ public class Target extends PanacheEntity {
 
         @ConsumeEvent(value = Credential.CREDENTIALS_STORED, blocking = true)
         @Transactional
+        @Blocking
         void updateCredential(Credential credential) {
-            Target.<Target>find("jvmId", (String) null)
-                    .list()
+            Target.<Target>stream("#Target.unconnected")
                     .forEach(
                             t -> {
                                 try {
@@ -360,15 +363,19 @@ public class Target extends PanacheEntity {
 
         @Blocking
         private void updateTargetJvmId(Target t, Credential credential) {
-            t.jvmId =
-                    connectionManager
-                            .executeDirect(
-                                    t,
-                                    Optional.ofNullable(credential),
-                                    JFRConnection::getJvmIdentifier)
-                            .map(JvmIdentifier::getHash)
-                            .await()
-                            .atMost(timeout);
+            try {
+                t.jvmId =
+                        connectionManager
+                                .executeDirect(
+                                        t,
+                                        Optional.ofNullable(credential),
+                                        JFRConnection::getJvmIdentifier)
+                                .map(JvmIdentifier::getHash)
+                                .await()
+                                .atMost(timeout);
+            } catch (Exception e) {
+                logger.error(e);
+            }
         }
 
         @PostPersist
