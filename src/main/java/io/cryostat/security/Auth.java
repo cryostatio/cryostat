@@ -28,6 +28,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.SecurityContext;
 import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
@@ -47,10 +48,16 @@ public class Auth {
     @Path("/api/v2.1/auth")
     @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
-    public Response login(@Context RoutingContext context) {
+    public Response login(@Context RoutingContext context, SecurityContext securityContext) {
+        String user =
+                securityContext.getUserPrincipal() != null
+                        ? securityContext.getUserPrincipal().getName()
+                        : context.request().getHeader("X-Forwarded-User");
+        if (user == null) {
+            user = "";
+        }
         return Response.ok()
-                .header("X-WWW-Authenticate", "None")
-                .entity(V2Response.json(Response.Status.OK, Map.of("username", "user")))
+                .entity(V2Response.json(Response.Status.OK, Map.of("username", user)))
                 .build();
     }
 }
