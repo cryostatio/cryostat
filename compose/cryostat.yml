@@ -6,7 +6,7 @@ services:
         limits:
           cpus: '2'
           memory: 512m
-    image: ${CRYOSTAT_IMAGE:-quay.io/cryostat/cryostat:3.0.0-snapshot}
+    image: ${CRYOSTAT_IMAGE:-quay.io/cryostat/cryostat:latest}
     volumes:
       - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/user/1000/podman/podman.sock:Z
       - jmxtls_cfg:/truststore:U
