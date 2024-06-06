@@ -48,6 +48,8 @@ import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
+import itest.GraphQLTest.ActiveRecording.DoPutMetadata;
+import itest.GraphQLTest.DeleteMutationResponse;
 import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -311,7 +313,7 @@ class GraphQLTest extends StandardSelfTest {
         deleteRecording();
     }
 
-    @Disabled
+    /*  @Disabled
     @Test
     @Order(5)
     void testActiveRecordingMetadataMutation() throws Exception {
@@ -348,28 +350,117 @@ class GraphQLTest extends StandardSelfTest {
 
         MatcherAssert.assertThat(
                 actual.getData().getArchiveRecording(), Matchers.not(Matchers.empty()));
-        MatcherAssert.assertThat(actual.getData().getArchiveRecording(), Matchers.hasSize(1));
+        MatcherAssert.assertThat(actual.getData().getArchiveRecording(), Matchers.hasSize(1)); */
 
-        // MatcherAssert.assertThat(actual.getData().getTargetNodes(), Matchers.hasSize(1));
+    // MatcherAssert.assertThat(actual.getData().getTargetNodes(), Matchers.hasSize(1));
 
-        // TargetNode node = actual.data.targetNodes.get(0);
+    // TargetNode node = actual.data.targetNodes.get(0);
 
-        // MatcherAssert.assertThat(node.recordings.active.data, Matchers.hasSize(1));
+    // MatcherAssert.assertThat(node.recordings.active.data, Matchers.hasSize(1));
 
-        /*  ActiveRecording activeRecording = actual.getData().recordings.active.data.get(0);
+    /*  ActiveRecording activeRecording = actual.getData().recordings.active.data.get(0);
 
+    MatcherAssert.assertThat(
+            activeRecording.metadata,
+            Matchers.equalTo(
+                    RecordingMetadata.of(
+                            Map.of(
+                                    "template.name",
+                                    "Profiling",
+                                    "template.type",
+                                    "TARGET",
+                                    "newLabel",
+                                    "newValue")))); */
+    // }
+
+    @Test
+    @Order(5)
+    void testActiveRecordingMetadataMutation() throws Exception {
+        Thread.sleep(5000);
+        JsonObject notificationRecording = startRecording();
+        Assertions.assertEquals("test", notificationRecording.getString("name"));
+        int id = Integer.parseInt(notificationRecording.getString("id"));
+        System.out.println("+++ID: " + id);
+
+        JsonObject variables = new JsonObject();
+        variables.put("recordingId", id);
+        JsonArray labels = new JsonArray();
+        labels.add(new JsonObject().put("key", "template.name").put("value", "Profiling"));
+        labels.add(new JsonObject().put("key", "template.type").put("value", "TARGET"));
+        labels.add(new JsonObject().put("key", "newLabel").put("value", "newValue"));
+        labels.add(new JsonObject().put("key", "newkey").put("value", "newvalue"));
+        JsonObject metadataInput = new JsonObject().put("labels", labels);
+        variables.put("metadataInput", metadataInput);
+
+        JsonObject query = new JsonObject();
+        query.put(
+                "query",
+                "query ($metadataInput: MetadataLabelsInput!) { targetNodes { name target {"
+                        + " activeRecordings(filter: {name: \"test\"}) { data { id"
+                        + " doPutMetadata(metadataInput: $metadataInput) { metadata { labels { key"
+                        + " value } } } } } } } }");
+        query.put("variables", variables);
+
+        HttpResponse<Buffer> resp =
+                webClient
+                        .extensions()
+                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
-                activeRecording.metadata,
-                Matchers.equalTo(
-                        RecordingMetadata.of(
-                                Map.of(
-                                        "template.name",
-                                        "Profiling",
-                                        "template.type",
-                                        "TARGET",
-                                        "newLabel",
-                                        "newValue")))); */
+                resp.statusCode(),
+                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
+        String jsonResponse = resp.bodyAsString();
+        System.out.println("+++ActiveMutation Resp here: " + jsonResponse);
+
+        TypeReference<ActiveMutationResponse> typeRef =
+                new TypeReference<ActiveMutationResponse>() {};
+        ActiveMutationResponse actual = mapper.readValue(jsonResponse, typeRef);
+        System.out.println("+++ActualMutation Object here: " + actual.toString());
+
+        List<TargetNode> targetNodes = actual.getData().getTargetNodes();
+        System.out.println("+++targetNodes: " + targetNodes);
+        MatcherAssert.assertThat(targetNodes, Matchers.not(Matchers.empty()));
+        MatcherAssert.assertThat(targetNodes, Matchers.hasSize(1));
+
+        List<ActiveRecording> activeRecordings = targetNodes.get(0).getRecordings().active.data;
+        System.out.println("+++activeRecordings: " + activeRecordings);
+        MatcherAssert.assertThat(activeRecordings, Matchers.not(Matchers.empty()));
+        MatcherAssert.assertThat(activeRecordings, Matchers.hasSize(1));
+
+        for (ActiveRecording activeRecording : activeRecordings) {
+            System.out.println("Active Recording Name: " + activeRecording.getName());
+            List<KeyValue> updatedLabels = activeRecording.getDoPutMetadata().getMetadata().labels;
+            for (KeyValue label : updatedLabels) {
+                System.out.println("Label Key: " + label.getKey() + ", Value: " + label.getValue());
+            }
+        }
+
+        deleteRecording();
     }
+
+    /*
+    List<TargetNode> targetNodes = actual.getData().getTargetNodes().get(0);
+    for (TargetNode targetNode : targetNodes) {
+        Assertions.assertNotNull(targetNode.getTarget());
+        List<ActiveRecording> recordings = targetNode.getTarget().getActiveRecordings();
+        for (ActiveRecording recording : recordings) {
+            Assertions.assertEquals(id, recording.getId());
+            RecordingMetadata metadata = recording.getDoPutMetadata().getMetadata();
+            Assertions.assertNotNull(metadata);
+            List<Label> labelsList = metadata.getLabels();
+            Assertions.assertFalse(labelsList.isEmpty());
+            Map<String, String> expectedLabels = Map.of(
+                "template.name", "Profiling",
+                "template.type", "TARGET",
+                "newLabel", "newValue",
+                "newkey", "newvalue"
+            );
+            for (Label label : labelsList) {
+                Assertions.assertTrue(expectedLabels.containsKey(label.getKey()));
+                Assertions.assertEquals(expectedLabels.get(label.getKey()), label.getValue());
+            }
+        }
+    }
+    */
 
     @Disabled
     @Test
@@ -1193,6 +1284,7 @@ class GraphQLTest extends StandardSelfTest {
         String connectUrl;
         String jvmId;
         Annotations annotations;
+        Recordings activeRecordings;
 
         public String getAlias() {
             return alias;
@@ -1226,9 +1318,17 @@ class GraphQLTest extends StandardSelfTest {
             this.annotations = annotations;
         }
 
+        public Recordings getActiveRecordings() {
+            return activeRecordings;
+        }
+
+        public void setActiveRecordings(Recordings activeRecordings) {
+            this.activeRecordings = activeRecordings;
+        }
+
         @Override
         public int hashCode() {
-            return Objects.hash(alias, connectUrl, annotations);
+            return Objects.hash(alias, connectUrl, annotations, activeRecordings);
         }
 
         @Override
@@ -1246,7 +1346,8 @@ class GraphQLTest extends StandardSelfTest {
             return Objects.equals(alias, other.alias)
                     && Objects.equals(connectUrl, other.connectUrl)
                     && Objects.equals(jvmId, other.jvmId)
-                    && Objects.equals(annotations, other.annotations);
+                    && Objects.equals(annotations, other.annotations)
+                    && Objects.equals(activeRecordings, other.activeRecordings);
         }
 
         @Override
@@ -1259,6 +1360,8 @@ class GraphQLTest extends StandardSelfTest {
                     + jvmId
                     + ", annotations="
                     + annotations
+                    + ", activeRecordings="
+                    + activeRecordings
                     + "]";
         }
     }
@@ -1358,6 +1461,22 @@ class GraphQLTest extends StandardSelfTest {
         long archivedTime;
 
         ArchivedRecording doDelete;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public RecordingMetadata getMetadata() {
+            return metadata;
+        }
+
+        public void setMetadata(RecordingMetadata metadata) {
+            this.metadata = metadata;
+        }
 
         @Override
         public String toString() {
@@ -1716,8 +1835,16 @@ class GraphQLTest extends StandardSelfTest {
     }
 
     static class Active {
-        List<ActiveRecording> data;
+        private List<ActiveRecording> data;
         AggregateInfo aggregate;
+
+        public List<ActiveRecording> getData() {
+            return data;
+        }
+
+        public void setData(List<ActiveRecording> data) {
+            this.data = data;
+        }
 
         @Override
         public String toString() {
@@ -1765,80 +1892,240 @@ class GraphQLTest extends StandardSelfTest {
         ArchivedRecording doArchive;
         ActiveRecording doDelete;
 
+        private DoPutMetadata doPutMetadata;
+
+        public static class DoPutMetadata {
+            private RecordingMetadata metadata;
+
+            public RecordingMetadata getMetadata() {
+                return metadata;
+            }
+
+            public void setMetadata(RecordingMetadata metadata) {
+                this.metadata = metadata;
+            }
+
+            @Override
+            public String toString() {
+                return "DoPutMetadata [metadata=" + metadata + "]";
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(metadata);
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (this == obj) return true;
+                if (obj == null) return false;
+                if (getClass() != obj.getClass()) return false;
+                DoPutMetadata other = (DoPutMetadata) obj;
+                return Objects.equals(metadata, other.metadata);
+            }
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        public void setId(long id) {
+            this.id = id;
+        }
+
+        public long getRemoteId() {
+            return remoteId;
+        }
+
+        public void setRemoteId(long remoteId) {
+            this.remoteId = remoteId;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getReportUrl() {
+            return reportUrl;
+        }
+
+        public void setReportUrl(String reportUrl) {
+            this.reportUrl = reportUrl;
+        }
+
+        public String getDownloadUrl() {
+            return downloadUrl;
+        }
+
+        public void setDownloadUrl(String downloadUrl) {
+            this.downloadUrl = downloadUrl;
+        }
+
+        public RecordingMetadata getMetadata() {
+            return metadata;
+        }
+
+        public void setMetadata(RecordingMetadata metadata) {
+            this.metadata = metadata;
+        }
+
+        public String getState() {
+            return state;
+        }
+
+        public void setState(String state) {
+            this.state = state;
+        }
+
+        public long getStartTime() {
+            return startTime;
+        }
+
+        public void setStartTime(long startTime) {
+            this.startTime = startTime;
+        }
+
+        public long getDuration() {
+            return duration;
+        }
+
+        public void setDuration(long duration) {
+            this.duration = duration;
+        }
+
+        public boolean isContinuous() {
+            return continuous;
+        }
+
+        public void setContinuous(boolean continuous) {
+            this.continuous = continuous;
+        }
+
+        public boolean isToDisk() {
+            return toDisk;
+        }
+
+        public void setToDisk(boolean toDisk) {
+            this.toDisk = toDisk;
+        }
+
+        public long getMaxSize() {
+            return maxSize;
+        }
+
+        public void setMaxSize(long maxSize) {
+            this.maxSize = maxSize;
+        }
+
+        public long getMaxAge() {
+            return maxAge;
+        }
+
+        public void setMaxAge(long maxAge) {
+            this.maxAge = maxAge;
+        }
+
+        public List<KeyValue> getLabels() {
+            return labels;
+        }
+
+        public void setLabels(List<KeyValue> labels) {
+            this.labels = labels;
+        }
+
+        public DoPutMetadata getDoPutMetadata() {
+            return doPutMetadata;
+        }
+
+        public void setDoPutMetadata(DoPutMetadata doPutMetadata) {
+            this.doPutMetadata = doPutMetadata;
+        }
+
         @Override
         public int hashCode() {
             return Objects.hash(
-                    continuous,
-                    doArchive,
-                    doDelete,
-                    downloadUrl,
-                    duration,
-                    maxAge,
-                    maxSize,
-                    metadata,
+                    id,
+                    remoteId,
                     name,
                     reportUrl,
-                    startTime,
+                    downloadUrl,
+                    metadata,
                     state,
-                    toDisk);
+                    startTime,
+                    duration,
+                    continuous,
+                    toDisk,
+                    maxSize,
+                    maxAge,
+                    labels,
+                    doPutMetadata);
         }
 
         @Override
         public boolean equals(Object obj) {
-            if (this == obj) {
-                return true;
-            }
-            if (obj == null) {
-                return false;
-            }
-            if (getClass() != obj.getClass()) {
-                return false;
-            }
+            if (this == obj) return true;
+            if (obj == null) return false;
+            if (getClass() != obj.getClass()) return false;
             ActiveRecording other = (ActiveRecording) obj;
-            return continuous == other.continuous
-                    && Objects.equals(doArchive, other.doArchive)
-                    && Objects.equals(doDelete, other.doDelete)
-                    && Objects.equals(downloadUrl, other.downloadUrl)
+            return id == other.id
+                    && remoteId == other.remoteId
                     && duration == other.duration
-                    && maxAge == other.maxAge
+                    && continuous == other.continuous
+                    && toDisk == other.toDisk
                     && maxSize == other.maxSize
-                    && Objects.equals(metadata, other.metadata)
+                    && maxAge == other.maxAge
+                    && startTime == other.startTime
                     && Objects.equals(name, other.name)
                     && Objects.equals(reportUrl, other.reportUrl)
-                    && startTime == other.startTime
+                    && Objects.equals(downloadUrl, other.downloadUrl)
+                    && Objects.equals(metadata, other.metadata)
                     && Objects.equals(state, other.state)
-                    && toDisk == other.toDisk;
+                    && Objects.equals(labels, other.labels)
+                    && Objects.equals(doPutMetadata, other.doPutMetadata);
         }
 
         @Override
         public String toString() {
-            return "ActiveRecording [continuous="
-                    + continuous
-                    + ", doArchive="
-                    + doArchive
-                    + ", doDelete="
-                    + doDelete
-                    + ", downloadUrl="
+            return "ActiveRecording{"
+                    + "id="
+                    + id
+                    + ", remoteId="
+                    + remoteId
+                    + ", name='"
+                    + name
+                    + '\''
+                    + ", reportUrl='"
+                    + reportUrl
+                    + '\''
+                    + ", downloadUrl='"
                     + downloadUrl
-                    + ", duration="
-                    + duration
-                    + ", maxAge="
-                    + maxAge
-                    + ", maxSize="
-                    + maxSize
+                    + '\''
                     + ", metadata="
                     + metadata
-                    + ", name="
-                    + name
-                    + ", reportUrl="
-                    + reportUrl
+                    + ", state='"
+                    + state
+                    + '\''
                     + ", startTime="
                     + startTime
-                    + ", state="
-                    + state
+                    + ", duration="
+                    + duration
+                    + ", continuous="
+                    + continuous
                     + ", toDisk="
                     + toDisk
-                    + "]";
+                    + ", maxSize="
+                    + maxSize
+                    + ", maxAge="
+                    + maxAge
+                    + ", labels="
+                    + labels
+                    + ", doPutMetadata="
+                    + doPutMetadata
+                    + '}';
         }
     }
 
@@ -2207,24 +2494,81 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    class ActiveMutationResponse extends ArchiveMutationResponse {
-        private List<TargetNode> targetNodes;
+    @JsonIgnoreProperties(ignoreUnknown = true)
+    static class ActiveMutationResponse {
+        @JsonProperty("data")
+        private ActiveData data;
 
-        public List<TargetNode> getTargetNodes() {
-            return targetNodes;
+        public ActiveData getData() {
+            return data;
         }
 
-        public void setTargetNodes(List<TargetNode> targetNodes) {
-            this.targetNodes = targetNodes;
+        public void setData(ActiveData data) {
+            this.data = data;
         }
-    }
 
-    /*     static class ActiveMutationResponse extends ArchiveMutationResponse {
         @Override
         public String toString() {
             return "ActiveMutationResponse [data=" + data + "]";
         }
-    } */
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(data);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            ActiveMutationResponse other = (ActiveMutationResponse) obj;
+            return Objects.equals(data, other.data);
+        }
+
+        static class ActiveData {
+            private List<TargetNode> targetNodes;
+
+            public List<TargetNode> getTargetNodes() {
+                return targetNodes;
+            }
+
+            public void setTargetNodes(List<TargetNode> targetNodes) {
+                this.targetNodes = targetNodes;
+            }
+
+            @Override
+            public String toString() {
+                return "ActiveData{" + "targetNodes=" + targetNodes + '}';
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(targetNodes);
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (this == obj) {
+                    return true;
+                }
+                if (obj == null) {
+                    return false;
+                }
+                if (getClass() != obj.getClass()) {
+                    return false;
+                }
+                ActiveData other = (ActiveData) obj;
+                return Objects.equals(targetNodes, other.targetNodes);
+            }
+        }
+    }
 
     static class DeleteMutationResponse {
         TargetNodes data;
