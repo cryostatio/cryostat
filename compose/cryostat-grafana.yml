@@ -2,7 +2,7 @@ version: "3"
 services:
   cryostat:
     environment:
-      - GRAFANA_DASHBOARD_EXT_URL=${GRAFANA_DASHBOARD_EXT_URL:-http://localhost:3000/}
+      - GRAFANA_DASHBOARD_EXT_URL=${GRAFANA_DASHBOARD_EXT_URL:-/grafana/}
       - GRAFANA_DASHBOARD_URL=http://grafana:3000
   grafana:
     image: ${GRAFANA_DASHBOARD_IMAGE:-quay.io/cryostat/cryostat-grafana-dashboard:latest}
