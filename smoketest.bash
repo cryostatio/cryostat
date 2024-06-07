@@ -101,7 +101,6 @@ if [ "${USE_PROXY}" = "true" ]; then
     FILES+=("${DIR}/compose/auth_proxy.yml")
     CRYOSTAT_HTTP_HOST=auth
     CRYOSTAT_HTTP_PORT=8181
-    GRAFANA_DASHBOARD_EXT_URL=http://localhost:8080/grafana/
 else
     FILES+=("${DIR}/compose/no_proxy.yml")
     if [ "${s3}" != "none" ]; then
