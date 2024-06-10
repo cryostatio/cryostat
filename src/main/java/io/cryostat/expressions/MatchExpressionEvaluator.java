@@ -33,6 +33,7 @@ import io.quarkus.cache.CacheManager;
 import io.quarkus.cache.CacheResult;
 import io.quarkus.cache.CompositeCacheKey;
 import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -76,6 +77,7 @@ public class MatchExpressionEvaluator {
     }
 
     @Transactional
+    @Blocking
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
     void onMessage(TargetDiscovery event) {
         var target = Target.<Target>find("id", event.serviceRef().id).singleResultOptional();
@@ -99,11 +101,11 @@ public class MatchExpressionEvaluator {
             evt.begin();
             return scriptHost
                     .buildScript(matchExpression)
+                    .withTypes(SimplifiedTarget.class)
                     .withDeclarations(
                             Decls.newVar(
                                     "target",
                                     Decls.newObjectType(SimplifiedTarget.class.getName())))
-                    .withTypes(SimplifiedTarget.class)
                     .build();
         } finally {
             evt.end();
