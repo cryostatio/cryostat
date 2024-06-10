@@ -16,9 +16,11 @@
 package io.cryostat.expressions;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 import io.cryostat.V2Response;
 import io.cryostat.expressions.MatchExpression.MatchedExpression;
@@ -49,9 +51,18 @@ public class MatchExpressions {
     // client but instead only a list of IDs, which will then be pulled from the target discovery
     // database for testing
     public V2Response test(RequestData requestData) throws ScriptException {
+        var targets = new HashSet<Target>();
+        // don't trust the client to provide the whole Target object to be tested, just extract the
+        // connectUrl they provide and use that to look up the Target definition as we know it.
+        Optional.ofNullable(requestData.targets)
+                .orElseGet(() -> List.of())
+                .forEach(
+                        t ->
+                                Target.<Target>find("connectUrl", t.connectUrl)
+                                        .singleResultOptional()
+                                        .ifPresent(targets::add));
         var matched =
-                targetMatcher.match(
-                        new MatchExpression(requestData.matchExpression), requestData.targets);
+                targetMatcher.match(new MatchExpression(requestData.matchExpression), targets);
         return V2Response.json(Response.Status.OK, matched);
     }
 
