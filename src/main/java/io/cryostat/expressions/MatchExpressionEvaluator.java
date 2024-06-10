@@ -26,15 +26,18 @@ import java.util.stream.Stream;
 import io.cryostat.expressions.MatchExpression.ExpressionEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
+import io.cryostat.targets.Target.TargetDiscovery;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.cache.CacheManager;
 import io.quarkus.cache.CacheResult;
 import io.quarkus.cache.CompositeCacheKey;
 import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.Label;
@@ -73,17 +76,36 @@ public class MatchExpressionEvaluator {
         }
     }
 
+    @Transactional
+    @Blocking
+    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
+    void onMessage(TargetDiscovery event) {
+        var target = Target.<Target>find("id", event.serviceRef().id).singleResultOptional();
+        switch (event.kind()) {
+            case LOST:
+                // fall-through
+            case FOUND:
+                // fall-through
+            case MODIFIED:
+                target.ifPresent(this::invalidate);
+                break;
+            default:
+                // no-op
+                break;
+        }
+    }
+
     Script createScript(String matchExpression) throws ScriptCreateException {
         ScriptCreation evt = new ScriptCreation();
         try {
             evt.begin();
             return scriptHost
                     .buildScript(matchExpression)
+                    .withTypes(SimplifiedTarget.class)
                     .withDeclarations(
                             Decls.newVar(
                                     "target",
                                     Decls.newObjectType(SimplifiedTarget.class.getName())))
-                    .withTypes(SimplifiedTarget.class)
                     .build();
         } finally {
             evt.end();
@@ -108,6 +130,19 @@ public class MatchExpressionEvaluator {
                                 Objects.equals(
                                         (String) ((CompositeCacheKey) k).getKeyElements()[0],
                                         matchExpression))
+                .subscribe()
+                .with((v) -> {}, logger::warn);
+    }
+
+    void invalidate(Target target) {
+        var cache = cacheManager.getCache(CACHE_NAME).orElseThrow();
+        // 0-index is important here. the argument order of the load() method determines the
+        // composite key order
+        cache.invalidateIf(
+                        k ->
+                                Objects.equals(
+                                        (Target) ((CompositeCacheKey) k).getKeyElements()[1],
+                                        target))
                 .subscribe()
                 .with((v) -> {}, logger::warn);
     }
