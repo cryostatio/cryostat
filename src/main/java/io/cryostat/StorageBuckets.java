@@ -32,22 +32,22 @@ public class StorageBuckets {
 
     public void createIfNecessary(String bucket) {
         boolean exists = false;
-        logger.infov("Checking if storage bucket \"{0}\" exists ...", bucket);
+        logger.debugv("Checking if storage bucket \"{0}\" exists ...", bucket);
         try {
             exists =
                     HttpStatusCodeIdentifier.isSuccessCode(
                             storage.headBucket(HeadBucketRequest.builder().bucket(bucket).build())
                                     .sdkHttpResponse()
                                     .statusCode());
-            logger.infov("Storage bucket \"{0}\" exists? {1}", bucket, exists);
+            logger.debugv("Storage bucket \"{0}\" exists? {1}", bucket, exists);
         } catch (Exception e) {
-            logger.info(e);
+            logger.warn(e);
         }
         if (!exists) {
-            logger.infov("Attempting to create storage bucket \"{0}\" ...", bucket);
+            logger.debugv("Attempting to create storage bucket \"{0}\" ...", bucket);
             try {
                 storage.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
-                logger.infov("Storage bucket \"{0}\" created", bucket);
+                logger.debugv("Storage bucket \"{0}\" created", bucket);
             } catch (Exception e) {
                 logger.error(e);
             }

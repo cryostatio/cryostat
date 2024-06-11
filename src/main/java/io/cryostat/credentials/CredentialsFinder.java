@@ -65,7 +65,7 @@ public class CredentialsFinder {
                                                         return expressionEvaluator.applies(
                                                                 c.matchExpression, t);
                                                     } catch (ScriptException e) {
-                                                        logger.error(e);
+                                                        logger.warn(e);
                                                         return false;
                                                     }
                                                 })

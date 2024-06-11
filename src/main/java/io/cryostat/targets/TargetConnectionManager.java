@@ -126,7 +126,7 @@ public class TargetConnectionManager {
                         .scheduler(Scheduler.systemScheduler())
                         .removalListener(this::closeConnection);
         if (ttl.isNegative()) {
-            logger.errorv(
+            logger.warnv(
                     "TTL must be a non-negative integer in seconds, was {0} - ignoring",
                     ttl.toSeconds());
         } else if (!ttl.isZero()) {
@@ -264,16 +264,16 @@ public class TargetConnectionManager {
 
     private void closeConnection(URI connectUrl, JFRConnection connection, RemovalCause cause) {
         if (connectUrl == null) {
-            logger.error("Connection eviction triggered with null connectUrl");
+            logger.warn("Connection eviction triggered with null connectUrl");
             return;
         }
         if (connection == null) {
-            logger.error("Connection eviction triggered with null connection");
+            logger.warn("Connection eviction triggered with null connection");
             return;
         }
         try {
             TargetConnectionClosed evt = new TargetConnectionClosed(connectUrl, cause.name());
-            logger.infov("Removing cached connection for {0}: {1}", connectUrl, cause);
+            logger.debugv("Removing cached connection for {0}: {1}", connectUrl, cause);
             evt.begin();
             try {
                 connection.close();
@@ -292,7 +292,7 @@ public class TargetConnectionManager {
         } finally {
             if (semaphore.isPresent()) {
                 semaphore.get().release();
-                logger.tracev(
+                logger.debugv(
                         "Semaphore released! Permits: {0}", semaphore.get().availablePermits());
             }
         }
@@ -350,7 +350,7 @@ public class TargetConnectionManager {
             return CompletableFuture.supplyAsync(
                     () -> {
                         try {
-                            logger.infov("Opening connection to {0}", key);
+                            logger.debugv("Opening connection to {0}", key);
                             return connect(key);
                         } catch (Exception e) {
                             throw new CompletionException(e);
@@ -364,10 +364,10 @@ public class TargetConnectionManager {
                 URI key, JFRConnection prev, Executor executor) throws Exception {
             // if we're refreshed and already have an existing, open connection, just reuse it.
             if (prev.isConnected()) {
-                logger.infov("Reusing connection to {0}", key);
+                logger.debugv("Reusing connection to {0}", key);
                 return CompletableFuture.completedFuture(prev);
             }
-            logger.infov("Refreshing connection to {0}", key);
+            logger.debugv("Refreshing connection to {0}", key);
             return asyncLoad(key, executor);
         }
     }
