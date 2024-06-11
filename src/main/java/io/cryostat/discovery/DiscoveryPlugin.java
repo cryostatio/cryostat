@@ -111,7 +111,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             }
             try {
                 PluginCallback.create(plugin).ping();
-                logger.infov(
+                logger.debugv(
                         "Registered discovery plugin: {0} @ {1}",
                         plugin.realm.name, plugin.callback);
             } catch (URISyntaxException e) {

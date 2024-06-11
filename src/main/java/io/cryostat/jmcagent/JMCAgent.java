@@ -266,7 +266,7 @@ public class JMCAgent {
             service.addTemplate(stream, probeTemplateName);
             return Response.status(RestResponse.Status.OK).build();
         } catch (Exception e) {
-            logger.error(e.getMessage(), e);
+            logger.warn(e.getMessage(), e);
             throw new BadRequestException(e);
         }
     }

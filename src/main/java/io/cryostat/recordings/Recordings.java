@@ -193,7 +193,7 @@ public class Recordings {
         }
         labels.put("jvmId", jvmId);
         Metadata metadata = new Metadata(labels);
-        logger.infov(
+        logger.tracev(
                 "recording:{0}, labels:{1}, maxFiles:{2}", recording.fileName(), labels, maxFiles);
         doUpload(recording, metadata, jvmId);
         var objs = new ArrayList<S3Object>();
@@ -206,7 +206,7 @@ public class Recordings {
         if (toRemove.isEmpty()) {
             return;
         }
-        logger.infov("Removing {0}", toRemove);
+        logger.tracev("Removing {0}", toRemove);
 
         // FIXME this notification should be emitted in the deletion operation stream so that there
         // is one notification per deleted object
@@ -305,7 +305,7 @@ public class Recordings {
 
     @Blocking
     Map<String, Object> doUpload(FileUpload recording, Metadata metadata, String jvmId) {
-        logger.infov(
+        logger.tracev(
                 "Upload: {0} {1} {2} {3}",
                 recording.name(), recording.fileName(), recording.filePath(), metadata.labels);
         String filename = recording.fileName().strip();
@@ -326,7 +326,7 @@ public class Recordings {
                         .tagging(recordingHelper.createMetadataTagging(new Metadata(labels)))
                         .build(),
                 RequestBody.fromFile(recording.filePath()));
-        logger.info("Upload complete");
+        logger.trace("Upload complete");
 
         var target = Target.getTargetByJvmId(jvmId);
         var event =
@@ -707,7 +707,7 @@ public class Recordings {
     @RolesAllowed("write")
     public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
             throws Exception {
-        logger.infov("Handling archived recording deletion: {0} / {1}", jvmId, filename);
+        logger.tracev("Handling archived recording deletion: {0} / {1}", jvmId, filename);
         var metadata =
                 recordingHelper
                         .getArchivedRecordingMetadata(jvmId, filename)
@@ -722,10 +722,10 @@ public class Recordings {
                                 () ->
                                         metadata.labels.computeIfAbsent(
                                                 "connectUrl", k -> "lost-" + jvmId));
-        logger.infov(
+        logger.tracev(
                 "Archived recording from connectUrl \"{0}\" has metadata: {1}",
                 connectUrl, metadata);
-        logger.infov(
+        logger.tracev(
                 "Sending S3 deletion request for {0} {1}",
                 bucket, recordingHelper.archivedRecordingKey(jvmId, filename));
         var resp =
@@ -734,7 +734,7 @@ public class Recordings {
                                 .bucket(bucket)
                                 .key(recordingHelper.archivedRecordingKey(jvmId, filename))
                                 .build());
-        logger.infov(
+        logger.tracev(
                 "Got SDK response {0} {1}",
                 resp.sdkHttpResponse().statusCode(), resp.sdkHttpResponse().statusText());
         if (resp.sdkHttpResponse().isSuccessful()) {
@@ -1002,7 +1002,7 @@ public class Recordings {
                     .build();
         }
 
-        logger.infov("Handling presigned download request for {0}", pair);
+        logger.tracev("Handling presigned download request for {0}", pair);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
                         .bucket(bucket)
