@@ -116,7 +116,7 @@ public class KubeApiDiscovery {
                                                         .inform(
                                                                 new EndpointsHandler(),
                                                                 informerResyncPeriod.toMillis()));
-                                        logger.infov(
+                                        logger.debugv(
                                                 "Started Endpoints SharedInformer for"
                                                         + " namespace \"{0}\"",
                                                 ns);
@@ -150,7 +150,7 @@ public class KubeApiDiscovery {
             universe.persist();
         }
 
-        logger.infov("Starting {0} client", REALM);
+        logger.debugv("Starting {0} client", REALM);
     }
 
     @Transactional
@@ -166,12 +166,12 @@ public class KubeApiDiscovery {
             return;
         }
 
-        logger.infov("Shutting down {0} client", REALM);
+        logger.debugv("Shutting down {0} client", REALM);
         safeGetInformers()
                 .forEach(
                         (ns, informer) -> {
                             informer.close();
-                            logger.infov(
+                            logger.debugv(
                                     "Closed Endpoints SharedInformer for namespace \"{0}\"", ns);
                         });
     }
@@ -185,7 +185,7 @@ public class KubeApiDiscovery {
             boolean hasNamespace = StringUtils.isNotBlank(kubeConfig.getOwnNamespace());
             return kubeConfig.kubeApiAvailable() && hasNamespace;
         } catch (Exception e) {
-            logger.info(e);
+            logger.trace(e);
         }
         return false;
     }

@@ -83,7 +83,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
             universe.persist();
         }
 
-        logger.info("Starting JDP client");
+        logger.debug("Starting JDP client");
         jdp.addListener(this);
         try {
             jdp.start();
@@ -96,7 +96,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
         if (!enabled) {
             return;
         }
-        logger.info("Shutting down JDP client");
+        logger.debug("Shutting down JDP client");
         jdp.stop();
         jdp.removeListener(this);
     }
@@ -109,7 +109,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @ConsumeEvent(blocking = true, ordered = true)
     @Transactional(TxType.REQUIRES_NEW)
     void handleJdpEvent(JvmDiscoveryEvent evt) {
-        logger.infov(
+        logger.tracev(
                 "JDP Discovery Event {0} {1}",
                 evt.getEventKind(), evt.getJvmDescriptor().getMainClass());
         URI connectUrl;

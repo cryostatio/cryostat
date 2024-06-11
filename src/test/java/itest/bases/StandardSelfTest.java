@@ -101,10 +101,10 @@ public abstract class StandardSelfTest {
         if (!selfCustomTargetExists()) {
             return;
         }
-        logger.infov("Deleting self custom target at {0}", selfCustomTargetLocation);
+        logger.debugv("Deleting self custom target at {0}", selfCustomTargetLocation);
         String path = URI.create(selfCustomTargetLocation).getPath();
         HttpResponse<Buffer> resp = webClient.extensions().delete(path, REQUEST_TIMEOUT_SECONDS);
-        logger.infov(
+        logger.tracev(
                 "DELETE {0} -> HTTP {1} {2}: [{3}]",
                 path, resp.statusCode(), resp.statusMessage(), resp.headers());
         selfCustomTargetLocation = null;
@@ -115,7 +115,7 @@ public abstract class StandardSelfTest {
         boolean found = false;
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(DISCOVERY_DEADLINE_SECONDS);
         while (!found && System.nanoTime() < deadline) {
-            logger.infov("Waiting for discovery to see at least {0} target(s)...", totalTargets);
+            logger.debugv("Waiting for discovery to see at least {0} target(s)...", totalTargets);
             CompletableFuture<Boolean> queryFound = new CompletableFuture<>();
             WORKER.submit(
                     () -> {
@@ -132,7 +132,7 @@ public abstract class StandardSelfTest {
                                             }
                                             HttpResponse<JsonArray> resp = ar.result();
                                             JsonArray arr = resp.body();
-                                            logger.infov(
+                                            logger.tracev(
                                                     "GET /api/v3/targets -> HTTP {1} {2}: [{3}] ->"
                                                             + " {4}",
                                                     selfCustomTargetLocation,
@@ -140,7 +140,7 @@ public abstract class StandardSelfTest {
                                                     resp.statusMessage(),
                                                     resp.headers(),
                                                     arr);
-                                            logger.infov(
+                                            logger.debugv(
                                                     "Discovered {0} targets: {1}", arr.size(), arr);
                                             queryFound.complete(arr.size() >= totalTargets);
                                         });
@@ -167,7 +167,7 @@ public abstract class StandardSelfTest {
         try {
             HttpResponse<Buffer> resp =
                     webClient.extensions().get(selfCustomTargetLocation, REQUEST_TIMEOUT_SECONDS);
-            logger.infov(
+            logger.tracev(
                     "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
                     resp.statusCode(), resp.statusMessage(), resp.headers());
             boolean result = HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode());
@@ -186,7 +186,7 @@ public abstract class StandardSelfTest {
         if (selfCustomTargetExists()) {
             return;
         }
-        logger.info("Trying to define self-referential custom target...");
+        logger.debug("Trying to define self-referential custom target...");
         JsonObject self =
                 new JsonObject(Map.of("connectUrl", SELF_JMX_URL, "alias", SELFTEST_ALIAS));
         HttpResponse<Buffer> resp;
@@ -198,7 +198,7 @@ public abstract class StandardSelfTest {
                                     "/api/v2/targets",
                                     Buffer.buffer(self.encode()),
                                     REQUEST_TIMEOUT_SECONDS);
-            logger.infov(
+            logger.tracev(
                     "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
                     resp.statusCode(), resp.statusMessage(), resp.headers());
             if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
@@ -217,7 +217,7 @@ public abstract class StandardSelfTest {
             String path = URI.create(selfCustomTargetLocation).getPath();
             HttpResponse<Buffer> resp = webClient.extensions().get(path, REQUEST_TIMEOUT_SECONDS);
             JsonObject body = resp.bodyAsJsonObject();
-            logger.infov(
+            logger.tracev(
                     "GET {0} -> HTTP {1} {2}: [{3}] = {4}",
                     path, resp.statusCode(), resp.statusMessage(), resp.headers(), body);
             if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
@@ -235,7 +235,7 @@ public abstract class StandardSelfTest {
             String path = URI.create(selfCustomTargetLocation).getPath();
             HttpResponse<Buffer> resp = webClient.extensions().get(path, REQUEST_TIMEOUT_SECONDS);
             JsonObject body = resp.bodyAsJsonObject();
-            logger.infov(
+            logger.tracev(
                     "GET {0} -> HTTP {1} {2}: [{3}] = {4}",
                     path, resp.statusCode(), resp.statusMessage(), resp.headers(), body);
             if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
@@ -257,7 +257,7 @@ public abstract class StandardSelfTest {
     public static CompletableFuture<JsonObject> expectNotification(
             String category, long timeout, TimeUnit unit)
             throws TimeoutException, ExecutionException, InterruptedException {
-        logger.infov(
+        logger.debugv(
                 "Waiting for a \"{0}\" message within the next {1} {2} ...",
                 category, timeout, unit.name());
         CompletableFuture<JsonObject> future = new CompletableFuture<>();
@@ -279,7 +279,7 @@ public abstract class StandardSelfTest {
                                         JsonObject meta = resp.getJsonObject("meta");
                                         String c = meta.getString("category");
                                         if (Objects.equals(c, category)) {
-                                            logger.infov(
+                                            logger.tracev(
                                                     "Received expected \"{0}\" message", category);
                                             ws.end(unused -> future.complete(resp));
                                             ws.close();
@@ -352,7 +352,7 @@ public abstract class StandardSelfTest {
                                             return;
                                         }
                                         HttpResponse<Buffer> resp = ar.result();
-                                        logger.infov(
+                                        logger.tracev(
                                                 "GET {0} -> HTTP {1} {2}: [{3}]",
                                                 request.uri(),
                                                 resp.statusCode(),
