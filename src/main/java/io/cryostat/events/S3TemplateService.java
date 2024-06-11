@@ -113,11 +113,11 @@ public class S3TemplateService implements MutableTemplateService {
                                 } catch (IOException
                                         | InvalidXmlException
                                         | InvalidEventTemplateException e) {
-                                    logger.warn(e);
+                                    logger.error(e);
                                 }
                             });
         } catch (IOException e) {
-            logger.warn(e);
+            logger.error(e);
         }
     }
 

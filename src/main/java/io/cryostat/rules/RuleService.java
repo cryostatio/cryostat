@@ -176,7 +176,7 @@ public class RuleService {
                                 try {
                                     return evaluator.applies(rule.matchExpression, target);
                                 } catch (ScriptException e) {
-                                    logger.error(e);
+                                    logger.warn(e);
                                     return false;
                                 }
                             })

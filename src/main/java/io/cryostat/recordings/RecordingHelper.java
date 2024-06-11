@@ -421,7 +421,7 @@ public class RecordingHelper {
             }
         }
 
-        logger.tracev("Started recording: {0} {1}", target.connectUrl, target.activeRecordings);
+        logger.debugv("Started recording: {0} {1}", target.connectUrl, target.activeRecordings);
 
         return Uni.createFrom().item(recording);
     }
@@ -621,7 +621,7 @@ public class RecordingHelper {
                                 .filter(t -> t.getName().equals(templateName))
                                 .findFirst();
                     } catch (FlightRecorderException e) {
-                        logger.error(e);
+                        logger.warn(e);
                         return Optional.empty();
                     }
                 };
@@ -633,7 +633,7 @@ public class RecordingHelper {
                                 .filter(t -> t.getName().equals(templateName))
                                 .findFirst();
                     } catch (FlightRecorderException e) {
-                        logger.error(e);
+                        logger.warn(e);
                         return Optional.empty();
                     }
                 };
@@ -818,12 +818,12 @@ public class RecordingHelper {
                 }
                 accum += read;
                 if (read == -1) {
-                    logger.infov("Completed upload of {0} chunks ({1} bytes)", i - 1, accum + 1);
-                    logger.infov("Key: {0}", key);
+                    logger.tracev("Completed upload of {0} chunks ({1} bytes)", i - 1, accum + 1);
+                    logger.tracev("Key: {0}", key);
                     break;
                 }
 
-                logger.infov("Writing chunk {0} of {1} bytes", i, read);
+                logger.tracev("Writing chunk {0} of {1} bytes", i, read);
                 String eTag =
                         storage.uploadPart(
                                         UploadPartRequest.builder()
@@ -1010,7 +1010,7 @@ public class RecordingHelper {
         int read = 0;
 
         while (attempts > 0) {
-            logger.info("No bytes read, retrying...");
+            logger.trace("No bytes read, retrying...");
             read = channel.read(buffer);
             if (read > 0 || read < 0) {
                 break;
@@ -1297,7 +1297,7 @@ public class RecordingHelper {
                                 }
                                 return tempFile;
                             } catch (Exception e) {
-                                logger.error(e);
+                                logger.warn(e);
                                 throw new BadRequestException(e);
                             }
                         });

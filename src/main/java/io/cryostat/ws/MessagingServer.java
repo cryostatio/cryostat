@@ -68,7 +68,7 @@ public class MessagingServer {
     public void onError(Session session, Throwable throwable) throws InterruptedException {
         logger.error("Session error", throwable);
         try {
-            logger.errorv("Closing session {0}", session.getId());
+            logger.debugv("Closing session {0}", session.getId());
             session.close();
         } catch (IOException ioe) {
             logger.error("Unable to close session", ioe);

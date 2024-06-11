@@ -212,7 +212,7 @@ public abstract class ContainerDiscovery {
             universe.persist();
         }
 
-        logger.infov("Starting {0} client", getRealm());
+        logger.debugv("Starting {0} client", getRealm());
 
         queryContainers();
         this.timerId = vertx.setPeriodic(pollPeriod.toMillis(), unused -> queryContainers());
@@ -222,7 +222,7 @@ public abstract class ContainerDiscovery {
         if (!(enabled() && available())) {
             return;
         }
-        logger.infov("Shutting down {0} client", getRealm());
+        logger.debugv("Shutting down {0} client", getRealm());
         vertx.cancelTimer(timerId);
     }
 

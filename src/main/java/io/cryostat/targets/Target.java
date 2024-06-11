@@ -357,7 +357,7 @@ public class Target extends PanacheEntity {
                     updateTargetJvmId(target, null);
                 }
             } catch (Exception e) {
-                logger.info(e);
+                logger.warn(e);
             }
         }
 

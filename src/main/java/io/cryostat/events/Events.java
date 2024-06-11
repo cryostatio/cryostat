@@ -48,7 +48,7 @@ public class Events {
     @Path("/api/v1/targets/{connectUrl}/events")
     @RolesAllowed("read")
     public Response listEventsV1(@RestPath URI connectUrl, @RestQuery String q) throws Exception {
-        logger.info(connectUrl.toString());
+        logger.tracev("connectUrl: %s", connectUrl.toString());
         Target target = Target.getTargetByConnectUrl(connectUrl);
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(
