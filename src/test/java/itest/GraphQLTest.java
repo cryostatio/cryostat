@@ -36,6 +36,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import io.cryostat.discovery.DiscoveryNode;
+import io.cryostat.graphql.ActiveRecordings;
+import io.cryostat.graphql.ArchivedRecordings;
 import io.cryostat.util.HttpMimeType;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -383,22 +385,21 @@ class GraphQLTest extends StandardSelfTest {
         System.out.println("+++ID: " + id);
 
         JsonObject variables = new JsonObject();
-        variables.put("recordingId", id);
         JsonArray labels = new JsonArray();
         labels.add(new JsonObject().put("key", "template.name").put("value", "Profiling"));
         labels.add(new JsonObject().put("key", "template.type").put("value", "TARGET"));
         labels.add(new JsonObject().put("key", "newLabel").put("value", "newValue"));
-        labels.add(new JsonObject().put("key", "newkey").put("value", "newvalue"));
+        labels.add(new JsonObject().put("key", "newKey").put("value", "anotherValue"));
         JsonObject metadataInput = new JsonObject().put("labels", labels);
         variables.put("metadataInput", metadataInput);
 
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "query ($metadataInput: MetadataLabelsInput!) { targetNodes { name target {"
-                        + " activeRecordings(filter: {name: \"test\"}) { data { id"
-                        + " doPutMetadata(metadataInput: $metadataInput) { metadata { labels { key"
-                        + " value } } } } } } } }");
+                "query ($metadataInput: MetadataLabelsInput!) { targetNodes(filter: { annotations:"
+                    + " [\"REALM = Custom Targets\"] }) { name target { recordings{ active(filter:"
+                    + " {name: \"test\"}) { data { name id doPutMetadata(metadataInput:"
+                    + " $metadataInput) { metadata { labels { key value } } } } } } } } }");
         query.put("variables", variables);
 
         HttpResponse<Buffer> resp =
@@ -421,7 +422,9 @@ class GraphQLTest extends StandardSelfTest {
         MatcherAssert.assertThat(targetNodes, Matchers.not(Matchers.empty()));
         MatcherAssert.assertThat(targetNodes, Matchers.hasSize(1));
 
-        List<ActiveRecording> activeRecordings = targetNodes.get(0).getRecordings().active.data;
+        TargetNode targetNode = targetNodes.get(0);
+        List<ActiveRecording> activeRecordings =
+                targetNode.getTarget().getRecordings().getActive().getData();
         System.out.println("+++activeRecordings: " + activeRecordings);
         MatcherAssert.assertThat(activeRecordings, Matchers.not(Matchers.empty()));
         MatcherAssert.assertThat(activeRecordings, Matchers.hasSize(1));
@@ -433,6 +436,19 @@ class GraphQLTest extends StandardSelfTest {
                 System.out.println("Label Key: " + label.getKey() + ", Value: " + label.getValue());
             }
         }
+        ActiveRecording updatedRecording = activeRecordings.get(0);
+
+        // Correctly retrieve the metadata labels
+        List<KeyValue> expectedLabels =
+                List.of(
+                        new KeyValue("template.name", "Profiling"),
+                        new KeyValue("template.type", "TARGET"),
+                        new KeyValue("newLabel", "newValue"),
+                        new KeyValue("newKey", "anotherValue"));
+
+        MatcherAssert.assertThat(
+                updatedRecording.getDoPutMetadata().getMetadata().labels,
+                Matchers.containsInAnyOrder(expectedLabels.toArray()));
 
         deleteRecording();
     }
@@ -1284,7 +1300,7 @@ class GraphQLTest extends StandardSelfTest {
         String connectUrl;
         String jvmId;
         Annotations annotations;
-        Recordings activeRecordings;
+        Recordings recordings;
 
         public String getAlias() {
             return alias;
@@ -1318,17 +1334,17 @@ class GraphQLTest extends StandardSelfTest {
             this.annotations = annotations;
         }
 
-        public Recordings getActiveRecordings() {
-            return activeRecordings;
+        public Recordings getRecordings() {
+            return recordings;
         }
 
-        public void setActiveRecordings(Recordings activeRecordings) {
-            this.activeRecordings = activeRecordings;
+        public void setRecordings(Recordings recordings) {
+            this.recordings = recordings;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(alias, connectUrl, annotations, activeRecordings);
+            return Objects.hash(alias, connectUrl, annotations, recordings);
         }
 
         @Override
@@ -1347,7 +1363,7 @@ class GraphQLTest extends StandardSelfTest {
                     && Objects.equals(connectUrl, other.connectUrl)
                     && Objects.equals(jvmId, other.jvmId)
                     && Objects.equals(annotations, other.annotations)
-                    && Objects.equals(activeRecordings, other.activeRecordings);
+                    && Objects.equals(recordings, other.recordings);
         }
 
         @Override
@@ -1360,8 +1376,8 @@ class GraphQLTest extends StandardSelfTest {
                     + jvmId
                     + ", annotations="
                     + annotations
-                    + ", activeRecordings="
-                    + activeRecordings
+                    + ", recordings="
+                    + recordings
                     + "]";
         }
     }
@@ -1549,7 +1565,7 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    static class Archived {
+    static class ArchivedRecordings {
         List<ArchivedRecording> data;
         AggregateInfo aggregate;
 
@@ -1574,14 +1590,30 @@ class GraphQLTest extends StandardSelfTest {
             if (getClass() != obj.getClass()) {
                 return false;
             }
-            Archived other = (Archived) obj;
+            ArchivedRecordings other = (ArchivedRecordings) obj;
             return Objects.equals(data, other.data) && Objects.equals(aggregate, other.aggregate);
         }
     }
 
     static class Recordings {
-        Active active;
-        Archived archived;
+        private ActiveRecordings active;
+        private ArchivedRecordings archived;
+
+        public ActiveRecordings getActive() {
+            return active;
+        }
+
+        public void setActive(ActiveRecordings active) {
+            this.active = active;
+        }
+
+        public ArchivedRecordings getArchived() {
+            return archived;
+        }
+
+        public void setArchived(ArchivedRecordings archived) {
+            this.archived = archived;
+        }
 
         @Override
         public String toString() {
@@ -1686,8 +1718,6 @@ class GraphQLTest extends StandardSelfTest {
                     + id
                     + ", nodeType="
                     + nodeType
-                    + ", recordings="
-                    + recordings
                     + ", target="
                     + target
                     + "]";
@@ -1708,7 +1738,6 @@ class GraphQLTest extends StandardSelfTest {
                     && Objects.equals(name, other.name)
                     && Objects.equals(id, other.id)
                     && Objects.equals(nodeType, other.nodeType)
-                    && Objects.equals(recordings, other.recordings)
                     && Objects.equals(target, other.target);
         }
     }
@@ -1834,7 +1863,7 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    static class Active {
+    static class ActiveRecordings {
         private List<ActiveRecording> data;
         AggregateInfo aggregate;
 
@@ -1867,7 +1896,7 @@ class GraphQLTest extends StandardSelfTest {
             if (getClass() != obj.getClass()) {
                 return false;
             }
-            Active other = (Active) obj;
+            ActiveRecordings other = (ActiveRecordings) obj;
             return Objects.equals(data, other.data) && Objects.equals(aggregate, other.aggregate);
         }
     }
