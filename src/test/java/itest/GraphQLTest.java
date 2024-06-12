@@ -315,66 +315,6 @@ class GraphQLTest extends StandardSelfTest {
         deleteRecording();
     }
 
-    /*  @Disabled
-    @Test
-    @Order(5)
-    void testActiveRecordingMetadataMutation() throws Exception {
-        JsonObject query = new JsonObject();
-        query.put(
-                "query",
-                "query { targetNodes(filter: { annotations: \"PORT == 9093\" }) {"
-                        + "recordings { active {"
-                        + " data {"
-                        + " doPutMetadata(metadata: { labels: ["
-                        + " {key:\"template.name\",value:\"Profiling\"},"
-                        + " {key:\"template.type\",value:\"TARGET\"},"
-                        + " {key:\"newLabel\",value:\"newValue\"}] })"
-                        + " { metadata { labels } } } } } } }");
-        HttpResponse<Buffer> resp =
-                webClient
-                        .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
-        MatcherAssert.assertThat(
-                resp.statusCode(),
-                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-
-        String jsonResponse = resp.bodyAsString();
-        System.out.println("+++Archive Resp: " + jsonResponse);
-
-        TypeReference<ActiveMutationResponse> typeRef =
-                new TypeReference<ActiveMutationResponse>() {};
-        ActiveMutationResponse actual = mapper.readValue(jsonResponse, typeRef);
-        System.out.println("+++Actual Object: " + actual);
-
-        MatcherAssert.assertThat(
-                actual.getData().getArchiveRecording(), Matchers.not(Matchers.empty()));
-        MatcherAssert.assertThat(actual.getData().getArchiveRecording(), Matchers.hasSize(1));
-
-        MatcherAssert.assertThat(
-                actual.getData().getArchiveRecording(), Matchers.not(Matchers.empty()));
-        MatcherAssert.assertThat(actual.getData().getArchiveRecording(), Matchers.hasSize(1)); */
-
-    // MatcherAssert.assertThat(actual.getData().getTargetNodes(), Matchers.hasSize(1));
-
-    // TargetNode node = actual.data.targetNodes.get(0);
-
-    // MatcherAssert.assertThat(node.recordings.active.data, Matchers.hasSize(1));
-
-    /*  ActiveRecording activeRecording = actual.getData().recordings.active.data.get(0);
-
-    MatcherAssert.assertThat(
-            activeRecording.metadata,
-            Matchers.equalTo(
-                    RecordingMetadata.of(
-                            Map.of(
-                                    "template.name",
-                                    "Profiling",
-                                    "template.type",
-                                    "TARGET",
-                                    "newLabel",
-                                    "newValue")))); */
-    // }
-
     @Test
     @Order(5)
     void testActiveRecordingMetadataMutation() throws Exception {
@@ -429,16 +369,8 @@ class GraphQLTest extends StandardSelfTest {
         MatcherAssert.assertThat(activeRecordings, Matchers.not(Matchers.empty()));
         MatcherAssert.assertThat(activeRecordings, Matchers.hasSize(1));
 
-        for (ActiveRecording activeRecording : activeRecordings) {
-            System.out.println("Active Recording Name: " + activeRecording.getName());
-            List<KeyValue> updatedLabels = activeRecording.getDoPutMetadata().getMetadata().labels;
-            for (KeyValue label : updatedLabels) {
-                System.out.println("Label Key: " + label.getKey() + ", Value: " + label.getValue());
-            }
-        }
         ActiveRecording updatedRecording = activeRecordings.get(0);
 
-        // Correctly retrieve the metadata labels
         List<KeyValue> expectedLabels =
                 List.of(
                         new KeyValue("template.name", "Profiling"),
@@ -452,31 +384,6 @@ class GraphQLTest extends StandardSelfTest {
 
         deleteRecording();
     }
-
-    /*
-    List<TargetNode> targetNodes = actual.getData().getTargetNodes().get(0);
-    for (TargetNode targetNode : targetNodes) {
-        Assertions.assertNotNull(targetNode.getTarget());
-        List<ActiveRecording> recordings = targetNode.getTarget().getActiveRecordings();
-        for (ActiveRecording recording : recordings) {
-            Assertions.assertEquals(id, recording.getId());
-            RecordingMetadata metadata = recording.getDoPutMetadata().getMetadata();
-            Assertions.assertNotNull(metadata);
-            List<Label> labelsList = metadata.getLabels();
-            Assertions.assertFalse(labelsList.isEmpty());
-            Map<String, String> expectedLabels = Map.of(
-                "template.name", "Profiling",
-                "template.type", "TARGET",
-                "newLabel", "newValue",
-                "newkey", "newvalue"
-            );
-            for (Label label : labelsList) {
-                Assertions.assertTrue(expectedLabels.containsKey(label.getKey()));
-                Assertions.assertEquals(expectedLabels.get(label.getKey()), label.getValue());
-            }
-        }
-    }
-    */
 
     @Disabled
     @Test
