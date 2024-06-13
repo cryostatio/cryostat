@@ -21,11 +21,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateType;
 import io.cryostat.expressions.MatchExpressionEvaluator;
@@ -36,18 +35,22 @@ import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingOptionsBuilderFactory;
 import io.cryostat.rules.Rule.RuleEvent;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.Target.TargetDiscovery;
 import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
-import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.tuple.Pair;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
 import org.quartz.JobBuilder;
@@ -69,20 +72,41 @@ public class RuleService {
     @Inject EntityManager entityManager;
     @Inject org.quartz.Scheduler quartz;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionFailedTimeout;
+
     private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
-    private final Map<Long, CopyOnWriteArrayList<ActiveRecording>> ruleRecordingMap =
-            new ConcurrentHashMap<>();
 
     @Transactional
+    @Blocking
     void onStart(@Observes StartupEvent ev) {
         logger.trace("RuleService started");
-        try (Stream<Rule> rules = Rule.streamAll()) {
-            rules.forEach(
-                    rule -> {
-                        if (rule.enabled) {
-                            applyRuleToMatchingTargets(rule);
+        Rule.<Rule>streamAll().filter(r -> r.enabled).forEach(this::applyRuleToMatchingTargets);
+    }
+
+    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY)
+    void onMessage(TargetDiscovery event) {
+        switch (event.kind()) {
+            case FOUND:
+                applyRulesToTarget(event.serviceRef());
+                break;
+            case LOST:
+                for (var jk : jobs) {
+                    if (Objects.equals(event.serviceRef().jvmId, jk.getGroup())) {
+                        try {
+                            quartz.deleteJob(jk);
+                        } catch (SchedulerException e) {
+                            logger.errorv(
+                                    "Failed to delete job {0} due to loss of target {1}",
+                                    jk.getName(), event.serviceRef().connectUrl);
+                        } finally {
+                            jobs.remove(jk);
                         }
-                    });
+                    }
+                }
+                break;
+            default:
+                break;
         }
     }
 
@@ -90,8 +114,6 @@ public class RuleService {
     @Transactional
     public void handleRuleModification(RuleEvent event) {
         Rule rule = event.rule();
-        var relatedRecordings =
-                ruleRecordingMap.computeIfAbsent(rule.id, k -> new CopyOnWriteArrayList<>());
         switch (event.category()) {
             case CREATED:
                 if (rule.enabled) {
@@ -103,13 +125,10 @@ public class RuleService {
                     applyRuleToMatchingTargets(rule);
                 } else {
                     cancelTasksForRule(rule);
-                    relatedRecordings.clear();
                 }
                 break;
             case DELETED:
                 cancelTasksForRule(rule);
-                relatedRecordings.clear();
-                ruleRecordingMap.remove(rule.id);
                 break;
             default:
                 break;
@@ -119,21 +138,44 @@ public class RuleService {
     @ConsumeEvent(value = Rule.RULE_ADDRESS + "?clean", blocking = true)
     @Transactional
     public void handleRuleRecordingCleanup(Rule rule) {
-        var relatedRecordings = ruleRecordingMap.get(rule.id);
-        if (relatedRecordings == null) {
-            throw new IllegalStateException("No tasks associated with rule " + rule.id);
+        cancelTasksForRule(rule);
+        var targets =
+                evaluator.getMatchedTargets(rule.matchExpression).stream()
+                        .collect(Collectors.toList());
+        for (var target : targets) {
+            recordingHelper
+                    .getActiveRecording(
+                            target, r -> Objects.equals(r.name, rule.getRecordingName()))
+                    .ifPresent(
+                            recording -> {
+                                try {
+                                    recordingHelper
+                                            .stopRecording(recording)
+                                            .await()
+                                            .atMost(connectionFailedTimeout);
+                                } catch (Exception e) {
+                                    logger.warn(e);
+                                }
+                            });
         }
-        relatedRecordings.forEach(
-                rec -> {
-                    ActiveRecording attachedRecoding = entityManager.merge(rec);
-                    attachedRecoding.state = RecordingState.STOPPED;
-                    attachedRecoding.persist();
-                    // the RULE_ADDRESS will handle the task cancellations + removal
-                });
     }
 
     void activate(Rule rule, Target target) throws Exception {
-        var options = createRecordingOptions(rule);
+        Target attachedTarget = Target.<Target>find("id", target.id).singleResult();
+        recordingHelper
+                .getActiveRecording(
+                        attachedTarget, r -> Objects.equals(r.name, rule.getRecordingName()))
+                .ifPresent(
+                        rec -> {
+                            try {
+                                recordingHelper
+                                        .stopRecording(rec)
+                                        .await()
+                                        .atMost(connectionFailedTimeout);
+                            } catch (Exception e) {
+                                logger.warn(e);
+                            }
+                        });
 
         Pair<String, TemplateType> pair = recordingHelper.parseEventSpecifier(rule.eventSpecifier);
         Template template =
@@ -142,17 +184,13 @@ public class RuleService {
         ActiveRecording recording =
                 recordingHelper
                         .startRecording(
-                                target,
+                                attachedTarget,
                                 RecordingReplace.STOPPED,
                                 template,
-                                options,
+                                createRecordingOptions(rule),
                                 Map.of("rule", rule.name))
                         .await()
                         .atMost(Duration.ofSeconds(10));
-        Target attachedTarget = entityManager.merge(target);
-
-        var relatedRecordings = ruleRecordingMap.get(rule.id);
-        relatedRecordings.add(recording);
 
         if (rule.isArchiver()) {
             scheduleArchival(rule, attachedTarget, recording);
@@ -169,25 +207,45 @@ public class RuleService {
                 Optional.ofNullable((long) rule.maxAgeSeconds));
     }
 
+    void applyRulesToTarget(Target target) {
+        for (var rule : Rule.<Rule>find("enabled", true).list()) {
+            try {
+                if (!evaluator.applies(rule.matchExpression, target)) {
+                    continue;
+                }
+                Infrastructure.getDefaultWorkerPool()
+                        .submit(
+                                () ->
+                                        QuarkusTransaction.joiningExisting()
+                                                .run(
+                                                        () -> {
+                                                            try {
+                                                                activate(rule, target);
+                                                            } catch (Exception e) {
+                                                                logger.error(e);
+                                                            }
+                                                        }));
+            } catch (ScriptException se) {
+                logger.error(se);
+            }
+        }
+    }
+
     void applyRuleToMatchingTargets(Rule rule) {
-        try (Stream<Target> targets = Target.streamAll()) {
-            targets.filter(
-                            target -> {
-                                try {
-                                    return evaluator.applies(rule.matchExpression, target);
-                                } catch (ScriptException e) {
-                                    logger.warn(e);
-                                    return false;
-                                }
-                            })
-                    .forEach(
-                            target -> {
-                                try {
-                                    activate(rule, target);
-                                } catch (Exception e) {
-                                    logger.error(e);
-                                }
-                            });
+        var targets = evaluator.getMatchedTargets(rule.matchExpression);
+        for (var target : targets) {
+            Infrastructure.getDefaultWorkerPool()
+                    .submit(
+                            () ->
+                                    QuarkusTransaction.joiningExisting()
+                                            .run(
+                                                    () -> {
+                                                        try {
+                                                            activate(rule, target);
+                                                        } catch (Exception e) {
+                                                            logger.error(e);
+                                                        }
+                                                    }));
         }
     }
 
@@ -210,7 +268,7 @@ public class RuleService {
         Map<String, Object> data = jobDetail.getJobDataMap();
         data.put("rule", rule.id);
         data.put("target", target.id);
-        data.put("recording", recording.id);
+        data.put("recording", recording.remoteId);
 
         Trigger trigger =
                 TriggerBuilder.newTrigger()
@@ -241,22 +299,18 @@ public class RuleService {
                     evaluator.getMatchedTargets(rule.matchExpression).stream()
                             .map(t -> t.jvmId)
                             .collect(Collectors.toList());
-            jobs.forEach(
-                    jk -> {
-                        if (targets.contains(jk.getGroup())) {
-                            try {
-                                quartz.deleteJob(jk);
-                            } catch (SchedulerException e) {
-                                logger.error(
-                                        "Failed to delete job "
-                                                + jk.getName()
-                                                + " for rule "
-                                                + rule.name);
-                            } finally {
-                                jobs.remove(jk);
-                            }
-                        }
-                    });
+            for (var jk : jobs) {
+                if (targets.contains(jk.getGroup())) {
+                    try {
+                        quartz.deleteJob(jk);
+                    } catch (SchedulerException e) {
+                        logger.error(
+                                "Failed to delete job " + jk.getName() + " for rule " + rule.name);
+                    } finally {
+                        jobs.remove(jk);
+                    }
+                }
+            }
         }
     }
 
