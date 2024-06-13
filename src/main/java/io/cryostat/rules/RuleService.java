@@ -52,6 +52,7 @@ import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.projectnessie.cel.tools.ScriptException;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
 import org.quartz.JobKey;
@@ -86,6 +87,9 @@ public class RuleService {
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY)
     void onMessage(TargetDiscovery event) {
         switch (event.kind()) {
+            case FOUND:
+                applyRulesToTarget(event.serviceRef());
+                break;
             case LOST:
                 for (var jk : jobs) {
                     if (Objects.equals(event.serviceRef().jvmId, jk.getGroup())) {
@@ -201,6 +205,30 @@ public class RuleService {
                 Optional.empty(),
                 Optional.ofNullable((long) rule.maxSizeBytes),
                 Optional.ofNullable((long) rule.maxAgeSeconds));
+    }
+
+    void applyRulesToTarget(Target target) {
+        for (var rule : Rule.<Rule>find("enabled", true).list()) {
+            try {
+                if (!evaluator.applies(rule.matchExpression, target)) {
+                    continue;
+                }
+                Infrastructure.getDefaultWorkerPool()
+                        .submit(
+                                () ->
+                                        QuarkusTransaction.joiningExisting()
+                                                .run(
+                                                        () -> {
+                                                            try {
+                                                                activate(rule, target);
+                                                            } catch (Exception e) {
+                                                                logger.error(e);
+                                                            }
+                                                        }));
+            } catch (ScriptException se) {
+                logger.error(se);
+            }
+        }
     }
 
     void applyRuleToMatchingTargets(Rule rule) {
