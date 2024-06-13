@@ -35,6 +35,7 @@ import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.recordings.RecordingOptionsBuilderFactory;
 import io.cryostat.rules.Rule.RuleEvent;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.Target.TargetDiscovery;
 import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -80,6 +81,30 @@ public class RuleService {
     void onStart(@Observes StartupEvent ev) {
         logger.trace("RuleService started");
         Rule.<Rule>streamAll().filter(r -> r.enabled).forEach(this::applyRuleToMatchingTargets);
+    }
+
+    @Transactional
+    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
+    void onMessage(TargetDiscovery event) {
+        switch (event.kind()) {
+            case LOST:
+                for (var jk : jobs) {
+                    if (Objects.equals(event.serviceRef().jvmId, jk.getGroup())) {
+                        try {
+                            quartz.deleteJob(jk);
+                        } catch (SchedulerException e) {
+                            logger.errorv(
+                                    "Failed to delete job {0} due to loss of target {1}",
+                                    jk.getName(), event.serviceRef().connectUrl);
+                        } finally {
+                            jobs.remove(jk);
+                        }
+                    }
+                }
+                break;
+            default:
+                break;
+        }
     }
 
     @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true)
