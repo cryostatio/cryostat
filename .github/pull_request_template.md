@@ -1,6 +1,6 @@
-# Welcome to Cryostat3! 👋
+# Welcome to Cryostat! 👋
 ## Before contributing, make sure you have:
-* [ ] Read the [contributing guidelines](https://github.com/cryostatio/cryostat3/blob/main/CONTRIBUTING.md)
+* [ ] Read the [contributing guidelines](https://github.com/cryostatio/cryostat/blob/main/CONTRIBUTING.md)
 * [ ] Linked a relevant issue which this PR resolves
 * [ ] Linked any other relevant issues, PR's, or documentation, if any
 * [ ] Resolved all conflicts, if any
