@@ -482,49 +482,89 @@ class GraphQLTest extends StandardSelfTest {
         deleteRecording();
     }
 
-    @Disabled
     @Test
     @Order(7)
     void testDeleteMutation() throws Exception {
-        JsonObject query = new JsonObject();
-        query.put(
+        Thread.sleep(5000);
+        // Create a Recording
+        JsonObject notificationRecording = startRecording();
+        Assertions.assertEquals("test", notificationRecording.getString("name"));
+        // Archive it
+        JsonObject query1 = new JsonObject();
+        query1.put(
                 "query",
-                "query { targetNodes(filter: { annotations: \"PORT == 0\" }) { recordings {"
-                        + " active { data { name doDelete { name }"
-                        + " } aggregate { count } }"
-                        + " archived { data { name doDelete { name }"
-                        + " } aggregate { count size } }"
-                        + " } } }");
-        HttpResponse<Buffer> resp =
+                "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom Targets\"]},"
+                        + " recordings: { name: \"test\"}) { name downloadUrl } }");
+        HttpResponse<Buffer> resp1 =
                 webClient
                         .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v3/graphql", query1.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
-                resp.statusCode(),
+                resp1.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
+        String jsonResponse1 = resp1.bodyAsString();
+        System.out.println("+++ArchiveMetadata Resp: " + jsonResponse1);
+
+        // Deserialize the response to get the archived recording name
+        ArchiveMutationResponse archiveResponse =
+                mapper.readValue(jsonResponse1, ArchiveMutationResponse.class);
+        List<ArchivedRecording> archivedRecordings =
+                archiveResponse.getData().getArchivedRecording();
+        MatcherAssert.assertThat(archivedRecordings, Matchers.not(Matchers.empty()));
+        MatcherAssert.assertThat(archivedRecordings, Matchers.hasSize(1));
+
+        String archivedRecordingName = archivedRecordings.get(0).getName();
+        System.out.println("+++ArchivedRecordingName: " + archivedRecordingName);
+
+        // Delete
+        JsonObject query2 = new JsonObject();
+        query2.put(
+                "query",
+                "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] }) { name"
+                    + " target { recordings { active { data { name doDelete { name } } aggregate {"
+                    + " count } } archived { data { name doDelete { name } } aggregate { count size"
+                    + " } } } } } }");
+        HttpResponse<Buffer> resp2 =
+                webClient
+                        .extensions()
+                        .post("/api/v3/graphql", query2.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(
+                resp2.statusCode(),
+                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
+        System.out.println("+++DeleteMetadata Resp: " + resp2.bodyAsString());
+
         DeleteMutationResponse actual =
-                mapper.readValue(resp.bodyAsString(), DeleteMutationResponse.class);
+                mapper.readValue(resp2.bodyAsString(), DeleteMutationResponse.class);
+        System.out.println("+++Delete Metadata(Actual) Resp: " + actual.toString());
 
-        MatcherAssert.assertThat(actual.data.targetNodes, Matchers.hasSize(1));
+        MatcherAssert.assertThat(actual.getData().getTargetNodes(), Matchers.hasSize(1));
 
-        TargetNode node = actual.data.targetNodes.get(0);
+        TargetNode node = actual.getData().getTargetNodes().get(0);
+        System.out.println("+++TargetNode: " + node.toString());
 
-        MatcherAssert.assertThat(node.recordings.active.data, Matchers.hasSize(1));
-        MatcherAssert.assertThat(node.recordings.archived.data, Matchers.hasSize(1));
-        MatcherAssert.assertThat(node.recordings.archived.aggregate.count, Matchers.equalTo(1L));
-        MatcherAssert.assertThat(node.recordings.archived.aggregate.size, Matchers.greaterThan(0L));
+        MatcherAssert.assertThat(
+                node.getTarget().getRecordings().getActive().getData(), Matchers.hasSize(1));
+        MatcherAssert.assertThat(
+                node.getTarget().getRecordings().getArchived().getData(), Matchers.hasSize(1));
+        MatcherAssert.assertThat(
+                node.getTarget().getRecordings().getArchived().aggregate.count,
+                Matchers.equalTo(1L));
+        MatcherAssert.assertThat(
+                node.getTarget().getRecordings().getArchived().aggregate.size,
+                Matchers.greaterThan(0L));
 
-        ActiveRecording activeRecording = node.recordings.active.data.get(0);
-        ArchivedRecording archivedRecording = node.recordings.archived.data.get(0);
+        ActiveRecording activeRecording =
+                node.getTarget().getRecordings().getActive().getData().get(0);
+        ArchivedRecording archivedRecording =
+                node.getTarget().getRecordings().getArchived().getData().get(0);
 
-        MatcherAssert.assertThat(activeRecording.name, Matchers.equalTo("graphql-itest"));
-        MatcherAssert.assertThat(activeRecording.doDelete.name, Matchers.equalTo("graphql-itest"));
+        MatcherAssert.assertThat(activeRecording.name, Matchers.equalTo("test"));
+        MatcherAssert.assertThat(activeRecording.doDelete.name, Matchers.equalTo("test"));
 
         MatcherAssert.assertThat(
                 archivedRecording.name,
-                Matchers.matchesRegex(
-                        "^es-andrewazor-demo-Main_graphql-itest_[0-9]{8}T[0-9]{6}Z\\.jfr$"));
+                Matchers.matchesRegex("^selftest_test_[0-9]{8}T[0-9]{6}Z\\.jfr$"));
     }
 
     /*
@@ -2736,11 +2776,19 @@ class GraphQLTest extends StandardSelfTest {
     }
 
     static class DeleteMutationResponse {
-        TargetNodes data;
+        private Data data;
+
+        public Data getData() {
+            return data;
+        }
+
+        public void setData(Data data) {
+            this.data = data;
+        }
 
         @Override
         public String toString() {
-            return "DeleteMutationResponse [data=" + data + "]";
+            return "DeleteMutationResponse{" + "data=" + data + '}';
         }
 
         @Override
@@ -2761,6 +2809,43 @@ class GraphQLTest extends StandardSelfTest {
             }
             DeleteMutationResponse other = (DeleteMutationResponse) obj;
             return Objects.equals(data, other.data);
+        }
+
+        static class Data {
+            private List<TargetNode> targetNodes;
+
+            public List<TargetNode> getTargetNodes() {
+                return targetNodes;
+            }
+
+            public void setTargetNodes(List<TargetNode> targetNodes) {
+                this.targetNodes = targetNodes;
+            }
+
+            @Override
+            public String toString() {
+                return "Data{" + "targetNodes=" + targetNodes + '}';
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(targetNodes);
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (this == obj) {
+                    return true;
+                }
+                if (obj == null) {
+                    return false;
+                }
+                if (getClass() != obj.getClass()) {
+                    return false;
+                }
+                Data other = (Data) obj;
+                return Objects.equals(targetNodes, other.targetNodes);
+            }
         }
     }
 
@@ -2853,12 +2938,10 @@ class GraphQLTest extends StandardSelfTest {
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "mutation { deleteRecording( nodes: {annotations: ["
-                        + "\"REALM = Custom Targets\""
-                        + "]}, recordings: { name: \"test\" }) { name state } }");
-
-        Thread.sleep(5000);
-
+                "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] }) { name"
+                    + " target { recordings { active { data { name doDelete { name } } aggregate {"
+                    + " count } } archived { data { name doDelete { name } } aggregate { count size"
+                    + " } } } } } }");
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
@@ -2866,7 +2949,7 @@ class GraphQLTest extends StandardSelfTest {
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-        System.out.println("+++RESP DELETE: " + resp.bodyAsString());
+        System.out.println("+++Delete Resp: " + resp.bodyAsString());
     }
 
     // Restart the recording with given replacement policy
