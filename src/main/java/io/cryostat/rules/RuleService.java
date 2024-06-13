@@ -38,9 +38,11 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -180,11 +182,18 @@ public class RuleService {
     void applyRuleToMatchingTargets(Rule rule) {
         var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
-            try {
-                activate(rule, target);
-            } catch (Exception e) {
-                logger.error(e);
-            }
+            Infrastructure.getDefaultWorkerPool()
+                    .submit(
+                            () ->
+                                    QuarkusTransaction.joiningExisting()
+                                            .run(
+                                                    () -> {
+                                                        try {
+                                                            activate(rule, target);
+                                                        } catch (Exception e) {
+                                                            logger.error(e);
+                                                        }
+                                                    }));
         }
     }
 
