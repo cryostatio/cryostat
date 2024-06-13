@@ -54,7 +54,15 @@ class ScheduledArchiveJob implements Job {
         long targetId = (long) ctx.getJobDetail().getJobDataMap().get("target");
         Target target = Target.find("id", targetId).singleResult();
         long recordingId = (long) ctx.getJobDetail().getJobDataMap().get("recording");
-        ActiveRecording recording = ActiveRecording.find("id", recordingId).singleResult();
+        ActiveRecording recording =
+                recordingHelper.getActiveRecording(target, recordingId).orElseThrow();
+
+        if (recording == null) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Target %s did not have recording with remote ID %d",
+                            target.connectUrl, recordingId));
+        }
 
         Queue<String> previousRecordings = new ArrayDeque<>(rule.preservedArchives);
 
