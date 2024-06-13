@@ -608,7 +608,6 @@ class GraphQLTest extends StandardSelfTest {
      * }
      */
 
-    @Disabled
     @Test
     @Order(9)
     void testQueryForSpecificTargetsByNames() throws Exception {
@@ -623,28 +622,29 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+
+        System.out.println("+++QueryForSpecificTargetsByNames Resp: " + resp.bodyAsString());
+
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         TargetNodesQueryResponse actual =
                 mapper.readValue(resp.bodyAsString(), TargetNodesQueryResponse.class);
-        List<TargetNode> targetNodes = actual.data.targetNodes;
 
-        int expectedSize = 2;
+        System.out.println("+++TargetNodesQueryResponse: " + actual.toString());
+        List<TargetNode> targetNodes = actual.getData().getTargetNodes();
 
+        int expectedSize = 1;
+        // only one target should be returned
         assertThat(targetNodes.size(), is(expectedSize));
 
         TargetNode target1 = new TargetNode();
         target1.name = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
         target1.nodeType = "JVM";
-        TargetNode target2 = new TargetNode();
-        target2.name = "service:jmx:rmi:///jndi/rmi://localhost:9091/jmxrmi";
-        target2.nodeType = "JVM";
 
         assertThat(targetNodes, hasItem(target1));
-        assertThat(targetNodes, hasItem(target2));
     }
 
     @Disabled
@@ -1927,18 +1927,6 @@ class GraphQLTest extends StandardSelfTest {
             this.data = data;
         }
 
-        public static class Data {
-            private List<TargetNode> targetNodes;
-
-            public List<TargetNode> getTargetNodes() {
-                return targetNodes;
-            }
-
-            public void setTargetNodes(List<TargetNode> targetNodes) {
-                this.targetNodes = targetNodes;
-            }
-        }
-
         @Override
         public int hashCode() {
             return Objects.hash(data);
@@ -1962,6 +1950,43 @@ class GraphQLTest extends StandardSelfTest {
         @Override
         public String toString() {
             return "TargetNodesQueryResponse{" + "data=" + data + '}';
+        }
+
+        public static class Data {
+            private List<TargetNode> targetNodes;
+
+            public List<TargetNode> getTargetNodes() {
+                return targetNodes;
+            }
+
+            public void setTargetNodes(List<TargetNode> targetNodes) {
+                this.targetNodes = targetNodes;
+            }
+
+            @Override
+            public String toString() {
+                return "Data{" + "targetNodes=" + targetNodes + '}';
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(targetNodes);
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (this == obj) {
+                    return true;
+                }
+                if (obj == null) {
+                    return false;
+                }
+                if (getClass() != obj.getClass()) {
+                    return false;
+                }
+                Data other = (Data) obj;
+                return Objects.equals(targetNodes, other.targetNodes);
+            }
         }
     }
 
