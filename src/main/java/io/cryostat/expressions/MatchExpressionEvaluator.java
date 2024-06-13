@@ -16,12 +16,12 @@
 package io.cryostat.expressions;
 
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import io.cryostat.expressions.MatchExpression.ExpressionEvent;
 import io.cryostat.targets.Target;
@@ -166,20 +166,34 @@ public class MatchExpressionEvaluator {
     }
 
     public List<Target> getMatchedTargets(MatchExpression matchExpression) {
-        try (Stream<Target> targets = Target.streamAll()) {
-            return targets.filter(
-                            target -> {
-                                try {
-                                    return applies(matchExpression, target);
-                                } catch (ScriptException e) {
-                                    logger.error(
-                                            "Error while processing expression: " + matchExpression,
-                                            e);
-                                    return false;
-                                }
-                            })
-                    .collect(Collectors.toList());
+        var targets =
+                Target.<Target>listAll().stream()
+                        .filter(
+                                target -> {
+                                    try {
+                                        return applies(matchExpression, target);
+                                    } catch (ScriptException e) {
+                                        logger.error(
+                                                "Error while processing expression: "
+                                                        + matchExpression,
+                                                e);
+                                        return false;
+                                    }
+                                })
+                        .collect(Collectors.toList());
+
+        var ids = new HashSet<>();
+        var it = targets.iterator();
+        while (it.hasNext()) {
+            var t = it.next();
+            if (ids.contains(t.jvmId)) {
+                it.remove();
+                continue;
+            }
+            ids.add(t.jvmId);
         }
+
+        return targets;
     }
 
     @Name("io.cryostat.rules.MatchExpressionEvaluator.MatchExpressionApplies")

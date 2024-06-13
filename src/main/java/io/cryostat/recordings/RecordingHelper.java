@@ -44,6 +44,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -223,6 +224,15 @@ public class RecordingHelper {
         return QuarkusTransaction.joiningExisting().call(() -> listActiveRecordingsImpl(target));
     }
 
+    public Optional<ActiveRecording> getActiveRecording(
+            Target target, Predicate<ActiveRecording> fn) {
+        return listActiveRecordings(target).stream().filter(fn).findFirst();
+    }
+
+    public Optional<ActiveRecording> getActiveRecording(Target target, long remoteId) {
+        return getActiveRecording(target, r -> r.remoteId == remoteId);
+    }
+
     private List<ActiveRecording> listActiveRecordingsImpl(Target target) {
         target = Target.find("id", target.id).singleResult();
         try {
@@ -335,15 +345,12 @@ public class RecordingHelper {
                                 getDescriptorByName(conn, recordingName)
                                         .map(this::mapState)
                                         .orElse(null));
-        boolean restart =
-                previousState == null
-                        || shouldRestartRecording(replace, previousState, recordingName);
+        boolean restart = previousState == null || shouldRestartRecording(replace, previousState);
         if (!restart) {
             throw new EntityExistsException("Recording", recordingName);
         }
-        listActiveRecordings(target).stream()
-                .filter(r -> r.name.equals(recordingName))
-                .forEach(this::deleteRecording);
+        getActiveRecording(target, r -> r.name.equals(recordingName))
+                .ifPresent(r -> this.deleteRecording(r).await().atMost(connectionFailedTimeout));
         var desc =
                 connectionManager.executeConnectedTask(
                         target,
@@ -503,8 +510,7 @@ public class RecordingHelper {
         }
     }
 
-    private boolean shouldRestartRecording(
-            RecordingReplace replace, RecordingState state, String recordingName)
+    private boolean shouldRestartRecording(RecordingReplace replace, RecordingState state)
             throws BadRequestException {
         switch (replace) {
             case ALWAYS:

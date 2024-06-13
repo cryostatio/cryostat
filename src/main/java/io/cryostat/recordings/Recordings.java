@@ -143,6 +143,9 @@ public class Recordings {
     @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
     Optional<String> externalStorageUrl;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionFailedTimeout;
+
     void onStart(@Observes StartupEvent evt) {
         storageBuckets.createIfNecessary(bucket);
     }
@@ -481,7 +484,10 @@ public class Recordings {
         ActiveRecording activeRecording = recording.get();
         switch (body.toLowerCase()) {
             case "stop":
-                recordingHelper.stopRecording(activeRecording).await().indefinitely();
+                recordingHelper
+                        .stopRecording(activeRecording)
+                        .await()
+                        .atMost(connectionFailedTimeout);
                 return null;
             case "save":
                 try {
@@ -698,7 +704,7 @@ public class Recordings {
         if (recording == null) {
             throw new NotFoundException();
         }
-        recordingHelper.deleteRecording(recording);
+        recordingHelper.deleteRecording(recording).await().atMost(connectionFailedTimeout);
     }
 
     @DELETE
