@@ -40,6 +40,7 @@ import io.cryostat.targets.TargetConnectionManager;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -73,6 +74,7 @@ public class RuleService {
     private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
 
     @Transactional
+    @Blocking
     void onStart(@Observes StartupEvent ev) {
         logger.trace("RuleService started");
         Rule.<Rule>streamAll().filter(r -> r.enabled).forEach(this::applyRuleToMatchingTargets);
