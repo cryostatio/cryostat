@@ -23,7 +23,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.templates.Template;
@@ -76,14 +75,7 @@ public class RuleService {
     @Transactional
     void onStart(@Observes StartupEvent ev) {
         logger.trace("RuleService started");
-        try (Stream<Rule> rules = Rule.streamAll()) {
-            rules.forEach(
-                    rule -> {
-                        if (rule.enabled) {
-                            applyRuleToMatchingTargets(rule);
-                        }
-                    });
-        }
+        Rule.<Rule>streamAll().filter(r -> r.enabled).forEach(this::applyRuleToMatchingTargets);
     }
 
     @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true)
