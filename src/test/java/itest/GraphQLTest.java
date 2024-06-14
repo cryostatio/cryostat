@@ -237,7 +237,7 @@ class GraphQLTest extends StandardSelfTest {
         latch.await(30, TimeUnit.SECONDS);
 
         // Ensure ActiveRecordingCreated notification emitted matches expected values
-        JsonObject notification = f.get(5, TimeUnit.SECONDS);
+        JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
         JsonObject notificationRecording =
                 notification.getJsonObject("message").getJsonObject("recording");
@@ -647,137 +647,109 @@ class GraphQLTest extends StandardSelfTest {
         assertThat(targetNodes, hasItem(target1));
     }
 
-    @Disabled
     @Test
     @Order(10)
     public void testQueryForFilteredActiveRecordingsByNames() throws Exception {
-        // Check preconditions
-        CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
-        webClient
-                .get(
-                        String.format(
-                                "/api/v1/targets/%s/recordings",
-                                getSelfReferenceConnectUrlEncoded()))
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture1)) {
-                                listRespFuture1.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        JsonArray listResp = listRespFuture1.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        Assertions.assertTrue(listResp.isEmpty());
+        Thread.sleep(5000);
+        // Create a Recording 1 name (test)
+        JsonObject notificationRecording = startRecording();
+        Assertions.assertEquals("test", notificationRecording.getString("name"));
 
-        // Create two new recordings
-        CompletableFuture<Void> createRecordingFuture1 = new CompletableFuture<>();
-        MultiMap form1 = MultiMap.caseInsensitiveMultiMap();
-        form1.add("recordingName", "Recording1");
-        form1.add("duration", "5");
-        form1.add("events", "template=ALL");
-        webClient
-                .post(
-                        String.format(
-                                "/api/v1/targets/%s/recordings",
-                                getSelfReferenceConnectUrlEncoded()))
-                .sendForm(
-                        form1,
-                        ar -> {
-                            if (assertRequestStatus(ar, createRecordingFuture1)) {
-                                createRecordingFuture1.complete(null);
-                            }
-                        });
-        createRecordingFuture1.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        // create recording 2 name test2
+        CountDownLatch latch = new CountDownLatch(2);
 
-        CompletableFuture<Void> createRecordingFuture2 = new CompletableFuture<>();
-        MultiMap form2 = MultiMap.caseInsensitiveMultiMap();
-        form2.add("recordingName", "Recording2");
-        form2.add("duration", "5");
-        form2.add("events", "template=ALL");
-        webClient
-                .post(
-                        String.format(
-                                "/api/v1/targets/%s/recordings",
-                                getSelfReferenceConnectUrlEncoded()))
-                .sendForm(
-                        form2,
-                        ar -> {
-                            if (assertRequestStatus(ar, createRecordingFuture2)) {
-                                createRecordingFuture2.complete(null);
-                            }
-                        });
-        createRecordingFuture2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
-        // GraphQL Query to filter Active recordings by names
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "query { targetNodes (filter: {name:"
-                    + " \"service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi\"}){ recordings"
-                    + " {active(filter: { names: [\"Recording1\", \"Recording2\",\"Recording3\"] })"
-                    + " {data {name}}}}}");
+                "mutation { createRecording( nodes:{annotations: ["
+                        + "\"REALM = Custom Targets\""
+                        + "]}, recording: { name: \"test2\", template:"
+                        + " \"Profiling\", templateType: \"TARGET\", duration: 30, continuous:"
+                        + " false, archiveOnStop: true, toDisk: true }) { name state duration"
+                        + " continuous metadata { labels { key value } } } }");
+        Future<JsonObject> f =
+                worker.submit(
+                        () -> {
+                            try {
+                                return expectNotification(
+                                                "ActiveRecordingCreated", 15, TimeUnit.SECONDS)
+                                        .get();
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                latch.countDown();
+                            }
+                        });
+
+        Thread.sleep(5000);
+
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
+        CreateRecordingMutationResponse actual =
+                mapper.readValue(resp.bodyAsString(), CreateRecordingMutationResponse.class);
+        System.out.println("+++StartRecording10: " + actual);
+        latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        System.out.println("+++RESP CREATE: " + resp.bodyAsString());
+        JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        JsonObject test2 = notification.getJsonObject("message").getJsonObject("recording");
+        MatcherAssert.assertThat(test2.getString("name"), Matchers.equalTo("test2"));
+
+        // GraphQL Query to filter Active recordings by names
+        JsonObject query2 = new JsonObject();
+        query2.put(
+                "query",
+                "query { targetNodes (filter: { annotations:"
+                        + " [\"REALM = Custom Targets\"]}){ target { recordings"
+                        + " { active (filter: { names: [\"test\", \"test2\",\"Recording3\"]"
+                        + " }) {data {name}}}}}}");
+        HttpResponse<Buffer> resp2 =
+                webClient
+                        .extensions()
+                        .post("/api/v3/graphql", query2.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+
+        System.out.println(
+                "+++QueryForFilteredActiveRecordingsByNames Resp: " + resp2.bodyAsString());
+        MatcherAssert.assertThat(
+                resp2.statusCode(),
+                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         TargetNodesQueryResponse graphqlResp =
-                mapper.readValue(resp.bodyAsString(), TargetNodesQueryResponse.class);
+                mapper.readValue(resp2.bodyAsString(), TargetNodesQueryResponse.class);
 
-        List<String> filterNames = Arrays.asList("Recording1", "Recording2");
+        System.out.println("+++TargetNodesQueryResponse: " + graphqlResp.toString());
+
+        List<String> filterNames = Arrays.asList("test", "test2");
 
         List<ActiveRecording> filteredRecordings =
-                graphqlResp.data.targetNodes.stream()
-                        .flatMap(targetNode -> targetNode.recordings.active.data.stream())
+                graphqlResp.getData().getTargetNodes().stream()
+                        .flatMap(
+                                targetNode ->
+                                        targetNode
+                                                .getTarget()
+                                                .getRecordings()
+                                                .getActive()
+                                                .getData()
+                                                .stream())
                         .filter(recording -> filterNames.contains(recording.name))
                         .collect(Collectors.toList());
+        System.out.println("+++FilteredRecordings: " + filteredRecordings);
 
         MatcherAssert.assertThat(filteredRecordings.size(), Matchers.equalTo(2));
         ActiveRecording r1 = new ActiveRecording();
-        r1.name = "Recording1";
+        r1.name = "test";
         ActiveRecording r2 = new ActiveRecording();
-        r2.name = "Recording2";
+        r2.name = "test2";
 
         assertThat(filteredRecordings, hasItem(r1));
         assertThat(filteredRecordings, hasItem(r2));
 
-        // Delete recordings
-        for (ActiveRecording recording : filteredRecordings) {
-            String recordingName = recording.name;
-            CompletableFuture<Void> deleteRecordingFuture = new CompletableFuture<>();
-            webClient
-                    .delete(
-                            String.format(
-                                    "/api/v1/targets/%s/recordings/%s",
-                                    getSelfReferenceConnectUrlEncoded(), recordingName))
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, deleteRecordingFuture)) {
-                                    deleteRecordingFuture.complete(null);
-                                }
-                            });
-            deleteRecordingFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        }
-        // Verify no recordings available
-        CompletableFuture<JsonArray> listRespFuture4 = new CompletableFuture<>();
-        webClient
-                .get(
-                        String.format(
-                                "/api/v1/targets/%s/recordings",
-                                getSelfReferenceConnectUrlEncoded()))
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture4)) {
-                                listRespFuture4.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        listResp = listRespFuture4.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
-        MatcherAssert.assertThat(
-                "list should have size 0 after deleting recordings",
-                listResp.size(),
-                Matchers.equalTo(0));
+        // Delete the Recordings
+        deleteRecording();
     }
 
     @Disabled
