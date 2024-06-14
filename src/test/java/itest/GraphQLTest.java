@@ -940,7 +940,6 @@ class GraphQLTest extends StandardSelfTest {
      * }
      */
 
-    @Disabled
     @Test
     @Order(13)
     void testReplaceAlwaysOnStoppedRecording() throws Exception {
@@ -2821,9 +2820,9 @@ class GraphQLTest extends StandardSelfTest {
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "query { targetNodes(filter: { name:"
-                        + " \"service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi\" })  {"
-                        + " recordings { active { data { doStop { name state } } } } } }");
+                "query { targetNodes(filter: { annotations: [ \"REALM = Custom Targets\"] })  {"
+                    + " name target { recordings { active { data { doStop { name state } } } } } }"
+                    + " }");
 
         Future<JsonObject> f2 =
                 worker.submit(
@@ -2844,13 +2843,13 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
+        System.out.println("+++RESP STOP: " + resp.bodyAsString());
         JsonObject notification = f2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         return notification.getJsonObject("message").getJsonObject("recording");
     }
@@ -2877,16 +2876,14 @@ class GraphQLTest extends StandardSelfTest {
     // Restart the recording with given replacement policy
     private JsonObject restartRecording(String replace) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
-
         JsonObject query = new JsonObject();
         query.put(
                 "query",
                 String.format(
-                        "query { targetNodes(filter: { name:"
-                            + " \"service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi\" }) {"
-                            + " doStartRecording(recording: { name: \"test\","
-                            + " template:\"Profiling\", templateType: \"TARGET\", replace: %s}) {"
-                            + " name state }} }",
+                        "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] })"
+                            + " { name target { doStartRecording ( recording: { name: \"test\","
+                            + " template: \"Profiling\", templateType: \"TARGET\", replace: \"%s\""
+                            + " }) { name state } } } }",
                         replace));
         Future<JsonObject> f =
                 worker.submit(
@@ -2907,13 +2904,13 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
+        System.out.println("+++Restart Resp: " + resp.bodyAsString());
         JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         return notification.getJsonObject("message").getJsonObject("recording");
     }
