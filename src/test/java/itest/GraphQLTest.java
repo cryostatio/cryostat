@@ -27,6 +27,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -565,46 +566,38 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.matchesRegex("^selftest_test_[0-9]{8}T[0-9]{6}Z\\.jfr$"));
     }
 
-    /*
-     * @Disabled
-     *
-     * @Test
-     *
-     * @Order(8)
-     * void testNodesHaveIds() throws Exception {
-     * JsonObject query = new JsonObject();
-     * query.put(
-     * "query",
-     * "query { environmentNodes(filter: { name: \"JDP\" }) { id descendantTargets { id }"
-     * + " } }");
-     * HttpResponse<Buffer> resp =
-     * webClient
-     * .extensions()
-     * .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
-     * MatcherAssert.assertThat(
-     * resp.statusCode(),
-     * Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300))
-     * );
-     *
-     * // if any of the nodes in the query did not have an ID property then the
-     * request
-     * // would fail
-     * EnvironmentNodesResponse actual =
-     * mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
-     * Set<Integer> observedIds = new HashSet<>();
-     * for (var env : actual.data.environmentNodes) {
-     * // ids should be unique
-     * MatcherAssert.assertThat(observedIds,
-     * Matchers.not(Matchers.contains(env.id)));
-     * observedIds.add(env.id);
-     * for (var target : env.descendantTargets) {
-     * MatcherAssert.assertThat(observedIds,
-     * Matchers.not(Matchers.contains(target.id)));
-     * observedIds.add(target.id);
-     * }
-     * }
-     * }
-     */
+    @Test
+    @Order(8)
+    void testNodesHaveIds() throws Exception {
+        JsonObject query = new JsonObject();
+        query.put(
+                "query",
+                "query { environmentNodes(filter: { name: \"Custom Targets\" }) { id"
+                        + " descendantTargets { id } } }");
+        HttpResponse<Buffer> resp =
+                webClient
+                        .extensions()
+                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(
+                resp.statusCode(),
+                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
+        System.out.println("+++NodesResp: " + resp.bodyAsString());
+        // if any of the nodes in the query did not have an ID property then the request
+        // would fail
+        EnvironmentNodesResponse actual =
+                mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
+        System.out.println("+++Nodes(Actual) Resp: " + actual.toString());
+        Set<Long> observedIds = new HashSet<>();
+        for (var env : actual.getData().getEnvironmentNodes()) {
+            // ids should be unique
+            MatcherAssert.assertThat(observedIds, Matchers.not(Matchers.contains(env.id)));
+            observedIds.add(env.id);
+            for (var target : env.children) {
+                MatcherAssert.assertThat(observedIds, Matchers.not(Matchers.contains(target.id)));
+                observedIds.add(target.id);
+            }
+        }
+    }
 
     @Test
     @Order(9)
