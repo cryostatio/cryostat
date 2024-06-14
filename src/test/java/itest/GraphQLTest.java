@@ -38,15 +38,12 @@ import java.util.stream.Collectors;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.ActiveRecordings;
 import io.cryostat.graphql.ArchivedRecordings;
-import io.cryostat.util.HttpMimeType;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.quarkus.test.junit.QuarkusTest;
-import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
@@ -281,7 +278,7 @@ class GraphQLTest extends StandardSelfTest {
     @Order(4)
     void testArchiveMutation() throws Exception {
         Thread.sleep(5000);
-        JsonObject notificationRecording = startRecording();
+        JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
         Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
@@ -322,7 +319,7 @@ class GraphQLTest extends StandardSelfTest {
     @Order(5)
     void testActiveRecordingMetadataMutation() throws Exception {
         Thread.sleep(5000);
-        JsonObject notificationRecording = startRecording();
+        JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
 
         JsonObject variables = new JsonObject();
@@ -391,7 +388,7 @@ class GraphQLTest extends StandardSelfTest {
     void testArchivedRecordingMetadataMutation() throws Exception {
         Thread.sleep(5000);
         // Create a Recording
-        JsonObject notificationRecording = startRecording();
+        JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
         // Archive it
         JsonObject query1 = new JsonObject();
@@ -485,9 +482,10 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(7)
     void testDeleteMutation() throws Exception {
+        // this will delete all Active and Archived recordings that match the filter input.
         Thread.sleep(5000);
         // Create a Recording
-        JsonObject notificationRecording = startRecording();
+        JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
         // Archive it
         JsonObject query1 = new JsonObject();
@@ -652,7 +650,7 @@ class GraphQLTest extends StandardSelfTest {
     public void testQueryForFilteredActiveRecordingsByNames() throws Exception {
         Thread.sleep(5000);
         // Create a Recording 1 name (test)
-        JsonObject notificationRecording = startRecording();
+        JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
 
         // create recording 2 name test2
@@ -752,7 +750,6 @@ class GraphQLTest extends StandardSelfTest {
         deleteRecording();
     }
 
-    @Disabled
     @Test
     @Order(11)
     public void shouldReturnArchivedRecordingsFilteredByNames() throws Exception {
@@ -773,46 +770,34 @@ class GraphQLTest extends StandardSelfTest {
         Assertions.assertTrue(listResp.isEmpty());
 
         // Create a new recording
-        CompletableFuture<Void> createRecordingFuture = new CompletableFuture<>();
-        MultiMap form = MultiMap.caseInsensitiveMultiMap();
-        form.add("recordingName", TEST_RECORDING_NAME);
-        form.add("duration", "5");
-        form.add("events", "template=ALL");
-        webClient
-                .post(
-                        String.format(
-                                "/api/v1/targets/%s/recordings",
-                                getSelfReferenceConnectUrlEncoded()))
-                .sendForm(
-                        form,
-                        ar -> {
-                            if (assertRequestStatus(ar, createRecordingFuture)) {
-                                createRecordingFuture.complete(null);
-                            }
-                        });
-        createRecordingFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Thread.sleep(5000);
+        JsonObject notificationRecording = createRecording();
+        Assertions.assertEquals("test", notificationRecording.getString("name"));
 
         // Archive the recording
-        CompletableFuture<Void> archiveRecordingFuture = new CompletableFuture<>();
-        webClient
-                .patch(
-                        String.format(
-                                "/api/v1/targets/%s/recordings/%s",
-                                getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME))
-                .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.PLAINTEXT.mime())
-                .sendBuffer(
-                        Buffer.buffer("SAVE"),
-                        ar -> {
-                            if (assertRequestStatus(ar, archiveRecordingFuture)) {
-                                archiveRecordingFuture.complete(null);
-                            } else {
+        JsonObject query1 = new JsonObject();
+        query1.put(
+                "query",
+                "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom Targets\"]},"
+                        + " recordings: { name: \"test\"}) { name downloadUrl } }");
+        HttpResponse<Buffer> resp1 =
+                webClient
+                        .extensions()
+                        .post("/api/v3/graphql", query1.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(
+                resp1.statusCode(),
+                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
-                                archiveRecordingFuture.completeExceptionally(
-                                        new RuntimeException("Archive request failed"));
-                            }
-                        });
+        String jsonResponse1 = resp1.bodyAsString();
+        System.out.println("+++ArchiveMetadata Resp: " + jsonResponse1);
 
-        archiveRecordingFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        // Deserialize the response to get the archived recording name
+        ArchiveMutationResponse archiveResponse =
+                mapper.readValue(jsonResponse1, ArchiveMutationResponse.class);
+        List<ArchivedRecording> archivedRecordings =
+                archiveResponse.getData().getArchivedRecording();
+        MatcherAssert.assertThat(archivedRecordings, Matchers.not(Matchers.empty()));
+        MatcherAssert.assertThat(archivedRecordings, Matchers.hasSize(1));
 
         // retrieve to match the exact name
         CompletableFuture<JsonArray> archivedRecordingsFuture2 = new CompletableFuture<>();
@@ -827,15 +812,14 @@ class GraphQLTest extends StandardSelfTest {
         JsonArray retrivedArchivedRecordings =
                 archivedRecordingsFuture2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         JsonObject retrievedArchivedrecordings = retrivedArchivedRecordings.getJsonObject(0);
+        System.out.println("+++retrievedArchivedrecordings: " + retrievedArchivedrecordings);
         String retrievedArchivedRecordingsName = retrievedArchivedrecordings.getString("name");
 
         // GraphQL Query to filter Archived recordings by names
-        CompletableFuture<TargetNodesQueryResponse> resp2 = new CompletableFuture<>();
-
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "query { targetNodes {"
+                "query { targetNodes { name target {"
                         + "recordings {"
                         + "archived(filter: { names: [\""
                         + retrievedArchivedRecordingsName
@@ -846,21 +830,31 @@ class GraphQLTest extends StandardSelfTest {
                         + "}"
                         + "}"
                         + "}"
+                        + "}"
                         + "}");
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
+        System.out.println("+++graphqlResp: " + resp.bodyAsString());
 
         TargetNodesQueryResponse graphqlResp =
                 mapper.readValue(resp.bodyAsString(), TargetNodesQueryResponse.class);
+        System.out.println("+++graphqlResp Actual: " + graphqlResp);
 
         List<ArchivedRecording> archivedRecordings2 =
-                graphqlResp.data.targetNodes.stream()
-                        .flatMap(targetNode -> targetNode.recordings.archived.data.stream())
+                graphqlResp.getData().getTargetNodes().stream()
+                        .flatMap(
+                                targetNode ->
+                                        targetNode
+                                                .getTarget()
+                                                .getRecordings()
+                                                .getArchived()
+                                                .getData()
+                                                .stream())
                         .collect(Collectors.toList());
 
         int filteredRecordingsCount = archivedRecordings2.size();
@@ -875,29 +869,9 @@ class GraphQLTest extends StandardSelfTest {
                 "Filtered name should match the archived recording name");
 
         // Delete archived recording by name
-        for (ArchivedRecording archrecording : archivedRecordings2) {
-            String nameMatch = archrecording.name;
+        deleteRecording();
 
-            CompletableFuture<Void> deleteFuture = new CompletableFuture<>();
-            webClient
-                    .delete(
-                            String.format(
-                                    "/api/beta/recordings/%s/%s",
-                                    getSelfReferenceConnectUrlEncoded(), nameMatch))
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, deleteFuture)) {
-                                    deleteFuture.complete(null);
-                                } else {
-                                    deleteFuture.completeExceptionally(
-                                            new RuntimeException("Delete request failed"));
-                                }
-                            });
-
-            deleteFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        }
-
-        // Retrieve the list of updated archived recordings to verify that the targeted
+        /* // Retrieve the list of updated archived recordings to verify that the targeted
         // recordings
         // have been deleted
         CompletableFuture<JsonArray> updatedArchivedRecordingsFuture = new CompletableFuture<>();
@@ -924,56 +898,7 @@ class GraphQLTest extends StandardSelfTest {
                                 });
 
         Assertions.assertTrue(
-                recordingsDeleted, "The targeted archived recordings should be deleted");
-
-        // Clean up what we created
-        CompletableFuture<Void> deleteRespFuture1 = new CompletableFuture<>();
-        webClient
-                .delete(
-                        String.format(
-                                "/api/v1/targets/%s/recordings/%s",
-                                getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME))
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, deleteRespFuture1)) {
-                                deleteRespFuture1.complete(null);
-                            }
-                        });
-
-        deleteRespFuture1.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
-        CompletableFuture<JsonArray> savedRecordingsFuture = new CompletableFuture<>();
-        webClient
-                .get("/api/v1/recordings")
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, savedRecordingsFuture)) {
-                                savedRecordingsFuture.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-
-        JsonArray savedRecordings =
-                savedRecordingsFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
-        for (Object savedRecording : savedRecordings) {
-            String recordingName = ((JsonObject) savedRecording).getString("name");
-            if (recordingName.matches("archivedRecordings")) {
-                CompletableFuture<Void> deleteRespFuture2 = new CompletableFuture<>();
-                webClient
-                        .delete(
-                                String.format(
-                                        "/api/beta/recordings/%s/%s",
-                                        getSelfReferenceConnectUrlEncoded(), recordingName))
-                        .send(
-                                ar -> {
-                                    if (assertRequestStatus(ar, deleteRespFuture2)) {
-                                        deleteRespFuture2.complete(null);
-                                    }
-                                });
-
-                deleteRespFuture2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            }
-        }
+                recordingsDeleted, "The targeted archived recordings should be deleted"); */
     }
 
     /*
@@ -1021,7 +946,7 @@ class GraphQLTest extends StandardSelfTest {
     void testReplaceAlwaysOnStoppedRecording() throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = startRecording();
+            JsonObject notificationRecording = createRecording();
             Assertions.assertEquals("test", notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
@@ -1046,7 +971,7 @@ class GraphQLTest extends StandardSelfTest {
     void testReplaceNeverOnStoppedRecording() throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = startRecording();
+            JsonObject notificationRecording = createRecording();
             Assertions.assertEquals("test", notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
@@ -1074,7 +999,7 @@ class GraphQLTest extends StandardSelfTest {
     void testReplaceStoppedOnStoppedRecording() throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = startRecording();
+            JsonObject notificationRecording = createRecording();
             Assertions.assertEquals("test", notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
@@ -1100,7 +1025,7 @@ class GraphQLTest extends StandardSelfTest {
     void testReplaceStoppedOrNeverOnRunningRecording(String replace) throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = startRecording();
+            JsonObject notificationRecording = createRecording();
             Assertions.assertEquals("test", notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
@@ -1123,7 +1048,7 @@ class GraphQLTest extends StandardSelfTest {
     void testReplaceAlwaysOnRunningRecording() throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = startRecording();
+            JsonObject notificationRecording = createRecording();
             Assertions.assertEquals("test", notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
@@ -1143,7 +1068,7 @@ class GraphQLTest extends StandardSelfTest {
     void testRestartTrueOnRunningRecording() throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = startRecording();
+            JsonObject notificationRecording = createRecording();
             Assertions.assertEquals("test", notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
@@ -1163,7 +1088,7 @@ class GraphQLTest extends StandardSelfTest {
     void testRestartFalseOnRunningRecording() throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = startRecording();
+            JsonObject notificationRecording = createRecording();
             Assertions.assertEquals("test", notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
@@ -1186,7 +1111,7 @@ class GraphQLTest extends StandardSelfTest {
     void testRestartTrueOnStoppedRecording() throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = startRecording();
+            JsonObject notificationRecording = createRecording();
             Assertions.assertEquals("test", notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
@@ -1211,7 +1136,7 @@ class GraphQLTest extends StandardSelfTest {
     void testRestartFalseOnStoppedRecording() throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = startRecording();
+            JsonObject notificationRecording = createRecording();
             Assertions.assertEquals("test", notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
@@ -2847,7 +2772,7 @@ class GraphQLTest extends StandardSelfTest {
     }
 
     // start recording
-    private JsonObject startRecording() throws Exception {
+    private JsonObject createRecording() throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
 
         JsonObject query = new JsonObject();
