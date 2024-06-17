@@ -582,21 +582,45 @@ class GraphQLTest extends StandardSelfTest {
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
         System.out.println("+++NodesResp: " + resp.bodyAsString());
-        // if any of the nodes in the query did not have an ID property then the request
-        // would fail
+
+        // Parse the response
         EnvironmentNodesResponse actual =
                 mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
         System.out.println("+++Nodes(Actual) Resp: " + actual.toString());
+
         Set<Long> observedIds = new HashSet<>();
         for (var env : actual.getData().getEnvironmentNodes()) {
             // ids should be unique
-            MatcherAssert.assertThat(observedIds, Matchers.not(Matchers.contains(env.id)));
-            observedIds.add(env.id);
-            for (var target : env.children) {
-                MatcherAssert.assertThat(observedIds, Matchers.not(Matchers.contains(target.id)));
-                observedIds.add(target.id);
+            MatcherAssert.assertThat(
+                    observedIds, Matchers.not(Matchers.contains(env.id.longValue())));
+            observedIds.add(env.id.longValue());
+            System.out.println("+++Environment ID: " + env.id.longValue());
+
+            for (var target : env.getDescendantTargets()) {
+                MatcherAssert.assertThat(
+                        observedIds, Matchers.not(Matchers.contains(target.id.longValue())));
+                observedIds.add(target.id.longValue());
+                System.out.println("+++Target ID: " + target.id.longValue());
+
+                // Assert that target IDs do not match environment node IDs
+                MatcherAssert.assertThat(
+                        env.id.longValue(), Matchers.not(Matchers.equalTo(target.id.longValue())));
             }
         }
+
+        // Check if response IDs and actual IDs are the same
+        Set<Long> respIds = new HashSet<>();
+        EnvironmentNodesResponse respParsed =
+                mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
+        for (var env : respParsed.getData().getEnvironmentNodes()) {
+            respIds.add(env.id.longValue());
+            for (var target : env.getDescendantTargets()) {
+                respIds.add(target.id.longValue());
+            }
+        }
+
+        // Assert that the actual IDs match the response IDs
+        MatcherAssert.assertThat(respIds, Matchers.equalTo(observedIds));
     }
 
     @Test
@@ -2482,6 +2506,31 @@ class GraphQLTest extends StandardSelfTest {
             public void setEnvironmentNodes(List<DiscoveryNode> environmentNodes) {
                 this.environmentNodes = environmentNodes;
             }
+        }
+
+        @Override
+        public String toString() {
+            return "EnvironmentNodesResponse [data=" + data + "]";
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(data);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            EnvironmentNodesResponse other = (EnvironmentNodesResponse) obj;
+            return Objects.equals(data, other.data);
         }
     }
 

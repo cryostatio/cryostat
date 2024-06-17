@@ -48,6 +48,7 @@ import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.Transient;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -79,6 +80,30 @@ public class DiscoveryNode extends PanacheEntity {
     @JsonView(Views.Nested.class)
     @Nullable
     public List<DiscoveryNode> children = new ArrayList<>();
+
+    @JsonView(Views.Nested.class)
+    @Transient
+    public List<DiscoveryNode> descendantTargets;
+
+    public List<DiscoveryNode> getDescendantTargets() {
+        if (descendantTargets == null) {
+            descendantTargets = fetchDescendantTargets(this);
+        }
+        return descendantTargets;
+    }
+
+    private List<DiscoveryNode> fetchDescendantTargets(DiscoveryNode node) {
+        List<DiscoveryNode> descendants = new ArrayList<>();
+        if (node.children != null) {
+            for (DiscoveryNode child : node.children) {
+                if (child.target != null) {
+                    descendants.add(child);
+                }
+                descendants.addAll(fetchDescendantTargets(child));
+            }
+        }
+        return descendants;
+    }
 
     @Nullable
     @ManyToOne(fetch = FetchType.LAZY)
@@ -182,21 +207,6 @@ public class DiscoveryNode extends PanacheEntity {
 
         @Inject Logger logger;
         @Inject EventBus bus;
-
-        // @Transactional
-        // @Blocking
-        // @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
-        // void onMessage(TargetDiscovery event) {
-        //     switch (event.kind()) {
-        //         case LOST:
-        //             break;
-        //         case FOUND:
-        //             break;
-        //         default:
-        //             // no-op
-        //             break;
-        //     }
-        // }
 
         @PrePersist
         void prePersist(DiscoveryNode node) {}
