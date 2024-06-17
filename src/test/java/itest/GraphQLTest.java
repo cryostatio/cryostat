@@ -918,44 +918,39 @@ class GraphQLTest extends StandardSelfTest {
                 recordingsDeleted, "The targeted archived recordings should be deleted"); */
     }
 
-    /*
-     * @Disabled
-     *
-     * @Test
-     *
-     * @Order(12)
-     * public void testQueryforFilteredEnvironmentNodesByNames() throws Exception {
-     * JsonObject query = new JsonObject();
-     * query.put(
-     * "query",
-     * "query { environmentNodes(filter: { names: [\"anotherName1\","
-     * + " \"JDP\",\"anotherName2\"] }) { name nodeType } }");
-     * HttpResponse<Buffer> resp =
-     * webClient
-     * .extensions()
-     * .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
-     * MatcherAssert.assertThat(
-     * resp.statusCode(),
-     * Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300))
-     * );
-     *
-     * EnvironmentNodesResponse actual =
-     * mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
-     * List<EnvironmentNode> environmentNodes = actual.data.environmentNodes;
-     *
-     * Assertions.assertEquals(1, environmentNodes.size(),
-     * "The list filtered should be 1");
-     *
-     * boolean nameExists = false;
-     * for (EnvironmentNode environmentNode : environmentNodes) {
-     * if (environmentNode.name.matches("JDP")) {
-     * nameExists = true;
-     * break;
-     * }
-     * }
-     * Assertions.assertTrue(nameExists, "Name not found");
-     * }
-     */
+    @Test
+    @Order(12)
+    public void testQueryforFilteredEnvironmentNodesByNames() throws Exception {
+        JsonObject query = new JsonObject();
+        query.put(
+                "query",
+                "query { environmentNodes(filter: { names: [\"anotherName1\","
+                        + " \"JDP\",\"anotherName2\"] }) { name nodeType } }");
+        HttpResponse<Buffer> resp =
+                webClient
+                        .extensions()
+                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(
+                resp.statusCode(),
+                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
+
+        System.out.println("+++graphqlResp env by names: " + resp.bodyAsString());
+        EnvironmentNodesResponse actual =
+                mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
+        List<DiscoveryNode> environmentNodes = actual.getData().getEnvironmentNodes();
+
+        System.out.println("+++graphqlResp env by names Actual: " + environmentNodes);
+        Assertions.assertEquals(1, environmentNodes.size(), "The list filtered should be 1");
+
+        boolean nameExists = false;
+        for (DiscoveryNode environmentNode : environmentNodes) {
+            if (environmentNode.name.matches("JDP")) {
+                nameExists = true;
+                break;
+            }
+        }
+        Assertions.assertTrue(nameExists, "Name not found");
+    }
 
     @Test
     @Order(13)
