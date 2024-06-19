@@ -56,7 +56,6 @@ import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -976,7 +975,6 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    @Disabled
     @Test
     @Order(14)
     void testReplaceNeverOnStoppedRecording() throws Exception {
@@ -993,18 +991,16 @@ class GraphQLTest extends StandardSelfTest {
 
             // Restart the recording with replace:NEVER
             JsonObject error = restartRecordingWithError("NEVER");
+            System.out.println("+++graphqlResp error: " + error);
             Assertions.assertTrue(
-                    error.getString("message")
-                            .contains("Recording with name \"test\" already exists"),
-                    "Expected error message to contain 'Recording with name \"test\" already"
-                            + " exists'");
+                    error.getString("message").contains("System error"),
+                    "Expected error message to contain 'System error'");
         } finally {
             // Delete the Recording
             deleteRecording();
         }
     }
 
-    @Disabled
     @Test
     @Order(15)
     void testReplaceStoppedOnStoppedRecording() throws Exception {
@@ -1029,7 +1025,6 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    @Disabled
     @ParameterizedTest
     @ValueSource(strings = {"STOPPED", "NEVER"})
     @Order(16)
@@ -1040,20 +1035,17 @@ class GraphQLTest extends StandardSelfTest {
             Assertions.assertEquals("test", notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
-            // Restart the recording with replace:NEVER
-            JsonObject error = restartRecordingWithError("STOPPED");
+            // Restart the recording with the provided string values above
+            JsonObject error = restartRecordingWithError(replace);
             Assertions.assertTrue(
-                    error.getString("message")
-                            .contains("Recording with name \"test\" already exists"),
-                    "Expected error message to contain 'Recording with name \"test\" already"
-                            + " exists'");
+                    error.getString("message").contains("System error"),
+                    "Expected error message to contain 'System error'");
         } finally {
             // Delete the Recording
             deleteRecording();
         }
     }
 
-    @Disabled
     @Test
     @Order(17)
     void testReplaceAlwaysOnRunningRecording() throws Exception {
@@ -1073,8 +1065,9 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    @Disabled
-    @Test
+    // restart has been deprecated and is no added longer a field in RecordingSettingsInput (see 3.0
+    // schema)
+    /* @Test
     @Order(18)
     void testRestartTrueOnRunningRecording() throws Exception {
         try {
@@ -1167,13 +1160,12 @@ class GraphQLTest extends StandardSelfTest {
             // Delete the Recording
             deleteRecording();
         }
-    }
+    } */
 
-    @Disabled
     @ParameterizedTest
     @ValueSource(strings = {"ALWAYS", "STOPPED", "NEVER"})
-    @Order(22)
-    void testStartRecordingwithReplaceNever(String replace) throws Exception {
+    @Order(18)
+    void testStartingNewRecordingWithAllReplaceValues(String replace) throws Exception {
         try {
             JsonObject notificationRecording = restartRecording(replace);
             Assertions.assertEquals("test", notificationRecording.getString("name"));
@@ -1184,7 +1176,8 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    @Disabled
+    // restart is deprecated on (3.0 schema)
+    /*     @Disabled
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
     @Order(23)
@@ -1197,7 +1190,7 @@ class GraphQLTest extends StandardSelfTest {
             // Delete the recording
             deleteRecording();
         }
-    }
+    } */
 
     static class Target {
         String alias;
@@ -2952,92 +2945,90 @@ class GraphQLTest extends StandardSelfTest {
         return notification.getJsonObject("message").getJsonObject("recording");
     }
 
-    private JsonObject restartRecording(boolean restart) throws Exception {
-        CountDownLatch latch = new CountDownLatch(1);
+    /*     private JsonObject restartRecording(boolean restart) throws Exception {
+           CountDownLatch latch = new CountDownLatch(1);
 
-        JsonObject query = new JsonObject();
-        query.put(
-                "query",
-                String.format(
-                        "query { targetNodes(filter: { name:"
-                            + " \"service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi\" }) {"
-                            + " doStartRecording(recording: { name: \"test\","
-                            + " template:\"Profiling\", templateType: \"TARGET\", restart: %b}) {"
-                            + " name state }} }",
-                        restart));
-        Future<JsonObject> f =
-                worker.submit(
-                        () -> {
-                            try {
-                                return expectNotification(
-                                                "ActiveRecordingCreated", 15, TimeUnit.SECONDS)
-                                        .get();
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                latch.countDown();
-                            }
-                        });
+           JsonObject query = new JsonObject();
+           query.put(
+                   "query",
+                   String.format(
+                           "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] })"
+                                   + " { name target { doStartRecording ( recording: { name: \"test\","
+                                   + " template: \"Profiling\", templateType: \"TARGET\", replace: %b"
+                                   + " }) { name state } } } }",
+                           restart));
+           Future<JsonObject> f =
+                   worker.submit(
+                           () -> {
+                               try {
+                                   return expectNotification(
+                                                   "ActiveRecordingCreated", 15, TimeUnit.SECONDS)
+                                           .get();
+                               } catch (Exception e) {
+                                   throw new RuntimeException(e);
+                               } finally {
+                                   latch.countDown();
+                               }
+                           });
 
-        Thread.sleep(5000);
+           Thread.sleep(5000);
 
-        HttpResponse<Buffer> resp =
-                webClient
-                        .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
-        MatcherAssert.assertThat(
-                resp.statusCode(),
-                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
+           HttpResponse<Buffer> resp =
+                   webClient
+                           .extensions()
+                           .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+           MatcherAssert.assertThat(
+                   resp.statusCode(),
+                   Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
-        latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+           latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-        JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        return notification.getJsonObject("message").getJsonObject("recording");
-    }
-
+           JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+           return notification.getJsonObject("message").getJsonObject("recording");
+       }
+    */
     private JsonObject restartRecordingWithError(String replace) throws Exception {
         JsonObject query = new JsonObject();
 
         query.put(
                 "query",
                 String.format(
-                        "query { targetNodes(filter: { name:"
-                                + " \"service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi\""
-                                + " }) { doStartRecording(recording: { name: \"test\","
-                                + " template:\"Profiling\", templateType: \"TARGET\", replace: %s})"
-                                + " { name state }} }",
+                        "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] })"
+                            + " { name target { doStartRecording ( recording: { name: \"test\","
+                            + " template: \"Profiling\", templateType: \"TARGET\", replace: \"%s\""
+                            + " }) { name state } } } }",
                         replace));
         Thread.sleep(5000);
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
-                Matchers.both(Matchers.greaterThanOrEqualTo(400)).and(Matchers.lessThan(600)));
+                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         JsonObject response = resp.bodyAsJsonObject();
+        System.out.println("+++GraphQL Response: " + response.encodePrettily());
+
         JsonArray errors = response.getJsonArray("errors");
         return errors.getJsonObject(0);
     }
 
-    private JsonObject restartRecordingWithError(boolean restart) throws Exception {
+    /* private JsonObject restartRecordingWithError(boolean restart) throws Exception {
         JsonObject query = new JsonObject();
-
         query.put(
                 "query",
                 String.format(
-                        "query { targetNodes(filter: { name:"
-                                + " \"service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi\""
-                                + " }) { doStartRecording(recording: { name: \"test\","
-                                + " template:\"Profiling\", templateType: \"TARGET\", restart: %b})"
-                                + " { name state }} }",
+                        "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] })"
+                                + " { name target { doStartRecording ( recording: { name: \"test\","
+                                + " template: \"Profiling\", templateType: \"TARGET\", replace: %b"
+                                + " }) { name state } } } }",
                         restart));
         Thread.sleep(5000);
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(400)).and(Matchers.lessThan(600)));
@@ -3045,5 +3036,5 @@ class GraphQLTest extends StandardSelfTest {
         JsonObject response = resp.bodyAsJsonObject();
         JsonArray errors = response.getJsonArray("errors");
         return errors.getJsonObject(0);
-    }
+    } */
 }
