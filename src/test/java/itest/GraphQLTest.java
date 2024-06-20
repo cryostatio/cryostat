@@ -887,34 +887,6 @@ class GraphQLTest extends StandardSelfTest {
         // Delete archived recording by name
         deleteRecording();
 
-        /* // Retrieve the list of updated archived recordings to verify that the targeted
-        // recordings
-        // have been deleted
-        CompletableFuture<JsonArray> updatedArchivedRecordingsFuture = new CompletableFuture<>();
-        webClient
-                .get("/api/v1/recordings")
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, updatedArchivedRecordingsFuture)) {
-                                updatedArchivedRecordingsFuture.complete(
-                                        ar.result().bodyAsJsonArray());
-                            }
-                        });
-
-        JsonArray updatedArchivedRecordings =
-                updatedArchivedRecordingsFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
-        // Assert that the targeted recordings have been deleted
-        boolean recordingsDeleted =
-                updatedArchivedRecordings.stream()
-                        .noneMatch(
-                                json -> {
-                                    JsonObject recording = (JsonObject) json;
-                                    return recording.getString("name").equals(TEST_RECORDING_NAME);
-                                });
-
-        Assertions.assertTrue(
-                recordingsDeleted, "The targeted archived recordings should be deleted"); */
     }
 
     @Test
@@ -1065,7 +1037,7 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    // restart has been deprecated and is no added longer a field in RecordingSettingsInput (see 3.0
+    // restart has been deprecated (replace is used instead) and is no added longer a field in RecordingSettingsInput (see 3.0
     // schema)
     /* @Test
     @Order(18)
@@ -1176,7 +1148,7 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    // restart is deprecated on (3.0 schema)
+    // restart is deprecated on (3.0 schema) replace is used instead
     /*     @Disabled
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
