@@ -18,7 +18,6 @@ package itest;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
-import static org.junit.Assert.*;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -37,8 +36,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import io.cryostat.discovery.DiscoveryNode;
-import io.cryostat.graphql.ActiveRecordings;
-import io.cryostat.graphql.ArchivedRecordings;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -48,10 +45,6 @@ import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
-import itest.GraphQLTest.ActiveMutationResponse;
-import itest.GraphQLTest.ActiveRecording.DoPutMetadata;
-import itest.GraphQLTest.DeleteMutationResponse;
-import itest.GraphQLTest.TargetNode;
 import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -218,19 +211,17 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(5000); // Sleep to setup notification listening before query resolves
+        Thread.sleep(5000);
 
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
                         .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
-        System.out.println("+++StartRecording: " + resp.bodyAsString());
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
         CreateRecordingMutationResponse actual =
                 mapper.readValue(resp.bodyAsString(), CreateRecordingMutationResponse.class);
-        System.out.println("+++StartRecording: " + actual);
         latch.await(30, TimeUnit.SECONDS);
 
         // Ensure ActiveRecordingCreated notification emitted matches expected values
@@ -296,11 +287,9 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         String jsonResponse = resp.bodyAsString();
-        System.out.println("+++Archive Resp: " + jsonResponse);
 
         ArchiveMutationResponse archiveResponse =
                 mapper.readValue(jsonResponse, ArchiveMutationResponse.class);
-        System.out.println("+++Actual Object: " + archiveResponse.toString());
 
         List<ArchivedRecording> archivedRecordings =
                 archiveResponse.getData().getArchivedRecording();
@@ -348,22 +337,18 @@ class GraphQLTest extends StandardSelfTest {
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
         String jsonResponse = resp.bodyAsString();
-        System.out.println("+++ActiveMutation Resp here: " + jsonResponse);
 
         TypeReference<ActiveMutationResponse> typeRef =
                 new TypeReference<ActiveMutationResponse>() {};
         ActiveMutationResponse actual = mapper.readValue(jsonResponse, typeRef);
-        System.out.println("+++ActualMutation Object here: " + actual.toString());
 
         List<TargetNode> targetNodes = actual.getData().getTargetNodes();
-        System.out.println("+++targetNodes: " + targetNodes);
         MatcherAssert.assertThat(targetNodes, Matchers.not(Matchers.empty()));
         MatcherAssert.assertThat(targetNodes, Matchers.hasSize(1));
 
         TargetNode targetNode = targetNodes.get(0);
         List<ActiveRecording> activeRecordings =
                 targetNode.getTarget().getRecordings().getActive().getData();
-        System.out.println("+++activeRecordings: " + activeRecordings);
         MatcherAssert.assertThat(activeRecordings, Matchers.not(Matchers.empty()));
         MatcherAssert.assertThat(activeRecordings, Matchers.hasSize(1));
 
@@ -405,9 +390,8 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         String jsonResponse1 = resp1.bodyAsString();
-        System.out.println("+++ArchiveMetadata Resp: " + jsonResponse1);
 
-        // Deserialize the response to get the archived recording name
+        // Deserialize the response
         ArchiveMutationResponse archiveResponse =
                 mapper.readValue(jsonResponse1, ArchiveMutationResponse.class);
         List<ArchivedRecording> archivedRecordings =
@@ -416,7 +400,6 @@ class GraphQLTest extends StandardSelfTest {
         MatcherAssert.assertThat(archivedRecordings, Matchers.hasSize(1));
 
         String archivedRecordingName = archivedRecordings.get(0).getName();
-        System.out.println("+++ArchivedRecordingName: " + archivedRecordingName);
 
         // Edit Labels
         JsonObject variables = new JsonObject();
@@ -447,11 +430,9 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         String jsonResponse2 = resp2.bodyAsString();
-        System.out.println("+++ArchiveMutation Resp here: " + jsonResponse2);
 
         MetadataUpdateResponse actual =
                 mapper.readValue(jsonResponse2, MetadataUpdateResponse.class);
-        System.out.println("+++ArchiveMutation(Actual) Resp here: " + actual.toString());
 
         List<TargetNode> targetNodes = actual.getData().getTargetNodes();
         MatcherAssert.assertThat(targetNodes, Matchers.not(Matchers.empty()));
@@ -502,18 +483,14 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         String jsonResponse1 = resp1.bodyAsString();
-        System.out.println("+++ArchiveMetadata Resp: " + jsonResponse1);
 
-        // Deserialize the response to get the archived recording name
+        // Deserialize the response
         ArchiveMutationResponse archiveResponse =
                 mapper.readValue(jsonResponse1, ArchiveMutationResponse.class);
         List<ArchivedRecording> archivedRecordings =
                 archiveResponse.getData().getArchivedRecording();
         MatcherAssert.assertThat(archivedRecordings, Matchers.not(Matchers.empty()));
         MatcherAssert.assertThat(archivedRecordings, Matchers.hasSize(1));
-
-        String archivedRecordingName = archivedRecordings.get(0).getName();
-        System.out.println("+++ArchivedRecordingName: " + archivedRecordingName);
 
         // Delete
         JsonObject query2 = new JsonObject();
@@ -530,16 +507,13 @@ class GraphQLTest extends StandardSelfTest {
         MatcherAssert.assertThat(
                 resp2.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-        System.out.println("+++DeleteMetadata Resp: " + resp2.bodyAsString());
 
         DeleteMutationResponse actual =
                 mapper.readValue(resp2.bodyAsString(), DeleteMutationResponse.class);
-        System.out.println("+++Delete Metadata(Actual) Resp: " + actual.toString());
 
         MatcherAssert.assertThat(actual.getData().getTargetNodes(), Matchers.hasSize(1));
 
         TargetNode node = actual.getData().getTargetNodes().get(0);
-        System.out.println("+++TargetNode: " + node.toString());
 
         MatcherAssert.assertThat(
                 node.getTarget().getRecordings().getActive().getData(), Matchers.hasSize(1));
@@ -580,12 +554,10 @@ class GraphQLTest extends StandardSelfTest {
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-        System.out.println("+++NodesResp: " + resp.bodyAsString());
 
         // Parse the response
         EnvironmentNodesResponse actual =
                 mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
-        System.out.println("+++Nodes(Actual) Resp: " + actual.toString());
 
         Set<Long> observedIds = new HashSet<>();
         for (var env : actual.getData().getEnvironmentNodes()) {
@@ -593,13 +565,11 @@ class GraphQLTest extends StandardSelfTest {
             MatcherAssert.assertThat(
                     observedIds, Matchers.not(Matchers.contains(env.id.longValue())));
             observedIds.add(env.id.longValue());
-            System.out.println("+++Environment ID: " + env.id.longValue());
 
             for (var target : env.getDescendantTargets()) {
                 MatcherAssert.assertThat(
                         observedIds, Matchers.not(Matchers.contains(target.id.longValue())));
                 observedIds.add(target.id.longValue());
-                System.out.println("+++Target ID: " + target.id.longValue());
 
                 // Assert that target IDs do not match environment node IDs
                 MatcherAssert.assertThat(
@@ -618,7 +588,6 @@ class GraphQLTest extends StandardSelfTest {
             }
         }
 
-        // Assert that the actual IDs match the response IDs
         MatcherAssert.assertThat(respIds, Matchers.equalTo(observedIds));
     }
 
@@ -638,8 +607,6 @@ class GraphQLTest extends StandardSelfTest {
                         .extensions()
                         .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
 
-        System.out.println("+++QueryForSpecificTargetsByNames Resp: " + resp.bodyAsString());
-
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -647,11 +614,9 @@ class GraphQLTest extends StandardSelfTest {
         TargetNodesQueryResponse actual =
                 mapper.readValue(resp.bodyAsString(), TargetNodesQueryResponse.class);
 
-        System.out.println("+++TargetNodesQueryResponse: " + actual.toString());
         List<TargetNode> targetNodes = actual.getData().getTargetNodes();
 
         int expectedSize = 1;
-        // only one target should be returned
         assertThat(targetNodes.size(), is(expectedSize));
 
         TargetNode target1 = new TargetNode();
@@ -669,7 +634,7 @@ class GraphQLTest extends StandardSelfTest {
         JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
 
-        // create recording 2 name test2
+        // create recording 2 name (test2)
         CountDownLatch latch = new CountDownLatch(2);
 
         JsonObject query = new JsonObject();
@@ -706,9 +671,7 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
         CreateRecordingMutationResponse actual =
                 mapper.readValue(resp.bodyAsString(), CreateRecordingMutationResponse.class);
-        System.out.println("+++StartRecording10: " + actual);
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        System.out.println("+++RESP CREATE: " + resp.bodyAsString());
         JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         JsonObject test2 = notification.getJsonObject("message").getJsonObject("recording");
         MatcherAssert.assertThat(test2.getString("name"), Matchers.equalTo("test2"));
@@ -726,16 +689,12 @@ class GraphQLTest extends StandardSelfTest {
                         .extensions()
                         .post("/api/v3/graphql", query2.toBuffer(), REQUEST_TIMEOUT_SECONDS);
 
-        System.out.println(
-                "+++QueryForFilteredActiveRecordingsByNames Resp: " + resp2.bodyAsString());
         MatcherAssert.assertThat(
                 resp2.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         TargetNodesQueryResponse graphqlResp =
                 mapper.readValue(resp2.bodyAsString(), TargetNodesQueryResponse.class);
-
-        System.out.println("+++TargetNodesQueryResponse: " + graphqlResp.toString());
 
         List<String> filterNames = Arrays.asList("test", "test2");
 
@@ -751,7 +710,6 @@ class GraphQLTest extends StandardSelfTest {
                                                 .stream())
                         .filter(recording -> filterNames.contains(recording.name))
                         .collect(Collectors.toList());
-        System.out.println("+++FilteredRecordings: " + filteredRecordings);
 
         MatcherAssert.assertThat(filteredRecordings.size(), Matchers.equalTo(2));
         ActiveRecording r1 = new ActiveRecording();
@@ -805,9 +763,8 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         String jsonResponse1 = resp1.bodyAsString();
-        System.out.println("+++ArchiveMetadata Resp: " + jsonResponse1);
 
-        // Deserialize the response to get the archived recording name
+        // Deserialize the response
         ArchiveMutationResponse archiveResponse =
                 mapper.readValue(jsonResponse1, ArchiveMutationResponse.class);
         List<ArchivedRecording> archivedRecordings =
@@ -828,7 +785,6 @@ class GraphQLTest extends StandardSelfTest {
         JsonArray retrivedArchivedRecordings =
                 archivedRecordingsFuture2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         JsonObject retrievedArchivedrecordings = retrivedArchivedRecordings.getJsonObject(0);
-        System.out.println("+++retrievedArchivedrecordings: " + retrievedArchivedrecordings);
         String retrievedArchivedRecordingsName = retrievedArchivedrecordings.getString("name");
 
         // GraphQL Query to filter Archived recordings by names
@@ -855,11 +811,9 @@ class GraphQLTest extends StandardSelfTest {
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-        System.out.println("+++graphqlResp: " + resp.bodyAsString());
 
         TargetNodesQueryResponse graphqlResp =
                 mapper.readValue(resp.bodyAsString(), TargetNodesQueryResponse.class);
-        System.out.println("+++graphqlResp Actual: " + graphqlResp);
 
         List<ArchivedRecording> archivedRecordings2 =
                 graphqlResp.getData().getTargetNodes().stream()
@@ -886,7 +840,6 @@ class GraphQLTest extends StandardSelfTest {
 
         // Delete archived recording by name
         deleteRecording();
-
     }
 
     @Test
@@ -905,12 +858,10 @@ class GraphQLTest extends StandardSelfTest {
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
-        System.out.println("+++graphqlResp env by names: " + resp.bodyAsString());
         EnvironmentNodesResponse actual =
                 mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
         List<DiscoveryNode> environmentNodes = actual.getData().getEnvironmentNodes();
 
-        System.out.println("+++graphqlResp env by names Actual: " + environmentNodes);
         Assertions.assertEquals(1, environmentNodes.size(), "The list filtered should be 1");
 
         boolean nameExists = false;
@@ -963,7 +914,6 @@ class GraphQLTest extends StandardSelfTest {
 
             // Restart the recording with replace:NEVER
             JsonObject error = restartRecordingWithError("NEVER");
-            System.out.println("+++graphqlResp error: " + error);
             Assertions.assertTrue(
                     error.getString("message").contains("System error"),
                     "Expected error message to contain 'System error'");
@@ -1037,103 +987,6 @@ class GraphQLTest extends StandardSelfTest {
         }
     }
 
-    // restart has been deprecated (replace is used instead) and is no added longer a field in RecordingSettingsInput (see 3.0
-    // schema)
-    /* @Test
-    @Order(18)
-    void testRestartTrueOnRunningRecording() throws Exception {
-        try {
-            // Start a Recording
-            JsonObject notificationRecording = createRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
-            Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
-
-            // Restart the recording with replace:ALWAYS
-            notificationRecording = restartRecording(true);
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
-            Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
-        } finally {
-            // Delete the Recording
-            deleteRecording();
-        }
-    }
-
-    @Disabled
-    @Test
-    @Order(19)
-    void testRestartFalseOnRunningRecording() throws Exception {
-        try {
-            // Start a Recording
-            JsonObject notificationRecording = createRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
-            Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
-
-            // Restart the recording with replace:NEVER
-            JsonObject error = restartRecordingWithError(false);
-            Assertions.assertTrue(
-                    error.getString("message")
-                            .contains("Recording with name \"test\" already exists"),
-                    "Expected error message to contain 'Recording with name \"test\" already"
-                            + " exists'");
-        } finally {
-            // Delete the Recording
-            deleteRecording();
-        }
-    }
-
-    @Disabled
-    @Test
-    @Order(20)
-    void testRestartTrueOnStoppedRecording() throws Exception {
-        try {
-            // Start a Recording
-            JsonObject notificationRecording = createRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
-            Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
-
-            // Stop the Recording
-            notificationRecording = stopRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
-            Assertions.assertEquals("STOPPED", notificationRecording.getString("state"));
-
-            // Restart the recording with replace:ALWAYS
-            notificationRecording = restartRecording(true);
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
-            Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
-        } finally {
-            // Delete the Recording
-            deleteRecording();
-        }
-    }
-
-    @Disabled
-    @Test
-    @Order(21)
-    void testRestartFalseOnStoppedRecording() throws Exception {
-        try {
-            // Start a Recording
-            JsonObject notificationRecording = createRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
-            Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
-
-            // Stop the Recording
-            notificationRecording = stopRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
-            Assertions.assertEquals("STOPPED", notificationRecording.getString("state"));
-
-            // Restart the recording with replace:NEVER
-            JsonObject error = restartRecordingWithError(false);
-            Assertions.assertTrue(
-                    error.getString("message")
-                            .contains("Recording with name \"test\" already exists"),
-                    "Expected error message to contain 'Recording with name \"test\" already"
-                            + " exists'");
-        } finally {
-            // Delete the Recording
-            deleteRecording();
-        }
-    } */
-
     @ParameterizedTest
     @ValueSource(strings = {"ALWAYS", "STOPPED", "NEVER"})
     @Order(18)
@@ -1147,22 +1000,6 @@ class GraphQLTest extends StandardSelfTest {
             deleteRecording();
         }
     }
-
-    // restart is deprecated on (3.0 schema) replace is used instead
-    /*     @Disabled
-    @ParameterizedTest
-    @ValueSource(booleans = {true, false})
-    @Order(23)
-    void testRestartRecordingWithReplaceTrue(boolean restart) throws Exception {
-        try {
-            JsonObject notificationRecording = restartRecording(restart);
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
-            Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
-        } finally {
-            // Delete the recording
-            deleteRecording();
-        }
-    } */
 
     static class Target {
         String alias;
@@ -2810,7 +2647,6 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        System.out.println("+++RESP CREATE: " + resp.bodyAsString());
         JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         return notification.getJsonObject("message").getJsonObject("recording");
     }
@@ -2851,7 +2687,6 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        System.out.println("+++RESP STOP: " + resp.bodyAsString());
         JsonObject notification = f2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         return notification.getJsonObject("message").getJsonObject("recording");
     }
@@ -2872,7 +2707,6 @@ class GraphQLTest extends StandardSelfTest {
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-        System.out.println("+++Delete Resp: " + resp.bodyAsString());
     }
 
     // Restart the recording with given replacement policy
@@ -2912,53 +2746,10 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        System.out.println("+++Restart Resp: " + resp.bodyAsString());
         JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         return notification.getJsonObject("message").getJsonObject("recording");
     }
 
-    /*     private JsonObject restartRecording(boolean restart) throws Exception {
-           CountDownLatch latch = new CountDownLatch(1);
-
-           JsonObject query = new JsonObject();
-           query.put(
-                   "query",
-                   String.format(
-                           "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] })"
-                                   + " { name target { doStartRecording ( recording: { name: \"test\","
-                                   + " template: \"Profiling\", templateType: \"TARGET\", replace: %b"
-                                   + " }) { name state } } } }",
-                           restart));
-           Future<JsonObject> f =
-                   worker.submit(
-                           () -> {
-                               try {
-                                   return expectNotification(
-                                                   "ActiveRecordingCreated", 15, TimeUnit.SECONDS)
-                                           .get();
-                               } catch (Exception e) {
-                                   throw new RuntimeException(e);
-                               } finally {
-                                   latch.countDown();
-                               }
-                           });
-
-           Thread.sleep(5000);
-
-           HttpResponse<Buffer> resp =
-                   webClient
-                           .extensions()
-                           .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
-           MatcherAssert.assertThat(
-                   resp.statusCode(),
-                   Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-
-           latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
-           JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-           return notification.getJsonObject("message").getJsonObject("recording");
-       }
-    */
     private JsonObject restartRecordingWithError(String replace) throws Exception {
         JsonObject query = new JsonObject();
 
@@ -2980,33 +2771,8 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
         JsonObject response = resp.bodyAsJsonObject();
-        System.out.println("+++GraphQL Response: " + response.encodePrettily());
 
         JsonArray errors = response.getJsonArray("errors");
         return errors.getJsonObject(0);
     }
-
-    /* private JsonObject restartRecordingWithError(boolean restart) throws Exception {
-        JsonObject query = new JsonObject();
-        query.put(
-                "query",
-                String.format(
-                        "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] })"
-                                + " { name target { doStartRecording ( recording: { name: \"test\","
-                                + " template: \"Profiling\", templateType: \"TARGET\", replace: %b"
-                                + " }) { name state } } } }",
-                        restart));
-        Thread.sleep(5000);
-        HttpResponse<Buffer> resp =
-                webClient
-                        .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
-        MatcherAssert.assertThat(
-                resp.statusCode(),
-                Matchers.both(Matchers.greaterThanOrEqualTo(400)).and(Matchers.lessThan(600)));
-
-        JsonObject response = resp.bodyAsJsonObject();
-        JsonArray errors = response.getJsonArray("errors");
-        return errors.getJsonObject(0);
-    } */
 }
