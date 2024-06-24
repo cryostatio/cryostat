@@ -64,7 +64,7 @@
     <com.diffplug.spotless.maven.plugin.version>2.43.0</com.diffplug.spotless.maven.plugin.version>
     <com.google.java-format.version>1.22.0</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>4.5</com.mycila.license.maven.plugin.version>
-    <surefire-plugin.version>3.2.5</surefire-plugin.version>
+    <surefire-plugin.version>3.3.0</surefire-plugin.version>
     <surefire.rerunFailingTestsCount>2</surefire.rerunFailingTestsCount>
     <failsafe-plugin.version>3.3.0</failsafe-plugin.version>
     <io.fabric8.client.version>6.7.2</io.fabric8.client.version>
