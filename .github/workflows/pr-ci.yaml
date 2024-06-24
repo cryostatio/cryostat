@@ -227,12 +227,12 @@ jobs:
         wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O "${HOME}/bin/yq"
         chmod +x "${HOME}/bin/yq"
         export PATH="${HOME}/bin:${PATH}"
-        bash /home/runner/work/cryostat3/cryostat3/schema/update.bash 90 15
+        bash /home/runner/work/cryostat/cryostat/schema/update.bash 90 15
         set +e
-        git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/openapi.yaml > /home/runner/work/openapi.diff
+        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/openapi.yaml > /home/runner/work/openapi.diff
         echo "openapi_status=$?" >> "$GITHUB_OUTPUT"
         echo "openapi_diff_file=openapi.diff" >> "$GITHUB_OUTPUT"
-        git diff -U10 --exit-code /home/runner/work/cryostat3/cryostat3/schema/schema.graphql > /home/runner/work/graphql.diff
+        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/schema.graphql > /home/runner/work/graphql.diff
         echo "graphql_status=$?" >> "$GITHUB_OUTPUT"
         echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
     - uses: actions/upload-artifact@v3
