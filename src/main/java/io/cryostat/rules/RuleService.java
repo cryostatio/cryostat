@@ -84,7 +84,7 @@ public class RuleService {
         Rule.<Rule>streamAll().filter(r -> r.enabled).forEach(this::applyRuleToMatchingTargets);
     }
 
-    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY)
+    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
     void onMessage(TargetDiscovery event) {
         switch (event.kind()) {
             case FOUND:
