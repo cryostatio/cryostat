@@ -24,6 +24,7 @@ import static org.mockito.Mockito.*;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -49,8 +50,11 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
+import org.hamcrest.Matcher;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.hamcrest.collection.IsIterableContainingInOrder;
+import org.hamcrest.comparator.ComparatorMatcherBuilder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
@@ -79,7 +83,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v2.2/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -102,17 +106,25 @@ class GraphQLTest extends StandardSelfTest {
         assertThat(actual.getData().getEnvironmentNodes().size(), is(1));
 
         DiscoveryNode actualNode = actual.getData().getEnvironmentNodes().get(0);
-
         assertThat(actualNode.name, is(expectedNode.name));
         assertThat(actualNode.nodeType, is(expectedNode.nodeType));
         assertThat(actualNode.children.size(), is(expectedNode.children.size()));
 
-        for (int i = 0; i < actualNode.children.size(); i++) {
-            DiscoveryNode actualChild = actualNode.children.get(i);
-            DiscoveryNode expectedChildNode = expectedNode.children.get(i);
-            assertThat(actualChild.name, is(expectedChildNode.name));
-            assertThat(actualChild.nodeType, is(expectedChildNode.nodeType));
-        }
+        Comparator<DiscoveryNode> byNameAndType =
+                Comparator.comparing((DiscoveryNode node) -> node.name)
+                        .thenComparing(node -> node.nodeType);
+        Matcher<Iterable<? extends DiscoveryNode>> listMatcher =
+                IsIterableContainingInOrder.contains(
+                        expectedChildren.stream()
+                                .map(
+                                        child ->
+                                                ComparatorMatcherBuilder.comparedBy(byNameAndType)
+                                                        .comparesEqualTo(child))
+                                .collect(Collectors.toList()));
+        assertThat(
+                "Children nodes do not match expected configuration",
+                actualNode.children,
+                listMatcher);
     }
 
     @Test
@@ -513,11 +525,9 @@ class GraphQLTest extends StandardSelfTest {
 
         DeleteMutationResponse actual =
                 mapper.readValue(resp2.bodyAsString(), DeleteMutationResponse.class);
-
         MatcherAssert.assertThat(actual.getData().getTargetNodes(), Matchers.hasSize(1));
 
         TargetNode node = actual.getData().getTargetNodes().get(0);
-
         MatcherAssert.assertThat(
                 node.getTarget().getRecordings().getActive().getData(), Matchers.hasSize(1));
         MatcherAssert.assertThat(
@@ -536,7 +546,6 @@ class GraphQLTest extends StandardSelfTest {
 
         MatcherAssert.assertThat(activeRecording.name, Matchers.equalTo("test"));
         MatcherAssert.assertThat(activeRecording.doDelete.name, Matchers.equalTo("test"));
-
         MatcherAssert.assertThat(
                 archivedRecording.name,
                 Matchers.matchesRegex("^selftest_test_[0-9]{8}T[0-9]{6}Z\\.jfr$"));
@@ -546,13 +555,9 @@ class GraphQLTest extends StandardSelfTest {
     @Order(8)
     void testNodesHaveIds() throws Exception {
 
-        // Create a mock instance of RootNode
         RootNode rootNode = mock(RootNode.class);
-
-        // Create instances of DiscoveryNode and set properties manually
         DiscoveryNode node1 = new DiscoveryNode();
-        node1.id =
-                1L; // Setting ID directly if it's public; if not, use setter methods if available
+        node1.id = 1L;
         DiscoveryNode node2 = new DiscoveryNode();
         node2.id = 2L;
 
@@ -1070,7 +1075,6 @@ class GraphQLTest extends StandardSelfTest {
             Target other = (Target) obj;
             return Objects.equals(alias, other.alias)
                     && Objects.equals(connectUrl, other.connectUrl)
-                    && Objects.equals(jvmId, other.jvmId)
                     && Objects.equals(annotations, other.annotations)
                     && Objects.equals(recordings, other.recordings);
         }
@@ -2305,6 +2309,11 @@ class GraphQLTest extends StandardSelfTest {
 
             public void setEnvironmentNodes(List<DiscoveryNode> environmentNodes) {
                 this.environmentNodes = environmentNodes;
+            }
+
+            @Override
+            public String toString() {
+                return "Data{environmentNodes=" + environmentNodes + '}';
             }
         }
 

@@ -177,6 +177,20 @@ public class DiscoveryNode extends PanacheEntity {
                 && Objects.equals(children, other.children);
     }
 
+    @Override
+    public String toString() {
+        return "DiscoveryNode{"
+                + "name='"
+                + name
+                + '\''
+                + ", nodeType='"
+                + nodeType
+                + '\''
+                + ", children="
+                + children
+                + '}';
+    }
+
     @ApplicationScoped
     static class Listener {
 
