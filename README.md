@@ -44,8 +44,8 @@ A container-native JVM application which acts as a bridge to other containerized
   application which supports reading JFR files
 
 This repository contains the source code for Cryostat versions 3.0 and later. Cryostat (née "container-jfr") versions prior to 3.0
-are located at [cryostatio/cryostat](https://github.com/cryostatio/cryostat). Container images from both are published to the same
-[`quay.io`](https://quay.io/repository/cryostat/cryostat) repository.
+are located at [cryostatio/cryostat-legacy](https://github.com/cryostatio/cryostat-legacy). Container images from both are published
+to the same [`quay.io`](https://quay.io/repository/cryostat/cryostat) repository.
 
 ## CONTRIBUTING
 
