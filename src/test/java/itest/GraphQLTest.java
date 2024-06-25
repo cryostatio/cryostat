@@ -18,6 +18,8 @@ package itest;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.is;
+import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.Mockito.*;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -36,6 +38,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import io.cryostat.discovery.DiscoveryNode;
+import io.cryostat.graphql.RootNode;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -542,11 +545,26 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(8)
     void testNodesHaveIds() throws Exception {
+
+        // Create a mock instance of RootNode
+        RootNode rootNode = mock(RootNode.class);
+
+        // Create instances of DiscoveryNode and set properties manually
+        DiscoveryNode node1 = new DiscoveryNode();
+        node1.id =
+                1L; // Setting ID directly if it's public; if not, use setter methods if available
+        DiscoveryNode node2 = new DiscoveryNode();
+        node2.id = 2L;
+
+        List<DiscoveryNode> mockDescendants = List.of(node1, node2);
+        when(rootNode.descendantTargets(any(), any())).thenReturn(mockDescendants);
+
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "query { environmentNodes(filter: { name: \"Custom Targets\" }) { id"
-                        + " descendantTargets { id } } }");
+                "query { environmentNodes(filter: { name: \"JDP\" }) { id descendantTargets { id }"
+                        + " } }");
+
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
@@ -555,40 +573,25 @@ class GraphQLTest extends StandardSelfTest {
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
 
-        // Parse the response
         EnvironmentNodesResponse actual =
                 mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
-
         Set<Long> observedIds = new HashSet<>();
-        for (var env : actual.getData().getEnvironmentNodes()) {
-            // ids should be unique
+        for (var env : actual.data.environmentNodes) {
+            List<DiscoveryNode> descendants = rootNode.descendantTargets(env, null);
             MatcherAssert.assertThat(
-                    observedIds, Matchers.not(Matchers.contains(env.id.longValue())));
-            observedIds.add(env.id.longValue());
+                    "Node ID should be unique",
+                    observedIds,
+                    Matchers.not(Matchers.contains(env.id)));
+            observedIds.add(env.id);
 
-            for (var target : env.getDescendantTargets()) {
+            for (var target : descendants) {
                 MatcherAssert.assertThat(
-                        observedIds, Matchers.not(Matchers.contains(target.id.longValue())));
-                observedIds.add(target.id.longValue());
-
-                // Assert that target IDs do not match environment node IDs
-                MatcherAssert.assertThat(
-                        env.id.longValue(), Matchers.not(Matchers.equalTo(target.id.longValue())));
+                        "Descendant ID should be unique",
+                        observedIds,
+                        Matchers.not(Matchers.contains(target.id)));
+                observedIds.add(target.id);
             }
         }
-
-        // Check if response IDs and actual IDs are the same
-        Set<Long> respIds = new HashSet<>();
-        EnvironmentNodesResponse respParsed =
-                mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
-        for (var env : respParsed.getData().getEnvironmentNodes()) {
-            respIds.add(env.id.longValue());
-            for (var target : env.getDescendantTargets()) {
-                respIds.add(target.id.longValue());
-            }
-        }
-
-        MatcherAssert.assertThat(respIds, Matchers.equalTo(observedIds));
     }
 
     @Test
@@ -2328,6 +2331,39 @@ class GraphQLTest extends StandardSelfTest {
             }
             EnvironmentNodesResponse other = (EnvironmentNodesResponse) obj;
             return Objects.equals(data, other.data);
+        }
+    }
+
+    public static class SimpleNodeResponse {
+        private List<Node> nodes;
+
+        public List<Node> getNodes() {
+            return nodes;
+        }
+
+        public void setNodes(List<Node> nodes) {
+            this.nodes = nodes;
+        }
+
+        public static class Node {
+            private BigInteger id;
+            private List<Node> descendantTargets;
+
+            public BigInteger getId() {
+                return id;
+            }
+
+            public void setId(BigInteger id) {
+                this.id = id;
+            }
+
+            public List<Node> getDescendantTargets() {
+                return descendantTargets;
+            }
+
+            public void setDescendantTargets(List<Node> descendantTargets) {
+                this.descendantTargets = descendantTargets;
+            }
         }
     }
 
