@@ -103,13 +103,16 @@ public class RootNode {
             Predicate<DiscoveryNode> matchesAnnotations =
                     n ->
                             annotations == null
-                                    || annotations.stream()
-                                            .allMatch(
-                                                    annotation ->
-                                                            LabelSelectorMatcher.parse(annotation)
-                                                                    .test(
-                                                                            n.target.annotations
-                                                                                    .merged()));
+                                    || (n.target != null
+                                            && annotations.stream()
+                                                    .allMatch(
+                                                            annotation ->
+                                                                    LabelSelectorMatcher.parse(
+                                                                                    annotation)
+                                                                            .test(
+                                                                                    n.target
+                                                                                            .annotations
+                                                                                            .merged())));
 
             return List.of(
                             matchesId,

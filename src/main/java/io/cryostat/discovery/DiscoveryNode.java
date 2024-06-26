@@ -177,26 +177,25 @@ public class DiscoveryNode extends PanacheEntity {
                 && Objects.equals(children, other.children);
     }
 
+    @Override
+    public String toString() {
+        return "DiscoveryNode{"
+                + "name='"
+                + name
+                + '\''
+                + ", nodeType='"
+                + nodeType
+                + '\''
+                + ", children="
+                + children
+                + '}';
+    }
+
     @ApplicationScoped
     static class Listener {
 
         @Inject Logger logger;
         @Inject EventBus bus;
-
-        // @Transactional
-        // @Blocking
-        // @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
-        // void onMessage(TargetDiscovery event) {
-        //     switch (event.kind()) {
-        //         case LOST:
-        //             break;
-        //         case FOUND:
-        //             break;
-        //         default:
-        //             // no-op
-        //             break;
-        //     }
-        // }
 
         @PrePersist
         void prePersist(DiscoveryNode node) {}
