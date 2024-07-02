@@ -12,6 +12,7 @@ services:
     ports:
       - "7091"
       - "9494"
+      - "25565:25565"
     environment:
       CRYOSTAT_AGENT_APP_NAME: minecraft
       CRYOSTAT_AGENT_WEBSERVER_HOST: minecraft
@@ -30,6 +31,8 @@ services:
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS: 60000
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
       EULA: "true"
+      ONLINE_MODE: "false"
+      OVERRIDE_SERVER_PROPERTIES: "true"
       ENABLE_JMX: "true"
       JMX_HOST: minecraft
       JMX_PORT: "7091"
