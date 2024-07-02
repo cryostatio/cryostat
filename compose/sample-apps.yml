@@ -4,11 +4,12 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.13.1}
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.14.0}
     hostname: vertx-fib-demo-1
     environment:
       HTTP_PORT: 8081
       JMX_PORT: 9093
+      USE_JDP: "true"
       CRYOSTAT_AGENT_APP_NAME: vertx-fib-demo-1
       CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL: "true"
       CRYOSTAT_AGENT_WEBCLIENT_SSL_VERIFY_HOSTNAME: "false"
@@ -17,15 +18,12 @@ services:
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-1:8910/"
       CRYOSTAT_AGENT_BASEURI: "http://${CRYOSTAT_HTTP_HOST}:8080/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
-      CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz # "Basic $(echo -n user:pass | base64)"
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
     ports:
       - "8081:8081"
     expose:
       - "8910"
-    labels:
-      io.cryostat.discovery: "true"
-      io.cryostat.jmxHost: "sample-app-1"
-      io.cryostat.jmxPort: "9093"
     restart: always
     healthcheck:
       test: curl --fail http://localhost:8081 || exit 1
@@ -37,11 +35,12 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.13.1}
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.14.0}
     hostname: vertx-fib-demo-2
     environment:
       HTTP_PORT: 8082
       JMX_PORT: 9094
+      USE_JDP: "true"
       USE_AUTH: "true"
       CRYOSTAT_AGENT_APP_NAME: "vertx-fib-demo-2"
       CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL: "true"
@@ -51,7 +50,8 @@ services:
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-2:8911/"
       CRYOSTAT_AGENT_BASEURI: "http://${CRYOSTAT_HTTP_HOST}:8080/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
-      CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz # "Basic $(echo -n user:pass | base64)"
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
     ports:
       - "8082:8082"
     expose:
@@ -67,11 +67,12 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.13.1}
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.14.0}
     hostname: vertx-fib-demo-3
     environment:
       HTTP_PORT: 8083
       JMX_PORT: 9095
+      USE_JDP: "true"
       USE_AUTH: "true"
       USE_SSL: "true"
       CRYOSTAT_AGENT_APP_NAME: "vertx-fib-demo-3"
@@ -82,11 +83,33 @@ services:
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-3:8912/"
       CRYOSTAT_AGENT_BASEURI: "http://${CRYOSTAT_HTTP_HOST}:8080/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
-      CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz # "Basic $(echo -n user:pass | base64)"
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
     ports:
       - "8083:8083"
     expose:
       - "8912"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:8081 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+  sample-app-4:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.14.0}
+    hostname: vertx-fib-demo-4
+    environment:
+      HTTP_PORT: 8084
+      JMX_PORT: 9096
+      USE_JDP: "true"
+      USE_AUTH: "false"
+      USE_SSL: "false"
+    ports:
+      - "8084:8084"
     restart: always
     healthcheck:
       test: curl --fail http://localhost:8081 || exit 1
@@ -139,4 +162,3 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
-
