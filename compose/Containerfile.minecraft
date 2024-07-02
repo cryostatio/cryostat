@@ -1,6 +1,6 @@
 ARG CRYOSTAT_AGENT_VERSION=0.5.0-SNAPSHOT
 
-FROM registry.access.redhat.com/ubi8/openjdk-17:latest AS agentloader
+FROM registry.access.redhat.com/ubi8/openjdk-11:latest AS agentloader
 ARG CRYOSTAT_AGENT_VERSION
 USER 0
 RUN mkdir -p /opt/cryostat && \
@@ -15,7 +15,7 @@ RUN if [ ! -f "/opt/cryostat/cryostat-agent-${CRYOSTAT_AGENT_VERSION}-shaded.jar
         cp "target/cryostat-agent-${CRYOSTAT_AGENT_VERSION}-shaded.jar" /opt/cryostat/; \
     fi
 
-FROM docker.io/itzg/minecraft-server:java17-jdk
+FROM docker.io/itzg/minecraft-server:java21-jdk
 ARG CRYOSTAT_AGENT_VERSION
 RUN mkdir -p /opt/cryostat
 COPY --from=agentloader /opt/cryostat/cryostat-agent-${CRYOSTAT_AGENT_VERSION}-shaded.jar /opt/cryostat/agent.jar
