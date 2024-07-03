@@ -64,9 +64,6 @@ while getopts "hs:prGtAOVXcbnk" opt; do
             DEPLOY_GRAFANA=false
             ;;
         t)
-            FILES+=(
-                "${DIR}/compose/sample-apps.yml"
-                "${DIR}/compose/sample-apps_https.yml")
             INCLUDE_SAMPLE_APPS=true
             ;;
         A)
@@ -111,13 +108,11 @@ if [ "${DEPLOY_GRAFANA}" = "true" ]; then
     )
 fi
 
-if [ "${SAMPLE_APPS_USE_TLS}" = "false" ] && [ "${INCLUDE_SAMPLE_APPS}" = "true" ]; then
-    SAMPLE_APP_HTTPS_FILE="${DIR}/compose/sample-apps_https.yml"
-    for i in "${!FILES[@]}"; do
-        if [[ "${FILES[i]}" = "${SAMPLE_APP_HTTPS_FILE}" ]]; then
-            unset "FILES[i]"
-        fi
-    done
+if [ "${INCLUDE_SAMPLE_APPS}" = "true" ]; then
+    FILES+=("${DIR}/compose/sample-apps.yml")
+    if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+        FILES+=("${DIR}/compose/sample-apps_https.yml")
+    fi
 fi
 
 CRYOSTAT_PROXY_PORT=8080
@@ -220,13 +215,13 @@ cleanup() {
         ${container_engine} volume rm auth_proxy_certs || true
     fi
     if [ "${INCLUDE_SAMPLE_APPS}" = "true" ] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
-        rm ${DIR}/compose/agent_certs/agent_server.cer
-        rm ${DIR}/compose/agent_certs/agent-keystore.p12
-        rm ${DIR}/compose/agent_certs/keystore.pass
+        rm "${DIR}/compose/agent_certs/agent_server.cer"
+        rm "${DIR}/compose/agent_certs/agent-keystore.p12"
+        rm "${DIR}/compose/agent_certs/keystore.pass"
     fi
     if [ "${USE_TLS}" = "true" ]; then
-        rm ${DIR}/compose/auth_certs/certificate.pem
-        rm ${DIR}/compose/auth_certs/private.key
+        rm "${DIR}/compose/auth_certs/certificate.pem"
+        rm "${DIR}/compose/auth_certs/private.key"
     fi
     if [ "${s3}" = "localstack" ]; then
         ${container_engine} rm localstack_cfg_helper || true
@@ -246,7 +241,7 @@ trap cleanup EXIT
 cleanup
 
 if [ "${INCLUDE_SAMPLE_APPS}" = "true" ] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
-    sh ${DIR}/compose/agent_certs/generate-agent-certs.sh generate
+    sh "${DIR}/compose/agent_certs/generate-agent-certs.sh" generate
 fi
 
 createProxyCfgVolume() {
