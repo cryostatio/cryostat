@@ -24,7 +24,8 @@ CRYOSTAT_HTTP_PORT=${CRYOSTAT_HTTP_PORT:-8080}
 USE_PROXY=${USE_PROXY:-true}
 DEPLOY_GRAFANA=${DEPLOY_GRAFANA:-true}
 DRY_RUN=${DRY_RUN:-false}
-USE_HTTPS=${USE_HTTPS:-true}
+USE_TLS=${USE_TLS:-true}
+SAMPLE_APPS_USE_TLS=${SAMPLE_APPS_USE_TLS:-false}
 
 display_usage() {
     echo "Usage:"
@@ -35,17 +36,18 @@ display_usage() {
     echo -e "\t-G\t\t\t\t\t\texclude Grafana dashboard and jfr-datasource from deployment."
     echo -e "\t-r\t\t\t\t\t\tconfigure a cryostat-Reports sidecar instance"
     echo -e "\t-t\t\t\t\t\t\tinclude sample applications for Testing."
+    echo -e "\t-A\t\t\t\t\t\tDisable TLS on sample applications' Agents."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
     echo -e "\t-c [podman|docker]\t\t\t\tUse Podman or Docker Container Engine (default \"podman\")."
     echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
     echo -e "\t-n\t\t\t\t\t\tDo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
-    echo -e "\t-k\t\t\t\t\t\tEnable http protocol"
+    echo -e "\t-k\t\t\t\t\t\tDisable TLS on the auth Proxy."
 }
 
 s3=seaweed
 ce=podman
-while getopts "hs:prGtOVXcbnk" opt; do
+while getopts "hs:prGtAOVXcbnk" opt; do
     case $opt in
         h)
             display_usage
@@ -61,7 +63,19 @@ while getopts "hs:prGtOVXcbnk" opt; do
             DEPLOY_GRAFANA=false
             ;;
         t)
-            FILES+=("${DIR}/compose/sample-apps.yml")
+            FILES+=(
+                "${DIR}/compose/sample-apps.yml"
+                "${DIR}/compose/sample-apps_https.yml")
+            SAMPLE_APPS_USE_TLS=true
+            ;;
+        A)
+            SAMPLE_APPS_USE_TLS=false
+            SAMPLE_APP_HTTPS_FILE="${DIR}/compose/sample-apps_https.yml"
+            for i in "${!FILES[@]}"; do
+                if [[ ${FILES[i]} = $SAMPLE_APP_HTTPS_FILE ]]; then
+                    unset "FILES[i]"
+                fi
+            done
             ;;
         O)
             PULL_IMAGES=false
@@ -86,7 +100,7 @@ while getopts "hs:prGtOVXcbnk" opt; do
             DRY_RUN=true
             ;;
         k)
-            USE_HTTPS=false
+            USE_TLS=false
             ;;
         *)
             display_usage
@@ -109,7 +123,7 @@ if [ "${USE_PROXY}" = "true" ]; then
     FILES+=("${DIR}/compose/auth_proxy.yml")
     CRYOSTAT_HTTP_HOST=auth
     CRYOSTAT_HTTP_PORT=8181
-    if [ "${USE_HTTPS}" = "true" ]; then
+    if [ "${USE_TLS}" = "true" ]; then
         FILES+=("${DIR}/compose/auth_proxy_https.yml")
         CRYOSTAT_PROXY_PORT=8443
         CRYOSTAT_PROXY_PROTOCOL=https
@@ -201,6 +215,15 @@ cleanup() {
         ${container_engine} volume rm auth_proxy_cfg || true
         ${container_engine} volume rm auth_proxy_certs || true
     fi
+    if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+        rm ${DIR}/compose/agent_certs/agent_server.cer
+        rm ${DIR}/compose/agent_certs/agent-keystore.p12
+        rm ${DIR}/compose/agent_certs/keystore.pass
+    fi
+    if [ "${USE_TLS}" = "true" ]; then
+        rm ${DIR}/compose/auth_certs/certificate.pem
+        rm ${DIR}/compose/auth_certs/private.key
+    fi
     if [ "${s3}" = "localstack" ]; then
         ${container_engine} rm localstack_cfg_helper || true
         ${container_engine} volume rm localstack_cfg || true
@@ -217,6 +240,10 @@ cleanup() {
 }
 trap cleanup EXIT
 cleanup
+
+if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+    sh ${DIR}/compose/agent_certs/generate-agent-certs.sh generate
+fi
 
 createProxyCfgVolume() {
     "${container_engine}" volume create auth_proxy_cfg
@@ -239,12 +266,10 @@ createProxyCertsVolume() {
         chmod 644 "${DIR}/compose/auth_certs/private.key"
         "${container_engine}" cp "${DIR}/compose/auth_certs/certificate.pem" proxy_certs_helper:/certs/certificate.pem
         "${container_engine}" cp "${DIR}/compose/auth_certs/private.key" proxy_certs_helper:/certs/private.key
-    else
-        echo "Did you run auth_certs/generate.sh?"
-        exit 2
     fi
 }
-if [ "${USE_PROXY}" = "true" ] && [ "${USE_HTTPS}" = "true" ]; then
+if [ "${USE_PROXY}" = "true" ] && [ "${USE_TLS}" = "true" ]; then
+    sh "${DIR}/compose/auth_certs/generate.sh"
     createProxyCertsVolume
 fi
 

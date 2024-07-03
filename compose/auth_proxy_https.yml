@@ -1,5 +1,9 @@
 version: "3"
 services:
+  cryostat:
+    environment:
+      CRYOSTAT_HTTP_PROXY_PORT: "${CRYOSTAT_PROXY_PORT}"
+      CRYOSTAT_HTTP_PROXY_TLS_ENABLED: "true"
   auth:
     volumes:
       - auth_proxy_certs:/certs
