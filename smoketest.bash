@@ -25,7 +25,8 @@ USE_PROXY=${USE_PROXY:-true}
 DEPLOY_GRAFANA=${DEPLOY_GRAFANA:-true}
 DRY_RUN=${DRY_RUN:-false}
 USE_TLS=${USE_TLS:-true}
-SAMPLE_APPS_USE_TLS=${SAMPLE_APPS_USE_TLS:-false}
+SAMPLE_APPS_USE_TLS=${SAMPLE_APPS_USE_TLS:-true}
+INCLUDE_SAMPLE_APPS=${INCLUDE_SAMPLE_APPS:-false}
 
 display_usage() {
     echo "Usage:"
@@ -66,16 +67,10 @@ while getopts "hs:prGtAOVXcbnk" opt; do
             FILES+=(
                 "${DIR}/compose/sample-apps.yml"
                 "${DIR}/compose/sample-apps_https.yml")
-            SAMPLE_APPS_USE_TLS=true
+            INCLUDE_SAMPLE_APPS=true
             ;;
         A)
             SAMPLE_APPS_USE_TLS=false
-            SAMPLE_APP_HTTPS_FILE="${DIR}/compose/sample-apps_https.yml"
-            for i in "${!FILES[@]}"; do
-                if [[ ${FILES[i]} = $SAMPLE_APP_HTTPS_FILE ]]; then
-                    unset "FILES[i]"
-                fi
-            done
             ;;
         O)
             PULL_IMAGES=false
@@ -114,6 +109,15 @@ if [ "${DEPLOY_GRAFANA}" = "true" ]; then
         "${DIR}/compose/cryostat-grafana.yml"
         "${DIR}/compose/jfr-datasource.yml"
     )
+fi
+
+if [ "${SAMPLE_APPS_USE_TLS}" = "false" ] && [ "${INCLUDE_SAMPLE_APPS}" = "true" ]; then
+    SAMPLE_APP_HTTPS_FILE="${DIR}/compose/sample-apps_https.yml"
+    for i in "${!FILES[@]}"; do
+        if [[ "${FILES[i]}" = "${SAMPLE_APP_HTTPS_FILE}" ]]; then
+            unset "FILES[i]"
+        fi
+    done
 fi
 
 CRYOSTAT_PROXY_PORT=8080
@@ -215,7 +219,7 @@ cleanup() {
         ${container_engine} volume rm auth_proxy_cfg || true
         ${container_engine} volume rm auth_proxy_certs || true
     fi
-    if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+    if [ "${INCLUDE_SAMPLE_APPS}" = "true" ] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
         rm ${DIR}/compose/agent_certs/agent_server.cer
         rm ${DIR}/compose/agent_certs/agent-keystore.p12
         rm ${DIR}/compose/agent_certs/keystore.pass
@@ -241,7 +245,7 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 
-if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+if [ "${INCLUDE_SAMPLE_APPS}" = "true" ] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
     sh ${DIR}/compose/agent_certs/generate-agent-certs.sh generate
 fi
 
