@@ -4,11 +4,12 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.13.1}
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
     hostname: vertx-fib-demo-1
     environment:
       HTTP_PORT: 8081
       JMX_PORT: 9093
+      USE_JDP: "true"
       CRYOSTAT_AGENT_APP_NAME: vertx-fib-demo-1
       CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL: "true"
       CRYOSTAT_AGENT_WEBCLIENT_SSL_VERIFY_HOSTNAME: "false"
@@ -17,15 +18,12 @@ services:
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-1:8910/"
       CRYOSTAT_AGENT_BASEURI: "http://${CRYOSTAT_HTTP_HOST}:8080/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
-      CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz # "Basic $(echo -n user:pass | base64)"
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
     ports:
       - "8081:8081"
     expose:
       - "8910"
-    labels:
-      io.cryostat.discovery: "true"
-      io.cryostat.jmxHost: "sample-app-1"
-      io.cryostat.jmxPort: "9093"
     restart: always
     healthcheck:
       test: curl --fail http://localhost:8081 || exit 1
@@ -37,11 +35,12 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.13.1}
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
     hostname: vertx-fib-demo-2
     environment:
       HTTP_PORT: 8082
       JMX_PORT: 9094
+      USE_JDP: "true"
       USE_AUTH: "true"
       CRYOSTAT_AGENT_APP_NAME: "vertx-fib-demo-2"
       CRYOSTAT_AGENT_WEBCLIENT_SSL_TRUST_ALL: "true"
@@ -51,7 +50,8 @@ services:
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-2:8911/"
       CRYOSTAT_AGENT_BASEURI: "http://${CRYOSTAT_HTTP_HOST}:8080/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
-      CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz # "Basic $(echo -n user:pass | base64)"
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
     ports:
       - "8082:8082"
     expose:
@@ -67,11 +67,12 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.13.1}
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
     hostname: vertx-fib-demo-3
     environment:
       HTTP_PORT: 8083
       JMX_PORT: 9095
+      USE_JDP: "true"
       USE_AUTH: "true"
       USE_SSL: "true"
       CRYOSTAT_AGENT_APP_NAME: "vertx-fib-demo-3"
@@ -82,7 +83,8 @@ services:
       CRYOSTAT_AGENT_CALLBACK: "http://sample-app-3:8912/"
       CRYOSTAT_AGENT_BASEURI: "http://${CRYOSTAT_HTTP_HOST}:8080/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
-      CRYOSTAT_AGENT_AUTHORIZATION: Basic dXNlcjpwYXNz # "Basic $(echo -n user:pass | base64)"
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
     ports:
       - "8083:8083"
     expose:
@@ -94,8 +96,29 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
+  sample-app-4:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.14.0}
+    hostname: vertx-fib-demo-4
+    environment:
+      HTTP_PORT: 8084
+      JMX_PORT: 9096
+      USE_JDP: "true"
+      USE_AUTH: "false"
+      USE_SSL: "false"
+    ports:
+      - "8084:8084"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:8081 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
   quarkus-test-agent:
-    image: ${QUARKUS_TEST_IMAGE:-quay.io/andrewazores/quarkus-test:latest}
+    image: ${QUARKUS_TEST_IMAGE:-quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest}
     # do not add a depends_on:cryostat/depends_on:auth here, so that we can test that the agent is tolerant of that state
     hostname: quarkus-test-agent
     ports:
@@ -139,4 +162,38 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
-
+  gameserver:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: ${GAMESERVER_TEST_IMAGE:-quay.io/redhat-java-monitoring/gameserver-cryostat-agent:latest}
+    hostname: gameserver
+    ports:
+      - "7091"
+      - "9494"
+      - "25565:25565"
+    environment:
+      CRYOSTAT_AGENT_APP_NAME: gameserver
+      CRYOSTAT_AGENT_WEBSERVER_HOST: gameserver
+      CRYOSTAT_AGENT_WEBSERVER_PORT: 9494
+      CRYOSTAT_AGENT_CALLBACK: http://gameserver:9494/
+      CRYOSTAT_AGENT_BASEURI: http://${CRYOSTAT_HTTP_HOST}:8080/
+      CRYOSTAT_AGENT_BASEURI_RANGE: public
+      CRYOSTAT_AGENT_SSL_TRUST_ALL: "true"
+      CRYOSTAT_AGENT_SSL_VERIFY_HOSTNAME: "false"
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
+      CRYOSTAT_AGENT_API_WRITES_ENABLED: "true"
+      CRYOSTAT_AGENT_HARVESTER_TEMPLATE: Profiling
+      CRYOSTAT_AGENT_HARVESTER_PERIOD_MS: 300000
+      CRYOSTAT_AGENT_HARVESTER_MAX_FILES: 3
+      CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS: 60000
+      CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
+      EULA: "true"
+      ONLINE_MODE: "false"
+      OVERRIDE_SERVER_PROPERTIES: "true"
+      ENABLE_JMX: "true"
+      JMX_HOST: gameserver
+      JMX_PORT: "7091"
+      JVM_OPTS: -javaagent:/opt/cryostat/agent.jar
+    restart: always
