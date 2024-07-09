@@ -1,6 +1,6 @@
-# Contributing to Cryostat3
+# Contributing to Cryostat
 
-Welcome to Cryostat3 👋! First off, thanks for taking the time to contribute!
+Welcome to Cryostat 👋! First off, thanks for taking the time to contribute!
 
 All types of contributions are encouraged and valued. See the [Table of Contents](#table-of-contents) for different ways to contribute. Please make sure to read the relevant section before making your contribution. It will make it a lot easier for us maintainers and smooth out the experience for all involved. The community looks forward to your contributions. 🎉
 
@@ -13,11 +13,11 @@ All types of contributions are encouraged and valued. See the [Table of Contents
 
 ## I Have a Question
 
-Before you ask a question, it is best to search for existing [Issues](https://github.com/cryostatio/cryostat3/issues) that might help you. In case you have found a suitable issue and still need clarification, you can write your question in this issue. It is also advisable to search the internet for answers first.
+Before you ask a question, it is best to search for existing [Issues](https://github.com/cryostatio/cryostat/issues) that might help you. In case you have found a suitable issue and still need clarification, you can write your question in this issue. It is also advisable to search the internet for answers first.
 
 If you then still feel the need to ask a question and need clarification, we recommend the following:
 
-- Open an [Issue](https://github.com/cryostatio/cryostat3/issues/new).
+- Open an [Issue](https://github.com/cryostatio/cryostat/issues/new).
 - Provide as much context as you can about what you're running into.
 - Provide project and platform versions (`mvn`, `podman`, etc), depending on what seems relevant.
 - Add a `question` label to your issue for easy search.
@@ -30,7 +30,7 @@ We will then take care of the issue as soon as possible.
 
 We use GitHub issues to track bugs and errors. If you run into an issue with the project:
 
-- Open an [Issue](https://github.com/cryostatio/cryostat3/issues/new).
+- Open an [Issue](https://github.com/cryostatio/cryostat/issues/new).
 - Explain the behavior you would expect and the actual behavior.
 - Please provide as much context as possible and describe the *reproduction steps* that someone else can follow to recreate the issue on their own. This usually includes your code.
 
@@ -40,7 +40,7 @@ A good report shouldn't leave others needing to chase you up for more informatio
 
 ### Workflow
 
-This is a simple guide of the workflow being used in Cryostat3. We will use https://github.com/cryostatio/cryostat3 as an example.
+This is a simple guide of the workflow being used in Cryostat. We will use https://github.com/cryostatio/cryostat as an example.
 
 #### Set up SSH with Github
 
@@ -54,13 +54,13 @@ See https://docs.github.com/en/get-started/quickstart/fork-a-repo
 
 Clone the forked repository.
 ```bash
-$ git clone git@github.com:<username>/cryostat3.git
-$ git remote add upstream git@github.com:cryostatio/cryostat3.git # Adding upstream as remote
+$ git clone git@github.com:<username>/cryostat.git
+$ git remote add upstream git@github.com:cryostatio/cryostat.git # Adding upstream as remote
 ```
 
-Navigate to `cryostat3` directory and checkout a new branch.
+Navigate to `cryostat` directory and checkout a new branch.
 ```bash
-$ cd cryostat3 && git checkout -b some-task-branch
+$ cd cryostat && git checkout -b some-task-branch
 ```
 
 Edit some files and commits your changes.
@@ -88,11 +88,11 @@ $ git push -f origin some-task-branch # If already pushed to origin remote
 
 Visit upstream repository and open a PR.
 
-![visit-upstream](https://github.com/cryostatio/cryostat3/assets/56743004/41bd424e-77be-4c30-8416-eb0a5d1c328f)
+![visit-upstream](https://github.com/cryostatio/cryostat/assets/56743004/41bd424e-77be-4c30-8416-eb0a5d1c328f)
 
 Compare changes across forks (your branch in fork to the upstream main).
 
-![select-compare-across-forks](https://github.com/cryostatio/cryostat3/assets/56743004/bbf311b6-98a7-47e3-a3c7-77b101ee4d3f)
+![select-compare-across-forks](https://github.com/cryostatio/cryostat/assets/56743004/bbf311b6-98a7-47e3-a3c7-77b101ee4d3f)
 
 
 Add:
@@ -103,11 +103,11 @@ Add:
 
 **Note**: You might not be able to add reviewers and labels. Don't worry! The project team will add them accordingly.
 
-![prepare-pull-requests](https://github.com/cryostatio/cryostat3/assets/56743004/44019e86-1544-4cb0-ae58-61bd2ed6bb1b)
+![prepare-pull-requests](https://github.com/cryostatio/cryostat/assets/56743004/44019e86-1544-4cb0-ae58-61bd2ed6bb1b)
 
 Once its done, you can click `Create Pull Request` and wait for approval.
 
-![pull-requests-approved](https://github.com/cryostatio/cryostat3/assets/56743004/4ab55c01-2dc9-4959-ba43-036ca8ac44c8)
+![pull-requests-approved](https://github.com/cryostatio/cryostat/assets/56743004/4ab55c01-2dc9-4959-ba43-036ca8ac44c8)
 
 #### Result
 

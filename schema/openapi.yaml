@@ -360,7 +360,7 @@ info:
   description: Cloud-Native JDK Flight Recorder
   license:
     name: Apache 2.0
-    url: https://github.com/cryostatio/cryostat3/blob/main/LICENSE
+    url: https://github.com/cryostatio/cryostat/blob/main/LICENSE
   title: Cryostat API
   version: 4.0.0-snapshot
 openapi: 3.0.3

@@ -7,11 +7,11 @@
 #
 # Then, build the image with:
 #
-# docker build -f src/main/docker/Dockerfile.jvm -t quay.io/cryostat/cryostat3 .
+# docker build -f src/main/docker/Dockerfile.jvm -t quay.io/cryostat/cryostat .
 #
 # Then run the container using:
 #
-# docker run -i --rm -p 8080:8080 quay.io/cryostat/cryostat3
+# docker run -i --rm -p 8080:8080 quay.io/cryostat/cryostat
 #
 # If you want to include the debug port into your docker image
 # you will have to expose the debug port (default 5005) like this :  EXPOSE 8080 5005
@@ -20,7 +20,7 @@
 #
 # Then run the container using :
 #
-# docker run -i --rm -p 8080:8080 quay.io/cryostat/cryostat3
+# docker run -i --rm -p 8080:8080 quay.io/cryostat/cryostat
 #
 # This image uses the `run-java.sh` script to run the application.
 # This scripts computes the command line to execute your Java application, and
@@ -83,7 +83,7 @@ ENV LANGUAGE='en_US:en'
 
 EXPOSE 8181
 USER 185
-LABEL io.cryostat.component=cryostat3
+LABEL io.cryostat.component=cryostat
 
 ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
 ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
