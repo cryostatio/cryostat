@@ -295,8 +295,8 @@ public abstract class StandardSelfTest {
                                             ws.close();
                                         }
                                     })
-                            // FIXME in the cryostat3 itests we DO use auth. The message below is
-                            // copy-pasted from the old codebase, however cryostat3 does not yet
+                            // FIXME in the cryostat itests we DO use auth. The message below is
+                            // copy-pasted from the old codebase, however cryostat does not yet
                             // perform authentication when websocket clients connect.
 
                             // just to initialize the connection - Cryostat expects

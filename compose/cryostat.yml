@@ -13,10 +13,10 @@ services:
       - templates:/opt/cryostat.d/templates.d:U
     security_opt:
       - label:disable
-    hostname: cryostat3
+    hostname: cryostat
     user: "1000"
     labels:
-      kompose.service.expose: "cryostat3"
+      kompose.service.expose: "cryostat"
     environment:
       QUARKUS_LOG_LEVEL: ALL
       QUARKUS_HTTP_HOST: "cryostat"

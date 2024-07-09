@@ -16,14 +16,14 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:Z
     security_opt:
       - label:disable
-    hostname: cryostat3
+    hostname: cryostat
     user: "1000"
     expose:
       - "9091"
     ports:
       - "8181:8181"
     labels:
-      kompose.service.expose: "cryostat3"
+      kompose.service.expose: "cryostat"
       io.cryostat.discovery: "true"
       io.cryostat.jmxHost: "localhost"
       io.cryostat.jmxPort: "0"

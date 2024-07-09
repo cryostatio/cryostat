@@ -7,13 +7,13 @@ services:
       s3:
         condition: service_healthy
     image: ${CRYOSTAT_IMAGE:-quay.io/cryostat/cryostat:latest}
-    hostname: cryostat3
+    hostname: cryostat
     expose:
       - "9091"
     ports:
       - "8181:8181"
     labels:
-      kompose.service.expose: "cryostat3"
+      kompose.service.expose: "cryostat"
       io.cryostat.discovery: "true"
       io.cryostat.jmxHost: "localhost"
       io.cryostat.jmxPort: "0"
