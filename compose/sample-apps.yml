@@ -4,7 +4,7 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:0.4.1-SNAPSHOT}
     hostname: vertx-fib-demo-1
     environment:
       HTTP_PORT: 8081
@@ -35,7 +35,7 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:0.4.1-SNAPSHOT}
     hostname: vertx-fib-demo-2
     environment:
       HTTP_PORT: 8082
@@ -67,7 +67,7 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:0.4.1-SNAPSHOT}
     hostname: vertx-fib-demo-3
     environment:
       HTTP_PORT: 8083
@@ -100,7 +100,7 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-fib-demo:0.14.0}
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:0.4.1-SNAPSHOT}
     hostname: vertx-fib-demo-4
     environment:
       HTTP_PORT: 8084
@@ -118,7 +118,7 @@ services:
       start_period: 30s
       timeout: 5s
   quarkus-test-agent:
-    image: ${QUARKUS_TEST_IMAGE:-quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest}
+    image: ${QUARKUS_TEST_IMAGE:-quay.io/redhat-java-monitoring/quarkus-cryostat-agent:0.4.1-SNAPSHOT}
     # do not add a depends_on:cryostat/depends_on:auth here, so that we can test that the agent is tolerant of that state
     hostname: quarkus-test-agent
     ports:
@@ -166,7 +166,7 @@ services:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${GAMESERVER_TEST_IMAGE:-quay.io/redhat-java-monitoring/gameserver-cryostat-agent:latest}
+    image: ${GAMESERVER_TEST_IMAGE:-quay.io/redhat-java-monitoring/gameserver-cryostat-agent:0.4.1-SNAPSHOT}
     hostname: gameserver
     ports:
       - "7091"
