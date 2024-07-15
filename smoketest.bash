@@ -6,6 +6,7 @@ if ! command -v yq >/dev/null 2>&1 ; then
 fi
 
 DIR="$(dirname "$(readlink -f "$0")")"
+export DIR
 
 FILES=(
     "${DIR}/compose/db.yml"
@@ -23,6 +24,9 @@ CRYOSTAT_HTTP_PORT=${CRYOSTAT_HTTP_PORT:-8080}
 USE_PROXY=${USE_PROXY:-true}
 DEPLOY_GRAFANA=${DEPLOY_GRAFANA:-true}
 DRY_RUN=${DRY_RUN:-false}
+USE_TLS=${USE_TLS:-true}
+SAMPLE_APPS_USE_TLS=${SAMPLE_APPS_USE_TLS:-true}
+INCLUDE_SAMPLE_APPS=${INCLUDE_SAMPLE_APPS:-false}
 
 display_usage() {
     echo "Usage:"
@@ -33,16 +37,18 @@ display_usage() {
     echo -e "\t-G\t\t\t\t\t\texclude Grafana dashboard and jfr-datasource from deployment."
     echo -e "\t-r\t\t\t\t\t\tconfigure a cryostat-Reports sidecar instance"
     echo -e "\t-t\t\t\t\t\t\tinclude sample applications for Testing."
+    echo -e "\t-A\t\t\t\t\t\tDisable TLS on sample applications' Agents."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
     echo -e "\t-c [podman|docker]\t\t\t\tUse Podman or Docker Container Engine (default \"podman\")."
     echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
     echo -e "\t-n\t\t\t\t\t\tDo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
+    echo -e "\t-k\t\t\t\t\t\tDisable TLS on the auth proxy."
 }
 
 s3=seaweed
 ce=podman
-while getopts "hs:prGtOVXcbn" opt; do
+while getopts "hs:prGtAOVXcbnk" opt; do
     case $opt in
         h)
             display_usage
@@ -58,7 +64,10 @@ while getopts "hs:prGtOVXcbn" opt; do
             DEPLOY_GRAFANA=false
             ;;
         t)
-            FILES+=("${DIR}/compose/sample-apps.yml")
+            INCLUDE_SAMPLE_APPS=true
+            ;;
+        A)
+            SAMPLE_APPS_USE_TLS=false
             ;;
         O)
             PULL_IMAGES=false
@@ -82,6 +91,9 @@ while getopts "hs:prGtOVXcbn" opt; do
         n)
             DRY_RUN=true
             ;;
+        k)
+            USE_TLS=false
+            ;;
         *)
             display_usage
             exit 1
@@ -96,11 +108,26 @@ if [ "${DEPLOY_GRAFANA}" = "true" ]; then
     )
 fi
 
+if [ "${INCLUDE_SAMPLE_APPS}" = "true" ]; then
+    FILES+=("${DIR}/compose/sample-apps.yml")
+    if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+        FILES+=("${DIR}/compose/sample-apps_https.yml")
+    fi
+fi
 
+CRYOSTAT_PROXY_PORT=8080
+CRYOSTAT_PROXY_PROTOCOL=http
+AUTH_PROXY_ALPHA_CONFIG_FILE=auth_proxy_alpha_config_http
 if [ "${USE_PROXY}" = "true" ]; then
     FILES+=("${DIR}/compose/auth_proxy.yml")
     CRYOSTAT_HTTP_HOST=auth
     CRYOSTAT_HTTP_PORT=8181
+    if [ "${USE_TLS}" = "true" ]; then
+        FILES+=("${DIR}/compose/auth_proxy_https.yml")
+        CRYOSTAT_PROXY_PORT=8443
+        CRYOSTAT_PROXY_PROTOCOL=https
+        AUTH_PROXY_ALPHA_CONFIG_FILE=auth_proxy_alpha_config_https
+    fi
 else
     FILES+=("${DIR}/compose/no_proxy.yml")
     if [ "${s3}" != "none" ]; then
@@ -115,6 +142,8 @@ export CRYOSTAT_HTTP_HOST
 export CRYOSTAT_HTTP_PORT
 export GRAFANA_DASHBOARD_EXT_URL
 export DATABASE_GENERATION
+export CRYOSTAT_PROXY_PORT
+export CRYOSTAT_PROXY_PROTOCOL
 
 s3Manifest="${DIR}/compose/s3-${s3}.yml"
 if [ ! -f "${s3Manifest}" ]; then
@@ -181,7 +210,18 @@ cleanup() {
         down "${downFlags[@]}"
     if [ "${USE_PROXY}" = "true" ]; then
         ${container_engine} rm proxy_cfg_helper || true
+        ${container_engine} rm proxy_certs_helper || true
         ${container_engine} volume rm auth_proxy_cfg || true
+        ${container_engine} volume rm auth_proxy_certs || true
+    fi
+    if [ "${INCLUDE_SAMPLE_APPS}" = "true" ] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+        rm "${DIR}/compose/agent_certs/agent_server.cer"
+        rm "${DIR}/compose/agent_certs/agent-keystore.p12"
+        rm "${DIR}/compose/agent_certs/keystore.pass"
+    fi
+    if [ "${USE_TLS}" = "true" ]; then
+        rm "${DIR}/compose/auth_certs/certificate.pem"
+        rm "${DIR}/compose/auth_certs/private.key"
     fi
     if [ "${s3}" = "localstack" ]; then
         ${container_engine} rm localstack_cfg_helper || true
@@ -200,18 +240,36 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 
+if [ "${INCLUDE_SAMPLE_APPS}" = "true" ] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+    sh "${DIR}/compose/agent_certs/generate-agent-certs.sh" generate
+fi
+
 createProxyCfgVolume() {
     "${container_engine}" volume create auth_proxy_cfg
     "${container_engine}" container create --name proxy_cfg_helper -v auth_proxy_cfg:/tmp busybox
     local cfg
     cfg="$(mktemp)"
     chmod 644 "${cfg}"
-    envsubst '$STORAGE_PORT' < "${DIR}/compose/auth_proxy_alpha_config.yaml" > "${cfg}"
+    envsubst '$STORAGE_PORT' < "${DIR}/compose/${AUTH_PROXY_ALPHA_CONFIG_FILE}.yaml" > "${cfg}"
     "${container_engine}" cp "${DIR}/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
     "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
 }
 if [ "${USE_PROXY}" = "true" ]; then
     createProxyCfgVolume
+fi
+
+createProxyCertsVolume() {
+    "${container_engine}" volume create auth_proxy_certs
+    "${container_engine}" container create --name proxy_certs_helper -v auth_proxy_certs:/certs busybox
+    if [ -f "${DIR}/compose/auth_certs/certificate.pem" ] && [ -f "${DIR}/compose/auth_certs/private.key" ]; then
+        chmod 644 "${DIR}/compose/auth_certs/private.key"
+        "${container_engine}" cp "${DIR}/compose/auth_certs/certificate.pem" proxy_certs_helper:/certs/certificate.pem
+        "${container_engine}" cp "${DIR}/compose/auth_certs/private.key" proxy_certs_helper:/certs/private.key
+    fi
+}
+if [ "${USE_PROXY}" = "true" ] && [ "${USE_TLS}" = "true" ]; then
+    sh "${DIR}/compose/auth_certs/generate.sh"
+    createProxyCertsVolume
 fi
 
 createLocalstackCfgVolume() {
