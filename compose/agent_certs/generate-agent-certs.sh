@@ -2,7 +2,7 @@
 
 set -x
 
-CERTS_DIR=$(realpath "$(dirname "$0")")
+CERTS_DIR="$(realpath "$(dirname "$0")")"
 
 SSL_KEYSTORE=agent-keystore.p12
 
@@ -10,7 +10,7 @@ SSL_KEYSTORE_PASS_FILE=keystore.pass
 
 cleanup() {
     cd "$CERTS_DIR"
-    rm $SSL_KEYSTORE $SSL_KEYSTORE_PASS_FILE agent-server.cer
+    rm "$SSL_KEYSTORE" "$SSL_KEYSTORE_PASS_FILE" agent-server.cer
     cd -
 }
 
@@ -33,12 +33,12 @@ genpass() {
     < /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c32
 }
 
-SSL_KEYSTORE_PASS=$(genpass)
+SSL_KEYSTORE_PASS="$(genpass)"
 
 cd "$CERTS_DIR"
 trap "cd -" EXIT
 
-echo "$SSL_KEYSTORE_PASS" > $SSL_KEYSTORE_PASS_FILE
+echo "$SSL_KEYSTORE_PASS" > "$SSL_KEYSTORE_PASS_FILE"
 
 keytool \
     -genkeypair -v \
