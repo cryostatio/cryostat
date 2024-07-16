@@ -28,8 +28,6 @@ services:
     volumes:
       - minio_data:/data
       - minio_certs:/certs
-    labels:
-      kompose.service.expose: "minio"
     restart: always
     healthcheck:
       test:

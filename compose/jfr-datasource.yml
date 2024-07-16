@@ -15,7 +15,6 @@ services:
     expose:
       - "8080"
     labels:
-      kompose.service.expose: "jfr-datasource"
       io.cryostat.discovery: "true"
       io.cryostat.jmxHost: "jfr-datasource"
       io.cryostat.jmxPort: "11223"

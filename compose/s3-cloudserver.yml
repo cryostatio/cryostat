@@ -27,8 +27,6 @@ services:
       REMOTE_MANAGEMENT_DISABLE: 1
       SCALITY_ACCESS_KEY_ID: accessKey1
       SCALITY_SECRET_ACCESS_KEY: verySecretKey1
-    labels:
-      kompose.service.expose: "cloudserver"
     restart: always
     # healthcheck:
     #   test:

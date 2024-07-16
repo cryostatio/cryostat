@@ -13,7 +13,6 @@ services:
     ports:
       - "8181:8181"
     labels:
-      kompose.service.expose: "cryostat"
       io.cryostat.discovery: "true"
       io.cryostat.jmxHost: "localhost"
       io.cryostat.jmxPort: "0"

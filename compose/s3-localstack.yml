@@ -26,8 +26,6 @@ services:
       CRYOSTAT_BUCKETS: ${PRECREATE_BUCKETS}
     volumes:
       - localstack_cfg:/etc/localstack/init/ready.d:z
-    labels:
-      kompose.service.expose: "s3"
     restart: always
     healthcheck:
       test: curl --fail http://localhost:4566 || exit 1
