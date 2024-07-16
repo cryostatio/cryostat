@@ -160,17 +160,11 @@ fi
 export STORAGE_PORT
 export PRECREATE_BUCKETS
 
-unshift() {
-    local -n ary=$1;
-    shift;
-    ary=("$@" "${ary[@]}");
-}
-
 if [ "${ce}" = "podman" ]; then
-    unshift FILES "${DIR}/compose/cryostat.yml"
+    FILES+=("${DIR}/compose/cryostat.yml")
     container_engine="podman"
 elif [ "${ce}" = "docker" ]; then
-    unshift FILES "${DIR}/compose/cryostat_docker.yml"
+    FILES+=("${DIR}/compose/cryostat_docker.yml")
     container_engine="docker"
 else
     echo "Unknown Container Engine selection: ${ce}"
