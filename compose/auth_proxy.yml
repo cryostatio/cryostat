@@ -39,8 +39,6 @@ services:
     hostname: auth
     ports:
       - "${CRYOSTAT_PROXY_PORT}:${CRYOSTAT_PROXY_PORT}"
-    labels:
-      kompose.service.expose: "auth"
     environment:
       OAUTH2_PROXY_HTPASSWD_FILE: /tmp/auth_proxy_htpasswd
       OAUTH2_PROXY_HTPASSWD_USER_GROUP: write

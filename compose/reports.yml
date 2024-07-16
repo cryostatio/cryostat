@@ -14,8 +14,6 @@ services:
           memory: 512m
     expose:
       - "10001"
-    labels:
-      kompose.service.expose: "reports"
     environment:
       JAVA_OPTS_APPEND: >-
         -Dcom.sun.management.jmxremote

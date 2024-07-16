@@ -15,8 +15,6 @@ services:
       - label:disable
     hostname: cryostat
     user: "1000"
-    labels:
-      kompose.service.expose: "cryostat"
     environment:
       QUARKUS_LOG_LEVEL: ALL
       QUARKUS_HTTP_HOST: "cryostat"

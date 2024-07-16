@@ -32,8 +32,6 @@ services:
       - "8888:8888"
     expose:
       - "8333"
-    labels:
-      kompose.service.expose: "seaweed"
     restart: always
     healthcheck:
       test:
