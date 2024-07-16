@@ -189,7 +189,7 @@ done
 
 if [ "${DRY_RUN}" = "true" ]; then
     set +xe
-    docker-compose \
+    "${ce}" compose \
         "${CMD[@]}" \
         config
     exit 0
@@ -205,7 +205,7 @@ cleanup() {
     if [ "${KEEP_VOLUMES}" != "true" ]; then
         downFlags=('--volumes')
     fi
-    docker-compose \
+    "${ce}" compose \
         "${CMD[@]}" \
         down "${downFlags[@]}"
     if [ "${USE_PROXY}" = "true" ]; then
@@ -377,7 +377,7 @@ if [ "${PULL_IMAGES}" = "true" ]; then
     ${ce} pull "${IMAGES[@]}" || true
 fi
 
-docker-compose \
+"${ce}" compose \
     "${CMD[@]}" \
     up \
         --renew-anon-volumes \
