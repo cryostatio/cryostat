@@ -40,15 +40,15 @@ display_usage() {
     echo -e "\t-A\t\t\t\t\t\tDisable TLS on sample applications' Agents."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
-    echo -e "\t-c [podman|docker]\t\t\t\tUse Podman or Docker Container Engine (default \"podman\")."
+    echo -e "\t-c [/path/to/binary]\t\t\t\tUse specified Container Engine (default \"\$(command -v podman)\")."
     echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
     echo -e "\t-n\t\t\t\t\t\tDo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
     echo -e "\t-k\t\t\t\t\t\tDisable TLS on the auth proxy."
 }
 
 s3=seaweed
-ce=podman
-while getopts "hs:prGtAOVXcbnk" opt; do
+container_engine="$(command -v podman)"
+while getopts "hs:prGtAOVXc:bnk" opt; do
     case $opt in
         h)
             display_usage
@@ -80,7 +80,7 @@ while getopts "hs:prGtAOVXcbnk" opt; do
             FILES+=("${DIR}/compose/db-viewer.yml")
             ;;
         c)
-            ce="${OPTARG}"
+            container_engine="${OPTARG}"
             ;;
         b)
             OPEN_TABS=true
@@ -160,14 +160,12 @@ fi
 export STORAGE_PORT
 export PRECREATE_BUCKETS
 
-if [ "${ce}" = "podman" ]; then
+if [ "$(basename "${container_engine}")" = "podman" ]; then
     FILES+=("${DIR}/compose/cryostat.yml")
-    container_engine="podman"
-elif [ "${ce}" = "docker" ]; then
+elif [ "$(basename "${container_engine}")" = "docker" ]; then
     FILES+=("${DIR}/compose/cryostat_docker.yml")
-    container_engine="docker"
 else
-    echo "Unknown Container Engine selection: ${ce}"
+    echo "Unknown Container Engine selection: ${container_engine}"
     display_usage
     exit 2
 fi
@@ -368,7 +366,7 @@ if [ "${PULL_IMAGES}" = "true" ]; then
           IMAGES+=("$(eval echo "${img}")")
         done
     done
-    ${ce} pull "${IMAGES[@]}" || true
+    "${container_engine}" pull "${IMAGES[@]}" || true
 fi
 
 "${container_engine}" compose \
