@@ -183,7 +183,7 @@ done
 
 if [ "${DRY_RUN}" = "true" ]; then
     set +xe
-    "${ce}" compose \
+    "${container_engine}" compose \
         "${CMD[@]}" \
         config
     exit 0
@@ -199,7 +199,7 @@ cleanup() {
     if [ "${KEEP_VOLUMES}" != "true" ]; then
         downFlags=('--volumes')
     fi
-    "${ce}" compose \
+    "${container_engine}" compose \
         "${CMD[@]}" \
         down "${downFlags[@]}"
     if [ "${USE_PROXY}" = "true" ]; then
@@ -371,7 +371,7 @@ if [ "${PULL_IMAGES}" = "true" ]; then
     ${ce} pull "${IMAGES[@]}" || true
 fi
 
-"${ce}" compose \
+"${container_engine}" compose \
     "${CMD[@]}" \
     up \
         --renew-anon-volumes \
