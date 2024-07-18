@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/openjdk-17:1.19-1 AS builder
+FROM registry.access.redhat.com/ubi8/openjdk-17:1.20-3 AS builder
 ARG TARGETARCH
 USER root
 WORKDIR /tmp/build
@@ -10,7 +10,7 @@ COPY src/main/webui src/main/webui
 COPY src/main/docker/include src/main/docker/include
 RUN ./mvnw -Dmaven.repo.local=/tmp/build/m2/repository -B -U -Dmaven.test.skip=true -Dlicense.skip=true -Dspotless.check.skip=true -Dquarkus.container-image.build=false -Dbuild.arch=$TARGETARCH package
 
-FROM registry.access.redhat.com/ubi8/openjdk-17-runtime:1.19-1
+FROM registry.access.redhat.com/ubi8/openjdk-17-runtime:1.20-3
 ENV LANGUAGE='en_US:en'
 EXPOSE 8181
 USER 185
