@@ -23,6 +23,9 @@ ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 ENTRYPOINT [ "/deployments/app/entrypoint.bash", "/opt/jboss/container/java/run/run-java.sh" ]
 
 COPY --from=builder --chown=185 /tmp/build/src/main/docker/include/cryostat.jfc /usr/lib/jvm/jre/lib/jfr/
+COPY --from=builder --chown=185 /tmp/build/src/main/docker/include/genpass.bash /deployments/app/
+COPY --from=builder --chown=185 /tmp/build/src/main/docker/include/entrypoint.bash /deployments/app/
+COPY --from=builder --chown=185 /tmp/build/src/main/docker/include/truststore-setup.bash /deployments/app/
 COPY --from=builder --chown=185 /tmp/build/target/quarkus-app/lib/ /deployments/lib/
 COPY --from=builder --chown=185 /tmp/build/target/quarkus-app/*.jar /deployments/
 COPY --from=builder --chown=185 /tmp/build/target/quarkus-app/app/ /deployments/app/
