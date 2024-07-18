@@ -10,7 +10,7 @@ COPY src/main/webui src/main/webui
 COPY src/main/docker/include src/main/docker/include
 RUN ./mvnw -Dmaven.repo.local=/tmp/build/m2/repository -B -U -Dmaven.test.skip=true -Dlicense.skip=true -Dspotless.check.skip=true -Dquarkus.container-image.build=false -Dbuild.arch=$TARGETARCH package
 
-FROM registry.access.redhat.com/ubi8/openjdk-17-runtime:1.20-3
+FROM registry.access.redhat.com/ubi8/openjdk-17-runtime:1.20-3.1719963259
 
 ENV LANGUAGE='en_US:en'
 EXPOSE 8181
@@ -23,6 +23,9 @@ ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 ENTRYPOINT [ "/deployments/app/entrypoint.bash", "/opt/jboss/container/java/run/run-java.sh" ]
 
 COPY --from=builder --chown=185 /tmp/build/src/main/docker/include/cryostat.jfc /usr/lib/jvm/jre/lib/jfr/
+COPY --from=builder --chown=185 /tmp/build/src/main/docker/include/genpass.bash /deployments/app/
+COPY --from=builder --chown=185 /tmp/build/src/main/docker/include/entrypoint.bash /deployments/app/
+COPY --from=builder --chown=185 /tmp/build/src/main/docker/include/truststore-setup.bash /deployments/app/
 COPY --from=builder --chown=185 /tmp/build/target/quarkus-app/lib/ /deployments/lib/
 COPY --from=builder --chown=185 /tmp/build/target/quarkus-app/*.jar /deployments/
 COPY --from=builder --chown=185 /tmp/build/target/quarkus-app/app/ /deployments/app/
