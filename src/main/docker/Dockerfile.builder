@@ -14,7 +14,7 @@ FROM registry.access.redhat.com/ubi8/openjdk-17-runtime:1.20-3
 ENV LANGUAGE='en_US:en'
 EXPOSE 8181
 USER 185
-LABEL io.cryostat.component=cryostat3
+LABEL io.cryostat.component=cryostat
 ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"
 ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 ENTRYPOINT [ "/opt/jboss/container/java/run/run-java.sh" ]
