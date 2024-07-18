@@ -116,11 +116,13 @@ jobs:
       uses: redhat-actions/buildah-build@v2
       with:
         image: ${{ env.CI_IMG }}
+        oci: true
         archs: amd64, arm64
         tags: ${{ env.IMAGE_VERSION }} ${{ github.ref == 'refs/heads/main' && 'latest' || '' }}
         extra-args: |
           --ulimit=nofile=4096:4096
           --ignorefile=.dockerignore.builder
+          --jobs=2
         containerfiles: |
           ./src/main/docker/Dockerfile.builder
     - name: Push to quay.io
