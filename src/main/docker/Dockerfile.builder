@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi8/openjdk-17:1.20-3 AS builder
+FROM registry.access.redhat.com/ubi8/openjdk-17:1.20-2.1719963247 AS builder
 ARG TARGETARCH
 USER root
 WORKDIR /tmp/build
