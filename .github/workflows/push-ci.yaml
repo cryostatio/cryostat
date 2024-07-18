@@ -121,7 +121,8 @@ jobs:
         extra-args: |
           --ulimit=nofile=4096:4096
           --ignorefile=.dockerignore.builder
-        containerfile: ./src/main/docker/Dockerfile.builder
+        containerfiles: |
+          ./src/main/docker/Dockerfile.builder
     - name: Push to quay.io
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
