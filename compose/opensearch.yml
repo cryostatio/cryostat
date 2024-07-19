@@ -5,6 +5,7 @@ services:
     hostname: opensearch-node
     environment:
       discovery.type: single-node
+      # Reference: https://opensearch.org/docs/latest/security/configuration/demo-configuration/#setting-up-a-custom-admin-password
       OPENSEARCH_INITIAL_ADMIN_PASSWORD: password4Opense@rch
       OPENSEARCH_JAVA_OPTS: >
         -Dcom.sun.management.jmxremote.autodiscovery=true

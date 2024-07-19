@@ -60,5 +60,5 @@ keytool \
 
 
 
-mkdir -p $TRUSTSTORE_DIR && \
-    cp agent_server.cer $TRUSTSTORE_DIR
+mkdir -p "${TRUSTSTORE_DIR}" && \
+    cp agent_server.cer "${TRUSTSTORE_DIR}"
