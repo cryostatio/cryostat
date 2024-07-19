@@ -40,11 +40,12 @@ nb-configuration.xml
 .env
 
 .quinoa/
-truststore/
 templates/
-certs/*.p12
-certs/*.pass
 *.jfr
 .quarkus/
-compose/auth_certs/*.key
-compose/auth_certs/*.pem
+truststore/
+compose/**/*.key
+compose/**/*.pem
+compose/**/*.p12
+compose/**/*.pass
+compose/**/*.cer
