@@ -25,8 +25,7 @@ USE_PROXY=${USE_PROXY:-true}
 DEPLOY_GRAFANA=${DEPLOY_GRAFANA:-true}
 DRY_RUN=${DRY_RUN:-false}
 USE_TLS=${USE_TLS:-true}
-SAMPLE_APPS_USE_TLS=${SAMPLE_APPS_USE_TLS:-true}
-INCLUDE_SAMPLE_APPS=${INCLUDE_SAMPLE_APPS:-false}
+QUARKUS_AGENT_USE_TLS=${QUARKUS_AGENT_USE_TLS:-true}
 
 display_usage() {
     echo "Usage:"
@@ -36,7 +35,7 @@ display_usage() {
     echo -e "\t-s [seaweed|minio|cloudserver|localstack]\tS3 implementation to spin up (default \"seaweed\")."
     echo -e "\t-G\t\t\t\t\t\texclude Grafana dashboard and jfr-datasource from deployment."
     echo -e "\t-r\t\t\t\t\t\tconfigure a cryostat-Reports sidecar instance"
-    echo -e "\t-t\t\t\t\t\t\tinclude sample applications for Testing."
+    echo -e "\t-t [all|comma-list]\t\t\t\tinclude sample applications for Testing. Leave blank or use 'all' to deploy everything, otherwise use a comma-separated list from: $(find "${DIR}/compose/sample_apps" -type f -name '*.yml' -exec basename {} \; | cut -d. -f1 | grep -v https | sort | tr '\n' ',' | sed 's/,$//')."
     echo -e "\t-A\t\t\t\t\t\tDisable TLS on sample applications' Agents."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
@@ -64,10 +63,31 @@ while getopts "hs:prGtAOVXc:bnk" opt; do
             DEPLOY_GRAFANA=false
             ;;
         t)
-            INCLUDE_SAMPLE_APPS=true
+            nextopt=${!OPTIND}
+            if [[ -n $nextopt && $nextopt != -* ]] ; then
+                OPTIND=$((OPTIND + 1))
+                if [ "${nextopt}" = "all" ]; then
+                    for sample in $(find "${DIR}/compose/sample_apps" -type f -exec basename {} \; | cut -d. -f1 | grep -v https); do
+                        FILES+=("${DIR}/compose/sample_apps/${sample}.yml")
+                    done
+                else
+                    for sample in ${nextopt//,/}; do
+                        file="${DIR}/compose/sample_apps/${sample}.yml"
+                        if [ ! -f "${file}" ]; then
+                            echo "No such sample app file: ${file}"
+                            exit 1
+                        fi
+                        FILES+=("${file}")
+                    done
+                fi
+            else
+                for sample in $(find "${DIR}/compose/sample_apps" -type f -exec basename {} \; | cut -d. -f1 | grep -v https); do
+                    FILES+=("${DIR}/compose/sample_apps/${sample}.yml")
+                done
+            fi
             ;;
         A)
-            SAMPLE_APPS_USE_TLS=false
+            QUARKUS_AGENT_USE_TLS=false
             ;;
         O)
             PULL_IMAGES=false
@@ -108,10 +128,9 @@ if [ "${DEPLOY_GRAFANA}" = "true" ]; then
     )
 fi
 
-if [ "${INCLUDE_SAMPLE_APPS}" = "true" ]; then
-    FILES+=("${DIR}/compose/opensearch.yml" "${DIR}/compose/sample-apps.yml")
-    if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
-        FILES+=("${DIR}/compose/sample-apps_https.yml")
+if [[ ${FILES[*]} =~ quarkus-cryostat-agent.yml ]]; then
+    if [ "${QUARKUS_AGENT_USE_TLS}" = "true" ]; then
+        FILES+=("${DIR}/compose/sample_apps/quarkus-cryostat-agent_https.yml")
     fi
 fi
 
@@ -206,7 +225,7 @@ cleanup() {
         ${container_engine} volume rm auth_proxy_cfg || true
         ${container_engine} volume rm auth_proxy_certs || true
     fi
-    if [ "${INCLUDE_SAMPLE_APPS}" = "true" ] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+    if [[ "${FILES[@]}" =~ quarkus-cryostat-agent.yml ]] && [ "${QUARKUS_AGENT_USE_TLS}" = "true" ]; then
         rm "${DIR}/compose/agent_certs/agent_server.cer" || true
         rm "${DIR}/compose/agent_certs/agent-keystore.p12" || true
         rm "${DIR}/compose/agent_certs/keystore.pass" || true
@@ -232,7 +251,7 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 
-if [ "${INCLUDE_SAMPLE_APPS}" = "true" ] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+if [[ "${FILES[@]}" =~ quarkus-cryostat-agent.yml ]] && [ "${QUARKUS_AGENT_USE_TLS}" = "true" ]; then
     sh "${DIR}/compose/agent_certs/generate-agent-certs.sh" generate
 fi
 

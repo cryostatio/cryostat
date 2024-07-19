@@ -1,8 +1,8 @@
 version: "3"
 services:
-  quarkus-test-agent:
+  quarkus-cryostat-agent:
     environment:
-      CRYOSTAT_AGENT_CALLBACK: https://quarkus-test-agent:9977/
+      CRYOSTAT_AGENT_CALLBACK: https://quarkus-cryostat-agent:9977/
       CRYOSTAT_AGENT_WEBSERVER_TLS_KEYSTORE_PASS: /certs/keystore.pass
       CRYOSTAT_AGENT_WEBSERVER_TLS_KEYSTORE_FILE: /certs/agent-keystore.p12
       CRYOSTAT_AGENT_WEBSERVER_TLS_CERT_FILE: /certs/agent_server.cer
