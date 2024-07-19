@@ -1,0 +1,36 @@
+version: "3"
+services:
+  opensearch-node:
+    image: docker.io/opensearchproject/opensearch:latest
+    hostname: opensearch-node
+    environment:
+      discovery.type: single-node
+      # Reference: https://opensearch.org/docs/latest/security/configuration/demo-configuration/#setting-up-a-custom-admin-password
+      OPENSEARCH_INITIAL_ADMIN_PASSWORD: password4Opense@rch
+      OPENSEARCH_JAVA_OPTS: >
+        -Dcom.sun.management.jmxremote.autodiscovery=true
+        -Dcom.sun.management.jmxremote
+        -Dcom.sun.management.jmxremote.port=9292
+        -Dcom.sun.management.jmxremote.rmi.port=9292
+        -Djava.rmi.server.hostname=opensearch-node
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
+        -Dcom.sun.management.jmxremote.local.only=false
+    volumes:
+      - opensearch-data:/usr/share/opensearch/data
+    expose:
+      - "9200" # REST API
+      # - "9600" # Performance Analyzer
+
+  opensearch-dashboards:
+    image: docker.io/opensearchproject/opensearch-dashboards:latest
+    hostname: opensearch-dashboards
+    ports:
+      - 5601:5601
+    environment:
+      OPENSEARCH_HOSTS: '["https://opensearch-node:9200"]'
+      OPENSEARCH_USERNAME: admin
+      OPENSEARCH_PASSWORD: password4Opense@rch
+
+volumes:
+  opensearch-data:
