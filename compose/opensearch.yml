@@ -18,17 +18,15 @@ services:
         -Dcom.sun.management.jmxremote.local.only=false
     volumes:
       - opensearch-data:/usr/share/opensearch/data
-    ports:
-      - 9200:9200 # REST API
-      - 9600:9600 # Performance Analyzer
+    expose:
+      - "9200" # REST API
+      - "9600" # Performance Analyzer
 
   opensearch-dashboards:
     image: docker.io/opensearchproject/opensearch-dashboards:latest
     hostname: opensearch-dashboards
     ports:
       - 5601:5601
-    expose:
-      - "5601"
     environment:
       OPENSEARCH_HOSTS: '["https://opensearch-node:9200"]'
       OPENSEARCH_USERNAME: admin
