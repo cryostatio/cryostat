@@ -70,7 +70,7 @@ while getopts "hs:prGtAOVXc:bnk" opt; do
                 if [ "${nextopt}" = "all" ]; then
                     deploy_all_samples=true
                 else
-                    for sample in ${nextopt//,/}; do
+                    for sample in ${nextopt//,/ }; do
                         file="${DIR}/compose/sample_apps/${sample}.yml"
                         if [ ! -f "${file}" ]; then
                             echo "No such sample app file: ${file}"
