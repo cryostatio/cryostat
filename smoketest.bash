@@ -232,9 +232,7 @@ cleanup() {
         ${container_engine} volume rm auth_proxy_certs || true
     fi
     if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
-        rm "${DIR}/compose/agent_certs/agent_server.cer" || true
-        rm "${DIR}/compose/agent_certs/agent-keystore.p12" || true
-        rm "${DIR}/compose/agent_certs/keystore.pass" || true
+        bash "${DIR}/compose/agent_certs/generate-agent-certs.bash" clean || true
     fi
     if [ "${USE_TLS}" = "true" ]; then
         rm "${DIR}/compose/auth_certs/certificate.pem" || true
@@ -258,7 +256,7 @@ trap cleanup EXIT
 cleanup
 
 if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
-    sh "${DIR}/compose/agent_certs/generate-agent-certs.sh" generate
+    bash "${DIR}/compose/agent_certs/generate-agent-certs.bash" generate
 fi
 
 createProxyCfgVolume() {
