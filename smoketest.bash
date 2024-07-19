@@ -109,7 +109,7 @@ if [ "${DEPLOY_GRAFANA}" = "true" ]; then
 fi
 
 if [ "${INCLUDE_SAMPLE_APPS}" = "true" ]; then
-    FILES+=("${DIR}/compose/sample-apps.yml")
+    FILES+=("${DIR}/compose/opensearch.yml" "${DIR}/compose/sample-apps.yml")
     if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
         FILES+=("${DIR}/compose/sample-apps_https.yml")
     fi
