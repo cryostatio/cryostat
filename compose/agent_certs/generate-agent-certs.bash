@@ -45,8 +45,8 @@ echo "$SSL_KEYSTORE_PASS" > "$SSL_KEYSTORE_PASS_FILE"
 
 keytool \
     -genkeypair -v \
-    -alias quarkus-test-agent \
-    -dname "CN=quarkus-test-agent, O=Cryostat, C=CA" \
+    -alias quarkus-cryostat-agent \
+    -dname "CN=quarkus-cryostat-agent, O=Cryostat, C=CA" \
     -storetype PKCS12 \
     -validity 365 \
     -keyalg RSA \
@@ -55,7 +55,7 @@ keytool \
 
 keytool \
     -exportcert -v \
-    -alias  quarkus-test-agent \
+    -alias  quarkus-cryostat-agent \
     -keystore "$SSL_KEYSTORE" \
     -storepass "$SSL_KEYSTORE_PASS" \
     -file "$AGENT_SERVER_CERT_FILE"
