@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
 
 import javax.management.remote.JMXServiceURL;
 
-import io.cryostat.core.sys.FileSystem;
+import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.EventKind;

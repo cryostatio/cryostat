@@ -16,8 +16,8 @@
 package io.cryostat.targets;
 
 import io.cryostat.core.net.JFRConnectionToolkit;
-import io.cryostat.core.sys.Environment;
-import io.cryostat.core.sys.FileSystem;
+import io.cryostat.libcryostat.sys.Environment;
+import io.cryostat.libcryostat.sys.FileSystem;
 
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.inject.Produces;

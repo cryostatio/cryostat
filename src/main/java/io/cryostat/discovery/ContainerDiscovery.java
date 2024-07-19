@@ -38,7 +38,7 @@ import javax.management.remote.JMXServiceURL;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnectionToolkit;
-import io.cryostat.core.sys.FileSystem;
+import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.EventKind;

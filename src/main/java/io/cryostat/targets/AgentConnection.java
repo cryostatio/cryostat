@@ -28,15 +28,15 @@ import org.openjdk.jmc.rjmx.common.ConnectionException;
 import org.openjdk.jmc.rjmx.common.IConnectionHandle;
 import org.openjdk.jmc.rjmx.common.ServiceNotAvailableException;
 
-import io.cryostat.core.JvmIdentifier;
 import io.cryostat.core.net.CryostatFlightRecorderService;
-import io.cryostat.core.net.IDException;
 import io.cryostat.core.net.JFRConnection;
-import io.cryostat.core.net.MBeanMetrics;
-import io.cryostat.core.sys.Clock;
 import io.cryostat.core.templates.RemoteTemplateService;
 import io.cryostat.core.templates.TemplateService;
 import io.cryostat.events.S3TemplateService;
+import io.cryostat.libcryostat.JvmIdentifier;
+import io.cryostat.libcryostat.net.IDException;
+import io.cryostat.libcryostat.net.MBeanMetrics;
+import io.cryostat.libcryostat.sys.Clock;
 
 import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;

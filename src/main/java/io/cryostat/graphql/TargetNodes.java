@@ -20,11 +20,11 @@ import java.util.List;
 import java.util.Objects;
 
 import io.cryostat.core.net.JFRConnection;
-import io.cryostat.core.net.MBeanMetrics;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.ActiveRecordings.ActiveRecordingsFilter;
 import io.cryostat.graphql.ArchivedRecordings.ArchivedRecordingsFilter;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
+import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.Recordings.ArchivedRecording;

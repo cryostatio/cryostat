@@ -36,10 +36,10 @@ import org.openjdk.jmc.flightrecorder.configuration.events.IEventTypeInfo;
 import org.openjdk.jmc.flightrecorder.configuration.internal.EventTypeIDV2;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.core.net.MBeanMetrics;
-import io.cryostat.core.serialization.SerializableRecordingDescriptor;
+import io.cryostat.core.serialization.JmcSerializableRecordingDescriptor;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin;
+import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -123,7 +123,8 @@ public class AgentClient {
                                             String body = resp.body();
                                             return mapper.readValue(
                                                             body,
-                                                            SerializableRecordingDescriptor.class)
+                                                            JmcSerializableRecordingDescriptor
+                                                                    .class)
                                                     .toJmcForm();
                                         } else if (statusCode == 403) {
                                             logger.errorv(
@@ -163,7 +164,8 @@ public class AgentClient {
                                             String body = resp.body();
                                             return mapper.readValue(
                                                             body,
-                                                            SerializableRecordingDescriptor.class)
+                                                            JmcSerializableRecordingDescriptor
+                                                                    .class)
                                                     .toJmcForm();
                                         } else if (statusCode == 403) {
                                             throw new ForbiddenException(
@@ -305,13 +307,17 @@ public class AgentClient {
                                 return mapper.readValue(
                                         s,
                                         new TypeReference<
-                                                List<SerializableRecordingDescriptor>>() {});
+                                                List<JmcSerializableRecordingDescriptor>>() {});
                             } catch (JsonProcessingException e) {
                                 logger.error(e);
-                                return List.<SerializableRecordingDescriptor>of();
+                                return List.<JmcSerializableRecordingDescriptor>of();
                             }
                         })
-                .map(arr -> arr.stream().map(SerializableRecordingDescriptor::toJmcForm).toList());
+                .map(
+                        arr ->
+                                arr.stream()
+                                        .map(JmcSerializableRecordingDescriptor::toJmcForm)
+                                        .toList());
     }
 
     Uni<Collection<? extends IEventTypeInfo>> eventTypes() {

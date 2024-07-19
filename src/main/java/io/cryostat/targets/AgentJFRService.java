@@ -47,9 +47,9 @@ import org.openjdk.jmc.rjmx.common.ServiceNotAvailableException;
 import io.cryostat.core.EventOptionsBuilder.EventOptionException;
 import io.cryostat.core.EventOptionsBuilder.EventTypeException;
 import io.cryostat.core.net.CryostatFlightRecorderService;
-import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateService;
-import io.cryostat.core.templates.TemplateType;
+import io.cryostat.libcryostat.templates.Template;
+import io.cryostat.libcryostat.templates.TemplateType;
 
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;

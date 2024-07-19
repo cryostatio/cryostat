@@ -31,11 +31,11 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.core.JvmIdentifier;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.expressions.MatchExpressionEvaluator;
+import io.cryostat.libcryostat.JvmIdentifier;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.ws.MessagingServer;

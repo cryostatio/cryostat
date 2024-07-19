@@ -20,7 +20,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import io.cryostat.core.sys.Environment;
+import io.cryostat.libcryostat.sys.Environment;
 
 import io.vertx.core.MultiMap;
 import io.vertx.core.Vertx;

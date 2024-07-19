@@ -22,9 +22,9 @@ import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 
 import io.cryostat.core.FlightRecorderException;
-import io.cryostat.core.templates.Template;
 import io.cryostat.core.templates.TemplateService;
-import io.cryostat.core.templates.TemplateType;
+import io.cryostat.libcryostat.templates.Template;
+import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
