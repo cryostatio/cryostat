@@ -1,6 +1,6 @@
 version: "3"
 services:
-  vertx-cryostat-agent-1:
+  vertx-agent-1:
     depends_on:
       cryostat:
         condition: service_healthy
@@ -13,9 +13,9 @@ services:
       CRYOSTAT_AGENT_APP_NAME: vertx-cryostat-agent-1
       CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUST_ALL: "true"
       CRYOSTAT_AGENT_WEBCLIENT_TLS_VERIFY_HOSTNAME: "false"
-      CRYOSTAT_AGENT_WEBSERVER_HOST: "vertx-cryostat-agent-1"
+      CRYOSTAT_AGENT_WEBSERVER_HOST: "vertx-agent-1"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8910"
-      CRYOSTAT_AGENT_CALLBACK: "http://vertx-cryostat-agent-1:8910/"
+      CRYOSTAT_AGENT_CALLBACK: "http://vertx-agent-1:8910/"
       CRYOSTAT_AGENT_BASEURI: "${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
       CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
@@ -31,7 +31,7 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
-  vertx-cryostat-agent-2:
+  vertx-agent-2:
     depends_on:
       cryostat:
         condition: service_healthy
@@ -45,9 +45,9 @@ services:
       CRYOSTAT_AGENT_APP_NAME: "vertx-cryostat-agent-2"
       CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUST_ALL: "true"
       CRYOSTAT_AGENT_WEBCLIENT_TLS_VERIFY_HOSTNAME: "false"
-      CRYOSTAT_AGENT_WEBSERVER_HOST: "vertx-cryostat-agent-2"
+      CRYOSTAT_AGENT_WEBSERVER_HOST: "vertx-agent-2"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8911"
-      CRYOSTAT_AGENT_CALLBACK: "http://vertx-cryostat-agent-2:8911/"
+      CRYOSTAT_AGENT_CALLBACK: "http://vertx-agent-2:8911/"
       CRYOSTAT_AGENT_BASEURI: "${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
       CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
@@ -63,7 +63,7 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
-  vertx-cryostat-agent-3:
+  vertx-agent-3:
     depends_on:
       cryostat:
         condition: service_healthy
@@ -78,9 +78,9 @@ services:
       CRYOSTAT_AGENT_APP_NAME: "vertx-cryostat-agent-3"
       CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUST_ALL: "true"
       CRYOSTAT_AGENT_WEBCLIENT_TLS_VERIFY_HOSTNAME: "false"
-      CRYOSTAT_AGENT_WEBSERVER_HOST: "vertx-cryostat-agent-3"
+      CRYOSTAT_AGENT_WEBSERVER_HOST: "vertx-agent-3"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8912"
-      CRYOSTAT_AGENT_CALLBACK: "http://vertx-cryostat-agent-3:8912/"
+      CRYOSTAT_AGENT_CALLBACK: "http://vertx-agent-3:8912/"
       CRYOSTAT_AGENT_BASEURI: "${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/"
       CRYOSTAT_AGENT_TRUST_ALL: "true"
       CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
@@ -96,11 +96,11 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
-  vertx-cryostat-agent-4:
+  vertx-agent-4:
     depends_on:
       cryostat:
         condition: service_healthy
-    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/andrewazores/vertx-cryostat-agent:0.14.0}
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
     hostname: vertx-cryostat-agent-4
     environment:
       HTTP_PORT: 8084
