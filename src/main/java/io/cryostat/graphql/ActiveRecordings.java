@@ -27,13 +27,13 @@ import java.util.function.Predicate;
 import org.openjdk.jmc.common.unit.QuantityConversionException;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.core.templates.Template;
-import io.cryostat.core.templates.TemplateType;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 import io.cryostat.graphql.TargetNodes.AggregateInfo;
 import io.cryostat.graphql.TargetNodes.Recordings;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
+import io.cryostat.libcryostat.templates.Template;
+import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;

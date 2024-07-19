@@ -25,9 +25,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.core.templates.Template;
-import io.cryostat.core.templates.TemplateType;
 import io.cryostat.expressions.MatchExpressionEvaluator;
+import io.cryostat.libcryostat.templates.Template;
+import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;

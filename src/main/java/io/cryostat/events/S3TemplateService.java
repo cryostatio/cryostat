@@ -43,8 +43,9 @@ import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.templates.MutableTemplateService;
-import io.cryostat.core.templates.Template;
-import io.cryostat.core.templates.TemplateType;
+import io.cryostat.libcryostat.templates.InvalidEventTemplateException;
+import io.cryostat.libcryostat.templates.Template;
+import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 

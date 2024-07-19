@@ -324,7 +324,10 @@ public class TargetConnectionManager {
             return jfrConnectionToolkit.connect(
                     new JMXServiceURL(connectUrl.toString()),
                     credentials
-                            .map(c -> new io.cryostat.core.net.Credentials(c.username, c.password))
+                            .map(
+                                    c ->
+                                            new io.cryostat.libcryostat.net.Credentials(
+                                                    c.username, c.password))
                             .orElse(null),
                     Collections.singletonList(
                             () -> connections.synchronous().invalidate(connectUrl)));

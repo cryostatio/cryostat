@@ -27,7 +27,7 @@ import io.cryostat.core.jmcagent.Event;
 import io.cryostat.core.jmcagent.JMCAgentJMXHelper;
 import io.cryostat.core.jmcagent.JMCAgentJMXHelper.ProbeDefinitionException;
 import io.cryostat.core.jmcagent.ProbeTemplate;
-import io.cryostat.core.sys.FileSystem;
+import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;

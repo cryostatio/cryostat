@@ -116,6 +116,11 @@
       <version>${io.cryostat.core.version}</version>
     </dependency>
     <dependency>
+      <groupId>io.cryostat</groupId>
+      <artifactId>libcryostat</artifactId>
+      <version>${io.cryostat.core.version}</version>
+    </dependency>
+    <dependency>
       <groupId>org.openjdk.jmc</groupId>
       <artifactId>common</artifactId>
       <version>${org.openjdk.jmc.version}</version>

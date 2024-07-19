@@ -20,11 +20,11 @@ import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.cryostat.core.sys.FileSystem;
-import io.cryostat.core.templates.MutableTemplateService.InvalidEventTemplateException;
 import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
-import io.cryostat.core.templates.Template;
-import io.cryostat.core.templates.TemplateType;
+import io.cryostat.libcryostat.sys.FileSystem;
+import io.cryostat.libcryostat.templates.InvalidEventTemplateException;
+import io.cryostat.libcryostat.templates.Template;
+import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
 
