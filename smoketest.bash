@@ -25,7 +25,7 @@ USE_PROXY=${USE_PROXY:-true}
 DEPLOY_GRAFANA=${DEPLOY_GRAFANA:-true}
 DRY_RUN=${DRY_RUN:-false}
 USE_TLS=${USE_TLS:-true}
-QUARKUS_AGENT_USE_TLS=${QUARKUS_AGENT_USE_TLS:-true}
+SAMPLE_APPS_USE_TLS=${SAMPLE_APPS_USE_TLS:-true}
 
 display_usage() {
     echo "Usage:"
@@ -87,7 +87,7 @@ while getopts "hs:prGtAOVXc:bnk" opt; do
             fi
             ;;
         A)
-            QUARKUS_AGENT_USE_TLS=false
+            SAMPLE_APPS_USE_TLS=false
             ;;
         O)
             PULL_IMAGES=false
@@ -128,10 +128,16 @@ if [ "${DEPLOY_GRAFANA}" = "true" ]; then
     )
 fi
 
-if [[ ${FILES[*]} =~ quarkus-cryostat-agent.yml ]]; then
-    if [ "${QUARKUS_AGENT_USE_TLS}" = "true" ]; then
-        FILES+=("${DIR}/compose/sample_apps/quarkus-cryostat-agent_https.yml")
-    fi
+if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+    for sample in "${FILES[@]}"; do
+        if [[ ! "${sample}" =~ sample_apps ]]; then
+            continue
+        fi
+        cfg="$(echo "${sample}" | sed -r 's/(.*).yml$/\1_https.yml/')"
+        if [ -f "${cfg}" ]; then
+            FILES+=("${cfg}")
+        fi
+    done
 fi
 
 CRYOSTAT_PROXY_PORT=8080
@@ -225,7 +231,7 @@ cleanup() {
         ${container_engine} volume rm auth_proxy_cfg || true
         ${container_engine} volume rm auth_proxy_certs || true
     fi
-    if [[ "${FILES[@]}" =~ quarkus-cryostat-agent.yml ]] && [ "${QUARKUS_AGENT_USE_TLS}" = "true" ]; then
+    if [[ "${FILES[*]}" =~ quarkus-cryostat-agent.yml ]] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
         rm "${DIR}/compose/agent_certs/agent_server.cer" || true
         rm "${DIR}/compose/agent_certs/agent-keystore.p12" || true
         rm "${DIR}/compose/agent_certs/keystore.pass" || true
@@ -251,7 +257,7 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 
-if [[ "${FILES[@]}" =~ quarkus-cryostat-agent.yml ]] && [ "${QUARKUS_AGENT_USE_TLS}" = "true" ]; then
+if [[ "${FILES[*]}" =~ quarkus-cryostat-agent.yml ]] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
     sh "${DIR}/compose/agent_certs/generate-agent-certs.sh" generate
 fi
 
