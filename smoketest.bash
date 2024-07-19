@@ -31,18 +31,18 @@ display_usage() {
     echo "Usage:"
     echo -e "\t-h\t\t\t\t\t\tprint this Help text."
     echo -e "\t-O\t\t\t\t\t\tOffline mode, do not attempt to pull container images."
-    echo -e "\t-p\t\t\t\t\t\tDisable auth Proxy."
+    echo -e "\t-p\t\t\t\t\t\tdisable auth Proxy."
     echo -e "\t-s [seaweed|minio|cloudserver|localstack]\tS3 implementation to spin up (default \"seaweed\")."
     echo -e "\t-G\t\t\t\t\t\texclude Grafana dashboard and jfr-datasource from deployment."
     echo -e "\t-r\t\t\t\t\t\tconfigure a cryostat-Reports sidecar instance"
     echo -e "\t-t [all|comma-list]\t\t\t\tinclude sample applications for Testing. Leave blank or use 'all' to deploy everything, otherwise use a comma-separated list from:\n\t\t\t\t\t\t\t\t$(find "${DIR}/compose/sample_apps" -type f -name '*.yml' -exec basename {} \; | cut -d. -f1 | grep -v https | sort | tr '\n' ',' | sed 's/,$//')"
-    echo -e "\t-A\t\t\t\t\t\tDisable TLS on sample applications' Agents."
+    echo -e "\t-A\t\t\t\t\t\tdisable TLS on sample applications' Agents."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
     echo -e "\t-c [/path/to/binary]\t\t\t\tUse specified Container Engine (default \"\$(command -v podman)\")."
-    echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
-    echo -e "\t-n\t\t\t\t\t\tDo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
-    echo -e "\t-k\t\t\t\t\t\tDisable TLS on the auth proxy."
+    echo -e "\t-b\t\t\t\t\t\topen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
+    echo -e "\t-n\t\t\t\t\t\tdo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
+    echo -e "\t-k\t\t\t\t\t\tdisable TLS on the auth proxy."
 }
 
 s3=seaweed
