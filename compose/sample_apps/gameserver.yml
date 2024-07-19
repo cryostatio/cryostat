@@ -34,4 +34,3 @@ services:
       JMX_HOST: gameserver
       JMX_PORT: "7091"
       JVM_OPTS: -javaagent:/opt/cryostat/agent.jar
-    restart: always
