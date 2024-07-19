@@ -231,7 +231,7 @@ cleanup() {
         ${container_engine} volume rm auth_proxy_cfg || true
         ${container_engine} volume rm auth_proxy_certs || true
     fi
-    if [[ "${FILES[*]}" =~ quarkus-cryostat-agent.yml ]] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+    if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
         rm "${DIR}/compose/agent_certs/agent_server.cer" || true
         rm "${DIR}/compose/agent_certs/agent-keystore.p12" || true
         rm "${DIR}/compose/agent_certs/keystore.pass" || true
@@ -257,7 +257,7 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 
-if [[ "${FILES[*]}" =~ quarkus-cryostat-agent.yml ]] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
     sh "${DIR}/compose/agent_certs/generate-agent-certs.sh" generate
 fi
 
