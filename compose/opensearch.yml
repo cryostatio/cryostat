@@ -20,7 +20,7 @@ services:
       - opensearch-data:/usr/share/opensearch/data
     expose:
       - "9200" # REST API
-      - "9600" # Performance Analyzer
+      # - "9600" # Performance Analyzer
 
   opensearch-dashboards:
     image: docker.io/opensearchproject/opensearch-dashboards:latest
