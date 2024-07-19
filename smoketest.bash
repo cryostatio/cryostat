@@ -109,7 +109,7 @@ if [ "${DEPLOY_GRAFANA}" = "true" ]; then
 fi
 
 if [ "${INCLUDE_SAMPLE_APPS}" = "true" ]; then
-    FILES+=("${DIR}/compose/sample-apps.yml" "${DIR}/compose/opensearch.yaml")
+    FILES+=("${DIR}/compose/sample-apps.yml")
     if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
         FILES+=("${DIR}/compose/sample-apps_https.yml")
     fi
@@ -207,13 +207,13 @@ cleanup() {
         ${container_engine} volume rm auth_proxy_certs || true
     fi
     if [ "${INCLUDE_SAMPLE_APPS}" = "true" ] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
-        rm "${DIR}/compose/agent_certs/agent_server.cer"
-        rm "${DIR}/compose/agent_certs/agent-keystore.p12"
-        rm "${DIR}/compose/agent_certs/keystore.pass"
+        rm "${DIR}/compose/agent_certs/agent_server.cer" || true
+        rm "${DIR}/compose/agent_certs/agent-keystore.p12" || true
+        rm "${DIR}/compose/agent_certs/keystore.pass" || true
     fi
     if [ "${USE_TLS}" = "true" ]; then
-        rm "${DIR}/compose/auth_certs/certificate.pem"
-        rm "${DIR}/compose/auth_certs/private.key"
+        rm "${DIR}/compose/auth_certs/certificate.pem" || true
+        rm "${DIR}/compose/auth_certs/private.key" || true
     fi
     if [ "${s3}" = "localstack" ]; then
         ${container_engine} rm localstack_cfg_helper || true

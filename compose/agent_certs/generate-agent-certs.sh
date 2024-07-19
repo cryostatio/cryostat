@@ -3,6 +3,7 @@
 set -x
 
 CERTS_DIR="$(realpath "$(dirname "$0")")"
+TRUSTSTORE_DIR="$CERTS_DIR/../../truststore/"
 
 SSL_KEYSTORE=agent-keystore.p12
 
@@ -57,4 +58,7 @@ keytool \
     -storepass "$SSL_KEYSTORE_PASS" \
     -file agent_server.cer
 
-cp agent_server.cer "$CERTS_DIR/../../truststore/quarkus-test-agent.cer"
+
+
+mkdir -p $TRUSTSTORE_DIR && \
+    cp agent_server.cer $TRUSTSTORE_DIR
