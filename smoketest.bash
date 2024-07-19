@@ -26,24 +26,23 @@ DEPLOY_GRAFANA=${DEPLOY_GRAFANA:-true}
 DRY_RUN=${DRY_RUN:-false}
 USE_TLS=${USE_TLS:-true}
 SAMPLE_APPS_USE_TLS=${SAMPLE_APPS_USE_TLS:-true}
-INCLUDE_SAMPLE_APPS=${INCLUDE_SAMPLE_APPS:-false}
 
 display_usage() {
     echo "Usage:"
     echo -e "\t-h\t\t\t\t\t\tprint this Help text."
     echo -e "\t-O\t\t\t\t\t\tOffline mode, do not attempt to pull container images."
-    echo -e "\t-p\t\t\t\t\t\tDisable auth Proxy."
+    echo -e "\t-p\t\t\t\t\t\tdisable auth Proxy."
     echo -e "\t-s [seaweed|minio|cloudserver|localstack]\tS3 implementation to spin up (default \"seaweed\")."
     echo -e "\t-G\t\t\t\t\t\texclude Grafana dashboard and jfr-datasource from deployment."
     echo -e "\t-r\t\t\t\t\t\tconfigure a cryostat-Reports sidecar instance"
-    echo -e "\t-t\t\t\t\t\t\tinclude sample applications for Testing."
-    echo -e "\t-A\t\t\t\t\t\tDisable TLS on sample applications' Agents."
+    echo -e "\t-t [all|comma-list]\t\t\t\tinclude sample applications for Testing. Leave blank or use 'all' to deploy everything, otherwise use a comma-separated list from:\n\t\t\t\t\t\t\t\t$(find "${DIR}/compose/sample_apps" -type f -name '*.yml' -exec basename {} \; | cut -d. -f1 | grep -v https | sort | tr '\n' ',' | sed 's/,$//')"
+    echo -e "\t-A\t\t\t\t\t\tdisable TLS on sample applications' Agents."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
     echo -e "\t-c [/path/to/binary]\t\t\t\tUse specified Container Engine (default \"\$(command -v podman)\")."
-    echo -e "\t-b\t\t\t\t\t\tOpen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
-    echo -e "\t-n\t\t\t\t\t\tDo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
-    echo -e "\t-k\t\t\t\t\t\tDisable TLS on the auth proxy."
+    echo -e "\t-b\t\t\t\t\t\topen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
+    echo -e "\t-n\t\t\t\t\t\tdo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
+    echo -e "\t-k\t\t\t\t\t\tdisable TLS on the auth proxy."
 }
 
 s3=seaweed
@@ -64,7 +63,31 @@ while getopts "hs:prGtAOVXc:bnk" opt; do
             DEPLOY_GRAFANA=false
             ;;
         t)
-            INCLUDE_SAMPLE_APPS=true
+            nextopt=${!OPTIND}
+            deploy_all_samples=false
+            if [[ -n $nextopt && $nextopt != -* ]] ; then
+                OPTIND=$((OPTIND + 1))
+                if [ "${nextopt}" = "all" ]; then
+                    deploy_all_samples=true
+                else
+                    for sample in ${nextopt//,/ }; do
+                        file="${DIR}/compose/sample_apps/${sample}.yml"
+                        if [ ! -f "${file}" ]; then
+                            echo "No such sample app file: ${file}"
+                            exit 1
+                        fi
+                        FILES+=("${file}")
+                    done
+                fi
+            else
+                # there is no nextopt, ie `-t` was passed and there is no argument or the next argument is another flag
+                deploy_all_samples=true
+            fi
+            if [ "${deploy_all_samples}" = "true" ]; then
+                for sample in $(find "${DIR}/compose/sample_apps" -type f -exec basename {} \; | cut -d. -f1 | grep -v https); do
+                    FILES+=("${DIR}/compose/sample_apps/${sample}.yml")
+                done
+            fi
             ;;
         A)
             SAMPLE_APPS_USE_TLS=false
@@ -108,11 +131,16 @@ if [ "${DEPLOY_GRAFANA}" = "true" ]; then
     )
 fi
 
-if [ "${INCLUDE_SAMPLE_APPS}" = "true" ]; then
-    FILES+=("${DIR}/compose/opensearch.yml" "${DIR}/compose/sample-apps.yml")
-    if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
-        FILES+=("${DIR}/compose/sample-apps_https.yml")
-    fi
+if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+    for sample in "${FILES[@]}"; do
+        if [[ ! "${sample}" =~ sample_apps ]]; then
+            continue
+        fi
+        cfg="$(echo "${sample}" | sed -r 's/(.*).yml$/\1_https.yml/')"
+        if [ -f "${cfg}" ]; then
+            FILES+=("${cfg}")
+        fi
+    done
 fi
 
 CRYOSTAT_PROXY_PORT=8080
@@ -206,10 +234,8 @@ cleanup() {
         ${container_engine} volume rm auth_proxy_cfg || true
         ${container_engine} volume rm auth_proxy_certs || true
     fi
-    if [ "${INCLUDE_SAMPLE_APPS}" = "true" ] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
-        rm "${DIR}/compose/agent_certs/agent_server.cer" || true
-        rm "${DIR}/compose/agent_certs/agent-keystore.p12" || true
-        rm "${DIR}/compose/agent_certs/keystore.pass" || true
+    if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+        bash "${DIR}/compose/agent_certs/generate-agent-certs.bash" clean || true
     fi
     if [ "${USE_TLS}" = "true" ]; then
         rm "${DIR}/compose/auth_certs/certificate.pem" || true
@@ -232,8 +258,8 @@ cleanup() {
 trap cleanup EXIT
 cleanup
 
-if [ "${INCLUDE_SAMPLE_APPS}" = "true" ] && [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
-    sh "${DIR}/compose/agent_certs/generate-agent-certs.sh" generate
+if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
+    bash "${DIR}/compose/agent_certs/generate-agent-certs.bash" generate
 fi
 
 createProxyCfgVolume() {
@@ -242,9 +268,9 @@ createProxyCfgVolume() {
     local cfg
     cfg="$(mktemp)"
     chmod 644 "${cfg}"
-    envsubst '$STORAGE_PORT' < "${DIR}/compose/${AUTH_PROXY_ALPHA_CONFIG_FILE}.yaml" > "${cfg}"
+    envsubst '$STORAGE_PORT' < "${DIR}/compose/${AUTH_PROXY_ALPHA_CONFIG_FILE}.yml" > "${cfg}"
     "${container_engine}" cp "${DIR}/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
-    "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yaml
+    "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yml
 }
 if [ "${USE_PROXY}" = "true" ]; then
     createProxyCfgVolume

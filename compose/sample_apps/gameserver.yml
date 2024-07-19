@@ -1,0 +1,36 @@
+version: "3"
+services:
+  gameserver:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: ${GAMESERVER_TEST_IMAGE:-quay.io/redhat-java-monitoring/gameserver-cryostat-agent:latest}
+    hostname: gameserver
+    ports:
+      - "7091"
+      - "9494"
+      - "25565:25565"
+    environment:
+      CRYOSTAT_AGENT_APP_NAME: gameserver
+      CRYOSTAT_AGENT_WEBSERVER_HOST: gameserver
+      CRYOSTAT_AGENT_WEBSERVER_PORT: 9494
+      CRYOSTAT_AGENT_CALLBACK: http://gameserver:9494/
+      CRYOSTAT_AGENT_BASEURI: ${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/
+      CRYOSTAT_AGENT_BASEURI_RANGE: public
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUST_ALL: "true"
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_VERIFY_HOSTNAME: "false"
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
+      CRYOSTAT_AGENT_API_WRITES_ENABLED: "true"
+      CRYOSTAT_AGENT_HARVESTER_TEMPLATE: Profiling
+      CRYOSTAT_AGENT_HARVESTER_PERIOD_MS: 300000
+      CRYOSTAT_AGENT_HARVESTER_MAX_FILES: 3
+      CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS: 60000
+      CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
+      EULA: "true"
+      ONLINE_MODE: "false"
+      OVERRIDE_SERVER_PROPERTIES: "true"
+      ENABLE_JMX: "true"
+      JMX_HOST: gameserver
+      JMX_PORT: "7091"
+      JVM_OPTS: -javaagent:/opt/cryostat/agent.jar
