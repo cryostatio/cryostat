@@ -64,12 +64,11 @@ while getopts "hs:prGtAOVXc:bnk" opt; do
             ;;
         t)
             nextopt=${!OPTIND}
+            deploy_all=false
             if [[ -n $nextopt && $nextopt != -* ]] ; then
                 OPTIND=$((OPTIND + 1))
                 if [ "${nextopt}" = "all" ]; then
-                    for sample in $(find "${DIR}/compose/sample_apps" -type f -exec basename {} \; | cut -d. -f1 | grep -v https); do
-                        FILES+=("${DIR}/compose/sample_apps/${sample}.yml")
-                    done
+                    deploy_all=true
                 else
                     for sample in ${nextopt//,/}; do
                         file="${DIR}/compose/sample_apps/${sample}.yml"
@@ -81,6 +80,10 @@ while getopts "hs:prGtAOVXc:bnk" opt; do
                     done
                 fi
             else
+                # there is no nextopt, ie `-t` was passed and there is no argument or the next argument is another flag
+                deploy_all=true
+            fi
+            if [ "${deploy_all}" = "true" ]; then
                 for sample in $(find "${DIR}/compose/sample_apps" -type f -exec basename {} \; | cut -d. -f1 | grep -v https); do
                     FILES+=("${DIR}/compose/sample_apps/${sample}.yml")
                 done
