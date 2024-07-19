@@ -35,7 +35,7 @@ display_usage() {
     echo -e "\t-s [seaweed|minio|cloudserver|localstack]\tS3 implementation to spin up (default \"seaweed\")."
     echo -e "\t-G\t\t\t\t\t\texclude Grafana dashboard and jfr-datasource from deployment."
     echo -e "\t-r\t\t\t\t\t\tconfigure a cryostat-Reports sidecar instance"
-    echo -e "\t-t [all|comma-list]\t\t\t\tinclude sample applications for Testing. Leave blank or use 'all' to deploy everything, otherwise use a comma-separated list from: $(find "${DIR}/compose/sample_apps" -type f -name '*.yml' -exec basename {} \; | cut -d. -f1 | grep -v https | sort | tr '\n' ',' | sed 's/,$//')."
+    echo -e "\t-t [all|comma-list]\t\t\t\tinclude sample applications for Testing. Leave blank or use 'all' to deploy everything, otherwise use a comma-separated list from:\n\t\t\t\t\t\t\t\t$(find "${DIR}/compose/sample_apps" -type f -name '*.yml' -exec basename {} \; | cut -d. -f1 | grep -v https | sort | tr '\n' ',' | sed 's/,$//')"
     echo -e "\t-A\t\t\t\t\t\tDisable TLS on sample applications' Agents."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
     echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
