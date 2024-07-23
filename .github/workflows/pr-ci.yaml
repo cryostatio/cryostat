@@ -295,3 +295,56 @@ jobs:
             repo: context.repo.repo,
             body: commentBody
           });
+
+  auto-commit-schemas:
+    needs: [compare-graphql-schema, compare-openapi-schema, checkout-branch, update-schemas]
+    runs-on: ubuntu-latest
+    if: needs.update-schemas.outputs.OPENAPI_STATUS != '0' || needs.update-schemas.outputs.GRAPHQL_STATUS != '0'
+    steps:
+      - name: Check out PR branch
+        uses: actions/checkout@v3
+        with:
+          repository: ${{ needs.checkout-branch.outputs.PR_repo }}
+          ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
+          submodules: true
+          fetch-depth: 0
+      - name: Set up Bot user
+        run: |
+          git config --global user.email "ci-bot@example.com"
+          git config --global user.name "CI Bot"
+      - name: Download OpenAPI diff
+        uses: actions/download-artifact@v3
+        with:
+          name: openapi-diff
+          path: diffs
+      - name: Download GraphQL diff
+        uses: actions/download-artifact@v3
+        with:
+          name: graphql-diff
+          path: diffs
+      - name: Apply OpenAPI diff
+        if: needs.update-schemas.outputs.OPENAPI_STATUS != '0'
+        run: |
+          patch -p1 < diffs/openapi.diff
+      - name: Apply GraphQL diff
+        if: needs.update-schemas.outputs.GRAPHQL_STATUS != '0'
+        run: |
+          patch -p1 < diffs/graphql.diff
+      - name: Commit and push schema changes
+        run: |
+          git add schema/openapi.yaml schema/schema.graphql
+          git commit -m "CI committing detected Schema changes"
+          git push origin ${{ needs.checkout-branch.outputs.PR_head_ref }}
+      - name: Comment on schema update
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const prNumber = ${{ needs.checkout-branch.outputs.PR_num }};
+            const comment = "Schema changes committed by the CI.";
+            github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+
