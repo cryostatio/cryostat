@@ -18,12 +18,6 @@
         <updatePolicy>always</updatePolicy>
       </snapshots>
     </repository>
-    <repository>
-      <id>jmc-libs</id>
-      <name>Adoptium JDK Mission Control Core Libraries</name>
-      <url>https://adoptium.jfrog.io/artifactory/jmc-libs</url>
-      <layout>default</layout>
-    </repository>
   </repositories>
 
   <properties>
