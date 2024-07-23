@@ -16,8 +16,6 @@ on:
       - cryostat-v[0-9]+.[0-9]+
 
 env:
-  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04/Release.key"
-  OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL: "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/unstable/xUbuntu_22.04"
   CI_USER: cryostat+bot
   CI_REGISTRY: quay.io/cryostat
   CI_IMG: quay.io/cryostat/cryostat
@@ -40,7 +38,8 @@ jobs:
       image-version: ${{ steps.query-pom.outputs.image-version }}
 
   build-and-test:
-    runs-on: ubuntu-latest
+    # runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [get-pom-properties]
     strategy:
       matrix:
@@ -83,18 +82,8 @@ jobs:
         cd src/main/webui
         yarn install && yarn yarn:frzinstall
         cd -
-    - name: Install podman v4
-      run: |
-        echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
-        curl -fsSL $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_KEY_URL | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/devel_kubic_libcontainers_unstable.gpg > /dev/null
-        sudo apt -y purge podman
-        sudo apt update && sudo apt -y satisfy "podman (>= 4.0)"
-    - name: Emulate docker with podman
-      run: |
-        mkdir -p $HOME/.bin
-        cat <(echo '#!/usr/bin/env bash') <(echo 'exec podman "$@"') > $HOME/.bin/docker
-        chmod +x $HOME/.bin/docker
-        echo "PATH=$HOME/.bin:$PATH" >> "$GITHUB_ENV"
+    - name: Ensure podman 4+ and podman-docker installed
+      run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0)" && sudo apt -y install podman-docker
     - name: Set up testcontainers for podman
       run: |
         echo ryuk.container.privileged=true > ~/.testcontainers.properties
