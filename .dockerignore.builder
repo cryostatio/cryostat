@@ -6,7 +6,6 @@
 !src/main/java
 !src/main/resources
 !src/main/webui
-src/main/webui/node_modules
 !src/main/docker/include/*
 !target
 !target/*-runner
