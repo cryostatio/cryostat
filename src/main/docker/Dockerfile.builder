@@ -4,11 +4,13 @@ USER root
 WORKDIR /tmp/build
 COPY .mvn/ .mvn
 COPY pom.xml mvnw .
+RUN --mount=type=cache,target=/root/.m2 ./mvnw dependency:go-offline
+RUN mkdir target
 COPY src/main/java src/main/java
 COPY src/main/resources src/main/resources
 COPY src/main/webui src/main/webui
 COPY src/main/docker/include src/main/docker/include
-RUN ./mvnw -Dmaven.repo.local=/tmp/build/m2/repository -B -U -Dmaven.test.skip=true -Dlicense.skip=true -Dspotless.check.skip=true -Dquarkus.container-image.build=false -Dbuild.arch=$TARGETARCH package
+RUN --mount=type=cache,target=/root/.m2 ./mvnw -o -B -U -Dmaven.test.skip=true -Dlicense.skip=true -Dspotless.check.skip=true -Dquarkus.container-image.build=false -Dbuild.arch=$TARGETARCH package
 
 FROM registry.access.redhat.com/ubi8/openjdk-17-runtime:1.20-3.1721231685
 
