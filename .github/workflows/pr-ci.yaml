@@ -132,7 +132,7 @@ jobs:
         yarn install && yarn yarn:frzinstall
         cd -
     - name: Ensure podman 4+ and podman-docker installed
-      run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0)" && sudo apt -y install podman-docker
+      run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0), podman-docker"
     - name: Set up testcontainers for podman
       run: |
         echo ryuk.container.privileged=true > ~/.testcontainers.properties
