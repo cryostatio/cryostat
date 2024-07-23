@@ -30,7 +30,7 @@ public class LocalStackResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
     private static int S3_PORT = 4566;
-    private static final String IMAGE_NAME = "docker.io/localstack/localstack:latest";
+    private static final String IMAGE_NAME = "docker.io/localstack/localstack:3.5.0";
     private static final Map<String, String> envMap =
             Map.of(
                     "START_WEB", "0",
