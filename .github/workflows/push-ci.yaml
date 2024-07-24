@@ -43,7 +43,8 @@ jobs:
     needs: [get-pom-properties]
     env:
       IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
-      cache-name: cache-yarn
+      deps-cache-name: cache-yarn
+      build-cache-name: cache-webpack
     name: Build and test
     permissions:
       packages: write
@@ -68,9 +69,18 @@ jobs:
       uses: actions/cache@v3
       with:
         path: "./src/main/webui/.yarn/cache"
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        key: ${{ runner.os }}-build-${{ env.deps-cache-name }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-${{ env.deps-cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+    - name: Cache frontend build
+      uses: actions/cache@v3
+      with:
+        path: "./src/main/webui/.build_cache"
+        key: ${{ runner.os }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.build-cache-name }}-
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     - name: Initialize web assets
