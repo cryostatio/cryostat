@@ -13,4 +13,3 @@
 !target/lib/*
 !target/quarkus-app/*
 !target/quinoa
-!target/quinoa/*
