@@ -60,13 +60,6 @@ public class CustomDiscoveryTest {
         assertNotNull(createdTarget);
         assertEquals("some-jvm-id", createdTarget.jvmId);
 
-        /* // Delete the Target by connect URL
-        Response deleteResponse = customDiscovery.delete(target.id);
-        assertEquals(
-                Response.Status.ACCEPTED.getStatusCode(), deleteResponse.getStatus());
-
-        // Extract the ID from the redirect location
-        String location = deleteResponse.getLocation().getPath(); */
         long targetId = createdTarget.id;
 
         Response finalDeleteResponse = customDiscovery.delete(targetId);
