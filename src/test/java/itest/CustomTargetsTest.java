@@ -248,6 +248,8 @@ public class CustomTargetsTest extends StandardSelfTest {
             throws TimeoutException, ExecutionException, InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
 
+        long targetId = retrieveTargetId();
+
         worker.submit(
                 () -> {
                     try {
@@ -267,7 +269,7 @@ public class CustomTargetsTest extends StandardSelfTest {
                                             MatcherAssert.assertThat(
                                                     event.getJsonObject("serviceRef")
                                                             .getString("connectUrl"),
-                                                    Matchers.equalTo("localhost:0"));
+                                                    Matchers.equalTo(SELF_JMX_URL));
                                             MatcherAssert.assertThat(
                                                     event.getJsonObject("serviceRef")
                                                             .getString("alias"),
@@ -282,17 +284,37 @@ public class CustomTargetsTest extends StandardSelfTest {
 
         webClient
                 .extensions()
-                .delete(
-                        String.format("/api/v2/targets/%s", JMX_URL_ENCODED),
-                        REQUEST_TIMEOUT_SECONDS);
+                .delete(String.format("/api/v3/targets/%d", targetId), REQUEST_TIMEOUT_SECONDS);
 
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
+        // Verify that no targets remain
         HttpResponse<Buffer> listResponse =
-                webClient.extensions().get("/api/v1/targets", REQUEST_TIMEOUT_SECONDS);
+                webClient.extensions().get("/api/v3/targets", REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
         JsonArray list = listResponse.bodyAsJsonArray();
         MatcherAssert.assertThat(list, Matchers.notNullValue());
         MatcherAssert.assertThat(list.size(), Matchers.equalTo(0));
+    }
+
+    private long retrieveTargetId()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        // Call the API endpoint to list all targets
+        HttpResponse<Buffer> response =
+                webClient.extensions().get("/api/v3/targets", REQUEST_TIMEOUT_SECONDS);
+        if (response.statusCode() != 200) {
+            throw new IllegalStateException("Failed to retrieve targets from API");
+        }
+
+        JsonArray targets = response.bodyAsJsonArray();
+
+        for (int i = 0; i < targets.size(); i++) {
+            JsonObject target = targets.getJsonObject(i);
+            if (target.getString("connectUrl").equals(SELF_JMX_URL)
+                    || target.getString("alias").equals("knownAlias")) {
+                return target.getLong("id");
+            }
+        }
+        throw new IllegalStateException("Target not found with known identifier");
     }
 }
