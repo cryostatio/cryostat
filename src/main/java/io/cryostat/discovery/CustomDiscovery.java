@@ -56,7 +56,6 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
-import org.jboss.resteasy.reactive.RestResponse;
 
 @ApplicationScoped
 @Path("")
@@ -248,17 +247,6 @@ public class CustomDiscovery {
                     .entity(V2Response.json(Response.Status.INTERNAL_SERVER_ERROR, e))
                     .build();
         }
-    }
-
-    @Transactional
-    @DELETE
-    @Path("/api/v2/targets/{connectUrl}")
-    @RolesAllowed("write")
-    public Response delete(@RestPath URI connectUrl) throws URISyntaxException {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v3/targets/%d", target.id)))
-                .build();
     }
 
     @Transactional
