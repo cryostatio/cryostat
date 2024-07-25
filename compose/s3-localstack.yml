@@ -16,7 +16,7 @@ services:
       AWS_ACCESS_KEY_ID: unused
       AWS_SECRET_ACCESS_KEY: unused
   s3:
-    image: ${LOCALSTACK_IMAGE:-docker.io/localstack/localstack:latest}
+    image: ${LOCALSTACK_IMAGE:-docker.io/localstack/localstack:stable}
     hostname: s3
     expose:
       - "4566"
