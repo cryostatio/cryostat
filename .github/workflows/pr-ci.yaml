@@ -212,11 +212,11 @@ jobs:
         git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/schema.graphql > /home/runner/work/graphql.diff
         echo "graphql_status=$?" >> "$GITHUB_OUTPUT"
         echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: openapi-diff
         path: /home/runner/work/openapi.diff
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: graphql-diff
         path: /home/runner/work/graphql.diff
@@ -227,7 +227,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: openapi-diff
     - name: Comment schema check result
@@ -253,7 +253,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
         name: graphql-diff
     - name: Comment schema check result
@@ -293,12 +293,12 @@ jobs:
           git_user_signingkey: true
           git_commit_gpgsign: true
       - name: Download OpenAPI diff
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: openapi-diff
           path: diffs
       - name: Download GraphQL diff
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: graphql-diff
           path: diffs
