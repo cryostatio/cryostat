@@ -41,6 +41,9 @@ jobs:
     # runs-on: ubuntu-latest
     runs-on: ubuntu-24.04
     needs: [get-pom-properties]
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
     env:
       IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
       deps-cache-name: cache-yarn
@@ -99,32 +102,49 @@ jobs:
       run: systemctl --user enable --now podman.socket
     - name: Set DOCKER_HOST environment variable
       run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
-    - name: Build application
-      run: ./mvnw -B -U -Dquarkus.container-image.additional-tags= clean verify
-    - name: Delete local integration test image
-      run: podman rmi ${{ env.CI_IMG }}:${{ env.IMAGE_VERSION }}
       continue-on-error: true
-    - name: Build container images and manifest
-      id: buildah-build
-      uses: redhat-actions/buildah-build@v2
+    - name: Build ${{ matrix.arch }} container image
+      id: build-image
+      run: ./mvnw -B -U -Dquarkus.container-image.additional-tags=linux-${{ matrix.arch }} -Dbuild.arch=${{ matrix.arch }} clean verify
+    - name: Save container image
+      run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
+    - uses: actions/upload-artifact@v4
       with:
-        image: ${{ env.CI_IMG }}
-        oci: true
-        layers: true
-        archs: amd64, arm64
-        tags: ${{ env.IMAGE_VERSION }} ${{ github.ref == 'refs/heads/main' && 'latest' || '' }}
-        extra-args: |
-          --ulimit=nofile=4096:4096
-          --ignorefile=.dockerignore.builder
-          --jobs=2
-        containerfiles: |
-          ./src/main/docker/Dockerfile.builder
+        name: cryostat-${{ matrix.arch }}
+        path: /home/runner/work/cryostat/cryostat/cryostat-${{ matrix.arch }}.tar
+
+  publish-manifest:
+    runs-on: ubuntu-latest
+    needs: [get-pom-properties, build-and-test]
+    steps:
+    - name: Download container tarballs
+      uses: actions/download-artifact@v4
+      with:
+        path: containers
+        pattern: cryostat-*
+        merge-multiple: true
+    - name: Import container tarballs
+      run: |
+        for tar in cryostat-*.tar; do
+          podman load -i "${tar}"
+        done
+    - name: Create manifest
+      run: podman manifest create ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }}
+    - name: Tag manifest as latest
+      if: ${{ github.ref == 'refs/heads/main' }}
+      run: podman tag ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} ${{ env.CI_IMG }}:latest
+    - name: Add images to manifest
+      run: |
+        for tag in $(podman images --filter label=io.cryostat.component --format '{{ .Tag }}'); do
+          podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} ${{ env.CI_IMG }}:${tag}
+        done
     - name: Push to quay.io
+      if: github.repository_owner == 'cryostatio'
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
       with:
         image: cryostat
-        tags: ${{ steps.buildah-build.outputs.tags }}
+        tags: ${{ steps.create-manifest.outputs.tags }}
         registry: ${{ env.CI_REGISTRY }}
         username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
