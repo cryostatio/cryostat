@@ -24,7 +24,7 @@ jobs:
   get-pom-properties:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: true
         fetch-depth: 0
@@ -41,14 +41,11 @@ jobs:
     # runs-on: ubuntu-latest
     runs-on: ubuntu-24.04
     needs: [get-pom-properties]
-    strategy:
-      matrix:
-        # java: [ '17', '21' ]
-        java: ['17']
     env:
       IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
-      cache-name: cache-yarn
-    name: Build and test Java ${{ matrix.java }}
+      deps-cache-name: cache-yarn
+      build-cache-name: cache-webpack
+    name: Build and test
     permissions:
       packages: write
       contents: read
@@ -58,23 +55,32 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y qemu-user-static
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
       with:
         submodules: true
         fetch-depth: 0
-    - uses: actions/setup-java@v3
+    - uses: actions/setup-java@v4
       with:
-        java-version: ${{ matrix.java }}
+        java-version: '17'
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
     - name: Cache yarn packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: "./src/main/webui/.yarn/cache"
-        key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        key: ${{ runner.os }}-build-${{ env.deps-cache-name }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.cache-name }}-
+          ${{ runner.os }}-build-${{ env.deps-cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+    - name: Cache frontend build
+      uses: actions/cache@v4
+      with:
+        path: "./src/main/webui/.build_cache"
+        key: ${{ runner.os }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.build-cache-name }}-
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     - name: Initialize web assets
@@ -95,17 +101,16 @@ jobs:
       run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
     - name: Build application
       run: ./mvnw -B -U -Dquarkus.container-image.additional-tags= clean verify
-      continue-on-error: ${{ matrix.java != '17' }}
     - name: Delete local integration test image
       run: podman rmi ${{ env.CI_IMG }}:${{ env.IMAGE_VERSION }}
       continue-on-error: true
     - name: Build container images and manifest
-      if: ${{ matrix.java == '17' && github.repository_owner == 'cryostatio' }}
       id: buildah-build
       uses: redhat-actions/buildah-build@v2
       with:
         image: ${{ env.CI_IMG }}
         oci: true
+        layers: true
         archs: amd64, arm64
         tags: ${{ env.IMAGE_VERSION }} ${{ github.ref == 'refs/heads/main' && 'latest' || '' }}
         extra-args: |
@@ -123,7 +128,5 @@ jobs:
         registry: ${{ env.CI_REGISTRY }}
         username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
-      if: ${{ matrix.java == '17' && github.repository_owner == 'cryostatio' }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
-      if: ${{ matrix.java == '17' && github.repository_owner == 'cryostatio' }}
