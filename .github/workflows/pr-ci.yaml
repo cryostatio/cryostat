@@ -115,7 +115,7 @@ jobs:
         cache: 'maven'
     - run: git submodule init && git submodule update
     - name: Cache yarn packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: "./src/main/webui/.yarn/cache"
         key: ${{ runner.os }}-build-${{ env.deps-cache-name }}-${{ hashFiles('**/yarn.lock') }}
@@ -124,7 +124,7 @@ jobs:
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     - name: Cache frontend build
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: "./src/main/webui/.build_cache"
         key: ${{ runner.os }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}
