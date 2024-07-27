@@ -122,6 +122,7 @@ jobs:
         path: containers
         pattern: cryostat-*
         merge-multiple: true
+    - run: find containers -type f
     - name: Create manifest
       run: podman manifest create ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }}
     - name: Tag manifest as latest
@@ -134,9 +135,9 @@ jobs:
         echo "::set-output name=tags::$TAGS"
     - name: Import container tarballs
       run: |
-        find containers -type f -exec podman load -q -i {} \;
+        find containers -type f -exec podman load -i {} \;
         for tag in $(podman images --filter label=io.cryostat.component --format '{{ .Tag }}'); do
-          podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} containers-storage:${tag}
+          podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} containers-storage:${{env.CI_IMG}}:${tag}
         done
     - name: Push to quay.io
       if: github.repository_owner == 'cryostatio'
