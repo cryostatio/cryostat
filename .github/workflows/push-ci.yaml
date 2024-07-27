@@ -134,12 +134,9 @@ jobs:
         echo "::set-output name=tags::$TAGS"
     - name: Import container tarballs
       run: |
-        TAGS=$(find containers -type f -exec podman load -q -i {} \; | cut -d: -f2,3 | xargs)
-        echo "${TAGS}"
-        podman images
-        podman images --filter label=io.cryostat.component
-        for tag in ${TAGS}; do
-          podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} ${tag}
+        find containers -type f -exec podman load -q -i {} \;
+        for tag in $(podman images --filter label=io.cryostat.component --format '{{ .Tag }}'); do
+          podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} containers-storage:${tag}
         done
     - name: Push to quay.io
       if: github.repository_owner == 'cryostatio'
