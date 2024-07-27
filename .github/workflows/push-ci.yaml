@@ -91,7 +91,7 @@ jobs:
         cd src/main/webui
         yarn install && yarn yarn:frzinstall
         cd -
-    - name: Ensure podman 4+ and podman-docker installed
+    - name: Ensure podman 4+ installed
       run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0)"
     - name: Build ${{ matrix.arch }} container image
       id: build-image
