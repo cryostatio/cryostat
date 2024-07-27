@@ -92,17 +92,17 @@ jobs:
         yarn install && yarn yarn:frzinstall
         cd -
     - name: Ensure podman 4+ and podman-docker installed
-      run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0), podman-docker"
-    - name: Set up testcontainers for podman
-      run: |
-        echo ryuk.container.privileged=true > ~/.testcontainers.properties
-        echo docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy >> ~/.testcontainers.properties
-        echo testcontainers.reuse.enable=false >> ~/.testcontainers.properties
-    - name: Start Podman API
-      run: systemctl --user enable --now podman.socket
-    - name: Set DOCKER_HOST environment variable
-      run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
-      continue-on-error: true
+      run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0)" #, podman-docker"
+    # - name: Set up testcontainers for podman
+    #   run: |
+    #     echo ryuk.container.privileged=true > ~/.testcontainers.properties
+    #     echo docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy >> ~/.testcontainers.properties
+    #     echo testcontainers.reuse.enable=false >> ~/.testcontainers.properties
+    # - name: Start Podman API
+    #   run: systemctl --user enable --now podman.socket
+    # - name: Set DOCKER_HOST environment variable
+    #   run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
+    #   continue-on-error: true
     - name: Build ${{ matrix.arch }} container image
       id: build-image
       run: |
