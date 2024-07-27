@@ -135,9 +135,9 @@ jobs:
         echo "::set-output name=tags::$TAGS"
     - name: Import container tarballs
       run: |
-        TAG=$(find containers -type f -exec podman load -q -i {} \; | cut -d: -f2 | xargs)
-        echo "${TAG}"
-        podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} "${TAG}" || true
+        TAGS=$(find containers -type f -exec podman load -q -i {} \; | cut -d: -f2,3 | xargs)
+        echo "${TAGS}"
+        podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} ${TAGS}
     - name: Push to quay.io
       if: github.repository_owner == 'cryostatio'
       id: push-to-quay
