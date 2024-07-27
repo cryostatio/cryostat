@@ -54,10 +54,10 @@ jobs:
       contents: read
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
-    - name: Install qemu
+    - name: Install podman 4 and qemu
       run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static
+        sudo apt update
+        sudo apt -y satisfy "podman (>= 4.0), qemu-user-static"
     - uses: actions/checkout@v4
       with:
         submodules: true
@@ -91,8 +91,6 @@ jobs:
         cd src/main/webui
         yarn install && yarn yarn:frzinstall
         cd -
-    - name: Ensure podman 4+ installed
-      run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0)"
     - name: Build ${{ matrix.arch }} container image
       id: build-image
       run: |
