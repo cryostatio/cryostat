@@ -102,9 +102,9 @@ jobs:
         -Dquarkus.docker.buildx.platform=linux/${{ matrix.arch }} \
         -Dbuild.arch=${{ matrix.arch }} \
         clean verify
-    - run: podman inspect ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Copy docker image to podman
       run: podman pull docker-daemon:${{ env.CI_IMG }}:linux-${{ matrix.arch }}
+    - run: podman inspect ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Save container image
       run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - uses: actions/upload-artifact@v4
