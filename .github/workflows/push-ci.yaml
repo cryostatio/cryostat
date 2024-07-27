@@ -107,7 +107,7 @@ jobs:
       id: build-image
       run: |
         ./mvnw -B -U \
-        -Dquarkus.container-image.image=${{ env.CI_IMG }}:linux-${{ matrix.arch }}} \
+        -Dquarkus.container-image.image=${{ env.CI_IMG }}:linux-${{ matrix.arch }} \
         -Dquarkus.docker.executable-name=docker \
         -Dquarkus.docker.buildx.platform=linux/${{ matrix.arch }} \
         -Dbuild.arch=${{ matrix.arch }} \
