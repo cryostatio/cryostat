@@ -137,7 +137,8 @@ jobs:
     - name: Import container tarballs
       run: |
         TAG=$(find containers -type f -exec podman load -q -i {} \; | cut -d: -f2 | xargs)
-        podman manifest add ${{ env.CI_IMG }}:latest "${TAG}"
+        echo "${TAG}"
+        podman manifest add ${{ env.CI_IMG }}:latest "${TAG}" || true
     - name: List podman images
       run: podman images
     - name: Push to quay.io
