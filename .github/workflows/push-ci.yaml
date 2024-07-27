@@ -115,7 +115,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: cryostat-${{ matrix.arch }}
-        path: /home/runner/work/cryostat/cryostat/cryostat-${{ matrix.arch }}.tar
+        path: cryostat-${{ matrix.arch }}.tar
 
   publish-manifest:
     runs-on: ubuntu-latest
