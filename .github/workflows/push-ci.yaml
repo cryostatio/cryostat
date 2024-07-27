@@ -104,6 +104,7 @@ jobs:
         -Dmaven.test.skip \
         -Dquarkus.quinoa=false \
         clean package
+    - run: podman inspect ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Copy docker image to podman
       run: podman pull docker-daemon:${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Save container image
