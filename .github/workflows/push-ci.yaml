@@ -104,7 +104,6 @@ jobs:
         clean verify
     - name: Copy docker image to podman
       run: podman pull docker-daemon:${{ env.CI_IMG }}:linux-${{ matrix.arch }}
-    - run: podman inspect ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Save container image
       run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - uses: actions/upload-artifact@v4
@@ -122,7 +121,6 @@ jobs:
         path: containers
         pattern: cryostat-*
         merge-multiple: true
-    - run: find containers -type f
     - name: Create manifest
       run: podman manifest create ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }}
     - name: Set manifest tags
@@ -133,7 +131,6 @@ jobs:
           podman tag ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} ${{ env.CI_IMG }}:latest
           TAGS+=(latest)
         fi
-        echo "tags: ${TAGS[@]}"
         echo "::set-output name=tags::${TAGS[@]}"
     - name: Import container tarballs
       run: |
