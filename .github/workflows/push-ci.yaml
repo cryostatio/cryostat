@@ -125,21 +125,22 @@ jobs:
     - run: find containers -type f
     - name: Create manifest
       run: podman manifest create ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }}
-    - name: Tag manifest as latest
-      if: ${{ github.ref == 'refs/heads/main' }}
-      run: podman tag ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} ${{ env.CI_IMG }}:latest
+    - name: Set manifest tags
+      id: manifest-tags
+      run: |
+        TAGS=(${{ needs.get-pom-properties.outputs.image-version }})
+        if [ '${{ github.ref }}' == 'refs/heads/main' ]; then
+          podman tag ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} ${{ env.CI_IMG }}:latest
+          TAGS+=(latest)
+        fi
+        echo "tags: ${TAGS[@]}"
+        echo "::set-output name=tags::${TAGS[@]}"
     - name: Import container tarballs
       run: |
         find containers -type f -exec podman load -i {} \;
         for tag in $(podman images --filter label=io.cryostat.component --format '{{ .Tag }}'); do
           podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} containers-storage:${{env.CI_IMG}}:${tag}
         done
-    - name: List manifest tags
-      id: manifest-tags
-      run: |
-        TAGS="$(podman images --filter label=io.cryostat.component --format '{{ .Tag }}' | tr '\n' ' ')"
-        echo "$TAGS"
-        echo "::set-output name=tags::$TAGS"
     - name: Push to quay.io
       if: github.repository_owner == 'cryostatio'
       id: push-to-quay
