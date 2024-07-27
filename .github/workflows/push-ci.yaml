@@ -128,10 +128,7 @@ jobs:
         pattern: cryostat-*
         merge-multiple: true
     - name: Import container tarballs
-      run: |
-        for tar in cryostat-*.tar; do
-          podman load -i "${tar}"
-        done
+      run: find containers -exec podman load -i {} \;
     - name: Create manifest
       run: podman manifest create ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }}
     - name: Tag manifest as latest
