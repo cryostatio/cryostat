@@ -136,6 +136,8 @@ jobs:
       run: |
         TAGS=$(find containers -type f -exec podman load -q -i {} \; | cut -d: -f2,3 | xargs)
         echo "${TAGS}"
+        podman images
+        podman images --filter label=io.cryostat.component
         for tag in ${TAGS}; do
           podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} ${tag}
         done
