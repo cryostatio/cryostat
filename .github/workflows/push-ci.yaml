@@ -131,7 +131,7 @@ jobs:
     - name: List manifest tags
       id: manifest-tags
       run: |
-        TAGS="$(podman images | grep ${{ env.CI_IMG }} | tr '\n' ' ')"
+        TAGS="$(podman images --format '{{ .Tag }}' | grep ${{ env.CI_IMG }} | tr '\n' ' ')"
         echo "::set-output name=tags::$TAGS"
     - name: Import container tarballs
       run: |
