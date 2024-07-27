@@ -107,6 +107,7 @@ jobs:
       id: build-image
       run: |
         ./mvnw -B -U \
+        -Dquarkus.container-image.image=${{ env.CI_IMG }}:linux-${{ matrix.arch }}} \
         -Dquarkus.docker.executable-name=docker \
         -Dquarkus.docker.buildx.platform=linux/${{ matrix.arch }} \
         -Dbuild.arch=${{ matrix.arch }} \
@@ -116,12 +117,10 @@ jobs:
     - name: List docker images
       run: docker images
     - name: Copy docker image to podman
-      run: podman pull docker-daemon:${{ env.CI_IMG }}:latest
-    - name: Tag image
-      run: podman tag ${{ env.CI_IMG }}:latest ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
+      run: podman pull docker-daemon:${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: List podman images
       run: podman images
-    - name: podman container image
+    - name: Save container image
       run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - uses: actions/upload-artifact@v4
       with:
