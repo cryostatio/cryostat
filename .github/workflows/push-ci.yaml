@@ -104,12 +104,8 @@ jobs:
         -Dmaven.test.skip \
         -Dquarkus.quinoa=false \
         clean package
-    - name: List docker images
-      run: docker images
     - name: Copy docker image to podman
       run: podman pull docker-daemon:${{ env.CI_IMG }}:linux-${{ matrix.arch }}
-    - name: List podman images
-      run: podman images
     - name: Save container image
       run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - uses: actions/upload-artifact@v4
@@ -132,22 +128,23 @@ jobs:
     - name: Tag manifest as latest
       if: ${{ github.ref == 'refs/heads/main' }}
       run: podman tag ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} ${{ env.CI_IMG }}:latest
-    - name: List podman images
-      run: podman images
+    - name: List manifest tags
+      id: manifest-tags
+      run: |
+        TAGS="$(podman images | grep ${{ env.CI_IMG }} | tr '\n' ' ')"
+        echo "::set-output name=tags::$TAGS"
     - name: Import container tarballs
       run: |
         TAG=$(find containers -type f -exec podman load -q -i {} \; | cut -d: -f2 | xargs)
         echo "${TAG}"
-        podman manifest add ${{ env.CI_IMG }}:latest "${TAG}" || true
-    - name: List podman images
-      run: podman images
+        podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} "${TAG}" || true
     - name: Push to quay.io
       if: github.repository_owner == 'cryostatio'
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
       with:
         image: cryostat
-        tags: ${{ steps.create-manifest.outputs.tags }}
+        tags: ${{ steps.manifest-tags.outputs.tags }}
         registry: ${{ env.CI_REGISTRY }}
         username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
