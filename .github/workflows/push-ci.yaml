@@ -101,9 +101,7 @@ jobs:
         -Dquarkus.docker.executable-name=docker \
         -Dquarkus.docker.buildx.platform=linux/${{ matrix.arch }} \
         -Dbuild.arch=${{ matrix.arch }} \
-        -Dmaven.test.skip \
-        -Dquarkus.quinoa=false \
-        clean package
+        clean verify
     - run: podman inspect ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Copy docker image to podman
       run: podman pull docker-daemon:${{ env.CI_IMG }}:linux-${{ matrix.arch }}
