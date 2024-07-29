@@ -36,28 +36,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
-import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
 public class Events {
 
     @Inject TargetConnectionManager connectionManager;
     @Inject Logger logger;
-
-    @GET
-    @Path("/api/v1/targets/{connectUrl}/events")
-    @RolesAllowed("read")
-    public Response listEventsV1(@RestPath URI connectUrl, @RestQuery String q) throws Exception {
-        logger.tracev("connectUrl: %s", connectUrl.toString());
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/events%s",
-                                        target.id, q == null ? "" : "?q=" + q)))
-                .build();
-    }
 
     @GET
     @Path("/api/v2/targets/{connectUrl}/events")
