@@ -46,8 +46,7 @@ jobs:
         arch: [amd64, arm64]
     env:
       IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
-      deps-cache-name: cache-yarn
-      build-cache-name: cache-webpack
+      frontend-cache-name: cache-yarn
     name: Build and test
     permissions:
       packages: write
@@ -68,29 +67,24 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
-    - name: Cache yarn packages
+    - name: Cache yarn packages and frontend build
       uses: actions/cache@v4
       with:
-        path: "./src/main/webui/.yarn/cache"
-        key: ${{ runner.os }}-build-${{ env.deps-cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        path: |
+          ./src/main/webui/.yarn/cache
+          ./src/main/webui/.yarn/install-state.gz
+          ./src/main/webui/node_modules
+          ./src/main/webui/.build_cache
+        key: ${{ runner.os }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.deps-cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
-    - name: Cache frontend build
-      uses: actions/cache@v4
-      with:
-        path: "./src/main/webui/.build_cache"
-        key: ${{ runner.os }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-build-${{ env.build-cache-name }}-
+          ${{ runner.os }}-build-${{ env.frontend-cache-name }}-
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     - name: Initialize web assets
       run: |
-        cd src/main/webui
+        pushd  src/main/webui
         yarn install && yarn yarn:frzinstall
-        cd -
+        popd
     - name: Build ${{ matrix.arch }} container image
       id: build-image
       run: |
