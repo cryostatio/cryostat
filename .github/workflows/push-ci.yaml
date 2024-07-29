@@ -41,20 +41,22 @@ jobs:
     # runs-on: ubuntu-latest
     runs-on: ubuntu-24.04
     needs: [get-pom-properties]
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
     env:
       IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
-      deps-cache-name: cache-yarn
-      build-cache-name: cache-webpack
+      frontend-cache-name: cache-yarn
     name: Build and test
     permissions:
       packages: write
       contents: read
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
-    - name: Install qemu
+    - name: Install podman 4 and qemu
       run: |
-        sudo apt-get update
-        sudo apt-get install -y qemu-user-static
+        sudo apt update
+        sudo apt -y satisfy "podman (>= 4.0), qemu-user-static"
     - uses: actions/checkout@v4
       with:
         submodules: true
@@ -65,66 +67,76 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
-    - name: Cache yarn packages
+    - name: Cache yarn packages and frontend build
       uses: actions/cache@v4
       with:
-        path: "./src/main/webui/.yarn/cache"
-        key: ${{ runner.os }}-build-${{ env.deps-cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        path: |
+          ./src/main/webui/.yarn/cache
+          ./src/main/webui/.yarn/install-state.gz
+          ./src/main/webui/node_modules
+          ./src/main/webui/.build_cache
+        key: ${{ runner.os }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
         restore-keys: |
-          ${{ runner.os }}-build-${{ env.deps-cache-name }}-
-          ${{ runner.os }}-build-
-          ${{ runner.os }}-
-    - name: Cache frontend build
-      uses: actions/cache@v4
-      with:
-        path: "./src/main/webui/.build_cache"
-        key: ${{ runner.os }}-build-${{ env.build-cache-name }}-${{ hashFiles('**/yarn.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-build-${{ env.build-cache-name }}-
+          ${{ runner.os }}-build-${{ env.frontend-cache-name }}-
           ${{ runner.os }}-build-
           ${{ runner.os }}-
     - name: Initialize web assets
       run: |
-        cd src/main/webui
+        pushd  src/main/webui
         yarn install && yarn yarn:frzinstall
-        cd -
-    - name: Ensure podman 4+ and podman-docker installed
-      run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0), podman-docker"
-    - name: Set up testcontainers for podman
+        popd
+    - name: Build ${{ matrix.arch }} container image
+      id: build-image
       run: |
-        echo ryuk.container.privileged=true > ~/.testcontainers.properties
-        echo docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy >> ~/.testcontainers.properties
-        echo testcontainers.reuse.enable=false >> ~/.testcontainers.properties
-    - name: Start Podman API
-      run: systemctl --user enable --now podman.socket
-    - name: Set DOCKER_HOST environment variable
-      run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
-    - name: Build application
-      run: ./mvnw -B -U -Dquarkus.container-image.additional-tags= clean verify
-    - name: Delete local integration test image
-      run: podman rmi ${{ env.CI_IMG }}:${{ env.IMAGE_VERSION }}
-      continue-on-error: true
-    - name: Build container images and manifest
-      id: buildah-build
-      uses: redhat-actions/buildah-build@v2
+        ./mvnw -B -U \
+        -Dquarkus.container-image.image=${{ env.CI_IMG }}:linux-${{ matrix.arch }} \
+        -Dquarkus.docker.executable-name=docker \
+        -Dquarkus.docker.buildx.platform=linux/${{ matrix.arch }} \
+        -Dbuild.arch=${{ matrix.arch }} \
+        clean verify
+    - name: Copy docker image to podman
+      run: podman pull docker-daemon:${{ env.CI_IMG }}:linux-${{ matrix.arch }}
+    - name: Save container image
+      run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
+    - uses: actions/upload-artifact@v4
       with:
-        image: ${{ env.CI_IMG }}
-        oci: true
-        layers: true
-        archs: amd64, arm64
-        tags: ${{ env.IMAGE_VERSION }} ${{ github.ref == 'refs/heads/main' && 'latest' || '' }}
-        extra-args: |
-          --ulimit=nofile=4096:4096
-          --ignorefile=.dockerignore.builder
-          --jobs=2
-        containerfiles: |
-          ./src/main/docker/Dockerfile.builder
+        name: cryostat-${{ matrix.arch }}
+        path: cryostat-${{ matrix.arch }}.tar
+
+  publish-manifest:
+    runs-on: ubuntu-latest
+    needs: [get-pom-properties, build-and-test]
+    steps:
+    - name: Download container tarballs
+      uses: actions/download-artifact@v4
+      with:
+        path: containers
+        pattern: cryostat-*
+        merge-multiple: true
+    - name: Create manifest
+      run: podman manifest create ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }}
+    - name: Set manifest tags
+      id: manifest-tags
+      run: |
+        TAGS=(${{ needs.get-pom-properties.outputs.image-version }})
+        if [ '${{ github.ref }}' == 'refs/heads/main' ]; then
+          podman tag ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} ${{ env.CI_IMG }}:latest
+          TAGS+=(latest)
+        fi
+        echo "::set-output name=tags::${TAGS[@]}"
+    - name: Import container tarballs
+      run: |
+        find containers -type f -exec podman load -i {} \;
+        for tag in $(podman images --filter label=io.cryostat.component --format '{{ .Tag }}'); do
+          podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} containers-storage:${{env.CI_IMG}}:${tag}
+        done
     - name: Push to quay.io
+      if: github.repository_owner == 'cryostatio'
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
       with:
         image: cryostat
-        tags: ${{ steps.buildah-build.outputs.tags }}
+        tags: ${{ steps.manifest-tags.outputs.tags }}
         registry: ${{ env.CI_REGISTRY }}
         username: ${{ env.CI_USER }}
         password: ${{ secrets.REGISTRY_PASSWORD }}
