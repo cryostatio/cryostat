@@ -16,7 +16,6 @@
 package io.cryostat.events;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -61,26 +60,6 @@ public class EventTemplates {
     @Inject S3TemplateService customTemplateService;
     @Inject Logger logger;
 
-    @GET
-    @Path("/api/v1/targets/{connectUrl}/templates")
-    @RolesAllowed("read")
-    public Response listTemplatesV1(@RestPath URI connectUrl) throws Exception {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(String.format("/api/v3/targets/%d/event_templates", target.id)))
-                .build();
-    }
-
-    @POST
-    @Path("/api/v1/templates")
-    @RolesAllowed("write")
-    public Response postTemplatesV1(@RestForm("template") FileUpload body) {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create("/api/v3/event_templates"))
-                .build();
-    }
-
     @POST
     @Path("/api/v3/event_templates")
     @RolesAllowed("write")
@@ -96,54 +75,11 @@ public class EventTemplates {
     }
 
     @DELETE
-    @Path("/api/v1/templates/{templateName}")
-    @RolesAllowed("write")
-    public Response deleteTemplatesV1(@RestPath String templateName) {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v3/event_templates/%s", templateName)))
-                .build();
-    }
-
-    @DELETE
     @Blocking
     @Path("/api/v3/event_templates/{templateName}")
     @RolesAllowed("write")
     public void deleteTemplates(@RestPath String templateName) {
         customTemplateService.deleteTemplate(templateName);
-    }
-
-    @GET
-    @Path("/api/v1/targets/{connectUrl}/templates/{templateName}/type/{templateType}")
-    @RolesAllowed("read")
-    public Response getTargetTemplateV1(
-            @RestPath URI connectUrl,
-            @RestPath String templateName,
-            @RestPath TemplateType templateType) {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/event_templates/%s/%s",
-                                        target.id, templateType, templateName)))
-                .build();
-    }
-
-    @GET
-    @Path("/api/v2.1/targets/{connectUrl}/templates/{templateName}/type/{templateType}")
-    @RolesAllowed("read")
-    public Response getTargetTemplateV2_1(
-            @RestPath URI connectUrl,
-            @RestPath String templateName,
-            @RestPath TemplateType templateType) {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/event_templates/%s/%s",
-                                        target.id, templateType, templateName)))
-                .build();
     }
 
     @GET
