@@ -739,10 +739,7 @@ class GraphQLTest extends StandardSelfTest {
         // Check preconditions
         CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
         webClient
-                .get(
-                        String.format(
-                                "/api/v1/targets/%s/recordings",
-                                getSelfReferenceConnectUrlEncoded()))
+                .get(String.format("/api/v3/targets/%d/recordings", getSelfReferenceTargetId()))
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, listRespFuture1)) {

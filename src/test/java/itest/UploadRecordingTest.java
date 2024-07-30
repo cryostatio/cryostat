@@ -56,6 +56,7 @@ public class UploadRecordingTest extends StandardSelfTest {
     static String CREATE_RECORDING_URL;
     static String DELETE_RECORDING_URL;
     static String UPLOAD_RECORDING_URL;
+    static long RECORDING_REMOTE_ID;
 
     @BeforeAll
     public static void createRecording() throws Exception {
@@ -65,9 +66,11 @@ public class UploadRecordingTest extends StandardSelfTest {
         form.add("events", "template=ALL");
 
         CREATE_RECORDING_URL =
-                String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded());
+                String.format("/api/v3/targets/%d/recordings", getSelfReferenceTargetId());
         HttpResponse<Buffer> resp =
                 webClient.extensions().post(CREATE_RECORDING_URL, form, RECORDING_DURATION_SECONDS);
+        long id = resp.bodyAsJsonObject().getLong("remoteId");
+        RECORDING_REMOTE_ID = id;
         MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(201));
         Thread.sleep(
                 Long.valueOf(
@@ -82,8 +85,8 @@ public class UploadRecordingTest extends StandardSelfTest {
                             .extensions()
                             .delete(
                                     String.format(
-                                            "/api/v1/targets/%s/recordings/%s",
-                                            getSelfReferenceConnectUrlEncoded(), RECORDING_NAME),
+                                            "/api/v3/targets/%d/recordings/%d",
+                                            getSelfReferenceTargetId(), RECORDING_REMOTE_ID),
                                     REQUEST_TIMEOUT_SECONDS);
             MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(204));
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
@@ -102,8 +105,8 @@ public class UploadRecordingTest extends StandardSelfTest {
                         .extensions()
                         .post(
                                 String.format(
-                                        "/api/v1/targets/%s/recordings/%s/upload",
-                                        getSelfReferenceConnectUrlEncoded(), RECORDING_NAME),
+                                        "/api/v3/targets/%d/recordings/%d/upload",
+                                        getSelfReferenceTargetId(), RECORDING_REMOTE_ID),
                                 (Buffer) null,
                                 0);
 
