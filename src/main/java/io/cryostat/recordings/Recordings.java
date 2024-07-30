@@ -35,7 +35,6 @@ import java.util.regex.Pattern;
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IOptionDescriptor;
 import org.openjdk.jmc.flightrecorder.configuration.IFlightRecorderService;
-import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
 
 import io.cryostat.ConfigProperties;
@@ -456,7 +455,7 @@ public class Recordings {
                 .toList();
     }
 
-    @GET
+    /*     @GET
     @Path("/api/v1/targets/{connectUrl}/recordings")
     @RolesAllowed("read")
     public Response listForTargetByUrl(@RestPath URI connectUrl) throws Exception {
@@ -464,7 +463,7 @@ public class Recordings {
         return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(URI.create(String.format("/api/v3/targets/%d/recordings", target.id)))
                 .build();
-    }
+    } */
 
     @PATCH
     @Transactional
@@ -507,7 +506,7 @@ public class Recordings {
         }
     }
 
-    @PATCH
+    /*     @PATCH
     @Transactional
     @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
@@ -528,7 +527,7 @@ public class Recordings {
                                         "/api/v3/targets/%d/recordings/%s",
                                         target.id, recording.get().getId())))
                 .build();
-    }
+    } */
 
     @POST
     @Transactional
@@ -653,7 +652,7 @@ public class Recordings {
                 .build();
     }
 
-    @POST
+    /*     @POST
     @Transactional
     @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings")
@@ -666,9 +665,9 @@ public class Recordings {
                                         "/api/v3/targets/%d/recordings",
                                         Target.getTargetByConnectUrl(connectUrl).id)))
                 .build();
-    }
+    } */
 
-    @DELETE
+    /*     @DELETE
     @Transactional
     @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
@@ -691,7 +690,7 @@ public class Recordings {
                                 String.format(
                                         "/api/v3/targets/%d/recordings/%d", target.id, remoteId)))
                 .build();
-    }
+    } */
 
     @DELETE
     @Transactional
@@ -768,7 +767,7 @@ public class Recordings {
         }
     }
 
-    @POST
+    /*     @POST
     @Blocking
     @Transactional
     @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}/upload")
@@ -789,7 +788,7 @@ public class Recordings {
                                         "/api/v3/targets/%d/recordings/%d/upload",
                                         target.id, remoteId)))
                 .build();
-    }
+    } */
 
     @POST
     @Blocking
@@ -800,7 +799,7 @@ public class Recordings {
         return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
     }
 
-    @POST
+    /*     @POST
     @Path("/api/beta/recordings/{connectUrl}/{filename}/upload")
     @RolesAllowed("write")
     public Response uploadArchivedToGrafanaBeta(
@@ -832,7 +831,7 @@ public class Recordings {
                                         "/api/v3/grafana/%s",
                                         recordingHelper.encodedKey(jvmId, filename))))
                 .build();
-    }
+    } */
 
     @POST
     @Blocking
@@ -853,7 +852,7 @@ public class Recordings {
         return recordingHelper.uploadToJFRDatasource(key);
     }
 
-    @GET
+    /*     @GET
     @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordingOptions")
     @RolesAllowed("read")
@@ -863,7 +862,7 @@ public class Recordings {
                 .location(
                         URI.create(String.format("/api/v3/targets/%d/recordingOptions", target.id)))
                 .build();
-    }
+    } */
 
     @GET
     @Blocking
@@ -879,7 +878,7 @@ public class Recordings {
                 });
     }
 
-    @PATCH
+    /*     @PATCH
     @Blocking
     @Path("/api/v1/targets/{connectUrl}/recordingOptions")
     @RolesAllowed("write")
@@ -889,7 +888,7 @@ public class Recordings {
                 .location(
                         URI.create(String.format("/api/v3/targets/%d/recordingOptions", target.id)))
                 .build();
-    }
+    } */
 
     @PATCH
     @Blocking
