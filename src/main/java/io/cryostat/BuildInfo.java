@@ -39,8 +39,7 @@ public class BuildInfo {
     }
 
     public class GitInfo {
-        @JsonProperty("describe")
-        public String getDescription() {
+        public String getHash() {
             try (BufferedReader br =
                     new BufferedReader(
                             new InputStreamReader(
