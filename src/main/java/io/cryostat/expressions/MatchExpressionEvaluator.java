@@ -83,9 +83,9 @@ public class MatchExpressionEvaluator {
         var target = Target.<Target>find("id", event.serviceRef().id).singleResultOptional();
         switch (event.kind()) {
             case LOST:
-                // fall-through
+            // fall-through
             case FOUND:
-                // fall-through
+            // fall-through
             case MODIFIED:
                 target.ifPresent(this::invalidate);
                 break;
