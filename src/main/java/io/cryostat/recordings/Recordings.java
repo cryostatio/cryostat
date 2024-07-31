@@ -210,7 +210,8 @@ public class Recordings {
         }
         logger.tracev("Removing {0}", toRemove);
 
-        // FIXME this notification should be emitted in the deletion operation stream so that there
+        // FIXME this notification should be emitted in the deletion operation stream so
+        // that there
         // is one notification per deleted object
         var target = Target.getTargetByJvmId(jvmId);
         var event =
@@ -455,15 +456,21 @@ public class Recordings {
                 .toList();
     }
 
-    /*     @GET
-    @Path("/api/v1/targets/{connectUrl}/recordings")
-    @RolesAllowed("read")
-    public Response listForTargetByUrl(@RestPath URI connectUrl) throws Exception {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v3/targets/%d/recordings", target.id)))
-                .build();
-    } */
+    /*
+     * @GET
+     *
+     * @Path("/api/v1/targets/{connectUrl}/recordings")
+     *
+     * @RolesAllowed("read")
+     * public Response listForTargetByUrl(@RestPath URI connectUrl) throws Exception
+     * {
+     * Target target = Target.getTargetByConnectUrl(connectUrl);
+     * return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+     * .location(URI.create(String.format("/api/v3/targets/%d/recordings",
+     * target.id)))
+     * .build();
+     * }
+     */
 
     @PATCH
     @Transactional
@@ -506,28 +513,35 @@ public class Recordings {
         }
     }
 
-    /*     @PATCH
-    @Transactional
-    @Blocking
-    @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
-    @RolesAllowed("write")
-    public Response patchV1(@RestPath URI connectUrl, @RestPath String recordingName, String body)
-            throws Exception {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        Optional<IRecordingDescriptor> recording =
-                connectionManager.executeConnectedTask(
-                        target, conn -> recordingHelper.getDescriptorByName(conn, recordingName));
-        if (recording.isEmpty()) {
-            throw new NotFoundException();
-        }
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/recordings/%s",
-                                        target.id, recording.get().getId())))
-                .build();
-    } */
+    /*
+     * @PATCH
+     *
+     * @Transactional
+     *
+     * @Blocking
+     *
+     * @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
+     *
+     * @RolesAllowed("write")
+     * public Response patchV1(@RestPath URI connectUrl, @RestPath String
+     * recordingName, String body)
+     * throws Exception {
+     * Target target = Target.getTargetByConnectUrl(connectUrl);
+     * Optional<IRecordingDescriptor> recording =
+     * connectionManager.executeConnectedTask(
+     * target, conn -> recordingHelper.getDescriptorByName(conn, recordingName));
+     * if (recording.isEmpty()) {
+     * throw new NotFoundException();
+     * }
+     * return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+     * .location(
+     * URI.create(
+     * String.format(
+     * "/api/v3/targets/%d/recordings/%s",
+     * target.id, recording.get().getId())))
+     * .build();
+     * }
+     */
 
     @POST
     @Transactional
@@ -597,7 +611,8 @@ public class Recordings {
             @RestForm String recordingName,
             @RestForm String events,
             @RestForm Optional<String> replace,
-            // restart param is deprecated, only 'replace' should be used and takes priority if both
+            // restart param is deprecated, only 'replace' should be used and takes priority
+            // if both
             // are provided
             @Deprecated @RestForm Optional<Boolean> restart,
             @RestForm Optional<Long> duration,
@@ -652,45 +667,60 @@ public class Recordings {
                 .build();
     }
 
-    /*     @POST
-    @Transactional
-    @Blocking
-    @Path("/api/v1/targets/{connectUrl}/recordings")
-    @RolesAllowed("write")
-    public Response createRecordingV1(@RestPath URI connectUrl) throws Exception {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/recordings",
-                                        Target.getTargetByConnectUrl(connectUrl).id)))
-                .build();
-    } */
+    /*
+     * @POST
+     *
+     * @Transactional
+     *
+     * @Blocking
+     *
+     * @Path("/api/v1/targets/{connectUrl}/recordings")
+     *
+     * @RolesAllowed("write")
+     * public Response createRecordingV1(@RestPath URI connectUrl) throws Exception
+     * {
+     * return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+     * .location(
+     * URI.create(
+     * String.format(
+     * "/api/v3/targets/%d/recordings",
+     * Target.getTargetByConnectUrl(connectUrl).id)))
+     * .build();
+     * }
+     */
 
-    /*     @DELETE
-    @Transactional
-    @Blocking
-    @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
-    @RolesAllowed("write")
-    public Response deleteRecordingV1(@RestPath URI connectUrl, @RestPath String recordingName)
-            throws Exception {
-        if (StringUtils.isBlank(recordingName)) {
-            throw new BadRequestException("\"recordingName\" form parameter must be provided");
-        }
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        long remoteId =
-                recordingHelper.listActiveRecordings(target).stream()
-                        .filter(r -> Objects.equals(r.name, recordingName))
-                        .findFirst()
-                        .map(r -> r.remoteId)
-                        .orElseThrow(() -> new NotFoundException());
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/recordings/%d", target.id, remoteId)))
-                .build();
-    } */
+    /*
+     * @DELETE
+     *
+     * @Transactional
+     *
+     * @Blocking
+     *
+     * @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}")
+     *
+     * @RolesAllowed("write")
+     * public Response deleteRecordingV1(@RestPath URI connectUrl, @RestPath String
+     * recordingName)
+     * throws Exception {
+     * if (StringUtils.isBlank(recordingName)) {
+     * throw new
+     * BadRequestException("\"recordingName\" form parameter must be provided");
+     * }
+     * Target target = Target.getTargetByConnectUrl(connectUrl);
+     * long remoteId =
+     * recordingHelper.listActiveRecordings(target).stream()
+     * .filter(r -> Objects.equals(r.name, recordingName))
+     * .findFirst()
+     * .map(r -> r.remoteId)
+     * .orElseThrow(() -> new NotFoundException());
+     * return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+     * .location(
+     * URI.create(
+     * String.format(
+     * "/api/v3/targets/%d/recordings/%d", target.id, remoteId)))
+     * .build();
+     * }
+     */
 
     @DELETE
     @Transactional
@@ -754,7 +784,7 @@ public class Recordings {
                                             recordingHelper.downloadUrl(jvmId, filename),
                                             recordingHelper.reportUrl(jvmId, filename),
                                             metadata,
-                                            0 /*filesize*/,
+                                            0 /* filesize */,
                                             clock.getMonotonicTime())));
             bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
@@ -767,28 +797,35 @@ public class Recordings {
         }
     }
 
-    /*     @POST
-    @Blocking
-    @Transactional
-    @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}/upload")
-    @RolesAllowed("write")
-    public Response uploadActiveToGrafanaV1(
-            @RestPath URI connectUrl, @RestPath String recordingName) {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        long remoteId =
-                recordingHelper.listActiveRecordings(target).stream()
-                        .filter(r -> Objects.equals(r.name, recordingName))
-                        .findFirst()
-                        .map(r -> r.remoteId)
-                        .orElseThrow(() -> new NotFoundException());
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/recordings/%d/upload",
-                                        target.id, remoteId)))
-                .build();
-    } */
+    /*
+     * @POST
+     *
+     * @Blocking
+     *
+     * @Transactional
+     *
+     * @Path("/api/v1/targets/{connectUrl}/recordings/{recordingName}/upload")
+     *
+     * @RolesAllowed("write")
+     * public Response uploadActiveToGrafanaV1(
+     *
+     * @RestPath URI connectUrl, @RestPath String recordingName) {
+     * Target target = Target.getTargetByConnectUrl(connectUrl);
+     * long remoteId =
+     * recordingHelper.listActiveRecordings(target).stream()
+     * .filter(r -> Objects.equals(r.name, recordingName))
+     * .findFirst()
+     * .map(r -> r.remoteId)
+     * .orElseThrow(() -> new NotFoundException());
+     * return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+     * .location(
+     * URI.create(
+     * String.format(
+     * "/api/v3/targets/%d/recordings/%d/upload",
+     * target.id, remoteId)))
+     * .build();
+     * }
+     */
 
     @POST
     @Blocking
@@ -799,39 +836,47 @@ public class Recordings {
         return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
     }
 
-    /*     @POST
-    @Path("/api/beta/recordings/{connectUrl}/{filename}/upload")
-    @RolesAllowed("write")
-    public Response uploadArchivedToGrafanaBeta(
-            @RestPath String connectUrl, @RestPath String filename) throws Exception {
-        String jvmId;
-        if ("uploads".equals(connectUrl)) {
-            jvmId = "uploads";
-        } else {
-            jvmId = Target.getTargetByConnectUrl(URI.create(connectUrl)).jvmId;
-        }
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/grafana/%s",
-                                        recordingHelper.encodedKey(jvmId, filename))))
-                .build();
-    }
-
-    @POST
-    @Path("/api/beta/fs/recordings/{jvmId}/{filename}/upload")
-    @RolesAllowed("write")
-    public Response uploadArchivedToGrafanaFromPath(
-            @RestPath String jvmId, @RestPath String filename) throws Exception {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/grafana/%s",
-                                        recordingHelper.encodedKey(jvmId, filename))))
-                .build();
-    } */
+    /*
+     * @POST
+     *
+     * @Path("/api/beta/recordings/{connectUrl}/{filename}/upload")
+     *
+     * @RolesAllowed("write")
+     * public Response uploadArchivedToGrafanaBeta(
+     *
+     * @RestPath String connectUrl, @RestPath String filename) throws Exception {
+     * String jvmId;
+     * if ("uploads".equals(connectUrl)) {
+     * jvmId = "uploads";
+     * } else {
+     * jvmId = Target.getTargetByConnectUrl(URI.create(connectUrl)).jvmId;
+     * }
+     * return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+     * .location(
+     * URI.create(
+     * String.format(
+     * "/api/v3/grafana/%s",
+     * recordingHelper.encodedKey(jvmId, filename))))
+     * .build();
+     * }
+     *
+     * @POST
+     *
+     * @Path("/api/beta/fs/recordings/{jvmId}/{filename}/upload")
+     *
+     * @RolesAllowed("write")
+     * public Response uploadArchivedToGrafanaFromPath(
+     *
+     * @RestPath String jvmId, @RestPath String filename) throws Exception {
+     * return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+     * .location(
+     * URI.create(
+     * String.format(
+     * "/api/v3/grafana/%s",
+     * recordingHelper.encodedKey(jvmId, filename))))
+     * .build();
+     * }
+     */
 
     @POST
     @Blocking
@@ -852,17 +897,23 @@ public class Recordings {
         return recordingHelper.uploadToJFRDatasource(key);
     }
 
-    /*     @GET
-    @Blocking
-    @Path("/api/v1/targets/{connectUrl}/recordingOptions")
-    @RolesAllowed("read")
-    public Response getRecordingOptionsV1(@RestPath URI connectUrl) throws Exception {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(String.format("/api/v3/targets/%d/recordingOptions", target.id)))
-                .build();
-    } */
+    /*
+     * @GET
+     *
+     * @Blocking
+     *
+     * @Path("/api/v1/targets/{connectUrl}/recordingOptions")
+     *
+     * @RolesAllowed("read")
+     * public Response getRecordingOptionsV1(@RestPath URI connectUrl) throws
+     * Exception {
+     * Target target = Target.getTargetByConnectUrl(connectUrl);
+     * return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+     * .location(
+     * URI.create(String.format("/api/v3/targets/%d/recordingOptions", target.id)))
+     * .build();
+     * }
+     */
 
     @GET
     @Blocking
@@ -878,17 +929,22 @@ public class Recordings {
                 });
     }
 
-    /*     @PATCH
-    @Blocking
-    @Path("/api/v1/targets/{connectUrl}/recordingOptions")
-    @RolesAllowed("write")
-    public Response patchRecordingOptionsV1(@RestPath URI connectUrl) {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(String.format("/api/v3/targets/%d/recordingOptions", target.id)))
-                .build();
-    } */
+    /*
+     * @PATCH
+     *
+     * @Blocking
+     *
+     * @Path("/api/v1/targets/{connectUrl}/recordingOptions")
+     *
+     * @RolesAllowed("write")
+     * public Response patchRecordingOptionsV1(@RestPath URI connectUrl) {
+     * Target target = Target.getTargetByConnectUrl(connectUrl);
+     * return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+     * .location(
+     * URI.create(String.format("/api/v3/targets/%d/recordingOptions", target.id)))
+     * .build();
+     * }
+     */
 
     @PATCH
     @Blocking
