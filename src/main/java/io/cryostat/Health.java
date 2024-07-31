@@ -64,8 +64,9 @@ class Health {
     @ConfigProperty(name = ConfigProperties.REPORTS_SIDECAR_URL)
     String reportsClientURL;
 
-    @Inject Logger logger;
+    @Inject BuildInfo buildInfo;
     @Inject WebClient webClient;
+    @Inject Logger logger;
 
     @GET
     @Blocking
@@ -98,6 +99,8 @@ class Health {
                         Map.of(
                                 "cryostatVersion",
                                 String.format("v%s", version),
+                                "buildInfo",
+                                Map.of("git", buildInfo.getGitInfo()),
                                 "dashboardConfigured",
                                 dashboardURL.isPresent(),
                                 "dashboardAvailable",
