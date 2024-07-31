@@ -39,34 +39,28 @@ public class BuildInfo {
     }
 
     public class GitInfo {
-        private volatile String gitDescribe;
-
         @JsonProperty("describe")
-        public synchronized String getDescription() {
-            if (gitDescribe == null) {
-                try (BufferedReader br =
-                        new BufferedReader(
-                                new InputStreamReader(
-                                        Thread.currentThread()
-                                                .getContextClassLoader()
-                                                .getResourceAsStream(RESOURCE_LOCATION),
-                                        StandardCharsets.UTF_8))) {
-                    gitDescribe =
-                            br.lines()
-                                    .findFirst()
-                                    .orElseThrow(
-                                            () ->
-                                                    new IllegalStateException(
-                                                            String.format(
-                                                                    "Resource file %s is empty",
-                                                                    RESOURCE_LOCATION)))
-                                    .trim();
-                } catch (Exception e) {
-                    logger.error("Version retrieval exception", e);
-                    gitDescribe = "unknown";
-                }
+        public String getDescription() {
+            try (BufferedReader br =
+                    new BufferedReader(
+                            new InputStreamReader(
+                                    Thread.currentThread()
+                                            .getContextClassLoader()
+                                            .getResourceAsStream(RESOURCE_LOCATION),
+                                    StandardCharsets.UTF_8))) {
+                return br.lines()
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                String.format(
+                                                        "Resource file %s is empty",
+                                                        RESOURCE_LOCATION)))
+                        .trim();
+            } catch (Exception e) {
+                logger.error("Version retrieval exception", e);
+                return "unknown";
             }
-            return gitDescribe;
         }
     }
 }
