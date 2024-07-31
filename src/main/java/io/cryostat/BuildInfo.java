@@ -19,9 +19,9 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
@@ -31,32 +31,42 @@ public class BuildInfo {
 
     @Inject Logger logger;
 
-    private volatile String version;
+    private final GitInfo gitinfo = new GitInfo();
 
-    public synchronized String getGitInfo() {
-        if (version == null) {
-            try (BufferedReader br =
-                    new BufferedReader(
-                            new InputStreamReader(
-                                    Thread.currentThread()
-                                            .getContextClassLoader()
-                                            .getResourceAsStream(RESOURCE_LOCATION),
-                                    StandardCharsets.UTF_8))) {
-                version =
-                        br.lines()
-                                .findFirst()
-                                .orElseThrow(
-                                        () ->
-                                                new IllegalStateException(
-                                                        String.format(
-                                                                "Resource file %s is empty",
-                                                                RESOURCE_LOCATION)))
-                                .trim();
-            } catch (Exception e) {
-                logger.error("Version retrieval exception", e);
-                version = "unknown";
+    @JsonProperty("git")
+    public GitInfo getGitInfo() {
+        return gitinfo;
+    }
+
+    public class GitInfo {
+        private volatile String gitDescribe;
+
+        @JsonProperty("describe")
+        public synchronized String getDescription() {
+            if (gitDescribe == null) {
+                try (BufferedReader br =
+                        new BufferedReader(
+                                new InputStreamReader(
+                                        Thread.currentThread()
+                                                .getContextClassLoader()
+                                                .getResourceAsStream(RESOURCE_LOCATION),
+                                        StandardCharsets.UTF_8))) {
+                    gitDescribe =
+                            br.lines()
+                                    .findFirst()
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            String.format(
+                                                                    "Resource file %s is empty",
+                                                                    RESOURCE_LOCATION)))
+                                    .trim();
+                } catch (Exception e) {
+                    logger.error("Version retrieval exception", e);
+                    gitDescribe = "unknown";
+                }
             }
+            return gitDescribe;
         }
-        return version;
     }
 }

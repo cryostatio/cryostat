@@ -99,8 +99,8 @@ class Health {
                         Map.of(
                                 "cryostatVersion",
                                 String.format("v%s", version),
-                                "buildInfo",
-                                Map.of("git", buildInfo.getGitInfo()),
+                                "build",
+                                buildInfo,
                                 "dashboardConfigured",
                                 dashboardURL.isPresent(),
                                 "dashboardAvailable",
