@@ -554,7 +554,13 @@ public class Recordings {
                 .onItem()
                 .transform(
                         recording ->
-                                Response.status(Response.Status.OK).entity(recording.name).build())
+                                Response.status(Response.Status.OK)
+                                        .entity(
+                                                new JsonObject()
+                                                        .put("name", recording.name)
+                                                        .put("remoteId", recording.remoteId)
+                                                        .encode())
+                                        .build())
                 .onFailure(SnapshotCreationException.class)
                 .recoverWithItem(Response.status(Response.Status.ACCEPTED).build());
     }
