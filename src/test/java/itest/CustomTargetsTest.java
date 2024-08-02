@@ -216,7 +216,7 @@ public class CustomTargetsTest extends StandardSelfTest {
                 Matchers.equalTo(alias));
 
         HttpResponse<Buffer> listResponse =
-                webClient.extensions().get("/api/v1/targets", REQUEST_TIMEOUT_SECONDS);
+                webClient.extensions().get("/api/v3/targets", REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
         JsonArray list = listResponse.bodyAsJsonArray();
         MatcherAssert.assertThat(list, Matchers.notNullValue());
