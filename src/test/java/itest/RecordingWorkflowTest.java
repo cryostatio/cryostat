@@ -96,7 +96,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                                 }
                             });
             listResp = listRespFuture2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            System.out.println("+++List response: " + listResp.encode());
 
             MatcherAssert.assertThat(
                     "list should have size 1 after recording creation",
@@ -105,7 +104,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             JsonObject recordingInfo = listResp.getJsonObject(0);
             long remoteId = recordingInfo.getLong("remoteId");
             TEST_REMOTE_ID = remoteId;
-            System.out.println("+++TEST_REMORE_ID: " + TEST_REMOTE_ID);
             MatcherAssert.assertThat(
                     recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
             MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("RUNNING"));
