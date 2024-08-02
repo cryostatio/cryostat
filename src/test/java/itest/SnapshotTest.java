@@ -17,6 +17,8 @@ package itest;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.net.URI;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -65,10 +67,7 @@ public class SnapshotTest extends StandardSelfTest {
                     .delete(String.format("%s/recordings/%d", v3RequestUrl(), remoteId))
                     .send(
                             ar -> {
-                                if (ar.succeeded()) {
-                                    System.out.println(
-                                            "Deleted recording with remote ID: " + remoteId);
-                                } else {
+                                if (!ar.succeeded()) {
                                     System.err.println(
                                             "Failed to delete recording with remote ID: "
                                                     + remoteId
@@ -149,6 +148,68 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
+    void testPostV2ShouldCreateSnapshot() throws Exception {
+        CompletableFuture<String> snapshotName = new CompletableFuture<>();
+
+        // Create a recording
+        createRecording(snapshotName);
+
+        Thread.sleep(5_000l);
+
+        // Create a snapshot recording of all events at that time
+        CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
+        webClient
+                .post(String.format("%s/snapshot", v2RequestUrl()))
+                .send(
+                        ar -> {
+                            if (ar.succeeded()) {
+                                HttpResponse<Buffer> response = ar.result();
+                                if (response.statusCode() == 201) {
+                                    JsonObject jsonResponse = response.bodyAsJsonObject();
+                                    String name = jsonResponse.getString("name");
+                                    long snapshotRemoteId = jsonResponse.getLong("remoteId");
+                                    snapshotName.complete(name);
+                                    createResponse.complete(jsonResponse);
+                                    recordingsToDelete.add(snapshotRemoteId);
+                                } else {
+                                    System.err.println(
+                                            "Failed to create snapshot, status code: "
+                                                    + response.statusCode());
+                                    createResponse.completeExceptionally(
+                                            new RuntimeException(
+                                                    "Failed to create snapshot, Status code: "
+                                                            + response.statusCode()));
+                                }
+                            } else {
+                                System.err.println("Request failed: " + ar.cause());
+                                createResponse.completeExceptionally(ar.cause());
+                            }
+                        });
+
+        JsonObject json = createResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        String resolvedName = snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        // Validate the JSON response
+        MatcherAssert.assertThat(json.getString("name"), Matchers.equalTo(resolvedName));
+        MatcherAssert.assertThat(json.getLong("remoteId"), Matchers.greaterThan(0L));
+        MatcherAssert.assertThat(json.getString("state"), Matchers.equalTo("STOPPED"));
+        MatcherAssert.assertThat(
+                json.getLong("startTime"),
+                Matchers.lessThanOrEqualTo(Instant.now().toEpochMilli()));
+        MatcherAssert.assertThat(
+                json.getString("downloadUrl"), Matchers.startsWith("/api/v3/activedownload/"));
+        MatcherAssert.assertThat(
+                json.getString("reportUrl"),
+                Matchers.equalTo(
+                        URI.create(
+                                        String.format(
+                                                "%s/reports/%d",
+                                                selfCustomTargetLocation, json.getLong("remoteId")))
+                                .getPath()));
+        MatcherAssert.assertThat(json.containsKey("expiry"), Matchers.is(false));
+    }
+
+    @Test
     void testPostV2SnapshotThrowsWithNonExistentTarget() throws Exception {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
         webClient
@@ -165,23 +226,6 @@ public class SnapshotTest extends StandardSelfTest {
                 ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(404));
         MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Not Found"));
     }
-
-    /*
-     * @Test
-     * void testPostV2ShouldCreateSnapshot() throws Exception {
-     * CompletableFuture<String> snapshotName2 = new CompletableFuture<>();
-     *
-     * // Create a recording
-     * createRecording(snapshotName2);
-     *
-     * Thread.sleep(5_000);
-     * createV2Snapshot(snapshotName2);
-     *
-     * MatcherAssert.assertThat(
-     * snapshotName2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
-     * Matchers.matchesPattern(SNAPSHOT_NAME_PATTERN));
-     * }
-     */
 
     private JsonArray fetchPreTestRecordings() throws Exception {
         CompletableFuture<JsonArray> preListRespFuture = new CompletableFuture<>();
@@ -248,8 +292,6 @@ public class SnapshotTest extends StandardSelfTest {
                                     long remoteId = jsonResponse.getLong("remoteId");
                                     REMOTE_ID = remoteId;
                                     recordingsToDelete.add(remoteId); // Store for later cleanup
-                                    System.out.println(
-                                            "Recording created with remote ID: " + remoteId);
                                 }
                             }
                         });
@@ -307,110 +349,3 @@ public class SnapshotTest extends StandardSelfTest {
                         });
     }
 }
-/*
- * @Test
- * void testPostV2ShouldCreateSnapshot() throws Exception {
- * CompletableFuture<String> snapshotName = new CompletableFuture<>();
- * CompletableFuture<Long> remoteIdFuture = new CompletableFuture<>();
- *
- * // Create a recording
- * MultiMap form = MultiMap.caseInsensitiveMultiMap();
- * form.add("recordingName", TEST_RECORDING_NAME);
- * form.add("duration", "5");
- * form.add("events", "template=ALL");
- * webClient
- * .post(String.format("%s/recordings", v3RequestUrl()))
- * .sendForm(
- * form,
- * ar -> {
- * if (ar.succeeded()) {
- * HttpResponse<Buffer> response = ar.result();
- * if (response.statusCode() == 201) {
- * JsonObject jsonResponse = response.bodyAsJsonObject();
- * long remoteId = jsonResponse.getLong("remoteId");
- * remoteIdFuture.complete(remoteId);
- * } else {
- * remoteIdFuture.completeExceptionally(
- * new RuntimeException("Failed to create recording"));
- * }
- * } else {
- * remoteIdFuture.completeExceptionally(ar.cause());
- * }
- * });
- *
- * long remoteId = remoteIdFuture.get(REQUEST_TIMEOUT_SECONDS,
- * TimeUnit.SECONDS);
- *
- * Thread.sleep(5_000l);
- *
- * // Create a snapshot recording of all events at that time
- * CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
- * webClient
- * .post(String.format("%s/snapshot", v2RequestUrl()))
- * .send(
- * ar -> {
- * if (assertRequestStatus(ar, createResponse)) {
- * MatcherAssert.assertThat(
- * ar.result().statusCode(), Matchers.equalTo(201));
- * MatcherAssert.assertThat(
- * ar.result().getHeader(HttpHeaders.CONTENT_TYPE.toString()),
- * Matchers.equalTo("application/json;charset=UTF-8"));
- * createResponse.complete(ar.result().bodyAsJsonObject());
- * }
- * });
- *
- * snapshotName.complete(
- * createResponse
- * .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
- * .getJsonObject("data")
- * .getJsonObject("result")
- * .getString("name"));
- *
- * JsonObject json = createResponse.get(REQUEST_TIMEOUT_SECONDS,
- * TimeUnit.SECONDS);
- *
- * MatcherAssert.assertThat(
- * json.getJsonObject("meta"),
- * Matchers.equalTo(
- * new JsonObject(Map.of("type", "application/json", "status", "Created"))));
- * MatcherAssert.assertThat(json.getMap(), Matchers.hasKey("data"));
- * MatcherAssert.assertThat(json.getJsonObject("data").getMap(),
- * Matchers.hasKey("result"));
- * JsonObject result = json.getJsonObject("data").getJsonObject("result");
- * MatcherAssert.assertThat(result.getString("state"),
- * Matchers.equalTo("STOPPED"));
- * MatcherAssert.assertThat(
- * result.getLong("startTime"),
- * Matchers.lessThanOrEqualTo(Instant.now().toEpochMilli()));
- * MatcherAssert.assertThat(
- * result.getString("name"),
- * Matchers.equalTo(snapshotName.get(REQUEST_TIMEOUT_SECONDS,
- * TimeUnit.SECONDS)));
- * MatcherAssert.assertThat(result.getLong("id"), Matchers.greaterThan(0L));
- * MatcherAssert.assertThat(
- * result.getString("downloadUrl"),
- * Matchers.equalTo("/api/v3/activedownload/" + result.getLong("id")));
- * MatcherAssert.assertThat(
- * result.getString("reportUrl"),
- * Matchers.equalTo(
- * URI.create(
- * String.format(
- * "%s/reports/%d",
- * selfCustomTargetLocation,
- * result.getLong("remoteId")))
- * .getPath()));
- * MatcherAssert.assertThat(result.getLong("expiry"), Matchers.nullValue());
- *
- * webClient
- * .extensions()
- * .delete(
- * String.format("%s/recordings/%d", v3RequestUrl(), remoteId),
- * REQUEST_TIMEOUT_SECONDS);
- * webClient
- * .extensions()
- * .delete(
- * String.format("%s/recordings/%d", v1RequestUrl(), remoteId),
- * REQUEST_TIMEOUT_SECONDS);
- * }
- *
- */
