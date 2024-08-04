@@ -1,7 +1,7 @@
 version: "3"
 services:
   quarkus-cryostat-agent:
-    image: ${QUARKUS_TEST_IMAGE:-quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest}
+    image: ${QUARKUS_TEST_IMAGE:-quay.io/miwan/quarkus-test:latest}
     # do not add a depends_on:cryostat/depends_on:auth here, so that we can test that the agent is tolerant of that state
     hostname: quarkus-cryostat-agent
     ports:
@@ -29,8 +29,9 @@ services:
       CRYOSTAT_AGENT_CALLBACK: http://quarkus-cryostat-agent:9977/
       CRYOSTAT_AGENT_BASEURI: ${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/
       CRYOSTAT_AGENT_BASEURI_RANGE: public
-      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUST_ALL: "true"
-      CRYOSTAT_AGENT_WEBCLIENT_TLS_VERIFY_HOSTNAME: "false"
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_CERT_ALIAS: "cryostat"
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_CERT_FILE: /auth_certs/certificate.pem
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_CERT_TYPE: "X.509"
       CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
       CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
       CRYOSTAT_AGENT_HARVESTER_PERIOD_MS: 30000
@@ -45,3 +46,5 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
+    volumes:
+      - ${DIR}/compose/auth_certs:/auth_certs:z
