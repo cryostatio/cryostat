@@ -16,7 +16,6 @@
 package io.cryostat.jmcagent;
 
 import java.io.ByteArrayInputStream;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -106,20 +105,6 @@ public class JMCAgent {
     }
 
     @Blocking
-    @POST
-    @Path("/api/v2/targets/{connectUrl}/probes/{probeTemplateName}")
-    public Response postProbev2(@RestPath URI connectUrl, @RestPath String probeTemplateName) {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/probes/%s",
-                                        Target.getTargetByConnectUrl(connectUrl).id,
-                                        probeTemplateName)))
-                .build();
-    }
-
-    @Blocking
     @DELETE
     @Path("/api/v3/targets/{id}/probes")
     public Response deleteProbe(@RestPath long id) {
@@ -149,19 +134,6 @@ public class JMCAgent {
             logger.warn("Caught exception" + e.toString(), e);
             throw new BadRequestException(e);
         }
-    }
-
-    @Blocking
-    @DELETE
-    @Path("/api/v2/targets/{connectUrl}/probes")
-    public Response deleteProbev2(@RestPath URI connectUrl) {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/probes",
-                                        Target.getTargetByConnectUrl(connectUrl).id)))
-                .build();
     }
 
     @Blocking
@@ -199,16 +171,6 @@ public class JMCAgent {
 
     @Blocking
     @GET
-    @Path("/api/v2/targets/{connectUrl}/probes")
-    public Response getProbesv2(@RestPath URI connectUrl) {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v3/targets/%d/probes", target.id)))
-                .build();
-    }
-
-    @Blocking
-    @GET
     @Path("/api/v3/probes")
     public V2Response getProbeTemplates() {
         try {
@@ -224,15 +186,6 @@ public class JMCAgent {
     }
 
     @Blocking
-    @GET
-    @Path("/api/v2/probes")
-    public Response getProbeTemplatesv2() {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create("/api/v3/probes"))
-                .build();
-    }
-
-    @Blocking
     @DELETE
     @Path("/api/v3/probes/{probeTemplateName}")
     public Response deleteProbeTemplate(@RestPath String probeTemplateName) {
@@ -243,15 +196,6 @@ public class JMCAgent {
             logger.warn("Caught exception" + e.toString(), e);
             throw new BadRequestException(e);
         }
-    }
-
-    @Blocking
-    @DELETE
-    @Path("/api/v2/probes/{probeTemplateName}")
-    public Response deleteProbeTemplatesv2(@RestPath String probeTemplateName) {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v3/probes/%s", probeTemplateName)))
-                .build();
     }
 
     @Blocking
@@ -269,15 +213,5 @@ public class JMCAgent {
             logger.warn(e.getMessage(), e);
             throw new BadRequestException(e);
         }
-    }
-
-    @Blocking
-    @POST
-    @Path("/api/v2/probes/{probeTemplateName}")
-    public Response postProbeTemplatev2(
-            @RestForm("probeTemplate") FileUpload body, @RestPath String probeTemplateName) {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v3/probes/%s", probeTemplateName)))
-                .build();
     }
 }

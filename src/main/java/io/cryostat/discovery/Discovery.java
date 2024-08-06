@@ -144,15 +144,6 @@ public class Discovery {
     }
 
     @GET
-    @Path("/api/v2.1/discovery")
-    @RolesAllowed("read")
-    public Response getv21() {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create("/api/v3/discovery"))
-                .build();
-    }
-
-    @GET
     @Path("/api/v3/discovery")
     @RolesAllowed("read")
     public DiscoveryNode get() {

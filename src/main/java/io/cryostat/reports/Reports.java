@@ -15,8 +15,6 @@
  */
 package io.cryostat.reports;
 
-import java.net.URI;
-import java.util.HashMap;
 import java.util.Map;
 
 import io.cryostat.ConfigProperties;
@@ -31,18 +29,14 @@ import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
-import jakarta.ws.rs.ClientErrorException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
-import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
 public class Reports {
@@ -66,37 +60,6 @@ public class Reports {
         }
     }
 
-    @Blocking
-    @GET
-    @Path("/api/v1/reports/{recordingName}")
-    @Produces(MediaType.APPLICATION_JSON)
-    @RolesAllowed("read")
-    @Deprecated(since = "3.0", forRemoval = true)
-    public Response getV1(@RestPath String recordingName) {
-        var result = new HashMap<String, String>();
-        helper.listArchivedRecordingObjects()
-                .forEach(
-                        item -> {
-                            String objectName = item.key().strip();
-                            String jvmId = objectName.split("/")[0];
-                            String filename = objectName.split("/")[1];
-                            result.put(jvmId, filename);
-                        });
-        if (result.size() == 0) {
-            throw new NotFoundException();
-        }
-        if (result.size() > 1) {
-            throw new ClientErrorException(Response.Status.CONFLICT);
-        }
-        var entry = result.entrySet().iterator().next();
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/reports/%s", entry.getKey(), entry.getValue())))
-                .build();
-    }
-
     @GET
     @Blocking
     @Path("/api/v3/reports/{encodedKey}")
@@ -106,29 +69,6 @@ public class Reports {
         // TODO implement query parameter for evaluation predicate
         var pair = helper.decodedKey(encodedKey);
         return reportsService.reportFor(pair.getKey(), pair.getValue());
-    }
-
-    @GET
-    @Blocking
-    @Transactional
-    @Path("/api/v1/targets/{targetId}/reports/{recordingName}")
-    @Produces({MediaType.APPLICATION_JSON})
-    @RolesAllowed("read")
-    @Deprecated(since = "3.0", forRemoval = true)
-    public Response getActiveV1(@RestPath String targetId, @RestPath String recordingName) {
-        var target = Target.getTargetByConnectUrl(URI.create(targetId));
-        var recording =
-                helper.listActiveRecordings(target).stream()
-                        .filter(r -> r.name.equals(recordingName))
-                        .findFirst()
-                        .orElseThrow();
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/reports/%d",
-                                        target.id, recording.remoteId)))
-                .build();
     }
 
     @GET

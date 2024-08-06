@@ -95,8 +95,8 @@ public abstract class StandardSelfTest {
                         .extensions()
                         .get(
                                 String.format(
-                                        "/api/v1/targets/%s/recordings",
-                                        getSelfReferenceConnectUrlEncoded()),
+                                        "/api/v3/targets/%d/recordings",
+                                        getSelfReferenceTargetId()),
                                 REQUEST_TIMEOUT_SECONDS)
                         .bodyAsJsonArray();
         if (!listResp.isEmpty()) {
