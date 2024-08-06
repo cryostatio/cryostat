@@ -285,15 +285,18 @@ class GraphQLTest extends StandardSelfTest {
     @Order(4)
     void testArchiveMutation() throws Exception {
         Thread.sleep(5000);
-        JsonObject notificationRecording = createRecording();
+        String recordingName = "test";
+        JsonObject notificationRecording = createRecording(recordingName);
         Assertions.assertEquals("test", notificationRecording.getString("name"));
         Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom Targets\"]},"
-                        + " recordings: { name: \"test\"}) { name downloadUrl } }");
+                String.format(
+                        "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom"
+                            + " Targets\"]}, recordings: { name: \"%s\"}) { name downloadUrl } }",
+                        recordingName));
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
@@ -324,8 +327,9 @@ class GraphQLTest extends StandardSelfTest {
     @Order(5)
     void testActiveRecordingMetadataMutation() throws Exception {
         Thread.sleep(5000);
-        JsonObject notificationRecording = createRecording();
-        Assertions.assertEquals("test", notificationRecording.getString("name"));
+        String recordingName = "test";
+        JsonObject notificationRecording = createRecording(recordingName);
+        Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
 
         JsonObject variables = new JsonObject();
         JsonArray labels = new JsonArray();
@@ -339,10 +343,13 @@ class GraphQLTest extends StandardSelfTest {
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "query ($metadataInput: MetadataLabelsInput!) { targetNodes(filter: { annotations:"
-                    + " [\"REALM = Custom Targets\"] }) { name target { recordings{ active(filter:"
-                    + " {name: \"test\"}) { data { name id doPutMetadata(metadataInput:"
-                    + " $metadataInput) { metadata { labels { key value } } } } } } } } }");
+                String.format(
+                        "query ($metadataInput: MetadataLabelsInput!) { targetNodes(filter: {"
+                            + " annotations: [\"REALM = Custom Targets\"] }) { name target {"
+                            + " recordings{ active(filter: {name: \"%s\"}) { data { name id"
+                            + " doPutMetadata(metadataInput: $metadataInput) { metadata { labels {"
+                            + " key value } } } } } } } } }",
+                        recordingName));
         query.put("variables", variables);
 
         HttpResponse<Buffer> resp =
@@ -388,15 +395,18 @@ class GraphQLTest extends StandardSelfTest {
     @Order(6)
     void testArchivedRecordingMetadataMutation() throws Exception {
         Thread.sleep(5000);
+        String recordingName = "test";
         // Create a Recording
-        JsonObject notificationRecording = createRecording();
-        Assertions.assertEquals("test", notificationRecording.getString("name"));
+        JsonObject notificationRecording = createRecording(recordingName);
+        Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
         // Archive it
         JsonObject query1 = new JsonObject();
         query1.put(
                 "query",
-                "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom Targets\"]},"
-                        + " recordings: { name: \"test\"}) { name downloadUrl } }");
+                String.format(
+                        "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom"
+                            + " Targets\"]}, recordings: { name: \"%s\"}) { name downloadUrl } }",
+                        recordingName));
         HttpResponse<Buffer> resp1 =
                 webClient
                         .extensions()
@@ -431,7 +441,7 @@ class GraphQLTest extends StandardSelfTest {
         query2.put(
                 "query",
                 "query ($metadataInput: MetadataLabelsInput!) { targetNodes(filter: { annotations:"
-                        + " [\"REALM = Custom Targets\"] }) { name target { recordings{ archived"
+                        + " [\"REALM = Custom Targets\"] }) { name target { recordings { archived"
                         + " (filter: {name: \""
                         + archivedRecordingName
                         + "\"}) { data { name doPutMetadata(metadataInput:"
@@ -461,7 +471,8 @@ class GraphQLTest extends StandardSelfTest {
         ArchivedRecording updatedArchivedRecording = updatedArchivedRecordings.get(0);
         MatcherAssert.assertThat(
                 updatedArchivedRecording.getName(),
-                Matchers.matchesRegex("^selftest_test_[0-9]{8}T[0-9]{6}Z\\.jfr$"));
+                Matchers.matchesRegex(
+                        String.format("^selftest_%s_[0-9]{8}T[0-9]{6}Z\\.jfr$", recordingName)));
 
         List<KeyValue> expectedLabels =
                 List.of(
@@ -481,15 +492,18 @@ class GraphQLTest extends StandardSelfTest {
     void testDeleteMutation() throws Exception {
         // this will delete all Active and Archived recordings that match the filter input.
         Thread.sleep(5000);
+        String recordingName = "test";
         // Create a Recording
-        JsonObject notificationRecording = createRecording();
-        Assertions.assertEquals("test", notificationRecording.getString("name"));
+        JsonObject notificationRecording = createRecording(recordingName);
+        Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
         // Archive it
         JsonObject query1 = new JsonObject();
         query1.put(
                 "query",
-                "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom Targets\"]},"
-                        + " recordings: { name: \"test\"}) { name downloadUrl } }");
+                String.format(
+                        "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom"
+                            + " Targets\"]}, recordings: { name: \"%s\"}) { name downloadUrl } }",
+                        recordingName));
         HttpResponse<Buffer> resp1 =
                 webClient
                         .extensions()
@@ -545,11 +559,12 @@ class GraphQLTest extends StandardSelfTest {
         ArchivedRecording archivedRecording =
                 node.getTarget().getRecordings().getArchived().getData().get(0);
 
-        MatcherAssert.assertThat(activeRecording.name, Matchers.equalTo("test"));
-        MatcherAssert.assertThat(activeRecording.doDelete.name, Matchers.equalTo("test"));
+        MatcherAssert.assertThat(activeRecording.name, Matchers.equalTo(recordingName));
+        MatcherAssert.assertThat(activeRecording.doDelete.name, Matchers.equalTo(recordingName));
         MatcherAssert.assertThat(
                 archivedRecording.name,
-                Matchers.matchesRegex("^selftest_test_[0-9]{8}T[0-9]{6}Z\\.jfr$"));
+                Matchers.matchesRegex(
+                        String.format("^selftest_%s_[0-9]{8}T[0-9]{6}Z\\.jfr$", recordingName)));
     }
 
     @Test
@@ -639,22 +654,25 @@ class GraphQLTest extends StandardSelfTest {
     @Order(10)
     public void testQueryForFilteredActiveRecordingsByNames() throws Exception {
         Thread.sleep(5000);
+        String recordingName1 = "test";
         // Create a Recording 1 name (test)
-        JsonObject notificationRecording = createRecording();
-        Assertions.assertEquals("test", notificationRecording.getString("name"));
+        JsonObject notificationRecording = createRecording(recordingName1);
+        Assertions.assertEquals(recordingName1, notificationRecording.getString("name"));
 
         // create recording 2 name (test2)
         CountDownLatch latch = new CountDownLatch(2);
 
+        String recordingName2 = "test2";
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "mutation { createRecording( nodes:{annotations: ["
-                        + "\"REALM = Custom Targets\""
-                        + "]}, recording: { name: \"test2\", template:"
-                        + " \"Profiling\", templateType: \"TARGET\", duration: 30, continuous:"
-                        + " false, archiveOnStop: true, toDisk: true }) { name state duration"
-                        + " continuous metadata { labels { key value } } } }");
+                String.format(
+                        "mutation { createRecording( nodes:{annotations: [\"REALM = Custom"
+                            + " Targets\"]}, recording: { name: \"%s\", template: \"Profiling\","
+                            + " templateType: \"TARGET\", duration: 30, continuous: false,"
+                            + " archiveOnStop: true, toDisk: true }) { name state duration"
+                            + " continuous metadata { labels { key value } } } }",
+                        recordingName2));
         Future<JsonObject> f =
                 worker.submit(
                         () -> {
@@ -683,16 +701,18 @@ class GraphQLTest extends StandardSelfTest {
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         JsonObject test2 = notification.getJsonObject("message").getJsonObject("recording");
-        MatcherAssert.assertThat(test2.getString("name"), Matchers.equalTo("test2"));
+        MatcherAssert.assertThat(test2.getString("name"), Matchers.equalTo(recordingName2));
 
         // GraphQL Query to filter Active recordings by names
         JsonObject query2 = new JsonObject();
         query2.put(
                 "query",
-                "query { targetNodes (filter: { annotations:"
-                        + " [\"REALM = Custom Targets\"]}){ target { recordings"
-                        + " { active (filter: { names: [\"test\", \"test2\",\"Recording3\"]"
-                        + " }) {data {name}}}}}}");
+                String.format(
+                        "query { targetNodes (filter: { annotations:"
+                                + " [\"REALM = Custom Targets\"]}){ target { recordings"
+                                + " { active (filter: { names: [\"%s\", \"%s\",\"Recording3\"]"
+                                + " }) {data {name}}}}}}",
+                        recordingName1, recordingName2));
         HttpResponse<Buffer> resp2 =
                 webClient
                         .extensions()
@@ -705,7 +725,7 @@ class GraphQLTest extends StandardSelfTest {
         TargetNodesQueryResponse graphqlResp =
                 mapper.readValue(resp2.bodyAsString(), TargetNodesQueryResponse.class);
 
-        List<String> filterNames = Arrays.asList("test", "test2");
+        List<String> filterNames = Arrays.asList(recordingName1, recordingName2);
 
         List<ActiveRecording> filteredRecordings =
                 graphqlResp.getData().getTargetNodes().stream()
@@ -722,9 +742,9 @@ class GraphQLTest extends StandardSelfTest {
 
         MatcherAssert.assertThat(filteredRecordings.size(), Matchers.equalTo(2));
         ActiveRecording r1 = new ActiveRecording();
-        r1.name = "test";
+        r1.name = recordingName1;
         ActiveRecording r2 = new ActiveRecording();
-        r2.name = "test2";
+        r2.name = recordingName2;
 
         assertThat(filteredRecordings, hasItem(r1));
         assertThat(filteredRecordings, hasItem(r2));
@@ -754,15 +774,18 @@ class GraphQLTest extends StandardSelfTest {
 
         // Create a new recording
         Thread.sleep(5000);
-        JsonObject notificationRecording = createRecording();
-        Assertions.assertEquals("test", notificationRecording.getString("name"));
+        String recordingName = "test";
+        JsonObject notificationRecording = createRecording(recordingName);
+        Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
 
         // Archive the recording
         JsonObject query1 = new JsonObject();
         query1.put(
                 "query",
-                "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom Targets\"]},"
-                        + " recordings: { name: \"test\"}) { name downloadUrl } }");
+                String.format(
+                        "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom"
+                            + " Targets\"]}, recordings: { name: \"%s\"}) { name downloadUrl } }",
+                        recordingName));
         HttpResponse<Buffer> resp1 =
                 webClient
                         .extensions()
@@ -888,18 +911,19 @@ class GraphQLTest extends StandardSelfTest {
     void testReplaceAlwaysOnStoppedRecording() throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = createRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            String recordingName = "test";
+            JsonObject notificationRecording = createRecording(recordingName);
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
             // Stop the Recording
             notificationRecording = stopRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("STOPPED", notificationRecording.getString("state"));
 
             // Restart the recording with replace:ALWAYS
-            notificationRecording = restartRecording("ALWAYS");
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            notificationRecording = restartRecording(recordingName, "ALWAYS");
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
         } finally {
             // Delete the Recording
@@ -911,21 +935,26 @@ class GraphQLTest extends StandardSelfTest {
     @Order(14)
     void testReplaceNeverOnStoppedRecording() throws Exception {
         try {
+            String recordingName = "test";
             // Start a Recording
-            JsonObject notificationRecording = createRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            JsonObject notificationRecording = createRecording(recordingName);
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
             // Stop the Recording
             notificationRecording = stopRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("STOPPED", notificationRecording.getString("state"));
 
             // Restart the recording with replace:NEVER
-            JsonObject error = restartRecordingWithError("NEVER");
-            Assertions.assertTrue(
-                    error.getString("message").contains("System error"),
-                    "Expected error message to contain 'System error'");
+            JsonObject error = restartRecordingWithError(recordingName, "NEVER");
+            MatcherAssert.assertThat(
+                    error.getString("message"),
+                    Matchers.containsString(
+                            String.format(
+                                    "Recording with name %s already exists. Try again with a"
+                                            + " different name",
+                                    recordingName)));
         } finally {
             // Delete the Recording
             deleteRecording();
@@ -937,18 +966,19 @@ class GraphQLTest extends StandardSelfTest {
     void testReplaceStoppedOnStoppedRecording() throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = createRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            String recordingName = "test";
+            JsonObject notificationRecording = createRecording(recordingName);
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
             // Stop the Recording
             notificationRecording = stopRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("STOPPED", notificationRecording.getString("state"));
 
             // Restart the recording with replace:STOPPED
-            notificationRecording = restartRecording("STOPPED");
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            notificationRecording = restartRecording(recordingName, "STOPPED");
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
         } finally {
             // Delete the Recording
@@ -961,16 +991,21 @@ class GraphQLTest extends StandardSelfTest {
     @Order(16)
     void testReplaceStoppedOrNeverOnRunningRecording(String replace) throws Exception {
         try {
+            String recordingName = "test";
             // Start a Recording
-            JsonObject notificationRecording = createRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            JsonObject notificationRecording = createRecording(recordingName);
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
             // Restart the recording with the provided string values above
-            JsonObject error = restartRecordingWithError(replace);
-            Assertions.assertTrue(
-                    error.getString("message").contains("System error"),
-                    "Expected error message to contain 'System error'");
+            JsonObject error = restartRecordingWithError(recordingName, replace);
+            MatcherAssert.assertThat(
+                    error.getString("message"),
+                    Matchers.containsString(
+                            String.format(
+                                    "Recording with name %s already exists. Try again with a"
+                                            + " different name",
+                                    recordingName)));
         } finally {
             // Delete the Recording
             deleteRecording();
@@ -982,13 +1017,14 @@ class GraphQLTest extends StandardSelfTest {
     void testReplaceAlwaysOnRunningRecording() throws Exception {
         try {
             // Start a Recording
-            JsonObject notificationRecording = createRecording();
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            String recordingName = "test";
+            JsonObject notificationRecording = createRecording(recordingName);
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
             // Restart the recording with replace:ALWAYS
-            notificationRecording = restartRecording("ALWAYS");
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            notificationRecording = restartRecording(recordingName, "ALWAYS");
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
         } finally {
             // Delete the Recording
@@ -1001,8 +1037,9 @@ class GraphQLTest extends StandardSelfTest {
     @Order(18)
     void testStartingNewRecordingWithAllReplaceValues(String replace) throws Exception {
         try {
-            JsonObject notificationRecording = restartRecording(replace);
-            Assertions.assertEquals("test", notificationRecording.getString("name"));
+            String recordingName = "test";
+            JsonObject notificationRecording = restartRecording(recordingName, replace);
+            Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
             Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
         } finally {
             // Delete the Recording
@@ -2656,18 +2693,19 @@ class GraphQLTest extends StandardSelfTest {
     }
 
     // start recording
-    private JsonObject createRecording() throws Exception {
+    private JsonObject createRecording(String name) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
 
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "mutation { createRecording( nodes:{annotations: ["
-                        + "\"REALM = Custom Targets\""
-                        + "]}, recording: { name: \"test\", template:"
-                        + " \"Profiling\", templateType: \"TARGET\", duration: 30, continuous:"
-                        + " false, archiveOnStop: true, toDisk: true }) { name state duration"
-                        + " continuous metadata { labels { key value } } } }");
+                String.format(
+                        "mutation { createRecording( nodes:{annotations: [\"REALM = Custom"
+                            + " Targets\"]}, recording: { name: \"%s\", template: \"Profiling\","
+                            + " templateType: \"TARGET\", duration: 30, continuous: false,"
+                            + " archiveOnStop: true, toDisk: true }) { name state duration"
+                            + " continuous metadata { labels { key value } } } }",
+                        name));
         Future<JsonObject> f =
                 worker.submit(
                         () -> {
@@ -2756,17 +2794,17 @@ class GraphQLTest extends StandardSelfTest {
     }
 
     // Restart the recording with given replacement policy
-    private JsonObject restartRecording(String replace) throws Exception {
+    private JsonObject restartRecording(String name, String replace) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
         JsonObject query = new JsonObject();
         query.put(
                 "query",
                 String.format(
                         "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] })"
-                            + " { name target { doStartRecording ( recording: { name: \"test\","
+                            + " { name target { doStartRecording ( recording: { name: \"%s\","
                             + " template: \"Profiling\", templateType: \"TARGET\", replace: \"%s\""
                             + " }) { name state } } } }",
-                        replace));
+                        name, replace));
         Future<JsonObject> f =
                 worker.submit(
                         () -> {
@@ -2796,17 +2834,17 @@ class GraphQLTest extends StandardSelfTest {
         return notification.getJsonObject("message").getJsonObject("recording");
     }
 
-    private JsonObject restartRecordingWithError(String replace) throws Exception {
+    private JsonObject restartRecordingWithError(String name, String replace) throws Exception {
         JsonObject query = new JsonObject();
 
         query.put(
                 "query",
                 String.format(
                         "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] })"
-                            + " { name target { doStartRecording ( recording: { name: \"test\","
+                            + " { name target { doStartRecording ( recording: { name: \"%s\","
                             + " template: \"Profiling\", templateType: \"TARGET\", replace: \"%s\""
                             + " }) { name state } } } }",
-                        replace));
+                        name, replace));
         Thread.sleep(5000);
         HttpResponse<Buffer> resp =
                 webClient
