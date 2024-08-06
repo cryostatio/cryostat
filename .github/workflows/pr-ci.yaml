@@ -276,9 +276,6 @@ jobs:
   auto-commit-schemas:
     needs: [compare-graphql-schema, compare-openapi-schema, checkout-branch, update-schemas]
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
     if: needs.update-schemas.outputs.OPENAPI_STATUS != '0' || needs.update-schemas.outputs.GRAPHQL_STATUS != '0'
     steps:
       - name: Check out PR branch
