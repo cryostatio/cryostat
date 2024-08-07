@@ -21,9 +21,6 @@ services:
         -Dcom.sun.management.jmxremote.authenticate=false
         -Dcom.sun.management.jmxremote.ssl=false
         -Dcom.sun.management.jmxremote.local.only=false
-        -Dcryostat.agent.truststore.cert[0].path=/auth_certs/certificate.pem
-        -Dcryostat.agent.truststore.cert[0].type=X.509
-        -Dcryostat.agent.truststore.cert[0].alias=cryostat
       QUARKUS_HTTP_PORT: 10010
       ORG_ACME_CRYOSTATSERVICE_ENABLED: "false"
       CRYOSTAT_AGENT_APP_NAME: quarkus-cryostat-agent
@@ -38,6 +35,9 @@ services:
       CRYOSTAT_AGENT_HARVESTER_MAX_FILES: 3
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS: 60000
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
+      CRYOSTAT_AGENT_TRUSTSTORE_CERT[0]_PATH: /auth_certs/certificate.pem
+      CRYOSTAT_AGENT_TRUSTSTORE_CERT[0]_TYPE: X.509
+      CRYOSTAT_AGENT_TRUSTSTORE_CERT[0]_ALIAS: cryostat
       CRYOSTAT_AGENT_API_WRITES_ENABLED: "true"
     restart: always
     healthcheck:
