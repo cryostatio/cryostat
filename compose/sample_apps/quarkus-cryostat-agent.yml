@@ -1,7 +1,7 @@
 version: "3"
 services:
   quarkus-cryostat-agent:
-    image: ${QUARKUS_TEST_IMAGE:-quay.io/miwan/quarkus-test:latest}
+    image: ${QUARKUS_TEST_IMAGE:-quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest}
     # do not add a depends_on:cryostat/depends_on:auth here, so that we can test that the agent is tolerant of that state
     hostname: quarkus-cryostat-agent
     ports:
@@ -35,9 +35,9 @@ services:
       CRYOSTAT_AGENT_HARVESTER_MAX_FILES: 3
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS: 60000
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
-      CRYOSTAT_AGENT_TRUSTSTORE_CERT[0]_PATH: /auth_certs/certificate.pem
-      CRYOSTAT_AGENT_TRUSTSTORE_CERT[0]_TYPE: X.509
-      CRYOSTAT_AGENT_TRUSTSTORE_CERT[0]_ALIAS: cryostat
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_PATH: /auth_certs/certificate.pem
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_TYPE: X.509
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_ALIAS: cryostat
       CRYOSTAT_AGENT_API_WRITES_ENABLED: "true"
     restart: always
     healthcheck:

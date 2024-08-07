@@ -32,6 +32,7 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
+
   vertx-agent-2:
     depends_on:
       cryostat:
@@ -44,10 +45,11 @@ services:
       USE_JDP: "true"
       USE_AUTH: "true"
       CRYOSTAT_AGENT_APP_NAME: "vertx-cryostat-agent-2"
-      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUST_ALL: "true"
-      CRYOSTAT_AGENT_WEBCLIENT_TLS_VERIFY_HOSTNAME: "false"
       CRYOSTAT_AGENT_WEBSERVER_HOST: "vertx-agent-2"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8911"
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_PATH: /auth_certs/certificate.pem
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_TYPE: X.509
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_ALIAS: cryostat
       CRYOSTAT_AGENT_CALLBACK: "http://vertx-agent-2:8911/"
       CRYOSTAT_AGENT_API_WRITES_ENABLED: "true"
       CRYOSTAT_AGENT_BASEURI: "${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/"
@@ -66,6 +68,9 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
+    volumes:
+      - ${DIR}/compose/auth_certs:/auth_certs:z
+
   vertx-agent-3:
     depends_on:
       cryostat:
@@ -79,10 +84,11 @@ services:
       USE_AUTH: "true"
       USE_SSL: "true"
       CRYOSTAT_AGENT_APP_NAME: "vertx-cryostat-agent-3"
-      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUST_ALL: "true"
-      CRYOSTAT_AGENT_WEBCLIENT_TLS_VERIFY_HOSTNAME: "false"
       CRYOSTAT_AGENT_WEBSERVER_HOST: "vertx-agent-3"
       CRYOSTAT_AGENT_WEBSERVER_PORT: "8912"
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_PATH: /auth_certs/certificate.pem
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_TYPE: X.509
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_ALIAS: cryostat
       CRYOSTAT_AGENT_CALLBACK: "http://vertx-agent-3:8912/"
       CRYOSTAT_AGENT_API_WRITES_ENABLED: "true"
       CRYOSTAT_AGENT_BASEURI: "${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/"
@@ -101,6 +107,9 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
+    volumes:
+      - ${DIR}/compose/auth_certs:/auth_certs:z
+
   vertx-agent-4:
     depends_on:
       cryostat:
