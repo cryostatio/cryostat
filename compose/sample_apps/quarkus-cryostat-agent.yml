@@ -21,9 +21,9 @@ services:
         -Dcom.sun.management.jmxremote.authenticate=false
         -Dcom.sun.management.jmxremote.ssl=false
         -Dcom.sun.management.jmxremote.local.only=false
-        -Dtruststore.cert[0].path=/auth_certs/certificate.pem
-        -Dtruststore.cert[0].type=X.509
-        -Dtruststore.cert[0].alias=cryostat
+        -Dcryostat.agent.truststore.cert[0].path=/auth_certs/certificate.pem
+        -Dcryostat.agent.truststore.cert[0].type=X.509
+        -Dcryostat.agent.truststore.cert[0].alias=cryostat
       QUARKUS_HTTP_PORT: 10010
       ORG_ACME_CRYOSTATSERVICE_ENABLED: "false"
       CRYOSTAT_AGENT_APP_NAME: quarkus-cryostat-agent
