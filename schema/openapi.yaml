@@ -362,7 +362,7 @@ info:
     name: Apache 2.0
     url: https://github.com/cryostatio/cryostat3/blob/main/LICENSE
   title: Cryostat API
-  version: 3.0.0-snapshot
+  version: 3.0.1-snapshot
 openapi: 3.0.3
 paths:
   /api/beta/credentials/{connectUrl}:
