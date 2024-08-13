@@ -15,8 +15,6 @@
  */
 package itest;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import java.net.URI;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -113,10 +111,6 @@ public class SnapshotTest extends StandardSelfTest {
         return String.format("/api/v3/targets/%d", getSelfReferenceTargetId());
     }
 
-    String v2RequestUrl() {
-        return String.format("/api/v2/targets/%s", getSelfReferenceConnectUrlEncoded());
-    }
-
     @Test
     void testPostV1ShouldHandleEmptySnapshot() throws Exception {
         JsonArray preListResp = fetchPreTestRecordings();
@@ -134,7 +128,7 @@ public class SnapshotTest extends StandardSelfTest {
         JsonArray preListResp = fetchPreTestRecordings();
         MatcherAssert.assertThat(preListResp, Matchers.equalTo(new JsonArray()));
 
-        int statusCode = createEmptySnapshot(v2RequestUrl());
+        int statusCode = createEmptySnapshot(v3RequestUrl());
         MatcherAssert.assertThat(statusCode, Matchers.equalTo(202));
 
         JsonArray postListResp = fetchPostTestRecordings();
@@ -174,7 +168,7 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    void testPostV2ShouldCreateSnapshot() throws Exception {
+    void testPostV3ShouldCreateSnapshot() throws Exception {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
 
         // Create a recording
@@ -185,12 +179,12 @@ public class SnapshotTest extends StandardSelfTest {
         // Create a snapshot recording of all events at that time
         CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
         webClient
-                .post(String.format("%s/snapshot", v2RequestUrl()))
+                .post(String.format("%s/snapshot", v3RequestUrl()))
                 .send(
                         ar -> {
                             if (ar.succeeded()) {
                                 HttpResponse<Buffer> response = ar.result();
-                                if (response.statusCode() == 201) {
+                                if (response.statusCode() == 200) {
                                     JsonObject jsonResponse = response.bodyAsJsonObject();
                                     String name = jsonResponse.getString("name");
                                     long snapshotRemoteId = jsonResponse.getLong("remoteId");
@@ -236,10 +230,10 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    void testPostV2SnapshotThrowsWithNonExistentTarget() throws Exception {
+    void testPostV3SnapshotThrowsWithNonExistentTarget() throws Exception {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
         webClient
-                .post("/api/v2/targets/notFound:9000/snapshot")
+                .post("/api/v3/targets/notFound:9000/snapshot")
                 .send(
                         ar -> {
                             assertRequestStatus(ar, snapshotName);
