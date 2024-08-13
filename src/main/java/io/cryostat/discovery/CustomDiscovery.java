@@ -26,7 +26,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.V2Response;
 import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.targets.JvmIdException;
@@ -90,7 +89,7 @@ public class CustomDiscovery {
 
     @Transactional(rollbackOn = {JvmIdException.class})
     @POST
-    @Path("/api/v2/targets")
+    @Path("/api/v3/targets")
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
     public Response create(
@@ -109,16 +108,16 @@ public class CustomDiscovery {
         } catch (Exception e) {
             logger.error("Target validation failed", e);
             return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(V2Response.json(Response.Status.BAD_REQUEST, e))
+                    .entity(Map.of(Response.Status.BAD_REQUEST, e.getMessage()))
                     .build();
         }
         // TODO handle credentials embedded in JSON body
-        return doV2Create(target, Optional.empty(), dryrun, storeCredentials);
+        return doV3Create(target, Optional.empty(), dryrun, storeCredentials);
     }
 
     @Transactional
     @POST
-    @Path("/api/v2/targets")
+    @Path("/api/v3/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @RolesAllowed("write")
     public Response create(
@@ -142,10 +141,10 @@ public class CustomDiscovery {
             credential.password = password;
         }
 
-        return doV2Create(target, Optional.ofNullable(credential), dryrun, storeCredentials);
+        return doV3Create(target, Optional.ofNullable(credential), dryrun, storeCredentials);
     }
 
-    Response doV2Create(
+    Response doV3Create(
             Target target,
             Optional<Credential> credential,
             boolean dryrun,
@@ -155,7 +154,7 @@ public class CustomDiscovery {
             if (!uriUtil.validateUri(target.connectUrl)) {
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(
-                                String.format(
+                                Map.of(
                                         "The provided URI \"%s\" is unacceptable with the"
                                                 + " current URI range settings.",
                                         target.connectUrl))
@@ -164,9 +163,7 @@ public class CustomDiscovery {
 
             if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
                 return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(
-                                V2Response.json(
-                                        Response.Status.BAD_REQUEST, "Duplicate connection URL"))
+                        .entity(Map.of(Response.Status.BAD_REQUEST, "Duplicate connection URL"))
                         .build();
             }
 
@@ -184,7 +181,7 @@ public class CustomDiscovery {
                 if (Target.find("jvmId", jvmId).count() > 0) {
                     return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
                             .entity(
-                                    V2Response.json(
+                                    Map.of(
                                             Response.Status.BAD_REQUEST,
                                             String.format(
                                                     "Target with JVM ID \"%s\" already discovered",
@@ -202,14 +199,12 @@ public class CustomDiscovery {
                                                 ? "Unexpected service type on port"
                                                 : "Target connection failed";
                 return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(V2Response.json(Response.Status.BAD_REQUEST, msg))
+                        .entity(Map.of(Response.Status.BAD_REQUEST, msg))
                         .build();
             }
 
             if (dryrun) {
-                return Response.accepted()
-                        .entity(V2Response.json(Response.Status.ACCEPTED, target))
-                        .build();
+                return Response.accepted().entity(Map.of(Response.Status.ACCEPTED, target)).build();
             }
 
             target.persist();
@@ -231,20 +226,18 @@ public class CustomDiscovery {
             realm.persist();
 
             return Response.created(URI.create("/api/v3/targets/" + target.id))
-                    .entity(V2Response.json(Response.Status.CREATED, target))
+                    .entity(Map.of(Response.Status.CREATED, target))
                     .build();
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
                 return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(
-                                V2Response.json(
-                                        Response.Status.BAD_REQUEST, "Duplicate connection URL"))
+                        .entity(Map.of(Response.Status.BAD_REQUEST, "Duplicate connection URL"))
                         .build();
             }
             logger.error("Unknown error", e);
             return Response.serverError()
-                    .entity(V2Response.json(Response.Status.INTERNAL_SERVER_ERROR, e))
+                    .entity(Map.of(Response.Status.INTERNAL_SERVER_ERROR, e))
                     .build();
         }
     }
