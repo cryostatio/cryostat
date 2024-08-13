@@ -210,8 +210,7 @@ public class Recordings {
         }
         logger.tracev("Removing {0}", toRemove);
 
-        // FIXME this notification should be emitted in the deletion operation stream so
-        // that there
+        // FIXME this notification should be emitted in the deletion operation stream so that there
         // is one notification per deleted object
         var target = Target.getTargetByJvmId(jvmId);
         var event =
@@ -508,13 +507,7 @@ public class Recordings {
                 .onItem()
                 .transform(
                         recording ->
-                                Response.status(Response.Status.OK)
-                                        .entity(
-                                                new JsonObject()
-                                                        .put("name", recording.name)
-                                                        .put("remoteId", recording.remoteId)
-                                                        .encode())
-                                        .build())
+                                Response.status(Response.Status.OK).entity(recording.name).build())
                 .onFailure(SnapshotCreationException.class)
                 .recoverWithItem(Response.status(Response.Status.ACCEPTED).build());
     }
@@ -568,8 +561,7 @@ public class Recordings {
             @RestForm String recordingName,
             @RestForm String events,
             @RestForm Optional<String> replace,
-            // restart param is deprecated, only 'replace' should be used and takes priority
-            // if both
+            // restart param is deprecated, only 'replace' should be used and takes priority if both
             // are provided
             @Deprecated @RestForm Optional<Boolean> restart,
             @RestForm Optional<Long> duration,

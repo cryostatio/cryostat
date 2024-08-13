@@ -62,21 +62,47 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     private void cleanupRecordings() throws Exception {
-        for (Long remoteId : recordingsToDelete) {
-            webClient
-                    .delete(String.format("%s/recordings/%d", v3RequestUrl(), remoteId))
-                    .send(
-                            ar -> {
-                                if (!ar.succeeded()) {
-                                    System.err.println(
-                                            "Failed to delete recording with remote ID: "
-                                                    + remoteId
-                                                    + ", cause: "
-                                                    + ar.cause());
-                                }
-                            });
+        JsonArray recordings = fetchAllRecordings();
+        for (Object obj : recordings) {
+            if (obj instanceof JsonObject) {
+                JsonObject recording = (JsonObject) obj;
+                Long remoteId = recording.getLong("remoteId");
+                if (remoteId != null) {
+                    deleteRecording(remoteId);
+                }
+            }
         }
-        recordingsToDelete.clear();
+    }
+
+    private JsonArray fetchAllRecordings() throws Exception {
+        CompletableFuture<JsonArray> recordingsFuture = new CompletableFuture<>();
+        webClient
+                .get(String.format("%s/recordings", v3RequestUrl()))
+                .send(
+                        ar -> {
+                            if (ar.succeeded()) {
+                                recordingsFuture.complete(ar.result().bodyAsJsonArray());
+                            } else {
+                                recordingsFuture.completeExceptionally(
+                                        new RuntimeException("Failed to fetch recordings"));
+                            }
+                        });
+        return recordingsFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+    }
+
+    private void deleteRecording(Long remoteId) {
+        webClient
+                .delete(String.format("%s/recordings/%d", v3RequestUrl(), remoteId))
+                .send(
+                        ar -> {
+                            if (!ar.succeeded()) {
+                                System.err.println(
+                                        "Failed to delete recording with remote ID: "
+                                                + remoteId
+                                                + ", cause: "
+                                                + ar.cause());
+                            }
+                        });
     }
 
     String v1RequestUrl() {
@@ -104,7 +130,7 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    void testPostV2ShouldHandleEmptySnapshot() throws Exception {
+    void testPostV3ShouldHandleEmptySnapshot() throws Exception {
         JsonArray preListResp = fetchPreTestRecordings();
         MatcherAssert.assertThat(preListResp, Matchers.equalTo(new JsonArray()));
 
@@ -291,7 +317,7 @@ public class SnapshotTest extends StandardSelfTest {
                                     JsonObject jsonResponse = response.bodyAsJsonObject();
                                     long remoteId = jsonResponse.getLong("remoteId");
                                     REMOTE_ID = remoteId;
-                                    recordingsToDelete.add(remoteId); // Store for later cleanup
+                                    recordingsToDelete.add(remoteId);
                                 }
                             }
                         });
@@ -305,43 +331,11 @@ public class SnapshotTest extends StandardSelfTest {
                             if (ar.succeeded()) {
                                 HttpResponse<Buffer> response = ar.result();
                                 if (response.statusCode() == 200) {
-                                    JsonObject jsonResponse = response.bodyAsJsonObject();
-                                    long snapshotRemoteId = jsonResponse.getLong("remoteId");
-                                    SNAPSHOT_ID = snapshotRemoteId;
-                                    recordingsToDelete.add(
-                                            snapshotRemoteId); // Store for later cleanup
-                                    snapshotName.complete(jsonResponse.getString("name"));
-                                } else {
-                                    snapshotName.completeExceptionally(
-                                            new RuntimeException("Failed to create snapshot"));
-                                }
-                            } else {
-                                snapshotName.completeExceptionally(ar.cause());
-                            }
-                        });
-    }
-
-    private void createV2Snapshot(CompletableFuture<String> snapshotName) throws Exception {
-        webClient
-                .post(String.format("%s/snapshot", v2RequestUrl()))
-                .send(
-                        ar -> {
-                            if (ar.succeeded()) {
-                                HttpResponse<Buffer> response = ar.result();
-                                if (response.statusCode() == 201) {
-                                    JsonObject jsonResponse = response.bodyAsJsonObject();
-                                    String name =
-                                            jsonResponse.getJsonObject("data").getString("name");
-                                    long snapshotRemoteId =
-                                            jsonResponse.getJsonObject("data").getLong("remoteId");
-                                    SNAPSHOT_ID = snapshotRemoteId;
-                                    recordingsToDelete.add(snapshotRemoteId); // Add to cleanup list
+                                    String name = response.bodyAsString();
                                     snapshotName.complete(name);
                                 } else {
                                     snapshotName.completeExceptionally(
-                                            new RuntimeException(
-                                                    "Failed to create snapshot, Status code: "
-                                                            + response.statusCode()));
+                                            new RuntimeException("Failed to create snapshot"));
                                 }
                             } else {
                                 snapshotName.completeExceptionally(ar.cause());
