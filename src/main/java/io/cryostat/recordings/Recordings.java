@@ -40,7 +40,6 @@ import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBu
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
-import io.cryostat.V2Response;
 import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.RecordingOptionsCustomizer;
 import io.cryostat.libcryostat.sys.Clock;
@@ -510,27 +509,6 @@ public class Recordings {
                                 Response.status(Response.Status.OK).entity(recording.name).build())
                 .onFailure(SnapshotCreationException.class)
                 .recoverWithItem(Response.status(Response.Status.ACCEPTED).build());
-    }
-
-    @POST
-    @Transactional
-    @Path("/api/v2/targets/{connectUrl}/snapshot")
-    @RolesAllowed("write")
-    public Uni<Response> createSnapshotV2(@RestPath URI connectUrl) throws Exception {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return recordingHelper
-                .createSnapshot(target)
-                .onItem()
-                .transform(
-                        recording ->
-                                Response.status(Response.Status.CREATED)
-                                        .entity(recordingHelper.toExternalForm(recording))
-                                        .build())
-                .onFailure(SnapshotCreationException.class)
-                .recoverWithItem(
-                        Response.status(Response.Status.ACCEPTED)
-                                .entity(V2Response.json(Response.Status.ACCEPTED, null))
-                                .build());
     }
 
     @POST
