@@ -103,13 +103,13 @@ public class CustomTargetsTest extends StandardSelfTest {
                 webClient
                         .extensions()
                         .post(
-                                "/api/v2/targets?dryrun=true",
+                                "/api/v3/targets?dryrun=true",
                                 Buffer.buffer(
                                         JsonObject.of("connectUrl", SELF_JMX_URL, "alias", "self")
                                                 .encode()),
                                 REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(202));
-        JsonObject body = response.bodyAsJsonObject().getJsonObject("data").getJsonObject("result");
+        JsonObject body = response.bodyAsJsonObject().getJsonObject("ACCEPTED");
         MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));
         MatcherAssert.assertThat(body.getString("alias"), Matchers.equalTo("self"));
         MatcherAssert.assertThat(body.getString("jvmId"), Matchers.equalTo(itestJvmId));
@@ -174,13 +174,12 @@ public class CustomTargetsTest extends StandardSelfTest {
                 webClient
                         .extensions()
                         .post(
-                                "/api/v2/targets?storeCredentials=true",
+                                "/api/v3/targets?storeCredentials=true",
                                 form,
                                 REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(201));
 
-        JsonObject body = response.bodyAsJsonObject().getJsonObject("data").getJsonObject("result");
-
+        JsonObject body = response.bodyAsJsonObject().getJsonObject("CREATED");
         latch.await(30, TimeUnit.SECONDS);
 
         MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));

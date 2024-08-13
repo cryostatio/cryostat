@@ -178,7 +178,7 @@ public abstract class StandardSelfTest {
             HttpResponse<Buffer> resp =
                     webClient.extensions().get(selfCustomTargetLocation, REQUEST_TIMEOUT_SECONDS);
             logger.tracev(
-                    "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
+                    "POST /api/v3/targets -> HTTP {0} {1}: [{2}]",
                     resp.statusCode(), resp.statusMessage(), resp.headers());
             boolean result = HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode());
             if (!result) {
@@ -205,11 +205,11 @@ public abstract class StandardSelfTest {
                     webClient
                             .extensions()
                             .post(
-                                    "/api/v2/targets",
+                                    "/api/v3/targets",
                                     Buffer.buffer(self.encode()),
                                     REQUEST_TIMEOUT_SECONDS);
             logger.tracev(
-                    "POST /api/v2/targets -> HTTP {0} {1}: [{2}]",
+                    "POST /api/v3/targets -> HTTP {0} {1}: [{2}]",
                     resp.statusCode(), resp.statusMessage(), resp.headers());
             if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
                 throw new IllegalStateException(Integer.toString(resp.statusCode()));
