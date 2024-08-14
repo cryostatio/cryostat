@@ -15,7 +15,6 @@
  */
 package io.cryostat.events;
 
-import java.net.URI;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -23,7 +22,6 @@ import java.util.Set;
 
 import org.openjdk.jmc.flightrecorder.configuration.events.IEventTypeInfo;
 
-import io.cryostat.V2Response;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -31,7 +29,6 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
@@ -42,14 +39,6 @@ public class Events {
 
     @Inject TargetConnectionManager connectionManager;
     @Inject Logger logger;
-
-    @GET
-    @Path("/api/v2/targets/{connectUrl}/events")
-    @RolesAllowed("read")
-    public V2Response listEventsV2(@RestPath URI connectUrl, @RestQuery String q) throws Exception {
-        return V2Response.json(
-                Response.Status.OK, searchEvents(Target.getTargetByConnectUrl(connectUrl), q));
-    }
 
     @GET
     @Path("/api/v3/targets/{id}/events")
