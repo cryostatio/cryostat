@@ -219,7 +219,7 @@
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
-      <artifactId>url-connection-client</artifactId>
+      <artifactId>apache-client</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
