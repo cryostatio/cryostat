@@ -82,6 +82,8 @@ public class KubeApiDiscovery {
 
     @Inject KubeConfig kubeConfig;
 
+    @Inject KubernetesClient client;
+
     @Inject EventBus bus;
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.enabled")
@@ -111,7 +113,7 @@ public class KubeApiDiscovery {
                                     ns -> {
                                         result.put(
                                                 ns,
-                                                client().endpoints()
+                                                client.endpoints()
                                                         .inNamespace(ns)
                                                         .inform(
                                                                 new EndpointsHandler(),
@@ -188,16 +190,6 @@ public class KubeApiDiscovery {
             logger.trace(e);
         }
         return false;
-    }
-
-    KubernetesClient client() {
-        KubernetesClient client;
-        try {
-            client = kubeConfig.kubeClient();
-        } catch (ConcurrentException e) {
-            throw new IllegalStateException(e);
-        }
-        return client;
     }
 
     private boolean isCompatiblePort(EndpointPort port) {
@@ -471,7 +463,7 @@ public class KubeApiDiscovery {
         }
 
         HasMetadata kubeObj =
-                nodeType.getQueryFunction().apply(client()).apply(namespace).apply(name);
+                nodeType.getQueryFunction().apply(client).apply(namespace).apply(name);
 
         DiscoveryNode node =
                 DiscoveryNode.getNode(
@@ -549,10 +541,6 @@ public class KubeApiDiscovery {
 
         boolean kubeApiAvailable() {
             return StringUtils.isNotBlank(serviceHost.orElse(""));
-        }
-
-        KubernetesClient kubeClient() throws ConcurrentException {
-            return kubeClient.get();
         }
     }
 
