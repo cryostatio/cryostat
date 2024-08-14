@@ -133,6 +133,26 @@ This will run Cryostat as a local JVM process hooked up to its frontend, and req
 
 > **_NOTE:_**  Quarkus now ships with a Dev UI, which is available in dev mode only at http://localhost:8181/q/dev/.
 
+### Run the application with dev mode frontend
+
+You can run the server setup with a live coding frontend instance using:
+
+`terminal 1`
+```bash
+$ ./smoktest.bash -t
+```
+
+`terminal 2`
+```bash
+$ cd /path/to/cryostat-web # this can be ./src/main/webui , or a separate clone of the cryostat-web repository
+$ yarn yarn:frzinstall
+$ yarn start:dev
+```
+
+This will run Cryostat, required companion services, and test applications in a podman/docker compose container setup. Changes to frontend sources in `/path/to/cryostat-web` will trigger automatic rebuilds and live-coding of the web UI only. This is often useful for frontend development compared to the previous dev mode setup, since it allows for the full suite of test applications to be deployed.
+
+The Quarkus Dev UI is not available in this setup.
+
 ## RUN
 
 ### Local Smoketesting
