@@ -61,7 +61,7 @@
     <surefire-plugin.version>3.3.1</surefire-plugin.version>
     <surefire.rerunFailingTestsCount>2</surefire.rerunFailingTestsCount>
     <failsafe-plugin.version>3.3.1</failsafe-plugin.version>
-    <io.fabric8.client.version>6.10.0</io.fabric8.client.version>
+    <io.fabric8.client.version>6.13.3</io.fabric8.client.version>
     <failsafe.rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</failsafe.rerunFailingTestsCount>
   </properties>
   <dependencyManagement>
