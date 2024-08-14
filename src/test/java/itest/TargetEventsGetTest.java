@@ -15,9 +15,8 @@
  */
 package itest;
 
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import static org.hamcrest.Matchers.*;
+
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -26,6 +25,7 @@ import io.cryostat.util.HttpMimeType;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
@@ -43,8 +43,6 @@ public class TargetEventsGetTest extends StandardSelfTest {
     @BeforeEach
     void setup() {
         eventReqUrl = String.format("/api/v3/targets/%d/events", getSelfReferenceTargetId());
-        searchReqUrl =
-                String.format("/api/v2/targets/%s/events", getSelfReferenceConnectUrlEncoded());
     }
 
     @Test
@@ -59,7 +57,6 @@ public class TargetEventsGetTest extends StandardSelfTest {
                             }
                         });
         HttpResponse<Buffer> response = getResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(200));
         MatcherAssert.assertThat(
                 response.getHeader(HttpHeaders.CONTENT_TYPE.toString()),
@@ -69,10 +66,10 @@ public class TargetEventsGetTest extends StandardSelfTest {
     }
 
     @Test
-    public void testGetTargetEventsV2WithNoQueryReturnsListOfEvents() throws Exception {
+    public void testGetTargetEventsWithNoQueryReturnsListOfEvents() throws Exception {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
-                .get(searchReqUrl)
+                .get(eventReqUrl)
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, getResponse)) {
@@ -80,23 +77,28 @@ public class TargetEventsGetTest extends StandardSelfTest {
                             }
                         });
         HttpResponse<Buffer> response = getResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(200));
         MatcherAssert.assertThat(
                 response.getHeader(HttpHeaders.CONTENT_TYPE.toString()),
                 Matchers.startsWith(HttpMimeType.JSON.mime()));
 
-        MatcherAssert.assertThat(response.bodyAsJsonObject().size(), Matchers.greaterThan(0));
-        MatcherAssert.assertThat(
-                response.bodyAsJsonObject().getJsonObject("data").getJsonArray("result").size(),
-                Matchers.greaterThan(0));
+        JsonArray events = response.bodyAsJsonArray();
+        MatcherAssert.assertThat(events.size(), Matchers.greaterThan(0));
+
+        events.forEach(
+                event -> {
+                    JsonObject eventObj = (JsonObject) event;
+                    MatcherAssert.assertThat(eventObj.getString("name"), notNullValue());
+                    MatcherAssert.assertThat(eventObj.getString("typeId"), notNullValue());
+                    MatcherAssert.assertThat(eventObj.getString("description"), notNullValue());
+                });
     }
 
     @Test
-    public void testGetTargetEventsV2WithQueryReturnsRequestedEvents() throws Exception {
+    public void testGetTargetEventsWithQueryReturnsRequestedEvents() throws Exception {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
-                .get(String.format("%s?q=TargetConnectionOpened", searchReqUrl))
+                .get(String.format("%s?q=TargetConnectionOpened", eventReqUrl))
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, getResponse)) {
@@ -104,61 +106,56 @@ public class TargetEventsGetTest extends StandardSelfTest {
                             }
                         });
         HttpResponse<Buffer> response = getResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(200));
         MatcherAssert.assertThat(
                 response.getHeader(HttpHeaders.CONTENT_TYPE.toString()),
                 Matchers.startsWith(HttpMimeType.JSON.mime()));
 
-        LinkedHashMap<String, Object> expectedResults = new LinkedHashMap<String, Object>();
-        expectedResults.put("name", "Target Connection Opened");
-        expectedResults.put(
-                "typeId", "io.cryostat.targets.TargetConnectionManager.TargetConnectionOpened");
-        expectedResults.put("description", "");
-        expectedResults.put("category", List.of("Cryostat"));
-        expectedResults.put(
-                "options",
-                Map.of(
-                        "enabled",
-                        Map.of(
-                                "name",
-                                "Enabled",
-                                "description",
-                                "Record event",
-                                "defaultValue",
-                                "true"),
-                        "threshold",
-                        Map.of(
-                                "name",
-                                "Threshold",
-                                "description",
-                                "Record event with duration above or equal to threshold",
-                                "defaultValue",
-                                "0ns[ns]"),
-                        "stackTrace",
-                        Map.of(
-                                "name",
-                                "Stack Trace",
-                                "description",
-                                "Record stack traces",
-                                "defaultValue",
-                                "true")));
+        JsonArray results = response.bodyAsJsonArray();
+        MatcherAssert.assertThat(results.size(), Matchers.greaterThan(0));
 
-        JsonObject expectedResponse =
-                new JsonObject(
-                        Map.of(
-                                "meta", Map.of("type", HttpMimeType.JSON.mime(), "status", "OK"),
-                                "data", Map.of("result", List.of(expectedResults))));
+        JsonObject expectedEvent =
+                new JsonObject()
+                        .put("name", "Target Connection Opened")
+                        .put(
+                                "typeId",
+                                "io.cryostat.targets.TargetConnectionManager.TargetConnectionOpened")
+                        .put("description", "")
+                        .put("category", new JsonArray().add("Cryostat"))
+                        .put(
+                                "options",
+                                new JsonObject()
+                                        .put(
+                                                "enabled",
+                                                new JsonObject()
+                                                        .put("name", "Enabled")
+                                                        .put("description", "Record event")
+                                                        .put("defaultValue", "true"))
+                                        .put(
+                                                "threshold",
+                                                new JsonObject()
+                                                        .put("name", "Threshold")
+                                                        .put(
+                                                                "description",
+                                                                "Record event with duration above"
+                                                                        + " or equal to threshold")
+                                                        .put("defaultValue", "0ns[ns]"))
+                                        .put(
+                                                "stackTrace",
+                                                new JsonObject()
+                                                        .put("name", "Stack Trace")
+                                                        .put("description", "Record stack traces")
+                                                        .put("defaultValue", "true")));
 
-        MatcherAssert.assertThat(response.bodyAsJsonObject().size(), Matchers.greaterThan(0));
-        MatcherAssert.assertThat(response.bodyAsJsonObject(), Matchers.equalTo(expectedResponse));
+        JsonObject actualEvent = results.getJsonObject(0);
+        MatcherAssert.assertThat(actualEvent, Matchers.equalTo(expectedEvent));
     }
 
     @Test
-    public void testGetTargetEventsV2WithQueryReturnsEmptyListWhenNoEventsMatch() throws Exception {
+    public void testGetTargetEventsWithQueryReturnsEmptyListWhenNoEventsMatch() throws Exception {
         CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
         webClient
-                .get(String.format("%s?q=thisEventDoesNotExist", searchReqUrl))
+                .get(String.format("%s?q=thisEventDoesNotExist", eventReqUrl))
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, getResponse)) {
@@ -166,18 +163,13 @@ public class TargetEventsGetTest extends StandardSelfTest {
                             }
                         });
         HttpResponse<Buffer> response = getResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(200));
         MatcherAssert.assertThat(
                 response.getHeader(HttpHeaders.CONTENT_TYPE.toString()),
                 Matchers.startsWith(HttpMimeType.JSON.mime()));
 
-        JsonObject expectedResponse =
-                new JsonObject(
-                        Map.of(
-                                "meta", Map.of("type", HttpMimeType.JSON.mime(), "status", "OK"),
-                                "data", Map.of("result", List.of())));
+        JsonArray results = response.bodyAsJsonArray();
 
-        MatcherAssert.assertThat(response.bodyAsJsonObject(), Matchers.equalTo(expectedResponse));
+        MatcherAssert.assertThat(results.size(), Matchers.is(0));
     }
 }
