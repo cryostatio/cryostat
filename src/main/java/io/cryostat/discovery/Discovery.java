@@ -106,7 +106,6 @@ public class Discovery {
     @Inject Scheduler scheduler;
     @Inject URIUtil uriUtil;
 
-    @Transactional
     void onStart(@Observes StartupEvent evt) {
         DiscoveryPlugin.<DiscoveryPlugin>findAll().list().stream()
                 .filter(p -> !p.builtin)

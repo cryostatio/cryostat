@@ -16,9 +16,7 @@
 package io.cryostat.discovery;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -73,7 +71,7 @@ public class DiscoveryNode extends PanacheEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
     @JsonView(Views.Flat.class)
-    public Map<String, String> labels = new HashMap<>();
+    public List<KeyValue> labels = new ArrayList<>();
 
     @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true, mappedBy = "parent")
     @JsonView(Views.Nested.class)
@@ -135,7 +133,7 @@ public class DiscoveryNode extends PanacheEntity {
                             DiscoveryNode node = new DiscoveryNode();
                             node.name = name;
                             node.nodeType = nodeType.getKind();
-                            node.labels = new HashMap<>();
+                            node.labels = new ArrayList<>();
                             node.children = new ArrayList<>();
                             node.target = null;
                             node.persist();
@@ -150,7 +148,7 @@ public class DiscoveryNode extends PanacheEntity {
                             DiscoveryNode node = new DiscoveryNode();
                             node.name = target.connectUrl.toString();
                             node.nodeType = nodeType.getKind();
-                            node.labels = new HashMap<>(target.labels);
+                            node.labels = new ArrayList<>(target.labels);
                             node.children = null;
                             node.target = target;
                             node.persist();
@@ -196,7 +194,14 @@ public class DiscoveryNode extends PanacheEntity {
         @Inject EventBus bus;
 
         @PrePersist
-        void prePersist(DiscoveryNode node) {}
+        void prePersist(DiscoveryNode node) {
+            if (node.children == null) {
+                node.children = new ArrayList<>();
+            }
+            if (node.labels == null) {
+                node.labels = new ArrayList<>();
+            }
+        }
 
         @PostPersist
         void postPersist(DiscoveryNode node) {}

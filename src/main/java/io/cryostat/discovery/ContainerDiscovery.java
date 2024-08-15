@@ -187,7 +187,6 @@ public abstract class ContainerDiscovery {
 
     protected long timerId;
 
-    @Transactional
     void onStart(@Observes StartupEvent evt) {
         if (!enabled()) {
             return;
@@ -201,7 +200,6 @@ public abstract class ContainerDiscovery {
         }
 
         logger.debugv("Starting {0} client", getRealm());
-
         queryContainers();
         this.timerId = vertx.setPeriodic(pollPeriod.toMillis(), unused -> queryContainers());
     }
@@ -265,18 +263,18 @@ public abstract class ContainerDiscovery {
         target.activeRecordings = new ArrayList<>();
         target.connectUrl = connectUrl;
         target.alias = Optional.ofNullable(desc.Names.get(0)).orElse(desc.Id);
-        target.labels = desc.Labels;
-        target.annotations = new Annotations();
-        target.annotations
-                .cryostat()
-                .putAll(
-                        Map.of(
-                                "REALM", // AnnotationKey.REALM,
-                                getRealm(),
-                                "HOST", // AnnotationKey.HOST,
-                                hostname,
-                                "PORT", // "AnnotationKey.PORT,
-                                Integer.toString(jmxPort)));
+        target.labels = KeyValue.listFromMap(desc.Labels);
+        target.annotations =
+                new Annotations(
+                        null,
+                        KeyValue.listFromMap(
+                                Map.of(
+                                        "REALM", // AnnotationKey.REALM,
+                                        getRealm(),
+                                        "HOST", // AnnotationKey.HOST,
+                                        hostname,
+                                        "PORT", // "AnnotationKey.PORT,
+                                        Integer.toString(jmxPort))));
 
         return target;
     }
@@ -285,7 +283,8 @@ public abstract class ContainerDiscovery {
         // Check for any targets with the same connectUrl in other realms
         try {
             Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
-            String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
+            String realmOfTarget =
+                    KeyValue.mapFromList(persistedTarget.annotations.cryostat()).get("REALM");
             if (!getRealm().equals(realmOfTarget)) {
                 logger.warnv(
                         "Expected persisted target with serviceURL {0} to be under realm"

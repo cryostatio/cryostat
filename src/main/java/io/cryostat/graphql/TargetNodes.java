@@ -17,10 +17,12 @@ package io.cryostat.graphql;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.discovery.DiscoveryNode;
+import io.cryostat.discovery.KeyValue;
 import io.cryostat.graphql.ActiveRecordings.ActiveRecordingsFilter;
 import io.cryostat.graphql.ArchivedRecordings.ArchivedRecordingsFilter;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
@@ -33,7 +35,6 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
@@ -51,7 +52,6 @@ public class TargetNodes {
     @Inject RecordingHelper recordingHelper;
     @Inject TargetConnectionManager connectionManager;
 
-    @Blocking
     @Query("targetNodes")
     @Description("Get the Target discovery nodes, i.e. the leaf nodes of the discovery tree")
     public List<DiscoveryNode> getTargetNodes(DiscoveryNodeFilter filter) {
@@ -74,7 +74,6 @@ public class TargetNodes {
     //     return t -> observed.add(fn.apply(t));
     // }
 
-    @Blocking
     @Transactional
     public ActiveRecordings activeRecordings(
             @Source Target target, @Nullable ActiveRecordingsFilter filter) {
@@ -90,7 +89,6 @@ public class TargetNodes {
         return recordings;
     }
 
-    @Blocking
     public ArchivedRecordings archivedRecordings(
             @Source Target target, @Nullable ArchivedRecordingsFilter filter) {
         var fTarget = Target.getTargetById(target.id);
@@ -105,7 +103,13 @@ public class TargetNodes {
         return recordings;
     }
 
-    @Blocking
+    public @NonNull Map<String, String> labels(@Source Target target, @Nullable List<String> key) {
+        return KeyValue.mapFromList(
+                target.labels.stream()
+                        .filter(kv -> key == null || key.contains(kv.key()))
+                        .toList());
+    }
+
     @Transactional
     @Description("Get the active and archived recordings belonging to this target")
     public Recordings recordings(@Source Target target, Context context) {
@@ -133,7 +137,6 @@ public class TargetNodes {
         return recordings;
     }
 
-    @Blocking
     @Description("Get live MBean metrics snapshot from the specified Target")
     public MBeanMetrics mbeanMetrics(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
