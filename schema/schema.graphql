@@ -86,6 +86,11 @@ type Entry_String_String {
   value: String
 }
 
+type KeyValue {
+  key: String
+  value: String
+}
+
 type MBeanMetrics {
   jvmId: String
   memory: MemoryMetrics

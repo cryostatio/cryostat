@@ -16,13 +16,13 @@ components:
     Annotations:
       properties:
         cryostat:
-          additionalProperties:
-            type: string
-          type: object
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          type: array
         platform:
-          additionalProperties:
-            type: string
-          type: object
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          type: array
       type: object
     ArchivedRecording:
       properties:
@@ -66,9 +66,9 @@ components:
           format: int64
           type: integer
         labels:
-          additionalProperties:
-            type: string
-          type: object
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          type: array
         name:
           pattern: \S
           type: string
@@ -85,6 +85,7 @@ components:
     DiscoveryPlugin:
       properties:
         builtin:
+          readOnly: true
           type: boolean
         callback:
           format: uri
@@ -124,6 +125,13 @@ components:
           value: {}
         type: object
       type: array
+    KeyValue:
+      properties:
+        key:
+          type: string
+        value:
+          type: string
+      type: object
     LinkedRecordingDescriptor:
       properties:
         continuous:
@@ -296,6 +304,7 @@ components:
     Target:
       properties:
         agent:
+          readOnly: true
           type: boolean
         alias:
           pattern: \S
@@ -311,9 +320,9 @@ components:
         jvmId:
           type: string
         labels:
-          additionalProperties:
-            type: string
-          type: object
+          items:
+            $ref: '#/components/schemas/KeyValue'
+          type: array
       required:
         - connectUrl
         - alias
@@ -347,11 +356,6 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
       type: object
-  securitySchemes:
-    SecurityScheme:
-      description: Authentication
-      scheme: basic
-      type: http
 info:
   contact:
     email: cryostat-development@googlegroups.com
@@ -913,7 +917,7 @@ paths:
             type: string
       requestBody:
         content:
-          application/json:
+          text/plain:
             schema:
               type: string
       responses:
@@ -1906,7 +1910,7 @@ paths:
       responses:
         "200":
           content:
-            application/json:
+            text/plain:
               schema:
                 type: string
           description: OK
@@ -2393,13 +2397,13 @@ paths:
             type: integer
       requestBody:
         content:
-          application/json:
+          text/plain:
             schema:
               type: string
       responses:
         "200":
           content:
-            application/json:
+            text/plain:
               schema:
                 type: string
           description: OK
@@ -2429,7 +2433,7 @@ paths:
       responses:
         "200":
           content:
-            application/json:
+            text/plain:
               schema:
                 type: string
           description: OK

@@ -65,7 +65,6 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @ConfigProperty(name = "cryostat.discovery.jdp.enabled")
     boolean enabled;
 
-    @Transactional
     void onStart(@Observes StartupEvent evt) {
         if (!enabled) {
             return;
@@ -118,20 +117,19 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
                 target.activeRecordings = new ArrayList<>();
                 target.connectUrl = connectUrl;
                 target.alias = evt.getJvmDescriptor().getMainClass();
-                target.labels = Map.of();
-                target.annotations = new Annotations();
-                target.annotations
-                        .cryostat()
-                        .putAll(
-                                Map.of(
-                                        "REALM", // AnnotationKey.REALM,
-                                        REALM,
-                                        "JAVA_MAIN", // AnnotationKey.JAVA_MAIN,
-                                        evt.getJvmDescriptor().getMainClass(),
-                                        "HOST", // AnnotationKey.HOST,
-                                        rmiTarget.getHost(),
-                                        "PORT", // "AnnotationKey.PORT,
-                                        Integer.toString(rmiTarget.getPort())));
+                target.annotations =
+                        new Annotations(
+                                null,
+                                KeyValue.listFromMap(
+                                        Map.of(
+                                                "REALM", // AnnotationKey.REALM,
+                                                REALM,
+                                                "JAVA_MAIN", // AnnotationKey.JAVA_MAIN,
+                                                evt.getJvmDescriptor().getMainClass(),
+                                                "HOST", // AnnotationKey.HOST,
+                                                rmiTarget.getHost(),
+                                                "PORT", // "AnnotationKey.PORT,
+                                                Integer.toString(rmiTarget.getPort()))));
 
                 DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
 

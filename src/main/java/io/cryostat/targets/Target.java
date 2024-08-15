@@ -21,10 +21,9 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -34,6 +33,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryNode;
+import io.cryostat.discovery.KeyValue;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.libcryostat.JvmIdentifier;
 import io.cryostat.recordings.ActiveRecording;
@@ -46,7 +46,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -90,7 +89,7 @@ public class Target extends PanacheEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
-    public Map<String, String> labels = new HashMap<>();
+    public List<KeyValue> labels = new ArrayList<>();
 
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
@@ -147,7 +146,11 @@ public class Target extends PanacheEntity {
         List<Target> targets = findAll().list();
 
         return targets.stream()
-                .filter((t) -> realm.equals(t.annotations.cryostat().get("REALM")))
+                .filter(
+                        (t) ->
+                                realm.equals(
+                                        KeyValue.mapFromList(t.annotations.cryostat())
+                                                .get("REALM")))
                 .collect(Collectors.toList());
     }
 
@@ -159,25 +162,24 @@ public class Target extends PanacheEntity {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public static record Annotations(Map<String, String> platform, Map<String, String> cryostat) {
+    public static record Annotations(List<KeyValue> platform, List<KeyValue> cryostat) {
         public Annotations {
             if (platform == null) {
-                platform = new HashMap<>();
+                platform = new ArrayList<>();
             }
             if (cryostat == null) {
-                cryostat = new HashMap<>();
+                cryostat = new ArrayList<>();
             }
         }
 
         public Annotations() {
-            this(new HashMap<>(), new HashMap<>());
+            this(null, null);
         }
 
-        public Map<String, String> merged() {
-            Map<String, String> merged = new HashMap<>();
-            cryostat().entrySet().forEach((e) -> merged.put(e.getKey(), e.getValue()));
-            merged.putAll(platform());
-            return merged;
+        public List<KeyValue> merged() {
+            List<KeyValue> merged = new ArrayList<>(platform);
+            merged.addAll(cryostat);
+            return Collections.unmodifiableList(merged);
         }
     }
 
@@ -322,7 +324,6 @@ public class Target extends PanacheEntity {
 
         @ConsumeEvent(value = Credential.CREDENTIALS_STORED, blocking = true)
         @Transactional
-        @Blocking
         void updateCredential(Credential credential) {
             Target.<Target>stream("#Target.unconnected")
                     .forEach(
@@ -341,7 +342,6 @@ public class Target extends PanacheEntity {
                             });
         }
 
-        @Blocking
         @PrePersist
         void prePersist(Target target) {
             if (StringUtils.isBlank(target.alias)) {
@@ -350,6 +350,16 @@ public class Target extends PanacheEntity {
             var encodedAlias = URLEncoder.encode(target.alias, StandardCharsets.UTF_8);
             if (!Objects.equals(encodedAlias, target.alias)) {
                 target.alias = encodedAlias;
+            }
+
+            if (target.labels == null) {
+                target.labels = new ArrayList<>();
+            }
+            if (target.annotations == null) {
+                target.annotations = new Annotations();
+            }
+            if (target.activeRecordings == null) {
+                target.activeRecordings = new ArrayList<>();
             }
 
             try {
@@ -361,7 +371,6 @@ public class Target extends PanacheEntity {
             }
         }
 
-        @Blocking
         private void updateTargetJvmId(Target t, Credential credential) {
             try {
                 t.jvmId =

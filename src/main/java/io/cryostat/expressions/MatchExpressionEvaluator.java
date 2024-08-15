@@ -23,9 +23,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
+import io.cryostat.discovery.KeyValue;
 import io.cryostat.expressions.MatchExpression.ExpressionEvent;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.TargetDiscovery;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -33,7 +33,6 @@ import io.quarkus.cache.CacheManager;
 import io.quarkus.cache.CacheResult;
 import io.quarkus.cache.CompositeCacheKey;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -77,7 +76,6 @@ public class MatchExpressionEvaluator {
     }
 
     @Transactional
-    @Blocking
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
     void onMessage(TargetDiscovery event) {
         var target = Target.<Target>find("id", event.serviceRef().id).singleResultOptional();
@@ -228,7 +226,7 @@ public class MatchExpressionEvaluator {
             String alias,
             @Nullable String jvmId,
             Map<String, String> labels,
-            Target.Annotations annotations) {
+            SimplifiedAnnotations annotations) {
         SimplifiedTarget {
             Objects.requireNonNull(connectUrl);
             Objects.requireNonNull(alias);
@@ -236,7 +234,7 @@ public class MatchExpressionEvaluator {
                 labels = Collections.emptyMap();
             }
             if (annotations == null) {
-                annotations = new Annotations();
+                annotations = new SimplifiedAnnotations();
             }
         }
 
@@ -246,8 +244,17 @@ public class MatchExpressionEvaluator {
                     target.connectUrl.toString(),
                     target.alias,
                     target.jvmId,
-                    target.labels,
-                    target.annotations);
+                    KeyValue.mapFromList(target.labels),
+                    new SimplifiedAnnotations(
+                            KeyValue.mapFromList(target.annotations.platform()),
+                            KeyValue.mapFromList(target.annotations.cryostat())));
+        }
+    }
+
+    private static record SimplifiedAnnotations(
+            Map<String, String> platform, Map<String, String> cryostat) {
+        public SimplifiedAnnotations() {
+            this(Map.of(), Map.of());
         }
     }
 }
