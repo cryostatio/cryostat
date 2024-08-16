@@ -690,7 +690,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
-  /api/v3/activedownload/{id}:
+  /api/v4/activedownload/{id}:
     get:
       parameters:
         - in: path
@@ -710,14 +710,14 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
-  /api/v3/auth:
+  /api/v4/auth:
     post:
       responses:
         "200":
           description: OK
       tags:
         - Auth
-  /api/v3/credentials:
+  /api/v4/credentials:
     get:
       responses:
         "200":
@@ -754,7 +754,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Credentials
-  /api/v3/credentials/{id}:
+  /api/v4/credentials/{id}:
     delete:
       parameters:
         - in: path
@@ -793,7 +793,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Credentials
-  /api/v3/discovery:
+  /api/v4/discovery:
     get:
       responses:
         "200":
@@ -827,7 +827,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Discovery
-  /api/v3/discovery/{id}:
+  /api/v4/discovery/{id}:
     delete:
       parameters:
         - in: path
@@ -905,7 +905,7 @@ paths:
           description: OK
       tags:
         - Discovery
-  /api/v3/discovery_plugins:
+  /api/v4/discovery_plugins:
     get:
       parameters:
         - in: query
@@ -923,7 +923,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Discovery
-  /api/v3/discovery_plugins/{id}:
+  /api/v4/discovery_plugins/{id}:
     get:
       parameters:
         - in: path
@@ -946,7 +946,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Discovery
-  /api/v3/download/{encodedKey}:
+  /api/v4/download/{encodedKey}:
     get:
       parameters:
         - in: path
@@ -969,7 +969,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
-  /api/v3/event_templates:
+  /api/v4/event_templates:
     get:
       responses:
         "200":
@@ -1008,7 +1008,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Event Templates
-  /api/v3/event_templates/{templateName}:
+  /api/v4/event_templates/{templateName}:
     delete:
       parameters:
         - in: path
@@ -1027,7 +1027,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Event Templates
-  /api/v3/grafana/{encodedKey}:
+  /api/v4/grafana/{encodedKey}:
     post:
       parameters:
         - in: path
@@ -1050,21 +1050,21 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
-  /api/v3/logout:
+  /api/v4/logout:
     post:
       responses:
         "200":
           description: OK
       tags:
         - Auth
-  /api/v3/probes:
+  /api/v4/probes:
     get:
       responses:
         "200":
           description: OK
       tags:
         - JMC Agent
-  /api/v3/probes/{probeTemplateName}:
+  /api/v4/probes/{probeTemplateName}:
     delete:
       parameters:
         - in: path
@@ -1097,7 +1097,7 @@ paths:
           description: OK
       tags:
         - JMC Agent
-  /api/v3/reports/{encodedKey}:
+  /api/v4/reports/{encodedKey}:
     get:
       parameters:
         - in: path
@@ -1122,7 +1122,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Reports
-  /api/v3/rules:
+  /api/v4/rules:
     get:
       responses:
         "200":
@@ -1210,7 +1210,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Rules
-  /api/v3/rules/{name}:
+  /api/v4/rules/{name}:
     delete:
       parameters:
         - in: path
@@ -1278,7 +1278,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Rules
-  /api/v3/targets:
+  /api/v4/targets:
     get:
       responses:
         "200":
@@ -1349,7 +1349,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Custom Discovery
-  /api/v3/targets/{id}:
+  /api/v4/targets/{id}:
     delete:
       parameters:
         - in: path
@@ -1392,7 +1392,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Targets
-  /api/v3/targets/{id}/event_templates:
+  /api/v4/targets/{id}/event_templates:
     get:
       parameters:
         - in: path
@@ -1418,7 +1418,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Event Templates
-  /api/v3/targets/{id}/event_templates/{templateType}/{templateName}:
+  /api/v4/targets/{id}/event_templates/{templateType}/{templateName}:
     get:
       parameters:
         - in: path
@@ -1448,7 +1448,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Event Templates
-  /api/v3/targets/{id}/events:
+  /api/v4/targets/{id}/events:
     get:
       parameters:
         - in: path
@@ -1478,7 +1478,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Events
-  /api/v3/targets/{id}/probes:
+  /api/v4/targets/{id}/probes:
     delete:
       parameters:
         - in: path
@@ -1505,7 +1505,7 @@ paths:
           description: OK
       tags:
         - JMC Agent
-  /api/v3/targets/{id}/probes/{probeTemplateName}:
+  /api/v4/targets/{id}/probes/{probeTemplateName}:
     post:
       parameters:
         - in: path
@@ -1524,7 +1524,7 @@ paths:
           description: OK
       tags:
         - JMC Agent
-  /api/v3/targets/{id}/recordingOptions:
+  /api/v4/targets/{id}/recordingOptions:
     get:
       parameters:
         - in: path
@@ -1585,7 +1585,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
-  /api/v3/targets/{id}/recordings:
+  /api/v4/targets/{id}/recordings:
     get:
       parameters:
         - in: path
@@ -1668,7 +1668,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
-  /api/v3/targets/{id}/snapshot:
+  /api/v4/targets/{id}/snapshot:
     post:
       parameters:
         - in: path
@@ -1690,7 +1690,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
-  /api/v3/targets/{targetId}/recordings/{remoteId}:
+  /api/v4/targets/{targetId}/recordings/{remoteId}:
     delete:
       parameters:
         - in: path
@@ -1750,7 +1750,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
-  /api/v3/targets/{targetId}/recordings/{remoteId}/upload:
+  /api/v4/targets/{targetId}/recordings/{remoteId}/upload:
     post:
       parameters:
         - in: path
@@ -1780,7 +1780,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
-  /api/v3/targets/{targetId}/reports/{recordingId}:
+  /api/v4/targets/{targetId}/reports/{recordingId}:
     get:
       deprecated: true
       parameters:
@@ -1813,7 +1813,7 @@ paths:
         - SecurityScheme: []
       tags:
         - Reports
-  /api/v3/tls/certs:
+  /api/v4/tls/certs:
     get:
       responses:
         "200":
