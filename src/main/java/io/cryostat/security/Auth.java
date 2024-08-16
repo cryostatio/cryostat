@@ -18,8 +18,6 @@ package io.cryostat.security;
 import java.net.URI;
 import java.util.Map;
 
-import io.cryostat.V2Response;
-
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.security.PermitAll;
 import jakarta.ws.rs.POST;
@@ -35,7 +33,7 @@ import org.jboss.resteasy.reactive.RestResponse;
 public class Auth {
 
     @POST
-    @Path("/api/v2.1/logout")
+    @Path("/api/v3/logout")
     @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
     public Response logout(@Context RoutingContext context) {
@@ -45,7 +43,7 @@ public class Auth {
     }
 
     @POST
-    @Path("/api/v2.1/auth")
+    @Path("/api/v3/auth")
     @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
     public Response login(@Context RoutingContext context, SecurityContext securityContext) {
@@ -56,8 +54,9 @@ public class Auth {
         if (user == null) {
             user = "";
         }
+        Map<String, Object> responseData = Map.of("username", user);
         return Response.ok()
-                .entity(V2Response.json(Response.Status.OK, Map.of("username", user)))
+                .entity(Response.ok(responseData).type(MediaType.APPLICATION_JSON).build())
                 .build();
     }
 }

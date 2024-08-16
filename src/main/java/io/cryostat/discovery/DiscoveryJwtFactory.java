@@ -55,7 +55,7 @@ public class DiscoveryJwtFactory {
 
     public static final String RESOURCE_CLAIM = "resource";
     public static final String REALM_CLAIM = "realm";
-    static final String DISCOVERY_API_PATH = "/api/v2.2/discovery/";
+    static final String DISCOVERY_API_PATH = "/api/v3/discovery/";
 
     @Inject JWSSigner signer;
     @Inject JWSVerifier verifier;
