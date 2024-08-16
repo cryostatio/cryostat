@@ -445,7 +445,7 @@ public class Recordings {
 
     @GET
     @Transactional
-    @Path("/api/v3/targets/{id}/recordings")
+    @Path("/api/v4/targets/{id}/recordings")
     @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
@@ -457,7 +457,7 @@ public class Recordings {
     @PATCH
     @Transactional
     @Blocking
-    @Path("/api/v3/targets/{targetId}/recordings/{remoteId}")
+    @Path("/api/v4/targets/{targetId}/recordings/{remoteId}")
     @RolesAllowed("write")
     public String patch(@RestPath long targetId, @RestPath long remoteId, String body)
             throws Exception {
@@ -513,7 +513,7 @@ public class Recordings {
 
     @POST
     @Transactional
-    @Path("/api/v3/targets/{id}/snapshot")
+    @Path("/api/v4/targets/{id}/snapshot")
     @RolesAllowed("write")
     public Uni<Response> createSnapshot(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
@@ -532,7 +532,7 @@ public class Recordings {
     @POST
     @Transactional
     @Blocking
-    @Path("/api/v3/targets/{id}/recordings")
+    @Path("/api/v4/targets/{id}/recordings")
     @RolesAllowed("write")
     public Response createRecording(
             @RestPath long id,
@@ -597,7 +597,7 @@ public class Recordings {
     @DELETE
     @Transactional
     @Blocking
-    @Path("/api/v3/targets/{targetId}/recordings/{remoteId}")
+    @Path("/api/v4/targets/{targetId}/recordings/{remoteId}")
     @RolesAllowed("write")
     public void deleteRecording(@RestPath long targetId, @RestPath long remoteId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
@@ -671,7 +671,7 @@ public class Recordings {
 
     @POST
     @Blocking
-    @Path("/api/v3/targets/{targetId}/recordings/{remoteId}/upload")
+    @Path("/api/v4/targets/{targetId}/recordings/{remoteId}/upload")
     @RolesAllowed("write")
     public Uni<String> uploadActiveToGrafana(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
@@ -680,7 +680,7 @@ public class Recordings {
 
     @POST
     @Blocking
-    @Path("/api/v3/grafana/{encodedKey}")
+    @Path("/api/v4/grafana/{encodedKey}")
     @RolesAllowed("write")
     public Uni<String> uploadArchivedToGrafana(@RestPath String encodedKey) throws Exception {
         var key = recordingHelper.decodedKey(encodedKey);
@@ -699,7 +699,7 @@ public class Recordings {
 
     @GET
     @Blocking
-    @Path("/api/v3/targets/{id}/recordingOptions")
+    @Path("/api/v4/targets/{id}/recordingOptions")
     @RolesAllowed("read")
     public Map<String, Object> getRecordingOptions(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
@@ -713,7 +713,7 @@ public class Recordings {
 
     @PATCH
     @Blocking
-    @Path("/api/v3/targets/{id}/recordingOptions")
+    @Path("/api/v4/targets/{id}/recordingOptions")
     @RolesAllowed("read")
     @SuppressFBWarnings(
             value = "UC_USELESS_OBJECT",
@@ -777,7 +777,7 @@ public class Recordings {
 
     @GET
     @Blocking
-    @Path("/api/v3/activedownload/{id}")
+    @Path("/api/v4/activedownload/{id}")
     @RolesAllowed("read")
     public Response handleActiveDownload(@RestPath long id) throws Exception {
         ActiveRecording recording = ActiveRecording.find("id", id).singleResult();
@@ -808,7 +808,7 @@ public class Recordings {
                 .location(
                         URI.create(
                                 String.format(
-                                        "/api/v3/download/%s?f=%s",
+                                        "/api/v4/download/%s?f=%s",
                                         encodedKey,
                                         base64Url.encodeAsString(
                                                 savename.getBytes(StandardCharsets.UTF_8)))))
@@ -817,7 +817,7 @@ public class Recordings {
 
     @GET
     @Blocking
-    @Path("/api/v3/download/{encodedKey}")
+    @Path("/api/v4/download/{encodedKey}")
     @RolesAllowed("read")
     public Response handleStorageDownload(@RestPath String encodedKey, @RestQuery String f)
             throws URISyntaxException {

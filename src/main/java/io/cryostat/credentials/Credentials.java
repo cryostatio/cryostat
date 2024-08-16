@@ -42,7 +42,7 @@ import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.projectnessie.cel.tools.ScriptException;
 
-@Path("/api/v3/credentials")
+@Path("/api/v4/credentials")
 public class Credentials {
 
     @Inject TargetMatcher targetMatcher;
@@ -110,7 +110,7 @@ public class Credentials {
         credential.username = username;
         credential.password = password;
         credential.persist();
-        return ResponseBuilder.<Void>created(URI.create("/api/v3/credentials/" + credential.id))
+        return ResponseBuilder.<Void>created(URI.create("/api/v4/credentials/" + credential.id))
                 .build();
     }
 

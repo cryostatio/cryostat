@@ -995,20 +995,20 @@ public class RecordingHelper {
     }
 
     public String downloadUrl(ActiveRecording recording) {
-        return String.format("/api/v3/activedownload/%d", recording.id);
+        return String.format("/api/v4/activedownload/%d", recording.id);
     }
 
     public String downloadUrl(String jvmId, String filename) {
-        return String.format("/api/v3/download/%s", encodedKey(jvmId, filename));
+        return String.format("/api/v4/download/%s", encodedKey(jvmId, filename));
     }
 
     public String reportUrl(ActiveRecording recording) {
         return String.format(
-                "/api/v3/targets/%d/reports/%d", recording.target.id, recording.remoteId);
+                "/api/v4/targets/%d/reports/%d", recording.target.id, recording.remoteId);
     }
 
     public String reportUrl(String jvmId, String filename) {
-        return String.format("/api/v3/reports/%s", encodedKey(jvmId, filename));
+        return String.format("/api/v4/reports/%s", encodedKey(jvmId, filename));
     }
 
     private int retryRead(ReadableByteChannel channel, ByteBuffer buffer) throws IOException {

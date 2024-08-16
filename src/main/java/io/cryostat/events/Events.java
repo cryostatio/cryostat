@@ -41,7 +41,7 @@ public class Events {
     @Inject Logger logger;
 
     @GET
-    @Path("/api/v3/targets/{id}/events")
+    @Path("/api/v4/targets/{id}/events")
     @RolesAllowed("read")
     public List<SerializableEventTypeInfo> listEvents(@RestPath long id, @RestQuery String q)
             throws Exception {

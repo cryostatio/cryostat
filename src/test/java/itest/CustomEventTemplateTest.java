@@ -36,7 +36,7 @@ public class CustomEventTemplateTest extends StandardSelfTest {
     static final String TEMPLATE_FILE_NAME = "CustomEventTemplate.jfc";
     static final String TEMPLATE_NAME = "invalidTemplate";
     static final String MEDIA_TYPE = "application/xml";
-    static final String REQ_URL = "/api/v3/event_templates";
+    static final String REQ_URL = "/api/v4/event_templates";
 
     @Test
     public void shouldThrowIfTemplateUploadNameInvalid() throws Exception {
@@ -98,7 +98,7 @@ public class CustomEventTemplateTest extends StandardSelfTest {
                             .extensions()
                             .get(
                                     String.format(
-                                            "/api/v3/targets/%d/event_templates",
+                                            "/api/v4/targets/%d/event_templates",
                                             getSelfReferenceTargetId()),
                                     REQUEST_TIMEOUT_SECONDS);
             boolean foundSanitizedTemplate = false;

@@ -89,7 +89,7 @@ public class CustomDiscovery {
 
     @Transactional(rollbackOn = {JvmIdException.class})
     @POST
-    @Path("/api/v3/targets")
+    @Path("/api/v4/targets")
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
     public Response create(
@@ -112,12 +112,12 @@ public class CustomDiscovery {
                     .build();
         }
         // TODO handle credentials embedded in JSON body
-        return doV3Create(target, Optional.empty(), dryrun, storeCredentials);
+        return doV4Create(target, Optional.empty(), dryrun, storeCredentials);
     }
 
     @Transactional
     @POST
-    @Path("/api/v3/targets")
+    @Path("/api/v4/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @RolesAllowed("write")
     public Response create(
@@ -141,10 +141,10 @@ public class CustomDiscovery {
             credential.password = password;
         }
 
-        return doV3Create(target, Optional.ofNullable(credential), dryrun, storeCredentials);
+        return doV4Create(target, Optional.ofNullable(credential), dryrun, storeCredentials);
     }
 
-    Response doV3Create(
+    Response doV4Create(
             Target target,
             Optional<Credential> credential,
             boolean dryrun,
@@ -225,7 +225,7 @@ public class CustomDiscovery {
             node.persist();
             realm.persist();
 
-            return Response.created(URI.create("/api/v3/targets/" + target.id))
+            return Response.created(URI.create("/api/v4/targets/" + target.id))
                     .entity(Map.of(Response.Status.CREATED, target))
                     .build();
         } catch (Exception e) {
@@ -244,7 +244,7 @@ public class CustomDiscovery {
 
     @Transactional
     @DELETE
-    @Path("/api/v3/targets/{id}")
+    @Path("/api/v4/targets/{id}")
     @RolesAllowed("write")
     public Response delete(@RestPath long id) throws URISyntaxException {
         Target target = Target.find("id", id).singleResult();

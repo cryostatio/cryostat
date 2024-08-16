@@ -67,7 +67,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
-                .post("/api/v3/rules")
+                .post("/api/v4/rules")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                 .sendJsonObject(
                         null,
@@ -88,7 +88,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
-                .post("/api/v3/rules")
+                .post("/api/v4/rules")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "text/plain")
                 .sendJsonObject(
                         testRule,
@@ -110,7 +110,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
-                .post("/api/v3/rules")
+                .post("/api/v4/rules")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "NOTAMIME")
                 .sendJsonObject(
                         testRule,
@@ -132,7 +132,7 @@ class RulesPostJsonIT extends StandardSelfTest {
 
         try {
             webClient
-                    .post("/api/v3/rules")
+                    .post("/api/v4/rules")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
@@ -180,7 +180,7 @@ class RulesPostJsonIT extends StandardSelfTest {
                     response.get(10, TimeUnit.SECONDS), Matchers.equalTo(expectedCreationResponse));
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();
             webClient
-                    .post("/api/v3/rules")
+                    .post("/api/v4/rules")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
@@ -200,7 +200,7 @@ class RulesPostJsonIT extends StandardSelfTest {
             // clean up rule before running next test
             CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
             webClient
-                    .delete(String.format("/api/v3/rules/%s", TEST_RULE_NAME))
+                    .delete(String.format("/api/v4/rules/%s", TEST_RULE_NAME))
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .send(
                             ar -> {
@@ -237,7 +237,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         testRule.put("preservedArchives", -3);
         try {
             webClient
-                    .post("/api/v3/rules")
+                    .post("/api/v4/rules")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,

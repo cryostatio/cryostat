@@ -144,14 +144,14 @@ public class Discovery {
     }
 
     @GET
-    @Path("/api/v3/discovery")
+    @Path("/api/v4/discovery")
     @RolesAllowed("read")
     public DiscoveryNode get() {
         return DiscoveryNode.getUniverse();
     }
 
     @GET
-    @Path("/api/v3/discovery/{id}")
+    @Path("/api/v4/discovery/{id}")
     @RolesAllowed("read")
     public RestResponse<Void> checkRegistration(
             @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
@@ -168,7 +168,7 @@ public class Discovery {
 
     @Transactional
     @POST
-    @Path("/api/v3/discovery")
+    @Path("/api/v4/discovery")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
@@ -308,7 +308,7 @@ public class Discovery {
 
     @Transactional
     @POST
-    @Path("/api/v3/discovery/{id}")
+    @Path("/api/v4/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @PermitAll
     public Map<String, Map<String, String>> publish(
@@ -347,7 +347,7 @@ public class Discovery {
 
     @Transactional
     @DELETE
-    @Path("/api/v3/discovery/{id}")
+    @Path("/api/v4/discovery/{id}")
     @PermitAll
     public Map<String, Map<String, String>> deregister(
             @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
@@ -382,7 +382,7 @@ public class Discovery {
     }
 
     @GET
-    @Path("/api/v3/discovery_plugins")
+    @Path("/api/v4/discovery_plugins")
     @RolesAllowed("read")
     public Response getPlugins(@RestQuery String realm) throws JsonProcessingException {
         // TODO filter for the matching realm name within the DB query
@@ -399,7 +399,7 @@ public class Discovery {
     }
 
     @GET
-    @Path("/api/v3/discovery_plugins/{id}")
+    @Path("/api/v4/discovery_plugins/{id}")
     @RolesAllowed("read")
     public DiscoveryPlugin getPlugin(@RestPath UUID id) throws JsonProcessingException {
         return DiscoveryPlugin.find("id", id).singleResult();

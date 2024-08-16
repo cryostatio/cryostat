@@ -39,11 +39,11 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
     static final String TEST_RECORDING_NAME = "someRecording";
 
     String recordingRequestUrl() {
-        return String.format("/api/v3/targets/%d/recordings", getSelfReferenceTargetId());
+        return String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId());
     }
 
     String deleteRecordingRequestUrl() {
-        return String.format("/api/v3/targets/%d/recordings", getSelfReferenceTargetId());
+        return String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId());
     }
 
     String archivesRequestUrl() {
@@ -51,7 +51,7 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
     }
 
     String optionsRequestUrl() {
-        return String.format("/api/v3/targets/%d/recordingOptions", getSelfReferenceTargetId());
+        return String.format("/api/v4/targets/%d/recordingOptions", getSelfReferenceTargetId());
     }
 
     @Test

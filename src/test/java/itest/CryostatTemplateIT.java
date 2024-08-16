@@ -37,7 +37,7 @@ public class CryostatTemplateIT extends StandardSelfTest {
     public void shouldHaveCryostatTemplate() throws Exception {
         String url =
                 String.format(
-                        "/api/v3/targets/%d/event_templates/TARGET/Cryostat",
+                        "/api/v4/targets/%d/event_templates/TARGET/Cryostat",
                         getSelfReferenceTargetId());
         File file =
                 downloadFile(url, "cryostat", ".jfc")

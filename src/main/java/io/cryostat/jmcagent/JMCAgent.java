@@ -63,7 +63,7 @@ public class JMCAgent {
 
     @Blocking
     @POST
-    @Path("/api/v3/targets/{id}/probes/{probeTemplateName}")
+    @Path("/api/v4/targets/{id}/probes/{probeTemplateName}")
     public Response postProbe(@RestPath long id, @RestPath String probeTemplateName) {
         try {
             Target target = Target.getTargetById(id);
@@ -107,7 +107,7 @@ public class JMCAgent {
 
     @Blocking
     @DELETE
-    @Path("/api/v3/targets/{id}/probes")
+    @Path("/api/v4/targets/{id}/probes")
     public Response deleteProbe(@RestPath long id) {
         try {
             Target target = Target.getTargetById(id);
@@ -139,7 +139,7 @@ public class JMCAgent {
 
     @Blocking
     @GET
-    @Path("/api/v3/targets/{id}/probes")
+    @Path("/api/v4/targets/{id}/probes")
     public Response getProbes(@RestPath long id) {
         try {
             Target target = Target.getTargetById(id);
@@ -199,7 +199,7 @@ public class JMCAgent {
 
     @Blocking
     @GET
-    @Path("/api/v3/probes")
+    @Path("/api/v4/probes")
     public Response getProbeTemplates() {
         try {
             List<SerializableProbeTemplateInfo> templates =
@@ -224,7 +224,7 @@ public class JMCAgent {
 
     @Blocking
     @DELETE
-    @Path("/api/v3/probes/{probeTemplateName}")
+    @Path("/api/v4/probes/{probeTemplateName}")
     public Response deleteProbeTemplate(@RestPath String probeTemplateName) {
         try {
             service.deleteTemplate(probeTemplateName);
@@ -237,7 +237,7 @@ public class JMCAgent {
 
     @Blocking
     @POST
-    @Path("/api/v3/probes/{probeTemplateName}")
+    @Path("/api/v4/probes/{probeTemplateName}")
     public Response uploadProbeTemplate(
             @RestForm("probeTemplate") FileUpload body, @RestPath String probeTemplateName) {
         if (body == null || body.filePath() == null || !"probeTemplate".equals(body.name())) {

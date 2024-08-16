@@ -39,7 +39,7 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 
-@Path("/api/v3/rules")
+@Path("/api/v4/rules")
 public class Rules {
 
     @Inject EventBus bus;
