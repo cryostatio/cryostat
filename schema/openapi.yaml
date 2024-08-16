@@ -16,13 +16,13 @@ components:
     Annotations:
       properties:
         cryostat:
-          items:
-            $ref: '#/components/schemas/KeyValue'
-          type: array
+          additionalProperties:
+            type: string
+          type: object
         platform:
-          items:
-            $ref: '#/components/schemas/KeyValue'
-          type: array
+          additionalProperties:
+            type: string
+          type: object
       type: object
     ArchivedRecording:
       properties:
@@ -66,9 +66,9 @@ components:
           format: int64
           type: integer
         labels:
-          items:
-            $ref: '#/components/schemas/KeyValue'
-          type: array
+          additionalProperties:
+            type: string
+          type: object
         name:
           pattern: \S
           type: string
@@ -125,13 +125,6 @@ components:
           value: {}
         type: object
       type: array
-    KeyValue:
-      properties:
-        key:
-          type: string
-        value:
-          type: string
-      type: object
     LinkedRecordingDescriptor:
       properties:
         continuous:
@@ -320,9 +313,9 @@ components:
         jvmId:
           type: string
         labels:
-          items:
-            $ref: '#/components/schemas/KeyValue'
-          type: array
+          additionalProperties:
+            type: string
+          type: object
       required:
         - connectUrl
         - alias

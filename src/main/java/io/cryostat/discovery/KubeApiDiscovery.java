@@ -218,8 +218,7 @@ public class KubeApiDiscovery {
         // Check for any targets with the same connectUrl in other realms
         try {
             Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
-            String realmOfTarget =
-                    KeyValue.mapFromList(persistedTarget.annotations.cryostat()).get("REALM");
+            String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
             if (!REALM.equals(realmOfTarget)) {
                 logger.warnv(
                         "Expected persisted target with serviceURL {0} to be under realm"
@@ -270,8 +269,7 @@ public class KubeApiDiscovery {
                         .filter(
                                 (n) ->
                                         namespace.equals(
-                                                KeyValue.mapFromList(n.labels)
-                                                        .get(DISCOVERY_NAMESPACE_LABEL_KEY)))
+                                                n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY)))
                         .collect(Collectors.toList());
 
         Map<URI, ObjectReference> targetRefMap = new HashMap<>();
@@ -459,8 +457,7 @@ public class KubeApiDiscovery {
                                     return nodeType.getKind().equals(n.nodeType)
                                             && name.equals(n.name)
                                             && namespace.equals(
-                                                    KeyValue.mapFromList(n.labels)
-                                                            .get(DISCOVERY_NAMESPACE_LABEL_KEY));
+                                                    n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY));
                                 })
                         .orElseGet(
                                 () -> {
@@ -475,7 +472,7 @@ public class KubeApiDiscovery {
                                                     : new HashMap<>();
                                     // Add namespace to label to retrieve node later
                                     labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
-                                    newNode.labels = KeyValue.listFromMap(labels);
+                                    newNode.labels = labels;
                                     return newNode;
                                 });
         return Pair.of(kubeObj, node);
@@ -616,27 +613,21 @@ public class KubeApiDiscovery {
                 target.activeRecordings = new ArrayList<>();
                 target.connectUrl = connectUrl;
                 target.alias = objRef.getName();
-                target.labels =
-                        KeyValue.listFromMap(
-                                (obj != null ? obj.getMetadata().getLabels() : new HashMap<>()));
+                target.labels = (obj != null ? obj.getMetadata().getLabels() : new HashMap<>());
                 target.annotations =
                         new Annotations(
-                                KeyValue.listFromMap(
-                                        obj != null
-                                                ? obj.getMetadata().getAnnotations()
-                                                : Map.of()),
-                                KeyValue.listFromMap(
-                                        Map.of(
-                                                "REALM",
-                                                REALM,
-                                                "HOST",
-                                                addr.getIp(),
-                                                "PORT",
-                                                Integer.toString(port.getPort()),
-                                                "NAMESPACE",
-                                                objRef.getNamespace(),
-                                                isPod ? "POD_NAME" : "OBJECT_NAME",
-                                                objRef.getName())));
+                                obj != null ? obj.getMetadata().getAnnotations() : Map.of(),
+                                Map.of(
+                                        "REALM",
+                                        REALM,
+                                        "HOST",
+                                        addr.getIp(),
+                                        "PORT",
+                                        Integer.toString(port.getPort()),
+                                        "NAMESPACE",
+                                        objRef.getNamespace(),
+                                        isPod ? "POD_NAME" : "OBJECT_NAME",
+                                        objRef.getName()));
 
                 return target;
             } catch (Exception e) {

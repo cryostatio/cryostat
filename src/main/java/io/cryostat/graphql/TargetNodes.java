@@ -17,12 +17,10 @@ package io.cryostat.graphql;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.discovery.DiscoveryNode;
-import io.cryostat.discovery.KeyValue;
 import io.cryostat.graphql.ActiveRecordings.ActiveRecordingsFilter;
 import io.cryostat.graphql.ArchivedRecordings.ArchivedRecordingsFilter;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
@@ -69,11 +67,6 @@ public class TargetNodes {
                 .toList();
     }
 
-    // private static <T> Predicate<T> distinctWith(Function<? super T, ?> fn) {
-    //     Set<Object> observed = ConcurrentHashMap.newKeySet();
-    //     return t -> observed.add(fn.apply(t));
-    // }
-
     @Transactional
     public ActiveRecordings activeRecordings(
             @Source Target target, @Nullable ActiveRecordingsFilter filter) {
@@ -101,13 +94,6 @@ public class TargetNodes {
             recordings.aggregate = AggregateInfo.fromArchived(recordings.data);
         }
         return recordings;
-    }
-
-    public @NonNull Map<String, String> labels(@Source Target target, @Nullable List<String> key) {
-        return KeyValue.mapFromList(
-                target.labels.stream()
-                        .filter(kv -> key == null || key.contains(kv.key()))
-                        .toList());
     }
 
     @Transactional

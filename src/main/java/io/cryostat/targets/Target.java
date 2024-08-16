@@ -22,8 +22,10 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -33,7 +35,6 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryNode;
-import io.cryostat.discovery.KeyValue;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.libcryostat.JvmIdentifier;
 import io.cryostat.recordings.ActiveRecording;
@@ -89,7 +90,7 @@ public class Target extends PanacheEntity {
 
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
-    public List<KeyValue> labels = new ArrayList<>();
+    public Map<String, String> labels = new HashMap<>();
 
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
@@ -146,11 +147,7 @@ public class Target extends PanacheEntity {
         List<Target> targets = findAll().list();
 
         return targets.stream()
-                .filter(
-                        (t) ->
-                                realm.equals(
-                                        KeyValue.mapFromList(t.annotations.cryostat())
-                                                .get("REALM")))
+                .filter((t) -> realm.equals(t.annotations.cryostat().get("REALM")))
                 .collect(Collectors.toList());
     }
 
@@ -162,13 +159,13 @@ public class Target extends PanacheEntity {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public static record Annotations(List<KeyValue> platform, List<KeyValue> cryostat) {
+    public static record Annotations(Map<String, String> platform, Map<String, String> cryostat) {
         public Annotations {
             if (platform == null) {
-                platform = new ArrayList<>();
+                platform = new HashMap<>();
             }
             if (cryostat == null) {
-                cryostat = new ArrayList<>();
+                cryostat = new HashMap<>();
             }
         }
 
@@ -176,10 +173,10 @@ public class Target extends PanacheEntity {
             this(null, null);
         }
 
-        public List<KeyValue> merged() {
-            List<KeyValue> merged = new ArrayList<>(platform);
-            merged.addAll(cryostat);
-            return Collections.unmodifiableList(merged);
+        public Map<String, String> merged() {
+            Map<String, String> merged = new HashMap<>(cryostat);
+            merged.putAll(platform);
+            return Collections.unmodifiableMap(merged);
         }
     }
 
@@ -353,7 +350,7 @@ public class Target extends PanacheEntity {
             }
 
             if (target.labels == null) {
-                target.labels = new ArrayList<>();
+                target.labels = new HashMap<>();
             }
             if (target.annotations == null) {
                 target.annotations = new Annotations();

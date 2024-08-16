@@ -16,7 +16,9 @@
 package io.cryostat.discovery;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -71,7 +73,7 @@ public class DiscoveryNode extends PanacheEntity {
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
     @JsonView(Views.Flat.class)
-    public List<KeyValue> labels = new ArrayList<>();
+    public Map<String, String> labels = new HashMap<>();
 
     @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true, mappedBy = "parent")
     @JsonView(Views.Nested.class)
@@ -133,7 +135,7 @@ public class DiscoveryNode extends PanacheEntity {
                             DiscoveryNode node = new DiscoveryNode();
                             node.name = name;
                             node.nodeType = nodeType.getKind();
-                            node.labels = new ArrayList<>();
+                            node.labels = new HashMap<>();
                             node.children = new ArrayList<>();
                             node.target = null;
                             node.persist();
@@ -148,7 +150,7 @@ public class DiscoveryNode extends PanacheEntity {
                             DiscoveryNode node = new DiscoveryNode();
                             node.name = target.connectUrl.toString();
                             node.nodeType = nodeType.getKind();
-                            node.labels = new ArrayList<>(target.labels);
+                            node.labels = new HashMap<>(target.labels);
                             node.children = null;
                             node.target = target;
                             node.persist();
@@ -199,7 +201,7 @@ public class DiscoveryNode extends PanacheEntity {
                 node.children = new ArrayList<>();
             }
             if (node.labels == null) {
-                node.labels = new ArrayList<>();
+                node.labels = new HashMap<>();
             }
         }
 

@@ -200,8 +200,7 @@ public class CustomDiscovery {
             credential.ifPresent(c -> c.persist());
 
             target.activeRecordings = new ArrayList<>();
-            target.annotations =
-                    new Annotations(null, KeyValue.listFromMap(Map.of("REALM", REALM)));
+            target.annotations = new Annotations(null, Map.of("REALM", REALM));
 
             DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
             target.discoveryNode = node;

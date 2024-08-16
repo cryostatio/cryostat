@@ -120,16 +120,15 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
                 target.annotations =
                         new Annotations(
                                 null,
-                                KeyValue.listFromMap(
-                                        Map.of(
-                                                "REALM", // AnnotationKey.REALM,
-                                                REALM,
-                                                "JAVA_MAIN", // AnnotationKey.JAVA_MAIN,
-                                                evt.getJvmDescriptor().getMainClass(),
-                                                "HOST", // AnnotationKey.HOST,
-                                                rmiTarget.getHost(),
-                                                "PORT", // "AnnotationKey.PORT,
-                                                Integer.toString(rmiTarget.getPort()))));
+                                Map.of(
+                                        "REALM", // AnnotationKey.REALM,
+                                        REALM,
+                                        "JAVA_MAIN", // AnnotationKey.JAVA_MAIN,
+                                        evt.getJvmDescriptor().getMainClass(),
+                                        "HOST", // AnnotationKey.HOST,
+                                        rmiTarget.getHost(),
+                                        "PORT", // "AnnotationKey.PORT,
+                                        Integer.toString(rmiTarget.getPort())));
 
                 DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
 

@@ -26,7 +26,6 @@ import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -71,7 +70,7 @@ class GraphQLTest extends StandardSelfTest {
 
     private final ExecutorService worker = ForkJoinPool.commonPool();
 
-    static final long DELAY = 500L;
+    static final long DELAY = 5_000L;
 
     static final String TEST_RECORDING_NAME = "archivedRecording";
 
@@ -254,24 +253,29 @@ class GraphQLTest extends StandardSelfTest {
                 Matchers.equalTo(
                         String.format(
                                 "service:jmx:rmi:///jndi/rmi://%s:%d/jmxrmi", "localhost", 0)));
-        JsonObject notificationLabels =
-                notificationRecording.getJsonObject("metadata").getJsonObject("labels");
+        JsonArray notificationLabels =
+                notificationRecording.getJsonObject("metadata").getJsonArray("labels");
         Map<String, String> expectedLabels =
                 Map.of("template.name", "Profiling", "template.type", "TARGET");
-        MatcherAssert.assertThat(notificationLabels, Matchers.isA(JsonObject.class));
         MatcherAssert.assertThat(
                 notificationLabels,
-                Matchers.equalTo(new JsonObject(new HashMap<>(expectedLabels))));
+                Matchers.containsInAnyOrder(
+                        expectedLabels.entrySet().stream()
+                                .map(
+                                        e ->
+                                                new JsonObject(
+                                                        Map.of(
+                                                                "key",
+                                                                e.getKey(),
+                                                                "value",
+                                                                e.getValue())))
+                                .toArray()));
 
         ActiveRecording recording = new ActiveRecording();
         recording.name = "test";
         recording.duration = 30_000L;
         recording.state = "RUNNING";
-        recording.metadata = new RecordingMetadata();
-        recording.metadata.labels =
-                expectedLabels.entrySet().stream()
-                        .map(e -> new KeyValue(e.getKey(), e.getValue()))
-                        .toList();
+        recording.metadata = RecordingMetadata.of(expectedLabels);
 
         MatcherAssert.assertThat(actual.data.recordings, Matchers.equalTo(List.of(recording)));
 

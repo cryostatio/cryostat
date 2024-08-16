@@ -263,18 +263,17 @@ public abstract class ContainerDiscovery {
         target.activeRecordings = new ArrayList<>();
         target.connectUrl = connectUrl;
         target.alias = Optional.ofNullable(desc.Names.get(0)).orElse(desc.Id);
-        target.labels = KeyValue.listFromMap(desc.Labels);
+        target.labels = desc.Labels;
         target.annotations =
                 new Annotations(
                         null,
-                        KeyValue.listFromMap(
-                                Map.of(
-                                        "REALM", // AnnotationKey.REALM,
-                                        getRealm(),
-                                        "HOST", // AnnotationKey.HOST,
-                                        hostname,
-                                        "PORT", // "AnnotationKey.PORT,
-                                        Integer.toString(jmxPort))));
+                        Map.of(
+                                "REALM", // AnnotationKey.REALM,
+                                getRealm(),
+                                "HOST", // AnnotationKey.HOST,
+                                hostname,
+                                "PORT", // "AnnotationKey.PORT,
+                                Integer.toString(jmxPort)));
 
         return target;
     }
@@ -283,8 +282,7 @@ public abstract class ContainerDiscovery {
         // Check for any targets with the same connectUrl in other realms
         try {
             Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
-            String realmOfTarget =
-                    KeyValue.mapFromList(persistedTarget.annotations.cryostat()).get("REALM");
+            String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
             if (!getRealm().equals(realmOfTarget)) {
                 logger.warnv(
                         "Expected persisted target with serviceURL {0} to be under realm"

@@ -23,9 +23,9 @@ import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
-import io.cryostat.discovery.KeyValue;
 import io.cryostat.expressions.MatchExpression.ExpressionEvent;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.TargetDiscovery;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -226,7 +226,7 @@ public class MatchExpressionEvaluator {
             String alias,
             @Nullable String jvmId,
             Map<String, String> labels,
-            SimplifiedAnnotations annotations) {
+            Target.Annotations annotations) {
         SimplifiedTarget {
             Objects.requireNonNull(connectUrl);
             Objects.requireNonNull(alias);
@@ -234,7 +234,7 @@ public class MatchExpressionEvaluator {
                 labels = Collections.emptyMap();
             }
             if (annotations == null) {
-                annotations = new SimplifiedAnnotations();
+                annotations = new Annotations();
             }
         }
 
@@ -244,17 +244,8 @@ public class MatchExpressionEvaluator {
                     target.connectUrl.toString(),
                     target.alias,
                     target.jvmId,
-                    KeyValue.mapFromList(target.labels),
-                    new SimplifiedAnnotations(
-                            KeyValue.mapFromList(target.annotations.platform()),
-                            KeyValue.mapFromList(target.annotations.cryostat())));
-        }
-    }
-
-    private static record SimplifiedAnnotations(
-            Map<String, String> platform, Map<String, String> cryostat) {
-        public SimplifiedAnnotations() {
-            this(Map.of(), Map.of());
+                    target.labels,
+                    target.annotations);
         }
     }
 }
