@@ -68,7 +68,7 @@ class RulesPostFormIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
-                .post("/api/v2/rules")
+                .post("/api/v3/rules")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.URLENCODED_FORM.mime())
                 .sendForm(
                         MultiMap.caseInsensitiveMultiMap(),
@@ -90,7 +90,7 @@ class RulesPostFormIT extends StandardSelfTest {
 
         try {
             webClient
-                    .post("/api/v2/rules")
+                    .post("/api/v3/rules")
                     .putHeader(
                             HttpHeaders.CONTENT_TYPE.toString(),
                             HttpMimeType.URLENCODED_FORM.mime())
@@ -117,7 +117,7 @@ class RulesPostFormIT extends StandardSelfTest {
 
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();
             webClient
-                    .post("/api/v2/rules")
+                    .post("/api/v3/rules")
                     .putHeader(
                             HttpHeaders.CONTENT_TYPE.toString(),
                             HttpMimeType.URLENCODED_FORM.mime())
@@ -139,7 +139,7 @@ class RulesPostFormIT extends StandardSelfTest {
             // clean up rule before running next test
             CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
             webClient
-                    .delete(String.format("/api/v2/rules/%s", TEST_RULE_NAME))
+                    .delete(String.format("/api/v3/rules/%s", TEST_RULE_NAME))
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteResponse)) {
@@ -175,7 +175,7 @@ class RulesPostFormIT extends StandardSelfTest {
         testRule.add("preservedArchives", "-3");
 
         webClient
-                .post("/api/v2/rules")
+                .post("/api/v3/rules")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.URLENCODED_FORM.mime())
                 .sendForm(
                         testRule,

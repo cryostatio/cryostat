@@ -22,13 +22,16 @@ import static org.hamcrest.Matchers.*;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.mockito.InjectSpy;
+import io.restassured.RestAssured;
 import io.restassured.http.ContentType;
+import io.restassured.parsing.Parser;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.core.MediaType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -46,6 +49,11 @@ public class RulesTest {
     JsonObject rule;
 
     static String RULE_NAME = "my_rule";
+
+    @BeforeAll
+    public static void configureRestAssured() {
+        RestAssured.registerParser("text/plain", Parser.JSON);
+    }
 
     @BeforeEach
     public void setup() {
@@ -87,7 +95,13 @@ public class RulesTest {
                         "data.result", Matchers.hasSize(1),
                         "data.result[0].name", is(RULE_NAME),
                         "data.result[0].matchExpression", is(EXPR_1),
-                        "data.result[0].eventSpecifier", is("my_event_specifier"));
+                        "data.result[0].eventSpecifier", is("my_event_specifier"),
+                        "data.result[0].archivalPeriodSeconds", is(0),
+                        "data.result[0].initialDelaySeconds", is(0),
+                        "data.result[0].preservedArchives", is(0),
+                        "data.result[0].maxAgeSeconds", is(0),
+                        "data.result[0].maxSizeBytes", is(0),
+                        "data.result[0].enabled", is(true));
     }
 
     @Test
@@ -102,7 +116,8 @@ public class RulesTest {
                 .body(
                         "meta.type", is(MediaType.APPLICATION_JSON),
                         "meta.status", is("Created"),
-                        "data.result", is(RULE_NAME));
+                        "data.result.id", notNullValue(),
+                        "data.result.name", is(RULE_NAME));
 
         given().get()
                 .then()
@@ -110,7 +125,7 @@ public class RulesTest {
                 .body(
                         "meta.type", is(MediaType.APPLICATION_JSON),
                         "meta.status", is("OK"),
-                        "data.result", Matchers.hasSize(1),
+                        "data.result", hasSize(1),
                         "data.result[0].name", is(RULE_NAME),
                         "data.result[0].enabled", is(false));
 

@@ -15,7 +15,8 @@
  */
 package io.cryostat.rules;
 
-import io.cryostat.V2Response;
+import java.util.List;
+
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.util.EntityExistsException;
 
@@ -37,32 +38,36 @@ import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
-import org.jboss.resteasy.reactive.RestResponse;
-import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
-@Path("/api/v2/rules")
+@Path("/api/v3/rules")
 public class Rules {
 
     @Inject EventBus bus;
 
     @GET
     @RolesAllowed("read")
-    public RestResponse<V2Response> list() {
-        return RestResponse.ok(V2Response.json(Response.Status.OK, Rule.listAll()));
+    public Response list() {
+        List<Rule> rules = Rule.listAll();
+        JsonObject meta =
+                new JsonObject().put("type", MediaType.APPLICATION_JSON).put("status", "OK");
+        JsonObject data = new JsonObject().put("result", rules);
+        JsonObject response = new JsonObject().put("meta", meta).put("data", data);
+        return Response.ok(response.encode(), MediaType.APPLICATION_JSON).build();
     }
 
     @GET
     @RolesAllowed("read")
     @Path("/{name}")
-    public RestResponse<V2Response> get(@RestPath String name) {
-        return RestResponse.ok(V2Response.json(Response.Status.OK, Rule.getByName(name)));
+    public Response get(@RestPath String name) {
+        Rule rule = Rule.getByName(name);
+        return Response.ok(rule).build();
     }
 
     @Transactional
     @POST
     @RolesAllowed("write")
     @Consumes(MediaType.APPLICATION_JSON)
-    public RestResponse<V2Response> create(Rule rule) {
+    public Response create(Rule rule) {
         // TODO validate the incoming rule
         if (rule == null) {
             throw new BadRequestException("POST body was null");
@@ -75,10 +80,12 @@ public class Rules {
             rule.description = "";
         }
         rule.persist();
-        return ResponseBuilder.create(
-                        Response.Status.CREATED,
-                        V2Response.json(Response.Status.CREATED, rule.name))
-                .build();
+
+        JsonObject meta =
+                new JsonObject().put("type", MediaType.APPLICATION_JSON).put("status", "Created");
+        JsonObject data = new JsonObject().put("result", rule);
+        JsonObject response = new JsonObject().put("meta", meta).put("data", data);
+        return Response.status(Response.Status.CREATED).entity(response.encode()).build();
     }
 
     @Transactional
@@ -86,25 +93,34 @@ public class Rules {
     @RolesAllowed("write")
     @Path("/{name}")
     @Consumes(MediaType.APPLICATION_JSON)
-    public RestResponse<V2Response> update(
-            @RestPath String name, @RestQuery boolean clean, JsonObject body) {
+    public Response update(@RestPath String name, @RestQuery boolean clean, JsonObject body) {
         Rule rule = Rule.getByName(name);
+        if (rule == null) {
+            throw new NotFoundException("Rule with name " + name + " not found");
+        }
+
         boolean enabled = body.getBoolean("enabled");
         // order matters here, we want to clean before we disable
         if (clean && !enabled) {
             bus.send(Rule.RULE_ADDRESS + "?clean", rule);
         }
+
         rule.enabled = enabled;
         rule.persist();
 
-        return ResponseBuilder.ok(V2Response.json(Response.Status.OK, rule)).build();
+        JsonObject meta =
+                new JsonObject().put("type", MediaType.APPLICATION_JSON).put("status", "OK");
+        JsonObject data = new JsonObject().put("result", JsonObject.mapFrom(rule));
+        JsonObject response = new JsonObject().put("meta", meta).put("data", data);
+
+        return Response.ok(response.encode()).type(MediaType.APPLICATION_JSON).build();
     }
 
     @Transactional
     @POST
     @RolesAllowed("write")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
-    public RestResponse<V2Response> create(
+    public Response create(
             @RestForm String name,
             @RestForm String description,
             @RestForm String matchExpression,
@@ -128,14 +144,35 @@ public class Rules {
         rule.maxAgeSeconds = maxAgeSeconds;
         rule.maxSizeBytes = maxSizeBytes;
         rule.enabled = enabled;
-        return create(rule);
+
+        if (Rule.getByName(rule.name) != null) {
+            return Response.status(Response.Status.CONFLICT)
+                    .entity(
+                            new JsonObject()
+                                    .put("error", "Rule already exists with name: " + rule.name)
+                                    .encode())
+                    .type(MediaType.APPLICATION_JSON)
+                    .build();
+        }
+
+        rule.persist();
+
+        JsonObject meta =
+                new JsonObject().put("type", MediaType.APPLICATION_JSON).put("status", "Created");
+        JsonObject data = new JsonObject().put("result", rule.name);
+        JsonObject response = new JsonObject().put("meta", meta).put("data", data);
+
+        return Response.status(Response.Status.CREATED)
+                .entity(response.encode())
+                .type(MediaType.APPLICATION_JSON)
+                .build();
     }
 
     @Transactional
     @DELETE
     @RolesAllowed("write")
     @Path("/{name}")
-    public RestResponse<V2Response> delete(@RestPath String name, @RestQuery boolean clean) {
+    public Response delete(@RestPath String name, @RestQuery boolean clean) {
         Rule rule = Rule.getByName(name);
         if (rule == null) {
             throw new NotFoundException("Rule with name " + name + " not found");
@@ -144,6 +181,12 @@ public class Rules {
             bus.send(Rule.RULE_ADDRESS + "?clean", rule);
         }
         rule.delete();
-        return RestResponse.ok(V2Response.json(Response.Status.OK, null));
+
+        JsonObject meta =
+                new JsonObject().put("type", MediaType.APPLICATION_JSON).put("status", "OK");
+        JsonObject data = new JsonObject().put("result", (JsonObject) null);
+        JsonObject response = new JsonObject().put("meta", meta).put("data", data);
+
+        return Response.ok(response.encode(), MediaType.APPLICATION_JSON).build();
     }
 }
