@@ -17,11 +17,9 @@ package io.cryostat.jmcagent;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import io.cryostat.V2Response;
 import io.cryostat.core.jmcagent.Event;
 import io.cryostat.core.jmcagent.JMCAgentJMXHelper;
 import io.cryostat.core.jmcagent.JMCAgentJMXHelper.ProbeDefinitionException;
@@ -34,12 +32,15 @@ import io.cryostat.ws.Notification;
 
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.eventbus.EventBus;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -139,37 +140,65 @@ public class JMCAgent {
     @Blocking
     @GET
     @Path("/api/v3/targets/{id}/probes")
-    public V2Response getProbes(@RestPath long id) {
+    public Response getProbes(@RestPath long id) {
         try {
             Target target = Target.getTargetById(id);
-            return connectionManager.executeConnectedTask(
+
+            // Enforce return type to Response explicitly
+            return connectionManager.<Response>executeConnectedTask(
                     target,
                     connection -> {
                         JMCAgentJMXHelper helper = new JMCAgentJMXHelper(connection.getHandle());
-                        List<Event> result = new ArrayList<>();
-                        String probes = helper.retrieveEventProbes();
+                        String probes;
                         try {
-                            if (probes != null && !probes.isBlank()) {
-                                ProbeTemplate template = new ProbeTemplate();
-                                template.deserialize(
-                                        new ByteArrayInputStream(
-                                                probes.getBytes(StandardCharsets.UTF_8)));
-                                for (Event e : template.getEvents()) {
-                                    result.add(e);
-                                }
-                            }
-                            return V2Response.json(Response.Status.OK, result);
+                            probes = helper.retrieveEventProbes();
                         } catch (Exception e) {
-                            throw new BadRequestException(e);
+                            logger.error("Failed to retrieve event probes", e);
+                            return Response.status(Response.Status.BAD_REQUEST)
+                                    .entity("Failed to retrieve event probes: " + e.getMessage())
+                                    .build();
+                        }
+
+                        if (probes == null || probes.isBlank()) {
+                            return Response.ok(new JsonArray().encode())
+                                    .type(MediaType.APPLICATION_JSON)
+                                    .build();
+                        }
+
+                        try {
+                            ProbeTemplate template = new ProbeTemplate();
+                            template.deserialize(
+                                    new ByteArrayInputStream(
+                                            probes.getBytes(StandardCharsets.UTF_8)));
+
+                            JsonArray eventsJson = new JsonArray();
+                            for (Event e : template.getEvents()) {
+                                JsonObject eventJson = new JsonObject();
+                                eventJson.put("name", e.name);
+                                eventJson.put("description", e.description);
+                                eventsJson.add(eventJson);
+                            }
+                            return Response.ok(eventsJson.encode())
+                                    .type(MediaType.APPLICATION_JSON)
+                                    .build();
+                        } catch (Exception e) {
+                            // Cleanup the probes if something went wrong
+                            helper.defineEventProbes(null);
+                            logger.error("Error processing probes, cleaning up active probes", e);
+                            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                                    .entity("Error processing probes: " + e.getMessage())
+                                    .build();
                         }
                     });
         } catch (Exception e) {
-            logger.warn("Caught exception" + e.toString(), e);
-            throw new BadRequestException(e);
+            logger.warn("Caught exception while handling getProbes request", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity("Unable to handle the getProbes request: " + e.getMessage())
+                    .build();
         }
     }
 
-    @Blocking
+    /*     @Blocking
     @GET
     @Path("/api/v3/probes")
     public V2Response getProbeTemplates() {
@@ -181,6 +210,31 @@ public class JMCAgent {
                             .toList());
         } catch (Exception e) {
             logger.warn("Caught exception" + e.toString(), e);
+            throw new BadRequestException(e);
+        }
+    } */
+
+    @Blocking
+    @GET
+    @Path("/api/v3/probes")
+    public Response getProbeTemplates() {
+        try {
+            List<SerializableProbeTemplateInfo> templates =
+                    service.getTemplates().stream()
+                            .map(SerializableProbeTemplateInfo::fromProbeTemplate)
+                            .toList();
+
+            JsonArray templatesJson = new JsonArray();
+            for (SerializableProbeTemplateInfo template : templates) {
+                JsonObject templateJson = new JsonObject();
+                templateJson.put("name", template.name());
+                templateJson.put("description", template.xml());
+                templatesJson.add(templateJson);
+            }
+
+            return Response.ok(templatesJson.encode()).type(MediaType.APPLICATION_JSON).build();
+        } catch (Exception e) {
+            logger.warn("Caught exception: " + e.toString(), e);
             throw new BadRequestException(e);
         }
     }
