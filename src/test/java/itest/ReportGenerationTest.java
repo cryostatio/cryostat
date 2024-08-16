@@ -48,7 +48,7 @@ public class ReportGenerationTest extends StandardSelfTest {
     }
 
     private String recordingRequestURL() {
-        return String.format("/api/v3/targets/%d/recordings", getSelfReferenceTargetId());
+        return String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId());
     }
 
     private String archiveListRequestURL() {

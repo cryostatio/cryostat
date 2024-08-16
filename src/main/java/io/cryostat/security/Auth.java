@@ -33,7 +33,7 @@ import org.jboss.resteasy.reactive.RestResponse;
 public class Auth {
 
     @POST
-    @Path("/api/v3/logout")
+    @Path("/api/v4/logout")
     @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
     public Response logout(@Context RoutingContext context) {
@@ -43,7 +43,7 @@ public class Auth {
     }
 
     @POST
-    @Path("/api/v3/auth")
+    @Path("/api/v4/auth")
     @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
     public Response login(@Context RoutingContext context, SecurityContext securityContext) {

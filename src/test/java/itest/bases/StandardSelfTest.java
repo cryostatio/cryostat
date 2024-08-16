@@ -95,7 +95,7 @@ public abstract class StandardSelfTest {
                         .extensions()
                         .get(
                                 String.format(
-                                        "/api/v3/targets/%d/recordings",
+                                        "/api/v4/targets/%d/recordings",
                                         getSelfReferenceTargetId()),
                                 REQUEST_TIMEOUT_SECONDS)
                         .bodyAsJsonArray();
@@ -130,7 +130,7 @@ public abstract class StandardSelfTest {
             WORKER.submit(
                     () -> {
                         webClient
-                                .get("/api/v3/targets")
+                                .get("/api/v4/targets")
                                 .as(BodyCodec.jsonArray())
                                 .timeout(TimeUnit.SECONDS.toMillis(REQUEST_TIMEOUT_SECONDS))
                                 .send(
@@ -143,7 +143,7 @@ public abstract class StandardSelfTest {
                                             HttpResponse<JsonArray> resp = ar.result();
                                             JsonArray arr = resp.body();
                                             logger.tracev(
-                                                    "GET /api/v3/targets -> HTTP {1} {2}: [{3}] ->"
+                                                    "GET /api/v4/targets -> HTTP {1} {2}: [{3}] ->"
                                                             + " {4}",
                                                     selfCustomTargetLocation,
                                                     resp.statusCode(),
@@ -178,7 +178,7 @@ public abstract class StandardSelfTest {
             HttpResponse<Buffer> resp =
                     webClient.extensions().get(selfCustomTargetLocation, REQUEST_TIMEOUT_SECONDS);
             logger.tracev(
-                    "POST /api/v3/targets -> HTTP {0} {1}: [{2}]",
+                    "POST /api/v4/targets -> HTTP {0} {1}: [{2}]",
                     resp.statusCode(), resp.statusMessage(), resp.headers());
             boolean result = HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode());
             if (!result) {
@@ -205,11 +205,11 @@ public abstract class StandardSelfTest {
                     webClient
                             .extensions()
                             .post(
-                                    "/api/v3/targets",
+                                    "/api/v4/targets",
                                     Buffer.buffer(self.encode()),
                                     REQUEST_TIMEOUT_SECONDS);
             logger.tracev(
-                    "POST /api/v3/targets -> HTTP {0} {1}: [{2}]",
+                    "POST /api/v4/targets -> HTTP {0} {1}: [{2}]",
                     resp.statusCode(), resp.statusMessage(), resp.headers());
             if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
                 throw new IllegalStateException(Integer.toString(resp.statusCode()));

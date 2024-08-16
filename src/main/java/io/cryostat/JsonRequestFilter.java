@@ -39,11 +39,11 @@ public class JsonRequestFilter implements ContainerRequestFilter {
     static final Set<String> disallowedFields = Set.of("id");
     static final Set<String> allowedPathPatterns =
             Set.of(
-                    "/api/v3/discovery",
-                    "/api/v3/rules/[\\w]+",
+                    "/api/v4/discovery",
+                    "/api/v4/rules/[\\w]+",
                     "/api/beta/matchExpressions",
                     "/api/v2/graphql",
-                    "/api/v3/graphql");
+                    "/api/v4/graphql");
 
     private final Map<String, Pattern> compiledPatterns = new HashMap<>();
     @Inject ObjectMapper objectMapper;

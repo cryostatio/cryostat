@@ -58,7 +58,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
         // Check preconditions
         CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
         webClient
-                .get(String.format("/api/v3/targets/%d/recordings", getSelfReferenceTargetId()))
+                .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
                 .followRedirects(true)
                 .send(
                         ar -> {
@@ -80,14 +80,14 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                     .extensions()
                     .post(
                             String.format(
-                                    "/api/v3/targets/%d/recordings", getSelfReferenceTargetId()),
+                                    "/api/v4/targets/%d/recordings", getSelfReferenceTargetId()),
                             form,
                             REQUEST_TIMEOUT_SECONDS);
 
             // verify in-memory recording created
             CompletableFuture<JsonArray> listRespFuture2 = new CompletableFuture<>();
             webClient
-                    .get(String.format("/api/v3/targets/%d/recordings", getSelfReferenceTargetId()))
+                    .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
                     .followRedirects(true)
                     .send(
                             ar -> {
@@ -118,7 +118,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                             .extensions()
                             .patch(
                                     String.format(
-                                            "/api/v3/targets/%d/recordings/%d",
+                                            "/api/v4/targets/%d/recordings/%d",
                                             getSelfReferenceTargetId(), TEST_REMOTE_ID),
                                     saveHeaders,
                                     Buffer.buffer("SAVE"),
@@ -129,7 +129,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             // check that the in-memory recording list hasn't changed
             CompletableFuture<JsonArray> listRespFuture3 = new CompletableFuture<>();
             webClient
-                    .get(String.format("/api/v3/targets/%d/recordings", getSelfReferenceTargetId()))
+                    .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
                     .followRedirects(true)
                     .send(
                             ar -> {
@@ -177,7 +177,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             // verify the in-memory recording list has not changed, except recording is now stopped
             CompletableFuture<JsonArray> listRespFuture5 = new CompletableFuture<>();
             webClient
-                    .get(String.format("/api/v3/targets/%d/recordings", getSelfReferenceTargetId()))
+                    .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
                     .followRedirects(true)
                     .send(
                             ar -> {
@@ -244,7 +244,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                         .extensions()
                         .delete(
                                 String.format(
-                                        "/api/v3/targets/%d/recordings/%d",
+                                        "/api/v4/targets/%d/recordings/%d",
                                         getSelfReferenceTargetId(), TEST_REMOTE_ID),
                                 REQUEST_TIMEOUT_SECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {

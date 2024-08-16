@@ -66,7 +66,7 @@ public class UploadRecordingTest extends StandardSelfTest {
         form.add("events", "template=ALL");
 
         CREATE_RECORDING_URL =
-                String.format("/api/v3/targets/%d/recordings", getSelfReferenceTargetId());
+                String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId());
         HttpResponse<Buffer> resp =
                 webClient.extensions().post(CREATE_RECORDING_URL, form, RECORDING_DURATION_SECONDS);
         long id = resp.bodyAsJsonObject().getLong("remoteId");
@@ -85,7 +85,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                             .extensions()
                             .delete(
                                     String.format(
-                                            "/api/v3/targets/%d/recordings/%d",
+                                            "/api/v4/targets/%d/recordings/%d",
                                             getSelfReferenceTargetId(), RECORDING_REMOTE_ID),
                                     REQUEST_TIMEOUT_SECONDS);
             MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(204));
@@ -105,7 +105,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                         .extensions()
                         .post(
                                 String.format(
-                                        "/api/v3/targets/%d/recordings/%d/upload",
+                                        "/api/v4/targets/%d/recordings/%d/upload",
                                         getSelfReferenceTargetId(), RECORDING_REMOTE_ID),
                                 (Buffer) null,
                                 0);

@@ -42,7 +42,7 @@ public class TargetEventsGetTest extends StandardSelfTest {
 
     @BeforeEach
     void setup() {
-        eventReqUrl = String.format("/api/v3/targets/%d/events", getSelfReferenceTargetId());
+        eventReqUrl = String.format("/api/v4/targets/%d/events", getSelfReferenceTargetId());
     }
 
     @Test

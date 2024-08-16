@@ -61,7 +61,7 @@ public class EventTemplates {
     @Inject Logger logger;
 
     @POST
-    @Path("/api/v3/event_templates")
+    @Path("/api/v4/event_templates")
     @RolesAllowed("write")
     public void postTemplates(@RestForm("template") FileUpload body) throws IOException {
         if (body == null || body.filePath() == null || !"template".equals(body.name())) {
@@ -76,7 +76,7 @@ public class EventTemplates {
 
     @DELETE
     @Blocking
-    @Path("/api/v3/event_templates/{templateName}")
+    @Path("/api/v4/event_templates/{templateName}")
     @RolesAllowed("write")
     public void deleteTemplates(@RestPath String templateName) {
         customTemplateService.deleteTemplate(templateName);
@@ -84,7 +84,7 @@ public class EventTemplates {
 
     @GET
     @Blocking
-    @Path("/api/v3/event_templates")
+    @Path("/api/v4/event_templates")
     @RolesAllowed("read")
     public List<Template> listTemplates() throws Exception {
         var list = new ArrayList<Template>();
@@ -95,7 +95,7 @@ public class EventTemplates {
 
     @GET
     @Blocking
-    @Path("/api/v3/targets/{id}/event_templates")
+    @Path("/api/v4/targets/{id}/event_templates")
     @RolesAllowed("read")
     public List<Template> listTargetTemplates(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
@@ -108,7 +108,7 @@ public class EventTemplates {
 
     @GET
     @Blocking
-    @Path("/api/v3/targets/{id}/event_templates/{templateType}/{templateName}")
+    @Path("/api/v4/targets/{id}/event_templates/{templateType}/{templateName}")
     @RolesAllowed("read")
     public Response getTargetTemplate(
             @RestPath long id, @RestPath TemplateType templateType, @RestPath String templateName)

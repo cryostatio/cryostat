@@ -41,7 +41,7 @@ public class TrustStore {
 
     @Blocking
     @GET
-    @Path("/api/v3/tls/certs")
+    @Path("/api/v4/tls/certs")
     @Produces(MediaType.APPLICATION_JSON)
     public List<String> listCerts() throws IOException {
         var accessible =

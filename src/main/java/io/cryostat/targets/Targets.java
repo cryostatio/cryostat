@@ -40,14 +40,14 @@ public class Targets {
     Duration timeout;
 
     @GET
-    @Path("/api/v3/targets")
+    @Path("/api/v4/targets")
     @RolesAllowed("read")
     public List<Target> list() {
         return Target.listAll();
     }
 
     @GET
-    @Path("/api/v3/targets/{id}")
+    @Path("/api/v4/targets/{id}")
     @RolesAllowed("read")
     public Target getById(@RestPath Long id) {
         return Target.find("id", id).singleResult();

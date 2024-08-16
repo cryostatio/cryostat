@@ -75,7 +75,7 @@ public class SnapshotTest extends StandardSelfTest {
     private JsonArray fetchAllRecordings() throws Exception {
         CompletableFuture<JsonArray> recordingsFuture = new CompletableFuture<>();
         webClient
-                .get(String.format("%s/recordings", v3RequestUrl()))
+                .get(String.format("%s/recordings", v4RequestUrl()))
                 .send(
                         ar -> {
                             if (ar.succeeded()) {
@@ -90,7 +90,7 @@ public class SnapshotTest extends StandardSelfTest {
 
     private void deleteRecording(Long remoteId) {
         webClient
-                .delete(String.format("%s/recordings/%d", v3RequestUrl(), remoteId))
+                .delete(String.format("%s/recordings/%d", v4RequestUrl(), remoteId))
                 .send(
                         ar -> {
                             if (!ar.succeeded()) {
@@ -107,8 +107,8 @@ public class SnapshotTest extends StandardSelfTest {
         return String.format("/api/v1/targets/%s", getSelfReferenceConnectUrlEncoded());
     }
 
-    String v3RequestUrl() {
-        return String.format("/api/v3/targets/%d", getSelfReferenceTargetId());
+    String v4RequestUrl() {
+        return String.format("/api/v4/targets/%d", getSelfReferenceTargetId());
     }
 
     @Test
@@ -124,11 +124,11 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    void testPostV3ShouldHandleEmptySnapshot() throws Exception {
+    void testPostv4ShouldHandleEmptySnapshot() throws Exception {
         JsonArray preListResp = fetchPreTestRecordings();
         MatcherAssert.assertThat(preListResp, Matchers.equalTo(new JsonArray()));
 
-        int statusCode = createEmptySnapshot(v3RequestUrl());
+        int statusCode = createEmptySnapshot(v4RequestUrl());
         MatcherAssert.assertThat(statusCode, Matchers.equalTo(202));
 
         JsonArray postListResp = fetchPostTestRecordings();
@@ -168,7 +168,7 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    void testPostV3ShouldCreateSnapshot() throws Exception {
+    void testPostv4ShouldCreateSnapshot() throws Exception {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
 
         // Create a recording
@@ -179,7 +179,7 @@ public class SnapshotTest extends StandardSelfTest {
         // Create a snapshot recording of all events at that time
         CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
         webClient
-                .post(String.format("%s/snapshot", v3RequestUrl()))
+                .post(String.format("%s/snapshot", v4RequestUrl()))
                 .send(
                         ar -> {
                             if (ar.succeeded()) {
@@ -217,7 +217,7 @@ public class SnapshotTest extends StandardSelfTest {
                 json.getLong("startTime"),
                 Matchers.lessThanOrEqualTo(Instant.now().toEpochMilli()));
         MatcherAssert.assertThat(
-                json.getString("downloadUrl"), Matchers.startsWith("/api/v3/activedownload/"));
+                json.getString("downloadUrl"), Matchers.startsWith("/api/v4/activedownload/"));
         MatcherAssert.assertThat(
                 json.getString("reportUrl"),
                 Matchers.equalTo(
@@ -230,10 +230,10 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    void testPostV3SnapshotThrowsWithNonExistentTarget() throws Exception {
+    void testPostv4SnapshotThrowsWithNonExistentTarget() throws Exception {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
         webClient
-                .post("/api/v3/targets/notFound:9000/snapshot")
+                .post("/api/v4/targets/notFound:9000/snapshot")
                 .send(
                         ar -> {
                             assertRequestStatus(ar, snapshotName);
@@ -250,7 +250,7 @@ public class SnapshotTest extends StandardSelfTest {
     private JsonArray fetchPreTestRecordings() throws Exception {
         CompletableFuture<JsonArray> preListRespFuture = new CompletableFuture<>();
         webClient
-                .get(String.format("%s/recordings", v3RequestUrl()))
+                .get(String.format("%s/recordings", v4RequestUrl()))
                 .send(
                         ar -> {
                             if (ar.succeeded()) {
@@ -266,7 +266,7 @@ public class SnapshotTest extends StandardSelfTest {
     private JsonArray fetchPostTestRecordings() throws Exception {
         CompletableFuture<JsonArray> postListRespFuture = new CompletableFuture<>();
         webClient
-                .get(String.format("%s/recordings", v3RequestUrl()))
+                .get(String.format("%s/recordings", v4RequestUrl()))
                 .send(
                         ar -> {
                             if (ar.succeeded()) {
@@ -301,7 +301,7 @@ public class SnapshotTest extends StandardSelfTest {
         form.add("duration", "5");
         form.add("events", "template=ALL");
         webClient
-                .post(String.format("%s/recordings", v3RequestUrl()))
+                .post(String.format("%s/recordings", v4RequestUrl()))
                 .sendForm(
                         form,
                         ar -> {

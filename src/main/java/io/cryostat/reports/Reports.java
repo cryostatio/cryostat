@@ -62,7 +62,7 @@ public class Reports {
 
     @GET
     @Blocking
-    @Path("/api/v3/reports/{encodedKey}")
+    @Path("/api/v4/reports/{encodedKey}")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
     public Uni<Map<String, AnalysisResult>> get(@RestPath String encodedKey) {
@@ -73,7 +73,7 @@ public class Reports {
 
     @GET
     @Blocking
-    @Path("/api/v3/targets/{targetId}/reports/{recordingId}")
+    @Path("/api/v4/targets/{targetId}/reports/{recordingId}")
     @Produces({MediaType.APPLICATION_JSON})
     @RolesAllowed("read")
     @Deprecated(since = "3.0", forRemoval = true)
