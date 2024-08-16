@@ -67,7 +67,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
-                .post("/api/v2/rules")
+                .post("/api/v3/rules")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                 .sendJsonObject(
                         null,
@@ -88,7 +88,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
-                .post("/api/v2/rules")
+                .post("/api/v3/rules")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "text/plain")
                 .sendJsonObject(
                         testRule,
@@ -110,7 +110,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
-                .post("/api/v2/rules")
+                .post("/api/v3/rules")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "NOTAMIME")
                 .sendJsonObject(
                         testRule,
@@ -132,7 +132,7 @@ class RulesPostJsonIT extends StandardSelfTest {
 
         try {
             webClient
-                    .post("/api/v2/rules")
+                    .post("/api/v3/rules")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
@@ -141,23 +141,46 @@ class RulesPostJsonIT extends StandardSelfTest {
                                     response.complete(ar.result().bodyAsJsonObject());
                                 }
                             });
-
-            JsonObject expectedresponse =
-                    new JsonObject(
-                            Map.of(
+            JsonObject firstResponse = response.get(10, TimeUnit.SECONDS);
+            Integer firstResponseId =
+                    firstResponse.getJsonObject("data").getJsonObject("result").getInteger("id");
+            // Define the expected response structure based on the first creation
+            JsonObject expectedCreationResponse =
+                    new JsonObject()
+                            .put(
                                     "meta",
-                                            Map.of(
-                                                    "type",
-                                                    HttpMimeType.JSON.mime(),
-                                                    "status",
-                                                    "Created"),
-                                    "data", Map.of("result", TEST_RULE_NAME)));
+                                    new JsonObject()
+                                            .put("type", HttpMimeType.JSON.mime())
+                                            .put("status", "Created"))
+                            .put(
+                                    "data",
+                                    new JsonObject()
+                                            .put(
+                                                    "result",
+                                                    new JsonObject()
+                                                            .put("id", firstResponseId)
+                                                            .put("name", "Test_Rule")
+                                                            .put(
+                                                                    "description",
+                                                                    "AutoRulesIT automated rule")
+                                                            .put(
+                                                                    "matchExpression",
+                                                                    "target.alias =="
+                                                                        + " 'es.andrewazor.demo.Main'")
+                                                            .put(
+                                                                    "eventSpecifier",
+                                                                    "template=Continuous,type=TARGET")
+                                                            .put("archivalPeriodSeconds", 0)
+                                                            .put("initialDelaySeconds", 0)
+                                                            .put("preservedArchives", 0)
+                                                            .put("maxAgeSeconds", 0)
+                                                            .put("maxSizeBytes", 0)
+                                                            .put("enabled", false)));
             MatcherAssert.assertThat(
-                    response.get(10, TimeUnit.SECONDS), Matchers.equalTo(expectedresponse));
-
+                    response.get(10, TimeUnit.SECONDS), Matchers.equalTo(expectedCreationResponse));
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();
             webClient
-                    .post("/api/v2/rules")
+                    .post("/api/v3/rules")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
@@ -177,7 +200,7 @@ class RulesPostJsonIT extends StandardSelfTest {
             // clean up rule before running next test
             CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
             webClient
-                    .delete(String.format("/api/v2/rules/%s", TEST_RULE_NAME))
+                    .delete(String.format("/api/v3/rules/%s", TEST_RULE_NAME))
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .send(
                             ar -> {
@@ -214,7 +237,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         testRule.put("preservedArchives", -3);
         try {
             webClient
-                    .post("/api/v2/rules")
+                    .post("/api/v3/rules")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
