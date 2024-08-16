@@ -17,19 +17,16 @@ package io.cryostat.graphql;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
 import io.cryostat.discovery.DiscoveryNode;
-import io.cryostat.discovery.KeyValue;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
-import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
 
@@ -53,12 +50,6 @@ public class RootNode {
         return recurseChildren(discoveryNode, n -> n.target != null).stream()
                 .filter(n -> filter == null ? true : filter.test(n))
                 .toList();
-    }
-
-    public @NonNull Map<String, String> labels(
-            @Source DiscoveryNode node, @Nullable List<String> key) {
-        return KeyValue.mapFromList(
-                node.labels.stream().filter(kv -> key == null || key.contains(kv.key())).toList());
     }
 
     static Set<DiscoveryNode> recurseChildren(
@@ -105,9 +96,7 @@ public class RootNode {
                                             .allMatch(
                                                     label ->
                                                             LabelSelectorMatcher.parse(label)
-                                                                    .test(
-                                                                            KeyValue.mapFromList(
-                                                                                    n.labels)));
+                                                                    .test(n.labels));
             Predicate<DiscoveryNode> matchesAnnotations =
                     n ->
                             annotations == null
@@ -118,12 +107,9 @@ public class RootNode {
                                                                     LabelSelectorMatcher.parse(
                                                                                     annotation)
                                                                             .test(
-                                                                                    KeyValue
-                                                                                            .mapFromList(
-                                                                                                    n
-                                                                                                            .target
-                                                                                                            .annotations
-                                                                                                            .merged()))));
+                                                                                    n.target
+                                                                                            .annotations
+                                                                                            .merged())));
 
             return List.of(
                             matchesId,

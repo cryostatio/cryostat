@@ -42,6 +42,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.json.JsonObject;
@@ -107,31 +108,43 @@ public class Discovery {
     @Inject URIUtil uriUtil;
 
     void onStart(@Observes StartupEvent evt) {
-        DiscoveryPlugin.<DiscoveryPlugin>findAll().list().stream()
-                .filter(p -> !p.builtin)
-                .forEach(
-                        plugin -> {
-                            var dataMap = new JobDataMap();
-                            dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
-                            dataMap.put(REFRESH_MAP_KEY, true);
-                            JobDetail jobDetail =
-                                    JobBuilder.newJob(RefreshPluginJob.class)
-                                            .withIdentity(plugin.id.toString(), JOB_STARTUP)
-                                            .usingJobData(dataMap)
-                                            .build();
-                            var trigger =
-                                    TriggerBuilder.newTrigger()
-                                            .usingJobData(jobDetail.getJobDataMap())
-                                            .startNow()
-                                            .withSchedule(
-                                                    SimpleScheduleBuilder.simpleSchedule()
-                                                            .withRepeatCount(0))
-                                            .build();
-                            try {
-                                scheduler.scheduleJob(jobDetail, trigger);
-                            } catch (SchedulerException e) {
-                                logger.warn("Failed to schedule plugin prune job", e);
-                            }
+        QuarkusTransaction.requiringNew()
+                .run(
+                        () -> {
+                            // ensure lazily initialized entries are created
+                            DiscoveryNode.getUniverse();
+                            DiscoveryPlugin.<DiscoveryPlugin>findAll().list().stream()
+                                    .filter(p -> !p.builtin)
+                                    .forEach(
+                                            plugin -> {
+                                                var dataMap = new JobDataMap();
+                                                dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
+                                                dataMap.put(REFRESH_MAP_KEY, true);
+                                                JobDetail jobDetail =
+                                                        JobBuilder.newJob(RefreshPluginJob.class)
+                                                                .withIdentity(
+                                                                        plugin.id.toString(),
+                                                                        JOB_STARTUP)
+                                                                .usingJobData(dataMap)
+                                                                .build();
+                                                var trigger =
+                                                        TriggerBuilder.newTrigger()
+                                                                .usingJobData(
+                                                                        jobDetail.getJobDataMap())
+                                                                .startNow()
+                                                                .withSchedule(
+                                                                        SimpleScheduleBuilder
+                                                                                .simpleSchedule()
+                                                                                .withRepeatCount(0))
+                                                                .build();
+                                                try {
+                                                    scheduler.scheduleJob(jobDetail, trigger);
+                                                } catch (SchedulerException e) {
+                                                    logger.warn(
+                                                            "Failed to schedule plugin prune job",
+                                                            e);
+                                                }
+                                            });
                         });
     }
 
