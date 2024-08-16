@@ -48,7 +48,7 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
     static final String OPTIONS_REQ_URL =
             String.format("/api/v1/targets/%s/recordingOptions", getSelfReferenceConnectUrl());
     static final String OPTIONS_LIST_REQ_URL =
-            String.format("/api/v2/targets/%s/recordingOptionsList", getSelfReferenceConnectUrl());
+            String.format("/api/v3/targets/%s/recordingOptionsList", getSelfReferenceConnectUrl());
     static final String RECORDING_NAME = "test_recording";
     static final String ARCHIVED_REQ_URL = "/api/v1/recordings";
 

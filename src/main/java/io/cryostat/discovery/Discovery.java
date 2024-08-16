@@ -151,7 +151,7 @@ public class Discovery {
     }
 
     @GET
-    @Path("/api/v2.2/discovery/{id}")
+    @Path("/api/v3/discovery/{id}")
     @RolesAllowed("read")
     public RestResponse<Void> checkRegistration(
             @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
@@ -168,7 +168,7 @@ public class Discovery {
 
     @Transactional
     @POST
-    @Path("/api/v2.2/discovery")
+    @Path("/api/v3/discovery")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
@@ -308,7 +308,7 @@ public class Discovery {
 
     @Transactional
     @POST
-    @Path("/api/v2.2/discovery/{id}")
+    @Path("/api/v3/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @PermitAll
     public Map<String, Map<String, String>> publish(
@@ -347,7 +347,7 @@ public class Discovery {
 
     @Transactional
     @DELETE
-    @Path("/api/v2.2/discovery/{id}")
+    @Path("/api/v3/discovery/{id}")
     @PermitAll
     public Map<String, Map<String, String>> deregister(
             @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)

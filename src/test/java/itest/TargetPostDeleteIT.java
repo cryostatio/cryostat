@@ -33,7 +33,7 @@ import org.junit.jupiter.api.Test;
 @QuarkusIntegrationTest
 @Disabled("TODO")
 public class TargetPostDeleteIT extends StandardSelfTest {
-    static final String REQ_URL = "/api/v2/targets";
+    static final String REQ_URL = "/api/v3/targets";
 
     @Test
     public void testPostTargetThrowsWithoutConnectUrlAttribute() throws Exception {
