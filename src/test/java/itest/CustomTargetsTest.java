@@ -91,7 +91,7 @@ public class CustomTargetsTest extends StandardSelfTest {
         }
         webClient
                 .extensions()
-                .delete("/api/v2.2/credentials/" + storedCredential.id, 0)
+                .delete("/api/v3/credentials/" + storedCredential.id, 0)
                 .bodyAsJsonObject();
     }
 
