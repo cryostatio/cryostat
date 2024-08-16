@@ -144,7 +144,6 @@ public class JMCAgent {
         try {
             Target target = Target.getTargetById(id);
 
-            // Enforce return type to Response explicitly
             return connectionManager.<Response>executeConnectedTask(
                     target,
                     connection -> {
@@ -197,22 +196,6 @@ public class JMCAgent {
                     .build();
         }
     }
-
-    /*     @Blocking
-    @GET
-    @Path("/api/v3/probes")
-    public V2Response getProbeTemplates() {
-        try {
-            return V2Response.json(
-                    Response.Status.OK,
-                    service.getTemplates().stream()
-                            .map(SerializableProbeTemplateInfo::fromProbeTemplate)
-                            .toList());
-        } catch (Exception e) {
-            logger.warn("Caught exception" + e.toString(), e);
-            throw new BadRequestException(e);
-        }
-    } */
 
     @Blocking
     @GET
