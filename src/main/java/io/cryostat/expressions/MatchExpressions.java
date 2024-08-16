@@ -22,17 +22,19 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
-import io.cryostat.V2Response;
 import io.cryostat.expressions.MatchExpression.MatchedExpression;
 import io.cryostat.targets.Target;
 
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Multi;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
@@ -50,7 +52,7 @@ public class MatchExpressions {
     // FIXME in a later API version this request should not accept full target objects from the
     // client but instead only a list of IDs, which will then be pulled from the target discovery
     // database for testing
-    public V2Response test(RequestData requestData) throws ScriptException {
+    public Response test(RequestData requestData) throws ScriptException {
         var targets = new HashSet<Target>();
         // don't trust the client to provide the whole Target object to be tested, just extract the
         // connectUrl they provide and use that to look up the Target definition as we know it.
@@ -63,7 +65,34 @@ public class MatchExpressions {
                                         .ifPresent(targets::add));
         var matched =
                 targetMatcher.match(new MatchExpression(requestData.matchExpression), targets);
-        return V2Response.json(Response.Status.OK, matched);
+        // Convert matched expression to JSON object directly
+        JsonObject jsonResponse = createMatchedResponse(matched);
+
+        return Response.ok(jsonResponse.encode(), MediaType.APPLICATION_JSON).build();
+    }
+
+    private JsonObject createMatchedResponse(MatchExpression.MatchedExpression matched) {
+        JsonArray targetsJson = new JsonArray();
+        matched.targets()
+                .forEach(
+                        target -> {
+                            JsonObject targetJson = new JsonObject();
+                            targetJson.put("connectUrl", target.connectUrl);
+                            targetJson.put("alias", target.alias);
+                            targetsJson.add(targetJson);
+                        });
+
+        return new JsonObject()
+                .put(
+                        "meta",
+                        new JsonObject()
+                                .put("type", MediaType.APPLICATION_JSON)
+                                .put("status", "OK"))
+                .put(
+                        "data",
+                        new JsonObject()
+                                .put("matchExpression", matched.expression())
+                                .put("targets", targetsJson));
     }
 
     @GET

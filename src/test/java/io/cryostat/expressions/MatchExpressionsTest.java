@@ -17,8 +17,6 @@ package io.cryostat.expressions;
 
 import static io.restassured.RestAssured.given;
 
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
@@ -43,10 +41,6 @@ public class MatchExpressionsTest {
 
     @Test
     public void testPostWithoutTargets() {
-        var expectation = new HashMap<>();
-        expectation.put("id", null);
-        expectation.put("expression", "true");
-        expectation.put("targets", List.of());
         given().contentType(ContentType.JSON)
                 .body(ALL_MATCHING_EXPRESSION)
                 .when()
@@ -59,6 +53,7 @@ public class MatchExpressionsTest {
                 .and()
                 .body("meta.type", Matchers.equalTo("application/json"))
                 .body("meta.status", Matchers.equalTo("OK"))
-                .body("data.result", Matchers.equalTo(expectation));
+                .body("data.matchExpression", Matchers.equalTo("true"))
+                .body("data.targets.size()", Matchers.is(0));
     }
 }
