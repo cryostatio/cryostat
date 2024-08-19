@@ -107,9 +107,7 @@ public class CustomDiscovery {
             // Continue with target creation if URI is valid...
         } catch (Exception e) {
             logger.error("Target validation failed", e);
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(Map.of(Response.Status.BAD_REQUEST, e.getMessage()))
-                    .build();
+            return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
         }
         // TODO handle credentials embedded in JSON body
         return doV4Create(target, Optional.empty(), dryrun, storeCredentials);
@@ -154,7 +152,7 @@ public class CustomDiscovery {
             if (!uriUtil.validateUri(target.connectUrl)) {
                 return Response.status(Response.Status.BAD_REQUEST)
                         .entity(
-                                Map.of(
+                                String.format(
                                         "The provided URI \"%s\" is unacceptable with the"
                                                 + " current URI range settings.",
                                         target.connectUrl))
@@ -163,7 +161,7 @@ public class CustomDiscovery {
 
             if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
                 return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(Map.of(Response.Status.BAD_REQUEST, "Duplicate connection URL"))
+                        .entity("Duplicate connection URL")
                         .build();
             }
 

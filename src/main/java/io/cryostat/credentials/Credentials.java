@@ -25,9 +25,9 @@ import io.cryostat.expressions.MatchExpression;
 import io.cryostat.expressions.MatchExpression.TargetMatcher;
 
 import io.smallrye.common.annotation.Blocking;
-import io.vertx.core.json.JsonObject;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -67,12 +67,7 @@ public class Credentials {
                             .filter(Objects::nonNull)
                             .toList();
 
-            JsonObject response = new JsonObject();
-            response.put(
-                    "meta", new JsonObject().put("type", "application/json").put("status", "OK"));
-            response.put("data", new JsonObject().put("result", results));
-
-            return Response.ok(response.encode()).type(MediaType.APPLICATION_JSON).build();
+            return Response.ok(results).type(MediaType.APPLICATION_JSON).build();
         } catch (Exception e) {
             logger.error("Error listing credentials", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
@@ -90,9 +85,11 @@ public class Credentials {
         } catch (ScriptException e) {
             logger.error("Error retrieving credential", e);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
+        } catch (NoResultException e) {
+            throw e;
         } catch (Exception e) {
-            logger.error("Credential not found", e);
-            return Response.status(Response.Status.NOT_FOUND).build();
+            logger.error("Unexpected error occurred", e);
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).build();
         }
     }
 
