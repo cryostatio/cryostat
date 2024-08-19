@@ -28,8 +28,6 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 
@@ -42,7 +40,7 @@ public class CredentialCheck {
     @Blocking
     @RolesAllowed("read")
     @Path("/api/beta/credentials/{connectUrl}")
-    public Uni<Response> checkCredentialForTarget(
+    public Uni<CredentialTestResult> checkCredentialForTarget(
             @RestPath String connectUrl, @RestForm String username, @RestForm String password)
             throws URISyntaxException {
         Target target = Target.getTargetByConnectUrl(new URI(connectUrl));
@@ -74,8 +72,7 @@ public class CredentialCheck {
                                                             || connectionManager.isAgentAuthFailure(
                                                                     t))
                                     .recoverWithItem(t -> CredentialTestResult.FAILURE);
-                        })
-                .map(r -> Response.ok(r).type(MediaType.APPLICATION_JSON).build());
+                        });
     }
 
     static enum CredentialTestResult {
