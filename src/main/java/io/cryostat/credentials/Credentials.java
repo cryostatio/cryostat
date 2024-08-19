@@ -15,7 +15,6 @@
  */
 package io.cryostat.credentials;
 
-import java.net.URI;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,8 +32,10 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -99,6 +100,7 @@ public class Credentials {
     @POST
     @RolesAllowed("write")
     public RestResponse<Void> create(
+            @Context UriInfo uriInfo,
             @RestForm String matchExpression,
             @RestForm String username,
             @RestForm String password) {
@@ -109,7 +111,8 @@ public class Credentials {
         credential.username = username;
         credential.password = password;
         credential.persist();
-        return ResponseBuilder.<Void>created(URI.create("/api/v4/credentials/" + credential.id))
+        return ResponseBuilder.<Void>created(
+                        uriInfo.getAbsolutePathBuilder().path(Long.toString(credential.id)).build())
                 .build();
     }
 
