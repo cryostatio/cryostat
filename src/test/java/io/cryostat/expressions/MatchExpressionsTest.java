@@ -51,9 +51,7 @@ public class MatchExpressionsTest {
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("meta.type", Matchers.equalTo("application/json"))
-                .body("meta.status", Matchers.equalTo("OK"))
-                .body("data.matchExpression", Matchers.equalTo("true"))
-                .body("data.targets.size()", Matchers.is(0));
+                .body("expression", Matchers.equalTo("true"))
+                .body("targets.size()", Matchers.is(0));
     }
 }

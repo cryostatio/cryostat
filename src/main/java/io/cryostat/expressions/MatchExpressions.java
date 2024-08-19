@@ -27,8 +27,6 @@ import io.cryostat.targets.Target;
 
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Multi;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -65,34 +63,8 @@ public class MatchExpressions {
                                         .ifPresent(targets::add));
         var matched =
                 targetMatcher.match(new MatchExpression(requestData.matchExpression), targets);
-        // Convert matched expression to JSON object directly
-        JsonObject jsonResponse = createMatchedResponse(matched);
 
-        return Response.ok(jsonResponse.encode(), MediaType.APPLICATION_JSON).build();
-    }
-
-    private JsonObject createMatchedResponse(MatchExpression.MatchedExpression matched) {
-        JsonArray targetsJson = new JsonArray();
-        matched.targets()
-                .forEach(
-                        target -> {
-                            JsonObject targetJson = new JsonObject();
-                            targetJson.put("connectUrl", target.connectUrl);
-                            targetJson.put("alias", target.alias);
-                            targetsJson.add(targetJson);
-                        });
-
-        return new JsonObject()
-                .put(
-                        "meta",
-                        new JsonObject()
-                                .put("type", MediaType.APPLICATION_JSON)
-                                .put("status", "OK"))
-                .put(
-                        "data",
-                        new JsonObject()
-                                .put("matchExpression", matched.expression())
-                                .put("targets", targetsJson));
+        return Response.ok(matched).type(MediaType.APPLICATION_JSON).build();
     }
 
     @GET
