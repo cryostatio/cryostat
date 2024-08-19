@@ -48,6 +48,7 @@ public class Credentials {
     @Inject TargetMatcher targetMatcher;
     @Inject Logger logger;
 
+    @Blocking
     @GET
     @RolesAllowed("read")
     public Response list() {
@@ -58,7 +59,7 @@ public class Credentials {
                             .map(
                                     c -> {
                                         try {
-                                            return Credentials.safeResult(c, targetMatcher);
+                                            return safeResult(c, targetMatcher);
                                         } catch (ScriptException e) {
                                             logger.warn(e);
                                             return null;
@@ -74,13 +75,14 @@ public class Credentials {
         }
     }
 
+    @Blocking
     @GET
     @RolesAllowed("read")
     @Path("/{id}")
     public Response get(@RestPath long id) throws ScriptException {
         try {
             Credential credential = Credential.find("id", id).singleResult();
-            Map<String, Object> result = safeMatchedResult(credential, targetMatcher);
+            Map<String, Object> result = safeResult(credential, targetMatcher);
             return Response.ok(result).type(MediaType.APPLICATION_JSON).build();
         } catch (ScriptException e) {
             logger.error("Error retrieving credential", e);
@@ -131,22 +133,14 @@ public class Credentials {
         return result;
     }
 
-    @Blocking
     static Map<String, Object> safeResult(Credential credential, TargetMatcher matcher)
             throws ScriptException {
         Map<String, Object> result = new HashMap<>();
         result.put("id", credential.id);
         result.put("matchExpression", credential.matchExpression);
+        // TODO remove numMatchingTargets, clients can just use targets.length
         result.put(
                 "numMatchingTargets", matcher.match(credential.matchExpression).targets().size());
-        return result;
-    }
-
-    @Blocking
-    static Map<String, Object> safeMatchedResult(Credential credential, TargetMatcher matcher)
-            throws ScriptException {
-        Map<String, Object> result = new HashMap<>();
-        result.put("matchExpression", credential.matchExpression);
         result.put("targets", matcher.match(credential.matchExpression).targets());
         return result;
     }
