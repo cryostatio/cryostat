@@ -99,7 +99,7 @@ public class Credentials {
     @Transactional
     @POST
     @RolesAllowed("write")
-    public RestResponse<Void> create(
+    public RestResponse<Credential> create(
             @Context UriInfo uriInfo,
             @RestForm String matchExpression,
             @RestForm String username,
@@ -111,8 +111,9 @@ public class Credentials {
         credential.username = username;
         credential.password = password;
         credential.persist();
-        return ResponseBuilder.<Void>created(
+        return ResponseBuilder.<Credential>created(
                         uriInfo.getAbsolutePathBuilder().path(Long.toString(credential.id)).build())
+                .entity(credential)
                 .build();
     }
 
