@@ -143,9 +143,9 @@ public class Credentials {
         result.put("id", credential.id);
         result.put("matchExpression", credential.matchExpression);
         // TODO remove numMatchingTargets, clients can just use targets.length
-        result.put(
-                "numMatchingTargets", matcher.match(credential.matchExpression).targets().size());
-        result.put("targets", matcher.match(credential.matchExpression).targets());
+        var matchedTargets = matcher.match(credential.matchExpression).targets();
+        result.put("numMatchingTargets", matchedTargets.size());
+        result.put("targets", matchedTargets);
         return result;
     }
 }
