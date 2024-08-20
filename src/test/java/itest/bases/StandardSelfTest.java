@@ -58,6 +58,8 @@ import org.junit.jupiter.api.BeforeAll;
 public abstract class StandardSelfTest {
 
     public static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
+    public static String SELF_JMX_URL_ENCODED =
+            URLEncodedUtils.formatSegments(SELF_JMX_URL).substring(1);
     public static final String SELFTEST_ALIAS = "selftest";
     private static final ExecutorService WORKER = Executors.newCachedThreadPool();
     public static final Logger logger = Logger.getLogger(StandardSelfTest.class);
