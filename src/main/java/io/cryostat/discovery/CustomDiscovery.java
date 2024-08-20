@@ -41,6 +41,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.POST;
@@ -110,7 +111,7 @@ public class CustomDiscovery {
             return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
         }
         // TODO handle credentials embedded in JSON body
-        return doV4Create(target, Optional.empty(), dryrun, storeCredentials);
+        return doCreate(target, Optional.empty(), dryrun, storeCredentials);
     }
 
     @Transactional
@@ -139,10 +140,10 @@ public class CustomDiscovery {
             credential.password = password;
         }
 
-        return doV4Create(target, Optional.ofNullable(credential), dryrun, storeCredentials);
+        return doCreate(target, Optional.ofNullable(credential), dryrun, storeCredentials);
     }
 
-    Response doV4Create(
+    Response doCreate(
             Target target,
             Optional<Credential> credential,
             boolean dryrun,
@@ -160,9 +161,7 @@ public class CustomDiscovery {
             }
 
             if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
-                return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity("Duplicate connection URL")
-                        .build();
+                throw new BadRequestException("Duplicate connection URL");
             }
 
             try {
