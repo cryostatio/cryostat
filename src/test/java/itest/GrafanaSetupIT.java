@@ -31,7 +31,7 @@ public class GrafanaSetupIT extends StandardSelfTest {
 
     @Test
     public void shouldHaveConfiguredDatasource() throws Exception {
-        HttpRequest<Buffer> req = webClient.get("/api/v1/grafana_datasource_url");
+        HttpRequest<Buffer> req = webClient.get("/api/v4/grafana_datasource_url");
         CompletableFuture<Integer> future = new CompletableFuture<>();
         req.send(
                 ar -> {
@@ -47,7 +47,7 @@ public class GrafanaSetupIT extends StandardSelfTest {
 
     @Test
     public void shouldHaveConfiguredDashboard() throws Exception {
-        HttpRequest<Buffer> req = webClient.get("/api/v1/grafana_dashboard_url");
+        HttpRequest<Buffer> req = webClient.get("/api/v4/grafana_dashboard_url");
         CompletableFuture<Integer> future = new CompletableFuture<>();
         req.send(
                 ar -> {

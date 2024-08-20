@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 @Disabled("TODO")
 public class MessagingServerIT extends StandardSelfTest {
 
-    public static final String DEPRECATED_COMMAND_PATH = "/api/v1/command";
+    public static final String DEPRECATED_COMMAND_PATH = "/api/v4/command";
 
     public static CompletableFuture<JsonObject> sendMessage(String command, String... args)
             throws InterruptedException, ExecutionException, TimeoutException {

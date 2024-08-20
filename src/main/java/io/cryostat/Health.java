@@ -125,7 +125,7 @@ class Health {
     public void liveness() {}
 
     @GET
-    @Path("/api/v1/grafana_dashboard_url")
+    @Path("/api/v4/grafana_dashboard_url")
     @PermitAll
     @Produces({MediaType.APPLICATION_JSON})
     public Response grafanaDashboardUrl() {
@@ -137,7 +137,7 @@ class Health {
     }
 
     @GET
-    @Path("/api/v1/grafana_datasource_url")
+    @Path("/api/v4/grafana_datasource_url")
     @PermitAll
     @Produces({MediaType.APPLICATION_JSON})
     public Response grafanaDatasourceUrl() {

@@ -76,7 +76,7 @@ public class HealthTest {
 
     @Test
     public void testGrafanaDashboardUrl() {
-        when().get("/api/v1/grafana_dashboard_url")
+        when().get("/api/v4/grafana_dashboard_url")
                 .then()
                 .statusCode(200)
                 .body("grafanaDashboardUrl", is(dashboardURL.orElseGet(() -> "badurl")));
@@ -84,7 +84,7 @@ public class HealthTest {
 
     @Test
     public void testGrafanaDatasourceUrl() {
-        when().get("/api/v1/grafana_datasource_url")
+        when().get("/api/v4/grafana_datasource_url")
                 .then()
                 .statusCode(200)
                 .body("grafanaDatasourceUrl", is(datasourceURL.orElseGet(() -> "badurl")));

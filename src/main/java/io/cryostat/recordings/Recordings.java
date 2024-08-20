@@ -150,15 +150,15 @@ public class Recordings {
 
     @GET
     @Blocking
-    @Path("/api/v1/recordings")
+    @Path("/api/v4/recordings")
     @RolesAllowed("read")
-    public List<ArchivedRecording> listArchivesV1() {
+    public List<ArchivedRecording> listArchivesV4() {
         return recordingHelper.listArchivedRecordings();
     }
 
     @POST
     @Blocking
-    @Path("/api/v1/recordings")
+    @Path("/api/v4/recordings")
     @RolesAllowed("write")
     public Map<String, Object> upload(
             @RestForm("recording") FileUpload recording, @RestForm("labels") JsonObject rawLabels)
@@ -353,7 +353,7 @@ public class Recordings {
 
     @DELETE
     @Blocking
-    @Path("/api/v1/recordings/{filename}")
+    @Path("/api/v4/recordings/{filename}")
     @RolesAllowed("write")
     public void delete(@RestPath String filename) throws Exception {
         // TODO scan all prefixes for matching filename? This is an old v1 API problem.
@@ -497,25 +497,9 @@ public class Recordings {
 
     @POST
     @Transactional
-    @Path("/api/v1/targets/{connectUrl}/snapshot")
-    @RolesAllowed("write")
-    public Uni<Response> createSnapshotV1(@RestPath URI connectUrl) throws Exception {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return recordingHelper
-                .createSnapshot(target)
-                .onItem()
-                .transform(
-                        recording ->
-                                Response.status(Response.Status.OK).entity(recording.name).build())
-                .onFailure(SnapshotCreationException.class)
-                .recoverWithItem(Response.status(Response.Status.ACCEPTED).build());
-    }
-
-    @POST
-    @Transactional
     @Path("/api/v4/targets/{id}/snapshot")
     @RolesAllowed("write")
-    public Uni<Response> createSnapshot(@RestPath long id) throws Exception {
+    public Uni<Response> createSnapshotUsingTargetId(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
         return recordingHelper
                 .createSnapshot(target)

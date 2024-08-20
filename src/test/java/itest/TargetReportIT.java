@@ -48,10 +48,10 @@ public class TargetReportIT extends StandardSelfTest {
     static final String TEST_RECORDING_NAME = "someRecording";
     static final String REPORT_REQ_URL =
             String.format(
-                    "/api/v1/targets/%s/reports/%s",
+                    "/api/v4/targets/%s/reports/%s",
                     getSelfReferenceConnectUrl(), TEST_RECORDING_NAME);
     static final String RECORDING_REQ_URL =
-            String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl());
+            String.format("/api/v4/targets/%s/recordings", getSelfReferenceConnectUrl());
     static final String TEMP_REPORT = "src/test/resources/reportTest.html";
     static File file;
     static Document doc;
@@ -84,7 +84,7 @@ public class TargetReportIT extends StandardSelfTest {
             // Make a webserver request to generate some recording data
             CompletableFuture<JsonArray> targetGetResponse = new CompletableFuture<>();
             webClient
-                    .get("/api/v1/targets")
+                    .get("/api/v4/targets")
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, targetGetResponse)) {

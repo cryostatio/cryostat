@@ -42,7 +42,6 @@ public class JsonRequestFilter implements ContainerRequestFilter {
                     "/api/v4/discovery",
                     "/api/v4/rules/[\\w]+",
                     "/api/beta/matchExpressions",
-                    "/api/v2/graphql",
                     "/api/v4/graphql");
 
     private final Map<String, Pattern> compiledPatterns = new HashMap<>();

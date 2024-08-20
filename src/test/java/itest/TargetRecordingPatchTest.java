@@ -47,7 +47,7 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
     }
 
     String archivesRequestUrl() {
-        return "/api/v1/recordings";
+        return "/api/v4/recordings";
     }
 
     String optionsRequestUrl() {
