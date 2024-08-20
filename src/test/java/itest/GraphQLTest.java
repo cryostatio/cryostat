@@ -70,6 +70,9 @@ class GraphQLTest extends StandardSelfTest {
 
     private final ExecutorService worker = ForkJoinPool.commonPool();
 
+    static final long PER_TEST_DELAY_MS = 1_000L;
+    static final long DATA_COLLECTION_DELAY_MS = 5_000L;
+
     static final String TEST_RECORDING_NAME = "archivedRecording";
 
     @Test
@@ -227,7 +230,7 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(5000);
+        Thread.sleep(DATA_COLLECTION_DELAY_MS);
 
         HttpResponse<Buffer> resp =
                 webClient
@@ -284,7 +287,7 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(4)
     void testArchiveMutation() throws Exception {
-        Thread.sleep(5000);
+        Thread.sleep(PER_TEST_DELAY_MS);
         JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
         Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
@@ -323,7 +326,7 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(5)
     void testActiveRecordingMetadataMutation() throws Exception {
-        Thread.sleep(5000);
+        Thread.sleep(PER_TEST_DELAY_MS);
         JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
 
@@ -387,7 +390,7 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(6)
     void testArchivedRecordingMetadataMutation() throws Exception {
-        Thread.sleep(5000);
+        Thread.sleep(PER_TEST_DELAY_MS);
         // Create a Recording
         JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
@@ -480,7 +483,7 @@ class GraphQLTest extends StandardSelfTest {
     @Order(7)
     void testDeleteMutation() throws Exception {
         // this will delete all Active and Archived recordings that match the filter input.
-        Thread.sleep(5000);
+        Thread.sleep(PER_TEST_DELAY_MS);
         // Create a Recording
         JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
@@ -638,7 +641,7 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(10)
     public void testQueryForFilteredActiveRecordingsByNames() throws Exception {
-        Thread.sleep(5000);
+        Thread.sleep(PER_TEST_DELAY_MS);
         // Create a Recording 1 name (test)
         JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
@@ -669,7 +672,7 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(5000);
+        Thread.sleep(DATA_COLLECTION_DELAY_MS);
 
         HttpResponse<Buffer> resp =
                 webClient
@@ -750,7 +753,6 @@ class GraphQLTest extends StandardSelfTest {
         Assertions.assertTrue(listResp.isEmpty());
 
         // Create a new recording
-        Thread.sleep(5000);
         JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
 
@@ -2679,8 +2681,6 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(5000);
-
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
@@ -2718,8 +2718,6 @@ class GraphQLTest extends StandardSelfTest {
                                 latch.countDown();
                             }
                         });
-
-        Thread.sleep(5000);
 
         HttpResponse<Buffer> resp =
                 webClient
@@ -2778,8 +2776,6 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(5000);
-
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
@@ -2804,7 +2800,6 @@ class GraphQLTest extends StandardSelfTest {
                             + " template: \"Profiling\", templateType: \"TARGET\", replace: \"%s\""
                             + " }) { name state } } } }",
                         replace));
-        Thread.sleep(5000);
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
