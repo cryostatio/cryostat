@@ -18,14 +18,13 @@ package io.cryostat;
 import static io.restassured.RestAssured.when;
 import static org.hamcrest.CoreMatchers.is;
 
-import java.util.Optional;
-
 import io.cryostat.resources.GrafanaResource;
 import io.cryostat.resources.JFRDatasourceResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.http.ContentType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -36,29 +35,18 @@ import org.junit.jupiter.api.Test;
 @TestHTTPEndpoint(Health.class)
 public class HealthTest {
 
-    @ConfigProperty(name = "quarkus.http.host")
-    String host;
-
-    @ConfigProperty(name = "quarkus.http.port")
-    int port;
-
-    @ConfigProperty(name = "quarkus.http.ssl-port")
-    int sslPort;
-
-    @ConfigProperty(name = "quarkus.http.ssl.certificate.key-store-password")
-    Optional<String> sslPass;
-
     @ConfigProperty(name = ConfigProperties.GRAFANA_DASHBOARD_URL)
-    Optional<String> dashboardURL;
+    String dashboardURL;
 
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
-    Optional<String> datasourceURL;
+    String datasourceURL;
 
     @Test
     public void testHealth() {
         when().get("/health")
                 .then()
                 .statusCode(200)
+                .contentType(ContentType.JSON)
                 .body(
                         "cryostatVersion", Matchers.instanceOf(String.class),
                         "dashboardConfigured", is(true),
@@ -79,7 +67,8 @@ public class HealthTest {
         when().get("/api/v4/grafana_dashboard_url")
                 .then()
                 .statusCode(200)
-                .body("grafanaDashboardUrl", is(dashboardURL.orElseGet(() -> "badurl")));
+                .contentType(ContentType.JSON)
+                .body("grafanaDashboardUrl", is(dashboardURL));
     }
 
     @Test
@@ -87,6 +76,7 @@ public class HealthTest {
         when().get("/api/v4/grafana_datasource_url")
                 .then()
                 .statusCode(200)
-                .body("grafanaDatasourceUrl", is(datasourceURL.orElseGet(() -> "badurl")));
+                .contentType(ContentType.JSON)
+                .body("grafanaDatasourceUrl", is(datasourceURL));
     }
 }

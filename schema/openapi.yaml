@@ -24,6 +24,23 @@ components:
             type: string
           type: object
       type: object
+    ApplicationHealth:
+      properties:
+        cryostatVersion:
+          type: string
+        dashboardAvailable:
+          type: boolean
+        dashboardConfigured:
+          type: boolean
+        datasourceAvailable:
+          type: boolean
+        datasourceConfigured:
+          type: boolean
+        reportsAvailable:
+          type: boolean
+        reportsConfigured:
+          type: boolean
+      type: object
     ArchivedRecording:
       properties:
         archivedTime:
@@ -78,6 +95,16 @@ components:
         - FAILURE
         - NA
       type: string
+    DashboardUrl:
+      properties:
+        grafanaDashboardUrl:
+          type: string
+      type: object
+    DatasourceUrl:
+      properties:
+        grafanaDatasourceUrl:
+          type: string
+      type: object
     DiscoveryNode:
       properties:
         children:
@@ -983,6 +1010,10 @@ paths:
     get:
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardUrl'
           description: OK
       tags:
         - Health
@@ -990,6 +1021,10 @@ paths:
     get:
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DatasourceUrl'
           description: OK
       tags:
         - Health
@@ -1838,6 +1873,10 @@ paths:
     get:
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApplicationHealth'
           description: OK
       tags:
         - Health
