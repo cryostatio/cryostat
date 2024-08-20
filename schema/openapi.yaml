@@ -54,6 +54,30 @@ components:
             $ref: '#/components/schemas/ArchivedRecording'
           type: array
       type: object
+    Credential:
+      properties:
+        id:
+          format: int64
+          type: integer
+        matchExpression:
+          $ref: '#/components/schemas/MatchExpression'
+        password:
+          pattern: \S
+          type: string
+        username:
+          pattern: \S
+          type: string
+      required:
+        - matchExpression
+        - username
+        - password
+      type: object
+    CredentialTestResult:
+      enum:
+        - SUCCESS
+        - FAILURE
+        - NA
+      type: string
     DiscoveryNode:
       properties:
         children:
@@ -370,7 +394,9 @@ paths:
       responses:
         "200":
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialTestResult'
           description: OK
         "401":
           description: Not Authorized
@@ -589,107 +615,6 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
-  /api/v1/grafana_dashboard_url:
-    get:
-      responses:
-        "200":
-          description: OK
-      tags:
-        - Health
-  /api/v1/grafana_datasource_url:
-    get:
-      responses:
-        "200":
-          description: OK
-      tags:
-        - Health
-  /api/v1/recordings:
-    get:
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ArchivedRecording'
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      tags:
-        - Recordings
-    post:
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                labels:
-                  $ref: '#/components/schemas/JsonObject'
-                recording:
-                  $ref: '#/components/schemas/FileUpload'
-              type: object
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                additionalProperties: {}
-                type: object
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      tags:
-        - Recordings
-  /api/v1/recordings/{filename}:
-    delete:
-      parameters:
-        - in: path
-          name: filename
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      tags:
-        - Recordings
-  /api/v1/targets/{connectUrl}/snapshot:
-    post:
-      parameters:
-        - in: path
-          name: connectUrl
-          required: true
-          schema:
-            format: uri
-            type: string
-      responses:
-        "200":
-          content:
-            application/json: {}
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      tags:
-        - Recordings
   /api/v4/activedownload/{id}:
     get:
       parameters:
@@ -744,8 +669,12 @@ paths:
                   type: string
               type: object
       responses:
-        "201":
-          description: Created
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Credential'
+          description: OK
         "401":
           description: Not Authorized
         "403":
@@ -1050,6 +979,20 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
+  /api/v4/grafana_dashboard_url:
+    get:
+      responses:
+        "200":
+          description: OK
+      tags:
+        - Health
+  /api/v4/grafana_datasource_url:
+    get:
+      responses:
+        "200":
+          description: OK
+      tags:
+        - Health
   /api/v4/logout:
     post:
       responses:
@@ -1097,6 +1040,71 @@ paths:
           description: OK
       tags:
         - JMC Agent
+  /api/v4/recordings:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedRecording'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+    post:
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                labels:
+                  $ref: '#/components/schemas/JsonObject'
+                recording:
+                  $ref: '#/components/schemas/FileUpload'
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties: {}
+                type: object
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
+  /api/v4/recordings/{filename}:
+    delete:
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Recordings
   /api/v4/reports/{encodedKey}:
     get:
       parameters:
