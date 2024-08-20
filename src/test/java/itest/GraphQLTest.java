@@ -781,7 +781,7 @@ class GraphQLTest extends StandardSelfTest {
         // retrieve to match the exact name
         CompletableFuture<JsonArray> archivedRecordingsFuture2 = new CompletableFuture<>();
         webClient
-                .get(String.format("/api/v1/recordings"))
+                .get(String.format("/api/v4/recordings"))
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, archivedRecordingsFuture2)) {

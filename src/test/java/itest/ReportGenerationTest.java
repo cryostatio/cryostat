@@ -184,7 +184,7 @@ public class ReportGenerationTest extends StandardSelfTest {
             // Get a report for the archived recording
             CompletableFuture<JsonObject> archiveResponse = new CompletableFuture<>();
             webClient
-                    .get(String.format("%s/%s", "/api/v1/reports", savedRecordingName))
+                    .get(String.format("%s/%s", "/api/v4/reports", savedRecordingName))
                     .putHeader(HttpHeaders.ACCEPT.toString(), HttpMimeType.JSON.mime())
                     .send(
                             ar -> {

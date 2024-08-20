@@ -118,7 +118,7 @@ public class UploadRecordingTest extends StandardSelfTest {
         MatcherAssert.assertThat(
                 resp.bodyAsString().trim(), Matchers.equalTo(expectedUploadResponse));
 
-        HttpRequest<Buffer> req = webClient.get("/api/v1/grafana_datasource_url");
+        HttpRequest<Buffer> req = webClient.get("/api/v4/grafana_datasource_url");
         CompletableFuture<JsonObject> respFuture = new CompletableFuture<>();
         req.send(
                 ar -> {

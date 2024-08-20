@@ -151,7 +151,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             // verify saved recording created
             CompletableFuture<JsonArray> listRespFuture4 = new CompletableFuture<>();
             webClient
-                    .get("/api/v1/recordings")
+                    .get("/api/v4/recordings")
                     .followRedirects(true)
                     .send(
                             ar -> {

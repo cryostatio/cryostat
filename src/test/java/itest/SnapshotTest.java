@@ -75,7 +75,7 @@ public class SnapshotTest extends StandardSelfTest {
     private JsonArray fetchAllRecordings() throws Exception {
         CompletableFuture<JsonArray> recordingsFuture = new CompletableFuture<>();
         webClient
-                .get(String.format("%s/recordings", v4RequestUrl()))
+                .get(String.format("%s/recordings", requestUrlUsingTargetId()))
                 .send(
                         ar -> {
                             if (ar.succeeded()) {
@@ -90,7 +90,7 @@ public class SnapshotTest extends StandardSelfTest {
 
     private void deleteRecording(Long remoteId) {
         webClient
-                .delete(String.format("%s/recordings/%d", v4RequestUrl(), remoteId))
+                .delete(String.format("%s/recordings/%d", requestUrlUsingTargetId(), remoteId))
                 .send(
                         ar -> {
                             if (!ar.succeeded()) {
@@ -103,20 +103,16 @@ public class SnapshotTest extends StandardSelfTest {
                         });
     }
 
-    String v1RequestUrl() {
-        return String.format("/api/v1/targets/%s", getSelfReferenceConnectUrlEncoded());
-    }
-
-    String v4RequestUrl() {
+    String requestUrlUsingTargetId() {
         return String.format("/api/v4/targets/%d", getSelfReferenceTargetId());
     }
 
     @Test
-    void testPostV1ShouldHandleEmptySnapshot() throws Exception {
+    void testPostUsingShouldHandleEmptySnapshot() throws Exception {
         JsonArray preListResp = fetchPreTestRecordings();
         MatcherAssert.assertThat(preListResp, Matchers.equalTo(new JsonArray()));
 
-        int statusCode = createEmptySnapshot(v1RequestUrl());
+        int statusCode = createEmptySnapshot(requestUrlUsingTargetId());
         MatcherAssert.assertThat(statusCode, Matchers.equalTo(202));
 
         JsonArray postListResp = fetchPostTestRecordings();
@@ -124,36 +120,10 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    void testPostv4ShouldHandleEmptySnapshot() throws Exception {
-        JsonArray preListResp = fetchPreTestRecordings();
-        MatcherAssert.assertThat(preListResp, Matchers.equalTo(new JsonArray()));
-
-        int statusCode = createEmptySnapshot(v4RequestUrl());
-        MatcherAssert.assertThat(statusCode, Matchers.equalTo(202));
-
-        JsonArray postListResp = fetchPostTestRecordings();
-        MatcherAssert.assertThat(postListResp, Matchers.equalTo(new JsonArray()));
-    }
-
-    @Test
-    void testPostV1ShouldCreateSnapshot() throws Exception {
-        CompletableFuture<String> snapshotName = new CompletableFuture<>();
-        createRecording(snapshotName);
-
-        Thread.sleep(5_000);
-
-        createSnapshot(snapshotName);
-
-        MatcherAssert.assertThat(
-                snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS),
-                Matchers.matchesPattern(SNAPSHOT_NAME_PATTERN));
-    }
-
-    @Test
-    void testPostV1SnapshotThrowsWithNonExistentTarget() throws Exception {
+    void testPostSnapshotThrowsWithNonExistentTarget() throws Exception {
         CompletableFuture<String> snapshotResponse = new CompletableFuture<>();
         webClient
-                .post("/api/v1/targets/notFound%2F9000/snapshot")
+                .post("/api/v4/targets/notFound%2F9000/snapshot")
                 .send(
                         ar -> {
                             assertRequestStatus(ar, snapshotResponse);
@@ -168,7 +138,7 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    void testPostv4ShouldCreateSnapshot() throws Exception {
+    void testPostShouldCreateSnapshot() throws Exception {
         CompletableFuture<String> snapshotName = new CompletableFuture<>();
 
         // Create a recording
@@ -179,7 +149,7 @@ public class SnapshotTest extends StandardSelfTest {
         // Create a snapshot recording of all events at that time
         CompletableFuture<JsonObject> createResponse = new CompletableFuture<>();
         webClient
-                .post(String.format("%s/snapshot", v4RequestUrl()))
+                .post(String.format("%s/snapshot", requestUrlUsingTargetId()))
                 .send(
                         ar -> {
                             if (ar.succeeded()) {
@@ -209,7 +179,6 @@ public class SnapshotTest extends StandardSelfTest {
         JsonObject json = createResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         String resolvedName = snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-        // Validate the JSON response
         MatcherAssert.assertThat(json.getString("name"), Matchers.equalTo(resolvedName));
         MatcherAssert.assertThat(json.getLong("remoteId"), Matchers.greaterThan(0L));
         MatcherAssert.assertThat(json.getString("state"), Matchers.equalTo("STOPPED"));
@@ -229,28 +198,10 @@ public class SnapshotTest extends StandardSelfTest {
         MatcherAssert.assertThat(json.containsKey("expiry"), Matchers.is(false));
     }
 
-    @Test
-    void testPostv4SnapshotThrowsWithNonExistentTarget() throws Exception {
-        CompletableFuture<String> snapshotName = new CompletableFuture<>();
-        webClient
-                .post("/api/v4/targets/notFound:9000/snapshot")
-                .send(
-                        ar -> {
-                            assertRequestStatus(ar, snapshotName);
-                        });
-        ExecutionException ex =
-                Assertions.assertThrows(
-                        ExecutionException.class,
-                        () -> snapshotName.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS));
-        MatcherAssert.assertThat(
-                ((HttpException) ex.getCause()).getStatusCode(), Matchers.equalTo(404));
-        MatcherAssert.assertThat(ex.getCause().getMessage(), Matchers.equalTo("Not Found"));
-    }
-
     private JsonArray fetchPreTestRecordings() throws Exception {
         CompletableFuture<JsonArray> preListRespFuture = new CompletableFuture<>();
         webClient
-                .get(String.format("%s/recordings", v4RequestUrl()))
+                .get(String.format("%s/recordings", requestUrlUsingTargetId()))
                 .send(
                         ar -> {
                             if (ar.succeeded()) {
@@ -266,7 +217,7 @@ public class SnapshotTest extends StandardSelfTest {
     private JsonArray fetchPostTestRecordings() throws Exception {
         CompletableFuture<JsonArray> postListRespFuture = new CompletableFuture<>();
         webClient
-                .get(String.format("%s/recordings", v4RequestUrl()))
+                .get(String.format("%s/recordings", requestUrlUsingTargetId()))
                 .send(
                         ar -> {
                             if (ar.succeeded()) {
@@ -301,7 +252,7 @@ public class SnapshotTest extends StandardSelfTest {
         form.add("duration", "5");
         form.add("events", "template=ALL");
         webClient
-                .post(String.format("%s/recordings", v4RequestUrl()))
+                .post(String.format("%s/recordings", requestUrlUsingTargetId()))
                 .sendForm(
                         form,
                         ar -> {
@@ -313,26 +264,6 @@ public class SnapshotTest extends StandardSelfTest {
                                     REMOTE_ID = remoteId;
                                     recordingsToDelete.add(remoteId);
                                 }
-                            }
-                        });
-    }
-
-    private void createSnapshot(CompletableFuture<String> snapshotName) throws Exception {
-        webClient
-                .post(String.format("%s/snapshot", v1RequestUrl()))
-                .send(
-                        ar -> {
-                            if (ar.succeeded()) {
-                                HttpResponse<Buffer> response = ar.result();
-                                if (response.statusCode() == 200) {
-                                    String name = response.bodyAsString();
-                                    snapshotName.complete(name);
-                                } else {
-                                    snapshotName.completeExceptionally(
-                                            new RuntimeException("Failed to create snapshot"));
-                                }
-                            } else {
-                                snapshotName.completeExceptionally(ar.cause());
                             }
                         });
     }

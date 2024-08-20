@@ -36,7 +36,7 @@ public class NoopAuthIT extends StandardSelfTest {
 
     @BeforeEach
     void createRequest() {
-        req = webClient.post("/api/v1/auth");
+        req = webClient.post("/api/v4/auth");
     }
 
     @Test
