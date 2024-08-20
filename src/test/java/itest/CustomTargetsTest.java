@@ -36,7 +36,6 @@ import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
 import itest.util.http.JvmIdWebRequest;
 import itest.util.http.StoredCredential;
-import org.apache.http.client.utils.URLEncodedUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
@@ -53,8 +52,6 @@ public class CustomTargetsTest extends StandardSelfTest {
     private final ExecutorService worker = Executors.newCachedThreadPool();
     private static String itestJvmId;
     private static StoredCredential storedCredential;
-
-    static String JMX_URL_ENCODED = URLEncodedUtils.formatSegments(SELF_JMX_URL).substring(1);
 
     @BeforeAll
     static void removeTestHarnessTargetDefinition()
