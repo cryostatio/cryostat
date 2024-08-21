@@ -2,7 +2,7 @@
 
 DIR="$(dirname "$(readlink -f "$0")")"
 
-"${DIR}"/../mvnw -f "${DIR}/../pom.xml" -B -U clean compile test-compile
+"${DIR}"/../mvnw -f "${DIR}/../pom.xml" -B -U -Dspotless.check.skip -Dquarkus.quinoa=false clean compile test-compile
 "${DIR}"/../mvnw -f "${DIR}/../pom.xml" -B -U -Dmaven.test.skip -Dquarkus.quinoa=false -Dspotless.check.skip -Dquarkus.smallrye-openapi.info-title="Cryostat API" clean quarkus:dev &
 pid="$!"
 function cleanup() {

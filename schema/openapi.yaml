@@ -89,6 +89,21 @@ components:
         - username
         - password
       type: object
+    CredentialMatchResult:
+      properties:
+        id:
+          format: int64
+          type: integer
+        matchExpression:
+          $ref: '#/components/schemas/MatchExpression'
+        numMatchingTargets:
+          format: int32
+          type: integer
+        targets:
+          items:
+            $ref: '#/components/schemas/Target'
+          type: array
+      type: object
     CredentialTestResult:
       enum:
         - SUCCESS
@@ -673,6 +688,12 @@ paths:
     get:
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/CredentialMatchResult'
+                type: array
           description: OK
         "401":
           description: Not Authorized
@@ -740,6 +761,10 @@ paths:
             type: integer
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialMatchResult'
           description: OK
         "401":
           description: Not Authorized
