@@ -108,9 +108,6 @@ public class Discovery {
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
-        // ensure lazily initialized entries are created
-        DiscoveryNode.getUniverse();
-
         DiscoveryPlugin.<DiscoveryPlugin>findAll().list().stream()
                 .filter(p -> !p.builtin)
                 .forEach(
