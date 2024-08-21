@@ -107,9 +107,7 @@ public class DiscoveryNode extends PanacheEntity {
 
     public static DiscoveryNode getUniverse() {
         return DiscoveryNode.find(NODE_TYPE, BaseNodeType.UNIVERSE.getKind())
-                .<DiscoveryNode>singleResultOptional()
-                .orElseGet(
-                        () -> environment(BaseNodeType.UNIVERSE.toString(), BaseNodeType.UNIVERSE));
+                .<DiscoveryNode>singleResult();
     }
 
     public static Optional<DiscoveryNode> getRealm(String name) {
