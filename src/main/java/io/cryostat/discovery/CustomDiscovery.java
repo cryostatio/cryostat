@@ -44,10 +44,13 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -56,6 +59,8 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
+import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
 @ApplicationScoped
 @Path("")
@@ -93,25 +98,26 @@ public class CustomDiscovery {
     @Path("/api/v4/targets")
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
-    public Response create(
-            Target target, @RestQuery boolean dryrun, @RestQuery boolean storeCredentials) {
+    public RestResponse<Target> create(
+            @Context UriInfo uriInfo,
+            Target target,
+            @RestQuery boolean dryrun,
+            @RestQuery boolean storeCredentials) {
         try {
             if (!uriUtil.validateUri(target.connectUrl)) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(
-                                String.format(
-                                        "The provided URI \"%s\" is unacceptable with the"
-                                                + " current URI range settings.",
-                                        target.connectUrl))
-                        .build();
+                throw new BadRequestException(
+                        String.format(
+                                "The provided URI \"%s\" is unacceptable with the"
+                                        + " current URI range settings.",
+                                target.connectUrl));
             }
             // Continue with target creation if URI is valid...
         } catch (Exception e) {
             logger.error("Target validation failed", e);
-            return Response.status(Response.Status.BAD_REQUEST).entity(e.getMessage()).build();
+            throw new BadRequestException("Target validation failed", e);
         }
         // TODO handle credentials embedded in JSON body
-        return doCreate(target, Optional.empty(), dryrun, storeCredentials);
+        return doCreate(uriInfo, target, Optional.empty(), dryrun, storeCredentials);
     }
 
     @Transactional
@@ -119,7 +125,8 @@ public class CustomDiscovery {
     @Path("/api/v4/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @RolesAllowed("write")
-    public Response create(
+    public RestResponse<Target> createForm(
+            @Context UriInfo uriInfo,
             @RestForm URI connectUrl,
             @RestForm String alias,
             @RestForm String username,
@@ -140,10 +147,11 @@ public class CustomDiscovery {
             credential.password = password;
         }
 
-        return doCreate(target, Optional.ofNullable(credential), dryrun, storeCredentials);
+        return doCreate(uriInfo, target, Optional.ofNullable(credential), dryrun, storeCredentials);
     }
 
-    Response doCreate(
+    RestResponse<Target> doCreate(
+            UriInfo uriInfo,
             Target target,
             Optional<Credential> credential,
             boolean dryrun,
@@ -151,13 +159,11 @@ public class CustomDiscovery {
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
             if (!uriUtil.validateUri(target.connectUrl)) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(
-                                String.format(
-                                        "The provided URI \"%s\" is unacceptable with the"
-                                                + " current URI range settings.",
-                                        target.connectUrl))
-                        .build();
+                throw new BadRequestException(
+                        String.format(
+                                "The provided URI \"%s\" is unacceptable with the"
+                                        + " current URI range settings.",
+                                target.connectUrl));
             }
 
             if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
@@ -176,14 +182,8 @@ public class CustomDiscovery {
                                         .atMost(timeout);
 
                 if (Target.find("jvmId", jvmId).count() > 0) {
-                    return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                            .entity(
-                                    Map.of(
-                                            Response.Status.BAD_REQUEST,
-                                            String.format(
-                                                    "Target with JVM ID \"%s\" already discovered",
-                                                    jvmId)))
-                            .build();
+                    throw new BadRequestException(
+                            String.format("Target with JVM ID \"%s\" already discovered", jvmId));
                 }
             } catch (Exception e) {
                 logger.error("Target connection failed", e);
@@ -195,13 +195,11 @@ public class CustomDiscovery {
                                         : connectionManager.isServiceTypeFailure(e)
                                                 ? "Unexpected service type on port"
                                                 : "Target connection failed";
-                return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(Map.of(Response.Status.BAD_REQUEST, msg))
-                        .build();
+                throw new BadRequestException(msg, e);
             }
 
             if (dryrun) {
-                return Response.accepted().entity(Map.of(Response.Status.ACCEPTED, target)).build();
+                return ResponseBuilder.accepted(target).build();
             }
 
             target.persist();
@@ -222,20 +220,17 @@ public class CustomDiscovery {
             node.persist();
             realm.persist();
 
-            return Response.created(URI.create("/api/v4/targets/" + target.id))
-                    .entity(Map.of(Response.Status.CREATED, target))
+            return ResponseBuilder.<Target>created(
+                            uriInfo.getAbsolutePathBuilder().path(Long.toString(target.id)).build())
+                    .entity(target)
                     .build();
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
-                return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(Map.of(Response.Status.BAD_REQUEST, "Duplicate connection URL"))
-                        .build();
+                throw new BadRequestException("Duplicate connection URL", e);
             }
             logger.error("Unknown error", e);
-            return Response.serverError()
-                    .entity(Map.of(Response.Status.INTERNAL_SERVER_ERROR, e))
-                    .build();
+            throw new InternalServerErrorException(e);
         }
     }
 

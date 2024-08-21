@@ -135,21 +135,19 @@ public class CredentialsTest extends BaseTest {
     }
 
     private int createTestCredential() {
-        int id =
-                given().log()
-                        .all()
-                        .contentType(ContentType.URLENC)
-                        .formParam("matchExpression", "true")
-                        .formParam("username", "user")
-                        .formParam("password", "pass")
-                        .when()
-                        .post()
-                        .then()
-                        .log()
-                        .all()
-                        .extract()
-                        .jsonPath()
-                        .getInt("id");
-        return id;
+        return given().log()
+                .all()
+                .contentType(ContentType.URLENC)
+                .formParam("matchExpression", "true")
+                .formParam("username", "user")
+                .formParam("password", "pass")
+                .when()
+                .post()
+                .then()
+                .log()
+                .all()
+                .extract()
+                .jsonPath()
+                .getInt("id");
     }
 }

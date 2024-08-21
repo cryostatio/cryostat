@@ -15,75 +15,192 @@
  */
 package io.cryostat.discovery;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static io.restassured.RestAssured.given;
 
-import java.net.URI;
-import java.util.Optional;
+import java.util.List;
 
-import io.cryostat.targets.Target;
-import io.cryostat.targets.TargetConnectionManager;
-
-import io.quarkus.test.InjectMock;
+import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
-import io.smallrye.mutiny.Uni;
-import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
-import jakarta.ws.rs.core.Response;
+import io.restassured.http.ContentType;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@TestHTTPEndpoint(CustomDiscovery.class)
 public class CustomDiscoveryTest {
 
-    @Inject CustomDiscovery customDiscovery;
-
-    @InjectMock TargetConnectionManager connectionManager;
-
     @Test
-    @Transactional
-    public void testCreateAndDeleteTargetWithValidJmxUrl() throws Exception {
-
-        Target target = new Target();
-        target.connectUrl = new URI("service:jmx:rmi:///jndi/rmi://localhost:9999/jmxrmi");
-        target.alias = "test-alias";
-
-        when(connectionManager.executeDirect(any(), any(), any()))
-                .thenReturn(Uni.createFrom().item("some-jvm-id"));
-
-        Response response = customDiscovery.create(target, false, false);
-
-        assertEquals(Response.Status.CREATED.getStatusCode(), response.getStatus());
-        Target createdTarget = Target.find("connectUrl", target.connectUrl).singleResult();
-        assertNotNull(createdTarget);
-        assertEquals("some-jvm-id", createdTarget.jvmId);
-
-        long targetId = createdTarget.id;
-
-        Response finalDeleteResponse = customDiscovery.delete(targetId);
-        assertEquals(Response.Status.NO_CONTENT.getStatusCode(), finalDeleteResponse.getStatus());
-
-        // Verify deletion
-        Optional<Target> deletedTarget =
-                Target.find("connectUrl", target.connectUrl).singleResultOptional();
-        assertTrue(deletedTarget.isEmpty());
+    public void testListEmpty() {
+        given().log()
+                .all()
+                .when()
+                .get("/api/v4/targets")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("", Matchers.equalTo(List.of()));
     }
 
     @Test
-    @Transactional
-    public void testCreateTargetWithInvalidJmxUrl() throws Exception {
+    public void testGetNone() {
+        given().log()
+                .all()
+                .when()
+                .get("/api/v4/targets/1")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(404);
+    }
 
-        Target target = new Target();
-        target.connectUrl = new URI("service:jmx:rmi:///jndi/rmi://invalid-host:9999/jmxrmi");
-        target.alias = "test-invalid-alias";
+    @Test
+    public void testCreate() {
+        int id =
+                given().log()
+                        .all()
+                        .contentType(ContentType.URLENC)
+                        .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
+                        .formParam("alias", "CustomDiscoveryTest")
+                        .when()
+                        .post("/api/v4/targets")
+                        .then()
+                        .log()
+                        .all()
+                        .assertThat()
+                        .statusCode(201)
+                        .and()
+                        .header(
+                                "Location",
+                                Matchers.matchesRegex(
+                                        "https?://[\\.\\w]+:[\\d]+/api/v4/targets/[\\d]+"))
+                        .and()
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .body("id", Matchers.instanceOf(Integer.class))
+                        .body("id", Matchers.greaterThanOrEqualTo(1))
+                        .body("connectUrl", Matchers.instanceOf(String.class))
+                        .body(
+                                "connectUrl",
+                                Matchers.equalTo(
+                                        "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi"))
+                        .body("alias", Matchers.instanceOf(String.class))
+                        .body("alias", Matchers.equalTo("CustomDiscoveryTest"))
+                        .extract()
+                        .jsonPath()
+                        .getInt("id");
 
-        when(connectionManager.executeDirect(any(), any(), any()))
-                .thenReturn(Uni.createFrom().failure(new RuntimeException("Connection failed")));
+        given().log()
+                .all()
+                .when()
+                .delete("/api/v4/targets/{id}", id)
+                .then()
+                .assertThat()
+                .statusCode(204);
+    }
 
-        Response response = customDiscovery.create(target, false, false);
+    @Test
+    public void testCreateDryRun() {
+        given().log()
+                .all()
+                .contentType(ContentType.URLENC)
+                .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
+                .formParam("alias", "CustomDiscoveryTest")
+                .queryParam("dryrun", true)
+                .when()
+                .post("/api/v4/targets")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(202)
+                .and()
+                .header("Location", Matchers.emptyOrNullString());
+    }
 
-        assertEquals(Response.Status.BAD_REQUEST.getStatusCode(), response.getStatus());
+    @Test
+    public void testCreateInvalid() {
+        given().log()
+                .all()
+                .contentType(ContentType.URLENC)
+                .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://invalid-host:9999/jmxrmi")
+                .formParam("alias", "CustomDiscoveryTest")
+                .when()
+                .post("/api/v4/targets")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(500);
+    }
+
+    @Test
+    public void testGet() throws InterruptedException {
+        int id = createTestTarget();
+
+        given().log()
+                .all()
+                .when()
+                .get("/api/v4/targets/{id}", id)
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("id", Matchers.instanceOf(Integer.class))
+                .body("id", Matchers.equalTo(id))
+                .body("connectUrl", Matchers.instanceOf(String.class))
+                .body(
+                        "connectUrl",
+                        Matchers.equalTo("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi"))
+                .body("alias", Matchers.instanceOf(String.class))
+                .body("alias", Matchers.equalTo("CustomDiscoveryTest"));
+
+        given().log()
+                .all()
+                .when()
+                .delete("/api/v4/targets/{id}", id)
+                .then()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    @Test
+    public void testDelete() throws InterruptedException {
+        int id = createTestTarget();
+
+        given().log()
+                .all()
+                .when()
+                .delete("/api/v4/targets/{id}", id)
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    private int createTestTarget() {
+        return given().log()
+                .all()
+                .contentType(ContentType.URLENC)
+                .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
+                .formParam("alias", "CustomDiscoveryTest")
+                .when()
+                .post("/api/v4/targets")
+                .then()
+                .log()
+                .all()
+                .extract()
+                .jsonPath()
+                .getInt("id");
     }
 }
