@@ -106,7 +106,7 @@ public class CustomTargetsTest extends StandardSelfTest {
                                                 .encode()),
                                 REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(202));
-        JsonObject body = response.bodyAsJsonObject().getJsonObject("ACCEPTED");
+        JsonObject body = response.bodyAsJsonObject();
         MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));
         MatcherAssert.assertThat(body.getString("alias"), Matchers.equalTo("self"));
         MatcherAssert.assertThat(body.getString("jvmId"), Matchers.equalTo(itestJvmId));
@@ -176,7 +176,7 @@ public class CustomTargetsTest extends StandardSelfTest {
                                 REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(201));
 
-        JsonObject body = response.bodyAsJsonObject().getJsonObject("CREATED");
+        JsonObject body = response.bodyAsJsonObject();
         latch.await(30, TimeUnit.SECONDS);
 
         MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));
