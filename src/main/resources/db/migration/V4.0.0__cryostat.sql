@@ -3,7 +3,7 @@
 
     create sequence Credential_SEQ start with 1 increment by 50;
 
-    create sequence DiscoveryNode_SEQ start with 1 increment by 50;
+    create sequence DiscoveryNode_SEQ start with 1 increment by 1;
 
     create sequence MatchExpression_SEQ start with 1 increment by 50;
 
@@ -121,3 +121,42 @@
        add constraint FKl0dhd7qeayg54dcoblpww6x34 
        foreign key (discoveryNode) 
        references DiscoveryNode;
+
+
+    /* Insert the Universe node first explicitly to ensure it gets the first ID in sequence */
+    insert into DiscoveryNode(
+        id,
+        labels,
+        name,
+        nodeType,
+        parentNode
+    ) values((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'Universe', 'Universe', null);
+
+    /* Select the Universe node, then insert Realm nodes for each builtin discovery plugin with the universe as their parent */
+    with universe as (
+        select id from DiscoveryNode where (nodeType = 'Universe')
+    )
+    insert into DiscoveryNode(
+        id,
+        labels,
+        name,
+        nodeType,
+        parentNode
+    ) values
+    ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'Custom Targets', 'Realm', (select id from universe)),
+    ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'KubernetesApi', 'Realm', (select id from universe)),
+    ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'JDP', 'Realm', (select id from universe)),
+    ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'Podman', 'Realm', (select id from universe)),
+    ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'Docker', 'Realm', (select id from universe));
+
+    /* For each Realm node, register a corresponding plugin */
+    insert into DiscoveryPlugin(
+        id,
+        builtin,
+        callback,
+        credential_id,
+        realm_id
+    )
+    select gen_random_uuid(), true, null, null, DiscoveryNode.id
+    from DiscoveryNode
+    where nodeType = 'Realm';

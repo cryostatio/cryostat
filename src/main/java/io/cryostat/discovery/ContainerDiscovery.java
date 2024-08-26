@@ -200,18 +200,6 @@ public abstract class ContainerDiscovery {
             return;
         }
 
-        DiscoveryNode universe = DiscoveryNode.getUniverse();
-        if (DiscoveryNode.getRealm(getRealm()).isEmpty()) {
-            DiscoveryPlugin plugin = new DiscoveryPlugin();
-            DiscoveryNode node = DiscoveryNode.environment(getRealm(), BaseNodeType.REALM);
-            plugin.realm = node;
-            plugin.builtin = true;
-            universe.children.add(node);
-            node.parent = universe;
-            plugin.persist();
-            universe.persist();
-        }
-
         logger.debugv("Starting {0} client", getRealm());
 
         queryContainers();
