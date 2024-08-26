@@ -19,25 +19,19 @@ import static io.restassured.RestAssured.given;
 
 import java.util.Map;
 
+import io.cryostat.BaseTest;
+
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
-import jakarta.transaction.Transactional;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(MatchExpressions.class)
-public class MatchExpressionsTest {
+public class MatchExpressionsTest extends BaseTest {
 
     static final Map<String, String> ALL_MATCHING_EXPRESSION = Map.of("matchExpression", "true");
-
-    @AfterEach
-    @Transactional
-    public void afterEach() {
-        MatchExpression.deleteAll();
-    }
 
     @Test
     public void testPostWithoutTargets() {
