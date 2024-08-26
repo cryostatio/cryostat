@@ -19,6 +19,8 @@ import static io.restassured.RestAssured.given;
 
 import java.util.List;
 
+import io.cryostat.BaseTest;
+
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -27,7 +29,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(CustomDiscovery.class)
-public class CustomDiscoveryTest {
+public class CustomDiscoveryTest extends BaseTest {
 
     @Test
     public void testListEmpty() {
