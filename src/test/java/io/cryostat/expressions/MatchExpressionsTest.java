@@ -19,7 +19,7 @@ import static io.restassured.RestAssured.given;
 
 import java.util.Map;
 
-import io.cryostat.BaseTest;
+import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(MatchExpressions.class)
-public class MatchExpressionsTest extends BaseTest {
+public class MatchExpressionsTest extends AbstractTransactionalTestBase {
 
     static final Map<String, String> ALL_MATCHING_EXPRESSION = Map.of("matchExpression", "true");
 

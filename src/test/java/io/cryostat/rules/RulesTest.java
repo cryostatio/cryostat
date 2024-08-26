@@ -19,7 +19,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.*;
 
-import io.cryostat.BaseTest;
+import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
@@ -34,7 +34,7 @@ import org.mockito.Mockito;
 
 @QuarkusTest
 @TestHTTPEndpoint(Rules.class)
-public class RulesTest extends BaseTest {
+public class RulesTest extends AbstractTransactionalTestBase {
 
     private static final String EXPR_1 = "true";
     private static final String EXPR_2 = "false";

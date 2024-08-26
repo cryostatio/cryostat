@@ -20,7 +20,7 @@ import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
-public abstract class BaseTest {
+public abstract class AbstractTransactionalTestBase {
 
     @Inject Flyway flyway;
 
@@ -32,5 +32,6 @@ public abstract class BaseTest {
     @AfterEach
     void cleanup() {
         flyway.clean();
+        flyway.migrate();
     }
 }

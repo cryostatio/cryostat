@@ -19,7 +19,7 @@ import static io.restassured.RestAssured.given;
 
 import java.util.List;
 
-import io.cryostat.BaseTest;
+import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
@@ -29,7 +29,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(CustomDiscovery.class)
-public class CustomDiscoveryTest extends BaseTest {
+public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testListEmpty() {
