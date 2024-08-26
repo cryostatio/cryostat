@@ -33,11 +33,14 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
+import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
 @Path("/api/v4/rules")
 public class Rules {
@@ -46,28 +49,22 @@ public class Rules {
 
     @GET
     @RolesAllowed("read")
-    public Response list() {
-        List<Rule> rules = Rule.listAll();
-        JsonObject meta =
-                new JsonObject().put("type", MediaType.APPLICATION_JSON).put("status", "OK");
-        JsonObject data = new JsonObject().put("result", rules);
-        JsonObject response = new JsonObject().put("meta", meta).put("data", data);
-        return Response.ok(response.encode(), MediaType.APPLICATION_JSON).build();
+    public List<Rule> list() {
+        return Rule.listAll();
     }
 
     @GET
     @RolesAllowed("read")
     @Path("/{name}")
-    public Response get(@RestPath String name) {
-        Rule rule = Rule.getByName(name);
-        return Response.ok(rule).build();
+    public Rule get(@RestPath String name) {
+        return Rule.getByName(name);
     }
 
     @Transactional
     @POST
     @RolesAllowed("write")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response create(Rule rule) {
+    public RestResponse<Rule> create(@Context UriInfo uriInfo, Rule rule) {
         // TODO validate the incoming rule
         if (rule == null) {
             throw new BadRequestException("POST body was null");
@@ -81,11 +78,10 @@ public class Rules {
         }
         rule.persist();
 
-        JsonObject meta =
-                new JsonObject().put("type", MediaType.APPLICATION_JSON).put("status", "Created");
-        JsonObject data = new JsonObject().put("result", rule);
-        JsonObject response = new JsonObject().put("meta", meta).put("data", data);
-        return Response.status(Response.Status.CREATED).entity(response.encode()).build();
+        return ResponseBuilder.<Rule>created(
+                        uriInfo.getAbsolutePathBuilder().path(Long.toString(rule.id)).build())
+                .entity(rule)
+                .build();
     }
 
     @Transactional
@@ -93,7 +89,7 @@ public class Rules {
     @RolesAllowed("write")
     @Path("/{name}")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response update(@RestPath String name, @RestQuery boolean clean, JsonObject body) {
+    public Rule update(@RestPath String name, @RestQuery boolean clean, JsonObject body) {
         Rule rule = Rule.getByName(name);
         if (rule == null) {
             throw new NotFoundException("Rule with name " + name + " not found");
@@ -108,19 +104,15 @@ public class Rules {
         rule.enabled = enabled;
         rule.persist();
 
-        JsonObject meta =
-                new JsonObject().put("type", MediaType.APPLICATION_JSON).put("status", "OK");
-        JsonObject data = new JsonObject().put("result", JsonObject.mapFrom(rule));
-        JsonObject response = new JsonObject().put("meta", meta).put("data", data);
-
-        return Response.ok(response.encode()).type(MediaType.APPLICATION_JSON).build();
+        return rule;
     }
 
     @Transactional
     @POST
     @RolesAllowed("write")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
-    public Response create(
+    public RestResponse<Rule> create(
+            @Context UriInfo uriInfo,
             @RestForm String name,
             @RestForm String description,
             @RestForm String matchExpression,
@@ -146,25 +138,14 @@ public class Rules {
         rule.enabled = enabled;
 
         if (Rule.getByName(rule.name) != null) {
-            return Response.status(Response.Status.CONFLICT)
-                    .entity(
-                            new JsonObject()
-                                    .put("error", "Rule already exists with name: " + rule.name)
-                                    .encode())
-                    .type(MediaType.APPLICATION_JSON)
-                    .build();
+            return ResponseBuilder.<Rule>create(RestResponse.Status.CONFLICT).entity(rule).build();
         }
 
         rule.persist();
 
-        JsonObject meta =
-                new JsonObject().put("type", MediaType.APPLICATION_JSON).put("status", "Created");
-        JsonObject data = new JsonObject().put("result", rule.name);
-        JsonObject response = new JsonObject().put("meta", meta).put("data", data);
-
-        return Response.status(Response.Status.CREATED)
-                .entity(response.encode())
-                .type(MediaType.APPLICATION_JSON)
+        return ResponseBuilder.<Rule>created(
+                        uriInfo.getAbsolutePathBuilder().path(Long.toString(rule.id)).build())
+                .entity(rule)
                 .build();
     }
 
@@ -172,7 +153,7 @@ public class Rules {
     @DELETE
     @RolesAllowed("write")
     @Path("/{name}")
-    public Response delete(@RestPath String name, @RestQuery boolean clean) {
+    public void delete(@RestPath String name, @RestQuery boolean clean) {
         Rule rule = Rule.getByName(name);
         if (rule == null) {
             throw new NotFoundException("Rule with name " + name + " not found");
@@ -181,12 +162,5 @@ public class Rules {
             bus.send(Rule.RULE_ADDRESS + "?clean", rule);
         }
         rule.delete();
-
-        JsonObject meta =
-                new JsonObject().put("type", MediaType.APPLICATION_JSON).put("status", "OK");
-        JsonObject data = new JsonObject().put("result", (JsonObject) null);
-        JsonObject response = new JsonObject().put("meta", meta).put("data", data);
-
-        return Response.ok(response.encode(), MediaType.APPLICATION_JSON).build();
     }
 }
