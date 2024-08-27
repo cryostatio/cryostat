@@ -24,6 +24,17 @@ components:
             type: string
           type: object
       type: object
+    Annotations_Flat:
+      properties:
+        cryostat:
+          additionalProperties:
+            type: string
+          type: object
+        platform:
+          additionalProperties:
+            type: string
+          type: object
+      type: object
     ApplicationHealth:
       properties:
         cryostatVersion:
@@ -71,6 +82,11 @@ components:
             $ref: '#/components/schemas/ArchivedRecording'
           type: array
       type: object
+    AuthResponse:
+      properties:
+        username:
+          type: string
+      type: object
     Credential:
       properties:
         id:
@@ -96,9 +112,6 @@ components:
           type: integer
         matchExpression:
           $ref: '#/components/schemas/MatchExpression'
-        numMatchingTargets:
-          format: int32
-          type: integer
         targets:
           items:
             $ref: '#/components/schemas/Target'
@@ -146,6 +159,28 @@ components:
         - nodeType
         - labels
       type: object
+    DiscoveryNode_Flat:
+      properties:
+        id:
+          format: int64
+          type: integer
+        labels:
+          additionalProperties:
+            type: string
+          type: object
+        name:
+          pattern: \S
+          type: string
+        nodeType:
+          pattern: \S
+          type: string
+        target:
+          $ref: '#/components/schemas/Target_Flat'
+      required:
+        - name
+        - nodeType
+        - labels
+      type: object
     DiscoveryPlugin:
       properties:
         builtin:
@@ -157,6 +192,21 @@ components:
           $ref: '#/components/schemas/UUID'
         realm:
           $ref: '#/components/schemas/DiscoveryNode'
+      required:
+        - id
+        - realm
+      type: object
+    DiscoveryPlugin_Flat:
+      properties:
+        builtin:
+          type: boolean
+        callback:
+          format: uri
+          type: string
+        id:
+          $ref: '#/components/schemas/UUID_Flat'
+        realm:
+          $ref: '#/components/schemas/DiscoveryNode_Flat'
       required:
         - id
         - realm
@@ -255,6 +305,31 @@ components:
             type: string
           type: object
       type: object
+    PluginRegistration:
+      properties:
+        env:
+          additionalProperties:
+            type: string
+          type: object
+        id:
+          type: string
+        token:
+          type: string
+      type: object
+    ProbeResponse:
+      properties:
+        description:
+          type: string
+        name:
+          type: string
+      type: object
+    ProbeTemplateResponse:
+      properties:
+        description:
+          type: string
+        name:
+          type: string
+      type: object
     RecordingState:
       enum:
         - NEW
@@ -267,9 +342,10 @@ components:
       properties:
         matchExpression:
           type: string
-        targets:
+        targetIds:
           items:
-            $ref: '#/components/schemas/Target'
+            format: int64
+            type: integer
           type: array
       type: object
     Rule:
@@ -377,6 +453,33 @@ components:
         - labels
         - annotations
       type: object
+    Target_Flat:
+      properties:
+        agent:
+          type: boolean
+        alias:
+          pattern: \S
+          type: string
+        annotations:
+          $ref: '#/components/schemas/Annotations_Flat'
+        connectUrl:
+          format: uri
+          type: string
+        id:
+          format: int64
+          type: integer
+        jvmId:
+          type: string
+        labels:
+          additionalProperties:
+            type: string
+          type: object
+      required:
+        - connectUrl
+        - alias
+        - labels
+        - annotations
+      type: object
     Template:
       properties:
         description:
@@ -394,6 +497,10 @@ components:
         - CUSTOM
       type: string
     UUID:
+      format: uuid
+      pattern: '[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
+      type: string
+    UUID_Flat:
       format: uuid
       pattern: '[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
       type: string
@@ -415,39 +522,6 @@ info:
   version: 4.0.0-snapshot
 openapi: 3.0.3
 paths:
-  /api/beta/credentials/{connectUrl}:
-    post:
-      parameters:
-        - in: path
-          name: connectUrl
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                password:
-                  type: string
-                username:
-                  type: string
-              type: object
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CredentialTestResult'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      tags:
-        - Credential Check
   /api/beta/fs/recordings:
     get:
       responses:
@@ -516,67 +590,6 @@ paths:
         - SecurityScheme: []
       tags:
         - Recordings
-  /api/beta/matchExpressions:
-    get:
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  additionalProperties: {}
-                  type: object
-                type: array
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      tags:
-        - Match Expressions
-    post:
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RequestData'
-      responses:
-        "200":
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      tags:
-        - Match Expressions
-  /api/beta/matchExpressions/{id}:
-    get:
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            format: int64
-            type: integer
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/MatchedExpression'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      tags:
-        - Match Expressions
   /api/beta/recordings/{connectUrl}/{filename}:
     delete:
       parameters:
@@ -591,8 +604,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: OK
+        "204":
+          description: No Content
         "401":
           description: Not Authorized
         "403":
@@ -668,6 +681,11 @@ paths:
             type: integer
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                format: binary
+                type: string
           description: OK
         "401":
           description: Not Authorized
@@ -681,6 +699,10 @@ paths:
     post:
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
           description: OK
       tags:
         - Auth
@@ -774,6 +796,40 @@ paths:
         - SecurityScheme: []
       tags:
         - Credentials
+  /api/v4/credentials/{targetId}:
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                password:
+                  type: string
+                username:
+                  type: string
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CredentialTestResult'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Credentials
   /api/v4/discovery:
     get:
       responses:
@@ -799,6 +855,10 @@ paths:
               $ref: '#/components/schemas/JsonObject'
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PluginRegistration'
           description: OK
         "401":
           description: Not Authorized
@@ -895,6 +955,12 @@ paths:
             type: string
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/DiscoveryPlugin_Flat'
+                type: array
           description: OK
         "401":
           description: Not Authorized
@@ -941,6 +1007,9 @@ paths:
             type: string
       responses:
         "200":
+          content:
+            application/json:
+              schema: {}
           description: OK
         "401":
           description: Not Authorized
@@ -1057,13 +1126,87 @@ paths:
     post:
       responses:
         "200":
+          content:
+            application/json:
+              schema: {}
           description: OK
       tags:
         - Auth
+  /api/v4/matchExpressions:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  additionalProperties: {}
+                  type: object
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Match Expressions
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestData'
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchedExpression'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Match Expressions
+  /api/v4/matchExpressions/{id}:
+    get:
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchedExpression'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Match Expressions
   /api/v4/probes:
     get:
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ProbeTemplateResponse'
+                type: array
           description: OK
       tags:
         - JMC Agent
@@ -1076,8 +1219,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: OK
+        "204":
+          description: No Content
       tags:
         - JMC Agent
     post:
@@ -1096,8 +1239,8 @@ paths:
                   $ref: '#/components/schemas/FileUpload'
               type: object
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
       tags:
         - JMC Agent
   /api/v4/recordings:
@@ -1194,6 +1337,12 @@ paths:
     get:
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Rule'
+                type: array
           description: OK
         "401":
           description: Not Authorized
@@ -1269,6 +1418,10 @@ paths:
               type: object
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
           description: OK
         "401":
           description: Not Authorized
@@ -1291,8 +1444,8 @@ paths:
           schema:
             type: boolean
       responses:
-        "200":
-          description: OK
+        "204":
+          description: No Content
         "401":
           description: Not Authorized
         "403":
@@ -1310,6 +1463,10 @@ paths:
             type: string
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
           description: OK
         "401":
           description: Not Authorized
@@ -1337,6 +1494,10 @@ paths:
               $ref: '#/components/schemas/JsonObject'
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Rule'
           description: OK
         "401":
           description: Not Authorized
@@ -1431,8 +1592,8 @@ paths:
             format: int64
             type: integer
       responses:
-        "200":
-          description: OK
+        "204":
+          description: No Content
         "401":
           description: Not Authorized
         "403":
@@ -1511,6 +1672,10 @@ paths:
             $ref: '#/components/schemas/TemplateType'
       responses:
         "200":
+          content:
+            application/xml:
+              schema:
+                type: string
           description: OK
         "401":
           description: Not Authorized
@@ -1560,8 +1725,8 @@ paths:
             format: int64
             type: integer
       responses:
-        "200":
-          description: OK
+        "204":
+          description: No Content
       tags:
         - JMC Agent
     get:
@@ -1574,6 +1739,12 @@ paths:
             type: integer
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ProbeResponse'
+                type: array
           description: OK
       tags:
         - JMC Agent
@@ -1592,8 +1763,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          description: OK
+        "201":
+          description: Created
       tags:
         - JMC Agent
   /api/v4/targets/{id}/recordingOptions:
@@ -1731,6 +1902,10 @@ paths:
               type: object
       responses:
         "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedRecordingDescriptor'
           description: OK
         "401":
           description: Not Authorized
@@ -1752,7 +1927,9 @@ paths:
       responses:
         "200":
           content:
-            application/json: {}
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedRecordingDescriptor'
           description: OK
         "401":
           description: Not Authorized
