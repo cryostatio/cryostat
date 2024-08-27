@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -75,9 +76,9 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
-import jakarta.ws.rs.core.Response;
-import jakarta.ws.rs.core.Response.ResponseBuilder;
+import jakarta.ws.rs.core.UriInfo;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -88,6 +89,7 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -287,7 +289,7 @@ public class Recordings {
     @Blocking
     @Path("/api/beta/recordings/{connectUrl}/{filename}")
     @RolesAllowed("write")
-    public Response agentDelete(@RestPath String connectUrl, @RestPath String filename)
+    public void agentDelete(@RestPath String connectUrl, @RestPath String filename)
             throws Exception {
         String jvmId;
         if ("uploads".equals(connectUrl)) {
@@ -298,10 +300,9 @@ public class Recordings {
         if (!recordingHelper.listArchivedRecordingObjects(jvmId).stream()
                 .map(item -> item.key().strip().split("/")[1])
                 .anyMatch(fn -> Objects.equals(fn, filename))) {
-            return Response.status(RestResponse.Status.NOT_FOUND).build();
+            throw new NotFoundException();
         }
         recordingHelper.deleteArchivedRecording(jvmId, filename);
-        return Response.status(RestResponse.Status.NO_CONTENT).build();
     }
 
     @Blocking
@@ -499,18 +500,18 @@ public class Recordings {
     @Transactional
     @Path("/api/v4/targets/{id}/snapshot")
     @RolesAllowed("write")
-    public Uni<Response> createSnapshotUsingTargetId(@RestPath long id) throws Exception {
+    public Uni<RestResponse<LinkedRecordingDescriptor>> createSnapshotUsingTargetId(
+            @RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
         return recordingHelper
                 .createSnapshot(target)
                 .onItem()
                 .transform(
                         recording ->
-                                Response.status(Response.Status.OK)
-                                        .entity(recordingHelper.toExternalForm(recording))
+                                ResponseBuilder.ok(recordingHelper.toExternalForm(recording))
                                         .build())
                 .onFailure(SnapshotCreationException.class)
-                .recoverWithItem(Response.status(Response.Status.ACCEPTED).build());
+                .recoverWithItem(ResponseBuilder.<LinkedRecordingDescriptor>accepted().build());
     }
 
     @POST
@@ -518,7 +519,8 @@ public class Recordings {
     @Blocking
     @Path("/api/v4/targets/{id}/recordings")
     @RolesAllowed("write")
-    public Response createRecording(
+    public RestResponse<LinkedRecordingDescriptor> createRecording(
+            @Context UriInfo uriInfo,
             @RestPath long id,
             @RestForm String recordingName,
             @RestForm String events,
@@ -573,7 +575,8 @@ public class Recordings {
                         .await()
                         .atMost(Duration.ofSeconds(10));
 
-        return Response.status(Response.Status.CREATED)
+        return ResponseBuilder.<LinkedRecordingDescriptor>created(
+                        uriInfo.getAbsolutePathBuilder().path(String.valueOf(recording.id)).build())
                 .entity(recordingHelper.toExternalForm(recording))
                 .build();
     }
@@ -763,10 +766,10 @@ public class Recordings {
     @Blocking
     @Path("/api/v4/activedownload/{id}")
     @RolesAllowed("read")
-    public Response handleActiveDownload(@RestPath long id) throws Exception {
+    public RestResponse<InputStream> handleActiveDownload(@RestPath long id) throws Exception {
         ActiveRecording recording = ActiveRecording.find("id", id).singleResult();
         if (!transientArchivesEnabled) {
-            return Response.status(RestResponse.Status.OK)
+            return ResponseBuilder.<InputStream>ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format("attachment; filename=\"%s.jfr\"", recording.name))
@@ -785,7 +788,7 @@ public class Recordings {
         if (!savename.endsWith(".jfr")) {
             savename += ".jfr";
         }
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+        return ResponseBuilder.<InputStream>create(RestResponse.Status.PERMANENT_REDIRECT)
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
                         String.format("attachment; filename=\"%s\"", savename))
@@ -803,12 +806,12 @@ public class Recordings {
     @Blocking
     @Path("/api/v4/download/{encodedKey}")
     @RolesAllowed("read")
-    public Response handleStorageDownload(@RestPath String encodedKey, @RestQuery String f)
-            throws URISyntaxException {
+    public RestResponse<Object> handleStorageDownload(
+            @RestPath String encodedKey, @RestQuery String f) throws URISyntaxException {
         Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
 
         if (!presignedDownloadsEnabled) {
-            return Response.status(RestResponse.Status.OK)
+            return ResponseBuilder.ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format("attachment; filename=\"%s\"", pair.getValue()))
@@ -845,7 +848,8 @@ public class Recordings {
                                 uri.getFragment());
             }
         }
-        ResponseBuilder response = Response.status(RestResponse.Status.PERMANENT_REDIRECT);
+        ResponseBuilder<Object> response =
+                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT);
         if (StringUtils.isNotBlank(f)) {
             response =
                     response.header(

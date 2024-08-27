@@ -47,7 +47,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -221,14 +220,13 @@ public class CustomDiscovery {
     @DELETE
     @Path("/api/v4/targets/{id}")
     @RolesAllowed("write")
-    public Response delete(@RestPath long id) throws URISyntaxException {
+    public void delete(@RestPath long id) throws URISyntaxException {
         Target target = Target.find("id", id).singleResult();
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         realm.children.remove(target.discoveryNode);
         target.discoveryNode.parent = null;
         realm.persist();
         target.delete();
-        return Response.noContent().build();
     }
 
     private URI sanitizeConnectUrl(String in) throws URISyntaxException, MalformedURLException {

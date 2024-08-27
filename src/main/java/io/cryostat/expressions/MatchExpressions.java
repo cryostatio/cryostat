@@ -30,10 +30,10 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.projectnessie.cel.tools.ScriptException;
 
 @Path("/api/v4/matchExpressions")
@@ -45,7 +45,7 @@ public class MatchExpressions {
     @POST
     @RolesAllowed("read")
     @Blocking
-    public Response test(RequestData requestData) throws ScriptException {
+    public RestResponse<MatchedExpression> test(RequestData requestData) throws ScriptException {
         var targets = new HashSet<Target>();
         if (requestData.targetIds == null) {
             targets.addAll(Target.<Target>listAll());
@@ -56,7 +56,7 @@ public class MatchExpressions {
         var matched =
                 targetMatcher.match(new MatchExpression(requestData.matchExpression), targets);
 
-        return Response.ok(matched).type(MediaType.APPLICATION_JSON).build();
+        return ResponseBuilder.ok(matched).build();
     }
 
     @GET

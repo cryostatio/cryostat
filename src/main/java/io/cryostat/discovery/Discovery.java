@@ -37,6 +37,7 @@ import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
+import com.fasterxml.jackson.annotation.JsonView;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
@@ -62,15 +63,12 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
-import org.jboss.resteasy.reactive.RestResponse;
-import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
@@ -150,7 +148,7 @@ public class Discovery {
     @GET
     @Path("/api/v4/discovery/{id}")
     @RolesAllowed("read")
-    public RestResponse<Void> checkRegistration(
+    public void checkRegistration(
             @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
             throws SocketException,
                     UnknownHostException,
@@ -160,7 +158,6 @@ public class Discovery {
                     URISyntaxException {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         jwtValidator.validateJwt(ctx, plugin, token, true);
-        return ResponseBuilder.<Void>ok().build();
     }
 
     @Transactional
@@ -170,7 +167,7 @@ public class Discovery {
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
     @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
-    public Response register(@Context RoutingContext ctx, JsonObject body)
+    public PluginRegistration register(@Context RoutingContext ctx, JsonObject body)
             throws URISyntaxException,
                     MalformedURLException,
                     JOSEException,
@@ -187,13 +184,11 @@ public class Discovery {
 
         // URI range validation
         if (!uriUtil.validateUri(callbackUri)) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(
-                            String.format(
-                                    "cryostat.target.callback of \"%s\" is unacceptable with the"
-                                            + " current URI range settings",
-                                    callbackUri))
-                    .build();
+            throw new BadRequestException(
+                    String.format(
+                            "cryostat.target.callback of \"%s\" is unacceptable with the"
+                                    + " current URI range settings",
+                            callbackUri));
         }
 
         // TODO apply URI range validation to the remote address
@@ -282,9 +277,7 @@ public class Discovery {
         if (StringUtils.isNotBlank(insightsProxy)) {
             envMap.put("INSIGHTS_SVC", insightsProxy);
         }
-        return Response.created(location)
-                .entity(new PluginRegistration(plugin.id.toString(), token, envMap))
-                .build();
+        return new PluginRegistration(plugin.id.toString(), token, envMap);
     }
 
     @Transactional
@@ -363,20 +356,15 @@ public class Discovery {
     }
 
     @GET
+    @JsonView(DiscoveryNode.Views.Flat.class)
     @Path("/api/v4/discovery_plugins")
     @RolesAllowed("read")
-    public Response getPlugins(@RestQuery String realm) throws JsonProcessingException {
+    public List<DiscoveryPlugin> getPlugins(@RestQuery String realm)
+            throws JsonProcessingException {
         // TODO filter for the matching realm name within the DB query
-        List<DiscoveryPlugin> plugins =
-                DiscoveryPlugin.findAll().<DiscoveryPlugin>list().stream()
-                        .filter(p -> StringUtils.isBlank(realm) || p.realm.name.equals(realm))
-                        .toList();
-        return Response.ok()
-                .entity(
-                        mapper.writerWithView(DiscoveryNode.Views.Flat.class)
-                                .writeValueAsString(plugins))
-                .type(MediaType.APPLICATION_JSON)
-                .build();
+        return DiscoveryPlugin.findAll().<DiscoveryPlugin>list().stream()
+                .filter(p -> StringUtils.isBlank(realm) || p.realm.name.equals(realm))
+                .toList();
     }
 
     @GET

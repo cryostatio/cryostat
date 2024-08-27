@@ -16,7 +16,6 @@
 package io.cryostat.security;
 
 import java.net.URI;
-import java.util.Map;
 
 import io.vertx.ext.web.RoutingContext;
 import jakarta.annotation.security.PermitAll;
@@ -25,9 +24,9 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.SecurityContext;
 import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
 @Path("")
 public class Auth {
@@ -36,8 +35,8 @@ public class Auth {
     @Path("/api/v4/logout")
     @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
-    public Response logout(@Context RoutingContext context) {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
+    public RestResponse<Object> logout(@Context RoutingContext context) {
+        return ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(URI.create("/oauth2/sign_out"))
                 .build();
     }
@@ -46,7 +45,7 @@ public class Auth {
     @Path("/api/v4/auth")
     @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
-    public Response login(@Context RoutingContext context, SecurityContext securityContext) {
+    public AuthResponse login(@Context RoutingContext context, SecurityContext securityContext) {
         String user =
                 securityContext.getUserPrincipal() != null
                         ? securityContext.getUserPrincipal().getName()
@@ -54,9 +53,8 @@ public class Auth {
         if (user == null) {
             user = "";
         }
-        Map<String, Object> responseData = Map.of("username", user);
-        return Response.ok()
-                .entity(Response.ok(responseData).type(MediaType.APPLICATION_JSON).build())
-                .build();
+        return new AuthResponse(user);
     }
+
+    static record AuthResponse(String username) {}
 }

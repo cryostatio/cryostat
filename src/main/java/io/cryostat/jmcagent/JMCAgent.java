@@ -17,6 +17,7 @@ package io.cryostat.jmcagent;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
@@ -32,20 +33,16 @@ import io.cryostat.ws.Notification;
 
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.eventbus.EventBus;
-import io.vertx.core.json.JsonArray;
-import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
-import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 @Path("")
@@ -64,10 +61,10 @@ public class JMCAgent {
     @Blocking
     @POST
     @Path("/api/v4/targets/{id}/probes/{probeTemplateName}")
-    public Response postProbe(@RestPath long id, @RestPath String probeTemplateName) {
+    public void postProbe(@RestPath long id, @RestPath String probeTemplateName) {
         try {
             Target target = Target.getTargetById(id);
-            return connectionManager.executeConnectedTask(
+            connectionManager.executeConnectedTask(
                     target,
                     connection -> {
                         JMCAgentJMXHelper helper = new JMCAgentJMXHelper(connection.getHandle());
@@ -90,13 +87,12 @@ public class JMCAgent {
                                                     template.getEvents(),
                                                     "probeTemplate",
                                                     template.getFileName())));
-                            return Response.status(RestResponse.Status.OK).build();
+                            return null;
                         } catch (ProbeDefinitionException e) {
                             // Cleanup the probes if something went wrong, calling defineEventProbes
                             // with a null argument will remove any active probes.
                             helper.defineEventProbes(null);
-                            return Response.status(RestResponse.Status.INTERNAL_SERVER_ERROR)
-                                    .build();
+                            throw new InternalServerErrorException(e);
                         }
                     });
         } catch (Exception e) {
@@ -108,10 +104,10 @@ public class JMCAgent {
     @Blocking
     @DELETE
     @Path("/api/v4/targets/{id}/probes")
-    public Response deleteProbe(@RestPath long id) {
+    public void deleteProbe(@RestPath long id) {
         try {
             Target target = Target.getTargetById(id);
-            return connectionManager.executeConnectedTask(
+            connectionManager.executeConnectedTask(
                     target,
                     connection -> {
                         try {
@@ -125,10 +121,9 @@ public class JMCAgent {
                                     new Notification(
                                             PROBES_REMOVED_CATEGORY,
                                             Map.of("jvmId", target.jvmId)));
-                            return Response.status(RestResponse.Status.OK).build();
+                            return null;
                         } catch (Exception e) {
-                            return Response.status(RestResponse.Status.INTERNAL_SERVER_ERROR)
-                                    .build();
+                            throw new InternalServerErrorException(e);
                         }
                     });
         } catch (Exception e) {
@@ -140,11 +135,11 @@ public class JMCAgent {
     @Blocking
     @GET
     @Path("/api/v4/targets/{id}/probes")
-    public Response getProbes(@RestPath long id) {
+    public List<ProbeResponse> getProbes(@RestPath long id) {
         try {
             Target target = Target.getTargetById(id);
 
-            return connectionManager.<Response>executeConnectedTask(
+            return connectionManager.<List<ProbeResponse>>executeConnectedTask(
                     target,
                     connection -> {
                         JMCAgentJMXHelper helper = new JMCAgentJMXHelper(connection.getHandle());
@@ -153,15 +148,11 @@ public class JMCAgent {
                             probes = helper.retrieveEventProbes();
                         } catch (Exception e) {
                             logger.error("Failed to retrieve event probes", e);
-                            return Response.status(Response.Status.BAD_REQUEST)
-                                    .entity("Failed to retrieve event probes: " + e.getMessage())
-                                    .build();
+                            throw new BadRequestException(e);
                         }
 
                         if (probes == null || probes.isBlank()) {
-                            return Response.ok(new JsonArray().encode())
-                                    .type(MediaType.APPLICATION_JSON)
-                                    .build();
+                            return List.of();
                         }
 
                         try {
@@ -170,52 +161,31 @@ public class JMCAgent {
                                     new ByteArrayInputStream(
                                             probes.getBytes(StandardCharsets.UTF_8)));
 
-                            JsonArray eventsJson = new JsonArray();
-                            for (Event e : template.getEvents()) {
-                                JsonObject eventJson = new JsonObject();
-                                eventJson.put("name", e.name);
-                                eventJson.put("description", e.description);
-                                eventsJson.add(eventJson);
-                            }
-                            return Response.ok(eventsJson.encode())
-                                    .type(MediaType.APPLICATION_JSON)
-                                    .build();
+                            return Arrays.asList(template.getEvents()).stream()
+                                    .map(ProbeResponse::new)
+                                    .toList();
                         } catch (Exception e) {
                             // Cleanup the probes if something went wrong
                             helper.defineEventProbes(null);
                             logger.error("Error processing probes, cleaning up active probes", e);
-                            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                                    .entity("Error processing probes: " + e.getMessage())
-                                    .build();
+                            throw new InternalServerErrorException(e);
                         }
                     });
         } catch (Exception e) {
             logger.warn("Caught exception while handling getProbes request", e);
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-                    .entity("Unable to handle the getProbes request: " + e.getMessage())
-                    .build();
+            throw new InternalServerErrorException(e);
         }
     }
 
     @Blocking
     @GET
     @Path("/api/v4/probes")
-    public Response getProbeTemplates() {
+    public List<ProbeTemplateResponse> getProbeTemplates() {
         try {
-            List<SerializableProbeTemplateInfo> templates =
-                    service.getTemplates().stream()
-                            .map(SerializableProbeTemplateInfo::fromProbeTemplate)
-                            .toList();
-
-            JsonArray templatesJson = new JsonArray();
-            for (SerializableProbeTemplateInfo template : templates) {
-                JsonObject templateJson = new JsonObject();
-                templateJson.put("name", template.name());
-                templateJson.put("description", template.xml());
-                templatesJson.add(templateJson);
-            }
-
-            return Response.ok(templatesJson.encode()).type(MediaType.APPLICATION_JSON).build();
+            return service.getTemplates().stream()
+                    .map(SerializableProbeTemplateInfo::fromProbeTemplate)
+                    .map(ProbeTemplateResponse::new)
+                    .toList();
         } catch (Exception e) {
             logger.warn("Caught exception: " + e.toString(), e);
             throw new BadRequestException(e);
@@ -225,10 +195,9 @@ public class JMCAgent {
     @Blocking
     @DELETE
     @Path("/api/v4/probes/{probeTemplateName}")
-    public Response deleteProbeTemplate(@RestPath String probeTemplateName) {
+    public void deleteProbeTemplate(@RestPath String probeTemplateName) {
         try {
             service.deleteTemplate(probeTemplateName);
-            return Response.status(RestResponse.Status.OK).build();
         } catch (Exception e) {
             logger.warn("Caught exception" + e.toString(), e);
             throw new BadRequestException(e);
@@ -238,17 +207,28 @@ public class JMCAgent {
     @Blocking
     @POST
     @Path("/api/v4/probes/{probeTemplateName}")
-    public Response uploadProbeTemplate(
+    public void uploadProbeTemplate(
             @RestForm("probeTemplate") FileUpload body, @RestPath String probeTemplateName) {
         if (body == null || body.filePath() == null || !"probeTemplate".equals(body.name())) {
             throw new BadRequestException();
         }
         try (var stream = fs.newInputStream(body.filePath())) {
             service.addTemplate(stream, probeTemplateName);
-            return Response.status(RestResponse.Status.OK).build();
         } catch (Exception e) {
             logger.warn(e.getMessage(), e);
             throw new BadRequestException(e);
+        }
+    }
+
+    static record ProbeResponse(String name, String description) {
+        ProbeResponse(Event e) {
+            this(e.name, e.description);
+        }
+    }
+
+    static record ProbeTemplateResponse(String name, String description) {
+        ProbeTemplateResponse(SerializableProbeTemplateInfo templateInfo) {
+            this(templateInfo.name(), templateInfo.xml());
         }
     }
 }

@@ -25,7 +25,6 @@ import io.cryostat.libcryostat.templates.InvalidEventTemplateException;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.targets.Target;
-import io.cryostat.util.HttpMimeType;
 
 import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.security.RolesAllowed;
@@ -35,12 +34,11 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.core.HttpHeaders;
-import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.MediaType;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
-import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 @Path("")
@@ -110,7 +108,8 @@ public class EventTemplates {
     @Blocking
     @Path("/api/v4/targets/{id}/event_templates/{templateType}/{templateName}")
     @RolesAllowed("read")
-    public Response getTargetTemplate(
+    @Produces(MediaType.APPLICATION_XML)
+    public String getTargetTemplate(
             @RestPath long id, @RestPath TemplateType templateType, @RestPath String templateName)
             throws Exception {
         Target target = Target.find("id", id).singleResult();
@@ -129,9 +128,6 @@ public class EventTemplates {
             default:
                 throw new BadRequestException();
         }
-        return Response.status(RestResponse.Status.OK)
-                .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.JFC.mime())
-                .entity(xml)
-                .build();
+        return xml;
     }
 }
