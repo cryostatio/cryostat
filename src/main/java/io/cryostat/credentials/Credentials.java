@@ -17,9 +17,7 @@ package io.cryostat.credentials;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import io.cryostat.expressions.MatchExpression;
@@ -121,27 +119,14 @@ public class Credentials {
 
     static CredentialMatchResult safeResult(Credential credential, TargetMatcher matcher)
             throws ScriptException {
-        Map<String, Object> result = new HashMap<>();
-        result.put("id", credential.id);
-        result.put("matchExpression", credential.matchExpression);
-        // TODO remove numMatchingTargets, clients can just use targets.length
         var matchedTargets = matcher.match(credential.matchExpression).targets();
-        result.put("numMatchingTargets", matchedTargets.size());
-        result.put("targets", matchedTargets);
         return new CredentialMatchResult(credential, matchedTargets);
     }
 
     static record CredentialMatchResult(
-            long id,
-            MatchExpression matchExpression,
-            int numMatchingTargets,
-            Collection<Target> targets) {
+            long id, MatchExpression matchExpression, Collection<Target> targets) {
         CredentialMatchResult(Credential credential, Collection<Target> targets) {
-            this(
-                    credential.id,
-                    credential.matchExpression,
-                    targets.size(),
-                    new ArrayList<>(targets));
+            this(credential.id, credential.matchExpression, new ArrayList<>(targets));
         }
     }
 }

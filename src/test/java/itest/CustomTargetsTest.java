@@ -188,18 +188,12 @@ public class CustomTargetsTest extends StandardSelfTest {
 
         storedCredential =
                 new StoredCredential(
-                        message.getInteger("id"),
-                        message.getString("matchExpression"),
-                        message.getInteger("numMatchingTargets"));
+                        message.getInteger("id"), message.getString("matchExpression"));
 
         MatcherAssert.assertThat(storedCredential.id, Matchers.any(Integer.class));
         MatcherAssert.assertThat(
                 storedCredential.matchExpression,
                 Matchers.equalTo(String.format("target.connectUrl == \"%s\"", SELF_JMX_URL)));
-        // FIXME this is currently always emitted as 0. Do we really need this to be included at
-        // all?
-        // MatcherAssert.assertThat(
-        //         storedCredential.numMatchingTargets, Matchers.equalTo(Integer.valueOf(1)));
 
         JsonObject result2 = resultFuture2.get();
         JsonObject foundDiscoveryEvent = result2.getJsonObject("message").getJsonObject("event");

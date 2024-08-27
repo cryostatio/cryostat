@@ -276,8 +276,7 @@ public class Discovery {
         String token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, location);
 
         // TODO implement more generic env map passing by some platform detection
-        // strategy or
-        // generalized config properties
+        // strategy or generalized config properties
         var envMap = new HashMap<String, String>();
         String insightsProxy = System.getenv("INSIGHTS_PROXY");
         if (StringUtils.isNotBlank(insightsProxy)) {

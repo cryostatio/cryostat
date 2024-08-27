@@ -102,8 +102,6 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
                 .body("id", Matchers.equalTo(id))
                 .body("matchExpression", Matchers.instanceOf(String.class))
                 .body("matchExpression", Matchers.equalTo("true"))
-                .body("numMatchingTargets", Matchers.instanceOf(Integer.class))
-                .body("numMatchingTargets", Matchers.equalTo(0))
                 .body("targets", Matchers.instanceOf(List.class))
                 .body("targets", Matchers.hasSize(0));
     }
@@ -128,8 +126,6 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
                 .body("id", Matchers.equalTo(id))
                 .body("matchExpression", Matchers.instanceOf(String.class))
                 .body("matchExpression", Matchers.equalTo("true"))
-                .body("numMatchingTargets", Matchers.instanceOf(Integer.class))
-                .body("numMatchingTargets", Matchers.equalTo(0))
                 .body("targets", Matchers.instanceOf(List.class))
                 .body("targets", Matchers.hasSize(0));
     }
