@@ -36,7 +36,7 @@ public class CredentialCheckIT extends StandardSelfTest {
                 .formParam("username", "user")
                 .formParam("password", "pass")
                 .when()
-                .post("/{targetId}", getSelfReferenceTargetId())
+                .post("/test/{targetId}", getSelfReferenceTargetId())
                 .then()
                 .log()
                 .all()

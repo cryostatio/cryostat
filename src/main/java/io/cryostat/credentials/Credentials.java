@@ -56,7 +56,7 @@ public class Credentials {
     @POST
     @Blocking
     @RolesAllowed("read")
-    @Path("/{targetId}")
+    @Path("/test/{targetId}")
     public Uni<CredentialTestResult> checkCredentialForTarget(
             @RestPath long targetId, @RestForm String username, @RestForm String password)
             throws URISyntaxException {
