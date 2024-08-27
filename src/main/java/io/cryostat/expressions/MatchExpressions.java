@@ -15,12 +15,10 @@
  */
 package io.cryostat.expressions;
 
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
 import io.cryostat.expressions.MatchExpression.MatchedExpression;
 import io.cryostat.targets.Target;
@@ -38,7 +36,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.projectnessie.cel.tools.ScriptException;
 
-@Path("/api/beta/matchExpressions")
+@Path("/api/v4/matchExpressions")
 public class MatchExpressions {
 
     @Inject MatchExpression.TargetMatcher targetMatcher;
@@ -47,20 +45,14 @@ public class MatchExpressions {
     @POST
     @RolesAllowed("read")
     @Blocking
-    // FIXME in a later API version this request should not accept full target objects from the
-    // client but instead only a list of IDs, which will then be pulled from the target discovery
-    // database for testing
     public Response test(RequestData requestData) throws ScriptException {
         var targets = new HashSet<Target>();
-        // don't trust the client to provide the whole Target object to be tested, just extract the
-        // connectUrl they provide and use that to look up the Target definition as we know it.
-        Optional.ofNullable(requestData.targets)
-                .orElseGet(() -> List.of())
-                .forEach(
-                        t ->
-                                Target.<Target>find("connectUrl", t.connectUrl)
-                                        .singleResultOptional()
-                                        .ifPresent(targets::add));
+        if (requestData.targetIds == null) {
+            targets.addAll(Target.<Target>listAll());
+        } else {
+            requestData.targetIds.forEach(id -> targets.add(Target.getTargetById(id)));
+        }
+
         var matched =
                 targetMatcher.match(new MatchExpression(requestData.matchExpression), targets);
 
@@ -88,12 +80,9 @@ public class MatchExpressions {
         return targetMatcher.match(expr);
     }
 
-    static record RequestData(String matchExpression, List<Target> targets) {
+    static record RequestData(String matchExpression, List<Long> targetIds) {
         RequestData {
             Objects.requireNonNull(matchExpression);
-            if (targets == null) {
-                targets = Collections.emptyList();
-            }
         }
     }
 }

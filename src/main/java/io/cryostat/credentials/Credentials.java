@@ -15,16 +15,20 @@
  */
 package io.cryostat.credentials;
 
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.expressions.MatchExpression.TargetMatcher;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.TargetConnectionManager;
 
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -45,8 +49,48 @@ import org.projectnessie.cel.tools.ScriptException;
 @Path("/api/v4/credentials")
 public class Credentials {
 
+    @Inject TargetConnectionManager connectionManager;
     @Inject TargetMatcher targetMatcher;
     @Inject Logger logger;
+
+    @POST
+    @Blocking
+    @RolesAllowed("read")
+    @Path("/{targetId}")
+    public Uni<CredentialTestResult> checkCredentialForTarget(
+            @RestPath long targetId, @RestForm String username, @RestForm String password)
+            throws URISyntaxException {
+        Target target = Target.getTargetById(targetId);
+        return connectionManager
+                .executeDirect(
+                        target,
+                        Optional.empty(),
+                        (conn) -> {
+                            conn.connect();
+                            return CredentialTestResult.NA;
+                        })
+                .onFailure()
+                .recoverWithUni(
+                        () -> {
+                            Credential cred = new Credential();
+                            cred.username = username;
+                            cred.password = password;
+                            return connectionManager
+                                    .executeDirect(
+                                            target,
+                                            Optional.of(cred),
+                                            (conn) -> {
+                                                conn.connect();
+                                                return CredentialTestResult.SUCCESS;
+                                            })
+                                    .onFailure(
+                                            t ->
+                                                    connectionManager.isJmxAuthFailure(t)
+                                                            || connectionManager.isAgentAuthFailure(
+                                                                    t))
+                                    .recoverWithItem(t -> CredentialTestResult.FAILURE);
+                        });
+    }
 
     @Blocking
     @GET
@@ -128,5 +172,11 @@ public class Credentials {
         CredentialMatchResult(Credential credential, Collection<Target> targets) {
             this(credential.id, credential.matchExpression, new ArrayList<>(targets));
         }
+    }
+
+    static enum CredentialTestResult {
+        SUCCESS,
+        FAILURE,
+        NA;
     }
 }

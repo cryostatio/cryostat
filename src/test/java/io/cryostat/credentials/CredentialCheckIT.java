@@ -25,7 +25,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-@TestHTTPEndpoint(CredentialCheck.class)
+@TestHTTPEndpoint(Credentials.class)
 public class CredentialCheckIT extends StandardSelfTest {
 
     @Test
@@ -36,7 +36,7 @@ public class CredentialCheckIT extends StandardSelfTest {
                 .formParam("username", "user")
                 .formParam("password", "pass")
                 .when()
-                .post("/api/beta/credentials/{connectUrl}", SELF_JMX_URL)
+                .post("/{targetId}", getSelfReferenceTargetId())
                 .then()
                 .log()
                 .all()
