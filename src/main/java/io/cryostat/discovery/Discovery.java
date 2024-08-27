@@ -283,22 +283,7 @@ public class Discovery {
             envMap.put("INSIGHTS_SVC", insightsProxy);
         }
         return Response.created(location)
-                .entity(
-                        Map.of(
-                                "meta",
-                                Map.of(
-                                        "mimeType", "JSON",
-                                        "status", "OK"),
-                                "data",
-                                Map.of(
-                                        "result",
-                                        Map.of(
-                                                "id",
-                                                plugin.id.toString(),
-                                                "token",
-                                                token,
-                                                "env",
-                                                envMap))))
+                .entity(new PluginRegistration(plugin.id.toString(), token, envMap))
                 .build();
     }
 
@@ -459,4 +444,6 @@ public class Discovery {
         }
         return addr;
     }
+
+    static record PluginRegistration(String id, String token, Map<String, String> env) {}
 }

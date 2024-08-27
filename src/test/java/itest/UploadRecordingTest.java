@@ -214,8 +214,6 @@ public class UploadRecordingTest extends StandardSelfTest {
         JsonObject targetResponse = arrResponse.getJsonObject(0);
         MatcherAssert.assertThat(
                 targetResponse.getString("target"), Matchers.equalTo(TARGET_METRIC));
-        MatcherAssert.assertThat(
-                targetResponse.getJsonObject("meta"), Matchers.equalTo(new JsonObject()));
 
         JsonArray dataPoints = targetResponse.getJsonArray("datapoints");
         MatcherAssert.assertThat(dataPoints, Matchers.notNullValue());
