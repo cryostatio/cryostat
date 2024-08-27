@@ -1650,7 +1650,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Event Templates
+        - Target Event Templates
   /api/v4/targets/{id}/event_templates/{templateType}/{templateName}:
     get:
       parameters:
@@ -1684,7 +1684,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Event Templates
+        - Target Event Templates
   /api/v4/targets/{id}/events:
     get:
       parameters:

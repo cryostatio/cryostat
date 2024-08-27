@@ -19,12 +19,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
 import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.libcryostat.templates.InvalidEventTemplateException;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
-import io.cryostat.targets.Target;
 
 import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.security.RolesAllowed;
@@ -32,16 +32,20 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.UriInfo;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
-@Path("")
+@Path("/api/v4/event_templates")
 public class EventTemplates {
 
     public static final Template ALL_EVENTS_TEMPLATE =
@@ -58,31 +62,8 @@ public class EventTemplates {
     @Inject S3TemplateService customTemplateService;
     @Inject Logger logger;
 
-    @POST
-    @Path("/api/v4/event_templates")
-    @RolesAllowed("write")
-    public void postTemplates(@RestForm("template") FileUpload body) throws IOException {
-        if (body == null || body.filePath() == null || !"template".equals(body.name())) {
-            throw new BadRequestException();
-        }
-        try (var stream = fs.newInputStream(body.filePath())) {
-            customTemplateService.addTemplate(stream);
-        } catch (InvalidEventTemplateException | InvalidXmlException e) {
-            throw new BadRequestException(e);
-        }
-    }
-
-    @DELETE
-    @Blocking
-    @Path("/api/v4/event_templates/{templateName}")
-    @RolesAllowed("write")
-    public void deleteTemplates(@RestPath String templateName) {
-        customTemplateService.deleteTemplate(templateName);
-    }
-
     @GET
     @Blocking
-    @Path("/api/v4/event_templates")
     @RolesAllowed("read")
     public List<Template> listTemplates() throws Exception {
         var list = new ArrayList<Template>();
@@ -93,41 +74,51 @@ public class EventTemplates {
 
     @GET
     @Blocking
-    @Path("/api/v4/targets/{id}/event_templates")
     @RolesAllowed("read")
-    public List<Template> listTargetTemplates(@RestPath long id) throws Exception {
-        Target target = Target.find("id", id).singleResult();
-        var list = new ArrayList<Template>();
-        list.add(ALL_EVENTS_TEMPLATE);
-        list.addAll(targetTemplateServiceFactory.create(target).getTemplates());
-        list.addAll(customTemplateService.getTemplates());
-        return list;
+    public Template getTemplate(@RestPath String templateName)
+            throws IOException, FlightRecorderException {
+        if (StringUtils.isBlank(templateName)) {
+            throw new BadRequestException();
+        }
+        return customTemplateService.getTemplates().stream()
+                .filter(t -> t.getName().equals(templateName))
+                .findFirst()
+                .orElseThrow();
     }
 
-    @GET
-    @Blocking
-    @Path("/api/v4/targets/{id}/event_templates/{templateType}/{templateName}")
-    @RolesAllowed("read")
-    @Produces(MediaType.APPLICATION_XML)
-    public String getTargetTemplate(
-            @RestPath long id, @RestPath TemplateType templateType, @RestPath String templateName)
-            throws Exception {
-        Target target = Target.find("id", id).singleResult();
-        String xml;
-        switch (templateType) {
-            case TARGET:
-                xml =
-                        targetTemplateServiceFactory
-                                .create(target)
-                                .getXml(templateName, templateType)
-                                .orElseThrow();
-                break;
-            case CUSTOM:
-                xml = customTemplateService.getXml(templateName, templateType).orElseThrow();
-                break;
-            default:
-                throw new BadRequestException();
+    @POST
+    @RolesAllowed("write")
+    public RestResponse<Template> postTemplates(
+            @Context UriInfo uriInfo, @RestForm("template") FileUpload body) throws IOException {
+        if (body == null || body.filePath() == null || !"template".equals(body.name())) {
+            throw new BadRequestException();
         }
-        return xml;
+        try (var stream = fs.newInputStream(body.filePath())) {
+            var template = customTemplateService.addTemplate(stream);
+            return ResponseBuilder.<Template>created(
+                            uriInfo.getAbsolutePathBuilder().path(template.getName()).build())
+                    .entity(template)
+                    .build();
+        } catch (InvalidEventTemplateException | InvalidXmlException e) {
+            throw new BadRequestException(e);
+        }
+    }
+
+    @DELETE
+    @Blocking
+    @Path("/{templateName}")
+    @RolesAllowed("write")
+    public void deleteTemplate(@RestPath String templateName) throws FlightRecorderException {
+        if (StringUtils.isBlank(templateName)) {
+            throw new BadRequestException();
+        }
+        if (ALL_EVENTS_TEMPLATE.getName().equals(templateName)) {
+            throw new BadRequestException();
+        }
+        if (!customTemplateService.getTemplates().stream()
+                .anyMatch(t -> t.getName().equals(templateName))) {
+            throw new NotFoundException();
+        }
+        customTemplateService.deleteTemplate(templateName);
     }
 }

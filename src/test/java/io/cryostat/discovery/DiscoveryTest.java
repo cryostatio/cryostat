@@ -24,6 +24,7 @@ import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.http.ContentType;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,8 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
                 .get("/api/v4/discovery")
                 .then()
                 .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
                 .body("id", Matchers.equalTo(1))
                 .body("name", Matchers.equalTo("Universe"))
                 .body("nodeType", Matchers.equalTo("Universe"))
@@ -70,6 +73,8 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
                         .all()
                         .and()
                         .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
                         .body("size()", Matchers.equalTo(5))
                         .extract()
                         .jsonPath()
