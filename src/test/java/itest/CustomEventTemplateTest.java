@@ -91,7 +91,7 @@ public class CustomEventTemplateTest extends StandardSelfTest {
                             .binaryFileUpload("template", TEMPLATE_FILE_NAME, buf, MEDIA_TYPE);
             HttpResponse<Buffer> postResp =
                     webClient.extensions().post(REQ_URL, form, REQUEST_TIMEOUT_SECONDS);
-            MatcherAssert.assertThat(postResp.statusCode(), Matchers.equalTo(204));
+            MatcherAssert.assertThat(postResp.statusCode(), Matchers.equalTo(201));
 
             HttpResponse<Buffer> getResp =
                     webClient
