@@ -18,7 +18,6 @@ package io.cryostat.expressions;
 import static io.restassured.RestAssured.given;
 
 import java.util.List;
-import java.util.Map;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
@@ -34,8 +33,6 @@ import org.junit.jupiter.params.provider.CsvSource;
 @QuarkusTest
 @TestHTTPEndpoint(MatchExpressions.class)
 public class MatchExpressionsTest extends AbstractTransactionalTestBase {
-
-    static final Map<String, String> ALL_MATCHING_EXPRESSION = Map.of("matchExpression", "true");
 
     @Test
     public void testListNone() {
@@ -58,8 +55,10 @@ public class MatchExpressionsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testPostWithoutTargets() {
+        var body = new JsonObject();
+        body.put("matchExpression", "true");
         given().contentType(ContentType.JSON)
-                .body(ALL_MATCHING_EXPRESSION)
+                .body(body.encodePrettily())
                 .when()
                 .post()
                 .then()
