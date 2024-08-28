@@ -45,7 +45,8 @@ public abstract class AbstractTransactionalTestBase {
     }
 
     protected int defineSelfCustomTarget() {
-        return given().log()
+        return given().basePath("/")
+                .log()
                 .all()
                 .contentType(ContentType.URLENC)
                 .formParam("connectUrl", SELF_JMX_URL)

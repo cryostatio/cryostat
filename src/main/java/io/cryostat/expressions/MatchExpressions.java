@@ -32,8 +32,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
-import org.jboss.resteasy.reactive.RestResponse;
-import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.projectnessie.cel.tools.ScriptException;
 
 @Path("/api/v4/matchExpressions")
@@ -45,18 +43,14 @@ public class MatchExpressions {
     @POST
     @RolesAllowed("read")
     @Blocking
-    public RestResponse<MatchedExpression> test(RequestData requestData) throws ScriptException {
+    public MatchedExpression test(RequestData requestData) throws ScriptException {
         var targets = new HashSet<Target>();
         if (requestData.targetIds == null) {
             targets.addAll(Target.<Target>listAll());
         } else {
             requestData.targetIds.forEach(id -> targets.add(Target.getTargetById(id)));
         }
-
-        var matched =
-                targetMatcher.match(new MatchExpression(requestData.matchExpression), targets);
-
-        return ResponseBuilder.ok(matched).build();
+        return targetMatcher.match(new MatchExpression(requestData.matchExpression), targets);
     }
 
     @GET
@@ -76,8 +70,7 @@ public class MatchExpressions {
     @RolesAllowed("read")
     @Blocking
     public MatchedExpression get(@RestPath long id) throws ScriptException {
-        MatchExpression expr = MatchExpression.find("id", id).singleResult();
-        return targetMatcher.match(expr);
+        return targetMatcher.match(MatchExpression.find("id", id).singleResult());
     }
 
     static record RequestData(String matchExpression, List<Long> targetIds) {
