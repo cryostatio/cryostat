@@ -190,7 +190,6 @@ type RuntimeMetrics {
 
 type Target {
   activeRecordings(filter: ActiveRecordingsFilterInput): ActiveRecordings
-  agent: Boolean!
   alias: String!
   annotations: Annotations!
   archivedRecordings(filter: ArchivedRecordingsFilterInput): ArchivedRecordings
