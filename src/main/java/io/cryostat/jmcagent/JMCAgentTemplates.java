@@ -15,8 +15,10 @@
  */
 package io.cryostat.jmcagent;
 
+import java.io.IOException;
 import java.util.List;
 
+import io.cryostat.core.jmcagent.ProbeTemplate;
 import io.cryostat.libcryostat.sys.FileSystem;
 
 import io.smallrye.common.annotation.Blocking;
@@ -26,12 +28,18 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.UriInfo;
+import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.xml.sax.SAXException;
 
-@Path("")
+@Path("/api/v4/probes")
 public class JMCAgentTemplates {
 
     @Inject Logger logger;
@@ -40,44 +48,45 @@ public class JMCAgentTemplates {
 
     @Blocking
     @GET
-    @Path("/api/v4/probes")
     public List<ProbeTemplateResponse> getProbeTemplates() {
-        try {
-            return service.getTemplates().stream()
-                    .map(SerializableProbeTemplateInfo::fromProbeTemplate)
-                    .map(ProbeTemplateResponse::new)
-                    .toList();
-        } catch (Exception e) {
-            logger.warn("Caught exception: " + e.toString(), e);
-            throw new BadRequestException(e);
-        }
+        return service.getTemplates().stream()
+                .map(SerializableProbeTemplateInfo::fromProbeTemplate)
+                .map(ProbeTemplateResponse::new)
+                .toList();
     }
 
     @Blocking
     @DELETE
-    @Path("/api/v4/probes/{probeTemplateName}")
+    @Path("/{probeTemplateName}")
     public void deleteProbeTemplate(@RestPath String probeTemplateName) {
-        try {
-            service.deleteTemplate(probeTemplateName);
-        } catch (Exception e) {
-            logger.warn("Caught exception" + e.toString(), e);
-            throw new BadRequestException(e);
-        }
+        service.deleteTemplate(probeTemplateName);
     }
 
     @Blocking
     @POST
-    @Path("/api/v4/probes/{probeTemplateName}")
-    public void uploadProbeTemplate(
-            @RestForm("probeTemplate") FileUpload body, @RestPath String probeTemplateName) {
-        if (body == null || body.filePath() == null || !"probeTemplate".equals(body.name())) {
-            throw new BadRequestException();
+    public RestResponse<ProbeTemplate> uploadProbeTemplate(
+            @Context UriInfo uriInfo,
+            @RestForm("probeTemplate") FileUpload body,
+            @RestForm("name") String name)
+            throws IOException, SAXException {
+        if (StringUtils.isBlank(name)) {
+            logger.infov("template name: {0}", name);
+            throw new BadRequestException("Request must contain a 'name' form parameter");
         }
+        if (body == null || body.filePath() == null || !"probeTemplate".equals(body.name())) {
+            logger.infov("probe template: name {0} path: {1}", body.fileName(), body.filePath());
+            throw new BadRequestException("Request must contain a 'probeTemplate' file upload");
+        }
+        var tmp = fs.newInputStream(body.filePath());
+        logger.infov("upload body: {0}", new String(tmp.readAllBytes()));
         try (var stream = fs.newInputStream(body.filePath())) {
-            service.addTemplate(stream, probeTemplateName);
-        } catch (Exception e) {
-            logger.warn(e.getMessage(), e);
-            throw new BadRequestException(e);
+            var probeTemplate = service.addTemplate(stream, name);
+            return ResponseBuilder.<ProbeTemplate>created(
+                            uriInfo.getAbsolutePathBuilder()
+                                    .path(probeTemplate.getFileName())
+                                    .build())
+                    .entity(probeTemplate)
+                    .build();
         }
     }
 
