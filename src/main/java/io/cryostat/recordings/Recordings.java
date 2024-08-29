@@ -97,6 +97,8 @@ import software.amazon.awssdk.services.s3.model.Delete;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -357,12 +359,14 @@ public class Recordings {
     @Path("/api/v4/recordings/{filename}")
     @RolesAllowed("write")
     public void delete(@RestPath String filename) throws Exception {
+        var key = String.format("%s/%s", "uploads", filename);
+        try {
+            storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
+        } catch (NoSuchKeyException e) {
+            throw new NotFoundException(e);
+        }
         // TODO scan all prefixes for matching filename? This is an old v1 API problem.
-        storage.deleteObject(
-                DeleteObjectRequest.builder()
-                        .bucket(bucket)
-                        .key(String.format("%s/%s", "uploads", filename))
-                        .build());
+        storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
     }
 
     @GET

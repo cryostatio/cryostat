@@ -35,6 +35,7 @@ import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 import org.projectnessie.cel.tools.ScriptException;
 import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 public class ExceptionMappers {
 
@@ -53,6 +54,16 @@ public class ExceptionMappers {
     @ServerExceptionMapper
     public RestResponse<Void> mapNoSuchBucketException(NoSuchBucketException ex) {
         logger.error(ex);
+        return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapS3Exception(S3Exception ex) {
+        logger.error(ex);
+        switch (ex.statusCode()) {
+            case 404:
+                return RestResponse.notFound();
+        }
         return RestResponse.status(HttpResponseStatus.BAD_GATEWAY.code());
     }
 
