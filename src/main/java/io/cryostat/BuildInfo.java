@@ -57,7 +57,7 @@ public class BuildInfo {
                                                         RESOURCE_LOCATION)))
                         .trim();
             } catch (Exception e) {
-                logger.error("Version retrieval exception", e);
+                logger.warn("Version retrieval exception", e);
                 return "unknown";
             }
         }
