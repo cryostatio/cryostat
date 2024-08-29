@@ -41,12 +41,10 @@ import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import org.jboss.logging.Logger;
-import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 @Path("")
-public class JMCAgent {
+public class JMCAgentProbes {
 
     private static final String PROBES_REMOVED_CATEGORY = "ProbesRemoved";
     private static final String TEMPLATE_APPLIED_CATEGORY = "ProbeTemplateApplied";
@@ -177,58 +175,9 @@ public class JMCAgent {
         }
     }
 
-    @Blocking
-    @GET
-    @Path("/api/v4/probes")
-    public List<ProbeTemplateResponse> getProbeTemplates() {
-        try {
-            return service.getTemplates().stream()
-                    .map(SerializableProbeTemplateInfo::fromProbeTemplate)
-                    .map(ProbeTemplateResponse::new)
-                    .toList();
-        } catch (Exception e) {
-            logger.warn("Caught exception: " + e.toString(), e);
-            throw new BadRequestException(e);
-        }
-    }
-
-    @Blocking
-    @DELETE
-    @Path("/api/v4/probes/{probeTemplateName}")
-    public void deleteProbeTemplate(@RestPath String probeTemplateName) {
-        try {
-            service.deleteTemplate(probeTemplateName);
-        } catch (Exception e) {
-            logger.warn("Caught exception" + e.toString(), e);
-            throw new BadRequestException(e);
-        }
-    }
-
-    @Blocking
-    @POST
-    @Path("/api/v4/probes/{probeTemplateName}")
-    public void uploadProbeTemplate(
-            @RestForm("probeTemplate") FileUpload body, @RestPath String probeTemplateName) {
-        if (body == null || body.filePath() == null || !"probeTemplate".equals(body.name())) {
-            throw new BadRequestException();
-        }
-        try (var stream = fs.newInputStream(body.filePath())) {
-            service.addTemplate(stream, probeTemplateName);
-        } catch (Exception e) {
-            logger.warn(e.getMessage(), e);
-            throw new BadRequestException(e);
-        }
-    }
-
     static record ProbeResponse(String name, String description) {
         ProbeResponse(Event e) {
             this(e.name, e.description);
-        }
-    }
-
-    static record ProbeTemplateResponse(String name, String description) {
-        ProbeTemplateResponse(SerializableProbeTemplateInfo templateInfo) {
-            this(templateInfo.name(), templateInfo.xml());
         }
     }
 }

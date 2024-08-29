@@ -1211,7 +1211,7 @@ paths:
                 type: array
           description: OK
       tags:
-        - JMC Agent
+        - JMC Agent Templates
   /api/v4/probes/{probeTemplateName}:
     delete:
       parameters:
@@ -1224,7 +1224,7 @@ paths:
         "204":
           description: No Content
       tags:
-        - JMC Agent
+        - JMC Agent Templates
     post:
       parameters:
         - in: path
@@ -1244,7 +1244,7 @@ paths:
         "201":
           description: Created
       tags:
-        - JMC Agent
+        - JMC Agent Templates
   /api/v4/recordings:
     get:
       responses:
@@ -1730,7 +1730,7 @@ paths:
         "204":
           description: No Content
       tags:
-        - JMC Agent
+        - JMC Agent Probes
     get:
       parameters:
         - in: path
@@ -1749,7 +1749,7 @@ paths:
                 type: array
           description: OK
       tags:
-        - JMC Agent
+        - JMC Agent Probes
   /api/v4/targets/{id}/probes/{probeTemplateName}:
     post:
       parameters:
@@ -1768,7 +1768,7 @@ paths:
         "201":
           description: Created
       tags:
-        - JMC Agent
+        - JMC Agent Probes
   /api/v4/targets/{id}/recordingOptions:
     get:
       parameters:
