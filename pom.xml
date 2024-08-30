@@ -51,7 +51,7 @@
     <quarkus-quinoa.version>2.2.5</quarkus-quinoa.version>
     <io.netty.version>4.1.108.Final</io.netty.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.6.0</org.codehaus.mojo.build.helper.plugin.version>
-    <org.codehaus.mojo.exec.plugin.version>3.3.0</org.codehaus.mojo.exec.plugin.version>
+    <org.codehaus.mojo.exec.plugin.version>3.4.1</org.codehaus.mojo.exec.plugin.version>
     <assembly-plugin.version>3.7.1</assembly-plugin.version>
 
     <com.github.spotbugs.version>4.8.6</com.github.spotbugs.version>
