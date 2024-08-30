@@ -68,9 +68,8 @@ public class ActiveRecordings {
     Duration connectionFailedTimeout;
 
     @GET
-    @Transactional
     @RolesAllowed("read")
-    public List<LinkedRecordingDescriptor> listForTarget(@RestPath long targetId) throws Exception {
+    public List<LinkedRecordingDescriptor> list(@RestPath long targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         return recordingHelper.listActiveRecordings(target).stream()
                 .map(recordingHelper::toExternalForm)
@@ -122,7 +121,7 @@ public class ActiveRecordings {
     @Transactional
     @Blocking
     @RolesAllowed("write")
-    public RestResponse<LinkedRecordingDescriptor> createRecording(
+    public RestResponse<LinkedRecordingDescriptor> create(
             @Context UriInfo uriInfo,
             @RestPath long targetId,
             @RestForm String recordingName,
@@ -189,7 +188,7 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}")
     @RolesAllowed("write")
-    public void deleteRecording(@RestPath long targetId, @RestPath long remoteId) throws Exception {
+    public void delete(@RestPath long targetId, @RestPath long remoteId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         var recording = target.getRecordingById(remoteId);
         if (recording == null) {
@@ -202,7 +201,7 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}/upload")
     @RolesAllowed("write")
-    public Uni<String> uploadActiveToGrafana(@RestPath long targetId, @RestPath long remoteId)
+    public Uni<String> uploadToGrafana(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
         return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
     }
