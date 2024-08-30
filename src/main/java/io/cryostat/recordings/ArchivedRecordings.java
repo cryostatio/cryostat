@@ -435,12 +435,12 @@ public class ArchivedRecordings {
         logger.tracev(
                 "Sending S3 deletion request for {0} {1}",
                 bucket, recordingHelper.archivedRecordingKey(jvmId, filename));
+
+        var key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
+                .sdkHttpResponse();
         var resp =
-                storage.deleteObject(
-                        DeleteObjectRequest.builder()
-                                .bucket(bucket)
-                                .key(recordingHelper.archivedRecordingKey(jvmId, filename))
-                                .build());
+                storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
         logger.tracev(
                 "Got SDK response {0} {1}",
                 resp.sdkHttpResponse().statusCode(), resp.sdkHttpResponse().statusText());
@@ -474,18 +474,20 @@ public class ArchivedRecordings {
     @Path("/api/v4/grafana/{encodedKey}")
     @RolesAllowed("write")
     public Uni<String> uploadArchivedToGrafana(@RestPath String encodedKey) throws Exception {
-        var key = recordingHelper.decodedKey(encodedKey);
+        var pair = recordingHelper.decodedKey(encodedKey);
+        var key = recordingHelper.archivedRecordingKey(pair);
+        storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
+                .sdkHttpResponse();
         var found =
                 recordingHelper.listArchivedRecordingObjects().stream()
                         .anyMatch(
-                                o ->
-                                        Objects.equals(
-                                                o.key(),
-                                                recordingHelper.archivedRecordingKey(key)));
+                                o -> {
+                                    return Objects.equals(o.key(), key);
+                                });
         if (!found) {
             throw new NotFoundException();
         }
-        return recordingHelper.uploadToJFRDatasource(key);
+        return recordingHelper.uploadToJFRDatasource(pair);
     }
 
     @GET
@@ -495,6 +497,10 @@ public class ArchivedRecordings {
     public RestResponse<Object> handleStorageDownload(
             @RestPath String encodedKey, @RestQuery String f) throws URISyntaxException {
         Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
+        String key = recordingHelper.archivedRecordingKey(pair);
+
+        storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
+                .sdkHttpResponse();
 
         if (!presignedDownloadsEnabled) {
             return ResponseBuilder.ok()
@@ -507,11 +513,7 @@ public class ArchivedRecordings {
         }
 
         logger.tracev("Handling presigned download request for {0}", pair);
-        GetObjectRequest getRequest =
-                GetObjectRequest.builder()
-                        .bucket(bucket)
-                        .key(recordingHelper.archivedRecordingKey(pair))
-                        .build();
+        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()
                         .signatureDuration(Duration.ofMinutes(1))

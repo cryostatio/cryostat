@@ -967,6 +967,9 @@ public class RecordingHelper {
     public Pair<String, String> decodedKey(String encodedKey) {
         String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
         String[] parts = key.split("/");
+        if (parts.length != 2) {
+            throw new IllegalArgumentException();
+        }
         return Pair.of(parts[0], parts[1]);
     }
 
