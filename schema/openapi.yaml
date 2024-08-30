@@ -1888,11 +1888,11 @@ paths:
           description: Created
       tags:
         - JMC Agent Probes
-  /api/v4/targets/{id}/recordingOptions:
+  /api/v4/targets/{targetId}/recordingOptions:
     get:
       parameters:
         - in: path
-          name: id
+          name: targetId
           required: true
           schema:
             format: int64
@@ -1916,7 +1916,7 @@ paths:
     patch:
       parameters:
         - in: path
-          name: id
+          name: targetId
           required: true
           schema:
             format: int64
