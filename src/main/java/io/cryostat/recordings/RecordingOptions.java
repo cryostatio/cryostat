@@ -41,7 +41,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/v4/targets/{id}/recordingOptions")
+@Path("/api/v4/targets/{targetId}/recordingOptions")
 public class RecordingOptions {
 
     @Inject TargetConnectionManager connectionManager;
@@ -52,8 +52,8 @@ public class RecordingOptions {
     @GET
     @Blocking
     @RolesAllowed("read")
-    public Map<String, Object> getRecordingOptions(@RestPath long id) throws Exception {
-        Target target = Target.find("id", id).singleResult();
+    public Map<String, Object> getRecordingOptions(@RestPath long targetId) throws Exception {
+        Target target = Target.find("id", targetId).singleResult();
         return connectionManager.executeConnectedTask(
                 target,
                 connection -> {
@@ -69,7 +69,7 @@ public class RecordingOptions {
             value = "UC_USELESS_OBJECT",
             justification = "SpotBugs thinks the options map is unused, but it is used")
     public Map<String, Object> patchRecordingOptions(
-            @RestPath long id,
+            @RestPath long targetId,
             @RestForm String toDisk,
             @RestForm String maxAge,
             @RestForm String maxSize)
@@ -86,7 +86,9 @@ public class RecordingOptions {
             options.put("toDisk", toDisk);
         }
         if (maxAge != null) {
-            if (!unsetKeyword.equals(maxAge)) {
+            if (unsetKeyword.equals(maxAge)) {
+                options.put("maxAge", unsetKeyword);
+            } else {
                 try {
                     Long.parseLong(maxAge);
                     options.put("maxAge", maxAge);
@@ -96,7 +98,9 @@ public class RecordingOptions {
             }
         }
         if (maxSize != null) {
-            if (!unsetKeyword.equals(maxSize)) {
+            if (unsetKeyword.equals(maxSize)) {
+                options.put("maxSize", unsetKeyword);
+            } else {
                 try {
                     Long.parseLong(maxSize);
                     options.put("maxSize", maxSize);
@@ -105,7 +109,7 @@ public class RecordingOptions {
                 }
             }
         }
-        Target target = Target.find("id", id).singleResult();
+        Target target = Target.find("id", targetId).singleResult();
         for (var entry : options.entrySet()) {
             RecordingOptionsCustomizer.OptionKey optionKey =
                     RecordingOptionsCustomizer.OptionKey.fromOptionName(entry.getKey()).get();
