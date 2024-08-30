@@ -223,7 +223,7 @@ public class MatchExpressionEvaluator {
      * expression-relevant fields exposed, connection URI exposed as a String, etc.
      */
     private static record SimplifiedTarget(
-            boolean isAgent,
+            boolean agent,
             String connectUrl,
             String alias,
             @Nullable String jvmId,
