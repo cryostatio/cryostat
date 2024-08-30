@@ -35,10 +35,10 @@ import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
-import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.targets.Target;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;

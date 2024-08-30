@@ -23,8 +23,8 @@ import io.restassured.http.ContentType;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@TestHTTPEndpoint(Recordings.class)
-public class RecordingsTest {
+@TestHTTPEndpoint(ActiveRecordings.class)
+public class ActiveRecordingsTest {
 
     @Test
     void testListEmptyArchives() {

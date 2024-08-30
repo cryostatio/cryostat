@@ -18,9 +18,9 @@ package io.cryostat.reports;
 import io.cryostat.ConfigProperties;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.ActiveRecordings;
+import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
-import io.cryostat.recordings.Recordings;
-import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 
@@ -55,7 +55,7 @@ class MemoryCachingReportsListener {
 
     @Inject Logger logger;
 
-    @ConsumeEvent(value = Recordings.ARCHIVED_RECORDING_DELETED)
+    @ConsumeEvent(value = ActiveRecordings.ARCHIVED_RECORDING_DELETED)
     public void handleArchivedRecordingDeletion(ArchivedRecording recording) {
         logger.tracev("archived recording cache invalidation: {0}", recording.name());
         if (!quarkusCache || !memoryCache) {
@@ -85,7 +85,7 @@ class MemoryCachingReportsListener {
     }
 
     @PreRemove
-    @ConsumeEvent(value = Recordings.ACTIVE_RECORDING_DELETED)
+    @ConsumeEvent(value = ActiveRecordings.ACTIVE_RECORDING_DELETED)
     void handleActiveRecordingDeletion(ActiveRecording recording) {
         logger.tracev(
                 "active recording cache invalidation: {0} {1}",

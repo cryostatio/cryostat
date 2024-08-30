@@ -16,8 +16,8 @@
 package io.cryostat.graphql;
 
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
-import io.cryostat.recordings.Recordings.ArchivedRecording;
 
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.graphql.Description;

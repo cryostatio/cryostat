@@ -68,9 +68,9 @@ import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording.Listener.ActiveRecordingEvent;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
-import io.cryostat.recordings.Recordings.ArchivedRecording;
-import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
-import io.cryostat.recordings.Recordings.Metadata;
+import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
+import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.EntityExistsException;
@@ -486,7 +486,7 @@ public class RecordingHelper {
 
                     var event =
                             new ActiveRecordingEvent(
-                                    Recordings.RecordingEventCategory.SNAPSHOT_CREATED,
+                                    ActiveRecordings.RecordingEventCategory.SNAPSHOT_CREATED,
                                     ActiveRecordingEvent.Payload.of(this, recording));
                     bus.publish(event.category().category(), event.payload().recording());
                     bus.publish(
@@ -907,7 +907,7 @@ public class RecordingHelper {
 
             var event =
                     new ArchivedRecordingEvent(
-                            Recordings.RecordingEventCategory.ARCHIVED_CREATED,
+                            ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
                             ArchivedRecordingEvent.Payload.of(connectUrl, archivedRecording));
             bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
@@ -1054,7 +1054,7 @@ public class RecordingHelper {
         var target = Target.getTargetByJvmId(jvmId);
         var event =
                 new ArchivedRecordingEvent(
-                        Recordings.RecordingEventCategory.ARCHIVED_DELETED,
+                        ActiveRecordings.RecordingEventCategory.ARCHIVED_DELETED,
                         ArchivedRecordingEvent.Payload.of(
                                 target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
@@ -1150,7 +1150,8 @@ public class RecordingHelper {
 
                                 notify(
                                         new ActiveRecordingEvent(
-                                                Recordings.RecordingEventCategory.METADATA_UPDATED,
+                                                ActiveRecordings.RecordingEventCategory
+                                                        .METADATA_UPDATED,
                                                 ActiveRecordingEvent.Payload.of(this, recording)));
                             }
                             return recording;
@@ -1207,7 +1208,7 @@ public class RecordingHelper {
 
         var event =
                 new ArchivedRecordingEvent(
-                        Recordings.RecordingEventCategory.METADATA_UPDATED,
+                        ActiveRecordings.RecordingEventCategory.METADATA_UPDATED,
                         new ArchivedRecordingEvent.Payload(
                                 updatedRecording.downloadUrl(), updatedRecording));
         bus.publish(event.category().category(), event.payload().recording());

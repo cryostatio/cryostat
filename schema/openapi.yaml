@@ -659,7 +659,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Archived Recordings
   /api/beta/fs/recordings/{jvmId}:
     get:
       parameters:
@@ -684,7 +684,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Archived Recordings
   /api/beta/fs/recordings/{jvmId}/{filename}:
     delete:
       parameters:
@@ -708,7 +708,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Archived Recordings
   /api/beta/recordings/{connectUrl}/{filename}:
     delete:
       parameters:
@@ -732,7 +732,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Archived Recordings
   /api/beta/recordings/{jvmId}:
     get:
       parameters:
@@ -757,7 +757,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Archived Recordings
     post:
       parameters:
         - in: path
@@ -788,7 +788,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Archived Recordings
   /api/v4/activedownload/{id}:
     get:
       parameters:
@@ -813,7 +813,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Active Recordings
   /api/v4/auth:
     post:
       responses:
@@ -1137,7 +1137,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Archived Recordings
   /api/v4/event_templates:
     get:
       responses:
@@ -1220,7 +1220,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Archived Recordings
   /api/v4/grafana_dashboard_url:
     get:
       responses:
@@ -1382,7 +1382,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Archived Recordings
     post:
       requestBody:
         content:
@@ -1409,7 +1409,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Archived Recordings
   /api/v4/recordings/{filename}:
     delete:
       parameters:
@@ -1428,7 +1428,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Archived Recordings
   /api/v4/reports/{encodedKey}:
     get:
       parameters:
@@ -1912,7 +1912,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Active Recordings
     patch:
       parameters:
         - in: path
@@ -1948,7 +1948,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Active Recordings
   /api/v4/targets/{id}/recordings:
     get:
       parameters:
@@ -1974,7 +1974,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Active Recordings
     post:
       parameters:
         - in: path
@@ -2035,7 +2035,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Active Recordings
   /api/v4/targets/{id}/snapshot:
     post:
       parameters:
@@ -2059,7 +2059,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Active Recordings
   /api/v4/targets/{targetId}/recordings/{remoteId}:
     delete:
       parameters:
@@ -2085,7 +2085,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Active Recordings
     patch:
       parameters:
         - in: path
@@ -2119,7 +2119,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Active Recordings
   /api/v4/targets/{targetId}/recordings/{remoteId}/upload:
     post:
       parameters:
@@ -2149,7 +2149,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Recordings
+        - Active Recordings
   /api/v4/targets/{targetId}/reports/{recordingId}:
     get:
       deprecated: true

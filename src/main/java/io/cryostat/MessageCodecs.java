@@ -15,7 +15,7 @@
  */
 package io.cryostat;
 
-import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
+import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.LocalEventBusCodec;
