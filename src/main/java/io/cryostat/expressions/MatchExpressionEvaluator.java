@@ -242,7 +242,7 @@ public class MatchExpressionEvaluator {
 
         static SimplifiedTarget from(Target target) {
             return new SimplifiedTarget(
-                    target.agent(),
+                    target.isAgent(),
                     target.connectUrl.toString(),
                     target.alias,
                     target.jvmId,
