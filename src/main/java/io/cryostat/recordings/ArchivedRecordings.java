@@ -31,17 +31,14 @@ import java.util.Optional;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
-import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
@@ -89,17 +86,11 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 @Path("")
 public class ArchivedRecordings {
 
-    @Inject TargetConnectionManager connectionManager;
     @Inject EventBus bus;
-    @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
-    @Inject RecordingOptionsCustomizerFactory recordingOptionsCustomizerFactory;
-    @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
     @Inject Clock clock;
     @Inject S3Client storage;
     @Inject StorageBuckets storageBuckets;
     @Inject S3Presigner presigner;
-    @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
-    @Inject ObjectMapper mapper;
     @Inject RecordingHelper recordingHelper;
     @Inject Logger logger;
 
@@ -110,23 +101,11 @@ public class ArchivedRecordings {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String bucket;
 
-    @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
-    Optional<String> grafanaDatasourceURL;
-
-    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_ENABLED)
-    boolean transientArchivesEnabled;
-
-    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_TTL)
-    Duration transientArchivesTtl;
-
     @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
     boolean presignedDownloadsEnabled;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
     Optional<String> externalStorageUrl;
-
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration connectionFailedTimeout;
 
     void onStart(@Observes StartupEvent evt) {
         storageBuckets.createIfNecessary(bucket);

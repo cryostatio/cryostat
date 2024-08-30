@@ -17,6 +17,10 @@ package io.cryostat.recordings;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.Map;
+
+import io.cryostat.AbstractTransactionalTestBase;
+
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -24,14 +28,16 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(ActiveRecordings.class)
-public class ActiveRecordingsTest {
+public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
-    void testListEmptyArchives() {
+    void testListNone() {
+        int id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/recordings")
+                .pathParams(Map.of("targetId", id))
+                .get()
                 .then()
                 .log()
                 .all()
@@ -43,10 +49,12 @@ public class ActiveRecordingsTest {
 
     @Test
     void testDeleteNone() {
+        int id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .delete("/api/v4/recordings/nothing")
+                .pathParams(Map.of("targetId", id))
+                .delete("/1")
                 .then()
                 .log()
                 .all()

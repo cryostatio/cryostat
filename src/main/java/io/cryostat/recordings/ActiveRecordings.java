@@ -25,27 +25,18 @@ import java.util.Objects;
 import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.Producers;
-import io.cryostat.StorageBuckets;
-import io.cryostat.core.EventOptionsBuilder;
-import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.TargetConnectionManager;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
@@ -57,7 +48,6 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.UriInfo;
 import jdk.jfr.RecordingState;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -66,52 +56,16 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
 @Path("/api/v4/targets/{targetId}/recordings")
 public class ActiveRecordings {
 
-    @Inject TargetConnectionManager connectionManager;
-    @Inject EventBus bus;
-    @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
-    @Inject Clock clock;
-    @Inject S3Client storage;
-    @Inject StorageBuckets storageBuckets;
-    @Inject S3Presigner presigner;
-    @Inject RemoteRecordingInputStreamFactory remoteRecordingStreamFactory;
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper recordingHelper;
     @Inject Logger logger;
 
-    @Inject
-    @Named(Producers.BASE64_URL)
-    Base64 base64Url;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
-    String bucket;
-
-    @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
-    Optional<String> grafanaDatasourceURL;
-
-    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_ENABLED)
-    boolean transientArchivesEnabled;
-
-    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_TTL)
-    Duration transientArchivesTtl;
-
-    @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
-    boolean presignedDownloadsEnabled;
-
-    @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
-    Optional<String> externalStorageUrl;
-
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
-
-    void onStart(@Observes StartupEvent evt) {
-        storageBuckets.createIfNecessary(bucket);
-    }
 
     @GET
     @Transactional
