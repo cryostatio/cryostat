@@ -237,6 +237,52 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    void testCreateDownloadAndDelete() {
+        int targetId = defineSelfCustomTarget();
+        int recordingId =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams(Map.of("targetId", targetId))
+                        .formParam("recordingName", "activeRecordingsTest")
+                        .formParam("events", "template=Continuous")
+                        .post()
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getInt("remoteId");
+
+        given().log()
+                .all()
+                .when()
+                .pathParams(Map.of("targetId", targetId))
+                .get(Integer.toString(recordingId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.BINARY);
+
+        given().log()
+                .all()
+                .when()
+                .pathParams(Map.of("targetId", targetId))
+                .delete(Integer.toString(recordingId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    @Test
     void testCreateStopAndDelete() {
         int targetId = defineSelfCustomTarget();
         long startTime = System.currentTimeMillis();

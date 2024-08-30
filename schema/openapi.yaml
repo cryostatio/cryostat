@@ -2086,6 +2086,36 @@ paths:
         - SecurityScheme: []
       tags:
         - Active Recordings
+    get:
+      parameters:
+        - in: path
+          name: remoteId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                format: binary
+                type: string
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Active Recordings
     patch:
       parameters:
         - in: path

@@ -16,6 +16,8 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.net.URI;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -74,6 +76,23 @@ public class ActiveRecordings {
         return recordingHelper.listActiveRecordings(target).stream()
                 .map(recordingHelper::toExternalForm)
                 .toList();
+    }
+
+    @GET
+    @Blocking
+    @Path("/{remoteId}")
+    @RolesAllowed("read")
+    public RestResponse<InputStream> download(@RestPath long targetId, @RestPath long remoteId)
+            throws Exception {
+        Target target = Target.find("id", targetId).singleResult();
+        var recording =
+                target.activeRecordings.stream()
+                        .filter(r -> r.remoteId == remoteId)
+                        .findFirst()
+                        .orElseThrow();
+        return ResponseBuilder.<InputStream>create(RestResponse.Status.PERMANENT_REDIRECT)
+                .location(URI.create(String.format("/api/v4/activedownload/%d", recording.id)))
+                .build();
     }
 
     @PATCH
