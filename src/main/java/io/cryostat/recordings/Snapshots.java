@@ -30,7 +30,7 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
-@Path("/api/v4/targets/{id}/snapshot")
+@Path("/api/v4/targets/{targetId}/snapshot")
 public class Snapshots {
 
     @Inject RecordingHelper recordingHelper;
@@ -40,9 +40,9 @@ public class Snapshots {
     @Transactional
     @RolesAllowed("write")
     public Uni<RestResponse<LinkedRecordingDescriptor>> createSnapshotUsingTargetId(
-            @RestPath long id) throws Exception {
+            @RestPath long targetId) throws Exception {
         return recordingHelper
-                .createSnapshot(Target.find("id", id).singleResult())
+                .createSnapshot(Target.find("id", targetId).singleResult())
                 .onItem()
                 .transform(
                         recording ->

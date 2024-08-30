@@ -1949,30 +1949,6 @@ paths:
         - SecurityScheme: []
       tags:
         - Recording Options
-  /api/v4/targets/{id}/snapshot:
-    post:
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            format: int64
-            type: integer
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LinkedRecordingDescriptor'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      tags:
-        - Snapshots
   /api/v4/targets/{targetId}/recordings:
     get:
       parameters:
@@ -2213,6 +2189,30 @@ paths:
         - SecurityScheme: []
       tags:
         - Reports
+  /api/v4/targets/{targetId}/snapshot:
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedRecordingDescriptor'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Snapshots
   /api/v4/tls/certs:
     get:
       responses:
