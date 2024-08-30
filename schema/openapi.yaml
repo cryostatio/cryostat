@@ -813,7 +813,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Active Recordings
+        - Active Recordings Download
   /api/v4/auth:
     post:
       responses:
@@ -1912,7 +1912,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Active Recordings
+        - Recording Options
     patch:
       parameters:
         - in: path
@@ -1948,12 +1948,36 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Active Recordings
-  /api/v4/targets/{id}/recordings:
-    get:
+        - Recording Options
+  /api/v4/targets/{id}/snapshot:
+    post:
       parameters:
         - in: path
           name: id
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LinkedRecordingDescriptor'
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Snapshots
+  /api/v4/targets/{targetId}/recordings:
+    get:
+      parameters:
+        - in: path
+          name: targetId
           required: true
           schema:
             format: int64
@@ -1978,7 +2002,7 @@ paths:
     post:
       parameters:
         - in: path
-          name: id
+          name: targetId
           required: true
           schema:
             format: int64
@@ -2021,30 +2045,6 @@ paths:
                   nullable: true
                   type: boolean
               type: object
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/LinkedRecordingDescriptor'
-          description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme: []
-      tags:
-        - Active Recordings
-  /api/v4/targets/{id}/snapshot:
-    post:
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            format: int64
-            type: integer
       responses:
         "200":
           content:

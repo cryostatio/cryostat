@@ -16,9 +16,6 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -26,28 +23,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import org.openjdk.jmc.common.unit.IConstrainedMap;
-import org.openjdk.jmc.common.unit.IOptionDescriptor;
-import org.openjdk.jmc.flightrecorder.configuration.IFlightRecorderService;
-import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBuilder;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.EventOptionsBuilder;
-import io.cryostat.core.RecordingOptionsCustomizer;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
-import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
-import io.cryostat.util.HttpMimeType;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -68,7 +55,6 @@ import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
-import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.UriInfo;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
@@ -83,13 +69,11 @@ import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 
-@Path("")
+@Path("/api/v4/targets/{targetId}/recordings")
 public class ActiveRecordings {
 
     @Inject TargetConnectionManager connectionManager;
     @Inject EventBus bus;
-    @Inject RecordingOptionsBuilderFactory recordingOptionsBuilderFactory;
-    @Inject RecordingOptionsCustomizerFactory recordingOptionsCustomizerFactory;
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
     @Inject Clock clock;
     @Inject S3Client storage;
@@ -131,10 +115,9 @@ public class ActiveRecordings {
 
     @GET
     @Transactional
-    @Path("/api/v4/targets/{id}/recordings")
     @RolesAllowed("read")
-    public List<LinkedRecordingDescriptor> listForTarget(@RestPath long id) throws Exception {
-        Target target = Target.find("id", id).singleResult();
+    public List<LinkedRecordingDescriptor> listForTarget(@RestPath long targetId) throws Exception {
+        Target target = Target.find("id", targetId).singleResult();
         return recordingHelper.listActiveRecordings(target).stream()
                 .map(recordingHelper::toExternalForm)
                 .toList();
@@ -143,7 +126,7 @@ public class ActiveRecordings {
     @PATCH
     @Transactional
     @Blocking
-    @Path("/api/v4/targets/{targetId}/recordings/{remoteId}")
+    @Path("/{remoteId}")
     @RolesAllowed("write")
     public String patch(@RestPath long targetId, @RestPath long remoteId, String body)
             throws Exception {
@@ -183,30 +166,11 @@ public class ActiveRecordings {
 
     @POST
     @Transactional
-    @Path("/api/v4/targets/{id}/snapshot")
-    @RolesAllowed("write")
-    public Uni<RestResponse<LinkedRecordingDescriptor>> createSnapshotUsingTargetId(
-            @RestPath long id) throws Exception {
-        Target target = Target.find("id", id).singleResult();
-        return recordingHelper
-                .createSnapshot(target)
-                .onItem()
-                .transform(
-                        recording ->
-                                ResponseBuilder.ok(recordingHelper.toExternalForm(recording))
-                                        .build())
-                .onFailure(SnapshotCreationException.class)
-                .recoverWithItem(ResponseBuilder.<LinkedRecordingDescriptor>accepted().build());
-    }
-
-    @POST
-    @Transactional
     @Blocking
-    @Path("/api/v4/targets/{id}/recordings")
     @RolesAllowed("write")
     public RestResponse<LinkedRecordingDescriptor> createRecording(
             @Context UriInfo uriInfo,
-            @RestPath long id,
+            @RestPath long targetId,
             @RestForm String recordingName,
             @RestForm String events,
             @RestForm Optional<String> replace,
@@ -227,7 +191,7 @@ public class ActiveRecordings {
             throw new BadRequestException("\"events\" form parameter must be provided");
         }
 
-        Target target = Target.find("id", id).singleResult();
+        Target target = Target.find("id", targetId).singleResult();
 
         Pair<String, TemplateType> pair = recordingHelper.parseEventSpecifier(events);
         Template template =
@@ -269,7 +233,7 @@ public class ActiveRecordings {
     @DELETE
     @Transactional
     @Blocking
-    @Path("/api/v4/targets/{targetId}/recordings/{remoteId}")
+    @Path("/{remoteId}")
     @RolesAllowed("write")
     public void deleteRecording(@RestPath long targetId, @RestPath long remoteId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
@@ -282,168 +246,11 @@ public class ActiveRecordings {
 
     @POST
     @Blocking
-    @Path("/api/v4/targets/{targetId}/recordings/{remoteId}/upload")
+    @Path("/{remoteId}/upload")
     @RolesAllowed("write")
     public Uni<String> uploadActiveToGrafana(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
         return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
-    }
-
-    @GET
-    @Blocking
-    @Path("/api/v4/targets/{id}/recordingOptions")
-    @RolesAllowed("read")
-    public Map<String, Object> getRecordingOptions(@RestPath long id) throws Exception {
-        Target target = Target.find("id", id).singleResult();
-        return connectionManager.executeConnectedTask(
-                target,
-                connection -> {
-                    RecordingOptionsBuilder builder = recordingOptionsBuilderFactory.create(target);
-                    return getRecordingOptions(connection.getService(), builder);
-                });
-    }
-
-    @PATCH
-    @Blocking
-    @Path("/api/v4/targets/{id}/recordingOptions")
-    @RolesAllowed("read")
-    @SuppressFBWarnings(
-            value = "UC_USELESS_OBJECT",
-            justification = "SpotBugs thinks the options map is unused, but it is used")
-    public Map<String, Object> patchRecordingOptions(
-            @RestPath long id,
-            @RestForm String toDisk,
-            @RestForm String maxAge,
-            @RestForm String maxSize)
-            throws Exception {
-        final String unsetKeyword = "unset";
-
-        Map<String, String> options = new HashMap<>();
-        Pattern bool = Pattern.compile("true|false|" + unsetKeyword);
-        if (toDisk != null) {
-            Matcher m = bool.matcher(toDisk);
-            if (!m.matches()) {
-                throw new BadRequestException("Invalid options");
-            }
-            options.put("toDisk", toDisk);
-        }
-        if (maxAge != null) {
-            if (!unsetKeyword.equals(maxAge)) {
-                try {
-                    Long.parseLong(maxAge);
-                    options.put("maxAge", maxAge);
-                } catch (NumberFormatException e) {
-                    throw new BadRequestException("Invalid options");
-                }
-            }
-        }
-        if (maxSize != null) {
-            if (!unsetKeyword.equals(maxSize)) {
-                try {
-                    Long.parseLong(maxSize);
-                    options.put("maxSize", maxSize);
-                } catch (NumberFormatException e) {
-                    throw new BadRequestException("Invalid options");
-                }
-            }
-        }
-        Target target = Target.find("id", id).singleResult();
-        for (var entry : options.entrySet()) {
-            RecordingOptionsCustomizer.OptionKey optionKey =
-                    RecordingOptionsCustomizer.OptionKey.fromOptionName(entry.getKey()).get();
-            var recordingOptionsCustomizer = recordingOptionsCustomizerFactory.create(target);
-            if (unsetKeyword.equals(entry.getValue())) {
-                recordingOptionsCustomizer.unset(optionKey);
-            } else {
-                recordingOptionsCustomizer.set(optionKey, entry.getValue());
-            }
-        }
-
-        return connectionManager.executeConnectedTask(
-                target,
-                connection -> {
-                    var builder = recordingOptionsBuilderFactory.create(target);
-                    return getRecordingOptions(connection.getService(), builder);
-                });
-    }
-
-    @GET
-    @Blocking
-    @Path("/api/v4/activedownload/{id}")
-    @RolesAllowed("read")
-    public RestResponse<InputStream> handleActiveDownload(@RestPath long id) throws Exception {
-        ActiveRecording recording = ActiveRecording.find("id", id).singleResult();
-        if (!transientArchivesEnabled) {
-            return ResponseBuilder.<InputStream>ok()
-                    .header(
-                            HttpHeaders.CONTENT_DISPOSITION,
-                            String.format("attachment; filename=\"%s.jfr\"", recording.name))
-                    .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
-                    .entity(recordingHelper.getActiveInputStream(recording))
-                    .build();
-        }
-
-        String savename = recording.name;
-        String filename =
-                recordingHelper
-                        .archiveRecording(
-                                recording, savename, Instant.now().plus(transientArchivesTtl))
-                        .name();
-        String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
-        if (!savename.endsWith(".jfr")) {
-            savename += ".jfr";
-        }
-        return ResponseBuilder.<InputStream>create(RestResponse.Status.PERMANENT_REDIRECT)
-                .header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        String.format("attachment; filename=\"%s\"", savename))
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v4/download/%s?f=%s",
-                                        encodedKey,
-                                        base64Url.encodeAsString(
-                                                savename.getBytes(StandardCharsets.UTF_8)))))
-                .build();
-    }
-
-    private static Map<String, Object> getRecordingOptions(
-            IFlightRecorderService service, RecordingOptionsBuilder builder) throws Exception {
-        IConstrainedMap<String> recordingOptions = builder.build();
-
-        Map<String, IOptionDescriptor<?>> targetRecordingOptions =
-                service.getAvailableRecordingOptions();
-
-        Map<String, Object> map = new HashMap<String, Object>();
-
-        if (recordingOptions.get("toDisk") != null) {
-            map.put("toDisk", recordingOptions.get("toDisk"));
-        } else {
-            map.put("toDisk", targetRecordingOptions.get("disk").getDefault());
-        }
-
-        map.put("maxAge", getNumericOption("maxAge", recordingOptions, targetRecordingOptions));
-        map.put("maxSize", getNumericOption("maxSize", recordingOptions, targetRecordingOptions));
-
-        return map;
-    }
-
-    private static Long getNumericOption(
-            String name,
-            IConstrainedMap<String> defaultOptions,
-            Map<String, IOptionDescriptor<?>> targetOptions) {
-        Object value;
-
-        if (defaultOptions.get(name) != null) {
-            value = defaultOptions.get(name);
-        } else {
-            value = targetOptions.get(name).getDefault();
-        }
-
-        if (value instanceof Number) {
-            return Long.valueOf(((Number) value).longValue());
-        }
-        return null;
     }
 
     public record LinkedRecordingDescriptor(

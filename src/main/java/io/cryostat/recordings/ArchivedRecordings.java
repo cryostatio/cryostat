@@ -60,7 +60,6 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
-import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -567,29 +566,6 @@ public class ArchivedRecordings {
                                     new String(base64Url.decode(f), StandardCharsets.UTF_8)));
         }
         return response.location(uri).build();
-    }
-
-    public record LinkedRecordingDescriptor(
-            long id,
-            long remoteId,
-            RecordingState state,
-            long duration,
-            long startTime,
-            boolean continuous,
-            boolean toDisk,
-            long maxSize,
-            long maxAge,
-            String name,
-            String downloadUrl,
-            String reportUrl,
-            Metadata metadata) {
-        public LinkedRecordingDescriptor {
-            Objects.requireNonNull(state);
-            Objects.requireNonNull(name);
-            Objects.requireNonNull(downloadUrl);
-            Objects.requireNonNull(reportUrl);
-            Objects.requireNonNull(metadata);
-        }
     }
 
     // TODO include jvmId and filename
