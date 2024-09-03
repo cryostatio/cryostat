@@ -2158,7 +2158,6 @@ paths:
         - Active Recordings
   /api/v4/targets/{targetId}/reports/{recordingId}:
     get:
-      deprecated: true
       parameters:
         - in: path
           name: recordingId
