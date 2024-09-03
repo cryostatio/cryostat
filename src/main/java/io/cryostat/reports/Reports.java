@@ -76,7 +76,6 @@ public class Reports {
     @Path("/api/v4/targets/{targetId}/reports/{recordingId}")
     @Produces({MediaType.APPLICATION_JSON})
     @RolesAllowed("read")
-    @Deprecated(since = "3.0", forRemoval = true)
     public Uni<Map<String, AnalysisResult>> getActive(
             @RestPath long targetId, @RestPath long recordingId) throws Exception {
         var target = Target.getTargetById(targetId);
