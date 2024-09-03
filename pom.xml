@@ -51,6 +51,7 @@
     <quarkus-quinoa.version>2.2.5</quarkus-quinoa.version>
     <io.netty.version>4.1.108.Final</io.netty.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.6.0</org.codehaus.mojo.build.helper.plugin.version>
+    <org.codehaus.mojo.exec.plugin.version>3.4.1</org.codehaus.mojo.exec.plugin.version>
     <assembly-plugin.version>3.7.1</assembly-plugin.version>
 
     <com.github.spotbugs.version>4.8.6</com.github.spotbugs.version>
@@ -344,6 +345,29 @@
             </path>
           </annotationProcessorPaths>
         </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>exec-maven-plugin</artifactId>
+        <version>${org.codehaus.mojo.exec.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>generate-git-version</id>
+            <phase>generate-resources</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>git</executable>
+              <arguments>
+                <argument>rev-parse</argument>
+                <argument>--verify</argument>
+                <argument>HEAD</argument>
+              </arguments>
+              <outputFile>${project.build.directory}/classes/META-INF/gitinfo</outputFile>
+            </configuration>
+          </execution>
+        </executions>
       </plugin>
       <plugin>
         <groupId>org.codehaus.mojo</groupId>

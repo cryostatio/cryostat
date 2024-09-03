@@ -62,8 +62,9 @@ class Health {
     @ConfigProperty(name = ConfigProperties.REPORTS_SIDECAR_URL)
     String reportsClientURL;
 
-    @Inject Logger logger;
+    @Inject BuildInfo buildInfo;
     @Inject WebClient webClient;
+    @Inject Logger logger;
 
     @GET
     @Blocking
@@ -94,6 +95,7 @@ class Health {
 
         return new ApplicationHealth(
                 String.format("v%s", version),
+                buildInfo,
                 dashboardURL.isPresent(),
                 dashboardAvailable.join(),
                 datasourceURL.isPresent(),
@@ -169,6 +171,7 @@ class Health {
 
     static record ApplicationHealth(
             String cryostatVersion,
+            BuildInfo build,
             boolean dashboardConfigured,
             boolean dashboardAvailable,
             boolean datasourceConfigured,
