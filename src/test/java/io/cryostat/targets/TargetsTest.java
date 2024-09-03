@@ -34,7 +34,7 @@ public class TargetsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get()
+                .get("/api/v4/targets")
                 .then()
                 .log()
                 .all()
@@ -46,12 +46,26 @@ public class TargetsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    public void testGetNone() {
+        given().log()
+                .all()
+                .when()
+                .pathParams("id", Integer.MAX_VALUE)
+                .get("/api/v4/targets/{id}")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(404);
+    }
+
+    @Test
     void testCreateAndList() {
         defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .get()
+                .get("/api/v4/targets")
                 .then()
                 .log()
                 .all()
@@ -68,7 +82,8 @@ public class TargetsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get(Integer.toString(id))
+                .pathParam("id", id)
+                .get("/api/v4/targets/{id}")
                 .then()
                 .log()
                 .all()

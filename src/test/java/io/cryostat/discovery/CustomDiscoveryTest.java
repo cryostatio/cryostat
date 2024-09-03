@@ -17,8 +17,6 @@ package io.cryostat.discovery;
 
 import static io.restassured.RestAssured.given;
 
-import java.util.List;
-
 import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
@@ -32,28 +30,6 @@ import org.junit.jupiter.api.Test;
 public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
-    public void testListEmpty() {
-        given().log()
-                .all()
-                .when()
-                .get()
-                .then()
-                .log()
-                .all()
-                .assertThat()
-                .statusCode(200)
-                .and()
-                .contentType(ContentType.JSON)
-                .and()
-                .body("", Matchers.equalTo(List.of()));
-    }
-
-    @Test
-    public void testGetNone() {
-        given().log().all().when().get("/1").then().log().all().assertThat().statusCode(404);
-    }
-
-    @Test
     public void testCreate() {
         int id =
                 given().log()
@@ -62,7 +38,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
                         .formParam("alias", "CustomDiscoveryTest")
                         .when()
-                        .post()
+                        .post("/api/v4/targets")
                         .then()
                         .log()
                         .all()
@@ -89,7 +65,13 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getInt("id");
 
-        given().log().all().when().delete("/{id}", id).then().assertThat().statusCode(204);
+        given().log()
+                .all()
+                .when()
+                .delete("/api/v4/targets/{id}", id)
+                .then()
+                .assertThat()
+                .statusCode(204);
     }
 
     @Test
@@ -101,7 +83,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .formParam("alias", "CustomDiscoveryTest")
                 .queryParam("dryrun", true)
                 .when()
-                .post()
+                .post("/api/v4/targets")
                 .then()
                 .log()
                 .all()
@@ -119,7 +101,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://invalid-host:9999/jmxrmi")
                 .formParam("alias", "CustomDiscoveryTest")
                 .when()
-                .post()
+                .post("/api/v4/targets")
                 .then()
                 .log()
                 .all()
@@ -134,7 +116,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/{id}", id)
+                .get("/api/v4/targets/{id}", id)
                 .then()
                 .log()
                 .all()
@@ -152,7 +134,13 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .body("alias", Matchers.instanceOf(String.class))
                 .body("alias", Matchers.equalTo("CustomDiscoveryTest"));
 
-        given().log().all().when().delete("/{id}", id).then().assertThat().statusCode(204);
+        given().log()
+                .all()
+                .when()
+                .delete("/api/v4/targets/{id}", id)
+                .then()
+                .assertThat()
+                .statusCode(204);
     }
 
     @Test
@@ -162,7 +150,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .delete("/{id}", id)
+                .delete("/api/v4/targets/{id}", id)
                 .then()
                 .log()
                 .all()
@@ -177,7 +165,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
                 .formParam("alias", "CustomDiscoveryTest")
                 .when()
-                .post()
+                .post("/api/v4/targets")
                 .then()
                 .log()
                 .all()
