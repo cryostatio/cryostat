@@ -37,6 +37,8 @@ components:
       type: object
     ApplicationHealth:
       properties:
+        build:
+          $ref: '#/components/schemas/BuildInfo'
         cryostatVersion:
           type: string
         dashboardAvailable:
@@ -86,6 +88,13 @@ components:
       properties:
         username:
           type: string
+      type: object
+    BuildInfo:
+      properties:
+        git:
+          $ref: '#/components/schemas/GitInfo'
+        gitinfo:
+          $ref: '#/components/schemas/GitInfo'
       type: object
     ContentType:
       enum:
@@ -290,6 +299,11 @@ components:
           type: string
       type: object
     FileUpload:
+      type: object
+    GitInfo:
+      properties:
+        hash:
+          type: string
       type: object
     Instant:
       example: 2022-03-10T16:15:50Z
