@@ -70,15 +70,11 @@ public class JMCAgentTemplates {
             @RestForm("name") String name)
             throws IOException, SAXException {
         if (StringUtils.isBlank(name)) {
-            logger.infov("template name: {0}", name);
             throw new BadRequestException("Request must contain a 'name' form parameter");
         }
         if (body == null || body.filePath() == null || !"probeTemplate".equals(body.name())) {
-            logger.infov("probe template: name {0} path: {1}", body.fileName(), body.filePath());
             throw new BadRequestException("Request must contain a 'probeTemplate' file upload");
         }
-        var tmp = fs.newInputStream(body.filePath());
-        logger.infov("upload body: {0}", new String(tmp.readAllBytes()));
         try (var stream = fs.newInputStream(body.filePath())) {
             var probeTemplate = service.addTemplate(stream, name);
             return ResponseBuilder.<ProbeTemplate>created(
