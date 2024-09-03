@@ -60,7 +60,7 @@ import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
 @ApplicationScoped
-@Path("")
+@Path("/api/v4/targets")
 public class CustomDiscovery {
 
     public static final Pattern HOST_PORT_PAIR_PATTERN =
@@ -77,7 +77,6 @@ public class CustomDiscovery {
 
     @Transactional(rollbackOn = {JvmIdException.class})
     @POST
-    @Path("/api/v4/targets")
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
     public RestResponse<Target> create(
@@ -104,7 +103,6 @@ public class CustomDiscovery {
 
     @Transactional
     @POST
-    @Path("/api/v4/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @RolesAllowed("write")
     public RestResponse<Target> createForm(
@@ -218,7 +216,7 @@ public class CustomDiscovery {
 
     @Transactional
     @DELETE
-    @Path("/api/v4/targets/{id}")
+    @Path("/{id}")
     @RolesAllowed("write")
     public void delete(@RestPath long id) throws URISyntaxException {
         Target target = Target.find("id", id).singleResult();

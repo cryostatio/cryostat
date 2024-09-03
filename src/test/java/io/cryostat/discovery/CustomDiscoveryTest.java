@@ -36,7 +36,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/targets")
+                .get()
                 .then()
                 .log()
                 .all()
@@ -50,15 +50,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testGetNone() {
-        given().log()
-                .all()
-                .when()
-                .get("/api/v4/targets/1")
-                .then()
-                .log()
-                .all()
-                .assertThat()
-                .statusCode(404);
+        given().log().all().when().get("/1").then().log().all().assertThat().statusCode(404);
     }
 
     @Test
@@ -70,7 +62,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
                         .formParam("alias", "CustomDiscoveryTest")
                         .when()
-                        .post("/api/v4/targets")
+                        .post()
                         .then()
                         .log()
                         .all()
@@ -97,13 +89,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getInt("id");
 
-        given().log()
-                .all()
-                .when()
-                .delete("/api/v4/targets/{id}", id)
-                .then()
-                .assertThat()
-                .statusCode(204);
+        given().log().all().when().delete("/{id}", id).then().assertThat().statusCode(204);
     }
 
     @Test
@@ -115,7 +101,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .formParam("alias", "CustomDiscoveryTest")
                 .queryParam("dryrun", true)
                 .when()
-                .post("/api/v4/targets")
+                .post()
                 .then()
                 .log()
                 .all()
@@ -133,7 +119,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://invalid-host:9999/jmxrmi")
                 .formParam("alias", "CustomDiscoveryTest")
                 .when()
-                .post("/api/v4/targets")
+                .post()
                 .then()
                 .log()
                 .all()
@@ -148,7 +134,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/api/v4/targets/{id}", id)
+                .get("/{id}", id)
                 .then()
                 .log()
                 .all()
@@ -166,13 +152,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .body("alias", Matchers.instanceOf(String.class))
                 .body("alias", Matchers.equalTo("CustomDiscoveryTest"));
 
-        given().log()
-                .all()
-                .when()
-                .delete("/api/v4/targets/{id}", id)
-                .then()
-                .assertThat()
-                .statusCode(204);
+        given().log().all().when().delete("/{id}", id).then().assertThat().statusCode(204);
     }
 
     @Test
@@ -182,7 +162,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .delete("/api/v4/targets/{id}", id)
+                .delete("/{id}", id)
                 .then()
                 .log()
                 .all()
@@ -197,7 +177,7 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
                 .formParam("alias", "CustomDiscoveryTest")
                 .when()
-                .post("/api/v4/targets")
+                .post()
                 .then()
                 .log()
                 .all()

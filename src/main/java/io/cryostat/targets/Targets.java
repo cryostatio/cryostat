@@ -29,7 +29,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("")
+@Path("/api/v4/targets")
 public class Targets {
 
     @Inject MatchExpressionEvaluator matchExpressionEvaluator;
@@ -40,14 +40,13 @@ public class Targets {
     Duration timeout;
 
     @GET
-    @Path("/api/v4/targets")
     @RolesAllowed("read")
     public List<Target> list() {
         return Target.listAll();
     }
 
     @GET
-    @Path("/api/v4/targets/{id}")
+    @Path("/{id}")
     @RolesAllowed("read")
     public Target getById(@RestPath Long id) {
         return Target.find("id", id).singleResult();
