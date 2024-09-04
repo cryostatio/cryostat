@@ -1014,16 +1014,8 @@ paths:
           schema:
             type: string
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                additionalProperties:
-                  additionalProperties:
-                    type: string
-                  type: object
-                type: object
-          description: OK
+        "204":
+          description: No Content
       tags:
         - Discovery
     get:
@@ -1067,16 +1059,8 @@ paths:
                 $ref: '#/components/schemas/DiscoveryNode'
               type: array
       responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                additionalProperties:
-                  additionalProperties:
-                    type: string
-                  type: object
-                type: object
-          description: OK
+        "201":
+          description: Created
       tags:
         - Discovery
   /api/v4/discovery_plugins:

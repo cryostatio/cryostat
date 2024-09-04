@@ -285,7 +285,7 @@ public class Discovery {
     @Path("/api/v4/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @PermitAll
-    public Map<String, Map<String, String>> publish(
+    public void publish(
             @Context RoutingContext ctx,
             @RestPath UUID id,
             @RestQuery String token,
@@ -309,21 +309,13 @@ public class Discovery {
             b.persist();
         }
         plugin.persist();
-
-        return Map.of(
-                "meta",
-                Map.of(
-                        "mimeType", "JSON",
-                        "status", "OK"),
-                "data",
-                Map.of("result", plugin.id.toString()));
     }
 
     @Transactional
     @DELETE
     @Path("/api/v4/discovery/{id}")
     @PermitAll
-    public Map<String, Map<String, String>> deregister(
+    public void deregister(
             @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
             throws SocketException,
                     UnknownHostException,
@@ -344,15 +336,7 @@ public class Discovery {
         for (var key : jobKeys) {
             scheduler.deleteJob(key);
         }
-
         plugin.delete();
-        return Map.of(
-                "meta",
-                Map.of(
-                        "mimeType", "JSON",
-                        "status", "OK"),
-                "data",
-                Map.of("result", plugin.id.toString()));
     }
 
     @GET
