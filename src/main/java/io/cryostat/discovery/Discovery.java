@@ -315,8 +315,7 @@ public class Discovery {
     @DELETE
     @Path("/api/v4/discovery/{id}")
     @PermitAll
-    public void deregister(
-            @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
+    public void deregister(@Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
             throws SocketException,
                     UnknownHostException,
                     MalformedURLException,
