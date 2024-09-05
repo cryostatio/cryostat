@@ -250,10 +250,8 @@ class GraphQLTest extends StandardSelfTest {
                 notification.getJsonObject("message").getJsonObject("recording");
         MatcherAssert.assertThat(notificationRecording.getString("name"), Matchers.equalTo("test"));
         MatcherAssert.assertThat(
-                notification.getJsonObject("message").getString("target"),
-                Matchers.equalTo(
-                        String.format(
-                                "service:jmx:rmi:///jndi/rmi://%s:%d/jmxrmi", "localhost", 0)));
+                notification.getJsonObject("message").getString("jvmId"),
+                Matchers.not(Matchers.blankOrNullString()));
         JsonArray notificationLabels =
                 notificationRecording.getJsonObject("metadata").getJsonArray("labels");
         Map<String, String> expectedLabels =
