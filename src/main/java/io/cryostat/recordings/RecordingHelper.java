@@ -1203,17 +1203,16 @@ public class RecordingHelper {
                         size,
                         lastModified.getEpochSecond());
 
-        notifyArchiveMetadataUpdate(updatedRecording);
+        notifyArchiveMetadataUpdate(jvmId, updatedRecording);
         return updatedRecording;
     }
 
-    private void notifyArchiveMetadataUpdate(ArchivedRecording updatedRecording) {
-
+    private void notifyArchiveMetadataUpdate(String jvmId, ArchivedRecording updatedRecording) {
         var event =
                 new ArchivedRecordingEvent(
                         ActiveRecordings.RecordingEventCategory.METADATA_UPDATED,
                         new ArchivedRecordingEvent.Payload(
-                                updatedRecording.downloadUrl(), updatedRecording));
+                                updatedRecording.downloadUrl(), jvmId, updatedRecording));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),

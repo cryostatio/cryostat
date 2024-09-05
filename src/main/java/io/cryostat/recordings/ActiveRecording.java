@@ -243,8 +243,8 @@ public class ActiveRecording extends PanacheEntity {
             // has disappeared and we are emitting an event regarding an archived recording
             // originally sourced from that target, or if we are accepting a recording upload from a
             // client.
-            // This should embed the target jvmId and optionally the database ID.
-            public record Payload(String target, ArchivedRecordings.ArchivedRecording recording) {
+            public record Payload(
+                    String target, String jvmId, ArchivedRecordings.ArchivedRecording recording) {
                 public Payload {
                     Objects.requireNonNull(recording);
                 }
@@ -253,6 +253,13 @@ public class ActiveRecording extends PanacheEntity {
                         URI connectUrl, ArchivedRecordings.ArchivedRecording recording) {
                     return new Payload(
                             Optional.ofNullable(connectUrl).map(URI::toString).orElse(null),
+                            Optional.ofNullable(connectUrl)
+                                    .flatMap(
+                                            url ->
+                                                    Target.find("connectUrl", url)
+                                                            .<Target>singleResultOptional())
+                                    .map(t -> t.jvmId)
+                                    .orElse(null),
                             recording);
                 }
             }
