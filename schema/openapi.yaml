@@ -75,8 +75,6 @@ components:
       type: object
     ArchivedRecordingDirectory:
       properties:
-        connectUrl:
-          type: string
         jvmId:
           type: string
         recordings:
