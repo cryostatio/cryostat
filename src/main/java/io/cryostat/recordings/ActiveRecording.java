@@ -15,9 +15,7 @@
  */
 package io.cryostat.recordings;
 
-import java.net.URI;
 import java.util.Objects;
-import java.util.Optional;
 
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
@@ -215,19 +213,14 @@ public class ActiveRecording extends PanacheEntity {
                 Objects.requireNonNull(payload);
             }
 
-            public record Payload(
-                    String target, LinkedRecordingDescriptor recording, String jvmId) {
+            public record Payload(LinkedRecordingDescriptor recording, String jvmId) {
                 public Payload {
-                    Objects.requireNonNull(target);
                     Objects.requireNonNull(recording);
                     Objects.requireNonNull(jvmId);
                 }
 
                 public static Payload of(RecordingHelper helper, ActiveRecording recording) {
-                    return new Payload(
-                            recording.target.connectUrl.toString(),
-                            helper.toExternalForm(recording),
-                            recording.target.jvmId);
+                    return new Payload(helper.toExternalForm(recording), recording.target.jvmId);
                 }
             }
         }
@@ -239,21 +232,14 @@ public class ActiveRecording extends PanacheEntity {
                 Objects.requireNonNull(payload);
             }
 
-            // FIXME the target connectUrl URI may no longer be known if the target
-            // has disappeared and we are emitting an event regarding an archived recording
-            // originally sourced from that target, or if we are accepting a recording upload from a
-            // client.
-            // This should embed the target jvmId and optionally the database ID.
             public record Payload(String target, ArchivedRecordings.ArchivedRecording recording) {
                 public Payload {
                     Objects.requireNonNull(recording);
                 }
 
                 public static Payload of(
-                        URI connectUrl, ArchivedRecordings.ArchivedRecording recording) {
-                    return new Payload(
-                            Optional.ofNullable(connectUrl).map(URI::toString).orElse(null),
-                            recording);
+                        String jvmId, ArchivedRecordings.ArchivedRecording recording) {
+                    return new Payload(jvmId, recording);
                 }
             }
         }

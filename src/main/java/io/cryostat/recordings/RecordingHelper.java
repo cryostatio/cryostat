@@ -18,7 +18,6 @@ package io.cryostat.recordings;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -903,12 +902,11 @@ public class RecordingHelper {
                             accum,
                             now.getEpochSecond());
 
-            URI connectUrl = recording.target.connectUrl;
-
             var event =
                     new ArchivedRecordingEvent(
                             ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
-                            ArchivedRecordingEvent.Payload.of(connectUrl, archivedRecording));
+                            ArchivedRecordingEvent.Payload.of(
+                                    recording.target.jvmId, archivedRecording));
             bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
                     MessagingServer.class.getName(),
@@ -1059,7 +1057,7 @@ public class RecordingHelper {
                 new ArchivedRecordingEvent(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_DELETED,
                         ArchivedRecordingEvent.Payload.of(
-                                target.map(t -> t.connectUrl).orElse(null),
+                                target.map(t -> t.jvmId).orElseThrow(),
                                 new ArchivedRecording(
                                         jvmId,
                                         filename,
