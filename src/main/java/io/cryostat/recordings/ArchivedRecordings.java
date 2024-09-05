@@ -179,7 +179,7 @@ public class ArchivedRecordings {
                 new ArchivedRecordingEvent(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_DELETED,
                         ArchivedRecordingEvent.Payload.of(
-                                target.map(t -> t.jvmId).orElseThrow(),
+                                target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
                                         jvmId,
                                         recording.fileName(),
@@ -291,11 +291,12 @@ public class ArchivedRecordings {
                 RequestBody.fromFile(recording.filePath()));
         logger.trace("Upload complete");
 
+        var target = Target.getTargetByJvmId(jvmId);
         var event =
                 new ArchivedRecordingEvent(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
                         ArchivedRecordingEvent.Payload.of(
-                                jvmId,
+                                target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
                                         jvmId,
                                         filename,
@@ -347,12 +348,14 @@ public class ArchivedRecordings {
                                             .getArchivedRecordingMetadata(jvmId, filename)
                                             .orElseGet(Metadata::empty);
 
+                            String connectUrl =
+                                    metadata.labels().computeIfAbsent("connectUrl", k -> jvmId);
                             var dir =
                                     map.computeIfAbsent(
                                             jvmId,
                                             id ->
                                                     new ArchivedRecordingDirectory(
-                                                            id, new ArrayList<>()));
+                                                            connectUrl, id, new ArrayList<>()));
                             dir.recordings.add(
                                     new ArchivedRecording(
                                             jvmId,
@@ -383,12 +386,14 @@ public class ArchivedRecordings {
                                             .getArchivedRecordingMetadata(jvmId, filename)
                                             .orElseGet(Metadata::empty);
 
+                            String connectUrl =
+                                    metadata.labels().computeIfAbsent("connectUrl", k -> jvmId);
                             var dir =
                                     map.computeIfAbsent(
                                             jvmId,
                                             id ->
                                                     new ArchivedRecordingDirectory(
-                                                            id, new ArrayList<>()));
+                                                            connectUrl, id, new ArrayList<>()));
                             dir.recordings.add(
                                     new ArchivedRecording(
                                             jvmId,
@@ -414,6 +419,19 @@ public class ArchivedRecordings {
                         .getArchivedRecordingMetadata(jvmId, filename)
                         .orElseGet(Metadata::empty);
 
+        var connectUrl =
+                Target.getTargetByJvmId(jvmId)
+                        .map(t -> t.connectUrl)
+                        .map(c -> c.toString())
+                        .filter(StringUtils::isNotBlank)
+                        .orElseGet(
+                                () ->
+                                        metadata.labels()
+                                                .computeIfAbsent(
+                                                        "connectUrl", k -> "lost-" + jvmId));
+        logger.tracev(
+                "Archived recording from connectUrl \"{0}\" has metadata: {1}",
+                connectUrl, metadata);
         logger.tracev(
                 "Sending S3 deletion request for {0} {1}",
                 bucket, recordingHelper.archivedRecordingKey(jvmId, filename));
@@ -431,7 +449,7 @@ public class ArchivedRecordings {
                     new ArchivedRecordingEvent(
                             ActiveRecordings.RecordingEventCategory.ARCHIVED_DELETED,
                             ArchivedRecordingEvent.Payload.of(
-                                    jvmId,
+                                    URI.create(connectUrl),
                                     new ArchivedRecording(
                                             jvmId,
                                             filename,
@@ -550,8 +568,10 @@ public class ArchivedRecordings {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record ArchivedRecordingDirectory(String jvmId, List<ArchivedRecording> recordings) {
+    public record ArchivedRecordingDirectory(
+            String connectUrl, String jvmId, List<ArchivedRecording> recordings) {
         public ArchivedRecordingDirectory {
+            Objects.requireNonNull(connectUrl);
             Objects.requireNonNull(jvmId);
             if (recordings == null) {
                 recordings = Collections.emptyList();
