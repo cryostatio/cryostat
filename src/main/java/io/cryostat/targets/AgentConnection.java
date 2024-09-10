@@ -107,6 +107,18 @@ class AgentConnection implements JFRConnection {
     }
 
     @Override
+    public <T> T invokeMBeanOperation(
+            String beanName,
+            String operation,
+            Object[] parameters,
+            String[] signature,
+            Class<T> returnType) {
+        return client.invokeMBeanOperation(beanName, operation, parameters, signature, returnType)
+                .await()
+                .atMost(client.getTimeout());
+    }
+
+    @Override
     public int getPort() {
         return getUri().getPort();
     }
