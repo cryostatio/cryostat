@@ -111,8 +111,6 @@ public class Discovery {
         QuarkusTransaction.requiringNew()
                 .run(
                         () -> {
-                            // ensure lazily initialized entries are created
-                            DiscoveryNode.getUniverse();
                             DiscoveryPlugin.<DiscoveryPlugin>findAll().list().stream()
                                     .filter(p -> !p.builtin)
                                     .forEach(
