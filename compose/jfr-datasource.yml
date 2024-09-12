@@ -32,5 +32,5 @@ services:
       test: curl --fail ${CRYOSTAT_PROXY_PROTOCOL}://localhost:${CRYOSTAT_PROXY_PORT}/ || exit 1
       retries: 3
       interval: 30s
-      start_period: 30s
+      start_period: 10s
       timeout: 1s
