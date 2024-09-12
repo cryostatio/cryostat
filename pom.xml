@@ -35,11 +35,8 @@
     <io.cryostat.core.version>4.0.0-SNAPSHOT</io.cryostat.core.version>
     <org.openjdk.jmc.version>9.0.0</org.openjdk.jmc.version>
 
-    <org.apache.commons.codec.version>1.16.1</org.apache.commons.codec.version>
     <org.apache.commons.io.version>2.16.1</org.apache.commons.io.version>
     <org.apache.commons.collections.version>4.4</org.apache.commons.collections.version>
-    <org.apache.httpcomponents.version>5.2.1</org.apache.httpcomponents.version>
-    <org.apache.commons.lang3.version>3.14.0</org.apache.commons.lang3.version>
     <org.apache.commons.validator.version>1.8.0</org.apache.commons.validator.version>
     <org.projectnessie.cel.bom.version>0.4.4</org.projectnessie.cel.bom.version>
     <com.google.protobuf-java.version>3.25.2</com.google.protobuf-java.version>
@@ -47,7 +44,7 @@
     <org.testcontainers.bom.version>1.20.1</org.testcontainers.bom.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-    <quarkus.platform.version>3.8.5</quarkus.platform.version>
+    <quarkus.platform.version>3.8.6</quarkus.platform.version>
     <quarkus-quinoa.version>2.3.10</quarkus-quinoa.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.6.0</org.codehaus.mojo.build.helper.plugin.version>
     <org.codehaus.mojo.exec.plugin.version>3.4.1</org.codehaus.mojo.exec.plugin.version>
@@ -221,12 +218,10 @@
     <dependency>
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
-      <version>${org.apache.commons.lang3.version}</version>
     </dependency>
     <dependency>
       <groupId>commons-codec</groupId>
       <artifactId>commons-codec</artifactId>
-      <version>${org.apache.commons.codec.version}</version>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
