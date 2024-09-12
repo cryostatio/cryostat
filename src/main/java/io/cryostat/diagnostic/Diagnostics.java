@@ -37,6 +37,8 @@ public class Diagnostics {
     public void gc(@RestPath long targetId) {
         targetConnectionManager.executeConnectedTask(
                 Target.getTargetById(targetId),
-                conn -> conn.invokeMBeanOperation("java.lang:type=Memory", "gc", null, null, Void.class));
+                conn ->
+                        conn.invokeMBeanOperation(
+                                "java.lang:type=Memory", "gc", null, null, Void.class));
     }
 }
