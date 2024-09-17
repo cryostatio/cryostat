@@ -34,7 +34,7 @@ services:
       CRYOSTAT_DISCOVERY_JDP_ENABLED: "true"
       JAVA_OPTS_APPEND: >-
         -XX:+FlightRecorder
-        -XX:StartFlightRecording=name=onstart,settings=default,disk=true,maxage=5m
+        -XX:StartFlightRecording=filename=/tmp,name=onstart,settings=default,disk=true,maxage=5m
         -Dcom.sun.management.jmxremote.autodiscovery=true
         -Dcom.sun.management.jmxremote
         -Dcom.sun.management.jmxremote.port=9091
