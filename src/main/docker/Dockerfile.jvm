@@ -107,7 +107,7 @@ ENV SSL_TRUSTSTORE=$CONF_DIR/truststore.p12 \
 USER root
 RUN mkdir -p $CONF_DIR \
     && chmod -R g=u $CONF_DIR \
-    && chown default:root $CONF_DIR
+    && chown jboss:root $CONF_DIR
 USER 185
 
 RUN /deployments/app/truststore-setup.bash
