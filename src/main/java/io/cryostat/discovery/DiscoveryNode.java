@@ -196,7 +196,14 @@ public class DiscoveryNode extends PanacheEntity {
         @Inject EventBus bus;
 
         @PrePersist
-        void prePersist(DiscoveryNode node) {}
+        void prePersist(DiscoveryNode node) {
+            if (node.children == null) {
+                node.children = new ArrayList<>();
+            }
+            if (node.labels == null) {
+                node.labels = new HashMap<>();
+            }
+        }
 
         @PostPersist
         void postPersist(DiscoveryNode node) {}

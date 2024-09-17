@@ -129,7 +129,6 @@ public class KubeApiDiscovery {
 
     // Priority is set higher than default 0 such that onStart is called first before onAfterStart
     // This ensures realm node is persisted before initializing informers
-    @Transactional
     void onStart(@Observes @Priority(1) StartupEvent evt) {
         if (!enabled()) {
             return;
@@ -143,7 +142,6 @@ public class KubeApiDiscovery {
         logger.debugv("Starting {0} client", REALM);
     }
 
-    @Transactional
     void onAfterStart(@Observes StartupEvent evt) {
         if (!enabled() || !available()) {
             return;
@@ -468,12 +466,13 @@ public class KubeApiDiscovery {
                                     newNode.nodeType = nodeType.getKind();
                                     newNode.children = new ArrayList<>();
                                     newNode.target = null;
-                                    newNode.labels =
+                                    Map<String, String> labels =
                                             kubeObj != null
                                                     ? kubeObj.getMetadata().getLabels()
                                                     : new HashMap<>();
                                     // Add namespace to label to retrieve node later
-                                    newNode.labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
+                                    labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
+                                    newNode.labels = labels;
                                     return newNode;
                                 });
         return Pair.of(kubeObj, node);
@@ -614,14 +613,10 @@ public class KubeApiDiscovery {
                 target.activeRecordings = new ArrayList<>();
                 target.connectUrl = connectUrl;
                 target.alias = objRef.getName();
-                target.labels = obj != null ? obj.getMetadata().getLabels() : new HashMap<>();
-                target.annotations = new Annotations();
-                target.annotations
-                        .platform()
-                        .putAll(obj != null ? obj.getMetadata().getAnnotations() : Map.of());
-                target.annotations
-                        .cryostat()
-                        .putAll(
+                target.labels = (obj != null ? obj.getMetadata().getLabels() : new HashMap<>());
+                target.annotations =
+                        new Annotations(
+                                obj != null ? obj.getMetadata().getAnnotations() : Map.of(),
                                 Map.of(
                                         "REALM",
                                         REALM,

@@ -37,7 +37,7 @@ jobs:
         step: restore
     - uses: actions/setup-java@v4
       with:
-        java-version: '17'
+        java-version: '21'
         distribution: 'temurin'
     - name: Run spotbugs
       run: mvn -B -U compile spotbugs:check

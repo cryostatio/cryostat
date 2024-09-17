@@ -27,7 +27,7 @@ services:
       test: pg_isready -U cryostat -d cryostat || exit 1
       interval: 10s
       retries: 3
-      start_period: 30s
+      start_period: 10s
       timeout: 5s
 
 volumes:
