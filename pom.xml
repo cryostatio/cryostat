@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>io.cryostat</groupId>
   <artifactId>cryostat</artifactId>
-  <version>3.0.1</version>
+  <version>3.0.2-SNAPSHOT</version>
 
   <repositories>
     <repository>
@@ -38,7 +38,7 @@
 
     <build.arch>amd64</build.arch>
 
-    <io.cryostat.core.version>3.0.1</io.cryostat.core.version>
+    <io.cryostat.core.version>3.0.2-SNAPSHOT</io.cryostat.core.version>
     <org.openjdk.jmc.version>9.0.0</org.openjdk.jmc.version>
 
     <org.apache.commons.codec.version>1.16.1</org.apache.commons.codec.version>
