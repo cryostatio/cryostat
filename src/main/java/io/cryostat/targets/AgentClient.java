@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
@@ -106,6 +107,53 @@ public class AgentClient {
         return invoke(HttpMethod.GET, "/mbean-metrics/", BodyCodec.string())
                 .map(HttpResponse::body)
                 .map(Unchecked.function(s -> mapper.readValue(s, MBeanMetrics.class)));
+    }
+
+    <T> Uni<T> invokeMBeanOperation(
+            String beanName,
+            String operation,
+            Object[] parameters,
+            String[] signature,
+            Class<T> returnType) {
+        try {
+            var req = new MBeanInvocationRequest(beanName, operation, parameters, signature);
+            return invoke(
+                            HttpMethod.POST,
+                            "/mbean-invoke/",
+                            Buffer.buffer(mapper.writeValueAsBytes(req)),
+                            BodyCodec.buffer())
+                    .map(
+                            Unchecked.function(
+                                    resp -> {
+                                        int statusCode = resp.statusCode();
+                                        if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                            return resp;
+                                        } else if (statusCode == 403) {
+                                            logger.errorv(
+                                                    "invokeMBeanOperation {0} ({1}) for {2} failed:"
+                                                            + " HTTP 403",
+                                                    beanName, operation, getUri());
+                                            throw new ForbiddenException(
+                                                    new UnsupportedOperationException(
+                                                            "startRecording"));
+                                        } else {
+                                            logger.errorv(
+                                                    "invokeMBeanOperation for {0} for ({1}) {2}"
+                                                            + " failed: HTTP {3}",
+                                                    beanName, operation, getUri(), statusCode);
+                                            throw new AgentApiException(statusCode);
+                                        }
+                                    }))
+                    .map(HttpResponse::bodyAsBuffer)
+                    .map(
+                            buff -> {
+                                // TODO implement conditional handling based on expected returnType
+                                return null;
+                            });
+        } catch (JsonProcessingException e) {
+            logger.error("invokeMBeanOperation request failed", e);
+            return Uni.createFrom().failure(e);
+        }
     }
 
     Uni<IRecordingDescriptor> startRecording(StartRecordingRequest req) {
@@ -566,6 +614,14 @@ public class AgentClient {
         @Override
         public IOptionDescriptor<?> getOptionInfo(String s) {
             return getOptionDescriptors().get(s);
+        }
+    }
+
+    static record MBeanInvocationRequest(
+            String beanName, String operation, Object[] parameters, String[] signature) {
+        MBeanInvocationRequest {
+            Objects.requireNonNull(beanName);
+            Objects.requireNonNull(operation);
         }
     }
 }
