@@ -19,6 +19,8 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.*;
 
+import java.util.Arrays;
+
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.mockito.InjectSpy;
@@ -31,6 +33,8 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 @QuarkusTest
@@ -163,6 +167,20 @@ public class RulesTest {
     @Test
     public void testCreateThrowsWhenBodyNull() {
         given().contentType(ContentType.JSON).post().then().statusCode(400);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 16, 64, 128, 256})
+    public void testCreateThrowsWhenNameTooLong(int len) {
+        char[] c = new char[len];
+        Arrays.fill(c, 'a');
+        rule.put("name", new String(c));
+        final int limit = 255;
+        given().body(rule.toString())
+                .contentType(ContentType.JSON)
+                .post()
+                .then()
+                .statusCode(len <= limit ? 201 : 400);
     }
 
     @Test
