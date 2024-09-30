@@ -85,6 +85,7 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.graphql.Description;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -1119,8 +1120,14 @@ public class Recordings {
     public record ArchivedRecording(
             String jvmId,
             String name,
-            String downloadUrl,
-            String reportUrl,
+            @Description(
+                            "URL for GET request to retrieve the JFR binary file content of this"
+                                    + " recording")
+                    String downloadUrl,
+            @Description(
+                            "URL for GET request to retrieve a JSON formatted Automated Analysis"
+                                    + " Report of this recording")
+                    String reportUrl,
             Metadata metadata,
             long size,
             long archivedTime) {

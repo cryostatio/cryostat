@@ -40,6 +40,7 @@ import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
+import org.eclipse.microprofile.graphql.Ignore;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
@@ -131,8 +132,11 @@ public class TargetNodes {
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class Recordings {
-        public @NonNull ActiveRecordings active = new ActiveRecordings();
-        public @NonNull ArchivedRecordings archived = new ArchivedRecordings();
+        // @Ignore these two from the GraphQL schema generation because we override the definition
+        // in the ArchivedRecordings and ActiveRecordings classes so that we can apply input
+        // filtering, and those accessor overrides conflict with the schema generator
+        public @NonNull @Ignore ActiveRecordings active = new ActiveRecordings();
+        public @NonNull @Ignore ArchivedRecordings archived = new ArchivedRecordings();
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
