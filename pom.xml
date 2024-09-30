@@ -45,7 +45,7 @@
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.8.6</quarkus.platform.version>
-    <quarkus-quinoa.version>2.3.10</quarkus-quinoa.version>
+    <quarkus-quinoa.version>2.4.9</quarkus-quinoa.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.6.0</org.codehaus.mojo.build.helper.plugin.version>
     <org.codehaus.mojo.exec.plugin.version>3.4.1</org.codehaus.mojo.exec.plugin.version>
     <assembly-plugin.version>3.7.1</assembly-plugin.version>
