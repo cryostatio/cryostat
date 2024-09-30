@@ -212,7 +212,7 @@ type Target {
 }
 
 type ThreadMetrics {
-  allThreadIds: [BigInteger]
+  allThreadIds: [BigInteger!]
   currentThreadCpuTime: BigInteger!
   currentThreadCpuTimeSupported: Boolean!
   currentThreadUserTime: BigInteger!
