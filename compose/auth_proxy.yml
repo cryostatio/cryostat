@@ -12,12 +12,6 @@ services:
       QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_PREFIX: "true"
       QUARKUS_HTTP_ACCESS_LOG_PATTERN: long
       QUARKUS_HTTP_ACCESS_LOG_ENABLED: "true"
-    healthcheck:
-      test: curl --fail http://cryostat:8181/health/liveness || exit 1
-      interval: 10s
-      retries: 3
-      start_period: 30s
-      timeout: 5s
   auth:
     # the proxy does not actually depend on cryostat being up, but we use this
     # to ensure that when the smoketest tries to open the auth login page in a
@@ -31,7 +25,7 @@ services:
         limits:
           cpus: "0.1"
           memory: 32m
-    image: ${OAUTH2_PROXY_IMAGE:-quay.io/oauth2-proxy/oauth2-proxy:latest}
+    image: ${OAUTH2_PROXY_IMAGE:-quay.io/oauth2-proxy/oauth2-proxy:latest-alpine}
     command:
       - --alpha-config=/tmp/auth_proxy_alpha_config.yml
     volumes:
@@ -49,10 +43,10 @@ services:
       CRYOSTAT_PROXY_PORT: ${CRYOSTAT_PROXY_PORT}
     restart: unless-stopped
     healthcheck:
-      test: wget -q --spider ${CRYOSTAT_PROXY_PROTOCOL}://localhost:${CRYOSTAT_PROXY_PORT}/ping || exit 1
+      test: wget --no-check-certificate -q --spider ${CRYOSTAT_PROXY_PROTOCOL}://localhost:${CRYOSTAT_PROXY_PORT}/ping || exit 1
       interval: 10s
       retries: 3
-      start_period: 30s
+      start_period: 10s
       timeout: 5s
 
 volumes:

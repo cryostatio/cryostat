@@ -20,7 +20,6 @@ import java.util.List;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
@@ -29,7 +28,6 @@ import org.eclipse.microprofile.graphql.Query;
 @GraphQLApi
 public class EnvironmentNodes {
 
-    @Blocking
     @Query("environmentNodes")
     @Description("Get all environment nodes in the discovery tree with optional filtering")
     public List<DiscoveryNode> environmentNodes(@Nullable DiscoveryNodeFilter filter) {

@@ -25,7 +25,6 @@ import io.cryostat.V2Response;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.expressions.MatchExpression.TargetMatcher;
 
-import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -113,7 +112,6 @@ public class Credentials {
         return result;
     }
 
-    @Blocking
     static Map<String, Object> safeResult(Credential credential, TargetMatcher matcher)
             throws ScriptException {
         Map<String, Object> result = new HashMap<>();
@@ -124,7 +122,6 @@ public class Credentials {
         return result;
     }
 
-    @Blocking
     static Map<String, Object> safeMatchedResult(Credential credential, TargetMatcher matcher)
             throws ScriptException {
         Map<String, Object> result = new HashMap<>();
