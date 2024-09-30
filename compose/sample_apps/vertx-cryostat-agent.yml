@@ -1,0 +1,133 @@
+version: "3"
+services:
+  vertx-agent-1:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
+    hostname: vertx-cryostat-agent-1
+    environment:
+      HTTP_PORT: 8081
+      JMX_PORT: 9093
+      USE_JDP: "true"
+      CRYOSTAT_AGENT_APP_NAME: vertx-cryostat-agent-1
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUST_ALL: "true"
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_VERIFY_HOSTNAME: "false"
+      CRYOSTAT_AGENT_WEBSERVER_HOST: "vertx-agent-1"
+      CRYOSTAT_AGENT_WEBSERVER_PORT: "8910"
+      CRYOSTAT_AGENT_CALLBACK: "http://vertx-agent-1:8910/"
+      CRYOSTAT_AGENT_BASEURI: "${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/"
+      CRYOSTAT_AGENT_BASEURI_RANGE: public
+      CRYOSTAT_AGENT_TRUST_ALL: "true"
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
+    ports:
+      - "8081:8081"
+    expose:
+      - "8910"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:8081 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+
+  vertx-agent-2:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
+    hostname: vertx-cryostat-agent-2
+    environment:
+      HTTP_PORT: 8082
+      JMX_PORT: 9094
+      USE_JDP: "true"
+      USE_AUTH: "true"
+      CRYOSTAT_AGENT_APP_NAME: "vertx-cryostat-agent-2"
+      CRYOSTAT_AGENT_WEBSERVER_HOST: "vertx-agent-2"
+      CRYOSTAT_AGENT_WEBSERVER_PORT: "8911"
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_PATH: /auth_certs/certificate.pem
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_TYPE: X.509
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_ALIAS: cryostat
+      CRYOSTAT_AGENT_CALLBACK: "http://vertx-agent-2:8911/"
+      CRYOSTAT_AGENT_API_WRITES_ENABLED: "true"
+      CRYOSTAT_AGENT_BASEURI: "${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/"
+      CRYOSTAT_AGENT_BASEURI_RANGE: public
+      CRYOSTAT_AGENT_TRUST_ALL: "true"
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
+    ports:
+      - "8082:8082"
+    expose:
+      - "8911"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:8082 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+    volumes:
+      - ${DIR}/compose/auth_certs:/auth_certs:z
+
+  vertx-agent-3:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
+    hostname: vertx-cryostat-agent-3
+    environment:
+      HTTP_PORT: 8083
+      JMX_PORT: 9095
+      USE_JDP: "true"
+      USE_AUTH: "true"
+      USE_SSL: "true"
+      CRYOSTAT_AGENT_APP_NAME: "vertx-cryostat-agent-3"
+      CRYOSTAT_AGENT_WEBSERVER_HOST: "vertx-agent-3"
+      CRYOSTAT_AGENT_WEBSERVER_PORT: "8912"
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_PATH: /auth_certs/certificate.pem
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_TYPE: X.509
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_ALIAS: cryostat
+      CRYOSTAT_AGENT_CALLBACK: "http://vertx-agent-3:8912/"
+      CRYOSTAT_AGENT_API_WRITES_ENABLED: "true"
+      CRYOSTAT_AGENT_BASEURI: "${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/"
+      CRYOSTAT_AGENT_BASEURI_RANGE: public
+      CRYOSTAT_AGENT_TRUST_ALL: "true"
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
+    ports:
+      - "8083:8083"
+    expose:
+      - "8912"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:8083 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+    volumes:
+      - ${DIR}/compose/auth_certs:/auth_certs:z
+
+  vertx-agent-4:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
+    hostname: vertx-cryostat-agent-4
+    environment:
+      HTTP_PORT: 8084
+      JMX_PORT: 9096
+      USE_JDP: "true"
+      USE_AUTH: "false"
+      USE_SSL: "false"
+    ports:
+      - "8084:8084"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:8084 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s

@@ -187,7 +187,6 @@ public abstract class ContainerDiscovery {
 
     protected long timerId;
 
-    @Transactional
     void onStart(@Observes StartupEvent evt) {
         if (!enabled()) {
             return;
@@ -213,7 +212,6 @@ public abstract class ContainerDiscovery {
         }
 
         logger.debugv("Starting {0} client", getRealm());
-
         queryContainers();
         this.timerId = vertx.setPeriodic(pollPeriod.toMillis(), unused -> queryContainers());
     }
@@ -278,10 +276,9 @@ public abstract class ContainerDiscovery {
         target.connectUrl = connectUrl;
         target.alias = Optional.ofNullable(desc.Names.get(0)).orElse(desc.Id);
         target.labels = desc.Labels;
-        target.annotations = new Annotations();
-        target.annotations
-                .cryostat()
-                .putAll(
+        target.annotations =
+                new Annotations(
+                        null,
                         Map.of(
                                 "REALM", // AnnotationKey.REALM,
                                 getRealm(),

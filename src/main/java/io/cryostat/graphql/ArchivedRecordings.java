@@ -29,7 +29,6 @@ import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.recordings.Recordings.Metadata;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.graphql.GraphQLApi;
@@ -42,7 +41,6 @@ public class ArchivedRecordings {
 
     @Inject RecordingHelper recordingHelper;
 
-    @Blocking
     @Query("archivedRecordings")
     public TargetNodes.ArchivedRecordings listArchivedRecordings(ArchivedRecordingsFilter filter) {
         var r = new TargetNodes.ArchivedRecordings();
@@ -78,7 +76,6 @@ public class ArchivedRecordings {
         return recording;
     }
 
-    @Blocking
     @NonNull
     public ArchivedRecording doPutMetadata(
             @Source ArchivedRecording recording, MetadataLabels metadataInput) {

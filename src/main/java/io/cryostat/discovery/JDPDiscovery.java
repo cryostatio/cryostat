@@ -65,7 +65,6 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @ConfigProperty(name = "cryostat.discovery.jdp.enabled")
     boolean enabled;
 
-    @Transactional
     void onStart(@Observes StartupEvent evt) {
         if (!enabled) {
             return;
@@ -130,11 +129,9 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
                 target.activeRecordings = new ArrayList<>();
                 target.connectUrl = connectUrl;
                 target.alias = evt.getJvmDescriptor().getMainClass();
-                target.labels = Map.of();
-                target.annotations = new Annotations();
-                target.annotations
-                        .cryostat()
-                        .putAll(
+                target.annotations =
+                        new Annotations(
+                                null,
                                 Map.of(
                                         "REALM", // AnnotationKey.REALM,
                                         REALM,

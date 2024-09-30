@@ -85,6 +85,7 @@ components:
     DiscoveryPlugin:
       properties:
         builtin:
+          readOnly: true
           type: boolean
         callback:
           format: uri
@@ -296,6 +297,7 @@ components:
     Target:
       properties:
         agent:
+          readOnly: true
           type: boolean
         alias:
           pattern: \S
@@ -347,11 +349,6 @@ components:
         meta:
           $ref: '#/components/schemas/Meta'
       type: object
-  securitySchemes:
-    SecurityScheme:
-      description: Authentication
-      scheme: basic
-      type: http
 info:
   contact:
     email: cryostat-development@googlegroups.com
@@ -913,7 +910,7 @@ paths:
             type: string
       requestBody:
         content:
-          application/json:
+          text/plain:
             schema:
               type: string
       responses:
@@ -1906,7 +1903,7 @@ paths:
       responses:
         "200":
           content:
-            application/json:
+            text/plain:
               schema:
                 type: string
           description: OK
@@ -2393,13 +2390,13 @@ paths:
             type: integer
       requestBody:
         content:
-          application/json:
+          text/plain:
             schema:
               type: string
       responses:
         "200":
           content:
-            application/json:
+            text/plain:
               schema:
                 type: string
           description: OK
@@ -2429,7 +2426,7 @@ paths:
       responses:
         "200":
           content:
-            application/json:
+            text/plain:
               schema:
                 type: string
           description: OK
