@@ -35,7 +35,7 @@
     <io.cryostat.core.version>4.0.0-SNAPSHOT</io.cryostat.core.version>
     <org.openjdk.jmc.version>9.0.0</org.openjdk.jmc.version>
 
-    <org.apache.commons.io.version>2.16.1</org.apache.commons.io.version>
+    <org.apache.commons.io.version>2.17.0</org.apache.commons.io.version>
     <org.apache.commons.collections.version>4.4</org.apache.commons.collections.version>
     <org.apache.commons.validator.version>1.8.0</org.apache.commons.validator.version>
     <org.projectnessie.cel.bom.version>0.4.4</org.projectnessie.cel.bom.version>
