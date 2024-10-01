@@ -34,4 +34,6 @@ services:
       ENABLE_JMX: "true"
       JMX_HOST: gameserver-jdk11
       JMX_PORT: "7091"
-      JVM_OPTS: -javaagent:/opt/cryostat/agent.jar
+      JVM_OPTS: >-
+        -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=trace
+        -javaagent:/opt/cryostat/agent.jar

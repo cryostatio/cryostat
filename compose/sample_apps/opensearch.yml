@@ -7,7 +7,8 @@ services:
       discovery.type: single-node
       # Reference: https://opensearch.org/docs/latest/security/configuration/demo-configuration/#setting-up-a-custom-admin-password
       OPENSEARCH_INITIAL_ADMIN_PASSWORD: password4Opense@rch
-      OPENSEARCH_JAVA_OPTS: >
+      OPENSEARCH_JAVA_OPTS: >-
+        -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=trace
         -Dcom.sun.management.jmxremote.autodiscovery=true
         -Dcom.sun.management.jmxremote
         -Dcom.sun.management.jmxremote.port=9292

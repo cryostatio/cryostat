@@ -656,6 +656,26 @@ info:
   version: 4.0.0-snapshot
 openapi: 3.0.3
 paths:
+  /api/beta/diagnostics/targets/{targetId}/gc:
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "201":
+          description: Created
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Diagnostics
   /api/beta/fs/recordings:
     get:
       responses:

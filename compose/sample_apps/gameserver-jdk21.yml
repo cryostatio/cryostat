@@ -34,6 +34,8 @@ services:
       ENABLE_JMX: "true"
       JMX_HOST: gameserver-jdk21
       JMX_PORT: "7093"
-      JVM_OPTS: -javaagent:/opt/cryostat/agent.jar
+      JVM_OPTS: >-
+        -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=trace
+        -javaagent:/opt/cryostat/agent.jar
     volumes:
       - ${DIR}/compose/auth_certs:/auth_certs:z
