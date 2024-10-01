@@ -19,24 +19,131 @@ import static io.restassured.RestAssured.given;
 
 import java.util.List;
 
+import io.cryostat.AbstractTransactionalTestBase;
+
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(Credentials.class)
-public class CredentialsTest {
+public class CredentialsTest extends AbstractTransactionalTestBase {
 
     @Test
-    public void testHealth() {
-        given().when()
+    public void testListEmpty() {
+        given().log()
+                .all()
+                .when()
                 .get()
                 .then()
+                .log()
+                .all()
+                .assertThat()
                 .statusCode(200)
-                .body(
-                        "meta.type", Matchers.equalTo("application/json"),
-                        "meta.status", Matchers.equalTo("OK"),
-                        "data.result", Matchers.equalTo(List.of()));
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("", Matchers.equalTo(List.of()));
+    }
+
+    @Test
+    public void testGetNone() {
+        given().log().all().when().get("1").then().log().all().assertThat().statusCode(404);
+    }
+
+    @Test
+    public void testCreate() {
+        given().log()
+                .all()
+                .contentType(ContentType.URLENC)
+                .formParam("matchExpression", "true")
+                .formParam("username", "user")
+                .formParam("password", "pass")
+                .when()
+                .post()
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(201)
+                .and()
+                .header(
+                        "Location",
+                        Matchers.matchesRegex(
+                                "https?://[\\.\\w]+:[\\d]+/api/v4/credentials/[\\d]+"))
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("id", Matchers.instanceOf(Integer.class))
+                .body("id", Matchers.greaterThanOrEqualTo(1))
+                .body("matchExpression", Matchers.instanceOf(String.class))
+                .body("matchExpression", Matchers.equalTo("true"));
+    }
+
+    @Test
+    public void testGet() throws InterruptedException {
+        int id = createTestCredential();
+
+        given().log()
+                .all()
+                .when()
+                .get(Integer.toString(id))
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("id", Matchers.instanceOf(Integer.class))
+                .body("id", Matchers.equalTo(id))
+                .body("matchExpression", Matchers.instanceOf(String.class))
+                .body("matchExpression", Matchers.equalTo("true"))
+                .body("targets", Matchers.instanceOf(List.class))
+                .body("targets", Matchers.hasSize(0));
+    }
+
+    @Test
+    public void testDelete() throws InterruptedException {
+        int id = createTestCredential();
+
+        given().log()
+                .all()
+                .when()
+                .get(Integer.toString(id))
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("id", Matchers.instanceOf(Integer.class))
+                .body("id", Matchers.equalTo(id))
+                .body("matchExpression", Matchers.instanceOf(String.class))
+                .body("matchExpression", Matchers.equalTo("true"))
+                .body("targets", Matchers.instanceOf(List.class))
+                .body("targets", Matchers.hasSize(0));
+    }
+
+    private int createTestCredential() {
+        return given().log()
+                .all()
+                .contentType(ContentType.URLENC)
+                .formParam("matchExpression", "true")
+                .formParam("username", "user")
+                .formParam("password", "pass")
+                .when()
+                .post()
+                .then()
+                .log()
+                .all()
+                .extract()
+                .jsonPath()
+                .getInt("id");
     }
 }

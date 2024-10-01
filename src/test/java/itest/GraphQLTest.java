@@ -70,7 +70,8 @@ class GraphQLTest extends StandardSelfTest {
 
     private final ExecutorService worker = ForkJoinPool.commonPool();
 
-    static final long DELAY = 5_000L;
+    static final long PER_TEST_DELAY_MS = 1_000L;
+    static final long DATA_COLLECTION_DELAY_MS = 5_000L;
 
     static final String TEST_RECORDING_NAME = "archivedRecording";
 
@@ -86,7 +87,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -141,7 +142,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -180,7 +181,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -229,12 +230,12 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(DELAY);
+        Thread.sleep(DATA_COLLECTION_DELAY_MS);
 
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -286,7 +287,7 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(4)
     void testArchiveMutation() throws Exception {
-        Thread.sleep(DELAY);
+        Thread.sleep(PER_TEST_DELAY_MS);
         String recordingName = "test";
         JsonObject notificationRecording = createRecording(recordingName);
         Assertions.assertEquals("test", notificationRecording.getString("name"));
@@ -302,7 +303,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -328,7 +329,7 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(5)
     void testActiveRecordingMetadataMutation() throws Exception {
-        Thread.sleep(DELAY);
+        Thread.sleep(PER_TEST_DELAY_MS);
         String recordingName = "test";
         JsonObject notificationRecording = createRecording(recordingName);
         Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
@@ -357,7 +358,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -396,7 +397,7 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(6)
     void testArchivedRecordingMetadataMutation() throws Exception {
-        Thread.sleep(DELAY);
+        Thread.sleep(PER_TEST_DELAY_MS);
         String recordingName = "test";
         // Create a Recording
         JsonObject notificationRecording = createRecording(recordingName);
@@ -412,7 +413,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp1 =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query1.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query1.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp1.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -452,7 +453,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp2 =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query2.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query2.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp2.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -493,7 +494,7 @@ class GraphQLTest extends StandardSelfTest {
     @Order(7)
     void testDeleteMutation() throws Exception {
         // this will delete all Active and Archived recordings that match the filter input.
-        Thread.sleep(DELAY);
+        Thread.sleep(PER_TEST_DELAY_MS);
         String recordingName = "test";
         // Create a Recording
         JsonObject notificationRecording = createRecording(recordingName);
@@ -509,7 +510,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp1 =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query1.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query1.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp1.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -535,7 +536,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp2 =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query2.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query2.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp2.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -591,7 +592,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -631,7 +632,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
 
         MatcherAssert.assertThat(
                 resp.statusCode(),
@@ -655,7 +656,7 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(10)
     public void testQueryForFilteredActiveRecordingsByNames() throws Exception {
-        Thread.sleep(DELAY);
+        Thread.sleep(PER_TEST_DELAY_MS);
         String recordingName1 = "test";
         // Create a Recording 1 name (test)
         JsonObject notificationRecording = createRecording(recordingName1);
@@ -689,12 +690,12 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(DELAY);
+        Thread.sleep(DATA_COLLECTION_DELAY_MS);
 
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -718,7 +719,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp2 =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query2.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query2.toBuffer(), REQUEST_TIMEOUT_SECONDS);
 
         MatcherAssert.assertThat(
                 resp2.statusCode(),
@@ -761,10 +762,7 @@ class GraphQLTest extends StandardSelfTest {
         // Check preconditions
         CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
         webClient
-                .get(
-                        String.format(
-                                "/api/v1/targets/%s/recordings",
-                                getSelfReferenceConnectUrlEncoded()))
+                .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, listRespFuture1)) {
@@ -775,7 +773,6 @@ class GraphQLTest extends StandardSelfTest {
         Assertions.assertTrue(listResp.isEmpty());
 
         // Create a new recording
-        Thread.sleep(DELAY);
         String recordingName = "test";
         JsonObject notificationRecording = createRecording(recordingName);
         Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
@@ -791,7 +788,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp1 =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query1.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query1.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp1.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -809,7 +806,7 @@ class GraphQLTest extends StandardSelfTest {
         // retrieve to match the exact name
         CompletableFuture<JsonArray> archivedRecordingsFuture2 = new CompletableFuture<>();
         webClient
-                .get(String.format("/api/v1/recordings"))
+                .get(String.format("/api/v4/recordings"))
                 .send(
                         ar -> {
                             if (assertRequestStatus(ar, archivedRecordingsFuture2)) {
@@ -841,7 +838,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -887,7 +884,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -2722,12 +2719,10 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(DELAY);
-
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -2762,12 +2757,10 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(DELAY);
-
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -2789,7 +2782,7 @@ class GraphQLTest extends StandardSelfTest {
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -2821,12 +2814,10 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(DELAY);
-
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
@@ -2847,11 +2838,10 @@ class GraphQLTest extends StandardSelfTest {
                             + " template: \"Profiling\", templateType: \"TARGET\", replace: \"%s\""
                             + " }) { name state } } } }",
                         name, replace));
-        Thread.sleep(DELAY);
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
-                        .post("/api/v3/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+                        .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(
                 resp.statusCode(),
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));

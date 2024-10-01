@@ -46,11 +46,11 @@ import org.junit.jupiter.api.TestMethodOrder;
 public class TargetRecordingOptionsIT extends StandardSelfTest {
 
     static final String OPTIONS_REQ_URL =
-            String.format("/api/v1/targets/%s/recordingOptions", getSelfReferenceConnectUrl());
+            String.format("/api/v4/targets/%s/recordingOptions", getSelfReferenceConnectUrl());
     static final String OPTIONS_LIST_REQ_URL =
-            String.format("/api/v2/targets/%s/recordingOptionsList", getSelfReferenceConnectUrl());
+            String.format("/api/v4/targets/%s/recordingOptionsList", getSelfReferenceConnectUrl());
     static final String RECORDING_NAME = "test_recording";
-    static final String ARCHIVED_REQ_URL = "/api/v1/recordings";
+    static final String ARCHIVED_REQ_URL = "/api/v4/recordings";
 
     @AfterAll
     static void resetDefaultRecordingOptions() throws Exception {
@@ -198,7 +198,7 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
             webClient
                     .post(
                             String.format(
-                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl()))
+                                    "/api/v4/targets/%s/recordings", getSelfReferenceConnectUrl()))
                     .sendForm(
                             form,
                             ar -> {
@@ -221,7 +221,7 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
             webClient
                     .delete(
                             String.format(
-                                    "/api/v1/targets/%s/recordings/%s",
+                                    "/api/v4/targets/%s/recordings/%s",
                                     getSelfReferenceConnectUrl(), RECORDING_NAME))
                     .send(
                             ar -> {
@@ -313,7 +313,7 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
             webClient
                     .post(
                             String.format(
-                                    "/api/v1/targets/%s/recordings", getSelfReferenceConnectUrl()))
+                                    "/api/v4/targets/%s/recordings", getSelfReferenceConnectUrl()))
                     .sendForm(
                             form,
                             ar -> {
@@ -350,7 +350,7 @@ public class TargetRecordingOptionsIT extends StandardSelfTest {
             webClient
                     .delete(
                             String.format(
-                                    "/api/v1/targets/%s/recordings/%s",
+                                    "/api/v4/targets/%s/recordings/%s",
                                     getSelfReferenceConnectUrl(), recordingName))
                     .send(
                             ar -> {

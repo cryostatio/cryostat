@@ -36,7 +36,7 @@ public class CustomEventTemplateTest extends StandardSelfTest {
     static final String TEMPLATE_FILE_NAME = "CustomEventTemplate.jfc";
     static final String TEMPLATE_NAME = "invalidTemplate";
     static final String MEDIA_TYPE = "application/xml";
-    static final String REQ_URL = "/api/v1/templates";
+    static final String REQ_URL = "/api/v4/event_templates";
 
     @Test
     public void shouldThrowIfTemplateUploadNameInvalid() throws Exception {
@@ -91,15 +91,15 @@ public class CustomEventTemplateTest extends StandardSelfTest {
                             .binaryFileUpload("template", TEMPLATE_FILE_NAME, buf, MEDIA_TYPE);
             HttpResponse<Buffer> postResp =
                     webClient.extensions().post(REQ_URL, form, REQUEST_TIMEOUT_SECONDS);
-            MatcherAssert.assertThat(postResp.statusCode(), Matchers.equalTo(204));
+            MatcherAssert.assertThat(postResp.statusCode(), Matchers.equalTo(201));
 
             HttpResponse<Buffer> getResp =
                     webClient
                             .extensions()
                             .get(
                                     String.format(
-                                            "/api/v1/targets/%s/templates",
-                                            getSelfReferenceConnectUrlEncoded()),
+                                            "/api/v4/targets/%d/event_templates",
+                                            getSelfReferenceTargetId()),
                                     REQUEST_TIMEOUT_SECONDS);
             boolean foundSanitizedTemplate = false;
             for (Object o : getResp.bodyAsJsonArray()) {

@@ -18,7 +18,6 @@ package io.cryostat;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -36,7 +35,6 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -72,7 +70,7 @@ class Health {
     @Blocking
     @Path("/health")
     @PermitAll
-    public Response health() {
+    public ApplicationHealth health() {
         CompletableFuture<Boolean> datasourceAvailable = new CompletableFuture<>();
         CompletableFuture<Boolean> dashboardAvailable = new CompletableFuture<>();
         CompletableFuture<Boolean> reportsAvailable = new CompletableFuture<>();
@@ -95,25 +93,15 @@ class Health {
             reportsAvailable.complete(true);
         }
 
-        return Response.ok(
-                        Map.of(
-                                "cryostatVersion",
-                                String.format("v%s", version),
-                                "build",
-                                buildInfo,
-                                "dashboardConfigured",
-                                dashboardURL.isPresent(),
-                                "dashboardAvailable",
-                                dashboardAvailable.join(),
-                                "datasourceConfigured",
-                                datasourceURL.isPresent(),
-                                "datasourceAvailable",
-                                datasourceAvailable.join(),
-                                "reportsConfigured",
-                                reportsConfigured,
-                                "reportsAvailable",
-                                reportsAvailable.join()))
-                .build();
+        return new ApplicationHealth(
+                String.format("v%s", version),
+                buildInfo,
+                dashboardURL.isPresent(),
+                dashboardAvailable.join(),
+                datasourceURL.isPresent(),
+                datasourceAvailable.join(),
+                reportsConfigured,
+                reportsAvailable.join());
     }
 
     @GET
@@ -128,23 +116,23 @@ class Health {
     public void liveness() {}
 
     @GET
-    @Path("/api/v1/grafana_dashboard_url")
+    @Path("/api/v4/grafana_dashboard_url")
     @PermitAll
     @Produces({MediaType.APPLICATION_JSON})
-    public Response grafanaDashboardUrl() {
+    public DashboardUrl grafanaDashboardUrl() {
         String url =
                 dashboardExternalURL.orElseGet(
                         () -> dashboardURL.orElseThrow(() -> new BadRequestException()));
-
-        return Response.ok(Map.of("grafanaDashboardUrl", url)).build();
+        return new DashboardUrl(url);
     }
 
     @GET
-    @Path("/api/v1/grafana_datasource_url")
+    @Path("/api/v4/grafana_datasource_url")
     @PermitAll
     @Produces({MediaType.APPLICATION_JSON})
-    public Response grafanaDatasourceUrl() {
-        return Response.ok(Map.of("grafanaDatasourceUrl", datasourceURL)).build();
+    public DatasourceUrl grafanaDatasourceUrl() {
+        String url = datasourceURL.orElseThrow(() -> new BadRequestException());
+        return new DatasourceUrl(url);
     }
 
     private void checkUri(
@@ -180,4 +168,18 @@ class Health {
             future.complete(false);
         }
     }
+
+    static record ApplicationHealth(
+            String cryostatVersion,
+            BuildInfo build,
+            boolean dashboardConfigured,
+            boolean dashboardAvailable,
+            boolean datasourceConfigured,
+            boolean datasourceAvailable,
+            boolean reportsConfigured,
+            boolean reportsAvailable) {}
+
+    static record DashboardUrl(String grafanaDashboardUrl) {}
+
+    static record DatasourceUrl(String grafanaDatasourceUrl) {}
 }

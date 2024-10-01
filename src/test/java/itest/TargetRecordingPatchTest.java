@@ -24,6 +24,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
@@ -38,20 +39,24 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
     static final String TEST_RECORDING_NAME = "someRecording";
 
     String recordingRequestUrl() {
-        return String.format("/api/v1/targets/%s/recordings", getSelfReferenceConnectUrlEncoded());
+        return String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId());
+    }
+
+    String deleteRecordingRequestUrl() {
+        return String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId());
     }
 
     String archivesRequestUrl() {
-        return "/api/v1/recordings";
+        return "/api/v4/recordings";
     }
 
     String optionsRequestUrl() {
-        return String.format(
-                "/api/v1/targets/%s/recordingOptions", getSelfReferenceConnectUrlEncoded());
+        return String.format("/api/v4/targets/%d/recordingOptions", getSelfReferenceTargetId());
     }
 
     @Test
     void testSaveEmptyRecordingDoesNotArchiveRecordingFile() throws Exception {
+        long remoteId = -1;
         try {
             MultiMap optionsForm = MultiMap.caseInsensitiveMultiMap();
             optionsForm.add("toDisk", "false");
@@ -68,14 +73,14 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
             HttpResponse<Buffer> postResponse =
                     webClient.extensions().post(recordingRequestUrl(), form, 5);
             MatcherAssert.assertThat(postResponse.statusCode(), Matchers.equalTo(201));
-
+            JsonObject postResult = postResponse.bodyAsJsonObject();
+            remoteId = postResult.getLong("remoteId");
             // Attempt to save the recording to archive
             HttpResponse<Buffer> saveResponse =
                     webClient
                             .extensions()
                             .patch(
-                                    String.format(
-                                            "%s/%s", recordingRequestUrl(), TEST_RECORDING_NAME),
+                                    String.format("%s/%d", recordingRequestUrl(), remoteId),
                                     null,
                                     Buffer.buffer("SAVE"),
                                     5);
@@ -101,8 +106,7 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
                     webClient
                             .extensions()
                             .delete(
-                                    String.format(
-                                            "%s/%s", recordingRequestUrl(), TEST_RECORDING_NAME),
+                                    String.format("%s/%d", deleteRecordingRequestUrl(), remoteId),
                                     5);
             if (!HttpStatusCodeIdentifier.isSuccessCode(deleteResponse.statusCode())) {
                 throw new ITestCleanupFailedException();

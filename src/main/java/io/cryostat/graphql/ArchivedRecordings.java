@@ -24,9 +24,9 @@ import io.cryostat.graphql.ActiveRecordings.MetadataLabels;
 import io.cryostat.graphql.TargetNodes.AggregateInfo;
 import io.cryostat.graphql.TargetNodes.Recordings;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
+import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
-import io.cryostat.recordings.Recordings.ArchivedRecording;
-import io.cryostat.recordings.Recordings.Metadata;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.graphql.api.Nullable;

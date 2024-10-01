@@ -26,8 +26,8 @@ import io.cryostat.graphql.ArchivedRecordings.ArchivedRecordingsFilter;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
-import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 

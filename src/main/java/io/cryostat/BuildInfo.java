@@ -19,6 +19,7 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -29,7 +30,7 @@ public class BuildInfo {
 
     private static final String RESOURCE_LOCATION = "META-INF/gitinfo";
 
-    @Inject Logger logger;
+    @Inject @JsonIgnore Logger logger;
 
     private final GitInfo gitinfo = new GitInfo();
 

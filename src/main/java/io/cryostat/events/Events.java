@@ -15,7 +15,6 @@
  */
 package io.cryostat.events;
 
-import java.net.URI;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -23,7 +22,6 @@ import java.util.Set;
 
 import org.openjdk.jmc.flightrecorder.configuration.events.IEventTypeInfo;
 
-import io.cryostat.V2Response;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -31,12 +29,10 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
-import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
 public class Events {
@@ -45,30 +41,7 @@ public class Events {
     @Inject Logger logger;
 
     @GET
-    @Path("/api/v1/targets/{connectUrl}/events")
-    @RolesAllowed("read")
-    public Response listEventsV1(@RestPath URI connectUrl, @RestQuery String q) throws Exception {
-        logger.tracev("connectUrl: %s", connectUrl.toString());
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v3/targets/%d/events%s",
-                                        target.id, q == null ? "" : "?q=" + q)))
-                .build();
-    }
-
-    @GET
-    @Path("/api/v2/targets/{connectUrl}/events")
-    @RolesAllowed("read")
-    public V2Response listEventsV2(@RestPath URI connectUrl, @RestQuery String q) throws Exception {
-        return V2Response.json(
-                Response.Status.OK, searchEvents(Target.getTargetByConnectUrl(connectUrl), q));
-    }
-
-    @GET
-    @Path("/api/v3/targets/{id}/events")
+    @Path("/api/v4/targets/{id}/events")
     @RolesAllowed("read")
     public List<SerializableEventTypeInfo> listEvents(@RestPath long id, @RestQuery String q)
             throws Exception {

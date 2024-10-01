@@ -18,9 +18,9 @@ package io.cryostat.reports;
 import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.recordings.ActiveRecordings;
+import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
-import io.cryostat.recordings.Recordings;
-import io.cryostat.recordings.Recordings.ArchivedRecording;
 
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -46,7 +46,7 @@ class StorageCachingReportsListener {
 
     @Inject Logger logger;
 
-    @ConsumeEvent(value = Recordings.ARCHIVED_RECORDING_DELETED)
+    @ConsumeEvent(value = ActiveRecordings.ARCHIVED_RECORDING_DELETED)
     public void handleArchivedRecordingDeletion(ArchivedRecording recording) {
         if (!enabled) {
             return;

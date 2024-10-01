@@ -22,9 +22,8 @@ import java.util.Optional;
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
-import io.cryostat.recordings.Recordings.ArchivedRecording;
-import io.cryostat.recordings.Recordings.LinkedRecordingDescriptor;
-import io.cryostat.recordings.Recordings.Metadata;
+import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
+import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
@@ -165,10 +164,11 @@ public class ActiveRecording extends PanacheEntity {
                 return;
             }
             bus.publish(
-                    Recordings.RecordingEventCategory.ACTIVE_CREATED.category(), activeRecording);
+                    ActiveRecordings.RecordingEventCategory.ACTIVE_CREATED.category(),
+                    activeRecording);
             notify(
                     new ActiveRecordingEvent(
-                            Recordings.RecordingEventCategory.ACTIVE_CREATED,
+                            ActiveRecordings.RecordingEventCategory.ACTIVE_CREATED,
                             ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
         }
 
@@ -179,11 +179,11 @@ public class ActiveRecording extends PanacheEntity {
             }
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 bus.publish(
-                        Recordings.RecordingEventCategory.ACTIVE_STOPPED.category(),
+                        ActiveRecordings.RecordingEventCategory.ACTIVE_STOPPED.category(),
                         activeRecording);
                 notify(
                         new ActiveRecordingEvent(
-                                Recordings.RecordingEventCategory.ACTIVE_STOPPED,
+                                ActiveRecordings.RecordingEventCategory.ACTIVE_STOPPED,
                                 ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
             }
         }
@@ -194,10 +194,11 @@ public class ActiveRecording extends PanacheEntity {
                 return;
             }
             bus.publish(
-                    Recordings.RecordingEventCategory.ACTIVE_DELETED.category(), activeRecording);
+                    ActiveRecordings.RecordingEventCategory.ACTIVE_DELETED.category(),
+                    activeRecording);
             notify(
                     new ActiveRecordingEvent(
-                            Recordings.RecordingEventCategory.ACTIVE_DELETED,
+                            ActiveRecordings.RecordingEventCategory.ACTIVE_DELETED,
                             ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
         }
 
@@ -208,7 +209,7 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         public record ActiveRecordingEvent(
-                Recordings.RecordingEventCategory category, Payload payload) {
+                ActiveRecordings.RecordingEventCategory category, Payload payload) {
             public ActiveRecordingEvent {
                 Objects.requireNonNull(category);
                 Objects.requireNonNull(payload);
@@ -232,7 +233,7 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         public record ArchivedRecordingEvent(
-                Recordings.RecordingEventCategory category, Payload payload) {
+                ActiveRecordings.RecordingEventCategory category, Payload payload) {
             public ArchivedRecordingEvent {
                 Objects.requireNonNull(category);
                 Objects.requireNonNull(payload);
@@ -242,15 +243,23 @@ public class ActiveRecording extends PanacheEntity {
             // has disappeared and we are emitting an event regarding an archived recording
             // originally sourced from that target, or if we are accepting a recording upload from a
             // client.
-            // This should embed the target jvmId and optionally the database ID.
-            public record Payload(String target, ArchivedRecording recording) {
+            public record Payload(
+                    String target, String jvmId, ArchivedRecordings.ArchivedRecording recording) {
                 public Payload {
                     Objects.requireNonNull(recording);
                 }
 
-                public static Payload of(URI connectUrl, ArchivedRecording recording) {
+                public static Payload of(
+                        URI connectUrl, ArchivedRecordings.ArchivedRecording recording) {
                     return new Payload(
                             Optional.ofNullable(connectUrl).map(URI::toString).orElse(null),
+                            Optional.ofNullable(connectUrl)
+                                    .flatMap(
+                                            url ->
+                                                    Target.find("connectUrl", url)
+                                                            .<Target>singleResultOptional())
+                                    .map(t -> t.jvmId)
+                                    .orElse(null),
                             recording);
                 }
             }

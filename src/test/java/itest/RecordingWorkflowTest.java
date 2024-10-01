@@ -51,16 +51,14 @@ public class RecordingWorkflowTest extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "workflow_itest";
     static final String TARGET_ALIAS = "selftest";
+    static long TEST_REMOTE_ID;
 
     @Test
     public void testWorkflow() throws Exception {
         // Check preconditions
         CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
         webClient
-                .get(
-                        String.format(
-                                "/api/v1/targets/%s/recordings",
-                                getSelfReferenceConnectUrlEncoded()))
+                .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
                 .followRedirects(true)
                 .send(
                         ar -> {
@@ -82,18 +80,14 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                     .extensions()
                     .post(
                             String.format(
-                                    "/api/v1/targets/%s/recordings",
-                                    getSelfReferenceConnectUrlEncoded()),
+                                    "/api/v4/targets/%d/recordings", getSelfReferenceTargetId()),
                             form,
                             REQUEST_TIMEOUT_SECONDS);
 
             // verify in-memory recording created
             CompletableFuture<JsonArray> listRespFuture2 = new CompletableFuture<>();
             webClient
-                    .get(
-                            String.format(
-                                    "/api/v1/targets/%s/recordings",
-                                    getSelfReferenceConnectUrlEncoded()))
+                    .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
                     .followRedirects(true)
                     .send(
                             ar -> {
@@ -108,6 +102,8 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                     listResp.size(),
                     Matchers.equalTo(1));
             JsonObject recordingInfo = listResp.getJsonObject(0);
+            long remoteId = recordingInfo.getLong("remoteId");
+            TEST_REMOTE_ID = remoteId;
             MatcherAssert.assertThat(
                     recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
             MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("RUNNING"));
@@ -122,9 +118,8 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                             .extensions()
                             .patch(
                                     String.format(
-                                            "/api/v1/targets/%s/recordings/%s",
-                                            getSelfReferenceConnectUrlEncoded(),
-                                            TEST_RECORDING_NAME),
+                                            "/api/v4/targets/%d/recordings/%d",
+                                            getSelfReferenceTargetId(), TEST_REMOTE_ID),
                                     saveHeaders,
                                     Buffer.buffer("SAVE"),
                                     REQUEST_TIMEOUT_SECONDS)
@@ -134,10 +129,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             // check that the in-memory recording list hasn't changed
             CompletableFuture<JsonArray> listRespFuture3 = new CompletableFuture<>();
             webClient
-                    .get(
-                            String.format(
-                                    "/api/v1/targets/%s/recordings",
-                                    getSelfReferenceConnectUrlEncoded()))
+                    .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
                     .followRedirects(true)
                     .send(
                             ar -> {
@@ -159,7 +151,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             // verify saved recording created
             CompletableFuture<JsonArray> listRespFuture4 = new CompletableFuture<>();
             webClient
-                    .get("/api/v1/recordings")
+                    .get("/api/v4/recordings")
                     .followRedirects(true)
                     .send(
                             ar -> {
@@ -185,10 +177,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             // verify the in-memory recording list has not changed, except recording is now stopped
             CompletableFuture<JsonArray> listRespFuture5 = new CompletableFuture<>();
             webClient
-                    .get(
-                            String.format(
-                                    "/api/v1/targets/%s/recordings",
-                                    getSelfReferenceConnectUrlEncoded()))
+                    .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
                     .followRedirects(true)
                     .send(
                             ar -> {
@@ -255,8 +244,8 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                         .extensions()
                         .delete(
                                 String.format(
-                                        "/api/v1/targets/%s/recordings/%s",
-                                        getSelfReferenceConnectUrlEncoded(), TEST_RECORDING_NAME),
+                                        "/api/v4/targets/%d/recordings/%d",
+                                        getSelfReferenceTargetId(), TEST_REMOTE_ID),
                                 REQUEST_TIMEOUT_SECONDS);
             } catch (InterruptedException | ExecutionException | TimeoutException e) {
                 throw new ITestCleanupFailedException(

@@ -29,6 +29,7 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.handler.HttpException;
 import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
+import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
@@ -67,7 +68,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
-                .post("/api/v2/rules")
+                .post("/api/v4/rules")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                 .sendJsonObject(
                         null,
@@ -88,7 +89,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
-                .post("/api/v2/rules")
+                .post("/api/v4/rules")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "text/plain")
                 .sendJsonObject(
                         testRule,
@@ -110,7 +111,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
         webClient
-                .post("/api/v2/rules")
+                .post("/api/v4/rules")
                 .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "NOTAMIME")
                 .sendJsonObject(
                         testRule,
@@ -128,36 +129,47 @@ class RulesPostJsonIT extends StandardSelfTest {
     @Test
     @Order(4)
     void testAddRuleThrowsWhenRuleNameAlreadyExists() throws Exception {
-        CompletableFuture<JsonObject> response = new CompletableFuture<>();
+        CompletableFuture<Pair<Integer, JsonObject>> response = new CompletableFuture<>();
 
         try {
             webClient
-                    .post("/api/v2/rules")
+                    .post("/api/v4/rules")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
                             ar -> {
                                 if (assertRequestStatus(ar, response)) {
-                                    response.complete(ar.result().bodyAsJsonObject());
+                                    String[] location =
+                                            ar.result().headers().get("Location").split("/");
+                                    response.complete(
+                                            Pair.of(
+                                                    Integer.valueOf(location[location.length - 1]),
+                                                    ar.result().bodyAsJsonObject()));
                                 }
                             });
-
-            JsonObject expectedresponse =
-                    new JsonObject(
-                            Map.of(
-                                    "meta",
-                                            Map.of(
-                                                    "type",
-                                                    HttpMimeType.JSON.mime(),
-                                                    "status",
-                                                    "Created"),
-                                    "data", Map.of("result", TEST_RULE_NAME)));
+            Pair<Integer, JsonObject> firstResponse = response.get(10, TimeUnit.SECONDS);
+            Integer firstResponseId = firstResponse.getLeft();
+            // Define the expected response structure based on the first creation
+            JsonObject expectedCreationResponse =
+                    new JsonObject()
+                            .put("id", firstResponseId)
+                            .put("name", "Test_Rule")
+                            .put("description", "AutoRulesIT automated rule")
+                            .put(
+                                    "matchExpression",
+                                    "target.alias ==" + " 'es.andrewazor.demo.Main'")
+                            .put("eventSpecifier", "template=Continuous,type=TARGET")
+                            .put("archivalPeriodSeconds", 0)
+                            .put("initialDelaySeconds", 0)
+                            .put("preservedArchives", 0)
+                            .put("maxAgeSeconds", 0)
+                            .put("maxSizeBytes", 0)
+                            .put("enabled", false);
             MatcherAssert.assertThat(
-                    response.get(10, TimeUnit.SECONDS), Matchers.equalTo(expectedresponse));
-
+                    firstResponse.getRight(), Matchers.equalTo(expectedCreationResponse));
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();
             webClient
-                    .post("/api/v2/rules")
+                    .post("/api/v4/rules")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,
@@ -175,28 +187,22 @@ class RulesPostJsonIT extends StandardSelfTest {
 
         } finally {
             // clean up rule before running next test
-            CompletableFuture<JsonObject> deleteResponse = new CompletableFuture<>();
+            CompletableFuture<Integer> deleteResponse = new CompletableFuture<>();
             webClient
-                    .delete(String.format("/api/v2/rules/%s", TEST_RULE_NAME))
+                    .delete(String.format("/api/v4/rules/%s", TEST_RULE_NAME))
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteResponse)) {
-                                    deleteResponse.complete(ar.result().bodyAsJsonObject());
+                                    deleteResponse.complete(ar.result().statusCode());
                                 }
                             });
 
-            JsonObject expectedDeleteResponse =
-                    new JsonObject(
-                            Map.of(
-                                    "meta",
-                                    Map.of("type", HttpMimeType.JSON.mime(), "status", "OK"),
-                                    "data",
-                                    NULL_RESULT));
             try {
                 MatcherAssert.assertThat(
                         deleteResponse.get(10, TimeUnit.SECONDS),
-                        Matchers.equalTo(expectedDeleteResponse));
+                        Matchers.both(Matchers.greaterThanOrEqualTo(200))
+                                .and(Matchers.lessThan(300)));
             } catch (InterruptedException | ExecutionException e) {
                 logger.error(
                         new ITestCleanupFailedException(
@@ -214,7 +220,7 @@ class RulesPostJsonIT extends StandardSelfTest {
         testRule.put("preservedArchives", -3);
         try {
             webClient
-                    .post("/api/v2/rules")
+                    .post("/api/v4/rules")
                     .putHeader(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.JSON.mime())
                     .sendJsonObject(
                             testRule,

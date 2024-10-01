@@ -18,12 +18,10 @@ package itest.util.http;
 public class StoredCredential {
     public int id;
     public String matchExpression;
-    public int numMatchingTargets;
 
-    public StoredCredential(int id, String matchExpression, int numMatchingTargets) {
+    public StoredCredential(int id, String matchExpression) {
         this.id = id;
         this.matchExpression = matchExpression;
-        this.numMatchingTargets = numMatchingTargets;
     }
 
     public StoredCredential() {}

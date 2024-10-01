@@ -52,7 +52,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
 
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
         webClient
-                .post("/api/v2.2/discovery")
+                .post("/api/v4/discovery")
                 .putHeader("Authorization", "None")
                 .sendJson(
                         body,
@@ -75,7 +75,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
 
         CompletableFuture<Integer> response = new CompletableFuture<>();
         webClient
-                .post("/api/v2.2/discovery")
+                .post("/api/v4/discovery")
                 .putHeader("Authorization", "None")
                 .sendJson(
                         body,
@@ -103,7 +103,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
 
         CompletableFuture<Buffer> response = new CompletableFuture<>();
         webClient
-                .post("/api/v2.2/discovery/" + id)
+                .post("/api/v4/discovery/" + id)
                 .addQueryParam("token", token)
                 .sendJson(
                         subtree,
@@ -133,7 +133,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
 
         CompletableFuture<Integer> response = new CompletableFuture<>();
         webClient
-                .post("/api/v2.2/discovery/" + id)
+                .post("/api/v4/discovery/" + id)
                 .addQueryParam("token", token)
                 .sendBuffer(
                         Buffer.buffer(body),
@@ -151,7 +151,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
 
         CompletableFuture<Integer> response = new CompletableFuture<>();
         webClient
-                .post("/api/v2.2/discovery")
+                .post("/api/v4/discovery")
                 .putHeader("Authorization", "None")
                 .sendJson(
                         body,
@@ -171,7 +171,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
 
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
         webClient
-                .post("/api/v2.2/discovery")
+                .post("/api/v4/discovery")
                 // intentionally don't include this header on refresh - it should still work
                 // .putHeader("Authorization", "None")
                 .sendJson(
@@ -198,7 +198,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
     void shouldBeAbleToDeregister() throws InterruptedException, ExecutionException {
         CompletableFuture<Integer> response = new CompletableFuture<>();
         webClient
-                .delete("/api/v2.2/discovery/" + id)
+                .delete("/api/v4/discovery/" + id)
                 .addQueryParam("token", token)
                 .send(
                         ar -> {
@@ -214,7 +214,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
     void shouldFailToDoubleDeregister() throws InterruptedException, ExecutionException {
         CompletableFuture<Integer> response = new CompletableFuture<>();
         webClient
-                .delete("/api/v2.2/discovery/" + id)
+                .delete("/api/v4/discovery/" + id)
                 .addQueryParam("token", token)
                 .send(
                         ar -> {
@@ -241,7 +241,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
 
         CompletableFuture<Integer> response = new CompletableFuture<>();
         webClient
-                .post("/api/v2.2/discovery/" + UUID.randomUUID())
+                .post("/api/v4/discovery/" + UUID.randomUUID())
                 .addQueryParam("token", token)
                 .sendJson(
                         subtree,
@@ -259,7 +259,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
 
         CompletableFuture<Integer> response = new CompletableFuture<>();
         webClient
-                .post("/api/v2.2/discovery")
+                .post("/api/v4/discovery")
                 .putHeader("Authorization", "None")
                 .sendJson(
                         body,
@@ -277,7 +277,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
 
         CompletableFuture<Integer> response = new CompletableFuture<>();
         webClient
-                .post("/api/v2.2/discovery")
+                .post("/api/v4/discovery")
                 .putHeader("Authorization", "None")
                 .sendJson(
                         body,
@@ -295,7 +295,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
 
         CompletableFuture<Integer> response = new CompletableFuture<>();
         webClient
-                .post("/api/v2.2/discovery")
+                .post("/api/v4/discovery")
                 .putHeader("Authorization", "None")
                 .sendJson(
                         body,
@@ -313,7 +313,7 @@ class DiscoveryPluginIT extends StandardSelfTest {
 
         CompletableFuture<Integer> response = new CompletableFuture<>();
         webClient
-                .post("/api/v2.2/discovery")
+                .post("/api/v4/discovery")
                 .putHeader("Authorization", "None")
                 .sendJson(
                         body,

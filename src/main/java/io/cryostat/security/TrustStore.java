@@ -31,7 +31,7 @@ import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-@Path("")
+@Path("/api/v4/tls/certs")
 public class TrustStore {
 
     @ConfigProperty(name = ConfigProperties.SSL_TRUSTSTORE_DIR)
@@ -41,7 +41,6 @@ public class TrustStore {
 
     @Blocking
     @GET
-    @Path("/api/v3/tls/certs")
     @Produces(MediaType.APPLICATION_JSON)
     public List<String> listCerts() throws IOException {
         var accessible =

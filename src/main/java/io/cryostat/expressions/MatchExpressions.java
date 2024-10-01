@@ -15,14 +15,11 @@
  */
 package io.cryostat.expressions;
 
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 
-import io.cryostat.V2Response;
 import io.cryostat.expressions.MatchExpression.MatchedExpression;
 import io.cryostat.targets.Target;
 
@@ -33,12 +30,11 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.core.Response;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.projectnessie.cel.tools.ScriptException;
 
-@Path("/api/beta/matchExpressions")
+@Path("/api/v4/matchExpressions")
 public class MatchExpressions {
 
     @Inject MatchExpression.TargetMatcher targetMatcher;
@@ -47,23 +43,14 @@ public class MatchExpressions {
     @POST
     @RolesAllowed("read")
     @Blocking
-    // FIXME in a later API version this request should not accept full target objects from the
-    // client but instead only a list of IDs, which will then be pulled from the target discovery
-    // database for testing
-    public V2Response test(RequestData requestData) throws ScriptException {
+    public MatchedExpression test(RequestData requestData) throws ScriptException {
         var targets = new HashSet<Target>();
-        // don't trust the client to provide the whole Target object to be tested, just extract the
-        // connectUrl they provide and use that to look up the Target definition as we know it.
-        Optional.ofNullable(requestData.targets)
-                .orElseGet(() -> List.of())
-                .forEach(
-                        t ->
-                                Target.<Target>find("connectUrl", t.connectUrl)
-                                        .singleResultOptional()
-                                        .ifPresent(targets::add));
-        var matched =
-                targetMatcher.match(new MatchExpression(requestData.matchExpression), targets);
-        return V2Response.json(Response.Status.OK, matched);
+        if (requestData.targetIds == null) {
+            targets.addAll(Target.<Target>listAll());
+        } else {
+            requestData.targetIds.forEach(id -> targets.add(Target.getTargetById(id)));
+        }
+        return targetMatcher.match(new MatchExpression(requestData.matchExpression), targets);
     }
 
     @GET
@@ -83,16 +70,12 @@ public class MatchExpressions {
     @RolesAllowed("read")
     @Blocking
     public MatchedExpression get(@RestPath long id) throws ScriptException {
-        MatchExpression expr = MatchExpression.find("id", id).singleResult();
-        return targetMatcher.match(expr);
+        return targetMatcher.match(MatchExpression.find("id", id).singleResult());
     }
 
-    static record RequestData(String matchExpression, List<Target> targets) {
+    static record RequestData(String matchExpression, List<Long> targetIds) {
         RequestData {
             Objects.requireNonNull(matchExpression);
-            if (targets == null) {
-                targets = Collections.emptyList();
-            }
         }
     }
 }

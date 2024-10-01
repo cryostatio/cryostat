@@ -26,7 +26,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.V2Response;
 import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.targets.JvmIdException;
@@ -40,12 +39,15 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriInfo;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -55,6 +57,7 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
+import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
 @ApplicationScoped
 @Path("")
@@ -74,38 +77,38 @@ public class CustomDiscovery {
 
     @Transactional(rollbackOn = {JvmIdException.class})
     @POST
-    @Path("/api/v2/targets")
+    @Path("/api/v4/targets")
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
-    public Response create(
-            Target target, @RestQuery boolean dryrun, @RestQuery boolean storeCredentials) {
+    public RestResponse<Target> create(
+            @Context UriInfo uriInfo,
+            Target target,
+            @RestQuery boolean dryrun,
+            @RestQuery boolean storeCredentials) {
         try {
             if (!uriUtil.validateUri(target.connectUrl)) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(
-                                String.format(
-                                        "The provided URI \"%s\" is unacceptable with the"
-                                                + " current URI range settings.",
-                                        target.connectUrl))
-                        .build();
+                throw new BadRequestException(
+                        String.format(
+                                "The provided URI \"%s\" is unacceptable with the"
+                                        + " current URI range settings.",
+                                target.connectUrl));
             }
             // Continue with target creation if URI is valid...
         } catch (Exception e) {
             logger.error("Target validation failed", e);
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(V2Response.json(Response.Status.BAD_REQUEST, e))
-                    .build();
+            throw new BadRequestException("Target validation failed", e);
         }
         // TODO handle credentials embedded in JSON body
-        return doV2Create(target, Optional.empty(), dryrun, storeCredentials);
+        return doCreate(uriInfo, target, Optional.empty(), dryrun, storeCredentials);
     }
 
     @Transactional
     @POST
-    @Path("/api/v2/targets")
+    @Path("/api/v4/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @RolesAllowed("write")
-    public Response create(
+    public RestResponse<Target> createForm(
+            @Context UriInfo uriInfo,
             @RestForm URI connectUrl,
             @RestForm String alias,
             @RestForm String username,
@@ -126,10 +129,11 @@ public class CustomDiscovery {
             credential.password = password;
         }
 
-        return doV2Create(target, Optional.ofNullable(credential), dryrun, storeCredentials);
+        return doCreate(uriInfo, target, Optional.ofNullable(credential), dryrun, storeCredentials);
     }
 
-    Response doV2Create(
+    RestResponse<Target> doCreate(
+            UriInfo uriInfo,
             Target target,
             Optional<Credential> credential,
             boolean dryrun,
@@ -137,21 +141,15 @@ public class CustomDiscovery {
         try {
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
             if (!uriUtil.validateUri(target.connectUrl)) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity(
-                                String.format(
-                                        "The provided URI \"%s\" is unacceptable with the"
-                                                + " current URI range settings.",
-                                        target.connectUrl))
-                        .build();
+                throw new BadRequestException(
+                        String.format(
+                                "The provided URI \"%s\" is unacceptable with the"
+                                        + " current URI range settings.",
+                                target.connectUrl));
             }
 
             if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
-                return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(
-                                V2Response.json(
-                                        Response.Status.BAD_REQUEST, "Duplicate connection URL"))
-                        .build();
+                throw new BadRequestException("Duplicate connection URL");
             }
 
             try {
@@ -166,14 +164,8 @@ public class CustomDiscovery {
                                         .atMost(timeout);
 
                 if (Target.find("jvmId", jvmId).count() > 0) {
-                    return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                            .entity(
-                                    V2Response.json(
-                                            Response.Status.BAD_REQUEST,
-                                            String.format(
-                                                    "Target with JVM ID \"%s\" already discovered",
-                                                    jvmId)))
-                            .build();
+                    throw new BadRequestException(
+                            String.format("Target with JVM ID \"%s\" already discovered", jvmId));
                 }
             } catch (Exception e) {
                 logger.error("Target connection failed", e);
@@ -185,15 +177,11 @@ public class CustomDiscovery {
                                         : connectionManager.isServiceTypeFailure(e)
                                                 ? "Unexpected service type on port"
                                                 : "Target connection failed";
-                return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(V2Response.json(Response.Status.BAD_REQUEST, msg))
-                        .build();
+                throw new BadRequestException(msg, e);
             }
 
             if (dryrun) {
-                return Response.accepted()
-                        .entity(V2Response.json(Response.Status.ACCEPTED, target))
-                        .build();
+                return ResponseBuilder.accepted(target).build();
             }
 
             target.persist();
@@ -212,48 +200,31 @@ public class CustomDiscovery {
             node.persist();
             realm.persist();
 
-            return Response.created(URI.create("/api/v3/targets/" + target.id))
-                    .entity(V2Response.json(Response.Status.CREATED, target))
+            return ResponseBuilder.<Target>created(
+                            uriInfo.getAbsolutePathBuilder().path(Long.toString(target.id)).build())
+                    .entity(target)
                     .build();
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
-                return Response.status(Response.Status.BAD_REQUEST.getStatusCode())
-                        .entity(
-                                V2Response.json(
-                                        Response.Status.BAD_REQUEST, "Duplicate connection URL"))
-                        .build();
+                throw new BadRequestException("Duplicate connection URL", e);
             }
             logger.error("Unknown error", e);
-            return Response.serverError()
-                    .entity(V2Response.json(Response.Status.INTERNAL_SERVER_ERROR, e))
-                    .build();
+            throw new InternalServerErrorException(e);
         }
     }
 
     @Transactional
     @DELETE
-    @Path("/api/v2/targets/{connectUrl}")
+    @Path("/api/v4/targets/{id}")
     @RolesAllowed("write")
-    public Response delete(@RestPath URI connectUrl) throws URISyntaxException {
-        Target target = Target.getTargetByConnectUrl(connectUrl);
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create(String.format("/api/v3/targets/%d", target.id)))
-                .build();
-    }
-
-    @Transactional
-    @DELETE
-    @Path("/api/v3/targets/{id}")
-    @RolesAllowed("write")
-    public Response delete(@RestPath long id) throws URISyntaxException {
+    public void delete(@RestPath long id) throws URISyntaxException {
         Target target = Target.find("id", id).singleResult();
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         realm.children.remove(target.discoveryNode);
         target.discoveryNode.parent = null;
         realm.persist();
         target.delete();
-        return Response.noContent().build();
     }
 
     private URI sanitizeConnectUrl(String in) throws URISyntaxException, MalformedURLException {

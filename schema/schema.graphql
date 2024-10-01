@@ -52,12 +52,10 @@ type ArchivedRecording {
   archivedTime: BigInteger!
   doDelete: ArchivedRecording!
   doPutMetadata(metadataInput: MetadataLabelsInput): ArchivedRecording!
-  "URL for GET request to retrieve the JFR binary file content of this recording"
   downloadUrl: String
   jvmId: String
   metadata: Metadata
   name: String
-  "URL for GET request to retrieve a JSON formatted Automated Analysis Report of this recording"
   reportUrl: String
   size: BigInteger!
 }

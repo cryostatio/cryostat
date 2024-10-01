@@ -19,6 +19,8 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.*;
 
+import io.cryostat.AbstractTransactionalTestBase;
+
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.mockito.InjectSpy;
@@ -26,16 +28,13 @@ import io.restassured.http.ContentType;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.core.MediaType;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 @QuarkusTest
 @TestHTTPEndpoint(Rules.class)
-public class RulesTest {
+public class RulesTest extends AbstractTransactionalTestBase {
 
     private static final String EXPR_1 = "true";
     private static final String EXPR_2 = "false";
@@ -45,10 +44,7 @@ public class RulesTest {
 
     JsonObject rule;
 
-    static String RULE_NAME = "my_rule";
-
-    @BeforeEach
-    public void setup() {
+    {
         rule = new JsonObject();
         rule.put("name", RULE_NAME);
         rule.put("matchExpression", EXPR_1);
@@ -56,91 +52,145 @@ public class RulesTest {
         rule.put("enabled", true);
     }
 
-    @AfterEach
-    @Transactional
-    public void afterEach() {
-        Rule.deleteAll();
-    }
+    static String RULE_NAME = "my_rule";
 
     @Test
     public void testListEmpty() {
-        given().get()
+        given().log()
+                .all()
+                .get()
                 .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
                 .statusCode(200)
-                .body(
-                        "meta.type", is(MediaType.APPLICATION_JSON),
-                        "meta.status", is("OK"),
-                        "data.result", Matchers.empty());
+                .body("size()", is(0));
     }
 
     @Test
     @Transactional
     public void testList() {
-        given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
-
-        given().get()
+        given().log()
+                .all()
+                .body(rule.toString())
+                .contentType(ContentType.JSON)
+                .post()
                 .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(201);
+
+        given().log()
+                .all()
+                .get()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body(
-                        "meta.type", is(MediaType.APPLICATION_JSON),
-                        "meta.status", is("OK"),
-                        "data.result", Matchers.hasSize(1),
-                        "data.result[0].name", is(RULE_NAME),
-                        "data.result[0].matchExpression", is(EXPR_1),
-                        "data.result[0].eventSpecifier", is("my_event_specifier"));
+                        "size()", is(1),
+                        "[0].name", is(RULE_NAME),
+                        "[0].matchExpression", is(EXPR_1),
+                        "[0].eventSpecifier", is("my_event_specifier"),
+                        "[0].archivalPeriodSeconds", is(0),
+                        "[0].initialDelaySeconds", is(0),
+                        "[0].preservedArchives", is(0),
+                        "[0].maxAgeSeconds", is(0),
+                        "[0].maxSizeBytes", is(0),
+                        "[0].enabled", is(true));
     }
 
     @Test
     public void testUpdate() {
         var copy = rule.copy();
         copy.put("enabled", false);
-        given().body(copy.toString())
+        given().log()
+                .all()
+                .body(copy.toString())
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
                 .statusCode(201)
                 .body(
-                        "meta.type", is(MediaType.APPLICATION_JSON),
-                        "meta.status", is("Created"),
-                        "data.result", is(RULE_NAME));
+                        "id", notNullValue(),
+                        "name", is(RULE_NAME));
 
-        given().get()
+        given().log()
+                .all()
+                .get()
                 .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body(
-                        "meta.type", is(MediaType.APPLICATION_JSON),
-                        "meta.status", is("OK"),
-                        "data.result", Matchers.hasSize(1),
-                        "data.result[0].name", is(RULE_NAME),
-                        "data.result[0].enabled", is(false));
+                        "size()", is(1),
+                        "[0].name", is(RULE_NAME),
+                        "[0].enabled", is(false));
 
-        given().body(new JsonObject().put("enabled", true).toString())
+        given().log()
+                .all()
+                .body(new JsonObject().put("enabled", true).toString())
                 .contentType(ContentType.JSON)
                 .patch(RULE_NAME)
                 .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body(
-                        "meta.type", is(MediaType.APPLICATION_JSON),
-                        "meta.status", is("OK"),
-                        "data.result.name", is(RULE_NAME),
-                        "data.result.enabled", is(true));
+                        "name", is(RULE_NAME),
+                        "enabled", is(true));
     }
 
     @Test
     public void testUpdateWithClean() {
-        given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
+        given().log()
+                .all()
+                .body(rule.toString())
+                .contentType(ContentType.JSON)
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(201);
 
-        given().queryParam("clean", true)
+        given().log()
+                .all()
+                .queryParam("clean", true)
                 .body(new JsonObject().put("enabled", false).toString())
                 .contentType(ContentType.JSON)
                 .patch(RULE_NAME)
                 .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body(
-                        "meta.type", is(MediaType.APPLICATION_JSON),
-                        "meta.status", is("OK"),
-                        "data.result.name", is(RULE_NAME),
-                        "data.result.enabled", is(false));
+                        "name", is(RULE_NAME),
+                        "enabled", is(false));
 
         Mockito.verify(bus, Mockito.times(1))
                 .send(Mockito.eq(Rule.RULE_ADDRESS + "?clean"), Mockito.any(Rule.class));
@@ -149,7 +199,18 @@ public class RulesTest {
     @Test
     public void testCreateThrowsWhenRuleNameExists() {
         // Created: rule_name
-        given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
+        given().log()
+                .all()
+                .body(rule.toString())
+                .contentType(ContentType.JSON)
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(201);
 
         // Try to create again
         var conflictRule = new JsonObject();
@@ -157,12 +218,30 @@ public class RulesTest {
         conflictRule.put("matchExpression", EXPR_2);
         conflictRule.put("eventSpecifier", "some_other_event_specifier");
 
-        given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(409);
+        given().body(rule.toString())
+                .contentType(ContentType.JSON)
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(409);
     }
 
     @Test
     public void testCreateThrowsWhenBodyNull() {
-        given().contentType(ContentType.JSON).post().then().statusCode(400);
+        given().log()
+                .all()
+                .contentType(ContentType.JSON)
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
     }
 
     @Test
@@ -171,43 +250,63 @@ public class RulesTest {
         badRule.put("name", RULE_NAME);
         badRule.put("matchExpression", EXPR_2);
         // MISSING: badRule.put("eventSpecifier", "some_other_event_specifier");
-        given().body(badRule.toString())
+        given().log()
+                .all()
+                .body(badRule.toString())
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
                 .statusCode(400);
     }
 
     @Test
     public void testDeleteEmpty() {
-        given().delete(RULE_NAME).then().statusCode(404);
+        given().log().all().delete(RULE_NAME).then().log().all().and().assertThat().statusCode(404);
     }
 
     @Test
     public void testDelete() {
-        given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
-
-        given().delete(RULE_NAME)
+        given().log()
+                .all()
+                .body(rule.toString())
+                .contentType(ContentType.JSON)
+                .post()
                 .then()
-                .statusCode(200)
-                .body(
-                        "meta.type", is(MediaType.APPLICATION_JSON),
-                        "meta.status", is("OK"),
-                        "data.result", nullValue());
+                .log()
+                .all()
+                .statusCode(201);
+
+        given().log()
+                .all()
+                .delete(RULE_NAME)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204)
+                .body(Matchers.emptyOrNullString());
     }
 
     @Test
     public void testDeleteWithClean() {
         given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
 
-        given().queryParam("clean", true)
+        given().log()
+                .all()
+                .queryParam("clean", true)
                 .delete(RULE_NAME)
                 .then()
-                .statusCode(200)
-                .body(
-                        "meta.type", is(MediaType.APPLICATION_JSON),
-                        "meta.status", is("OK"),
-                        "data.result", nullValue());
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204)
+                .body(Matchers.emptyOrNullString());
 
         Mockito.verify(bus, Mockito.times(1))
                 .send(Mockito.eq(Rule.RULE_ADDRESS + "?clean"), Mockito.any(Rule.class));

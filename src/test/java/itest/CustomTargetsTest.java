@@ -36,7 +36,6 @@ import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
 import itest.util.http.JvmIdWebRequest;
 import itest.util.http.StoredCredential;
-import org.apache.http.client.utils.URLEncodedUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
@@ -54,8 +53,6 @@ public class CustomTargetsTest extends StandardSelfTest {
     private static String itestJvmId;
     private static StoredCredential storedCredential;
 
-    static String JMX_URL_ENCODED = URLEncodedUtils.formatSegments(SELF_JMX_URL).substring(1);
-
     @BeforeAll
     static void removeTestHarnessTargetDefinition()
             throws InterruptedException,
@@ -69,7 +66,7 @@ public class CustomTargetsTest extends StandardSelfTest {
         JsonArray list =
                 webClient
                         .extensions()
-                        .get("/api/v3/targets", REQUEST_TIMEOUT_SECONDS)
+                        .get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS)
                         .bodyAsJsonArray();
         if (!list.isEmpty()) throw new IllegalStateException();
     }
@@ -91,7 +88,7 @@ public class CustomTargetsTest extends StandardSelfTest {
         }
         webClient
                 .extensions()
-                .delete("/api/v2.2/credentials/" + storedCredential.id, 0)
+                .delete("/api/v4/credentials/" + storedCredential.id, 0)
                 .bodyAsJsonObject();
     }
 
@@ -103,13 +100,13 @@ public class CustomTargetsTest extends StandardSelfTest {
                 webClient
                         .extensions()
                         .post(
-                                "/api/v2/targets?dryrun=true",
+                                "/api/v4/targets?dryrun=true",
                                 Buffer.buffer(
                                         JsonObject.of("connectUrl", SELF_JMX_URL, "alias", "self")
                                                 .encode()),
                                 REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(202));
-        JsonObject body = response.bodyAsJsonObject().getJsonObject("data").getJsonObject("result");
+        JsonObject body = response.bodyAsJsonObject();
         MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));
         MatcherAssert.assertThat(body.getString("alias"), Matchers.equalTo("self"));
         MatcherAssert.assertThat(body.getString("jvmId"), Matchers.equalTo(itestJvmId));
@@ -117,7 +114,7 @@ public class CustomTargetsTest extends StandardSelfTest {
         JsonArray list =
                 webClient
                         .extensions()
-                        .get("/api/v3/targets", REQUEST_TIMEOUT_SECONDS)
+                        .get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS)
                         .bodyAsJsonArray();
         MatcherAssert.assertThat(list, Matchers.notNullValue());
         MatcherAssert.assertThat(list.size(), Matchers.equalTo(0));
@@ -174,13 +171,12 @@ public class CustomTargetsTest extends StandardSelfTest {
                 webClient
                         .extensions()
                         .post(
-                                "/api/v2/targets?storeCredentials=true",
+                                "/api/v4/targets?storeCredentials=true",
                                 form,
                                 REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(201));
 
-        JsonObject body = response.bodyAsJsonObject().getJsonObject("data").getJsonObject("result");
-
+        JsonObject body = response.bodyAsJsonObject();
         latch.await(30, TimeUnit.SECONDS);
 
         MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));
@@ -192,18 +188,12 @@ public class CustomTargetsTest extends StandardSelfTest {
 
         storedCredential =
                 new StoredCredential(
-                        message.getInteger("id"),
-                        message.getString("matchExpression"),
-                        message.getInteger("numMatchingTargets"));
+                        message.getInteger("id"), message.getString("matchExpression"));
 
         MatcherAssert.assertThat(storedCredential.id, Matchers.any(Integer.class));
         MatcherAssert.assertThat(
                 storedCredential.matchExpression,
                 Matchers.equalTo(String.format("target.connectUrl == \"%s\"", SELF_JMX_URL)));
-        // FIXME this is currently always emitted as 0. Do we really need this to be included at
-        // all?
-        // MatcherAssert.assertThat(
-        //         storedCredential.numMatchingTargets, Matchers.equalTo(Integer.valueOf(1)));
 
         JsonObject result2 = resultFuture2.get();
         JsonObject foundDiscoveryEvent = result2.getJsonObject("message").getJsonObject("event");
@@ -216,7 +206,7 @@ public class CustomTargetsTest extends StandardSelfTest {
                 Matchers.equalTo(alias));
 
         HttpResponse<Buffer> listResponse =
-                webClient.extensions().get("/api/v1/targets", REQUEST_TIMEOUT_SECONDS);
+                webClient.extensions().get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
         JsonArray list = listResponse.bodyAsJsonArray();
         MatcherAssert.assertThat(list, Matchers.notNullValue());
@@ -248,6 +238,8 @@ public class CustomTargetsTest extends StandardSelfTest {
             throws TimeoutException, ExecutionException, InterruptedException {
         CountDownLatch latch = new CountDownLatch(1);
 
+        long targetId = retrieveTargetId();
+
         worker.submit(
                 () -> {
                     try {
@@ -267,7 +259,7 @@ public class CustomTargetsTest extends StandardSelfTest {
                                             MatcherAssert.assertThat(
                                                     event.getJsonObject("serviceRef")
                                                             .getString("connectUrl"),
-                                                    Matchers.equalTo("localhost:0"));
+                                                    Matchers.equalTo(SELF_JMX_URL));
                                             MatcherAssert.assertThat(
                                                     event.getJsonObject("serviceRef")
                                                             .getString("alias"),
@@ -282,17 +274,37 @@ public class CustomTargetsTest extends StandardSelfTest {
 
         webClient
                 .extensions()
-                .delete(
-                        String.format("/api/v2/targets/%s", JMX_URL_ENCODED),
-                        REQUEST_TIMEOUT_SECONDS);
+                .delete(String.format("/api/v4/targets/%d", targetId), REQUEST_TIMEOUT_SECONDS);
 
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
+        // Verify that no targets remain
         HttpResponse<Buffer> listResponse =
-                webClient.extensions().get("/api/v1/targets", REQUEST_TIMEOUT_SECONDS);
+                webClient.extensions().get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS);
         MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
         JsonArray list = listResponse.bodyAsJsonArray();
         MatcherAssert.assertThat(list, Matchers.notNullValue());
         MatcherAssert.assertThat(list.size(), Matchers.equalTo(0));
+    }
+
+    private long retrieveTargetId()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        // Call the API endpoint to list all targets
+        HttpResponse<Buffer> response =
+                webClient.extensions().get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS);
+        if (response.statusCode() != 200) {
+            throw new IllegalStateException("Failed to retrieve targets from API");
+        }
+
+        JsonArray targets = response.bodyAsJsonArray();
+
+        for (int i = 0; i < targets.size(); i++) {
+            JsonObject target = targets.getJsonObject(i);
+            if (target.getString("connectUrl").equals(SELF_JMX_URL)
+                    || target.getString("alias").equals("knownAlias")) {
+                return target.getLong("id");
+            }
+        }
+        throw new IllegalStateException("Target not found with known identifier");
     }
 }

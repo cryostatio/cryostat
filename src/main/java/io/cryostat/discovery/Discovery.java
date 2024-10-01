@@ -37,6 +37,7 @@ import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
+import com.fasterxml.jackson.annotation.JsonView;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
@@ -63,15 +64,12 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
-import org.jboss.resteasy.reactive.RestResponse;
-import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
@@ -151,25 +149,16 @@ public class Discovery {
     }
 
     @GET
-    @Path("/api/v2.1/discovery")
-    @RolesAllowed("read")
-    public Response getv21() {
-        return Response.status(RestResponse.Status.PERMANENT_REDIRECT)
-                .location(URI.create("/api/v3/discovery"))
-                .build();
-    }
-
-    @GET
-    @Path("/api/v3/discovery")
+    @Path("/api/v4/discovery")
     @RolesAllowed("read")
     public DiscoveryNode get() {
         return DiscoveryNode.getUniverse();
     }
 
     @GET
-    @Path("/api/v2.2/discovery/{id}")
+    @Path("/api/v4/discovery/{id}")
     @RolesAllowed("read")
-    public RestResponse<Void> checkRegistration(
+    public void checkRegistration(
             @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
             throws SocketException,
                     UnknownHostException,
@@ -179,17 +168,16 @@ public class Discovery {
                     URISyntaxException {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         jwtValidator.validateJwt(ctx, plugin, token, true);
-        return ResponseBuilder.<Void>ok().build();
     }
 
     @Transactional
     @POST
-    @Path("/api/v2.2/discovery")
+    @Path("/api/v4/discovery")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
     @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
-    public Response register(@Context RoutingContext ctx, JsonObject body)
+    public PluginRegistration register(@Context RoutingContext ctx, JsonObject body)
             throws URISyntaxException,
                     MalformedURLException,
                     JOSEException,
@@ -206,13 +194,11 @@ public class Discovery {
 
         // URI range validation
         if (!uriUtil.validateUri(callbackUri)) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity(
-                            String.format(
-                                    "cryostat.target.callback of \"%s\" is unacceptable with the"
-                                            + " current URI range settings",
-                                    callbackUri))
-                    .build();
+            throw new BadRequestException(
+                    String.format(
+                            "cryostat.target.callback of \"%s\" is unacceptable with the"
+                                    + " current URI range settings",
+                            callbackUri));
         }
 
         // TODO apply URI range validation to the remote address
@@ -295,39 +281,21 @@ public class Discovery {
         String token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, location);
 
         // TODO implement more generic env map passing by some platform detection
-        // strategy or
-        // generalized config properties
+        // strategy or generalized config properties
         var envMap = new HashMap<String, String>();
         String insightsProxy = System.getenv("INSIGHTS_PROXY");
         if (StringUtils.isNotBlank(insightsProxy)) {
             envMap.put("INSIGHTS_SVC", insightsProxy);
         }
-        return Response.created(location)
-                .entity(
-                        Map.of(
-                                "meta",
-                                Map.of(
-                                        "mimeType", "JSON",
-                                        "status", "OK"),
-                                "data",
-                                Map.of(
-                                        "result",
-                                        Map.of(
-                                                "id",
-                                                plugin.id.toString(),
-                                                "token",
-                                                token,
-                                                "env",
-                                                envMap))))
-                .build();
+        return new PluginRegistration(plugin.id.toString(), token, envMap);
     }
 
     @Transactional
     @POST
-    @Path("/api/v2.2/discovery/{id}")
+    @Path("/api/v4/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @PermitAll
-    public Map<String, Map<String, String>> publish(
+    public void publish(
             @Context RoutingContext ctx,
             @RestPath UUID id,
             @RestQuery String token,
@@ -351,22 +319,13 @@ public class Discovery {
             b.persist();
         }
         plugin.persist();
-
-        return Map.of(
-                "meta",
-                Map.of(
-                        "mimeType", "JSON",
-                        "status", "OK"),
-                "data",
-                Map.of("result", plugin.id.toString()));
     }
 
     @Transactional
     @DELETE
-    @Path("/api/v2.2/discovery/{id}")
+    @Path("/api/v4/discovery/{id}")
     @PermitAll
-    public Map<String, Map<String, String>> deregister(
-            @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
+    public void deregister(@Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
             throws SocketException,
                     UnknownHostException,
                     MalformedURLException,
@@ -386,36 +345,23 @@ public class Discovery {
         for (var key : jobKeys) {
             scheduler.deleteJob(key);
         }
-
         plugin.delete();
-        return Map.of(
-                "meta",
-                Map.of(
-                        "mimeType", "JSON",
-                        "status", "OK"),
-                "data",
-                Map.of("result", plugin.id.toString()));
     }
 
     @GET
-    @Path("/api/v3/discovery_plugins")
+    @JsonView(DiscoveryNode.Views.Flat.class)
+    @Path("/api/v4/discovery_plugins")
     @RolesAllowed("read")
-    public Response getPlugins(@RestQuery String realm) throws JsonProcessingException {
+    public List<DiscoveryPlugin> getPlugins(@RestQuery String realm)
+            throws JsonProcessingException {
         // TODO filter for the matching realm name within the DB query
-        List<DiscoveryPlugin> plugins =
-                DiscoveryPlugin.findAll().<DiscoveryPlugin>list().stream()
-                        .filter(p -> StringUtils.isBlank(realm) || p.realm.name.equals(realm))
-                        .toList();
-        return Response.ok()
-                .entity(
-                        mapper.writerWithView(DiscoveryNode.Views.Flat.class)
-                                .writeValueAsString(plugins))
-                .type(MediaType.APPLICATION_JSON)
-                .build();
+        return DiscoveryPlugin.findAll().<DiscoveryPlugin>list().stream()
+                .filter(p -> StringUtils.isBlank(realm) || p.realm.name.equals(realm))
+                .toList();
     }
 
     @GET
-    @Path("/api/v3/discovery_plugins/{id}")
+    @Path("/api/v4/discovery_plugins/{id}")
     @RolesAllowed("read")
     public DiscoveryPlugin getPlugin(@RestPath UUID id) throws JsonProcessingException {
         return DiscoveryPlugin.find("id", id).singleResult();
@@ -479,4 +425,6 @@ public class Discovery {
         }
         return addr;
     }
+
+    static record PluginRegistration(String id, String token, Map<String, String> env) {}
 }

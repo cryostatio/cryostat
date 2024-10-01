@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.util;
+package io.cryostat.jmcagent;
 
-public class V2Response<T> {
-    public Meta meta;
-    public T data;
+import io.cryostat.AbstractTransactionalTestBase;
 
-    public static class Meta {
-        public String type;
-        public String status;
-    }
-}
+import io.quarkus.test.common.http.TestHTTPEndpoint;
+import io.quarkus.test.junit.QuarkusTest;
+import org.junit.jupiter.api.Disabled;
+
+@QuarkusTest
+@TestHTTPEndpoint(JMCAgentProbes.class)
+@Disabled("https://github.com/cryostatio/cryostat-core/issues/450")
+public class JMCAgentProbesTest extends AbstractTransactionalTestBase {}

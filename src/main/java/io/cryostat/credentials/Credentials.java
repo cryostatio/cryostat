@@ -15,24 +15,30 @@
  */
 package io.cryostat.credentials;
 
-import java.net.URI;
-import java.util.HashMap;
+import java.net.URISyntaxException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
-import io.cryostat.V2Response;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.expressions.MatchExpression.TargetMatcher;
+import io.cryostat.targets.Target;
+import io.cryostat.targets.TargetConnectionManager;
 
+import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.UriInfo;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -40,44 +46,89 @@ import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.projectnessie.cel.tools.ScriptException;
 
-@Path("/api/v2.2/credentials")
+@Path("/api/v4/credentials")
 public class Credentials {
 
+    @Inject TargetConnectionManager connectionManager;
     @Inject TargetMatcher targetMatcher;
     @Inject Logger logger;
 
-    @GET
+    @POST
+    @Blocking
     @RolesAllowed("read")
-    public V2Response list() {
-        List<Credential> credentials = Credential.listAll();
-        return V2Response.json(
-                Response.Status.OK,
-                credentials.stream()
-                        .map(
-                                c -> {
-                                    try {
-                                        return Credentials.safeResult(c, targetMatcher);
-                                    } catch (ScriptException e) {
-                                        logger.warn(e);
-                                        return null;
-                                    }
-                                })
-                        .filter(Objects::nonNull)
-                        .toList());
+    @Path("/test/{targetId}")
+    public Uni<CredentialTestResult> checkCredentialForTarget(
+            @RestPath long targetId, @RestForm String username, @RestForm String password)
+            throws URISyntaxException {
+        Target target = Target.getTargetById(targetId);
+        return connectionManager
+                .executeDirect(
+                        target,
+                        Optional.empty(),
+                        (conn) -> {
+                            conn.connect();
+                            return CredentialTestResult.NA;
+                        })
+                .onFailure()
+                .recoverWithUni(
+                        () -> {
+                            Credential cred = new Credential();
+                            cred.username = username;
+                            cred.password = password;
+                            return connectionManager
+                                    .executeDirect(
+                                            target,
+                                            Optional.of(cred),
+                                            (conn) -> {
+                                                conn.connect();
+                                                return CredentialTestResult.SUCCESS;
+                                            })
+                                    .onFailure(
+                                            t ->
+                                                    connectionManager.isJmxAuthFailure(t)
+                                                            || connectionManager.isAgentAuthFailure(
+                                                                    t))
+                                    .recoverWithItem(t -> CredentialTestResult.FAILURE);
+                        });
     }
 
+    @Blocking
+    @GET
+    @RolesAllowed("read")
+    public List<CredentialMatchResult> list() {
+        return Credential.<Credential>listAll().stream()
+                .map(
+                        c -> {
+                            try {
+                                return safeResult(c, targetMatcher);
+                            } catch (ScriptException e) {
+                                logger.warn(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    @Blocking
     @GET
     @RolesAllowed("read")
     @Path("/{id}")
-    public V2Response get(@RestPath long id) throws ScriptException {
-        Credential credential = Credential.find("id", id).singleResult();
-        return V2Response.json(Response.Status.OK, safeMatchedResult(credential, targetMatcher));
+    public CredentialMatchResult get(@RestPath long id) {
+        try {
+            Credential credential = Credential.find("id", id).singleResult();
+            return safeResult(credential, targetMatcher);
+        } catch (ScriptException e) {
+            logger.error("Error retrieving credential", e);
+            throw new InternalServerErrorException(e);
+        }
     }
 
     @Transactional
     @POST
     @RolesAllowed("write")
-    public RestResponse<Void> create(
+    public RestResponse<Credential> create(
+            @Context UriInfo uriInfo,
             @RestForm String matchExpression,
             @RestForm String username,
             @RestForm String password) {
@@ -88,7 +139,9 @@ public class Credentials {
         credential.username = username;
         credential.password = password;
         credential.persist();
-        return ResponseBuilder.<Void>created(URI.create("/api/v2.2/credentials/" + credential.id))
+        return ResponseBuilder.<Credential>created(
+                        uriInfo.getAbsolutePathBuilder().path(Long.toString(credential.id)).build())
+                .entity(credential)
                 .build();
     }
 
@@ -100,33 +153,30 @@ public class Credentials {
         Credential.find("id", id).singleResult().delete();
     }
 
-    static Map<String, Object> notificationResult(Credential credential) throws ScriptException {
-        Map<String, Object> result = new HashMap<>();
-        result.put("id", credential.id);
-        result.put("matchExpression", credential.matchExpression);
+    static CredentialMatchResult notificationResult(Credential credential) throws ScriptException {
         // TODO populating this on the credential post-persist hook leads to a database validation
         // error because the expression ends up getting defined twice with the same ID, somehow.
         // Populating this field with 0 means the UI is inaccurate when a new credential is first
         // defined, but after a refresh the data correctly updates.
-        result.put("numMatchingTargets", 0);
-        return result;
+        return new CredentialMatchResult(credential, List.of());
     }
 
-    static Map<String, Object> safeResult(Credential credential, TargetMatcher matcher)
+    static CredentialMatchResult safeResult(Credential credential, TargetMatcher matcher)
             throws ScriptException {
-        Map<String, Object> result = new HashMap<>();
-        result.put("id", credential.id);
-        result.put("matchExpression", credential.matchExpression);
-        result.put(
-                "numMatchingTargets", matcher.match(credential.matchExpression).targets().size());
-        return result;
+        var matchedTargets = matcher.match(credential.matchExpression).targets();
+        return new CredentialMatchResult(credential, matchedTargets);
     }
 
-    static Map<String, Object> safeMatchedResult(Credential credential, TargetMatcher matcher)
-            throws ScriptException {
-        Map<String, Object> result = new HashMap<>();
-        result.put("matchExpression", credential.matchExpression);
-        result.put("targets", matcher.match(credential.matchExpression).targets());
-        return result;
+    static record CredentialMatchResult(
+            long id, MatchExpression matchExpression, Collection<Target> targets) {
+        CredentialMatchResult(Credential credential, Collection<Target> targets) {
+            this(credential.id, credential.matchExpression, new ArrayList<>(targets));
+        }
+    }
+
+    static enum CredentialTestResult {
+        SUCCESS,
+        FAILURE,
+        NA;
     }
 }
