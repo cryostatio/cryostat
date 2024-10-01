@@ -75,6 +75,8 @@ components:
       type: object
     ArchivedRecordingDirectory:
       properties:
+        connectUrl:
+          type: string
         jvmId:
           type: string
         recordings:
@@ -119,9 +121,11 @@ components:
         password:
           pattern: \S
           type: string
+          writeOnly: true
         username:
           pattern: \S
           type: string
+          writeOnly: true
       required:
         - matchExpression
         - username
@@ -206,6 +210,7 @@ components:
     DiscoveryPlugin:
       properties:
         builtin:
+          readOnly: true
           type: boolean
         callback:
           format: uri
@@ -221,6 +226,7 @@ components:
     DiscoveryPlugin_Flat:
       properties:
         builtin:
+          readOnly: true
           type: boolean
         callback:
           format: uri
@@ -560,6 +566,7 @@ components:
     Target:
       properties:
         agent:
+          readOnly: true
           type: boolean
         alias:
           pattern: \S
@@ -587,6 +594,7 @@ components:
     Target_Flat:
       properties:
         agent:
+          readOnly: true
           type: boolean
         alias:
           pattern: \S
@@ -635,11 +643,6 @@ components:
       format: uuid
       pattern: '[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
       type: string
-  securitySchemes:
-    SecurityScheme:
-      description: Authentication
-      scheme: basic
-      type: http
 info:
   contact:
     email: cryostat-development@googlegroups.com
@@ -813,7 +816,7 @@ paths:
       responses:
         "200":
           content:
-            application/json:
+            application/octet-stream:
               schema:
                 format: binary
                 type: string
@@ -1205,7 +1208,7 @@ paths:
       responses:
         "200":
           content:
-            application/json:
+            text/plain:
               schema:
                 type: string
           description: OK
@@ -2075,7 +2078,7 @@ paths:
       responses:
         "200":
           content:
-            application/json:
+            application/octet-stream:
               schema:
                 format: binary
                 type: string
@@ -2104,13 +2107,13 @@ paths:
             type: integer
       requestBody:
         content:
-          application/json:
+          text/plain:
             schema:
               type: string
       responses:
         "200":
           content:
-            application/json:
+            text/plain:
               schema:
                 type: string
           description: OK
@@ -2140,7 +2143,7 @@ paths:
       responses:
         "200":
           content:
-            application/json:
+            text/plain:
               schema:
                 type: string
           description: OK

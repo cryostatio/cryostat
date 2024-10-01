@@ -33,7 +33,6 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
@@ -41,6 +40,7 @@ import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
+import org.eclipse.microprofile.graphql.Ignore;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Query;
 import org.eclipse.microprofile.graphql.Source;
@@ -51,7 +51,6 @@ public class TargetNodes {
     @Inject RecordingHelper recordingHelper;
     @Inject TargetConnectionManager connectionManager;
 
-    @Blocking
     @Query("targetNodes")
     @Description("Get the Target discovery nodes, i.e. the leaf nodes of the discovery tree")
     public List<DiscoveryNode> getTargetNodes(DiscoveryNodeFilter filter) {
@@ -69,12 +68,6 @@ public class TargetNodes {
                 .toList();
     }
 
-    // private static <T> Predicate<T> distinctWith(Function<? super T, ?> fn) {
-    //     Set<Object> observed = ConcurrentHashMap.newKeySet();
-    //     return t -> observed.add(fn.apply(t));
-    // }
-
-    @Blocking
     @Transactional
     public ActiveRecordings activeRecordings(
             @Source Target target, @Nullable ActiveRecordingsFilter filter) {
@@ -90,7 +83,6 @@ public class TargetNodes {
         return recordings;
     }
 
-    @Blocking
     public ArchivedRecordings archivedRecordings(
             @Source Target target, @Nullable ArchivedRecordingsFilter filter) {
         var fTarget = Target.getTargetById(target.id);
@@ -105,7 +97,6 @@ public class TargetNodes {
         return recordings;
     }
 
-    @Blocking
     @Transactional
     @Description("Get the active and archived recordings belonging to this target")
     public Recordings recordings(@Source Target target, Context context) {
@@ -133,7 +124,6 @@ public class TargetNodes {
         return recordings;
     }
 
-    @Blocking
     @Description("Get live MBean metrics snapshot from the specified Target")
     public MBeanMetrics mbeanMetrics(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
@@ -142,8 +132,11 @@ public class TargetNodes {
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class Recordings {
-        public @NonNull ActiveRecordings active = new ActiveRecordings();
-        public @NonNull ArchivedRecordings archived = new ArchivedRecordings();
+        // @Ignore these two from the GraphQL schema generation because we override the definition
+        // in the ArchivedRecordings and ActiveRecordings classes so that we can apply input
+        // filtering, and those accessor overrides conflict with the schema generator
+        public @NonNull @Ignore ActiveRecordings active = new ActiveRecordings();
+        public @NonNull @Ignore ArchivedRecordings archived = new ArchivedRecordings();
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")

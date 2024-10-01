@@ -63,7 +63,7 @@ services:
       - "8911"
     restart: always
     healthcheck:
-      test: curl --fail http://localhost:8081 || exit 1
+      test: curl --fail http://localhost:8082 || exit 1
       interval: 10s
       retries: 3
       start_period: 30s
@@ -102,7 +102,7 @@ services:
       - "8912"
     restart: always
     healthcheck:
-      test: curl --fail http://localhost:8081 || exit 1
+      test: curl --fail http://localhost:8083 || exit 1
       interval: 10s
       retries: 3
       start_period: 30s
@@ -126,7 +126,7 @@ services:
       - "8084:8084"
     restart: always
     healthcheck:
-      test: curl --fail http://localhost:8081 || exit 1
+      test: curl --fail http://localhost:8084 || exit 1
       interval: 10s
       retries: 3
       start_period: 30s

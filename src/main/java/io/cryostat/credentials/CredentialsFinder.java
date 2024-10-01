@@ -24,7 +24,6 @@ import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
 
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.apache.commons.collections4.BidiMap;
@@ -52,7 +51,6 @@ public class CredentialsFinder {
         }
     }
 
-    @Blocking
     public Optional<Credential> getCredentialsForTarget(Target target) {
         return Optional.ofNullable(
                 cache.computeIfAbsent(
@@ -73,7 +71,6 @@ public class CredentialsFinder {
                                         .orElse(null)));
     }
 
-    @Blocking
     public Optional<Credential> getCredentialsForConnectUrl(URI connectUrl) {
         return Target.find("connectUrl", connectUrl)
                 .<Target>singleResultOptional()

@@ -16,7 +16,6 @@
 package io.cryostat.graphql;
 
 import io.cryostat.recordings.ActiveRecording;
-import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
 
 import jakarta.inject.Inject;
@@ -39,17 +38,5 @@ public class RecordingLinks {
                     + " recording")
     public String reportUrl(@Source ActiveRecording recording) {
         return recordingHelper.reportUrl(recording);
-    }
-
-    @Description("URL for GET request to retrieve the JFR binary file content of this recording")
-    public String downloadUrl(@Source ArchivedRecording recording) {
-        return recording.downloadUrl();
-    }
-
-    @Description(
-            "URL for GET request to retrieve a JSON formatted Automated Analysis Report of this"
-                    + " recording")
-    public String reportUrl(@Source ArchivedRecording recording) {
-        return recording.reportUrl();
     }
 }

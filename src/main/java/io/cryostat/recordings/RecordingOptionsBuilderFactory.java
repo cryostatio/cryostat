@@ -21,7 +21,6 @@ import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBu
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
-import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -31,7 +30,6 @@ public class RecordingOptionsBuilderFactory {
     @Inject RecordingOptionsCustomizerFactory customizerFactory;
     @Inject TargetConnectionManager connectionManager;
 
-    @Blocking
     public RecordingOptionsBuilder create(Target target) throws QuantityConversionException {
         return connectionManager.executeConnectedTask(
                 target,
