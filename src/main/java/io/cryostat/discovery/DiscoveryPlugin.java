@@ -118,8 +118,8 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 plugin.delete();
                 throw new IllegalArgumentException(e);
             } catch (Exception e) {
-                plugin.delete();
                 logger.error("Discovery Plugin ping failed", e);
+                plugin.delete();
                 throw e;
             }
         }
