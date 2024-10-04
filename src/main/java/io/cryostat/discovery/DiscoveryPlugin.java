@@ -110,6 +110,9 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 plugin.callback = UriBuilder.fromUri(plugin.callback).userInfo(null).build();
             }
             try {
+                logger.debugv(
+                        "Testing discovery plugin callback: {0} @ {1}",
+                        plugin.realm.name, plugin.callback);
                 PluginCallback.create(plugin).ping();
                 logger.debugv(
                         "Registered discovery plugin: {0} @ {1}",
