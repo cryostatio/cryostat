@@ -55,7 +55,7 @@
     <com.diffplug.spotless.maven.plugin.version>2.43.0</com.diffplug.spotless.maven.plugin.version>
     <com.google.java-format.version>1.23.0</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>4.6</com.mycila.license.maven.plugin.version>
-    <surefire-plugin.version>3.5.0</surefire-plugin.version>
+    <surefire-plugin.version>3.5.1</surefire-plugin.version>
     <surefire.rerunFailingTestsCount>0</surefire.rerunFailingTestsCount>
     <failsafe-plugin.version>3.5.0</failsafe-plugin.version>
     <failsafe.rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</failsafe.rerunFailingTestsCount>
