@@ -5,20 +5,14 @@ services:
       - "${CRYOSTAT_HTTP_PORT}"
     environment:
       CRYOSTAT_HTTP_PROXY_HOST: auth
-      CRYOSTAT_HTTP_PROXY_PORT: "${CRYOSTAT_HTTP_PORT}"
-      QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING: "true"
-      QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED: "true"
-      QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST: "true"
-      QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_PREFIX: "true"
+      CRYOSTAT_HTTP_PROXY_PORT: '8080'
+      QUARKUS_HTTP_PROXY_PROXY_ADDRESS_FORWARDING: 'true'
+      QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED: 'true'
+      QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST: 'true'
+      QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_PREFIX: 'true'
       QUARKUS_HTTP_PROXY_TRUSTED_PROXIES: 127.0.0.1:${CRYOSTAT_HTTP_PORT}
       QUARKUS_HTTP_ACCESS_LOG_PATTERN: long
-      QUARKUS_HTTP_ACCESS_LOG_ENABLED: "true"
-    healthcheck:
-      test: curl --fail http://cryostat:8181/health/liveness || exit 1
-      interval: 10s
-      retries: 3
-      start_period: 30s
-      timeout: 5s
+      QUARKUS_HTTP_ACCESS_LOG_ENABLED: 'true'
   auth:
     # the proxy does not actually depend on cryostat being up, but we use this
     # to ensure that when the smoketest tries to open the auth login page in a
@@ -33,8 +27,7 @@ services:
           cpus: '0.1'
           memory: 32m
     image: ${OAUTH2_PROXY_IMAGE:-quay.io/oauth2-proxy/oauth2-proxy:latest-alpine}
-    command:
-      - --alpha-config=/tmp/auth_proxy_alpha_config.yml
+    command: --alpha-config=/tmp/auth_proxy_alpha_config.yaml
     volumes:
       - auth_proxy_cfg:/tmp
     hostname: auth
