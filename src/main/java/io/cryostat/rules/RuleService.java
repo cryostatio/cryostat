@@ -42,7 +42,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -77,11 +76,14 @@ public class RuleService {
 
     private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
 
-    @Transactional
-    @Blocking
     void onStart(@Observes StartupEvent ev) {
         logger.trace("RuleService started");
-        Rule.<Rule>streamAll().filter(r -> r.enabled).forEach(this::applyRuleToMatchingTargets);
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () ->
+                                Rule.<Rule>streamAll()
+                                        .filter(r -> r.enabled)
+                                        .forEach(this::applyRuleToMatchingTargets));
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)

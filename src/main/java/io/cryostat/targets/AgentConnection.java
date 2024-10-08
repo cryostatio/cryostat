@@ -38,7 +38,6 @@ import io.cryostat.core.templates.RemoteTemplateService;
 import io.cryostat.core.templates.TemplateService;
 import io.cryostat.events.S3TemplateService;
 
-import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -57,7 +56,6 @@ class AgentConnection implements JFRConnection {
     @Override
     public void close() throws Exception {}
 
-    @Blocking
     @Override
     public void connect() throws ConnectionException {
         if (!client.ping().await().atMost(client.getTimeout())) {
@@ -129,7 +127,6 @@ class AgentConnection implements JFRConnection {
         return true;
     }
 
-    @Blocking
     @Override
     public MBeanMetrics getMBeanMetrics()
             throws ConnectionException,

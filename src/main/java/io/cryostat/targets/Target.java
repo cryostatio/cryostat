@@ -21,6 +21,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -46,7 +47,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -170,14 +170,13 @@ public class Target extends PanacheEntity {
         }
 
         public Annotations() {
-            this(new HashMap<>(), new HashMap<>());
+            this(null, null);
         }
 
         public Map<String, String> merged() {
-            Map<String, String> merged = new HashMap<>();
-            cryostat().entrySet().forEach((e) -> merged.put(e.getKey(), e.getValue()));
-            merged.putAll(platform());
-            return merged;
+            Map<String, String> merged = new HashMap<>(cryostat);
+            merged.putAll(platform);
+            return Collections.unmodifiableMap(merged);
         }
     }
 
@@ -322,7 +321,6 @@ public class Target extends PanacheEntity {
 
         @ConsumeEvent(value = Credential.CREDENTIALS_STORED, blocking = true)
         @Transactional
-        @Blocking
         void updateCredential(Credential credential) {
             Target.<Target>stream("#Target.unconnected")
                     .forEach(
@@ -341,7 +339,6 @@ public class Target extends PanacheEntity {
                             });
         }
 
-        @Blocking
         @PrePersist
         void prePersist(Target target) {
             if (StringUtils.isBlank(target.alias)) {
@@ -350,6 +347,16 @@ public class Target extends PanacheEntity {
             var encodedAlias = URLEncoder.encode(target.alias, StandardCharsets.UTF_8);
             if (!Objects.equals(encodedAlias, target.alias)) {
                 target.alias = encodedAlias;
+            }
+
+            if (target.labels == null) {
+                target.labels = new HashMap<>();
+            }
+            if (target.annotations == null) {
+                target.annotations = new Annotations();
+            }
+            if (target.activeRecordings == null) {
+                target.activeRecordings = new ArrayList<>();
             }
 
             try {
@@ -361,7 +368,6 @@ public class Target extends PanacheEntity {
             }
         }
 
-        @Blocking
         private void updateTargetJvmId(Target t, Credential credential) {
             try {
                 t.jvmId =

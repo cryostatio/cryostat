@@ -25,5 +25,5 @@ services:
       test: curl --fail http://localhost:8080/ || exit 1
       retries: 3
       interval: 30s
-      start_period: 30s
+      start_period: 10s
       timeout: 1s
