@@ -70,8 +70,6 @@ class GraphQLTest extends StandardSelfTest {
 
     private final ExecutorService worker = ForkJoinPool.commonPool();
 
-    static final long DELAY = 5_000L;
-
     static final String TEST_RECORDING_NAME = "archivedRecording";
 
     @Test
@@ -229,7 +227,7 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(DELAY);
+        Thread.sleep(5000);
 
         HttpResponse<Buffer> resp =
                 webClient
@@ -286,9 +284,8 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(4)
     void testArchiveMutation() throws Exception {
-        Thread.sleep(DELAY);
-        String recordingName = "test";
-        JsonObject notificationRecording = createRecording(recordingName);
+        Thread.sleep(5000);
+        JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
         Assertions.assertEquals("RUNNING", notificationRecording.getString("state"));
 
@@ -326,10 +323,9 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(5)
     void testActiveRecordingMetadataMutation() throws Exception {
-        Thread.sleep(DELAY);
-        String recordingName = "test";
-        JsonObject notificationRecording = createRecording(recordingName);
-        Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
+        Thread.sleep(5000);
+        JsonObject notificationRecording = createRecording();
+        Assertions.assertEquals("test", notificationRecording.getString("name"));
 
         JsonObject variables = new JsonObject();
         JsonArray labels = new JsonArray();
@@ -391,8 +387,7 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(6)
     void testArchivedRecordingMetadataMutation() throws Exception {
-        Thread.sleep(DELAY);
-        String recordingName = "test";
+        Thread.sleep(5000);
         // Create a Recording
         JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
@@ -485,8 +480,7 @@ class GraphQLTest extends StandardSelfTest {
     @Order(7)
     void testDeleteMutation() throws Exception {
         // this will delete all Active and Archived recordings that match the filter input.
-        Thread.sleep(DELAY);
-        String recordingName = "test";
+        Thread.sleep(5000);
         // Create a Recording
         JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
@@ -644,8 +638,7 @@ class GraphQLTest extends StandardSelfTest {
     @Test
     @Order(10)
     public void testQueryForFilteredActiveRecordingsByNames() throws Exception {
-        Thread.sleep(DELAY);
-        String recordingName1 = "test";
+        Thread.sleep(5000);
         // Create a Recording 1 name (test)
         JsonObject notificationRecording = createRecording();
         Assertions.assertEquals("test", notificationRecording.getString("name"));
@@ -676,7 +669,7 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(DELAY);
+        Thread.sleep(5000);
 
         HttpResponse<Buffer> resp =
                 webClient
@@ -760,10 +753,9 @@ class GraphQLTest extends StandardSelfTest {
         Assertions.assertTrue(listResp.isEmpty());
 
         // Create a new recording
-        Thread.sleep(DELAY);
-        String recordingName = "test";
-        JsonObject notificationRecording = createRecording(recordingName);
-        Assertions.assertEquals(recordingName, notificationRecording.getString("name"));
+        Thread.sleep(5000);
+        JsonObject notificationRecording = createRecording();
+        Assertions.assertEquals("test", notificationRecording.getString("name"));
 
         // Archive the recording
         JsonObject query1 = new JsonObject();
@@ -2690,7 +2682,7 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(DELAY);
+        Thread.sleep(5000);
 
         HttpResponse<Buffer> resp =
                 webClient
@@ -2730,7 +2722,7 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(DELAY);
+        Thread.sleep(5000);
 
         HttpResponse<Buffer> resp =
                 webClient
@@ -2789,7 +2781,7 @@ class GraphQLTest extends StandardSelfTest {
                             }
                         });
 
-        Thread.sleep(DELAY);
+        Thread.sleep(5000);
 
         HttpResponse<Buffer> resp =
                 webClient
@@ -2814,8 +2806,8 @@ class GraphQLTest extends StandardSelfTest {
                             + " { name target { doStartRecording ( recording: { name: \"test\","
                             + " template: \"Profiling\", templateType: \"TARGET\", replace: \"%s\""
                             + " }) { name state } } } }",
-                        name, replace));
-        Thread.sleep(DELAY);
+                        replace));
+        Thread.sleep(5000);
         HttpResponse<Buffer> resp =
                 webClient
                         .extensions()
