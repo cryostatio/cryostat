@@ -50,7 +50,7 @@ services:
       # OAUTH2_PROXY_SKIP_AUTH_ROUTES: .*
     restart: unless-stopped
     healthcheck:
-      test: wget --no-check-certificate -q --spider ${CRYOSTAT_PROXY_PROTOCOL}://localhost:${CRYOSTAT_PROXY_PORT}/ping || exit 1
+      test: wget --no-check-certificate -q --spider http://localhost:8080/ping || exit 1
       interval: 10s
       retries: 3
       start_period: 10s
