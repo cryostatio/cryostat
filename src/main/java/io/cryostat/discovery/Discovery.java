@@ -113,6 +113,7 @@ public class Discovery {
                         () -> {
                             // ensure lazily initialized entries are created
                             DiscoveryNode.getUniverse();
+                            logger.debugv("Initializing {0} onStart", getClass());
 
                             DiscoveryPlugin.<DiscoveryPlugin>findAll().list().stream()
                                     .filter(p -> !p.builtin)

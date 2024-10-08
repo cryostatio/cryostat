@@ -199,21 +199,29 @@ public abstract class ContainerDiscovery {
             return;
         }
 
-        DiscoveryNode universe = DiscoveryNode.getUniverse();
-        if (DiscoveryNode.getRealm(getRealm()).isEmpty()) {
-            DiscoveryPlugin plugin = new DiscoveryPlugin();
-            DiscoveryNode node = DiscoveryNode.environment(getRealm(), BaseNodeType.REALM);
-            plugin.realm = node;
-            plugin.builtin = true;
-            universe.children.add(node);
-            node.parent = universe;
-            plugin.persist();
-            universe.persist();
-        }
+        QuarkusTransaction.requiringNew()
+                .run(
+                        () -> {
+                            logger.debugv("Starting {0} client", getRealm());
 
-        logger.debugv("Starting {0} client", getRealm());
-        queryContainers();
-        this.timerId = vertx.setPeriodic(pollPeriod.toMillis(), unused -> queryContainers());
+                            DiscoveryNode universe = DiscoveryNode.getUniverse();
+                            if (DiscoveryNode.getRealm(getRealm()).isEmpty()) {
+                                DiscoveryPlugin plugin = new DiscoveryPlugin();
+                                DiscoveryNode node =
+                                        DiscoveryNode.environment(getRealm(), BaseNodeType.REALM);
+                                plugin.realm = node;
+                                plugin.builtin = true;
+                                universe.children.add(node);
+                                node.parent = universe;
+                                plugin.persist();
+                                universe.persist();
+                            }
+
+                            queryContainers();
+                            this.timerId =
+                                    vertx.setPeriodic(
+                                            pollPeriod.toMillis(), unused -> queryContainers());
+                        });
     }
 
     void onStop(@Observes ShutdownEvent evt) {
