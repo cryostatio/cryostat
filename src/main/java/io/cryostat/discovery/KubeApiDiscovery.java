@@ -69,7 +69,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
-public class KubeApiDiscovery {
+public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     public static final String REALM = "KubernetesApi";
 
     public static final String DISCOVERY_NAMESPACE_LABEL_KEY = "discovery.cryostat.io/namespace";
@@ -98,6 +98,8 @@ public class KubeApiDiscovery {
     @ConfigProperty(name = "cryostat.discovery.kubernetes.resync-period")
     Duration informerResyncPeriod;
 
+    private final Object txLock = new Object();
+
     private final LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>> nsInformers =
             new LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>>() {
                 @Override
@@ -116,12 +118,12 @@ public class KubeApiDiscovery {
                                                 client.endpoints()
                                                         .inNamespace(ns)
                                                         .inform(
-                                                                new EndpointsHandler(),
+                                                                KubeApiDiscovery.this,
                                                                 informerResyncPeriod.toMillis()));
                                         logger.debugv(
-                                                "Started Endpoints SharedInformer for"
-                                                        + " namespace \"{0}\"",
-                                                ns);
+                                                "Started Endpoints SharedInformer for namespace"
+                                                        + " \"{0}\" with resync period {1}",
+                                                ns, informerResyncPeriod);
                                     });
                     return result;
                 }
@@ -176,6 +178,43 @@ public class KubeApiDiscovery {
             logger.trace(e);
         }
         return false;
+    }
+
+    @Override
+    public void onAdd(Endpoints endpoints) {
+        synchronized (txLock) {
+            logger.debugv(
+                    "Endpoint {0} created in namespace {1}",
+                    endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
+            QuarkusTransaction.joiningExisting()
+                    .run(() -> handleObservedEndpoints(endpoints.getMetadata().getNamespace()));
+        }
+    }
+
+    @Override
+    public void onUpdate(Endpoints oldEndpoints, Endpoints newEndpoints) {
+        synchronized (txLock) {
+            logger.debugv(
+                    "Endpoint {0} modified in namespace {1}",
+                    newEndpoints.getMetadata().getName(),
+                    newEndpoints.getMetadata().getNamespace());
+            QuarkusTransaction.joiningExisting()
+                    .run(() -> handleObservedEndpoints(newEndpoints.getMetadata().getNamespace()));
+        }
+    }
+
+    @Override
+    public void onDelete(Endpoints endpoints, boolean deletedFinalStateUnknown) {
+        synchronized (txLock) {
+            logger.debugv(
+                    "Endpoint {0} deleted in namespace {1}",
+                    endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
+            if (deletedFinalStateUnknown) {
+                logger.warnv("Deleted final state unknown: {0}", endpoints);
+            }
+            QuarkusTransaction.joiningExisting()
+                    .run(() -> handleObservedEndpoints(endpoints.getMetadata().getNamespace()));
+        }
     }
 
     private boolean isCompatiblePort(EndpointPort port) {
@@ -528,40 +567,6 @@ public class KubeApiDiscovery {
 
         boolean kubeApiAvailable() {
             return StringUtils.isNotBlank(serviceHost.orElse(""));
-        }
-    }
-
-    private final class EndpointsHandler implements ResourceEventHandler<Endpoints> {
-        @Override
-        public void onAdd(Endpoints endpoints) {
-            logger.debugv(
-                    "Endpoint {0} created in namespace {1}",
-                    endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
-            QuarkusTransaction.joiningExisting()
-                    .run(() -> handleObservedEndpoints(endpoints.getMetadata().getNamespace()));
-        }
-
-        @Override
-        public void onUpdate(Endpoints oldEndpoints, Endpoints newEndpoints) {
-            logger.debugv(
-                    "Endpoint {0} modified in namespace {1}",
-                    newEndpoints.getMetadata().getName(),
-                    newEndpoints.getMetadata().getNamespace());
-            QuarkusTransaction.joiningExisting()
-                    .run(() -> handleObservedEndpoints(newEndpoints.getMetadata().getNamespace()));
-        }
-
-        @Override
-        public void onDelete(Endpoints endpoints, boolean deletedFinalStateUnknown) {
-            logger.debugv(
-                    "Endpoint {0} deleted in namespace {1}",
-                    endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
-            if (deletedFinalStateUnknown) {
-                logger.warnv("Deleted final state unknown: {0}", endpoints);
-                return;
-            }
-            QuarkusTransaction.joiningExisting()
-                    .run(() -> handleObservedEndpoints(endpoints.getMetadata().getNamespace()));
         }
     }
 
