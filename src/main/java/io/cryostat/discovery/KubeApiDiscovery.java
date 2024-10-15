@@ -227,7 +227,14 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
         for (EndpointSubset subset : endpoints.getSubsets()) {
             for (EndpointPort port : subset.getPorts()) {
                 for (EndpointAddress addr : subset.getAddresses()) {
-                    tts.add(new TargetTuple(addr.getTargetRef(), addr, port));
+                    var ref = addr.getTargetRef();
+                    tts.add(
+                            new TargetTuple(
+                                    ref,
+                                    queryForNode(ref.getNamespace(), ref.getName(), ref.getKind())
+                                            .getLeft(),
+                                    addr,
+                                    port));
                 }
             }
         }
@@ -584,11 +591,14 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
     private class TargetTuple {
         ObjectReference objRef;
+        HasMetadata obj;
         EndpointAddress addr;
         EndpointPort port;
 
-        TargetTuple(ObjectReference objRef, EndpointAddress addr, EndpointPort port) {
+        TargetTuple(
+                ObjectReference objRef, HasMetadata obj, EndpointAddress addr, EndpointPort port) {
             this.objRef = objRef;
+            this.obj = obj;
             this.addr = addr;
             this.port = port;
         }
@@ -612,11 +622,6 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                                 0,
                                 "/jndi/rmi://" + host + ':' + port.getPort() + "/jmxrmi");
                 URI connectUrl = URI.create(jmxUrl.toString());
-
-                Pair<HasMetadata, DiscoveryNode> pair =
-                        queryForNode(namespace, objRef.getName(), objRef.getKind());
-
-                HasMetadata obj = pair.getLeft();
 
                 Target target = new Target();
                 target.activeRecordings = new ArrayList<>();
