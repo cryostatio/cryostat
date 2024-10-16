@@ -26,6 +26,7 @@ services:
       DATA_DIR: /data
       IP_BIND: 0.0.0.0
       WEED_V: "4" # glog logging level
+      REST_ENCRYPTION_ENABLE: "1"
     volumes:
       - seaweed_data:/data
     ports:
