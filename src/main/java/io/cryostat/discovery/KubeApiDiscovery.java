@@ -27,6 +27,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -85,6 +88,8 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
     @Inject EventBus bus;
 
+    ScheduledExecutorService resyncWorker = Executors.newSingleThreadScheduledExecutor();
+
     @ConfigProperty(name = "cryostat.discovery.kubernetes.enabled")
     boolean enabled;
 
@@ -138,6 +143,11 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
         logger.debugv("Starting {0} client", REALM);
         safeGetInformers();
+        resyncWorker.scheduleAtFixedRate(
+                () -> kubeConfig.getWatchNamespaces().forEach(this::handleObservedEndpoints),
+                informerResyncPeriod.toMillis(),
+                informerResyncPeriod.toMillis(),
+                TimeUnit.MILLISECONDS);
     }
 
     void onStop(@Observes ShutdownEvent evt) {
@@ -146,6 +156,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
         }
 
         logger.debugv("Shutting down {0} client", REALM);
+        resyncWorker.shutdown();
         safeGetInformers()
                 .forEach(
                         (ns, informer) -> {
