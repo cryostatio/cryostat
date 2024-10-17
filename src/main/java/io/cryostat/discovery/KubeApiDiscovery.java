@@ -369,7 +369,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
     private void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
         if (!isTargetUnderRealm(target)) {
-            logger.infov(
+            logger.debugv(
                     "Target with serviceURL {0} does not exist in discovery tree. Skipped deleting",
                     target.connectUrl);
             return;
@@ -406,7 +406,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
     private void buildOwnerChain(DiscoveryNode nsNode, Target target, ObjectReference targetRef) {
         if (isTargetUnderRealm(target)) {
-            logger.infov(
+            logger.debugv(
                     "Target with serviceURL {0} already exists in discovery tree. Skipped adding",
                     target.connectUrl);
             return;
