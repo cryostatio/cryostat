@@ -237,10 +237,10 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
         }
     }
 
-    private boolean isTargetUnderRealm(URI connectUrl) throws IllegalStateException {
+    private boolean isTargetUnderRealm(Target target) throws IllegalStateException {
         // Check for any targets with the same connectUrl in other realms
         try {
-            Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
+            Target persistedTarget = Target.getTargetByConnectUrl(target.connectUrl);
             String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
             if (!REALM.equals(realmOfTarget)) {
                 logger.warnv(
@@ -357,7 +357,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     }
 
     private void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
-        if (!isTargetUnderRealm(target.connectUrl)) {
+        if (!isTargetUnderRealm(target)) {
             logger.infov(
                     "Target with serviceURL {0} does not exist in discovery tree. Skipped deleting",
                     target.connectUrl);
@@ -394,9 +394,9 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     }
 
     private void buildOwnerChain(DiscoveryNode nsNode, Target target, ObjectReference targetRef) {
-        if (isTargetUnderRealm(target.connectUrl)) {
+        if (isTargetUnderRealm(target)) {
             logger.infov(
-                    "Target with serviceURL {0} already exist in discovery tree. Skipped adding",
+                    "Target with serviceURL {0} already exists in discovery tree. Skipped adding",
                     target.connectUrl);
             return;
         }
