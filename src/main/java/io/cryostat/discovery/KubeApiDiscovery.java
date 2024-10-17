@@ -242,13 +242,11 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     }
 
     private Map<String, SharedIndexInformer<Endpoints>> safeGetInformers() {
-        Map<String, SharedIndexInformer<Endpoints>> informers;
         try {
-            informers = nsInformers.get();
+            return nsInformers.get();
         } catch (ConcurrentException e) {
             throw new IllegalStateException(e);
         }
-        return informers;
     }
 
     private boolean isTargetUnderRealm(URI connectUrl) throws IllegalStateException {
