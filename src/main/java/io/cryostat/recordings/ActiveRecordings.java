@@ -70,6 +70,8 @@ public class ActiveRecordings {
     Duration connectionFailedTimeout;
 
     @GET
+    @Blocking
+    @Transactional
     @RolesAllowed("read")
     public List<LinkedRecordingDescriptor> list(@RestPath long targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
