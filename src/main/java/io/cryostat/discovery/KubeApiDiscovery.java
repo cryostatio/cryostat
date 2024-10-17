@@ -54,7 +54,6 @@ import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -129,9 +128,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 }
             };
 
-    // Priority is set higher than default 0 such that onStart is called first before onAfterStart
-    // This ensures realm node is persisted before initializing informers
-    void onStart(@Observes @Priority(1) StartupEvent evt) {
+    void onStart(@Observes StartupEvent evt) {
         if (!enabled()) {
             return;
         }
@@ -142,12 +139,6 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
         }
 
         logger.debugv("Starting {0} client", REALM);
-    }
-
-    void onAfterStart(@Observes StartupEvent evt) {
-        if (!enabled() || !available()) {
-            return;
-        }
         safeGetInformers();
     }
 
