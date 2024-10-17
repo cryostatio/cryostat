@@ -97,7 +97,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     @ConfigProperty(name = "cryostat.discovery.kubernetes.resync-period")
     Duration informerResyncPeriod;
 
-    private final Object txLock = new Object();
+    private final Object updateLock = new Object();
 
     private final LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>> nsInformers =
             new LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>>() {
@@ -173,7 +173,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
     @Override
     public void onAdd(Endpoints endpoints) {
-        synchronized (txLock) {
+        synchronized (updateLock) {
             logger.debugv(
                     "Endpoint {0} created in namespace {1}",
                     endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
@@ -184,7 +184,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
     @Override
     public void onUpdate(Endpoints oldEndpoints, Endpoints newEndpoints) {
-        synchronized (txLock) {
+        synchronized (updateLock) {
             logger.debugv(
                     "Endpoint {0} modified in namespace {1}",
                     newEndpoints.getMetadata().getName(),
@@ -196,7 +196,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
     @Override
     public void onDelete(Endpoints endpoints, boolean deletedFinalStateUnknown) {
-        synchronized (txLock) {
+        synchronized (updateLock) {
             logger.debugv(
                     "Endpoint {0} deleted in namespace {1}",
                     endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
@@ -270,7 +270,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     @ConsumeEvent(blocking = true, ordered = true)
     @Transactional(TxType.REQUIRES_NEW)
     public void handleEndpointEvent(EndpointDiscoveryEvent evt) {
-        synchronized (txLock) {
+        synchronized (updateLock) {
             String namespace = evt.namespace;
             DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
             DiscoveryNode nsNode =
@@ -301,7 +301,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     }
 
     private void handleObservedEndpoints(String namespace) {
-        synchronized (txLock) {
+        synchronized (updateLock) {
             List<DiscoveryNode> targetNodes =
                     DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT).stream()
                             .filter(
