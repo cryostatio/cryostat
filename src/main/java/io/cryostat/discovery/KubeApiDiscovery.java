@@ -145,7 +145,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
         safeGetInformers();
         resyncWorker.scheduleAtFixedRate(
                 () -> kubeConfig.getWatchNamespaces().forEach(this::handleObservedEndpoints),
-                informerResyncPeriod.toMillis(),
+                0,
                 informerResyncPeriod.toMillis(),
                 TimeUnit.MILLISECONDS);
     }
