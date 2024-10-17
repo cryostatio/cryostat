@@ -97,8 +97,6 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     @ConfigProperty(name = "cryostat.discovery.kubernetes.resync-period")
     Duration informerResyncPeriod;
 
-    private final Object updateLock = new Object();
-
     private final LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>> nsInformers =
             new LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>>() {
                 @Override
@@ -173,39 +171,29 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
     @Override
     public void onAdd(Endpoints endpoints) {
-        synchronized (updateLock) {
-            logger.debugv(
-                    "Endpoint {0} created in namespace {1}",
-                    endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
-            QuarkusTransaction.joiningExisting()
-                    .run(() -> handleObservedEndpoints(endpoints.getMetadata().getNamespace()));
-        }
+        logger.debugv(
+                "Endpoint {0} created in namespace {1}",
+                endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
+        handleObservedEndpoints(endpoints.getMetadata().getNamespace());
     }
 
     @Override
     public void onUpdate(Endpoints oldEndpoints, Endpoints newEndpoints) {
-        synchronized (updateLock) {
-            logger.debugv(
-                    "Endpoint {0} modified in namespace {1}",
-                    newEndpoints.getMetadata().getName(),
-                    newEndpoints.getMetadata().getNamespace());
-            QuarkusTransaction.joiningExisting()
-                    .run(() -> handleObservedEndpoints(newEndpoints.getMetadata().getNamespace()));
-        }
+        logger.debugv(
+                "Endpoint {0} modified in namespace {1}",
+                newEndpoints.getMetadata().getName(), newEndpoints.getMetadata().getNamespace());
+        handleObservedEndpoints(newEndpoints.getMetadata().getNamespace());
     }
 
     @Override
     public void onDelete(Endpoints endpoints, boolean deletedFinalStateUnknown) {
-        synchronized (updateLock) {
-            logger.debugv(
-                    "Endpoint {0} deleted in namespace {1}",
-                    endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
-            if (deletedFinalStateUnknown) {
-                logger.warnv("Deleted final state unknown: {0}", endpoints);
-            }
-            QuarkusTransaction.joiningExisting()
-                    .run(() -> handleObservedEndpoints(endpoints.getMetadata().getNamespace()));
+        logger.debugv(
+                "Endpoint {0} deleted in namespace {1}",
+                endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
+        if (deletedFinalStateUnknown) {
+            logger.warnv("Deleted final state unknown: {0}", endpoints);
         }
+        handleObservedEndpoints(endpoints.getMetadata().getNamespace());
     }
 
     private boolean isCompatiblePort(EndpointPort port) {
@@ -270,92 +258,98 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     @ConsumeEvent(blocking = true, ordered = true)
     @Transactional(TxType.REQUIRES_NEW)
     public void handleEndpointEvent(EndpointDiscoveryEvent evt) {
-        synchronized (updateLock) {
-            String namespace = evt.namespace;
-            DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
-            DiscoveryNode nsNode =
-                    DiscoveryNode.getChild(realm, n -> n.name.equals(namespace))
-                            .orElse(
-                                    DiscoveryNode.environment(
-                                            namespace, KubeDiscoveryNodeType.NAMESPACE));
+        String namespace = evt.namespace;
+        DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
+        DiscoveryNode nsNode =
+                DiscoveryNode.getChild(realm, n -> n.name.equals(namespace))
+                        .orElse(
+                                DiscoveryNode.environment(
+                                        namespace, KubeDiscoveryNodeType.NAMESPACE));
 
-            try {
-                if (evt.eventKind == EventKind.FOUND) {
-                    buildOwnerChain(nsNode, evt.target, evt.objRef);
-                } else {
-                    pruneOwnerChain(nsNode, evt.target);
-                }
-
-                if (!nsNode.hasChildren()) {
-                    realm.children.remove(nsNode);
-                    nsNode.parent = null;
-                } else if (!realm.children.contains(nsNode)) {
-                    realm.children.add(nsNode);
-                    nsNode.parent = realm;
-                }
-                realm.persist();
-            } catch (Exception e) {
-                logger.warn("Endpoint handler exception", e);
+        try {
+            if (evt.eventKind == EventKind.FOUND) {
+                buildOwnerChain(nsNode, evt.target, evt.objRef);
+            } else {
+                pruneOwnerChain(nsNode, evt.target);
             }
+
+            if (!nsNode.hasChildren()) {
+                realm.children.remove(nsNode);
+                nsNode.parent = null;
+            } else if (!realm.children.contains(nsNode)) {
+                realm.children.add(nsNode);
+                nsNode.parent = realm;
+            }
+            realm.persist();
+        } catch (Exception e) {
+            logger.warn("Endpoint handler exception", e);
         }
     }
 
-    private void handleObservedEndpoints(String namespace) {
-        synchronized (updateLock) {
-            List<DiscoveryNode> targetNodes =
-                    DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT).stream()
-                            .filter(
-                                    (n) ->
-                                            namespace.equals(
-                                                    n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY)))
-                            .collect(Collectors.toList());
+    private synchronized void handleObservedEndpoints(String namespace) {
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () -> {
+                            List<DiscoveryNode> targetNodes =
+                                    DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT)
+                                            .stream()
+                                            .filter(
+                                                    (n) ->
+                                                            namespace.equals(
+                                                                    n.labels.get(
+                                                                            DISCOVERY_NAMESPACE_LABEL_KEY)))
+                                            .collect(Collectors.toList());
 
-            Map<URI, ObjectReference> targetRefMap = new HashMap<>();
+                            Map<URI, ObjectReference> targetRefMap = new HashMap<>();
 
-            Set<Target> persistedTargets = new HashSet<>();
-            for (DiscoveryNode node : targetNodes) {
-                persistedTargets.add(node.target);
-            }
+                            Set<Target> persistedTargets = new HashSet<>();
+                            for (DiscoveryNode node : targetNodes) {
+                                persistedTargets.add(node.target);
+                            }
 
-            Set<Target> observedTargets =
-                    safeGetInformers().get(namespace).getStore().list().stream()
-                            .map((endpoint) -> getTargetTuplesFrom(endpoint))
-                            .flatMap(List::stream)
-                            .filter((tuple) -> Objects.nonNull(tuple.objRef))
-                            .map(
-                                    (tuple) -> {
-                                        Target t = tuple.toTarget();
-                                        if (t != null) {
-                                            targetRefMap.put(t.connectUrl, tuple.objRef);
-                                        }
-                                        return t;
-                                    })
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toSet());
+                            Set<Target> observedTargets =
+                                    safeGetInformers().get(namespace).getStore().list().stream()
+                                            .map((endpoint) -> getTargetTuplesFrom(endpoint))
+                                            .flatMap(List::stream)
+                                            .filter((tuple) -> Objects.nonNull(tuple.objRef))
+                                            .map(
+                                                    (tuple) -> {
+                                                        Target t = tuple.toTarget();
+                                                        if (t != null) {
+                                                            targetRefMap.put(
+                                                                    t.connectUrl, tuple.objRef);
+                                                        }
+                                                        return t;
+                                                    })
+                                            .filter(Objects::nonNull)
+                                            .collect(Collectors.toSet());
 
-            // Add new targets
-            Target.compare(persistedTargets)
-                    .to(observedTargets)
-                    .added()
-                    .forEach(
-                            (t) ->
-                                    notify(
-                                            EndpointDiscoveryEvent.from(
-                                                    namespace,
-                                                    t,
-                                                    targetRefMap.get(t.connectUrl),
-                                                    EventKind.FOUND)));
+                            // Add new targets
+                            Target.compare(persistedTargets)
+                                    .to(observedTargets)
+                                    .added()
+                                    .forEach(
+                                            (t) ->
+                                                    notify(
+                                                            EndpointDiscoveryEvent.from(
+                                                                    namespace,
+                                                                    t,
+                                                                    targetRefMap.get(t.connectUrl),
+                                                                    EventKind.FOUND)));
 
-            // Prune deleted targets
-            Target.compare(persistedTargets)
-                    .to(observedTargets)
-                    .removed()
-                    .forEach(
-                            (t) ->
-                                    notify(
-                                            EndpointDiscoveryEvent.from(
-                                                    namespace, t, null, EventKind.LOST)));
-        }
+                            // Prune deleted targets
+                            Target.compare(persistedTargets)
+                                    .to(observedTargets)
+                                    .removed()
+                                    .forEach(
+                                            (t) ->
+                                                    notify(
+                                                            EndpointDiscoveryEvent.from(
+                                                                    namespace,
+                                                                    t,
+                                                                    null,
+                                                                    EventKind.LOST)));
+                        });
     }
 
     private void notify(EndpointDiscoveryEvent evt) {
