@@ -147,7 +147,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
         resyncWorker.scheduleAtFixedRate(
                 () -> {
                     try {
-                        logger.debugv("Resyncing");
+                        logger.debug("Resyncing");
                         notify(NamespaceQueryEvent.from(kubeConfig.getWatchNamespaces()));
                     } catch (Exception e) {
                         logger.warn(e);
