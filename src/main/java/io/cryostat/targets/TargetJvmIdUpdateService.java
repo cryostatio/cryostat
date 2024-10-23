@@ -79,10 +79,7 @@ public class TargetJvmIdUpdateService {
             case MODIFIED:
             // fall-through
             case FOUND:
-                JobDetail jobDetail =
-                        JobBuilder.newJob(TargetJvmIdUpdateJob.class)
-                                .withIdentity(event.kind().name(), event.serviceRef().id.toString())
-                                .build();
+                JobDetail jobDetail = JobBuilder.newJob(TargetJvmIdUpdateJob.class).build();
                 Map<String, Object> data = jobDetail.getJobDataMap();
                 data.put("targetId", event.serviceRef().id);
 
