@@ -76,10 +76,6 @@ public class TargetJvmIdUpdateService {
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY)
     void onMessage(TargetDiscovery event) {
         switch (event.kind()) {
-            case LOST:
-                // this should already be handled by the cascading deletion of the Target
-                // TODO verify this
-                break;
             case MODIFIED:
             // fall-through
             case FOUND:
