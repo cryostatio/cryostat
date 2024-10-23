@@ -63,8 +63,8 @@ public class TargetJvmIdUpdateJob implements Job {
         QuarkusTransaction.requiringNew()
                 .run(
                         () -> {
+                            Target target = Target.getTargetById(id);
                             try {
-                                Target target = Target.getTargetById(id);
                                 target.jvmId =
                                         connectionManager
                                                 .executeDirect(
@@ -74,10 +74,11 @@ public class TargetJvmIdUpdateJob implements Job {
                                                 .map(JvmIdentifier::getHash)
                                                 .await()
                                                 .atMost(connectionTimeout);
-                                target.persist();
                             } catch (Exception e) {
+                                target.jvmId = null;
                                 logger.error(e);
                             }
+                            target.persist();
                         });
     }
 }
