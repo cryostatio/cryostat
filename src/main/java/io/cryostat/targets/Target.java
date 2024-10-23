@@ -27,9 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -283,8 +280,6 @@ public class Target extends PanacheEntity {
 
         @Inject Logger logger;
         @Inject EventBus bus;
-        ScheduledExecutorService scheduler =
-                Executors.newScheduledThreadPool(Runtime.getRuntime().availableProcessors());
 
         @PrePersist
         void prePersist(Target target) {
@@ -309,12 +304,12 @@ public class Target extends PanacheEntity {
 
         @PostPersist
         void postPersist(Target target) {
-            scheduler.schedule(() -> notify(EventKind.FOUND, target), 1, TimeUnit.SECONDS);
+            notify(EventKind.FOUND, target);
         }
 
         @PostUpdate
         void postUpdate(Target target) {
-            scheduler.schedule(() -> notify(EventKind.MODIFIED, target), 1, TimeUnit.SECONDS);
+            notify(EventKind.MODIFIED, target);
         }
 
         @PostRemove

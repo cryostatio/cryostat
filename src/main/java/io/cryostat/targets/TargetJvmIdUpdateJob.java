@@ -16,13 +16,14 @@
 package io.cryostat.targets;
 
 import java.time.Duration;
-import java.util.Optional;
+import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.libcryostat.JvmIdentifier;
+import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
@@ -37,6 +38,7 @@ public class TargetJvmIdUpdateJob implements Job {
 
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
+    @Inject RecordingHelper recordingHelper;
     ExecutorService executor = ForkJoinPool.commonPool();
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
@@ -45,40 +47,45 @@ public class TargetJvmIdUpdateJob implements Job {
     @Override
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        Target.<Target>stream("#Target.unconnected")
-                .forEach(
-                        t -> {
-                            executor.submit(
-                                    () -> {
-                                        try {
-                                            updateTargetJvmId(t.id);
-                                        } catch (Exception e) {
-                                            logger.warn(e);
-                                        }
-                                    });
-                        });
+        List<Target> targets;
+        long targetId = (long) context.getJobDetail().getJobDataMap().get("targetId");
+        if (targetId > 0) {
+            targets = List.of(Target.getTargetById(targetId));
+        } else {
+            targets = Target.<Target>find("#Target.unconnected").list();
+        }
+
+        targets.forEach(
+                t -> {
+                    executor.submit(
+                            () -> {
+                                try {
+                                    updateTarget(t.id);
+                                } catch (Exception e) {
+                                    logger.warn(e);
+                                }
+                            });
+                });
     }
 
-    private void updateTargetJvmId(long id) {
+    private void updateTarget(long id) {
         QuarkusTransaction.requiringNew()
                 .run(
                         () -> {
-                            Target target = Target.getTargetById(id);
                             try {
+                                Target target = Target.getTargetById(id);
                                 target.jvmId =
                                         connectionManager
-                                                .executeDirect(
-                                                        target,
-                                                        Optional.empty(),
-                                                        JFRConnection::getJvmIdentifier)
+                                                .executeConnectedTaskUni(
+                                                        target, JFRConnection::getJvmIdentifier)
                                                 .map(JvmIdentifier::getHash)
                                                 .await()
                                                 .atMost(connectionTimeout);
+                                recordingHelper.listActiveRecordings(target);
+                                target.persist();
                             } catch (Exception e) {
-                                target.jvmId = null;
                                 logger.error(e);
                             }
-                            target.persist();
                         });
     }
 }
