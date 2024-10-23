@@ -57,10 +57,15 @@ public class TargetJvmIdUpdateService {
                 TriggerBuilder.newTrigger()
                         .withSchedule(
                                 SimpleScheduleBuilder.simpleSchedule()
-                                        .withIntervalInSeconds(30)
+                                        .withIntervalInSeconds(
+                                                (int) (connectionTimeout.toSeconds() * 2))
                                         .repeatForever()
                                         .withMisfireHandlingInstructionNowWithExistingCount())
-                        .startAt(Date.from(Instant.now().plusSeconds(30)))
+                        .startAt(
+                                Date.from(
+                                        Instant.now()
+                                                .plusSeconds(
+                                                        (int) (connectionTimeout.toSeconds() * 2))))
                         .build();
         try {
             scheduler.scheduleJob(jobDetail, trigger);
@@ -85,7 +90,7 @@ public class TargetJvmIdUpdateService {
 
                 Trigger trigger =
                         TriggerBuilder.newTrigger()
-                                .startAt(Date.from(Instant.now().plusSeconds(1)))
+                                .startAt(Date.from(Instant.now().plusSeconds(3)))
                                 .usingJobData(jobDetail.getJobDataMap())
                                 .build();
                 try {
