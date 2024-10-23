@@ -18,16 +18,9 @@ package io.cryostat.targets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Map;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.core.net.JFRConnection;
-import io.cryostat.credentials.Credential;
-import io.cryostat.expressions.MatchExpressionEvaluator;
-import io.cryostat.libcryostat.JvmIdentifier;
-import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target.TargetDiscovery;
 
 import io.quarkus.runtime.ShutdownEvent;
@@ -36,15 +29,10 @@ import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
-import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import org.projectnessie.cel.tools.ScriptException;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
-import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.SimpleScheduleBuilder;
@@ -55,25 +43,15 @@ import org.quartz.TriggerBuilder;
 public class TargetJvmIdUpdateService {
 
     @Inject Logger logger;
-    @Inject TargetConnectionManager connectionManager;
-    @Inject RecordingHelper recordingHelper;
-    @Inject EntityManager entityManager;
-    @Inject MatchExpressionEvaluator matchExpressionEvaluator;
     @Inject Scheduler scheduler;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionTimeout;
 
-    private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
-
     void onStart(@Observes StartupEvent evt) {
         logger.tracev("{0} started", getClass().getName());
 
         JobDetail jobDetail = JobBuilder.newJob(TargetJvmIdUpdateJob.class).build();
-
-        if (jobs.contains(jobDetail.getKey())) {
-            return;
-        }
 
         Trigger trigger =
                 TriggerBuilder.newTrigger()
@@ -89,17 +67,14 @@ public class TargetJvmIdUpdateService {
         } catch (SchedulerException e) {
             logger.errorv(e, "Failed to schedule JVM ID updater job");
         }
-        jobs.add(jobDetail.getKey());
     }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         scheduler.shutdown();
     }
 
-    @Transactional
-    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
+    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY)
     void onMessage(TargetDiscovery event) {
-        var target = Target.<Target>find("id", event.serviceRef().id).singleResultOptional();
         switch (event.kind()) {
             case LOST:
                 // this should already be handled by the cascading deletion of the Target
@@ -108,58 +83,27 @@ public class TargetJvmIdUpdateService {
             case MODIFIED:
             // fall-through
             case FOUND:
-                target.ifPresent(
-                        t -> {
-                            try {
-                                logger.debugv("Updating JVM ID for {0} ({1})", t.connectUrl, t.id);
-                                if (StringUtils.isBlank(t.jvmId)) {
-                                    updateTargetJvmId(t, null);
-                                }
-                            } catch (Exception e) {
-                                logger.warn(e);
-                            }
-                        });
-                target.ifPresent(recordingHelper::listActiveRecordings);
+                JobDetail jobDetail =
+                        JobBuilder.newJob(TargetJvmIdUpdateJob.class)
+                                .withIdentity(event.kind().name(), event.serviceRef().id.toString())
+                                .build();
+                Map<String, Object> data = jobDetail.getJobDataMap();
+                data.put("targetId", event.serviceRef().id);
+
+                Trigger trigger =
+                        TriggerBuilder.newTrigger()
+                                .startAt(Date.from(Instant.now().plusSeconds(1)))
+                                .usingJobData(jobDetail.getJobDataMap())
+                                .build();
+                try {
+                    scheduler.scheduleJob(jobDetail, trigger);
+                } catch (SchedulerException e) {
+                    logger.errorv(e, "Failed to schedule JVM ID updater job");
+                }
                 break;
             default:
                 // no-op
                 break;
-        }
-    }
-
-    @ConsumeEvent(value = Credential.CREDENTIALS_STORED, blocking = true)
-    @Transactional
-    void updateCredential(Credential credential) {
-        Target.<Target>stream("#Target.unconnected")
-                .forEach(
-                        t -> {
-                            try {
-                                if (matchExpressionEvaluator.applies(
-                                        credential.matchExpression, t)) {
-                                    updateTargetJvmId(t, credential);
-                                }
-                            } catch (ScriptException e) {
-                                logger.error(e);
-                            } catch (Exception e) {
-                                logger.warn(e);
-                            }
-                        });
-    }
-
-    private void updateTargetJvmId(Target t, Credential credential) {
-        try {
-            t.jvmId =
-                    connectionManager
-                            .executeDirect(
-                                    t,
-                                    Optional.ofNullable(credential),
-                                    JFRConnection::getJvmIdentifier)
-                            .map(JvmIdentifier::getHash)
-                            .await()
-                            .atMost(connectionTimeout);
-            t.persist();
-        } catch (Exception e) {
-            logger.error(e);
         }
     }
 }
