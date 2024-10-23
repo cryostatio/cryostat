@@ -55,23 +55,25 @@ public class TargetJvmIdUpdateJob implements Job {
             targets = Target.<Target>find("#Target.unconnected").list();
         }
 
-        targets.forEach(t -> executor.submit(() -> updateTarget(t.id)));
+        if (targets.size() == 1) {
+            updateTarget(targets.get(0));
+        } else {
+            targets.forEach(t -> executor.submit(() -> updateTargetTx(t.id)));
+        }
     }
 
-    private void updateTarget(long id) {
-        QuarkusTransaction.requiringNew()
-                .run(
-                        () -> {
-                            Target target = Target.getTargetById(id);
-                            target.jvmId =
-                                    connectionManager
-                                            .executeConnectedTaskUni(
-                                                    target, JFRConnection::getJvmIdentifier)
-                                            .map(JvmIdentifier::getHash)
-                                            .await()
-                                            .atMost(connectionTimeout);
-                            recordingHelper.listActiveRecordings(target);
-                            target.persist();
-                        });
+    private void updateTargetTx(long id) {
+        QuarkusTransaction.requiringNew().run(() -> updateTarget(Target.getTargetById(id)));
+    }
+
+    private void updateTarget(Target target) {
+        target.jvmId =
+                connectionManager
+                        .executeConnectedTaskUni(target, JFRConnection::getJvmIdentifier)
+                        .map(JvmIdentifier::getHash)
+                        .await()
+                        .atMost(connectionTimeout);
+        recordingHelper.listActiveRecordings(target);
+        target.persist();
     }
 }
