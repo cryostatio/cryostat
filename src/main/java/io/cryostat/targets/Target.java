@@ -314,7 +314,7 @@ public class Target extends PanacheEntity {
 
         @PostUpdate
         void postUpdate(Target target) {
-            notify(EventKind.MODIFIED, target);
+            scheduler.schedule(() -> notify(EventKind.MODIFIED, target), 1, TimeUnit.SECONDS);
         }
 
         @PostRemove
