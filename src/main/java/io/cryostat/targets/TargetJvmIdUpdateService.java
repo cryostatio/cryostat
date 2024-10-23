@@ -48,7 +48,7 @@ public class TargetJvmIdUpdateService {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionTimeout;
 
-    void onStart(@Observes StartupEvent evt) {
+    void onStart(@Observes StartupEvent evt) throws SchedulerException {
         logger.tracev("{0} started", getClass().getName());
 
         JobDetail jobDetail = JobBuilder.newJob(TargetJvmIdUpdateJob.class).build();
@@ -67,11 +67,7 @@ public class TargetJvmIdUpdateService {
                                                 .plusSeconds(
                                                         (int) (connectionTimeout.toSeconds() * 2))))
                         .build();
-        try {
-            scheduler.scheduleJob(jobDetail, trigger);
-        } catch (SchedulerException e) {
-            logger.errorv(e, "Failed to schedule JVM ID updater job");
-        }
+        scheduler.scheduleJob(jobDetail, trigger);
     }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
@@ -79,7 +75,7 @@ public class TargetJvmIdUpdateService {
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY)
-    void onMessage(TargetDiscovery event) {
+    void onMessage(TargetDiscovery event) throws SchedulerException {
         switch (event.kind()) {
             case MODIFIED:
             // fall-through
@@ -93,11 +89,7 @@ public class TargetJvmIdUpdateService {
                                 .startAt(Date.from(Instant.now().plusSeconds(3)))
                                 .usingJobData(jobDetail.getJobDataMap())
                                 .build();
-                try {
-                    scheduler.scheduleJob(jobDetail, trigger);
-                } catch (SchedulerException e) {
-                    logger.errorv(e, "Failed to schedule JVM ID updater job");
-                }
+                scheduler.scheduleJob(jobDetail, trigger);
                 break;
             default:
                 // no-op

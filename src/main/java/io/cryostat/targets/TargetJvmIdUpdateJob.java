@@ -55,10 +55,7 @@ public class TargetJvmIdUpdateJob implements Job {
             targets = Target.<Target>find("#Target.unconnected").list();
         }
 
-        targets.forEach(
-                t -> {
-                    executor.submit(() -> updateTarget(t.id));
-                });
+        targets.forEach(t -> executor.submit(() -> updateTarget(t.id)));
     }
 
     private void updateTarget(long id) {
