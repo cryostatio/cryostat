@@ -48,8 +48,8 @@ public class TargetJvmIdUpdateJob implements Job {
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
         List<Target> targets;
-        long targetId = (long) context.getJobDetail().getJobDataMap().get("targetId");
-        if (targetId > 0) {
+        Long targetId = (Long) context.getJobDetail().getJobDataMap().get("targetId");
+        if (targetId != null) {
             targets = List.of(Target.getTargetById(targetId));
         } else {
             targets = Target.<Target>find("#Target.unconnected").list();
