@@ -57,14 +57,7 @@ public class TargetJvmIdUpdateJob implements Job {
 
         targets.forEach(
                 t -> {
-                    executor.submit(
-                            () -> {
-                                try {
-                                    updateTarget(t.id);
-                                } catch (Exception e) {
-                                    logger.warn(e);
-                                }
-                            });
+                    executor.submit(() -> updateTarget(t.id));
                 });
     }
 
@@ -72,20 +65,16 @@ public class TargetJvmIdUpdateJob implements Job {
         QuarkusTransaction.requiringNew()
                 .run(
                         () -> {
-                            try {
-                                Target target = Target.getTargetById(id);
-                                target.jvmId =
-                                        connectionManager
-                                                .executeConnectedTaskUni(
-                                                        target, JFRConnection::getJvmIdentifier)
-                                                .map(JvmIdentifier::getHash)
-                                                .await()
-                                                .atMost(connectionTimeout);
-                                recordingHelper.listActiveRecordings(target);
-                                target.persist();
-                            } catch (Exception e) {
-                                logger.error(e);
-                            }
+                            Target target = Target.getTargetById(id);
+                            target.jvmId =
+                                    connectionManager
+                                            .executeConnectedTaskUni(
+                                                    target, JFRConnection::getJvmIdentifier)
+                                            .map(JvmIdentifier::getHash)
+                                            .await()
+                                            .atMost(connectionTimeout);
+                            recordingHelper.listActiveRecordings(target);
+                            target.persist();
                         });
     }
 }
