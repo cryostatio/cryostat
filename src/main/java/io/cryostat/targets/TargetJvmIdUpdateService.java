@@ -86,7 +86,7 @@ public class TargetJvmIdUpdateService {
 
                 Trigger trigger =
                         TriggerBuilder.newTrigger()
-                                .startAt(Date.from(Instant.now().plusSeconds(3)))
+                                .startAt(Date.from(Instant.now().plusSeconds(1)))
                                 .usingJobData(jobDetail.getJobDataMap())
                                 .build();
                 scheduler.scheduleJob(jobDetail, trigger);
