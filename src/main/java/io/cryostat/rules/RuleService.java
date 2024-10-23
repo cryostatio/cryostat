@@ -40,6 +40,7 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -84,6 +85,10 @@ public class RuleService {
                                 Rule.<Rule>streamAll()
                                         .filter(r -> r.enabled)
                                         .forEach(this::applyRuleToMatchingTargets));
+    }
+
+    void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
+        quartz.shutdown();
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)

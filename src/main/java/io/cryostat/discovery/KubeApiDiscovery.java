@@ -352,24 +352,20 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                                 DiscoveryNode.environment(
                                         namespace, KubeDiscoveryNodeType.NAMESPACE));
 
-        try {
-            if (evt.eventKind == EventKind.FOUND) {
-                buildOwnerChain(nsNode, evt.target, evt.objRef);
-            } else {
-                pruneOwnerChain(nsNode, evt.target);
-            }
-
-            if (!nsNode.hasChildren()) {
-                realm.children.remove(nsNode);
-                nsNode.parent = null;
-            } else if (!realm.children.contains(nsNode)) {
-                realm.children.add(nsNode);
-                nsNode.parent = realm;
-            }
-            realm.persist();
-        } catch (Exception e) {
-            logger.warn("Endpoint handler exception", e);
+        if (evt.eventKind == EventKind.FOUND) {
+            buildOwnerChain(nsNode, evt.target, evt.objRef);
+        } else {
+            pruneOwnerChain(nsNode, evt.target);
         }
+
+        if (!nsNode.hasChildren()) {
+            realm.children.remove(nsNode);
+            nsNode.parent = null;
+        } else if (!realm.children.contains(nsNode)) {
+            realm.children.add(nsNode);
+            nsNode.parent = realm;
+        }
+        realm.persist();
     }
 
     private void notify(NamespaceQueryEvent evt) {
