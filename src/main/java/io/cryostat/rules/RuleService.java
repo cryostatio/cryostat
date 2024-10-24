@@ -92,7 +92,7 @@ public class RuleService {
         quartz.shutdown();
     }
 
-    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true, ordered = true)
+    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
     void onMessage(TargetDiscovery event) {
         switch (event.kind()) {
             case MODIFIED:
@@ -123,7 +123,7 @@ public class RuleService {
         }
     }
 
-    @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true, ordered = true)
+    @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true)
     @Transactional
     public void handleRuleModification(RuleEvent event) {
         Rule rule = event.rule();
@@ -148,7 +148,7 @@ public class RuleService {
         }
     }
 
-    @ConsumeEvent(value = Rule.RULE_ADDRESS + "?clean", blocking = true, ordered = true)
+    @ConsumeEvent(value = Rule.RULE_ADDRESS + "?clean", blocking = true)
     @Transactional
     public void handleRuleRecordingCleanup(Rule rule) {
         cancelTasksForRule(rule);
