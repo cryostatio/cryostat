@@ -27,6 +27,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -45,16 +48,12 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectReference;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.client.KubernetesClient;
-import io.fabric8.kubernetes.client.KubernetesClientBuilder;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -69,7 +68,11 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
-public class KubeApiDiscovery {
+public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
+
+    private static final String NAMESPACE_QUERY_ADDR = "NS_QUERY";
+    private static final String ENDPOINTS_DISCOVERY_ADDR = "ENDPOINTS_DISC";
+
     public static final String REALM = "KubernetesApi";
 
     public static final String DISCOVERY_NAMESPACE_LABEL_KEY = "discovery.cryostat.io/namespace";
@@ -85,6 +88,8 @@ public class KubeApiDiscovery {
     @Inject KubernetesClient client;
 
     @Inject EventBus bus;
+
+    ScheduledExecutorService resyncWorker = Executors.newSingleThreadScheduledExecutor();
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.enabled")
     boolean enabled;
@@ -116,20 +121,18 @@ public class KubeApiDiscovery {
                                                 client.endpoints()
                                                         .inNamespace(ns)
                                                         .inform(
-                                                                new EndpointsHandler(),
+                                                                KubeApiDiscovery.this,
                                                                 informerResyncPeriod.toMillis()));
                                         logger.debugv(
-                                                "Started Endpoints SharedInformer for"
-                                                        + " namespace \"{0}\"",
-                                                ns);
+                                                "Started Endpoints SharedInformer for namespace"
+                                                        + " \"{0}\" with resync period {1}",
+                                                ns, informerResyncPeriod);
                                     });
                     return result;
                 }
             };
 
-    // Priority is set higher than default 0 such that onStart is called first before onAfterStart
-    // This ensures realm node is persisted before initializing informers
-    void onStart(@Observes @Priority(1) StartupEvent evt) {
+    void onStart(@Observes StartupEvent evt) {
         if (!enabled()) {
             return;
         }
@@ -140,13 +143,19 @@ public class KubeApiDiscovery {
         }
 
         logger.debugv("Starting {0} client", REALM);
-    }
-
-    void onAfterStart(@Observes StartupEvent evt) {
-        if (!enabled() || !available()) {
-            return;
-        }
         safeGetInformers();
+        resyncWorker.scheduleAtFixedRate(
+                () -> {
+                    try {
+                        logger.debug("Resyncing");
+                        notify(NamespaceQueryEvent.from(kubeConfig.getWatchNamespaces()));
+                    } catch (Exception e) {
+                        logger.warn(e);
+                    }
+                },
+                0,
+                informerResyncPeriod.toMillis(),
+                TimeUnit.MILLISECONDS);
     }
 
     void onStop(@Observes ShutdownEvent evt) {
@@ -155,6 +164,7 @@ public class KubeApiDiscovery {
         }
 
         logger.debugv("Shutting down {0} client", REALM);
+        resyncWorker.shutdown();
         safeGetInformers()
                 .forEach(
                         (ns, informer) -> {
@@ -178,6 +188,33 @@ public class KubeApiDiscovery {
         return false;
     }
 
+    @Override
+    public void onAdd(Endpoints endpoints) {
+        logger.debugv(
+                "Endpoint {0} created in namespace {1}",
+                endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
+        notify(NamespaceQueryEvent.from(endpoints.getMetadata().getNamespace()));
+    }
+
+    @Override
+    public void onUpdate(Endpoints oldEndpoints, Endpoints newEndpoints) {
+        logger.debugv(
+                "Endpoint {0} modified in namespace {1}",
+                newEndpoints.getMetadata().getName(), newEndpoints.getMetadata().getNamespace());
+        notify(NamespaceQueryEvent.from(newEndpoints.getMetadata().getNamespace()));
+    }
+
+    @Override
+    public void onDelete(Endpoints endpoints, boolean deletedFinalStateUnknown) {
+        logger.debugv(
+                "Endpoint {0} deleted in namespace {1}",
+                endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
+        if (deletedFinalStateUnknown) {
+            logger.warnv("Deleted final state unknown: {0}", endpoints);
+        }
+        notify(NamespaceQueryEvent.from(endpoints.getMetadata().getNamespace()));
+    }
+
     private boolean isCompatiblePort(EndpointPort port) {
         return jmxPortNames.orElse(EMPTY_PORT_NAMES).contains(port.getName())
                 || jmxPortNumbers.orElse(EMPTY_PORT_NUMBERS).contains(port.getPort());
@@ -188,7 +225,14 @@ public class KubeApiDiscovery {
         for (EndpointSubset subset : endpoints.getSubsets()) {
             for (EndpointPort port : subset.getPorts()) {
                 for (EndpointAddress addr : subset.getAddresses()) {
-                    tts.add(new TargetTuple(addr.getTargetRef(), addr, port));
+                    var ref = addr.getTargetRef();
+                    tts.add(
+                            new TargetTuple(
+                                    ref,
+                                    queryForNode(ref.getNamespace(), ref.getName(), ref.getKind())
+                                            .getLeft(),
+                                    addr,
+                                    port));
                 }
             }
         }
@@ -205,19 +249,17 @@ public class KubeApiDiscovery {
     }
 
     private Map<String, SharedIndexInformer<Endpoints>> safeGetInformers() {
-        Map<String, SharedIndexInformer<Endpoints>> informers;
         try {
-            informers = nsInformers.get();
+            return nsInformers.get();
         } catch (ConcurrentException e) {
             throw new IllegalStateException(e);
         }
-        return informers;
     }
 
-    private boolean isTargetUnderRealm(URI connectUrl) throws IllegalStateException {
+    private boolean isTargetUnderRealm(Target target) throws IllegalStateException {
         // Check for any targets with the same connectUrl in other realms
         try {
-            Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
+            Target persistedTarget = Target.getTargetByConnectUrl(target.connectUrl);
             String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
             if (!REALM.equals(realmOfTarget)) {
                 logger.warnv(
@@ -232,8 +274,75 @@ public class KubeApiDiscovery {
         return false;
     }
 
-    @ConsumeEvent(blocking = true, ordered = true)
+    @ConsumeEvent(value = NAMESPACE_QUERY_ADDR, blocking = true, ordered = true)
     @Transactional(TxType.REQUIRES_NEW)
+    public void handleQueryEvent(NamespaceQueryEvent evt) {
+        Map<URI, ObjectReference> targetRefMap = new HashMap<>();
+
+        for (var namespace : evt.namespaces) {
+            try {
+                List<DiscoveryNode> targetNodes =
+                        DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT).stream()
+                                .filter(
+                                        (n) ->
+                                                namespace.equals(
+                                                        n.labels.get(
+                                                                DISCOVERY_NAMESPACE_LABEL_KEY)))
+                                .collect(Collectors.toList());
+
+                Set<Target> persistedTargets = new HashSet<>();
+                for (DiscoveryNode node : targetNodes) {
+                    persistedTargets.add(node.target);
+                }
+
+                Set<Target> observedTargets =
+                        safeGetInformers().get(namespace).getStore().list().stream()
+                                .map((endpoint) -> getTargetTuplesFrom(endpoint))
+                                .flatMap(List::stream)
+                                .filter((tuple) -> Objects.nonNull(tuple.objRef))
+                                .map(
+                                        (tuple) -> {
+                                            Target t = tuple.toTarget();
+                                            if (t != null) {
+                                                targetRefMap.put(t.connectUrl, tuple.objRef);
+                                            }
+                                            return t;
+                                        })
+                                .filter(Objects::nonNull)
+                                .collect(Collectors.toSet());
+
+                // Prune deleted targets
+                Target.compare(persistedTargets)
+                        .to(observedTargets)
+                        .removed()
+                        .forEach(
+                                (t) ->
+                                        notify(
+                                                EndpointDiscoveryEvent.from(
+                                                        namespace, t, null, EventKind.LOST)));
+
+                // Add new targets
+                Target.compare(persistedTargets)
+                        .to(observedTargets)
+                        .added()
+                        .forEach(
+                                (t) ->
+                                        notify(
+                                                EndpointDiscoveryEvent.from(
+                                                        namespace,
+                                                        t,
+                                                        targetRefMap.get(t.connectUrl),
+                                                        EventKind.FOUND)));
+            } catch (Exception e) {
+                logger.error(
+                        String.format("Failed to syncronize Endpoints in namespace %s", namespace),
+                        e);
+            }
+        }
+    }
+
+    @ConsumeEvent(value = ENDPOINTS_DISCOVERY_ADDR, blocking = true, ordered = true)
+    @Transactional(TxType.REQUIRED)
     public void handleEndpointEvent(EndpointDiscoveryEvent evt) {
         String namespace = evt.namespace;
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
@@ -243,89 +352,33 @@ public class KubeApiDiscovery {
                                 DiscoveryNode.environment(
                                         namespace, KubeDiscoveryNodeType.NAMESPACE));
 
-        try {
-            if (evt.eventKind == EventKind.FOUND) {
-                buildOwnerChain(nsNode, evt.target, evt.objRef);
-            } else {
-                pruneOwnerChain(nsNode, evt.target);
-            }
-
-            if (!nsNode.hasChildren()) {
-                realm.children.remove(nsNode);
-                nsNode.parent = null;
-            } else if (!realm.children.contains(nsNode)) {
-                realm.children.add(nsNode);
-                nsNode.parent = realm;
-            }
-            realm.persist();
-        } catch (Exception e) {
-            logger.warn("Endpoint handler exception", e);
+        if (evt.eventKind == EventKind.FOUND) {
+            buildOwnerChain(nsNode, evt.target, evt.objRef);
+        } else {
+            pruneOwnerChain(nsNode, evt.target);
         }
+
+        if (!nsNode.hasChildren()) {
+            realm.children.remove(nsNode);
+            nsNode.parent = null;
+        } else if (!realm.children.contains(nsNode)) {
+            realm.children.add(nsNode);
+            nsNode.parent = realm;
+        }
+        realm.persist();
     }
 
-    private void handleObservedEndpoints(String namespace) {
-        List<DiscoveryNode> targetNodes =
-                DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT).stream()
-                        .filter(
-                                (n) ->
-                                        namespace.equals(
-                                                n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY)))
-                        .collect(Collectors.toList());
-
-        Map<URI, ObjectReference> targetRefMap = new HashMap<>();
-
-        Set<Target> persistedTargets = new HashSet<>();
-        for (DiscoveryNode node : targetNodes) {
-            persistedTargets.add(node.target);
-        }
-
-        Set<Target> observedTargets =
-                safeGetInformers().get(namespace).getStore().list().stream()
-                        .map((endpoint) -> getTargetTuplesFrom(endpoint))
-                        .flatMap(List::stream)
-                        .filter((tuple) -> Objects.nonNull(tuple.objRef))
-                        .map(
-                                (tuple) -> {
-                                    Target t = tuple.toTarget();
-                                    if (t != null) {
-                                        targetRefMap.put(t.connectUrl, tuple.objRef);
-                                    }
-                                    return t;
-                                })
-                        .filter(Objects::nonNull)
-                        .collect(Collectors.toSet());
-
-        // Add new targets
-        Target.compare(persistedTargets)
-                .to(observedTargets)
-                .added()
-                .forEach(
-                        (t) ->
-                                notify(
-                                        EndpointDiscoveryEvent.from(
-                                                namespace,
-                                                t,
-                                                targetRefMap.get(t.connectUrl),
-                                                EventKind.FOUND)));
-
-        // Prune deleted targets
-        Target.compare(persistedTargets)
-                .to(observedTargets)
-                .removed()
-                .forEach(
-                        (t) ->
-                                notify(
-                                        EndpointDiscoveryEvent.from(
-                                                namespace, t, null, EventKind.LOST)));
+    private void notify(NamespaceQueryEvent evt) {
+        bus.publish(NAMESPACE_QUERY_ADDR, evt);
     }
 
     private void notify(EndpointDiscoveryEvent evt) {
-        bus.publish(KubeApiDiscovery.class.getName(), evt);
+        bus.publish(ENDPOINTS_DISCOVERY_ADDR, evt);
     }
 
     private void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
-        if (!isTargetUnderRealm(target.connectUrl)) {
-            logger.infov(
+        if (!isTargetUnderRealm(target)) {
+            logger.debugv(
                     "Target with serviceURL {0} does not exist in discovery tree. Skipped deleting",
                     target.connectUrl);
             return;
@@ -361,9 +414,9 @@ public class KubeApiDiscovery {
     }
 
     private void buildOwnerChain(DiscoveryNode nsNode, Target target, ObjectReference targetRef) {
-        if (isTargetUnderRealm(target.connectUrl)) {
-            logger.infov(
-                    "Target with serviceURL {0} already exist in discovery tree. Skipped adding",
+        if (isTargetUnderRealm(target)) {
+            logger.debugv(
+                    "Target with serviceURL {0} already exists in discovery tree. Skipped adding",
                     target.connectUrl);
             return;
         }
@@ -494,16 +547,6 @@ public class KubeApiDiscovery {
         @ConfigProperty(name = "cryostat.discovery.kubernetes.namespace-path")
         String namespacePath;
 
-        private final LazyInitializer<KubernetesClient> kubeClient =
-                new LazyInitializer<KubernetesClient>() {
-                    @Override
-                    protected KubernetesClient initialize() throws ConcurrentException {
-                        return new KubernetesClientBuilder()
-                                .withTaskExecutor(Infrastructure.getDefaultWorkerPool())
-                                .build();
-                    }
-                };
-
         Collection<String> getWatchNamespaces() {
             return watchNamespaces.orElse(List.of()).stream()
                     .map(
@@ -531,37 +574,13 @@ public class KubeApiDiscovery {
         }
     }
 
-    private final class EndpointsHandler implements ResourceEventHandler<Endpoints> {
-        @Override
-        public void onAdd(Endpoints endpoints) {
-            logger.debugv(
-                    "Endpoint {0} created in namespace {1}",
-                    endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
-            QuarkusTransaction.joiningExisting()
-                    .run(() -> handleObservedEndpoints(endpoints.getMetadata().getNamespace()));
+    private static record NamespaceQueryEvent(Collection<String> namespaces) {
+        static NamespaceQueryEvent from(Collection<String> namespaces) {
+            return new NamespaceQueryEvent(namespaces);
         }
 
-        @Override
-        public void onUpdate(Endpoints oldEndpoints, Endpoints newEndpoints) {
-            logger.debugv(
-                    "Endpoint {0} modified in namespace {1}",
-                    newEndpoints.getMetadata().getName(),
-                    newEndpoints.getMetadata().getNamespace());
-            QuarkusTransaction.joiningExisting()
-                    .run(() -> handleObservedEndpoints(newEndpoints.getMetadata().getNamespace()));
-        }
-
-        @Override
-        public void onDelete(Endpoints endpoints, boolean deletedFinalStateUnknown) {
-            logger.debugv(
-                    "Endpoint {0} deleted in namespace {1}",
-                    endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
-            if (deletedFinalStateUnknown) {
-                logger.warnv("Deleted final state unknown: {0}", endpoints);
-                return;
-            }
-            QuarkusTransaction.joiningExisting()
-                    .run(() -> handleObservedEndpoints(endpoints.getMetadata().getNamespace()));
+        static NamespaceQueryEvent from(String namespace) {
+            return new NamespaceQueryEvent(List.of(namespace));
         }
     }
 
@@ -575,11 +594,14 @@ public class KubeApiDiscovery {
 
     private class TargetTuple {
         ObjectReference objRef;
+        HasMetadata obj;
         EndpointAddress addr;
         EndpointPort port;
 
-        TargetTuple(ObjectReference objRef, EndpointAddress addr, EndpointPort port) {
+        TargetTuple(
+                ObjectReference objRef, HasMetadata obj, EndpointAddress addr, EndpointPort port) {
             this.objRef = objRef;
+            this.obj = obj;
             this.addr = addr;
             this.port = port;
         }
@@ -603,11 +625,6 @@ public class KubeApiDiscovery {
                                 0,
                                 "/jndi/rmi://" + host + ':' + port.getPort() + "/jmxrmi");
                 URI connectUrl = URI.create(jmxUrl.toString());
-
-                Pair<HasMetadata, DiscoveryNode> pair =
-                        queryForNode(namespace, objRef.getName(), objRef.getKind());
-
-                HasMetadata obj = pair.getLeft();
 
                 Target target = new Target();
                 target.activeRecordings = new ArrayList<>();
