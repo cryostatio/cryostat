@@ -29,7 +29,6 @@ import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.JobBuilder;
@@ -81,13 +80,9 @@ public class TargetJvmIdUpdateService {
             case MODIFIED:
             // fall-through
             case FOUND:
-                if (StringUtils.isNotBlank(event.serviceRef().jvmId)) {
-                    break;
-                }
                 JobDetail jobDetail = JobBuilder.newJob(TargetJvmIdUpdateJob.class).build();
                 Map<String, Object> data = jobDetail.getJobDataMap();
                 data.put("targetId", event.serviceRef().id);
-
                 Trigger trigger =
                         TriggerBuilder.newTrigger()
                                 .startAt(Date.from(Instant.now().plusSeconds(1)))
