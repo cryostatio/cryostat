@@ -73,7 +73,7 @@ public class TargetJvmIdUpdateJob implements Job {
                         .map(JvmIdentifier::getHash)
                         .await()
                         .atMost(connectionTimeout);
-        recordingHelper.listActiveRecordings(target);
+        target.activeRecordings = recordingHelper.listActiveRecordings(target);
         target.persist();
     }
 }
