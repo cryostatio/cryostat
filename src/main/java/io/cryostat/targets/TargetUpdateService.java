@@ -40,7 +40,7 @@ import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 
 @ApplicationScoped
-public class TargetJvmIdUpdateService {
+public class TargetUpdateService {
 
     @Inject Logger logger;
     @Inject Scheduler scheduler;
@@ -51,7 +51,7 @@ public class TargetJvmIdUpdateService {
     void onStart(@Observes StartupEvent evt) throws SchedulerException {
         logger.tracev("{0} started", getClass().getName());
 
-        JobDetail jobDetail = JobBuilder.newJob(TargetJvmIdUpdateJob.class).build();
+        JobDetail jobDetail = JobBuilder.newJob(TargetUpdateJob.class).build();
 
         Trigger trigger =
                 TriggerBuilder.newTrigger()
@@ -80,7 +80,7 @@ public class TargetJvmIdUpdateService {
             case MODIFIED:
             // fall-through
             case FOUND:
-                JobDetail jobDetail = JobBuilder.newJob(TargetJvmIdUpdateJob.class).build();
+                JobDetail jobDetail = JobBuilder.newJob(TargetUpdateJob.class).build();
                 Map<String, Object> data = jobDetail.getJobDataMap();
                 data.put("targetId", event.serviceRef().id);
                 Trigger trigger =
