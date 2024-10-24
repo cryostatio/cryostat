@@ -34,7 +34,7 @@ import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 
-public class TargetJvmIdUpdateJob implements Job {
+public class TargetUpdateJob implements Job {
 
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
