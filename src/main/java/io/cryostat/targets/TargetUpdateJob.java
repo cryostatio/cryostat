@@ -67,12 +67,18 @@ public class TargetUpdateJob implements Job {
     }
 
     private void updateTarget(Target target) {
-        target.jvmId =
-                connectionManager
-                        .executeConnectedTaskUni(target, JFRConnection::getJvmIdentifier)
-                        .map(JvmIdentifier::getHash)
-                        .await()
-                        .atMost(connectionTimeout);
+        try {
+            target.jvmId =
+                    connectionManager
+                            .executeConnectedTaskUni(target, JFRConnection::getJvmIdentifier)
+                            .map(JvmIdentifier::getHash)
+                            .await()
+                            .atMost(connectionTimeout);
+        } catch (Exception e) {
+            target.jvmId = null;
+            target.persist();
+            throw e;
+        }
         target.activeRecordings = recordingHelper.listActiveRecordings(target);
         target.persist();
     }

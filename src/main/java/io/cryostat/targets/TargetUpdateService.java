@@ -21,6 +21,8 @@ import java.util.Date;
 import java.util.Map;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.credentials.Credential;
+import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.targets.Target.TargetDiscovery;
 
 import io.quarkus.runtime.ShutdownEvent;
@@ -44,6 +46,7 @@ public class TargetUpdateService {
 
     @Inject Logger logger;
     @Inject Scheduler scheduler;
+    @Inject MatchExpressionEvaluator matchExpressionEvaluator;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionTimeout;
@@ -74,25 +77,55 @@ public class TargetUpdateService {
         scheduler.shutdown();
     }
 
+    @ConsumeEvent(Credential.CREDENTIALS_STORED)
+    void onCredentialsStored(Credential credential) {
+        updateTargetsForExpression(credential);
+    }
+
+    @ConsumeEvent(Credential.CREDENTIALS_UPDATED)
+    void onCredentialsUpdated(Credential credential) {
+        updateTargetsForExpression(credential);
+    }
+
+    @ConsumeEvent(Credential.CREDENTIALS_DELETED)
+    void onCredentialsDeleted(Credential credential) {
+        updateTargetsForExpression(credential);
+    }
+
+    private void updateTargetsForExpression(Credential credential) {
+        for (Target target :
+                matchExpressionEvaluator.getMatchedTargets(credential.matchExpression)) {
+            try {
+                fireTargetUpdate(target);
+            } catch (SchedulerException se) {
+                logger.warn(se);
+            }
+        }
+    }
+
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY)
     void onMessage(TargetDiscovery event) throws SchedulerException {
         switch (event.kind()) {
             case MODIFIED:
             // fall-through
             case FOUND:
-                JobDetail jobDetail = JobBuilder.newJob(TargetUpdateJob.class).build();
-                Map<String, Object> data = jobDetail.getJobDataMap();
-                data.put("targetId", event.serviceRef().id);
-                Trigger trigger =
-                        TriggerBuilder.newTrigger()
-                                .startAt(Date.from(Instant.now().plusSeconds(1)))
-                                .usingJobData(jobDetail.getJobDataMap())
-                                .build();
-                scheduler.scheduleJob(jobDetail, trigger);
+                fireTargetUpdate(event.serviceRef());
                 break;
             default:
                 // no-op
                 break;
         }
+    }
+
+    private void fireTargetUpdate(Target target) throws SchedulerException {
+        JobDetail jobDetail = JobBuilder.newJob(TargetUpdateJob.class).build();
+        Map<String, Object> data = jobDetail.getJobDataMap();
+        data.put("targetId", target.id);
+        Trigger trigger =
+                TriggerBuilder.newTrigger()
+                        .startAt(Date.from(Instant.now().plusSeconds(1)))
+                        .usingJobData(jobDetail.getJobDataMap())
+                        .build();
+        scheduler.scheduleJob(jobDetail, trigger);
     }
 }
