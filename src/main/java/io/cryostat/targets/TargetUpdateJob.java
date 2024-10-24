@@ -17,8 +17,6 @@ package io.cryostat.targets;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
@@ -26,6 +24,7 @@ import io.cryostat.libcryostat.JvmIdentifier;
 import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -39,7 +38,6 @@ public class TargetUpdateJob implements Job {
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingHelper recordingHelper;
-    ExecutorService executor = ForkJoinPool.commonPool();
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionTimeout;
@@ -58,7 +56,8 @@ public class TargetUpdateJob implements Job {
         if (targets.size() == 1) {
             updateTarget(targets.get(0));
         } else {
-            targets.forEach(t -> executor.submit(() -> updateTargetTx(t.id)));
+            targets.forEach(
+                    t -> Infrastructure.getDefaultExecutor().execute(() -> updateTargetTx(t.id)));
         }
     }
 
