@@ -2131,7 +2131,7 @@ paths:
             schema:
               type: string
       responses:
-        "200":
+        "202":
           content:
             text/plain:
               schema:
@@ -2141,6 +2141,10 @@ paths:
           description: Not Authorized
         "403":
           description: Not Allowed
+        "404":
+          description: Not Found
+        "502":
+          description: Target not Reachable
       security:
         - SecurityScheme: []
       tags:

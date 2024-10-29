@@ -905,6 +905,7 @@ public class RecordingHelper {
 
             URI connectUrl = recording.target.connectUrl;
 
+            /*
             var event =
                     new ArchivedRecordingEvent(
                             ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
@@ -912,7 +913,7 @@ public class RecordingHelper {
             bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(event.category().category(), event.payload()));
+                    new Notification(event.category().category(), event.payload()));*/
         }
         return new ArchivedRecording(
                 recording.target.jvmId,
