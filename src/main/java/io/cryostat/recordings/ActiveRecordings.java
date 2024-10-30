@@ -106,7 +106,7 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}")
     @RolesAllowed("write")
-    public Uni<String> patch(@RestPath long targetId, @RestPath long remoteId, String body)
+    public String patch(@RestPath long targetId, @RestPath long remoteId, String body)
             throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         Optional<ActiveRecording> recording =
@@ -148,8 +148,8 @@ public class ActiveRecordings {
                                 + ", "
                                 + request.getRecording().name
                                 + ")");
-                return Uni.createFrom().future(generator.performArchive(request));
-            // return recordingHelper.archiveRecording(activeRecording, null, null).name();
+                bus.publish(ArchiveRequestGenerator.ARCHIVE_ADDRESS, request);
+                return request.getId();
             default:
                 throw new BadRequestException(body);
         }
