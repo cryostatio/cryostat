@@ -65,14 +65,11 @@ public class ArchiveRequestGenerator {
                 });
     }
 
-    public static class ArchiveRequest {
+    public record ArchiveRequest(String id, ActiveRecording recording) {
 
-        private String id;
-        private ActiveRecording recording;
-
-        public ArchiveRequest(String id, ActiveRecording recording) {
-            this.id = id;
-            this.recording = recording;
+        public ArchiveRequest {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(recording);
         }
 
         public String getId() {
