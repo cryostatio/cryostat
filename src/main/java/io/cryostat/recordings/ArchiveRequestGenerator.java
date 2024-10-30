@@ -19,12 +19,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -34,9 +34,9 @@ import org.slf4j.LoggerFactory;
 @ApplicationScoped
 public class ArchiveRequestGenerator {
 
+    public static final String ARCHIVE_ADDRESS = "io.cryostat.recordings.ArchiveRequestGenerator";
     private static final String ARCHIVE_RECORDING_SUCCESS = "ArchiveRecordingSuccess";
     private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailed";
-    private final ExecutorService archiveThread = Executors.newCachedThreadPool();
     private final ExecutorService executor;
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
@@ -49,11 +49,12 @@ public class ArchiveRequestGenerator {
 
     public Future<String> performArchive(ArchiveRequest request) {
         Objects.requireNonNull(request.getRecording());
-        return archiveThread.submit(
+        return executor.submit(
                 () -> {
-                    logger.debug("Job ID: " + request.getId() + " submitted.");
+                    logger.info("Job ID: " + request.getId() + " submitted.");
                     try {
                         recordingHelper.archiveRecording(request.getRecording(), null, null).name();
+                        logger.info("Recording archived, firing notification");
                         bus.publish(
                                 MessagingServer.class.getName(),
                                 new Notification(
@@ -61,6 +62,7 @@ public class ArchiveRequestGenerator {
                                         Map.of("jobId", request.getId())));
                         return request.getId();
                     } catch (Exception e) {
+                        logger.info("Archiving failed");
                         bus.publish(
                                 MessagingServer.class.getName(),
                                 new Notification(
@@ -68,6 +70,15 @@ public class ArchiveRequestGenerator {
                         throw new CompletionException(e);
                     }
                 });
+    }
+
+    @ConsumeEvent(value = ARCHIVE_ADDRESS)
+    public void onMessage(ArchiveRequest request) {
+        try {
+            performArchive(request);
+        } catch (Exception e) {
+            logger.warn("Exception thrown while servicing request: ", e);
+        }
     }
 
     public record ArchiveRequest(String id, ActiveRecording recording) {
