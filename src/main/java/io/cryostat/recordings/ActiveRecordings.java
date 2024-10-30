@@ -148,8 +148,7 @@ public class ActiveRecordings {
                                 + ", "
                                 + request.getRecording().name
                                 + ")");
-                return Uni.createFrom()
-                        .future(generator.performArchive(request, bus, recordingHelper));
+                return Uni.createFrom().future(generator.performArchive(request));
             // return recordingHelper.archiveRecording(activeRecording, null, null).name();
             default:
                 throw new BadRequestException(body);

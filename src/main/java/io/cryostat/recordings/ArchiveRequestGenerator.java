@@ -26,9 +26,12 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.vertx.mutiny.core.eventbus.EventBus;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+@ApplicationScoped
 public class ArchiveRequestGenerator {
 
     private static final String ARCHIVE_RECORDING_SUCCESS = "ArchiveRecordingSuccess";
@@ -37,12 +40,14 @@ public class ArchiveRequestGenerator {
     private final ExecutorService executor;
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
+    @Inject private EventBus bus;
+    @Inject private RecordingHelper recordingHelper;
+
     public ArchiveRequestGenerator(ExecutorService executor) {
         this.executor = executor;
     }
 
-    public Future<String> performArchive(
-            ArchiveRequest request, EventBus bus, RecordingHelper recordingHelper) {
+    public Future<String> performArchive(ArchiveRequest request) {
         Objects.requireNonNull(request.getRecording());
         return archiveThread.submit(
                 () -> {
