@@ -30,6 +30,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.ArchiveRequestGenerator.ArchiveRequest;
+import io.cryostat.recordings.ArchiveRequestGenerator.GrafanaActiveUploadRequest;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.targets.Target;
@@ -37,7 +38,6 @@ import io.cryostat.targets.Target;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.common.annotation.Blocking;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -239,9 +239,24 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}/upload")
     @RolesAllowed("write")
-    public Uni<String> uploadToGrafana(@RestPath long targetId, @RestPath long remoteId)
+    public String uploadToGrafana(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
-        return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
+        // Send an intermediate response back to the client while another thread handles the upload
+        // request
+        logger.info("Creating grafana upload request");
+        GrafanaActiveUploadRequest request =
+                new GrafanaActiveUploadRequest(UUID.randomUUID().toString(), remoteId, targetId);
+        logger.info(
+                "Request created: ("
+                        + request.getId()
+                        + ", "
+                        + request.getRemoteId()
+                        + ", "
+                        + request.getTargetId()
+                        + ")");
+        bus.publish(ArchiveRequestGenerator.GRAFANA_ACTIVE_ADDRESS, request);
+        return request.getId();
+        // return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
     }
 
     public record LinkedRecordingDescriptor(

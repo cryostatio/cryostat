@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
@@ -34,6 +35,7 @@ import io.cryostat.StorageBuckets;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.recordings.ArchiveRequestGenerator.GrafanaArchiveUploadRequest;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
@@ -42,7 +44,6 @@ import io.cryostat.ws.Notification;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
-import io.smallrye.mutiny.Uni;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -473,7 +474,7 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/v4/grafana/{encodedKey}")
     @RolesAllowed("write")
-    public Uni<String> uploadArchivedToGrafana(@RestPath String encodedKey) throws Exception {
+    public String uploadArchivedToGrafana(@RestPath String encodedKey) throws Exception {
         var pair = recordingHelper.decodedKey(encodedKey);
         var key = recordingHelper.archivedRecordingKey(pair);
         storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
@@ -487,7 +488,15 @@ public class ArchivedRecordings {
         if (!found) {
             throw new NotFoundException();
         }
-        return recordingHelper.uploadToJFRDatasource(pair);
+        // Send an intermediate response back to the client while another thread handles the upload
+        // request
+        logger.info("Creating grafana upload request");
+        GrafanaArchiveUploadRequest request =
+                new GrafanaArchiveUploadRequest(UUID.randomUUID().toString(), pair);
+        logger.info(
+                "Request created: (" + request.getId() + ", " + request.getPair().toString() + ")");
+        bus.publish(ArchiveRequestGenerator.GRAFANA_ARCHIVE_ADDRESS, request);
+        return request.getId();
     }
 
     @GET
