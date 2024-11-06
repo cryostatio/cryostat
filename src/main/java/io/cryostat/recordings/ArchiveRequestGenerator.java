@@ -38,10 +38,16 @@ import org.slf4j.LoggerFactory;
 @ApplicationScoped
 public class ArchiveRequestGenerator {
 
-    public static final String ARCHIVE_ADDRESS = ArchiveRequestGenerator.class.getName();
+    public static final String ARCHIVE_ADDRESS =
+            "io.cryostat.recordings.ArchiveRequestGenerator.ArchiveRequest";
     public static final String GRAFANA_ARCHIVE_ADDRESS =
-            GrafanaArchiveUploadRequest.class.getName();
-    public static final String GRAFANA_ACTIVE_ADDRESS = GrafanaActiveUploadRequest.class.getName();
+            "io.cryostat.recordings.ArchiveRequestGenerator.GrafanaArchiveUploadRequest";
+    public static final String GRAFANA_ACTIVE_ADDRESS =
+            "io.cryostat.recordings.ArchiveRequestGenerator.GrafanaActiveUploadRequest";
+    public static final String ARCHIVE_REPORT_ADDRESS =
+            "io.cryostat.recordings.ArchiveRequestGenerator.ArchiveReportRequest";
+    public static final String ACTIVE_REPORT_ADDRESS =
+            "io.cryostat.recordings.ArchiveRequestGenerator.ActiveReportRequest";
     private static final String ARCHIVE_RECORDING_SUCCESS = "ArchiveRecordingSuccess";
     private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailed";
     private static final String GRAFANA_UPLOAD_SUCCESS = "GrafanaUploadSuccess";
@@ -185,6 +191,38 @@ public class ArchiveRequestGenerator {
 
         public long getTargetId() {
             return targetId;
+        }
+    }
+
+    public record ArchivedReportRequest(String id, Pair<String, String> pair) {
+
+        public ArchivedReportRequest {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(pair);
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public Pair<String, String> getPair() {
+            return pair;
+        }
+    }
+
+    public record ActiveReportRequest(String id, ActiveRecording recording) {
+
+        public ActiveReportRequest {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(recording);
+        }
+
+        public String getId() {
+            return id;
+        }
+
+        public ActiveRecording getRecording() {
+            return recording;
         }
     }
 }
