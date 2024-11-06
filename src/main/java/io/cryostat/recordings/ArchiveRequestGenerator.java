@@ -38,11 +38,10 @@ import org.slf4j.LoggerFactory;
 @ApplicationScoped
 public class ArchiveRequestGenerator {
 
-    public static final String ARCHIVE_ADDRESS = "io.cryostat.recordings.ArchiveRequestGenerator";
+    public static final String ARCHIVE_ADDRESS = ArchiveRequestGenerator.class.getName();
     public static final String GRAFANA_ARCHIVE_ADDRESS =
-            "io.cryostat.recordings.ArchiveRequestGenerator.GrafanaArchiveUploadRequest";
-    public static final String GRAFANA_ACTIVE_ADDRESS =
-            "io.cryostat.recordings.ArchiveRequestGenerator.GrafanaActiveUploadRequest";
+            GrafanaArchiveUploadRequest.class.getName();
+    public static final String GRAFANA_ACTIVE_ADDRESS = GrafanaActiveUploadRequest.class.getName();
     private static final String ARCHIVE_RECORDING_SUCCESS = "ArchiveRecordingSuccess";
     private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailed";
     private static final String GRAFANA_UPLOAD_SUCCESS = "GrafanaUploadSuccess";
@@ -94,7 +93,7 @@ public class ArchiveRequestGenerator {
         }
     }
 
-    @ConsumeEvent(value = GRAFANA_ARCHIVE_ADDRESS)
+    @ConsumeEvent(value = GRAFANA_ARCHIVE_ADDRESS, blocking = true)
     public void onMessage(GrafanaArchiveUploadRequest request) {
         try {
             logger.info("Job ID: " + request.getId() + " submitted.");
@@ -115,7 +114,7 @@ public class ArchiveRequestGenerator {
         }
     }
 
-    @ConsumeEvent(value = GRAFANA_ACTIVE_ADDRESS)
+    @ConsumeEvent(value = GRAFANA_ACTIVE_ADDRESS, blocking = true)
     public void onMessage(GrafanaActiveUploadRequest request) {
         try {
             logger.info("Job ID: " + request.getId() + " submitted.");
