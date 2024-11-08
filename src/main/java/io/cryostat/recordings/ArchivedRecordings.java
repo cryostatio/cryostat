@@ -44,6 +44,7 @@ import io.cryostat.ws.Notification;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -474,7 +475,8 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/v4/grafana/{encodedKey}")
     @RolesAllowed("write")
-    public String uploadArchivedToGrafana(@RestPath String encodedKey) throws Exception {
+    public String uploadArchivedToGrafana(HttpServerResponse response, @RestPath String encodedKey)
+            throws Exception {
         var pair = recordingHelper.decodedKey(encodedKey);
         var key = recordingHelper.archivedRecordingKey(pair);
         storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
@@ -495,7 +497,8 @@ public class ArchivedRecordings {
                 new GrafanaArchiveUploadRequest(UUID.randomUUID().toString(), pair);
         logger.info(
                 "Request created: (" + request.getId() + ", " + request.getPair().toString() + ")");
-        bus.publish(ArchiveRequestGenerator.GRAFANA_ARCHIVE_ADDRESS, request);
+        response.endHandler(
+                (e) -> bus.publish(ArchiveRequestGenerator.GRAFANA_ARCHIVE_ADDRESS, request));
         return request.getId();
     }
 
