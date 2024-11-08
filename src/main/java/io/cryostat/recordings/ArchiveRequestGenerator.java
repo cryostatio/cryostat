@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
@@ -63,11 +64,14 @@ public class ArchiveRequestGenerator {
     @Inject private RecordingHelper recordingHelper;
     @Inject ReportsService reportsService;
 
+    private Map<String, Map<String, AnalysisResult>> jobResults;
+
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
     public ArchiveRequestGenerator(ExecutorService executor) {
         this.executor = executor;
+        this.jobResults = new ConcurrentHashMap<>();
     }
 
     public Future<String> performArchive(ArchiveRequest request) {
@@ -93,6 +97,10 @@ public class ArchiveRequestGenerator {
                         throw new CompletionException(e);
                     }
                 });
+    }
+
+    public Map<String, AnalysisResult> getAnalysisResult(String jobID) {
+        return jobResults.get(jobID);
     }
 
     @ConsumeEvent(value = ARCHIVE_ADDRESS)
@@ -153,6 +161,7 @@ public class ArchiveRequestGenerator {
             Map<String, AnalysisResult> result =
                     reportsService.reportFor(request.getRecording()).await().atMost(timeout);
             logger.info("Report generation complete, firing notification");
+            jobResults.put(request.getId(), result);
             bus.publish(MessagingServer.class.getName(), new Notification(REPORT_SUCCESS, result));
         } catch (Exception e) {
             logger.warn("Exception thrown while servicing request: ", e);
@@ -172,6 +181,7 @@ public class ArchiveRequestGenerator {
                             .await()
                             .atMost(timeout);
             logger.info("Report generation complete, firing notification");
+            jobResults.put(request.getId(), result);
             bus.publish(MessagingServer.class.getName(), new Notification(REPORT_SUCCESS, result));
         } catch (Exception e) {
             logger.warn("Exception thrown while servicing request: ", e);
