@@ -15,10 +15,12 @@
  */
 package io.cryostat.reports;
 
+import java.util.Map;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
+import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.ArchiveRequestGenerator;
 import io.cryostat.recordings.ArchiveRequestGenerator.ActiveReportRequest;
 import io.cryostat.recordings.ArchiveRequestGenerator.ArchivedReportRequest;
@@ -50,6 +52,7 @@ public class Reports {
     @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_STORAGE_CACHE_NAME)
     String bucket;
 
+    @Inject ArchiveRequestGenerator generator;
     @Inject StorageBuckets storageBuckets;
     @Inject RecordingHelper helper;
     @Inject ReportsService reportsService;
@@ -62,6 +65,16 @@ public class Reports {
         if (storageCacheEnabled) {
             storageBuckets.createIfNecessary(bucket);
         }
+    }
+
+    @GET
+    @Blocking
+    @Path("/api/v4/jobs/{jobId}")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("read")
+    public Map<String, AnalysisResult> getFromJobId(@RestPath String jobId) {
+        logger.info("Retrieving result for Job ID: " + jobId);
+        return generator.getAnalysisResult(jobId);
     }
 
     @GET

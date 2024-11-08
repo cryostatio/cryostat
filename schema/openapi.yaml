@@ -1226,7 +1226,7 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        "202":
           content:
             text/plain:
               schema:
@@ -1457,6 +1457,29 @@ paths:
           schema:
             type: string
       responses:
+        "202":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Reports
+  /api/v4/jobs/{jobId}:
+    get:
+      parameters:
+        - in: path
+          name: jobId
+          required: true
+          schema:
+            type: string
+      responses:
         "200":
           content:
             application/json:
@@ -1472,7 +1495,7 @@ paths:
       security:
         - SecurityScheme: []
       tags:
-        - Reports
+        - Jobs
   /api/v4/rules:
     get:
       responses:
@@ -2165,7 +2188,7 @@ paths:
             format: int64
             type: integer
       responses:
-        "200":
+        "202":
           content:
             text/plain:
               schema:
@@ -2195,13 +2218,11 @@ paths:
             format: int64
             type: integer
       responses:
-        "200":
+        "202":
           content:
-            application/json:
+            text/plain:
               schema:
-                additionalProperties:
-                  $ref: '#/components/schemas/AnalysisResult'
-                type: object
+                type: string
           description: OK
         "401":
           description: Not Authorized
