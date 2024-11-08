@@ -38,6 +38,7 @@ import io.cryostat.targets.Target;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.common.annotation.Blocking;
+import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -106,7 +107,11 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}")
     @RolesAllowed("write")
-    public String patch(@RestPath long targetId, @RestPath long remoteId, String body)
+    public String patch(
+            HttpServerResponse response,
+            @RestPath long targetId,
+            @RestPath long remoteId,
+            String body)
             throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         Optional<ActiveRecording> recording =
@@ -148,7 +153,8 @@ public class ActiveRecordings {
                                 + ", "
                                 + request.getRecording().name
                                 + ")");
-                bus.publish(ArchiveRequestGenerator.ARCHIVE_ADDRESS, request);
+                response.endHandler(
+                        (e) -> bus.publish(ArchiveRequestGenerator.ARCHIVE_ADDRESS, request));
                 return request.getId();
             default:
                 throw new BadRequestException(body);
@@ -239,7 +245,8 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}/upload")
     @RolesAllowed("write")
-    public String uploadToGrafana(@RestPath long targetId, @RestPath long remoteId)
+    public String uploadToGrafana(
+            HttpServerResponse response, @RestPath long targetId, @RestPath long remoteId)
             throws Exception {
         // Send an intermediate response back to the client while another thread handles the upload
         // request
@@ -254,9 +261,9 @@ public class ActiveRecordings {
                         + ", "
                         + request.getTargetId()
                         + ")");
-        bus.publish(ArchiveRequestGenerator.GRAFANA_ACTIVE_ADDRESS, request);
+        response.endHandler(
+                (e) -> bus.publish(ArchiveRequestGenerator.GRAFANA_ACTIVE_ADDRESS, request));
         return request.getId();
-        // return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
     }
 
     public record LinkedRecordingDescriptor(

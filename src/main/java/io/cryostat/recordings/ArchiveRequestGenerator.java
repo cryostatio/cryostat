@@ -23,6 +23,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
+import io.cryostat.reports.ReportsService;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -52,11 +54,14 @@ public class ArchiveRequestGenerator {
     private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailed";
     private static final String GRAFANA_UPLOAD_SUCCESS = "GrafanaUploadSuccess";
     private static final String GRAFANA_UPLOAD_FAIL = "GrafanaUploadFailed";
+    private static final String REPORT_SUCCESS = "ReportSuccess";
+    private static final String REPORT_FAILURE = "ReportFailure";
     private final ExecutorService executor;
     private final Logger logger = LoggerFactory.getLogger(getClass());
 
     @Inject private EventBus bus;
     @Inject private RecordingHelper recordingHelper;
+    @Inject ReportsService reportsService;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
@@ -138,6 +143,41 @@ public class ArchiveRequestGenerator {
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(GRAFANA_UPLOAD_FAIL, Map.of("jobId", request.getId())));
+        }
+    }
+
+    @ConsumeEvent(value = ACTIVE_REPORT_ADDRESS, blocking = true)
+    public void onMessage(ActiveReportRequest request) {
+        try {
+            logger.info("Job ID: " + request.getId() + " submitted.");
+            Map<String, AnalysisResult> result =
+                    reportsService.reportFor(request.getRecording()).await().atMost(timeout);
+            logger.info("Report generation complete, firing notification");
+            bus.publish(MessagingServer.class.getName(), new Notification(REPORT_SUCCESS, result));
+        } catch (Exception e) {
+            logger.warn("Exception thrown while servicing request: ", e);
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(REPORT_FAILURE, Map.of("jobId", request.getId())));
+        }
+    }
+
+    @ConsumeEvent(value = ARCHIVE_REPORT_ADDRESS, blocking = true)
+    public void onMessage(ArchivedReportRequest request) {
+        try {
+            logger.info("Job ID: " + request.getId() + " submitted.");
+            Map<String, AnalysisResult> result =
+                    reportsService
+                            .reportFor(request.getPair().getKey(), request.getPair().getValue())
+                            .await()
+                            .atMost(timeout);
+            logger.info("Report generation complete, firing notification");
+            bus.publish(MessagingServer.class.getName(), new Notification(REPORT_SUCCESS, result));
+        } catch (Exception e) {
+            logger.warn("Exception thrown while servicing request: ", e);
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(REPORT_FAILURE, Map.of("jobId", request.getId())));
         }
     }
 
