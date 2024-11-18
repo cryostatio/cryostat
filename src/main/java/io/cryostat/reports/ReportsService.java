@@ -39,4 +39,8 @@ public interface ReportsService {
     static String key(ActiveRecording recording) {
         return String.format("%s/%d", recording.target.jvmId, recording.id);
     }
+
+    public boolean keyExists(ActiveRecording recording);
+
+    public boolean keyExists(String jvmId, String filename);
 }
