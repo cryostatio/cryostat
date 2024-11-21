@@ -36,9 +36,9 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
@@ -73,7 +73,6 @@ public class Reports {
     @GET
     @Blocking
     @Path("/api/v4/reports/{encodedKey}")
-    @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
     // Response isn't strongly typed which allows us to return either the Analysis result
     // or a job ID String along with setting different Status codes.
@@ -99,18 +98,22 @@ public class Reports {
         logger.info("Cache miss. Creating archived reports request");
         ArchivedReportRequest request =
                 new ArchivedReportRequest(UUID.randomUUID().toString(), pair);
-        response.endHandler(
+        response.bodyEndHandler(
                 (e) -> bus.publish(ArchiveRequestGenerator.ARCHIVE_REPORT_ADDRESS, request));
         return Response.ok(request.getId())
                 .status(202)
-                .header("Location", "/api/v4/reports/" + encodedKey)
+                .location(
+                        UriBuilder.fromUri(
+                                        String.format(
+                                                "/api/v4/targets/%d/reports/%d",
+                                                pair.getLeft(), pair.getRight()))
+                                .build())
                 .build();
     }
 
     @GET
     @Blocking
     @Path("/api/v4/targets/{targetId}/reports/{recordingId}")
-    @Produces({MediaType.APPLICATION_JSON})
     @RolesAllowed("read")
     // Response isn't strongly typed which allows us to return either the Analysis result
     // or a job ID String along with setting different Status codes.
@@ -136,14 +139,21 @@ public class Reports {
         logger.info("Cache miss. Creating active reports request");
         ActiveReportRequest request =
                 new ActiveReportRequest(UUID.randomUUID().toString(), recording);
-        response.endHandler(
-                (e) -> bus.publish(ArchiveRequestGenerator.ACTIVE_REPORT_ADDRESS, request));
+        // This doesn't get fired
+        response.bodyEndHandler(
+                (e) -> {
+                    logger.info("Did we get here? Firing Active report event");
+                    bus.publish(ArchiveRequestGenerator.ACTIVE_REPORT_ADDRESS, request);
+                });
         // TODO implement query parameter for evaluation predicate
         return Response.ok(request.getId())
                 .status(202)
-                .header(
-                        "Location",
-                        "/api/v4/targets/" + target.targetId() + "/reports/" + recordingId)
+                .location(
+                        UriBuilder.fromUri(
+                                        String.format(
+                                                "/api/v4/targets/%d/reports/%d",
+                                                target.id, recordingId))
+                                .build())
                 .build();
     }
 }
