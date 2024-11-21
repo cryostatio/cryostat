@@ -37,27 +37,27 @@
 
     <org.apache.commons.io.version>2.16.1</org.apache.commons.io.version>
     <org.apache.commons.collections.version>4.4</org.apache.commons.collections.version>
-    <org.apache.commons.validator.version>1.8.0</org.apache.commons.validator.version>
+    <org.apache.commons.validator.version>1.9.0</org.apache.commons.validator.version>
     <org.projectnessie.cel.bom.version>0.4.4</org.projectnessie.cel.bom.version>
-    <com.google.protobuf-java.version>3.25.2</com.google.protobuf-java.version>
+    <com.google.protobuf-java.version>3.25.5</com.google.protobuf-java.version>
     <com.nimbusds.jose.jwt.version>9.41.1</com.nimbusds.jose.jwt.version>
-    <org.testcontainers.bom.version>1.20.2</org.testcontainers.bom.version>
+    <org.testcontainers.bom.version>1.20.4</org.testcontainers.bom.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-    <quarkus.platform.version>3.15.1</quarkus.platform.version>
-    <quarkus-quinoa.version>2.4.9</quarkus-quinoa.version>
+    <quarkus.platform.version>3.15.2</quarkus.platform.version>
+    <quarkus-quinoa.version>2.5.0</quarkus-quinoa.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.6.0</org.codehaus.mojo.build.helper.plugin.version>
-    <org.codehaus.mojo.exec.plugin.version>3.4.1</org.codehaus.mojo.exec.plugin.version>
+    <org.codehaus.mojo.exec.plugin.version>3.5.0</org.codehaus.mojo.exec.plugin.version>
     <assembly-plugin.version>3.7.1</assembly-plugin.version>
 
     <com.github.spotbugs.version>4.8.6</com.github.spotbugs.version>
-    <com.github.spotbugs.plugin.version>4.8.6.4</com.github.spotbugs.plugin.version>
+    <com.github.spotbugs.plugin.version>4.8.6.6</com.github.spotbugs.plugin.version>
     <com.diffplug.spotless.maven.plugin.version>2.43.0</com.diffplug.spotless.maven.plugin.version>
-    <com.google.java-format.version>1.23.0</com.google.java-format.version>
+    <com.google.java-format.version>1.25.0</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>4.6</com.mycila.license.maven.plugin.version>
-    <surefire-plugin.version>3.5.0</surefire-plugin.version>
+    <surefire-plugin.version>3.5.2</surefire-plugin.version>
     <surefire.rerunFailingTestsCount>0</surefire.rerunFailingTestsCount>
-    <failsafe-plugin.version>3.5.0</failsafe-plugin.version>
+    <failsafe-plugin.version>3.5.2</failsafe-plugin.version>
     <failsafe.rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</failsafe.rerunFailingTestsCount>
   </properties>
   <dependencyManagement>
