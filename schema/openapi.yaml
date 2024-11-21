@@ -1,18 +1,6 @@
 ---
 components:
   schemas:
-    AnalysisResult:
-      properties:
-        evaluation:
-          $ref: '#/components/schemas/Evaluation'
-        name:
-          type: string
-        score:
-          format: double
-          type: number
-        topic:
-          type: string
-      type: object
     Annotations:
       properties:
         cryostat:
@@ -239,19 +227,6 @@ components:
         - id
         - realm
       type: object
-    Evaluation:
-      properties:
-        explanation:
-          type: string
-        solution:
-          type: string
-        suggestions:
-          items:
-            $ref: '#/components/schemas/Suggestion'
-          type: array
-        summary:
-          type: string
-      type: object
     Event:
       properties:
         clazz:
@@ -307,6 +282,16 @@ components:
     GitInfo:
       properties:
         hash:
+          type: string
+      type: object
+    HttpServerResponse:
+      properties:
+        chunked:
+          type: boolean
+        statusCode:
+          format: int32
+          type: integer
+        statusMessage:
           type: string
       type: object
     Instant:
@@ -552,15 +537,6 @@ components:
         description:
           type: string
         name:
-          type: string
-      type: object
-    Suggestion:
-      properties:
-        name:
-          type: string
-        setting:
-          type: string
-        value:
           type: string
       type: object
     Target:
@@ -1225,8 +1201,13 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
       responses:
-        "202":
+        "200":
           content:
             text/plain:
               schema:
@@ -1456,20 +1437,13 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
       responses:
-        "202":
-          content:
-            text/plain:
-              schema:
-                type: string
-          description: OK
         "200":
-          content:
-            application/json:
-              schema:
-                additionalProperties:
-                  $ref: '#/components/schemas/AnalysisResult'
-                type: object
           description: OK
         "401":
           description: Not Authorized
@@ -2133,11 +2107,11 @@ paths:
             type: integer
       requestBody:
         content:
-          text/plain:
+          application/json:
             schema:
-              type: string
+              $ref: '#/components/schemas/HttpServerResponse'
       responses:
-        "202":
+        "200":
           content:
             text/plain:
               schema:
@@ -2147,10 +2121,6 @@ paths:
           description: Not Authorized
         "403":
           description: Not Allowed
-        "404":
-          description: Not Found
-        "502":
-          description: Target not Reachable
       security:
         - SecurityScheme: []
       tags:
@@ -2170,8 +2140,13 @@ paths:
           schema:
             format: int64
             type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
       responses:
-        "202":
+        "200":
           content:
             text/plain:
               schema:
@@ -2200,20 +2175,13 @@ paths:
           schema:
             format: int64
             type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
       responses:
         "200":
-          content:
-            application/json:
-              schema:
-                additionalProperties:
-                  $ref: '#/components/schemas/AnalysisResult'
-                type: object
-          description: OK
-        "202":
-          content:
-            text/plain:
-              schema:
-                type: string
           description: OK
         "401":
           description: Not Authorized
