@@ -31,6 +31,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.util.URIUtil;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
@@ -65,31 +66,37 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
     @ConfigProperty(name = "cryostat.discovery.jdp.enabled")
     boolean enabled;
 
-    @Transactional
     void onStart(@Observes StartupEvent evt) {
         if (!enabled) {
             return;
         }
 
-        DiscoveryNode universe = DiscoveryNode.getUniverse();
-        if (DiscoveryNode.getRealm(REALM).isEmpty()) {
-            DiscoveryPlugin plugin = new DiscoveryPlugin();
-            DiscoveryNode node = DiscoveryNode.environment(REALM, BaseNodeType.REALM);
-            plugin.realm = node;
-            plugin.builtin = true;
-            universe.children.add(node);
-            node.parent = universe;
-            plugin.persist();
-            universe.persist();
-        }
+        QuarkusTransaction.requiringNew()
+                .run(
+                        () -> {
+                            logger.debugv("Starting {0} client", REALM);
 
-        logger.debug("Starting JDP client");
-        jdp.addListener(this);
-        try {
-            jdp.start();
-        } catch (IOException ioe) {
-            logger.error("Failure starting JDP client", ioe);
-        }
+                            DiscoveryNode universe = DiscoveryNode.getUniverse();
+                            if (DiscoveryNode.getRealm(REALM).isEmpty()) {
+                                DiscoveryPlugin plugin = new DiscoveryPlugin();
+                                DiscoveryNode node =
+                                        DiscoveryNode.environment(REALM, BaseNodeType.REALM);
+                                plugin.realm = node;
+                                plugin.builtin = true;
+                                universe.children.add(node);
+                                node.parent = universe;
+                                plugin.persist();
+                                universe.persist();
+                            }
+
+                            logger.debug("Starting JDP client");
+                            jdp.addListener(this);
+                            try {
+                                jdp.start();
+                            } catch (IOException ioe) {
+                                logger.error("Failure starting JDP client", ioe);
+                            }
+                        });
     }
 
     void onStop(@Observes ShutdownEvent evt) {
@@ -130,11 +137,9 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
                 target.activeRecordings = new ArrayList<>();
                 target.connectUrl = connectUrl;
                 target.alias = evt.getJvmDescriptor().getMainClass();
-                target.labels = Map.of();
-                target.annotations = new Annotations();
-                target.annotations
-                        .cryostat()
-                        .putAll(
+                target.annotations =
+                        new Annotations(
+                                null,
                                 Map.of(
                                         "REALM", // AnnotationKey.REALM,
                                         REALM,

@@ -82,6 +82,8 @@ public class KubeApiDiscovery {
 
     @Inject KubeConfig kubeConfig;
 
+    @Inject KubernetesClient client;
+
     @Inject EventBus bus;
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.enabled")
@@ -111,7 +113,7 @@ public class KubeApiDiscovery {
                                     ns -> {
                                         result.put(
                                                 ns,
-                                                client().endpoints()
+                                                client.endpoints()
                                                         .inNamespace(ns)
                                                         .inform(
                                                                 new EndpointsHandler(),
@@ -127,7 +129,6 @@ public class KubeApiDiscovery {
 
     // Priority is set higher than default 0 such that onStart is called first before onAfterStart
     // This ensures realm node is persisted before initializing informers
-    @Transactional
     void onStart(@Observes @Priority(1) StartupEvent evt) {
         if (!enabled()) {
             return;
@@ -138,22 +139,26 @@ public class KubeApiDiscovery {
             return;
         }
 
-        DiscoveryNode universe = DiscoveryNode.getUniverse();
-        if (DiscoveryNode.getRealm(REALM).isEmpty()) {
-            DiscoveryPlugin plugin = new DiscoveryPlugin();
-            DiscoveryNode node = DiscoveryNode.environment(REALM, BaseNodeType.REALM);
-            plugin.realm = node;
-            plugin.builtin = true;
-            universe.children.add(node);
-            node.parent = universe;
-            plugin.persist();
-            universe.persist();
-        }
+        QuarkusTransaction.requiringNew()
+                .run(
+                        () -> {
+                            logger.debugv("Starting {0} client", REALM);
 
-        logger.debugv("Starting {0} client", REALM);
+                            DiscoveryNode universe = DiscoveryNode.getUniverse();
+                            if (DiscoveryNode.getRealm(REALM).isEmpty()) {
+                                DiscoveryPlugin plugin = new DiscoveryPlugin();
+                                DiscoveryNode node =
+                                        DiscoveryNode.environment(REALM, BaseNodeType.REALM);
+                                plugin.realm = node;
+                                plugin.builtin = true;
+                                universe.children.add(node);
+                                node.parent = universe;
+                                plugin.persist();
+                                universe.persist();
+                            }
+                        });
     }
 
-    @Transactional
     void onAfterStart(@Observes StartupEvent evt) {
         if (!enabled() || !available()) {
             return;
@@ -188,16 +193,6 @@ public class KubeApiDiscovery {
             logger.trace(e);
         }
         return false;
-    }
-
-    KubernetesClient client() {
-        KubernetesClient client;
-        try {
-            client = kubeConfig.kubeClient();
-        } catch (ConcurrentException e) {
-            throw new IllegalStateException(e);
-        }
-        return client;
     }
 
     private boolean isCompatiblePort(EndpointPort port) {
@@ -471,7 +466,7 @@ public class KubeApiDiscovery {
         }
 
         HasMetadata kubeObj =
-                nodeType.getQueryFunction().apply(client()).apply(namespace).apply(name);
+                nodeType.getQueryFunction().apply(client).apply(namespace).apply(name);
 
         DiscoveryNode node =
                 DiscoveryNode.getNode(
@@ -488,12 +483,13 @@ public class KubeApiDiscovery {
                                     newNode.nodeType = nodeType.getKind();
                                     newNode.children = new ArrayList<>();
                                     newNode.target = null;
-                                    newNode.labels =
+                                    Map<String, String> labels =
                                             kubeObj != null
                                                     ? kubeObj.getMetadata().getLabels()
                                                     : new HashMap<>();
                                     // Add namespace to label to retrieve node later
-                                    newNode.labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
+                                    labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
+                                    newNode.labels = labels;
                                     return newNode;
                                 });
         return Pair.of(kubeObj, node);
@@ -549,10 +545,6 @@ public class KubeApiDiscovery {
 
         boolean kubeApiAvailable() {
             return StringUtils.isNotBlank(serviceHost.orElse(""));
-        }
-
-        KubernetesClient kubeClient() throws ConcurrentException {
-            return kubeClient.get();
         }
     }
 
@@ -638,14 +630,10 @@ public class KubeApiDiscovery {
                 target.activeRecordings = new ArrayList<>();
                 target.connectUrl = connectUrl;
                 target.alias = objRef.getName();
-                target.labels = obj != null ? obj.getMetadata().getLabels() : new HashMap<>();
-                target.annotations = new Annotations();
-                target.annotations
-                        .platform()
-                        .putAll(obj != null ? obj.getMetadata().getAnnotations() : Map.of());
-                target.annotations
-                        .cryostat()
-                        .putAll(
+                target.labels = (obj != null ? obj.getMetadata().getLabels() : new HashMap<>());
+                target.annotations =
+                        new Annotations(
+                                obj != null ? obj.getMetadata().getAnnotations() : Map.of(),
                                 Map.of(
                                         "REALM",
                                         REALM,

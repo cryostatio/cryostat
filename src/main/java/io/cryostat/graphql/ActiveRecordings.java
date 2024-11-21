@@ -42,7 +42,6 @@ import io.cryostat.recordings.Recordings.ArchivedRecording;
 import io.cryostat.targets.Target;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -64,7 +63,6 @@ public class ActiveRecordings {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
-    @Blocking
     @Transactional
     @Mutation
     @Description(
@@ -106,7 +104,6 @@ public class ActiveRecordings {
         return recordings;
     }
 
-    @Blocking
     @Transactional
     @Mutation
     @Description(
@@ -138,7 +135,6 @@ public class ActiveRecordings {
         return archives;
     }
 
-    @Blocking
     @Transactional
     @Mutation
     @Description(
@@ -169,7 +165,6 @@ public class ActiveRecordings {
         return list;
     }
 
-    @Blocking
     @Transactional
     @Mutation
     @Description(
@@ -199,7 +194,6 @@ public class ActiveRecordings {
         return list;
     }
 
-    @Blocking
     @Transactional
     @Mutation
     @Description(
@@ -222,7 +216,6 @@ public class ActiveRecordings {
         return snapshots;
     }
 
-    @Blocking
     @Transactional
     @Description("Start a new Flight Recording on the specified Target")
     public ActiveRecording doStartRecording(
@@ -245,7 +238,6 @@ public class ActiveRecordings {
                 .atMost(timeout);
     }
 
-    @Blocking
     @Transactional
     @Description("Create a new Flight Recorder Snapshot on the specified Target")
     public ActiveRecording doSnapshot(@Source Target target) {
@@ -253,7 +245,6 @@ public class ActiveRecordings {
         return recordingHelper.createSnapshot(fTarget).await().atMost(timeout);
     }
 
-    @Blocking
     @Transactional
     @Description("Stop the specified Flight Recording")
     public ActiveRecording doStop(@Source ActiveRecording recording) throws Exception {
@@ -261,7 +252,6 @@ public class ActiveRecordings {
         return recordingHelper.stopRecording(ar).await().atMost(timeout);
     }
 
-    @Blocking
     @Transactional
     @Description("Delete the specified Flight Recording")
     public ActiveRecording doDelete(@Source ActiveRecording recording) {
@@ -269,7 +259,6 @@ public class ActiveRecordings {
         return recordingHelper.deleteRecording(ar).await().atMost(timeout);
     }
 
-    @Blocking
     @Description("Archive the specified Flight Recording")
     public ArchivedRecording doArchive(@Source ActiveRecording recording) throws Exception {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
@@ -317,7 +306,6 @@ public class ActiveRecordings {
         }
     }
 
-    @Blocking
     @Transactional
     @Description("Updates the metadata labels for an existing Flight Recording.")
     public ActiveRecording doPutMetadata(

@@ -35,6 +35,7 @@ import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
@@ -76,17 +77,24 @@ public class CustomDiscovery {
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
-        DiscoveryNode universe = DiscoveryNode.getUniverse();
-        if (DiscoveryNode.getRealm(REALM).isEmpty()) {
-            DiscoveryPlugin plugin = new DiscoveryPlugin();
-            DiscoveryNode node = DiscoveryNode.environment(REALM, BaseNodeType.REALM);
-            plugin.realm = node;
-            plugin.builtin = true;
-            universe.children.add(node);
-            node.parent = universe;
-            plugin.persist();
-            universe.persist();
-        }
+        QuarkusTransaction.requiringNew()
+                .run(
+                        () -> {
+                            logger.debugv("Starting {0} client", REALM);
+
+                            DiscoveryNode universe = DiscoveryNode.getUniverse();
+                            if (DiscoveryNode.getRealm(REALM).isEmpty()) {
+                                DiscoveryPlugin plugin = new DiscoveryPlugin();
+                                DiscoveryNode node =
+                                        DiscoveryNode.environment(REALM, BaseNodeType.REALM);
+                                plugin.realm = node;
+                                plugin.builtin = true;
+                                universe.children.add(node);
+                                node.parent = universe;
+                                plugin.persist();
+                                universe.persist();
+                            }
+                        });
     }
 
     @Transactional(rollbackOn = {JvmIdException.class})
@@ -217,9 +225,7 @@ public class CustomDiscovery {
             credential.ifPresent(c -> c.persist());
 
             target.activeRecordings = new ArrayList<>();
-            target.labels = Map.of();
-            target.annotations = new Annotations();
-            target.annotations.cryostat().putAll(Map.of("REALM", REALM));
+            target.annotations = new Annotations(null, Map.of("REALM", REALM));
 
             DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
             target.discoveryNode = node;

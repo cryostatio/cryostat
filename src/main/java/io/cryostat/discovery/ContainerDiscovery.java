@@ -187,7 +187,6 @@ public abstract class ContainerDiscovery {
 
     protected long timerId;
 
-    @Transactional
     void onStart(@Observes StartupEvent evt) {
         if (!enabled()) {
             return;
@@ -200,22 +199,29 @@ public abstract class ContainerDiscovery {
             return;
         }
 
-        DiscoveryNode universe = DiscoveryNode.getUniverse();
-        if (DiscoveryNode.getRealm(getRealm()).isEmpty()) {
-            DiscoveryPlugin plugin = new DiscoveryPlugin();
-            DiscoveryNode node = DiscoveryNode.environment(getRealm(), BaseNodeType.REALM);
-            plugin.realm = node;
-            plugin.builtin = true;
-            universe.children.add(node);
-            node.parent = universe;
-            plugin.persist();
-            universe.persist();
-        }
+        QuarkusTransaction.requiringNew()
+                .run(
+                        () -> {
+                            logger.debugv("Starting {0} client", getRealm());
 
-        logger.debugv("Starting {0} client", getRealm());
+                            DiscoveryNode universe = DiscoveryNode.getUniverse();
+                            if (DiscoveryNode.getRealm(getRealm()).isEmpty()) {
+                                DiscoveryPlugin plugin = new DiscoveryPlugin();
+                                DiscoveryNode node =
+                                        DiscoveryNode.environment(getRealm(), BaseNodeType.REALM);
+                                plugin.realm = node;
+                                plugin.builtin = true;
+                                universe.children.add(node);
+                                node.parent = universe;
+                                plugin.persist();
+                                universe.persist();
+                            }
 
-        queryContainers();
-        this.timerId = vertx.setPeriodic(pollPeriod.toMillis(), unused -> queryContainers());
+                            queryContainers();
+                            this.timerId =
+                                    vertx.setPeriodic(
+                                            pollPeriod.toMillis(), unused -> queryContainers());
+                        });
     }
 
     void onStop(@Observes ShutdownEvent evt) {
@@ -278,10 +284,9 @@ public abstract class ContainerDiscovery {
         target.connectUrl = connectUrl;
         target.alias = Optional.ofNullable(desc.Names.get(0)).orElse(desc.Id);
         target.labels = desc.Labels;
-        target.annotations = new Annotations();
-        target.annotations
-                .cryostat()
-                .putAll(
+        target.annotations =
+                new Annotations(
+                        null,
                         Map.of(
                                 "REALM", // AnnotationKey.REALM,
                                 getRealm(),
