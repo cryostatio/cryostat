@@ -1,4 +1,3 @@
-version: "3"
 services:
   gameserver-jdk11:
     depends_on:

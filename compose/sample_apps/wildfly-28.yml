@@ -1,4 +1,3 @@
-version: "3"
 services:
   wildfly-28:
     depends_on:

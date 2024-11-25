@@ -1,4 +1,3 @@
-version: "3"
 services:
   gameserver-jdk21:
     depends_on:
