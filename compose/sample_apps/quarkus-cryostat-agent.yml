@@ -1,4 +1,3 @@
-version: "3"
 services:
   quarkus-cryostat-agent:
     image: ${QUARKUS_TEST_IMAGE:-quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest}
