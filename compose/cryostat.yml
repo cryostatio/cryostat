@@ -36,14 +36,12 @@ services:
         -Dcom.sun.management.jmxremote.ssl=false
         -Dcom.sun.management.jmxremote.local.only=false
     restart: unless-stopped
-    # FIXME reenable this check. Somehow after upgrading to Quarkus 3.8, this check fails with 'connection refused',
-    # but the container comes up successfully without it and shelling into the container later to run curl succeeds
-    # healthcheck:
-    #   test: curl --fail http://cryostat:${CRYOSTAT_HTTP_PORT}/health/liveness || exit 1
-    #   interval: 10s
-    #   retries: 3
-    #   start_period: 30s
-    #   timeout: 5s
+    healthcheck:
+      test: curl --fail http://cryostat:${CRYOSTAT_HTTP_PORT}/health/liveness || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
 
 volumes:
   jmxtls_cfg:
