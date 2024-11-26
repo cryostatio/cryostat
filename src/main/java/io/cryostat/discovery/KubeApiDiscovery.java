@@ -32,6 +32,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.management.remote.JMXServiceURL;
 
@@ -70,6 +71,7 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
+    private static final String ALL_NAMESPACES = "*";
     private static final String NAMESPACE_QUERY_ADDR = "NS_QUERY";
     private static final String ENDPOINTS_DISCOVERY_ADDR = "ENDPOINTS_DISC";
 
@@ -116,13 +118,25 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                             .getWatchNamespaces()
                             .forEach(
                                     ns -> {
-                                        result.put(
-                                                ns,
-                                                client.endpoints()
-                                                        .inNamespace(ns)
-                                                        .inform(
-                                                                KubeApiDiscovery.this,
-                                                                informerResyncPeriod.toMillis()));
+                                        SharedIndexInformer<Endpoints> informer;
+                                        if (ALL_NAMESPACES.equals(ns)) {
+                                            informer =
+                                                    client.endpoints()
+                                                            .inAnyNamespace()
+                                                            .inform(
+                                                                    KubeApiDiscovery.this,
+                                                                    informerResyncPeriod
+                                                                            .toMillis());
+                                        } else {
+                                            informer =
+                                                    client.endpoints()
+                                                            .inNamespace(ns)
+                                                            .inform(
+                                                                    KubeApiDiscovery.this,
+                                                                    informerResyncPeriod
+                                                                            .toMillis());
+                                        }
+                                        result.put(ns, informer);
                                         logger.debugv(
                                                 "Started Endpoints SharedInformer for namespace"
                                                         + " \"{0}\" with resync period {1}",
@@ -148,7 +162,11 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 () -> {
                     try {
                         logger.debug("Resyncing");
-                        notify(NamespaceQueryEvent.from(kubeConfig.getWatchNamespaces()));
+                        notify(
+                                NamespaceQueryEvent.from(
+                                        kubeConfig.getWatchNamespaces().stream()
+                                                .filter(ns -> !ALL_NAMESPACES.equals(ns))
+                                                .toList()));
                     } catch (Exception e) {
                         logger.warn(e);
                     }
@@ -226,6 +244,15 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
             for (EndpointPort port : subset.getPorts()) {
                 for (EndpointAddress addr : subset.getAddresses()) {
                     var ref = addr.getTargetRef();
+                    if (ref == null) {
+                        logger.debugv(
+                                "Endpoints object {0} in {1} with address {2} had a null"
+                                        + " targetRef",
+                                endpoints.getMetadata().getName(),
+                                endpoints.getMetadata().getNamespace(),
+                                addr.getIp());
+                        continue;
+                    }
                     tts.add(
                             new TargetTuple(
                                     ref,
@@ -295,8 +322,15 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                     persistedTargets.add(node.target);
                 }
 
+                Stream<Endpoints> endpoints;
+                if (safeGetInformers().containsKey(namespace)) {
+                    endpoints = safeGetInformers().get(namespace).getStore().list().stream();
+                } else {
+                    endpoints =
+                            client.endpoints().inNamespace(namespace).list().getItems().stream();
+                }
                 Set<Target> observedTargets =
-                        safeGetInformers().get(namespace).getStore().list().stream()
+                        endpoints
                                 .map((endpoint) -> getTargetTuplesFrom(endpoint))
                                 .flatMap(List::stream)
                                 .filter((tuple) -> Objects.nonNull(tuple.objRef))
