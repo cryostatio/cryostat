@@ -114,14 +114,16 @@ class MemoryCachingReportsService implements ReportsService {
     @Override
     public boolean keyExists(ActiveRecording recording) {
         String key = ReportsService.key(recording);
-        return !Objects.isNull(activeCache.as(CaffeineCache.class).getIfPresent(key))
+        return (quarkusCache || memoryCache)
+                && !Objects.isNull(activeCache.as(CaffeineCache.class).getIfPresent(key))
                 && !delegate.keyExists(recording);
     }
 
     @Override
     public boolean keyExists(String jvmId, String filename) {
         String key = recordingHelper.archivedRecordingKey(jvmId, filename);
-        return !Objects.isNull(archivedCache.as(CaffeineCache.class).getIfPresent(key))
+        return (quarkusCache || memoryCache)
+                && !Objects.isNull(archivedCache.as(CaffeineCache.class).getIfPresent(key))
                 && !delegate.keyExists(jvmId, filename);
     }
 }
