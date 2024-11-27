@@ -172,12 +172,12 @@ class StorageCachingReportsService implements ReportsService {
     @Override
     public boolean keyExists(ActiveRecording recording) {
         String key = ReportsService.key(recording);
-        return checkStorage(key).await().atMost(timeout);
+        return enabled && checkStorage(key).await().atMost(timeout);
     }
 
     @Override
     public boolean keyExists(String jvmId, String filename) {
         String key = recordingHelper.archivedRecordingKey(jvmId, filename);
-        return checkStorage(key).await().atMost(timeout);
+        return enabled && checkStorage(key).await().atMost(timeout);
     }
 }
