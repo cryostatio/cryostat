@@ -40,6 +40,7 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -48,6 +49,7 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -86,10 +88,19 @@ public class RuleService {
                                         .forEach(this::applyRuleToMatchingTargets));
     }
 
+    void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
+        quartz.shutdown();
+    }
+
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
     void onMessage(TargetDiscovery event) {
         switch (event.kind()) {
+            case MODIFIED:
+            // fall-through
             case FOUND:
+                if (StringUtils.isBlank(event.serviceRef().jvmId)) {
+                    break;
+                }
                 applyRulesToTarget(event.serviceRef());
                 break;
             case LOST:

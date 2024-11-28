@@ -15,10 +15,21 @@
  */
 package io.cryostat;
 
+import java.time.Duration;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
+import io.quarkus.runtime.ShutdownEvent;
+import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
@@ -30,7 +41,17 @@ public class StorageBuckets {
     @Inject S3Client storage;
     @Inject Logger logger;
 
+    @ConfigProperty(name = "storage.buckets.creation-retry.period")
+    Duration creationRetryPeriod;
+
+    private final Set<String> buckets = ConcurrentHashMap.newKeySet();
+    private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor();
+
     public void createIfNecessary(String bucket) {
+        buckets.add(bucket);
+    }
+
+    private boolean tryCreate(String bucket) {
         boolean exists = false;
         logger.debugv("Checking if storage bucket \"{0}\" exists ...", bucket);
         try {
@@ -49,8 +70,27 @@ public class StorageBuckets {
                 storage.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
                 logger.debugv("Storage bucket \"{0}\" created", bucket);
             } catch (Exception e) {
-                logger.error(e);
+                logger.warn(e);
+                return false;
             }
         }
+        return true;
+    }
+
+    void onStart(@Observes StartupEvent evt) {
+        worker.scheduleAtFixedRate(
+                () -> {
+                    var it = buckets.iterator();
+                    while (it.hasNext()) {
+                        if (tryCreate(it.next())) it.remove();
+                    }
+                },
+                0,
+                creationRetryPeriod.toMillis(),
+                TimeUnit.MILLISECONDS);
+    }
+
+    void onStop(@Observes ShutdownEvent evt) {
+        worker.shutdown();
     }
 }

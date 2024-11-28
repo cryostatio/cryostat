@@ -31,6 +31,7 @@ import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonView;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.panache.common.Parameters;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -42,6 +43,8 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.NamedQueries;
+import jakarta.persistence.NamedQuery;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PostPersist;
@@ -56,6 +59,11 @@ import org.jboss.logging.Logger;
 
 @Entity
 @EntityListeners(DiscoveryNode.Listener.class)
+@NamedQueries({
+    @NamedQuery(
+            name = "DiscoveryNode.byTypeWithName",
+            query = "from DiscoveryNode where nodeType = :nodeType and name = :name")
+})
 public class DiscoveryNode extends PanacheEntity {
 
     public static final String NODE_TYPE = "nodeType";
@@ -129,33 +137,48 @@ public class DiscoveryNode extends PanacheEntity {
     }
 
     public static DiscoveryNode environment(String name, NodeType nodeType) {
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () -> {
-                            DiscoveryNode node = new DiscoveryNode();
-                            node.name = name;
-                            node.nodeType = nodeType.getKind();
-                            node.labels = new HashMap<>();
-                            node.children = new ArrayList<>();
-                            node.target = null;
-                            node.persist();
-                            return node;
-                        });
+        var kind = nodeType.getKind();
+        return DiscoveryNode.<DiscoveryNode>find(
+                        "#DiscoveryNode.byTypeWithName",
+                        Parameters.with("nodeType", kind).and("name", name))
+                .firstResultOptional()
+                .orElseGet(
+                        () ->
+                                QuarkusTransaction.joiningExisting()
+                                        .call(
+                                                () -> {
+                                                    DiscoveryNode node = new DiscoveryNode();
+                                                    node.name = name;
+                                                    node.nodeType = kind;
+                                                    node.labels = new HashMap<>();
+                                                    node.children = new ArrayList<>();
+                                                    node.target = null;
+                                                    node.persist();
+                                                    return node;
+                                                }));
     }
 
     public static DiscoveryNode target(Target target, NodeType nodeType) {
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () -> {
-                            DiscoveryNode node = new DiscoveryNode();
-                            node.name = target.connectUrl.toString();
-                            node.nodeType = nodeType.getKind();
-                            node.labels = new HashMap<>(target.labels);
-                            node.children = null;
-                            node.target = target;
-                            node.persist();
-                            return node;
-                        });
+        var kind = nodeType.getKind();
+        var connectUrl = target.connectUrl.toString();
+        return DiscoveryNode.<DiscoveryNode>find(
+                        "#DiscoveryNode.byTypeWithName",
+                        Parameters.with("nodeType", kind).and("name", connectUrl))
+                .firstResultOptional()
+                .orElseGet(
+                        () ->
+                                QuarkusTransaction.joiningExisting()
+                                        .call(
+                                                () -> {
+                                                    DiscoveryNode node = new DiscoveryNode();
+                                                    node.name = connectUrl;
+                                                    node.nodeType = kind;
+                                                    node.labels = new HashMap<>(target.labels);
+                                                    node.children = null;
+                                                    node.target = target;
+                                                    node.persist();
+                                                    return node;
+                                                }));
     }
 
     @Override
