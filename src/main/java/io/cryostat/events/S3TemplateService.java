@@ -115,6 +115,8 @@ public class S3TemplateService implements MutableTemplateService {
                                         | InvalidXmlException
                                         | InvalidEventTemplateException e) {
                                     logger.error(e);
+                                } catch (IllegalArgumentException e) {
+                                    logger.warn(e);
                                 }
                             });
         } catch (IOException e) {
@@ -225,8 +227,7 @@ public class S3TemplateService implements MutableTemplateService {
             var template = createTemplate(model);
             var existing = getTemplates();
             if (existing.stream().anyMatch(t -> Objects.equals(t.getName(), template.getName()))) {
-                throw new IllegalArgumentException(
-                        String.format("Duplicate event template name: %s", template.getName()));
+                throw new DuplicateTemplateException(template.getName());
             }
             storage.putObject(
                     PutObjectRequest.builder()
@@ -356,5 +357,11 @@ public class S3TemplateService implements MutableTemplateService {
                 .map(i -> i.getValue())
                 .findFirst()
                 .get();
+    }
+
+    static class DuplicateTemplateException extends IllegalArgumentException {
+        DuplicateTemplateException(String templateName) {
+            super(String.format("Event Template with name \"%s\" already exists", templateName));
+        }
     }
 }
