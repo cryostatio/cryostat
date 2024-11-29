@@ -145,12 +145,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                             });
             archiveLatch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             JsonObject archiveNotification = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            System.out.println(
-                    "[Did we get here?] "
-                            + archiveNotification
-                                    .getJsonObject("message")
-                                    .getString("recording")
-                                    .toString());
             archivedRecordingFilenames.add(
                     archiveNotification.getJsonObject("message").getString("recording").toString());
             // check that the in-memory recording list hasn't changed
