@@ -1,4 +1,3 @@
-version: "3"
 services:
   spring-boot-2-7:
     depends_on:

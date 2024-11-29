@@ -1,4 +1,3 @@
-version: "3"
 services:
   cryostat:
     depends_on:
