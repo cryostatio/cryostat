@@ -29,6 +29,7 @@ import io.cryostat.reports.ReportsService;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -75,18 +76,20 @@ public class ArchiveRequestGenerator {
     }
 
     public Future<String> performArchive(ArchiveRequest request) {
-        Objects.requireNonNull(request.getRecording());
+        Objects.requireNonNull(request.recording);
         return executor.submit(
                 () -> {
                     logger.info("Job ID: " + request.getId() + " submitted.");
                     try {
-                        recordingHelper.archiveRecording(request.getRecording(), null, null).name();
+                        String rec =
+                                recordingHelper
+                                        .archiveRecording(request.recording, null, null)
+                                        .name();
                         logger.info("Recording archived, firing notification");
                         bus.publish(
                                 MessagingServer.class.getName(),
                                 new Notification(
-                                        ARCHIVE_RECORDING_SUCCESS,
-                                        Map.of("jobId", request.getId())));
+                                        ARCHIVE_RECORDING_SUCCESS, Map.of("recording", rec)));
                         return request.getId();
                     } catch (Exception e) {
                         logger.info("Archiving failed");
@@ -159,7 +162,7 @@ public class ArchiveRequestGenerator {
         try {
             logger.info("Job ID: " + request.getId() + " submitted.");
             Map<String, AnalysisResult> result =
-                    reportsService.reportFor(request.getRecording()).await().atMost(timeout);
+                    reportsService.reportFor(request.recording).await().atMost(timeout);
             logger.info("Report generation complete, firing notification");
             jobResults.put(request.getId(), result);
             bus.publish(MessagingServer.class.getName(), new Notification(REPORT_SUCCESS, result));
@@ -191,6 +194,10 @@ public class ArchiveRequestGenerator {
         }
     }
 
+    // Spotbugs doesn't like us storing an ActiveRecording here as part
+    // of the record. It shouldn't be a problem and we do similar things
+    // elswhere with other records.
+    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
     public record ArchiveRequest(String id, ActiveRecording recording) {
 
         public ArchiveRequest {
@@ -200,10 +207,6 @@ public class ArchiveRequestGenerator {
 
         public String getId() {
             return id;
-        }
-
-        public ActiveRecording getRecording() {
-            return recording;
         }
     }
 
@@ -260,6 +263,10 @@ public class ArchiveRequestGenerator {
         }
     }
 
+    // Spotbugs doesn't like us storing an ActiveRecording here as part
+    // of the record. It shouldn't be a problem and we do similar things
+    // elswhere with other records.
+    @SuppressFBWarnings(value = {"EI_EXPOSE_REP2", "EI_EXPOSE_REP"})
     public record ActiveReportRequest(String id, ActiveRecording recording) {
 
         public ActiveReportRequest {
@@ -269,10 +276,6 @@ public class ArchiveRequestGenerator {
 
         public String getId() {
             return id;
-        }
-
-        public ActiveRecording getRecording() {
-            return recording;
         }
     }
 }

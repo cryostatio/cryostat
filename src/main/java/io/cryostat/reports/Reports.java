@@ -139,12 +139,8 @@ public class Reports {
         logger.info("Cache miss. Creating active reports request");
         ActiveReportRequest request =
                 new ActiveReportRequest(UUID.randomUUID().toString(), recording);
-        // This doesn't get fired
         response.bodyEndHandler(
-                (e) -> {
-                    logger.info("Did we get here? Firing Active report event");
-                    bus.publish(ArchiveRequestGenerator.ACTIVE_REPORT_ADDRESS, request);
-                });
+                (e) -> bus.publish(ArchiveRequestGenerator.ACTIVE_REPORT_ADDRESS, request));
         // TODO implement query parameter for evaluation predicate
         return Response.ok(request.getId())
                 .status(202)

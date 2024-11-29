@@ -149,7 +149,7 @@ public class ActiveRecordings {
                         "Request created: ("
                                 + request.getId()
                                 + ", "
-                                + request.getRecording().name
+                                + request.recording().name
                                 + ")");
                 response.endHandler(
                         (e) -> bus.publish(ArchiveRequestGenerator.ARCHIVE_ADDRESS, request));
