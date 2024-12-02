@@ -165,7 +165,10 @@ public class ArchiveRequestGenerator {
                     reportsService.reportFor(request.recording).await().atMost(timeout);
             logger.info("Report generation complete, firing notification");
             jobResults.put(request.getId(), result);
-            bus.publish(MessagingServer.class.getName(), new Notification(REPORT_SUCCESS, result));
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            REPORT_SUCCESS, Map.of("result", result, "jobId", request.getId())));
         } catch (Exception e) {
             logger.warn("Exception thrown while servicing request: ", e);
             bus.publish(
@@ -184,8 +187,10 @@ public class ArchiveRequestGenerator {
                             .await()
                             .atMost(timeout);
             logger.info("Report generation complete, firing notification");
-            jobResults.put(request.getId(), result);
-            bus.publish(MessagingServer.class.getName(), new Notification(REPORT_SUCCESS, result));
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            REPORT_SUCCESS, Map.of("result", result, "jobId", request.getId())));
         } catch (Exception e) {
             logger.warn("Exception thrown while servicing request: ", e);
             bus.publish(
