@@ -16,7 +16,9 @@
 package io.cryostat.rules;
 
 import java.time.Duration;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -25,7 +27,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
@@ -83,7 +85,8 @@ public class RuleService {
     Duration connectionFailedTimeout;
 
     private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
-    private final BlockingQueue<ActivationAttempt> activations = new LinkedBlockingQueue<>();
+    private final BlockingQueue<ActivationAttempt> activations =
+            new PriorityBlockingQueue<>(255, Comparator.comparing(t -> t.attempts.get()));
     private final ExecutorService activator = Executors.newSingleThreadExecutor();
 
     void onStart(@Observes StartupEvent ev) {
@@ -91,46 +94,54 @@ public class RuleService {
         activator.submit(
                 () -> {
                     while (!activator.isShutdown()) {
-                        ActivationAttempt attempt = null;
-                        try {
-                            attempt = activations.take();
-                            logger.tracev(
-                                    "Attempting to activate rule \"{0}\" for target {1} - attempt"
-                                            + " #{2}",
-                                    attempt.rule.name, attempt.target.connectUrl, attempt.attempts);
-                            activate(attempt.rule, attempt.target);
-                        } catch (InterruptedException ie) {
-                            logger.trace(ie);
-                            break;
-                        } catch (Exception e) {
-                            if (attempt != null) {
-                                final ActivationAttempt fAttempt = attempt;
-                                int count = attempt.incrementAndGet();
-                                int delay = (int) Math.pow(2, count);
-                                TimeUnit unit = TimeUnit.SECONDS;
-                                int limit = 5;
-                                if (count < limit) {
-                                    logger.debugv(
-                                            "Rule \"{0}\" activation attempt #{1} for target {2}"
-                                                    + " failed, rescheduling in {3}{4} ...",
-                                            attempt.rule.name,
-                                            count - 1,
-                                            attempt.target.connectUrl,
-                                            delay,
-                                            unit);
-                                    Infrastructure.getDefaultWorkerPool()
-                                            .schedule(() -> activations.add(fAttempt), delay, unit);
-                                } else {
-                                    logger.errorv(
-                                            "Rule \"{0}\" activation attempt #{1} failed for target"
-                                                + " {2} - limit ({3}) reached! Will not retry...",
-                                            attempt.rule.name,
-                                            count,
-                                            attempt.target.connectUrl,
-                                            limit);
+                        synchronized (activations) {
+                            ActivationAttempt attempt = null;
+                            try {
+                                attempt = activations.take();
+                                logger.tracev(
+                                        "Attempting to activate rule \"{0}\" for target {1} -"
+                                                + " attempt #{2}",
+                                        attempt.rule.name,
+                                        attempt.target.connectUrl,
+                                        attempt.attempts);
+                                activate(attempt.rule, attempt.target);
+                            } catch (InterruptedException ie) {
+                                logger.trace(ie);
+                                break;
+                            } catch (Exception e) {
+                                if (attempt != null) {
+                                    final ActivationAttempt fAttempt = attempt;
+                                    int count = attempt.incrementAndGet();
+                                    int delay = (int) Math.pow(2, count);
+                                    TimeUnit unit = TimeUnit.SECONDS;
+                                    int limit = 5;
+                                    if (count < limit) {
+                                        logger.debugv(
+                                                "Rule \"{0}\" activation attempt #{1} for target"
+                                                        + " {2} failed, rescheduling in {3}{4} ...",
+                                                attempt.rule.name,
+                                                count - 1,
+                                                attempt.target.connectUrl,
+                                                delay,
+                                                unit);
+                                        Infrastructure.getDefaultWorkerPool()
+                                                .schedule(
+                                                        () -> activations.add(fAttempt),
+                                                        delay,
+                                                        unit);
+                                    } else {
+                                        logger.errorv(
+                                                "Rule \"{0}\" activation attempt #{1} failed for"
+                                                    + " target {2} - limit ({3}) reached! Will not"
+                                                    + " retry...",
+                                                attempt.rule.name,
+                                                count,
+                                                attempt.target.connectUrl,
+                                                limit);
+                                    }
                                 }
+                                logger.error(e);
                             }
-                            logger.error(e);
                         }
                     }
                 });
@@ -160,6 +171,7 @@ public class RuleService {
                 applyRulesToTarget(event.serviceRef());
                 break;
             case LOST:
+                resetActivations(event.serviceRef());
                 for (var jk : jobs) {
                     if (Objects.equals(event.serviceRef().jvmId, jk.getGroup())) {
                         try {
@@ -229,41 +241,74 @@ public class RuleService {
         }
     }
 
-    void activate(Rule rule, Target target) throws Exception {
-        Target attachedTarget = Target.<Target>find("id", target.id).singleResult();
-        recordingHelper
-                .getActiveRecording(
-                        attachedTarget, r -> Objects.equals(r.name, rule.getRecordingName()))
-                .ifPresent(
-                        rec -> {
-                            try {
-                                recordingHelper
-                                        .stopRecording(rec)
-                                        .await()
-                                        .atMost(connectionFailedTimeout);
-                            } catch (Exception e) {
-                                logger.warn(e);
-                            }
-                        });
-
-        Pair<String, TemplateType> pair = recordingHelper.parseEventSpecifier(rule.eventSpecifier);
-        Template template =
-                recordingHelper.getPreferredTemplate(target, pair.getKey(), pair.getValue());
-
-        ActiveRecording recording =
-                recordingHelper
-                        .startRecording(
-                                attachedTarget,
-                                RecordingReplace.STOPPED,
-                                template,
-                                createRecordingOptions(rule),
-                                Map.of("rule", rule.name))
-                        .await()
-                        .atMost(Duration.ofSeconds(10));
-
-        if (rule.isArchiver()) {
-            scheduleArchival(rule, attachedTarget, recording);
+    private void resetActivations(Rule rule) {
+        synchronized (activations) {
+            Iterator<ActivationAttempt> it = activations.iterator();
+            while (it.hasNext()) {
+                ActivationAttempt attempt = it.next();
+                if (attempt.rule.equals(rule)) {
+                    it.remove();
+                }
+            }
         }
+    }
+
+    private void resetActivations(Target target) {
+        synchronized (activations) {
+            Iterator<ActivationAttempt> it = activations.iterator();
+            while (it.hasNext()) {
+                ActivationAttempt attempt = it.next();
+                if (attempt.target.equals(target)) {
+                    it.remove();
+                }
+            }
+        }
+    }
+
+    void activate(Rule rule, Target target) throws Exception {
+        QuarkusTransaction.requiringNew()
+                .call(
+                        () -> {
+                            Target attachedTarget =
+                                    Target.<Target>find("id", target.id).singleResult();
+                            recordingHelper
+                                    .getActiveRecording(
+                                            attachedTarget,
+                                            r -> Objects.equals(r.name, rule.getRecordingName()))
+                                    .ifPresent(
+                                            rec -> {
+                                                try {
+                                                    recordingHelper
+                                                            .stopRecording(rec)
+                                                            .await()
+                                                            .atMost(connectionFailedTimeout);
+                                                } catch (Exception e) {
+                                                    logger.warn(e);
+                                                }
+                                            });
+
+                            Pair<String, TemplateType> pair =
+                                    recordingHelper.parseEventSpecifier(rule.eventSpecifier);
+                            Template template =
+                                    recordingHelper.getPreferredTemplate(
+                                            target, pair.getKey(), pair.getValue());
+
+                            ActiveRecording recording =
+                                    recordingHelper
+                                            .startRecording(
+                                                    attachedTarget,
+                                                    RecordingReplace.STOPPED,
+                                                    template,
+                                                    createRecordingOptions(rule),
+                                                    Map.of("rule", rule.name))
+                                            .await()
+                                            .atMost(Duration.ofSeconds(10));
+
+                            if (rule.isArchiver()) {
+                                scheduleArchival(rule, attachedTarget, recording);
+                            }
+                            return null;
+                        });
     }
 
     private RecordingOptions createRecordingOptions(Rule rule) {
@@ -277,6 +322,7 @@ public class RuleService {
     }
 
     void applyRulesToTarget(Target target) {
+        resetActivations(target);
         for (var rule : Rule.<Rule>find("enabled", true).list()) {
             try {
                 if (!evaluator.applies(rule.matchExpression, target)) {
@@ -298,6 +344,7 @@ public class RuleService {
     }
 
     void applyRuleToMatchingTargets(Rule rule) {
+        resetActivations(rule);
         var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
             Infrastructure.getDefaultWorkerPool()
@@ -357,6 +404,7 @@ public class RuleService {
     }
 
     private void cancelTasksForRule(Rule rule) {
+        resetActivations(rule);
         if (rule.isArchiver()) {
             List<String> targets =
                     evaluator.getMatchedTargets(rule.matchExpression).stream()
@@ -386,7 +434,6 @@ public class RuleService {
     }
 
     record ActivationAttempt(Rule rule, Target target, AtomicInteger attempts) {
-
         ActivationAttempt(Rule rule, Target target) {
             this(rule, target, new AtomicInteger(0));
         }
