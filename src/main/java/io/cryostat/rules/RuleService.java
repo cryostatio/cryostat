@@ -21,7 +21,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import io.cryostat.ConfigProperties;
@@ -77,9 +83,57 @@ public class RuleService {
     Duration connectionFailedTimeout;
 
     private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
+    private final BlockingQueue<ActivationAttempt> activations = new LinkedBlockingQueue<>();
+    private final ExecutorService activator = Executors.newSingleThreadExecutor();
 
     void onStart(@Observes StartupEvent ev) {
         logger.trace("RuleService started");
+        activator.submit(
+                () -> {
+                    while (!activator.isShutdown()) {
+                        ActivationAttempt attempt = null;
+                        try {
+                            attempt = activations.take();
+                            logger.tracev(
+                                    "Attempting to activate rule \"{0}\" for target {1} - attempt"
+                                            + " #{2}",
+                                    attempt.rule.name, attempt.target.connectUrl, attempt.attempts);
+                            activate(attempt.rule, attempt.target);
+                        } catch (InterruptedException ie) {
+                            logger.trace(ie);
+                            break;
+                        } catch (Exception e) {
+                            if (attempt != null) {
+                                final ActivationAttempt fAttempt = attempt;
+                                int count = attempt.incrementAndGet();
+                                int delay = (int) Math.pow(2, count);
+                                TimeUnit unit = TimeUnit.SECONDS;
+                                int limit = 5;
+                                if (count < limit) {
+                                    logger.debugv(
+                                            "Rule \"{0}\" activation attempt #{1} for target {2}"
+                                                    + " failed, rescheduling in {3}{4} ...",
+                                            attempt.rule.name,
+                                            count - 1,
+                                            attempt.target.connectUrl,
+                                            delay,
+                                            unit);
+                                    Infrastructure.getDefaultWorkerPool()
+                                            .schedule(() -> activations.add(fAttempt), delay, unit);
+                                } else {
+                                    logger.errorv(
+                                            "Rule \"{0}\" activation attempt #{1} failed for target"
+                                                + " {2} - limit ({3}) reached! Will not retry...",
+                                            attempt.rule.name,
+                                            count,
+                                            attempt.target.connectUrl,
+                                            limit);
+                                }
+                            }
+                            logger.error(e);
+                        }
+                    }
+                });
         QuarkusTransaction.joiningExisting()
                 .run(
                         () ->
@@ -89,6 +143,8 @@ public class RuleService {
     }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
+        activator.shutdown();
+        activations.clear();
         quartz.shutdown();
     }
 
@@ -231,13 +287,10 @@ public class RuleService {
                                 () ->
                                         QuarkusTransaction.joiningExisting()
                                                 .run(
-                                                        () -> {
-                                                            try {
-                                                                activate(rule, target);
-                                                            } catch (Exception e) {
-                                                                logger.error(e);
-                                                            }
-                                                        }));
+                                                        () ->
+                                                                activations.add(
+                                                                        new ActivationAttempt(
+                                                                                rule, target))));
             } catch (ScriptException se) {
                 logger.error(se);
             }
@@ -252,13 +305,10 @@ public class RuleService {
                             () ->
                                     QuarkusTransaction.joiningExisting()
                                             .run(
-                                                    () -> {
-                                                        try {
-                                                            activate(rule, target);
-                                                        } catch (Exception e) {
-                                                            logger.error(e);
-                                                        }
-                                                    }));
+                                                    () ->
+                                                            activations.add(
+                                                                    new ActivationAttempt(
+                                                                            rule, target))));
         }
     }
 
@@ -332,6 +382,26 @@ public class RuleService {
         public RuleRecording {
             Objects.requireNonNull(rule);
             Objects.requireNonNull(recording);
+        }
+    }
+
+    record ActivationAttempt(Rule rule, Target target, AtomicInteger attempts) {
+
+        ActivationAttempt(Rule rule, Target target) {
+            this(rule, target, new AtomicInteger(0));
+        }
+
+        ActivationAttempt {
+            Objects.requireNonNull(rule);
+            Objects.requireNonNull(target);
+            Objects.requireNonNull(attempts);
+            if (attempts.get() < 0) {
+                throw new IllegalArgumentException();
+            }
+        }
+
+        int incrementAndGet() {
+            return this.attempts.incrementAndGet();
         }
     }
 }
