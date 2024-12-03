@@ -328,15 +328,7 @@ public class RuleService {
                 if (!evaluator.applies(rule.matchExpression, target)) {
                     continue;
                 }
-                Infrastructure.getDefaultWorkerPool()
-                        .submit(
-                                () ->
-                                        QuarkusTransaction.joiningExisting()
-                                                .run(
-                                                        () ->
-                                                                activations.add(
-                                                                        new ActivationAttempt(
-                                                                                rule, target))));
+                activations.add(new ActivationAttempt(rule, target));
             } catch (ScriptException se) {
                 logger.error(se);
             }
@@ -347,15 +339,7 @@ public class RuleService {
         resetActivations(rule);
         var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
-            Infrastructure.getDefaultWorkerPool()
-                    .submit(
-                            () ->
-                                    QuarkusTransaction.joiningExisting()
-                                            .run(
-                                                    () ->
-                                                            activations.add(
-                                                                    new ActivationAttempt(
-                                                                            rule, target))));
+            activations.add(new ActivationAttempt(rule, target));
         }
     }
 
