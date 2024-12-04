@@ -82,7 +82,7 @@ public class S3TemplateService implements MutableTemplateService {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
     String bucket;
 
-    @ConfigProperty(name = ConfigProperties.TEMPLATES_DIR)
+    @ConfigProperty(name = ConfigProperties.CUSTOM_TEMPLATES_DIR)
     Path dir;
 
     @Inject S3Client storage;

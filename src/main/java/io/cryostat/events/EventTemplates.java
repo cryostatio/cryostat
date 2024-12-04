@@ -21,6 +21,7 @@ import java.util.List;
 
 import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.templates.MutableTemplateService.InvalidXmlException;
+import io.cryostat.core.templates.TemplateService;
 import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.libcryostat.templates.InvalidEventTemplateException;
 import io.cryostat.libcryostat.templates.Template;
@@ -60,6 +61,7 @@ public class EventTemplates {
     @Inject FileSystem fs;
     @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
+    @Inject PresetTemplateService presetTemplateService;
     @Inject Logger logger;
 
     @GET
@@ -69,21 +71,46 @@ public class EventTemplates {
         var list = new ArrayList<Template>();
         list.add(ALL_EVENTS_TEMPLATE);
         list.addAll(customTemplateService.getTemplates());
+        list.addAll(presetTemplateService.getTemplates());
         return list;
     }
 
     @GET
+    @Path("/{templateType}")
     @Blocking
     @RolesAllowed("read")
-    public Template getTemplate(@RestPath String templateName)
+    public List<Template> getTemplates(@RestPath String tt)
             throws IOException, FlightRecorderException {
-        if (StringUtils.isBlank(templateName)) {
-            throw new BadRequestException();
+        TemplateType templateType = TemplateType.valueOf(tt);
+        switch (templateType) {
+            case CUSTOM:
+                return customTemplateService.getTemplates();
+            case PRESET:
+                return presetTemplateService.getTemplates();
+            default:
+                throw new BadRequestException();
         }
-        return customTemplateService.getTemplates().stream()
-                .filter(t -> t.getName().equals(templateName))
-                .findFirst()
-                .orElseThrow();
+    }
+
+    @GET
+    @Path("/{templateType}/{templateName}")
+    @Blocking
+    @RolesAllowed("read")
+    public String getTemplate(@RestPath String tt, @RestPath String templateName)
+            throws IOException, FlightRecorderException {
+        TemplateType templateType = TemplateType.valueOf(tt);
+        TemplateService svc;
+        switch (templateType) {
+            case CUSTOM:
+                svc = customTemplateService;
+                break;
+            case PRESET:
+                svc = presetTemplateService;
+                break;
+            default:
+                throw new BadRequestException();
+        }
+        return svc.getXml(templateName, templateType).orElseThrow(() -> new NotFoundException());
     }
 
     @POST

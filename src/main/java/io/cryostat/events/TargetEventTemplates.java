@@ -20,9 +20,11 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
+import io.cryostat.core.templates.TemplateService;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.TargetConnectionManager;
 
 import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.security.RolesAllowed;
@@ -50,6 +52,8 @@ public class TargetEventTemplates {
 
     @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
+    @Inject PresetTemplateService presetTemplateService;
+    @Inject TargetConnectionManager connectionManager;
     @Inject Logger logger;
 
     @GET
@@ -65,6 +69,7 @@ public class TargetEventTemplates {
                         .thenComparing(Comparator.comparing(Template::getProvider));
         list.addAll(targetTemplateServiceFactory.create(target).getTemplates());
         list.addAll(customTemplateService.getTemplates());
+        list.addAll(presetTemplateService.getTemplates());
         Collections.sort(list, comparator);
         return list;
     }
@@ -82,24 +87,20 @@ public class TargetEventTemplates {
             throw new BadRequestException();
         }
         Target target = Target.find("id", id).singleResult();
-        String xml;
+        TemplateService svc;
         switch (templateType) {
             case TARGET:
-                xml =
-                        targetTemplateServiceFactory
-                                .create(target)
-                                .getXml(templateName, templateType)
-                                .orElseThrow(() -> new NotFoundException());
+                svc = targetTemplateServiceFactory.create(target);
                 break;
             case CUSTOM:
-                xml =
-                        customTemplateService
-                                .getXml(templateName, templateType)
-                                .orElseThrow(() -> new NotFoundException());
+                svc = customTemplateService;
+                break;
+            case PRESET:
+                svc = presetTemplateService;
                 break;
             default:
                 throw new BadRequestException();
         }
-        return xml;
+        return svc.getXml(templateName, templateType).orElseThrow(() -> new NotFoundException());
     }
 }
