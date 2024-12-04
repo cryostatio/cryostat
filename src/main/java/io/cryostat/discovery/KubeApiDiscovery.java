@@ -71,7 +71,6 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
-    private static final String ALL_NAMESPACES = "*";
     private static final String NAMESPACE_QUERY_ADDR = "NS_QUERY";
     private static final String ENDPOINTS_DISCOVERY_ADDR = "ENDPOINTS_DISC";
 
@@ -111,9 +110,9 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 protected HashMap<String, SharedIndexInformer<Endpoints>> initialize()
                         throws ConcurrentException {
                     var result = new HashMap<String, SharedIndexInformer<Endpoints>>();
-                    if (watchAllNamespaces()) {
+                    if (kubeConfig.watchAllNamespaces()) {
                         result.put(
-                                ALL_NAMESPACES,
+                                KubeConfig.ALL_NAMESPACES,
                                 client.endpoints()
                                         .inAnyNamespace()
                                         .inform(
@@ -146,10 +145,6 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 }
             };
 
-    private boolean watchAllNamespaces() {
-        return kubeConfig.getWatchNamespaces().stream().anyMatch(ns -> ALL_NAMESPACES.equals(ns));
-    }
-
     void onStart(@Observes StartupEvent evt) {
         if (!enabled()) {
             return;
@@ -168,19 +163,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 () -> {
                     try {
                         logger.debug("Resyncing");
-                        List<String> namespaces;
-                        if (watchAllNamespaces()) {
-                            namespaces =
-                                    client.namespaces().list().getItems().stream()
-                                            .map(ns -> ns.getMetadata().getName())
-                                            .toList();
-                        } else {
-                            namespaces =
-                                    kubeConfig.getWatchNamespaces().stream()
-                                            .filter(ns -> !ALL_NAMESPACES.equals(ns))
-                                            .toList();
-                        }
-                        notify(NamespaceQueryEvent.from(namespaces));
+                        notify(NamespaceQueryEvent.from(getWatchNamespaces()));
                     } catch (Exception e) {
                         logger.warn(e);
                     }
@@ -188,6 +171,17 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 0,
                 informerResyncPeriod.toMillis(),
                 TimeUnit.MILLISECONDS);
+    }
+
+    private List<String> getWatchNamespaces() {
+        if (kubeConfig.watchAllNamespaces()) {
+            return client.namespaces().list().getItems().stream()
+                    .map(ns -> ns.getMetadata().getName())
+                    .toList();
+        }
+        return kubeConfig.getWatchNamespaces().stream()
+                .filter(ns -> !KubeConfig.ALL_NAMESPACES.equals(ns))
+                .toList();
     }
 
     void onStop(@Observes ShutdownEvent evt) {
@@ -337,9 +331,13 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 }
 
                 Stream<Endpoints> endpoints;
-                if (watchAllNamespaces()) {
+                if (kubeConfig.watchAllNamespaces()) {
                     endpoints =
-                            safeGetInformers().get(ALL_NAMESPACES).getStore().list().stream()
+                            safeGetInformers()
+                                    .get(KubeConfig.ALL_NAMESPACES)
+                                    .getStore()
+                                    .list()
+                                    .stream()
                                     .filter(
                                             ep ->
                                                     Objects.equals(
@@ -586,6 +584,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
     @ApplicationScoped
     static final class KubeConfig {
+        static final String ALL_NAMESPACES = "*";
         private static final String OWN_NAMESPACE = ".";
 
         @Inject Logger logger;
@@ -599,6 +598,11 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
         @ConfigProperty(name = "cryostat.discovery.kubernetes.namespace-path")
         String namespacePath;
+
+        boolean watchAllNamespaces() {
+            return watchNamespaces.orElse(List.of()).stream()
+                    .anyMatch(ns -> ALL_NAMESPACES.equals(ns));
+        }
 
         Collection<String> getWatchNamespaces() {
             return watchNamespaces.orElse(List.of()).stream()
