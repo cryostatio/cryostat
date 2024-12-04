@@ -164,24 +164,30 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
         safeGetInformers();
         // TODO we should not need to force manual re-syncs this way - the Informer is already
         // supposed to resync itself.
-        if (!watchAllNamespaces()) {
-            resyncWorker.scheduleAtFixedRate(
-                    () -> {
-                        try {
-                            logger.debug("Resyncing");
-                            notify(
-                                    NamespaceQueryEvent.from(
-                                            kubeConfig.getWatchNamespaces().stream()
-                                                    .filter(ns -> !ALL_NAMESPACES.equals(ns))
-                                                    .toList()));
-                        } catch (Exception e) {
-                            logger.warn(e);
+        resyncWorker.scheduleAtFixedRate(
+                () -> {
+                    try {
+                        logger.debug("Resyncing");
+                        List<String> namespaces;
+                        if (watchAllNamespaces()) {
+                            namespaces =
+                                    client.namespaces().list().getItems().stream()
+                                            .map(ns -> ns.getMetadata().getName())
+                                            .toList();
+                        } else {
+                            namespaces =
+                                    kubeConfig.getWatchNamespaces().stream()
+                                            .filter(ns -> !ALL_NAMESPACES.equals(ns))
+                                            .toList();
                         }
-                    },
-                    0,
-                    informerResyncPeriod.toMillis(),
-                    TimeUnit.MILLISECONDS);
-        }
+                        notify(NamespaceQueryEvent.from(namespaces));
+                    } catch (Exception e) {
+                        logger.warn(e);
+                    }
+                },
+                0,
+                informerResyncPeriod.toMillis(),
+                TimeUnit.MILLISECONDS);
     }
 
     void onStop(@Observes ShutdownEvent evt) {
