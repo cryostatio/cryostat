@@ -190,52 +190,44 @@ public class RuleService {
     }
 
     private void resetActivations(Rule rule) {
-        synchronized (activations) {
-            Iterator<ActivationAttempt> it = activations.iterator();
-            while (it.hasNext()) {
-                ActivationAttempt attempt = it.next();
-                if (attempt.rule.equals(rule)) {
-                    it.remove();
-                }
+        Iterator<ActivationAttempt> it = activations.iterator();
+        while (it.hasNext()) {
+            ActivationAttempt attempt = it.next();
+            if (attempt.rule.equals(rule)) {
+                it.remove();
             }
         }
     }
 
     private void resetActivations(Target target) {
-        synchronized (activations) {
-            Iterator<ActivationAttempt> it = activations.iterator();
-            while (it.hasNext()) {
-                ActivationAttempt attempt = it.next();
-                if (attempt.target.equals(target)) {
-                    it.remove();
-                }
+        Iterator<ActivationAttempt> it = activations.iterator();
+        while (it.hasNext()) {
+            ActivationAttempt attempt = it.next();
+            if (attempt.target.equals(target)) {
+                it.remove();
             }
         }
     }
 
     void applyRulesToTarget(Target target) {
-        synchronized (activations) {
-            resetActivations(target);
-            for (var rule : Rule.<Rule>find("enabled", true).list()) {
-                try {
-                    if (!evaluator.applies(rule.matchExpression, target)) {
-                        continue;
-                    }
-                    activations.add(new ActivationAttempt(rule, target));
-                } catch (ScriptException se) {
-                    logger.error(se);
+        resetActivations(target);
+        for (var rule : Rule.<Rule>find("enabled", true).list()) {
+            try {
+                if (!evaluator.applies(rule.matchExpression, target)) {
+                    continue;
                 }
+                activations.add(new ActivationAttempt(rule, target));
+            } catch (ScriptException se) {
+                logger.error(se);
             }
         }
     }
 
     void applyRuleToMatchingTargets(Rule rule) {
-        synchronized (activations) {
-            resetActivations(rule);
-            var targets = evaluator.getMatchedTargets(rule.matchExpression);
-            for (var target : targets) {
-                activations.add(new ActivationAttempt(rule, target));
-            }
+        resetActivations(rule);
+        var targets = evaluator.getMatchedTargets(rule.matchExpression);
+        for (var target : targets) {
+            activations.add(new ActivationAttempt(rule, target));
         }
     }
 
@@ -247,6 +239,7 @@ public class RuleService {
         }
     }
 
+    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
     public record ActivationAttempt(Rule rule, Target target, AtomicInteger attempts) {
         public ActivationAttempt(Rule rule, Target target) {
             this(rule, target, new AtomicInteger(0));
