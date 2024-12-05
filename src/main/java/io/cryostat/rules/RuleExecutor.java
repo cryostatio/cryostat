@@ -77,12 +77,11 @@ public class RuleExecutor {
     @ConsumeEvent(blocking = true)
     @Transactional
     void onMessage(ActivationAttempt attempt) throws QuantityConversionException {
-        Rule rule = attempt.rule();
-        Target target = attempt.target();
-        Target attachedTarget = Target.<Target>find("id", target.id).singleResult();
+        Target attachedTarget = Target.<Target>find("id", attempt.target().id).singleResult();
         recordingHelper
                 .getActiveRecording(
-                        attachedTarget, r -> Objects.equals(r.name, rule.getRecordingName()))
+                        attachedTarget,
+                        r -> Objects.equals(r.name, attempt.rule().getRecordingName()))
                 .ifPresent(
                         rec -> {
                             try {
@@ -95,9 +94,11 @@ public class RuleExecutor {
                             }
                         });
 
-        Pair<String, TemplateType> pair = recordingHelper.parseEventSpecifier(rule.eventSpecifier);
+        Pair<String, TemplateType> pair =
+                recordingHelper.parseEventSpecifier(attempt.rule().eventSpecifier);
         Template template =
-                recordingHelper.getPreferredTemplate(target, pair.getKey(), pair.getValue());
+                recordingHelper.getPreferredTemplate(
+                        attempt.target(), pair.getKey(), pair.getValue());
 
         ActiveRecording recording =
                 recordingHelper
@@ -105,13 +106,13 @@ public class RuleExecutor {
                                 attachedTarget,
                                 RecordingReplace.STOPPED,
                                 template,
-                                createRecordingOptions(rule),
-                                Map.of("rule", rule.name))
+                                createRecordingOptions(attempt.rule()),
+                                Map.of("rule", attempt.rule().name))
                         .await()
                         .atMost(Duration.ofSeconds(10));
 
-        if (rule.isArchiver()) {
-            scheduleArchival(rule, attachedTarget, recording);
+        if (attempt.rule().isArchiver()) {
+            scheduleArchival(attempt.rule(), attachedTarget, recording);
         }
     }
 
