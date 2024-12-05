@@ -18,7 +18,6 @@ package io.cryostat.targets;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -31,14 +30,8 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import io.cryostat.ConfigProperties;
-import io.cryostat.core.net.JFRConnection;
-import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryNode;
-import io.cryostat.expressions.MatchExpressionEvaluator;
-import io.cryostat.libcryostat.JvmIdentifier;
 import io.cryostat.recordings.ActiveRecording;
-import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -46,7 +39,6 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -63,15 +55,12 @@ import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
-import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
-import org.projectnessie.cel.tools.ScriptException;
 
 @Entity
 @EntityListeners(Target.Listener.class)
@@ -291,53 +280,6 @@ public class Target extends PanacheEntity {
 
         @Inject Logger logger;
         @Inject EventBus bus;
-        @Inject TargetConnectionManager connectionManager;
-        @Inject RecordingHelper recordingHelper;
-        @Inject MatchExpressionEvaluator matchExpressionEvaluator;
-
-        @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-        Duration timeout;
-
-        @Transactional
-        @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
-        void onMessage(TargetDiscovery event) {
-            var target = Target.<Target>find("id", event.serviceRef().id).singleResultOptional();
-            switch (event.kind()) {
-                case LOST:
-                    // this should already be handled by the cascading deletion of the Target
-                    // TODO verify this
-                    break;
-                case FOUND:
-                    target.ifPresent(recordingHelper::listActiveRecordings);
-                    break;
-                case MODIFIED:
-                    target.ifPresent(recordingHelper::listActiveRecordings);
-                    break;
-                default:
-                    // no-op
-                    break;
-            }
-        }
-
-        @ConsumeEvent(value = Credential.CREDENTIALS_STORED, blocking = true)
-        @Transactional
-        void updateCredential(Credential credential) {
-            Target.<Target>stream("#Target.unconnected")
-                    .forEach(
-                            t -> {
-                                try {
-                                    if (matchExpressionEvaluator.applies(
-                                            credential.matchExpression, t)) {
-                                        updateTargetJvmId(t, credential);
-                                        t.persist();
-                                    }
-                                } catch (ScriptException e) {
-                                    logger.error(e);
-                                } catch (Exception e) {
-                                    logger.warn(e);
-                                }
-                            });
-        }
 
         @PrePersist
         void prePersist(Target target) {
@@ -357,30 +299,6 @@ public class Target extends PanacheEntity {
             }
             if (target.activeRecordings == null) {
                 target.activeRecordings = new ArrayList<>();
-            }
-
-            try {
-                if (StringUtils.isBlank(target.jvmId)) {
-                    updateTargetJvmId(target, null);
-                }
-            } catch (Exception e) {
-                logger.warn(e);
-            }
-        }
-
-        private void updateTargetJvmId(Target t, Credential credential) {
-            try {
-                t.jvmId =
-                        connectionManager
-                                .executeDirect(
-                                        t,
-                                        Optional.ofNullable(credential),
-                                        JFRConnection::getJvmIdentifier)
-                                .map(JvmIdentifier::getHash)
-                                .await()
-                                .atMost(timeout);
-            } catch (Exception e) {
-                logger.error(e);
             }
         }
 
