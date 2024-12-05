@@ -23,7 +23,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.reports.ReportsService;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
@@ -111,11 +110,7 @@ public class ArchiveRequestGenerator {
     public void onMessage(GrafanaArchiveUploadRequest request) {
         try {
             logger.info("Job ID: " + request.getId() + " submitted.");
-            String result =
-                    recordingHelper
-                            .uploadToJFRDatasource(request.getPair())
-                            .await()
-                            .atMost(timeout);
+            recordingHelper.uploadToJFRDatasource(request.getPair()).await().atMost(timeout);
             logger.info("Grafana upload complete, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
@@ -132,11 +127,10 @@ public class ArchiveRequestGenerator {
     public void onMessage(GrafanaActiveUploadRequest request) {
         try {
             logger.info("Job ID: " + request.getId() + " submitted.");
-            String result =
-                    recordingHelper
-                            .uploadToJFRDatasource(request.getTargetId(), request.getRemoteId())
-                            .await()
-                            .atMost(timeout);
+            recordingHelper
+                    .uploadToJFRDatasource(request.getTargetId(), request.getRemoteId())
+                    .await()
+                    .atMost(timeout);
             logger.info("Grafana upload complete, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
@@ -153,13 +147,11 @@ public class ArchiveRequestGenerator {
     public void onMessage(ActiveReportRequest request) {
         try {
             logger.info("Job ID: " + request.getId() + " submitted.");
-            Map<String, AnalysisResult> result =
-                    reportsService.reportFor(request.recording).await().atMost(timeout);
+            reportsService.reportFor(request.recording).await().atMost(timeout);
             logger.info("Report generation complete, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(
-                            REPORT_SUCCESS, Map.of("result", result, "jobId", request.getId())));
+                    new Notification(REPORT_SUCCESS, Map.of("jobId", request.getId())));
         } catch (Exception e) {
             logger.warn("Exception thrown while servicing request: ", e);
             bus.publish(
@@ -172,16 +164,14 @@ public class ArchiveRequestGenerator {
     public void onMessage(ArchivedReportRequest request) {
         try {
             logger.info("Job ID: " + request.getId() + " submitted.");
-            Map<String, AnalysisResult> result =
-                    reportsService
-                            .reportFor(request.getPair().getKey(), request.getPair().getValue())
-                            .await()
-                            .atMost(timeout);
+            reportsService
+                    .reportFor(request.getPair().getKey(), request.getPair().getValue())
+                    .await()
+                    .atMost(timeout);
             logger.info("Report generation complete, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(
-                            REPORT_SUCCESS, Map.of("result", result, "jobId", request.getId())));
+                    new Notification(REPORT_SUCCESS, Map.of("jobId", request.getId())));
         } catch (Exception e) {
             logger.warn("Exception thrown while servicing request: ", e);
             bus.publish(
