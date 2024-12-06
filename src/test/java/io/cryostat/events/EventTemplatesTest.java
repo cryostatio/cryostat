@@ -49,6 +49,66 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    void testListTargets() {
+        given().log()
+                .all()
+                .when()
+                .get("/TARGET")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testListNonsense() {
+        given().log()
+                .all()
+                .when()
+                .get("/NONSENSE")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testListCustoms() {
+        given().log()
+                .all()
+                .when()
+                .get("/CUSTOM")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("size()", Matchers.equalTo(0));
+    }
+
+    @Test
+    void testListPresets() {
+        given().log()
+                .all()
+                .when()
+                .get("/PRESET")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body("size()", Matchers.equalTo(0));
+    }
+
+    @Test
     void testDeleteInvalid() {
         given().log()
                 .all()
