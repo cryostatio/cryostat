@@ -36,7 +36,9 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
@@ -79,10 +81,10 @@ public class EventTemplates {
     @Path("/{templateType}")
     @Blocking
     @RolesAllowed("read")
-    public List<Template> getTemplates(@RestPath String tt)
+    public List<Template> getTemplates(@RestPath String templateType)
             throws IOException, FlightRecorderException {
-        TemplateType templateType = TemplateType.valueOf(tt);
-        switch (templateType) {
+        TemplateType tt = TemplateType.valueOf(templateType);
+        switch (tt) {
             case CUSTOM:
                 return customTemplateService.getTemplates();
             case PRESET:
@@ -96,11 +98,12 @@ public class EventTemplates {
     @Path("/{templateType}/{templateName}")
     @Blocking
     @RolesAllowed("read")
-    public String getTemplate(@RestPath String tt, @RestPath String templateName)
+    @Produces(MediaType.APPLICATION_XML)
+    public String getTemplate(@RestPath String templateType, @RestPath String templateName)
             throws IOException, FlightRecorderException {
-        TemplateType templateType = TemplateType.valueOf(tt);
+        TemplateType tt = TemplateType.valueOf(templateType);
         TemplateService svc;
-        switch (templateType) {
+        switch (tt) {
             case CUSTOM:
                 svc = customTemplateService;
                 break;
@@ -110,7 +113,7 @@ public class EventTemplates {
             default:
                 throw new BadRequestException();
         }
-        return svc.getXml(templateName, templateType).orElseThrow(() -> new NotFoundException());
+        return svc.getXml(templateName, tt).orElseThrow(() -> new NotFoundException());
     }
 
     @POST
