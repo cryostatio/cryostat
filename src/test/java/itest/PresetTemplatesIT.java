@@ -47,7 +47,6 @@ public class PresetTemplatesIT extends StandardSelfTest {
                         future.completeExceptionally(ar.cause());
                         return;
                     }
-                    logger.infov("body: {0}", ar.result().bodyAsString());
                     future.complete(ar.result().bodyAsJsonArray());
                 });
         JsonArray response = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
