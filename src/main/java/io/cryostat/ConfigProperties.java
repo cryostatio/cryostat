@@ -54,7 +54,8 @@ public class ConfigProperties {
             "storage.transient-archives.enabled";
     public static final String STORAGE_TRANSIENT_ARCHIVES_TTL = "storage.transient-archives.ttl";
 
-    public static final String TEMPLATES_DIR = "templates-dir";
+    public static final String CUSTOM_TEMPLATES_DIR = "templates-dir";
+    public static final String PRESET_TEMPLATES_DIR = "preset-templates-dir";
     public static final String SSL_TRUSTSTORE_DIR = "ssl.truststore.dir";
 
     public static final String URI_RANGE = "cryostat.target.uri-range";

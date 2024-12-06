@@ -60,6 +60,7 @@ import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.events.EventTemplates;
+import io.cryostat.events.PresetTemplateService;
 import io.cryostat.events.S3TemplateService;
 import io.cryostat.events.TargetTemplateService;
 import io.cryostat.libcryostat.sys.Clock;
@@ -153,6 +154,7 @@ public class RecordingHelper {
     @Inject EventOptionsBuilder.Factory eventOptionsBuilderFactory;
     @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
+    @Inject PresetTemplateService presetTemplateService;
     @Inject Scheduler scheduler;
 
     @Inject
@@ -377,6 +379,15 @@ public class RecordingHelper {
                             IConstrainedMap<String> recordingOptions = optionsBuilder.build();
 
                             switch (template.getType()) {
+                                case PRESET:
+                                    return conn.getService()
+                                            .start(
+                                                    recordingOptions,
+                                                    presetTemplateService
+                                                            .getXml(
+                                                                    template.getName(),
+                                                                    TemplateType.CUSTOM)
+                                                            .orElseThrow());
                                 case CUSTOM:
                                     return conn.getService()
                                             .start(
@@ -631,7 +642,17 @@ public class RecordingHelper {
                         return Optional.empty();
                     }
                 };
-
+        Supplier<Optional<Template>> preset =
+                () -> {
+                    try {
+                        return presetTemplateService.getTemplates().stream()
+                                .filter(t -> t.getName().equals(templateName))
+                                .findFirst();
+                    } catch (FlightRecorderException e) {
+                        logger.warn(e);
+                        return Optional.empty();
+                    }
+                };
         Supplier<Optional<Template>> remote =
                 () -> {
                     try {
@@ -645,6 +666,7 @@ public class RecordingHelper {
                 };
         if (templateType == null) {
             return custom.get()
+                    .or(() -> preset.get())
                     .or(() -> remote.get())
                     .orElseThrow(
                             () ->
@@ -658,8 +680,11 @@ public class RecordingHelper {
                 return remote.get().orElseThrow();
             case CUSTOM:
                 return custom.get().orElseThrow();
+            case PRESET:
+                return preset.get().orElseThrow();
             default:
                 return custom.get()
+                        .or(() -> preset.get())
                         .or(() -> remote.get())
                         .orElseThrow(
                                 () ->
