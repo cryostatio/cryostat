@@ -124,7 +124,7 @@ public class MatchExpressionEvaluator {
     }
 
     @CacheResult(cacheName = CACHE_NAME)
-    boolean load(Target target, String matchExpression) throws ScriptException {
+    boolean load(String matchExpression, Target target) throws ScriptException {
         Script script = createScript(matchExpression);
         return script.execute(Boolean.class, Map.of("target", SimplifiedTarget.from(target)));
     }
@@ -159,7 +159,7 @@ public class MatchExpressionEvaluator {
         MatchExpressionApplies evt = new MatchExpressionApplies(matchExpression);
         try {
             evt.begin();
-            return load(target, matchExpression.script);
+            return load(matchExpression.script, target);
         } catch (CompletionException e) {
             if (e.getCause() instanceof ScriptException) {
                 throw (ScriptException) e.getCause();
