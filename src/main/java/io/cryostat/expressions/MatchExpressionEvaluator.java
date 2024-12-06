@@ -102,12 +102,7 @@ public class MatchExpressionEvaluator {
         }
     }
 
-    // used only for validating script syntax without an actual Target to evaluate against
     Script createScript(String matchExpression) throws ScriptCreateException {
-        return createScript(null, matchExpression);
-    }
-
-    Script createScript(Target target, String matchExpression) throws ScriptCreateException {
         ScriptCreation evt = new ScriptCreation();
         try {
             evt.begin();
@@ -118,7 +113,7 @@ public class MatchExpressionEvaluator {
                             Decls.newVar(
                                     "target",
                                     Decls.newObjectType(SimplifiedTarget.class.getName())))
-                    .withLibraries(List.of(new EventTypesLibrary(connectionManager, target)))
+                    .withLibraries(List.of(new EventTypesLibrary(connectionManager)))
                     .build();
         } finally {
             evt.end();
@@ -130,7 +125,7 @@ public class MatchExpressionEvaluator {
 
     @CacheResult(cacheName = CACHE_NAME)
     boolean load(Target target, String matchExpression) throws ScriptException {
-        Script script = createScript(target, matchExpression);
+        Script script = createScript(matchExpression);
         return script.execute(Boolean.class, Map.of("target", SimplifiedTarget.from(target)));
     }
 
@@ -236,6 +231,7 @@ public class MatchExpressionEvaluator {
      * expression-relevant fields exposed, connection URI exposed as a String, etc.
      */
     private static record SimplifiedTarget(
+            long id,
             boolean agent,
             String connectUrl,
             String alias,
@@ -255,6 +251,7 @@ public class MatchExpressionEvaluator {
 
         static SimplifiedTarget from(Target target) {
             return new SimplifiedTarget(
+                    target.id,
                     target.isAgent(),
                     target.connectUrl.toString(),
                     target.alias,
@@ -267,11 +264,9 @@ public class MatchExpressionEvaluator {
     static class EventTypesLibrary implements Library {
 
         private final TargetConnectionManager connectionManager;
-        private final Target target;
 
-        EventTypesLibrary(TargetConnectionManager connectionManager, Target target) {
+        EventTypesLibrary(TargetConnectionManager connectionManager) {
             this.connectionManager = connectionManager;
-            this.target = target;
         }
 
         @Override
@@ -282,7 +277,9 @@ public class MatchExpressionEvaluator {
                                     "eventTypeIds",
                                     Decls.newOverload(
                                             "eventTypeIds_void",
-                                            Collections.emptyList(),
+                                            List.of(
+                                                    Decls.newObjectType(
+                                                            SimplifiedTarget.class.getName())),
                                             Decls.newListType(Decls.String)))));
         }
 
@@ -290,15 +287,17 @@ public class MatchExpressionEvaluator {
         public List<ProgramOption> getProgramOptions() {
             return List.of(
                     ProgramOption.functions(
-                            Overload.function(
+                            Overload.unary(
                                     "eventTypeIds",
-                                    (args) -> ListT.newStringArrayList(getEventTypeIds()))));
+                                    (arg) ->
+                                            ListT.newStringArrayList(
+                                                    getEventTypeIds(
+                                                            (SimplifiedTarget) arg.value())))));
         }
 
-        private String[] getEventTypeIds() {
-            if (target == null) {
-                return new String[0];
-            }
+        private String[] getEventTypeIds(SimplifiedTarget st) {
+            Log.infov("Target: {0}", st);
+            Target target = Target.find("id", st.id()).singleResult();
             try {
                 return connectionManager.executeConnectedTask(
                         target,
