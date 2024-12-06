@@ -296,7 +296,6 @@ public class MatchExpressionEvaluator {
         }
 
         private String[] getEventTypeIds(SimplifiedTarget st) {
-            Log.infov("Target: {0}", st);
             Target target = Target.find("id", st.id()).singleResult();
             try {
                 return connectionManager.executeConnectedTask(
