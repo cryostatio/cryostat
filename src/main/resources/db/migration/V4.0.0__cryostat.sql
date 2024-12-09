@@ -144,7 +144,8 @@
         parentNode
     ) values
     ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'Custom Targets', 'Realm', (select id from universe)),
-    ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'KubernetesApi', 'Realm', (select id from universe)),
+    ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'KubernetesEndpoints', 'Realm', (select id from universe)),
+    ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'KubernetesEndpointSlices', 'Realm', (select id from universe)),
     ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'JDP', 'Realm', (select id from universe)),
     ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'Podman', 'Realm', (select id from universe)),
     ((select nextval('DiscoveryNode_SEQ')), '{}'::jsonb, 'Docker', 'Realm', (select id from universe));
