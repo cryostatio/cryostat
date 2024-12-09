@@ -68,12 +68,12 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
-public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
+public class KubeEndpointsDiscovery implements ResourceEventHandler<Endpoints> {
 
-    private static final String NAMESPACE_QUERY_ADDR = "NS_QUERY";
+    private static final String NAMESPACE_QUERY_ADDR = "NS_QUERY_ENDPOINTS";
     private static final String ENDPOINTS_DISCOVERY_ADDR = "ENDPOINTS_DISC";
 
-    public static final String REALM = "KubernetesApi";
+    public static final String REALM = "KubernetesEndpoints";
 
     public static final String DISCOVERY_NAMESPACE_LABEL_KEY = "discovery.cryostat.io/namespace";
 
@@ -121,7 +121,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                                                 client.endpoints()
                                                         .inNamespace(ns)
                                                         .inform(
-                                                                KubeApiDiscovery.this,
+                                                                KubeEndpointsDiscovery.this,
                                                                 informerResyncPeriod.toMillis()));
                                         logger.debugv(
                                                 "Started Endpoints SharedInformer for namespace"
@@ -653,68 +653,85 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
             }
         }
     }
-}
 
-enum KubeDiscoveryNodeType implements NodeType {
-    NAMESPACE("Namespace"),
-    STATEFULSET(
-            "StatefulSet",
-            c -> ns -> n -> c.apps().statefulSets().inNamespace(ns).withName(n).get()),
-    DAEMONSET("DaemonSet", c -> ns -> n -> c.apps().daemonSets().inNamespace(ns).withName(n).get()),
-    DEPLOYMENT(
-            "Deployment", c -> ns -> n -> c.apps().deployments().inNamespace(ns).withName(n).get()),
-    REPLICASET(
-            "ReplicaSet", c -> ns -> n -> c.apps().replicaSets().inNamespace(ns).withName(n).get()),
-    REPLICATIONCONTROLLER(
-            "ReplicationController",
-            c -> ns -> n -> c.replicationControllers().inNamespace(ns).withName(n).get()),
-    POD("Pod", c -> ns -> n -> c.pods().inNamespace(ns).withName(n).get()),
-    ENDPOINT("Endpoint", c -> ns -> n -> c.endpoints().inNamespace(ns).withName(n).get()),
-    // OpenShift resources
-    DEPLOYMENTCONFIG("DeploymentConfig"),
-    ;
+    static enum KubeDiscoveryNodeType implements NodeType {
+        NAMESPACE("Namespace"),
+        STATEFULSET(
+                "StatefulSet",
+                c -> ns -> n -> c.apps().statefulSets().inNamespace(ns).withName(n).get()),
+        DAEMONSET(
+                "DaemonSet",
+                c -> ns -> n -> c.apps().daemonSets().inNamespace(ns).withName(n).get()),
+        DEPLOYMENT(
+                "Deployment",
+                c -> ns -> n -> c.apps().deployments().inNamespace(ns).withName(n).get()),
+        REPLICASET(
+                "ReplicaSet",
+                c -> ns -> n -> c.apps().replicaSets().inNamespace(ns).withName(n).get()),
+        REPLICATIONCONTROLLER(
+                "ReplicationController",
+                c -> ns -> n -> c.replicationControllers().inNamespace(ns).withName(n).get()),
+        POD("Pod", c -> ns -> n -> c.pods().inNamespace(ns).withName(n).get()),
+        ENDPOINT("Endpoint", c -> ns -> n -> c.endpoints().inNamespace(ns).withName(n).get()),
+        ENDPOINT_SLICE(
+                "EndpointSlice",
+                c ->
+                        ns ->
+                                n ->
+                                        c.discovery()
+                                                .v1()
+                                                .endpointSlices()
+                                                .inNamespace(ns)
+                                                .withName(n)
+                                                .get()),
+        // OpenShift resources
+        DEPLOYMENTCONFIG("DeploymentConfig"),
+        ;
 
-    private final String kubernetesKind;
-    private final transient Function<
-                    KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
-            getFn;
+        private final String kubernetesKind;
+        private final transient Function<
+                        KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
+                getFn;
 
-    KubeDiscoveryNodeType(String kubernetesKind) {
-        this(kubernetesKind, client -> namespace -> name -> null);
-    }
+        KubeDiscoveryNodeType(String kubernetesKind) {
+            this(kubernetesKind, client -> namespace -> name -> null);
+        }
 
-    KubeDiscoveryNodeType(
-            String kubernetesKind,
-            Function<KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
-                    getFn) {
-        this.kubernetesKind = kubernetesKind;
-        this.getFn = getFn;
-    }
+        KubeDiscoveryNodeType(
+                String kubernetesKind,
+                Function<
+                                KubernetesClient,
+                                Function<String, Function<String, ? extends HasMetadata>>>
+                        getFn) {
+            this.kubernetesKind = kubernetesKind;
+            this.getFn = getFn;
+        }
 
-    @Override
-    public String getKind() {
-        return kubernetesKind;
-    }
+        @Override
+        public String getKind() {
+            return kubernetesKind;
+        }
 
-    public Function<KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
-            getQueryFunction() {
-        return getFn;
-    }
+        public Function<KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
+                getQueryFunction() {
+            return getFn;
+        }
 
-    public static KubeDiscoveryNodeType fromKubernetesKind(String kubernetesKind) {
-        if (kubernetesKind == null) {
+        public static KubeDiscoveryNodeType fromKubernetesKind(String kubernetesKind) {
+            if (kubernetesKind == null) {
+                return null;
+            }
+            for (KubeDiscoveryNodeType nt : values()) {
+                if (kubernetesKind.equalsIgnoreCase(nt.kubernetesKind)) {
+                    return nt;
+                }
+            }
             return null;
         }
-        for (KubeDiscoveryNodeType nt : values()) {
-            if (kubernetesKind.equalsIgnoreCase(nt.kubernetesKind)) {
-                return nt;
-            }
-        }
-        return null;
-    }
 
-    @Override
-    public String toString() {
-        return getKind();
+        @Override
+        public String toString() {
+            return getKind();
+        }
     }
 }
