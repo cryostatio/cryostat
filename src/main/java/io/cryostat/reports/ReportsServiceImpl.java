@@ -117,4 +117,14 @@ class ReportsServiceImpl implements ReportsService {
             super(cause);
         }
     }
+
+    @Override
+    public boolean keyExists(ActiveRecording recording) {
+        return false;
+    }
+
+    @Override
+    public boolean keyExists(String jvmId, String filename) {
+        return false;
+    }
 }

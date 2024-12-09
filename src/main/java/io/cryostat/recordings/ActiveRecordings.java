@@ -15,7 +15,6 @@
  */
 package io.cryostat.recordings;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
@@ -25,10 +24,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
+import io.cryostat.recordings.ArchiveRequestGenerator.ArchiveRequest;
+import io.cryostat.recordings.ArchiveRequestGenerator.GrafanaActiveUploadRequest;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.targets.Target;
@@ -36,7 +38,8 @@ import io.cryostat.targets.Target;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.common.annotation.Blocking;
-import io.smallrye.mutiny.Uni;
+import io.vertx.core.http.HttpServerResponse;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -64,6 +67,8 @@ public class ActiveRecordings {
 
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper recordingHelper;
+    @Inject ArchiveRequestGenerator generator;
+    @Inject EventBus bus;
     @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
@@ -102,7 +107,11 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}")
     @RolesAllowed("write")
-    public String patch(@RestPath long targetId, @RestPath long remoteId, String body)
+    public String patch(
+            HttpServerResponse response,
+            @RestPath long targetId,
+            @RestPath long remoteId,
+            String body)
             throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         Optional<ActiveRecording> recording =
@@ -121,18 +130,32 @@ public class ActiveRecordings {
                         .atMost(connectionFailedTimeout);
                 return null;
             case "save":
-                try {
-                    // FIXME this operation might take a long time to complete, depending on the
-                    // amount of JFR data in the target and the speed of the connection between the
-                    // target and Cryostat. We should not make the client wait until this operation
-                    // completes before sending a response - it should be async. Here we should just
-                    // return an Accepted response, and if a failure occurs that should be indicated
-                    // as a websocket notification.
-                    return recordingHelper.archiveRecording(activeRecording, null, null).name();
-                } catch (IOException ioe) {
-                    logger.warn(ioe);
-                    return null;
-                }
+                // FIXME this operation might take a long time to complete, depending on the
+                // amount of JFR data in the target and the speed of the connection between the
+                // target and Cryostat. We should not make the client wait until this operation
+                // completes before sending a response - it should be async. Here we should just
+                // return an Accepted response, and if a failure occurs that should be indicated
+                // as a websocket notification.
+
+                /*
+                 * Desired workflow:
+                 *   Client sends a PATCH request to Cryostat
+                 *   Cryostat receives the PATCH and checks that the specified active recording exists and that the target JVM is reachable (ex. try to open a connection and do something relatively lightweight like compute its JVM ID). If this check succeeds respond to the PATCH with 202, if it fails respond with a 404 (recording not found) or 502 (target not reachable) etc.
+                 *   In the background, Cryostat creates the S3 file upload request, opens a target connection, pipes the bytes, etc. - same as steps 2-5 above
+                 *   Cryostat emits a WebSocket notification, either indicating task successful completion or task failure.
+                 */
+                logger.info("Ceating request");
+                ArchiveRequest request =
+                        new ArchiveRequest(UUID.randomUUID().toString(), activeRecording);
+                logger.info(
+                        "Request created: ("
+                                + request.getId()
+                                + ", "
+                                + request.recording().name
+                                + ")");
+                response.endHandler(
+                        (e) -> bus.publish(ArchiveRequestGenerator.ARCHIVE_ADDRESS, request));
+                return request.getId();
             default:
                 throw new BadRequestException(body);
         }
@@ -222,9 +245,25 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}/upload")
     @RolesAllowed("write")
-    public Uni<String> uploadToGrafana(@RestPath long targetId, @RestPath long remoteId)
+    public String uploadToGrafana(
+            HttpServerResponse response, @RestPath long targetId, @RestPath long remoteId)
             throws Exception {
-        return recordingHelper.uploadToJFRDatasource(targetId, remoteId);
+        // Send an intermediate response back to the client while another thread handles the upload
+        // request
+        logger.info("Creating grafana upload request");
+        GrafanaActiveUploadRequest request =
+                new GrafanaActiveUploadRequest(UUID.randomUUID().toString(), remoteId, targetId);
+        logger.info(
+                "Request created: ("
+                        + request.getId()
+                        + ", "
+                        + request.getRemoteId()
+                        + ", "
+                        + request.getTargetId()
+                        + ")");
+        response.endHandler(
+                (e) -> bus.publish(ArchiveRequestGenerator.GRAFANA_ACTIVE_ADDRESS, request));
+        return request.getId();
     }
 
     public record LinkedRecordingDescriptor(

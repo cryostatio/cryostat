@@ -16,6 +16,10 @@
 package itest;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
@@ -35,6 +39,8 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 public class TargetRecordingPatchTest extends StandardSelfTest {
+
+    private final ExecutorService worker = ForkJoinPool.commonPool();
 
     static final String TEST_RECORDING_NAME = "someRecording";
 
@@ -84,8 +90,25 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
                                     null,
                                     Buffer.buffer("SAVE"),
                                     5);
-            MatcherAssert.assertThat(saveResponse.statusCode(), Matchers.equalTo(204));
-            MatcherAssert.assertThat(saveResponse.body(), Matchers.equalTo(null));
+            MatcherAssert.assertThat(saveResponse.statusCode(), Matchers.equalTo(200));
+            MatcherAssert.assertThat(saveResponse.bodyAsString(), Matchers.any(String.class));
+
+            CountDownLatch latch = new CountDownLatch(1);
+            Future<JsonObject> f =
+                    worker.submit(
+                            () -> {
+                                try {
+                                    return expectNotification(
+                                                    "ArchiveRecordingFailed", 15, TimeUnit.SECONDS)
+                                            .get();
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                } finally {
+                                    latch.countDown();
+                                }
+                            });
+
+            latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
             // Assert that no recording was archived
             CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
