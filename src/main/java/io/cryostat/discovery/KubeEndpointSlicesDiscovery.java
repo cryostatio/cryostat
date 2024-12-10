@@ -45,6 +45,7 @@ import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectReference;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.discovery.v1.Endpoint;
+import io.fabric8.kubernetes.api.model.discovery.v1.EndpointConditions;
 import io.fabric8.kubernetes.api.model.discovery.v1.EndpointPort;
 import io.fabric8.kubernetes.api.model.discovery.v1.EndpointSlice;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -235,7 +236,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                     queryForNode(ref.getNamespace(), ref.getName(), ref.getKind())
                                             .getLeft(),
                                     addr,
-                                    port));
+                                    port,
+                                    endpoint.getConditions()));
                 }
             }
         }
@@ -602,12 +604,19 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         HasMetadata obj;
         String addr;
         EndpointPort port;
+        EndpointConditions conditions;
 
-        TargetTuple(ObjectReference objRef, HasMetadata obj, String addr, EndpointPort port) {
+        TargetTuple(
+                ObjectReference objRef,
+                HasMetadata obj,
+                String addr,
+                EndpointPort port,
+                EndpointConditions conditions) {
             this.objRef = objRef;
             this.obj = obj;
             this.addr = addr;
             this.port = port;
+            this.conditions = conditions;
         }
 
         public Target toTarget() {
@@ -640,7 +649,15 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                         "NAMESPACE",
                                         objRef.getNamespace(),
                                         isPod ? "POD_NAME" : "OBJECT_NAME",
-                                        objRef.getName()));
+                                        objRef.getName(),
+                                        "CONDITION_READY",
+                                        String.valueOf(Boolean.TRUE.equals(conditions.getReady())),
+                                        "CONDITION_SERVING",
+                                        String.valueOf(
+                                                Boolean.TRUE.equals(conditions.getServing())),
+                                        "CONDITION_TERMINATING",
+                                        String.valueOf(
+                                                Boolean.TRUE.equals(conditions.getTerminating()))));
 
                 return target;
             } catch (Exception e) {
