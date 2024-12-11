@@ -66,25 +66,21 @@ public class LongRunningRequestGenerator {
 
     @ConsumeEvent(value = ARCHIVE_ADDRESS, blocking = true)
     public void onMessage(ArchiveRequest request) {
+        logger.trace("Job ID: " + request.getId() + " submitted.");
         try {
-            logger.trace("Job ID: " + request.getId() + " submitted.");
-            try {
-                String rec = recordingHelper.archiveRecording(request.recording, null, null).name();
-                logger.trace("Recording archived, firing notification");
-                bus.publish(
-                        MessagingServer.class.getName(),
-                        new Notification(
-                                ARCHIVE_RECORDING_SUCCESS,
-                                Map.of("jobId", request.getId(), "recording", rec)));
-            } catch (Exception e) {
-                logger.warn("Archiving failed");
-                bus.publish(
-                        MessagingServer.class.getName(),
-                        new Notification(ARCHIVE_RECORDING_FAIL, Map.of("jobId", request.getId())));
-                throw new CompletionException(e);
-            }
+            String rec = recordingHelper.archiveRecording(request.recording, null, null).name();
+            logger.trace("Recording archived, firing notification");
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            ARCHIVE_RECORDING_SUCCESS,
+                            Map.of("jobId", request.getId(), "recording", rec)));
         } catch (Exception e) {
-            logger.warn("Exception thrown while servicing request: ", e);
+            logger.warn("Archiving failed");
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(ARCHIVE_RECORDING_FAIL, Map.of("jobId", request.getId())));
+            throw new CompletionException(e);
         }
     }
 
