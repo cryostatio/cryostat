@@ -80,9 +80,9 @@ public class MatchExpressionsTest extends AbstractTransactionalTestBase {
                 "this is garbage | 400 | false",
                 "target.alias == 'selftest' | 200 | true",
                 "target.alias == '' | 200 | false",
-                "eventTypeIds(target).exists(x, x.contains('jdk')) | 200 | true",
-                "eventTypeIds(target).exists(t, t.contains('nonsense')) | 200 | false",
-                "eventTypeIds(target).exists(x, t.contains('wrong binding')) | 400 | false",
+                "jfrEventTypeIds(target).exists(x, x.contains('jdk')) | 200 | true",
+                "jfrEventTypeIds(target).exists(t, t.contains('nonsense')) | 200 | false",
+                "jfrEventTypeIds(target).exists(x, t.contains('wrong binding')) | 400 | false",
             })
     public void testExpressionTest(String expr, int status, boolean expectTargets) {
         int id = defineSelfCustomTarget();
