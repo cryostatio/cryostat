@@ -113,7 +113,7 @@ class MemoryCachingReportsService implements ReportsService {
     @Override
     public boolean keyExists(ActiveRecording recording) {
         String key = ReportsService.key(recording);
-        return (quarkusCache || memoryCache)
+        return (quarkusCache && memoryCache)
                 && (activeCache.as(CaffeineCache.class).keySet().contains(key)
                         || delegate.keyExists(recording));
     }
@@ -121,7 +121,7 @@ class MemoryCachingReportsService implements ReportsService {
     @Override
     public boolean keyExists(String jvmId, String filename) {
         String key = recordingHelper.archivedRecordingKey(jvmId, filename);
-        return (quarkusCache || memoryCache)
+        return (quarkusCache && memoryCache)
                 && (archivedCache.as(CaffeineCache.class).keySet().contains(key)
                         || delegate.keyExists(jvmId, filename));
     }

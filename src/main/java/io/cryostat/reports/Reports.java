@@ -95,7 +95,7 @@ public class Reports {
 
         // If we don't have a cached result, delegate to the ArchiveRequestGenerator
         // and return the job ID with a location header.
-        logger.info("Cache miss. Creating archived reports request");
+        logger.trace("Cache miss. Creating archived reports request");
         ArchivedReportRequest request =
                 new ArchivedReportRequest(UUID.randomUUID().toString(), pair);
         response.bodyEndHandler(
@@ -136,7 +136,7 @@ public class Reports {
 
         // If there isn't a cached result available, delegate to the ArchiveRequestGenerator
         // and return the job ID with a location header.
-        logger.info("Cache miss. Creating active reports request");
+        logger.trace("Cache miss. Creating active reports request");
         ActiveReportRequest request =
                 new ActiveReportRequest(UUID.randomUUID().toString(), recording);
         response.bodyEndHandler(

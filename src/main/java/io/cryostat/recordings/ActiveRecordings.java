@@ -235,10 +235,10 @@ public class ActiveRecordings {
             throws Exception {
         // Send an intermediate response back to the client while another thread handles the upload
         // request
-        logger.info("Creating grafana upload request");
+        logger.trace("Creating grafana upload request");
         GrafanaActiveUploadRequest request =
                 new GrafanaActiveUploadRequest(UUID.randomUUID().toString(), remoteId, targetId);
-        logger.info(
+        logger.trace(
                 "Request created: ("
                         + request.getId()
                         + ", "

@@ -34,7 +34,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.slf4j.Logger;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class LongRunningRequestGenerator {

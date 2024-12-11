@@ -492,10 +492,10 @@ public class ArchivedRecordings {
         }
         // Send an intermediate response back to the client while another thread handles the upload
         // request
-        logger.info("Creating grafana upload request");
+        logger.trace("Creating grafana upload request");
         GrafanaArchiveUploadRequest request =
                 new GrafanaArchiveUploadRequest(UUID.randomUUID().toString(), pair);
-        logger.info(
+        logger.trace(
                 "Request created: (" + request.getId() + ", " + request.getPair().toString() + ")");
         response.endHandler(
                 (e) -> bus.publish(LongRunningRequestGenerator.GRAFANA_ARCHIVE_ADDRESS, request));
