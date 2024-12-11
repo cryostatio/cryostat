@@ -20,9 +20,9 @@ import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
-import io.cryostat.recordings.ArchiveRequestGenerator;
-import io.cryostat.recordings.ArchiveRequestGenerator.ActiveReportRequest;
-import io.cryostat.recordings.ArchiveRequestGenerator.ArchivedReportRequest;
+import io.cryostat.recordings.LongRunningRequestGenerator;
+import io.cryostat.recordings.LongRunningRequestGenerator.ActiveReportRequest;
+import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
@@ -55,7 +55,7 @@ public class Reports {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
-    @Inject ArchiveRequestGenerator generator;
+    @Inject LongRunningRequestGenerator generator;
     @Inject StorageBuckets storageBuckets;
     @Inject RecordingHelper helper;
     @Inject ReportsService reportsService;
@@ -99,8 +99,8 @@ public class Reports {
         ArchivedReportRequest request =
                 new ArchivedReportRequest(UUID.randomUUID().toString(), pair);
         response.bodyEndHandler(
-                (e) -> bus.publish(ArchiveRequestGenerator.ARCHIVE_REPORT_ADDRESS, request));
-        return Response.ok(request.getId())
+                (e) -> bus.publish(LongRunningRequestGenerator.ARCHIVE_REPORT_ADDRESS, request));
+        return Response.ok(request.getId(), MediaType.TEXT_PLAIN)
                 .status(202)
                 .location(
                         UriBuilder.fromUri(
@@ -140,7 +140,7 @@ public class Reports {
         ActiveReportRequest request =
                 new ActiveReportRequest(UUID.randomUUID().toString(), recording);
         response.bodyEndHandler(
-                (e) -> bus.publish(ArchiveRequestGenerator.ACTIVE_REPORT_ADDRESS, request));
+                (e) -> bus.publish(LongRunningRequestGenerator.ACTIVE_REPORT_ADDRESS, request));
         // TODO implement query parameter for evaluation predicate
         return Response.ok(request.getId())
                 .status(202)

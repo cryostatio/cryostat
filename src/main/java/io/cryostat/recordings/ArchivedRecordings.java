@@ -35,7 +35,7 @@ import io.cryostat.StorageBuckets;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
-import io.cryostat.recordings.ArchiveRequestGenerator.GrafanaArchiveUploadRequest;
+import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaArchiveUploadRequest;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
@@ -498,7 +498,7 @@ public class ArchivedRecordings {
         logger.info(
                 "Request created: (" + request.getId() + ", " + request.getPair().toString() + ")");
         response.endHandler(
-                (e) -> bus.publish(ArchiveRequestGenerator.GRAFANA_ARCHIVE_ADDRESS, request));
+                (e) -> bus.publish(LongRunningRequestGenerator.GRAFANA_ARCHIVE_ADDRESS, request));
         return request.getId();
     }
 

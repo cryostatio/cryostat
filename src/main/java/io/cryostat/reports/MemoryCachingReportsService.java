@@ -16,7 +16,6 @@
 package io.cryostat.reports;
 
 import java.util.Map;
-import java.util.Objects;
 import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
@@ -115,15 +114,15 @@ class MemoryCachingReportsService implements ReportsService {
     public boolean keyExists(ActiveRecording recording) {
         String key = ReportsService.key(recording);
         return (quarkusCache || memoryCache)
-                && !Objects.isNull(activeCache.as(CaffeineCache.class).getIfPresent(key))
-                && !delegate.keyExists(recording);
+                && (activeCache.as(CaffeineCache.class).keySet().contains(key)
+                        || delegate.keyExists(recording));
     }
 
     @Override
     public boolean keyExists(String jvmId, String filename) {
         String key = recordingHelper.archivedRecordingKey(jvmId, filename);
         return (quarkusCache || memoryCache)
-                && !Objects.isNull(archivedCache.as(CaffeineCache.class).getIfPresent(key))
-                && !delegate.keyExists(jvmId, filename);
+                && (archivedCache.as(CaffeineCache.class).keySet().contains(key)
+                        || delegate.keyExists(jvmId, filename));
     }
 }

@@ -38,7 +38,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 @ApplicationScoped
-public class ArchiveRequestGenerator {
+public class LongRunningRequestGenerator {
 
     public static final String ARCHIVE_ADDRESS =
             "io.cryostat.recordings.ArchiveRequestGenerator.ArchiveRequest";
@@ -66,7 +66,7 @@ public class ArchiveRequestGenerator {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
-    public ArchiveRequestGenerator(ExecutorService executor) {
+    public LongRunningRequestGenerator(ExecutorService executor) {
         this.executor = executor;
     }
 
@@ -84,7 +84,8 @@ public class ArchiveRequestGenerator {
                         bus.publish(
                                 MessagingServer.class.getName(),
                                 new Notification(
-                                        ARCHIVE_RECORDING_SUCCESS, Map.of("recording", rec)));
+                                        ARCHIVE_RECORDING_SUCCESS,
+                                        Map.of("jobId", request.getId(), "recording", rec)));
                         return request.getId();
                     } catch (Exception e) {
                         logger.info("Archiving failed");
