@@ -142,7 +142,7 @@ public class Reports {
         response.bodyEndHandler(
                 (e) -> bus.publish(LongRunningRequestGenerator.ACTIVE_REPORT_ADDRESS, request));
         // TODO implement query parameter for evaluation predicate
-        return Response.ok(request.getId())
+        return Response.ok(request.getId(), MediaType.TEXT_PLAIN)
                 .status(202)
                 .location(
                         UriBuilder.fromUri(
