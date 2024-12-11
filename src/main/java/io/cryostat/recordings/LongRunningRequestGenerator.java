@@ -35,7 +35,6 @@ import jakarta.inject.Inject;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 @ApplicationScoped
 public class LongRunningRequestGenerator {
@@ -57,11 +56,11 @@ public class LongRunningRequestGenerator {
     private static final String REPORT_SUCCESS = "ReportSuccess";
     private static final String REPORT_FAILURE = "ReportFailure";
     private final ExecutorService executor;
-    private final Logger logger = LoggerFactory.getLogger(getClass());
 
+    @Inject Logger logger;
     @Inject private EventBus bus;
     @Inject private RecordingHelper recordingHelper;
-    @Inject ReportsService reportsService;
+    @Inject private ReportsService reportsService;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
@@ -74,13 +73,13 @@ public class LongRunningRequestGenerator {
         Objects.requireNonNull(request.recording);
         return executor.submit(
                 () -> {
-                    logger.info("Job ID: " + request.getId() + " submitted.");
+                    logger.trace("Job ID: " + request.getId() + " submitted.");
                     try {
                         String rec =
                                 recordingHelper
                                         .archiveRecording(request.recording, null, null)
                                         .name();
-                        logger.info("Recording archived, firing notification");
+                        logger.trace("Recording archived, firing notification");
                         bus.publish(
                                 MessagingServer.class.getName(),
                                 new Notification(
@@ -88,7 +87,7 @@ public class LongRunningRequestGenerator {
                                         Map.of("jobId", request.getId(), "recording", rec)));
                         return request.getId();
                     } catch (Exception e) {
-                        logger.info("Archiving failed");
+                        logger.warn("Archiving failed");
                         bus.publish(
                                 MessagingServer.class.getName(),
                                 new Notification(
@@ -110,9 +109,9 @@ public class LongRunningRequestGenerator {
     @ConsumeEvent(value = GRAFANA_ARCHIVE_ADDRESS, blocking = true)
     public void onMessage(GrafanaArchiveUploadRequest request) {
         try {
-            logger.info("Job ID: " + request.getId() + " submitted.");
+            logger.trace("Job ID: " + request.getId() + " submitted.");
             recordingHelper.uploadToJFRDatasource(request.getPair()).await().atMost(timeout);
-            logger.info("Grafana upload complete, firing notification");
+            logger.trace("Grafana upload complete, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(GRAFANA_UPLOAD_SUCCESS, Map.of("jobId", request.getId())));
@@ -127,12 +126,12 @@ public class LongRunningRequestGenerator {
     @ConsumeEvent(value = GRAFANA_ACTIVE_ADDRESS, blocking = true)
     public void onMessage(GrafanaActiveUploadRequest request) {
         try {
-            logger.info("Job ID: " + request.getId() + " submitted.");
+            logger.trace("Job ID: " + request.getId() + " submitted.");
             recordingHelper
                     .uploadToJFRDatasource(request.getTargetId(), request.getRemoteId())
                     .await()
                     .atMost(timeout);
-            logger.info("Grafana upload complete, firing notification");
+            logger.trace("Grafana upload complete, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(GRAFANA_UPLOAD_SUCCESS, Map.of("jobId", request.getId())));
@@ -147,9 +146,9 @@ public class LongRunningRequestGenerator {
     @ConsumeEvent(value = ACTIVE_REPORT_ADDRESS, blocking = true)
     public void onMessage(ActiveReportRequest request) {
         try {
-            logger.info("Job ID: " + request.getId() + " submitted.");
+            logger.trace("Job ID: " + request.getId() + " submitted.");
             reportsService.reportFor(request.recording).await().atMost(timeout);
-            logger.info("Report generation complete, firing notification");
+            logger.trace("Report generation complete, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(REPORT_SUCCESS, Map.of("jobId", request.getId())));
@@ -164,12 +163,12 @@ public class LongRunningRequestGenerator {
     @ConsumeEvent(value = ARCHIVE_REPORT_ADDRESS, blocking = true)
     public void onMessage(ArchivedReportRequest request) {
         try {
-            logger.info("Job ID: " + request.getId() + " submitted.");
+            logger.trace("Job ID: " + request.getId() + " submitted.");
             reportsService
                     .reportFor(request.getPair().getKey(), request.getPair().getValue())
                     .await()
                     .atMost(timeout);
-            logger.info("Report generation complete, firing notification");
+            logger.trace("Report generation complete, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(REPORT_SUCCESS, Map.of("jobId", request.getId())));
