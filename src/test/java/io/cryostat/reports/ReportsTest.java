@@ -85,7 +85,7 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                         .all()
                         .when()
                         .pathParams(Map.of("targetId", targetId))
-                        .formParam("recordingName", "activeRecordingsTest")
+                        .formParam("recordingName", "activeRecordingsTestReports")
                         .formParam("events", "template=Continuous")
                         .pathParam("targetId", targetId)
                         .post("/api/v4/targets/{targetId}/recordings")
@@ -111,9 +111,9 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .body("size()", Matchers.greaterThan(0));
+                .statusCode(202)
+                .contentType(ContentType.TEXT)
+                .body(Matchers.any(String.class));
 
         given().log()
                 .all()
@@ -136,7 +136,7 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                         .all()
                         .when()
                         .pathParams(Map.of("targetId", targetId))
-                        .formParam("recordingName", "activeRecordingsTest")
+                        .formParam("recordingName", "activeRecordingsTestReportsURL")
                         .formParam("events", "template=Continuous")
                         .pathParam("targetId", targetId)
                         .post("/api/v4/targets/{targetId}/recordings")
@@ -163,9 +163,9 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .body("size()", Matchers.greaterThan(0));
+                .statusCode(202)
+                .contentType(ContentType.TEXT)
+                .body(Matchers.any(String.class));
 
         given().log()
                 .all()

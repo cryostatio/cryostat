@@ -18,9 +18,12 @@ package itest;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -35,7 +38,6 @@ import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.codec.BodyCodec;
 import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
 import jdk.jfr.consumer.RecordedEvent;
@@ -48,6 +50,8 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 @QuarkusTestResource(LocalStackResource.class)
 public class RecordingWorkflowTest extends StandardSelfTest {
+
+    private final ExecutorService worker = ForkJoinPool.commonPool();
 
     static final String TEST_RECORDING_NAME = "workflow_itest";
     static final String TARGET_ALIAS = "selftest";
@@ -113,19 +117,36 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             // save a copy of the partial recording dump
             MultiMap saveHeaders = MultiMap.caseInsensitiveMultiMap();
             saveHeaders.add(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.PLAINTEXT.mime());
-            String archivedRecordingFilename =
-                    webClient
-                            .extensions()
-                            .patch(
-                                    String.format(
-                                            "/api/v4/targets/%d/recordings/%d",
-                                            getSelfReferenceTargetId(), TEST_REMOTE_ID),
-                                    saveHeaders,
-                                    Buffer.buffer("SAVE"),
-                                    REQUEST_TIMEOUT_SECONDS)
-                            .bodyAsString();
-            archivedRecordingFilenames.add(archivedRecordingFilename);
-
+            webClient
+                    .extensions()
+                    .patch(
+                            String.format(
+                                    "/api/v4/targets/%d/recordings/%d",
+                                    getSelfReferenceTargetId(), TEST_REMOTE_ID),
+                            saveHeaders,
+                            Buffer.buffer("SAVE"),
+                            REQUEST_TIMEOUT_SECONDS)
+                    .bodyAsString();
+            // Wait for the archive request to conclude, the server won't block the client
+            // while it performs the archive so we need to wait.
+            CountDownLatch archiveLatch = new CountDownLatch(1);
+            Future<JsonObject> future =
+                    worker.submit(
+                            () -> {
+                                try {
+                                    return expectNotification(
+                                                    "ArchiveRecordingSuccess", 15, TimeUnit.SECONDS)
+                                            .get();
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                } finally {
+                                    archiveLatch.countDown();
+                                }
+                            });
+            archiveLatch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            JsonObject archiveNotification = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            archivedRecordingFilenames.add(
+                    archiveNotification.getJsonObject("message").getString("recording").toString());
             // check that the in-memory recording list hasn't changed
             CompletableFuture<JsonArray> listRespFuture3 = new CompletableFuture<>();
             webClient
@@ -219,10 +240,9 @@ public class RecordingWorkflowTest extends StandardSelfTest {
 
             String reportUrl = recordingInfo.getString("reportUrl");
 
-            HttpResponse<JsonObject> reportResponse =
+            HttpResponse<Buffer> reportResponse =
                     webClient
                             .get(reportUrl)
-                            .as(BodyCodec.jsonObject())
                             .send()
                             .toCompletionStage()
                             .toCompletableFuture()
@@ -230,12 +250,27 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             MatcherAssert.assertThat(
                     reportResponse.statusCode(),
                     Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-            JsonObject report = reportResponse.body();
+            MatcherAssert.assertThat(reportResponse.bodyAsString(), Matchers.notNullValue());
 
-            Map<?, ?> response = report.getMap();
-            MatcherAssert.assertThat(response, Matchers.notNullValue());
+            // Check that report generation concludes
+            CountDownLatch latch = new CountDownLatch(1);
+            Future<JsonObject> f =
+                    worker.submit(
+                            () -> {
+                                try {
+                                    return expectNotification("ReportSuccess", 15, TimeUnit.SECONDS)
+                                            .get();
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                } finally {
+                                    latch.countDown();
+                                }
+                            });
+
+            latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             MatcherAssert.assertThat(
-                    response, Matchers.is(Matchers.aMapWithSize(Matchers.greaterThan(8))));
+                    notification.getJsonObject("message"), Matchers.notNullValue());
         } finally {
             // Clean up what we created
             try {

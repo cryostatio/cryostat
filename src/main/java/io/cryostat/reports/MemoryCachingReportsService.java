@@ -27,6 +27,7 @@ import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.cache.Cache;
 import io.quarkus.cache.CacheName;
+import io.quarkus.cache.CaffeineCache;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.decorator.Decorator;
@@ -107,5 +108,21 @@ class MemoryCachingReportsService implements ReportsService {
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
         return reportFor(jvmId, filename, r -> true);
+    }
+
+    @Override
+    public boolean keyExists(ActiveRecording recording) {
+        String key = ReportsService.key(recording);
+        return (quarkusCache && memoryCache)
+                && (activeCache.as(CaffeineCache.class).keySet().contains(key)
+                        || delegate.keyExists(recording));
+    }
+
+    @Override
+    public boolean keyExists(String jvmId, String filename) {
+        String key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        return (quarkusCache && memoryCache)
+                && (archivedCache.as(CaffeineCache.class).keySet().contains(key)
+                        || delegate.keyExists(jvmId, filename));
     }
 }

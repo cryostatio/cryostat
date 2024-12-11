@@ -109,14 +109,12 @@ public class UploadRecordingTest extends StandardSelfTest {
                                         getSelfReferenceTargetId(), RECORDING_REMOTE_ID),
                                 (Buffer) null,
                                 0);
-
+        // The endpoint should send back a job ID, while it kicks off the upload.
         MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(200));
+        MatcherAssert.assertThat(resp.bodyAsString(), Matchers.notNullValue());
 
-        final String expectedUploadResponse =
-                String.format("Uploaded: %s\nSet: %s", DATASOURCE_FILENAME, DATASOURCE_FILENAME);
-
-        MatcherAssert.assertThat(
-                resp.bodyAsString().trim(), Matchers.equalTo(expectedUploadResponse));
+        // Sleep for a bit to give the upload time to complete
+        Thread.sleep(2000);
 
         HttpRequest<Buffer> req = webClient.get("/api/v4/grafana_datasource_url");
         CompletableFuture<JsonObject> respFuture = new CompletableFuture<>();

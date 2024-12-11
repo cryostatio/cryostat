@@ -16,7 +16,11 @@
 package itest;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 
 import io.cryostat.resources.LocalStackResource;
@@ -28,6 +32,7 @@ import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.http.HttpHeaders;
 import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.handler.HttpException;
 import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
@@ -40,6 +45,8 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 @QuarkusTestResource(LocalStackResource.class)
 public class ReportGenerationTest extends StandardSelfTest {
+
+    private final ExecutorService worker = ForkJoinPool.commonPool();
 
     static final String TEST_RECORDING_NAME = "someRecording";
 
@@ -82,29 +89,38 @@ public class ReportGenerationTest extends StandardSelfTest {
             Thread.sleep(5_000);
 
             // Get a report for the above recording
-            CompletableFuture<JsonObject> reportResponse = new CompletableFuture<>();
-            webClient
-                    .get(activeRecording.getString("reportUrl"))
-                    .putHeader(HttpHeaders.ACCEPT.toString(), HttpMimeType.JSON.mime())
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, reportResponse)) {
-                                    MatcherAssert.assertThat(
-                                            ar.result().statusCode(),
-                                            Matchers.both(Matchers.greaterThanOrEqualTo(200))
-                                                    .and(Matchers.lessThan(400)));
-                                    MatcherAssert.assertThat(
-                                            ar.result()
-                                                    .getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                                            Matchers.equalTo("application/json;charset=UTF-8"));
-                                    reportResponse.complete(ar.result().bodyAsJsonObject());
+            HttpResponse<Buffer> resp =
+                    webClient
+                            .get(activeRecording.getString("reportUrl"))
+                            .putHeader(HttpHeaders.ACCEPT.toString(), HttpMimeType.JSON.mime())
+                            .send()
+                            .toCompletionStage()
+                            .toCompletableFuture()
+                            .get();
+            MatcherAssert.assertThat(
+                    resp.statusCode(),
+                    Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(400)));
+            MatcherAssert.assertThat(resp, Matchers.notNullValue());
+
+            // Check that report generation concludes
+            CountDownLatch latch = new CountDownLatch(1);
+            Future<JsonObject> f =
+                    worker.submit(
+                            () -> {
+                                try {
+                                    return expectNotification("ReportSuccess", 15, TimeUnit.SECONDS)
+                                            .get();
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                } finally {
+                                    latch.countDown();
                                 }
                             });
-            JsonObject jsonResponse = reportResponse.get();
-            MatcherAssert.assertThat(jsonResponse, Matchers.notNullValue());
+
+            latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             MatcherAssert.assertThat(
-                    jsonResponse.getMap(),
-                    Matchers.is(Matchers.aMapWithSize(Matchers.greaterThan(0))));
+                    notification.getJsonObject("message"), Matchers.notNullValue());
         } finally {
             if (activeRecording != null) {
                 // Clean up recording

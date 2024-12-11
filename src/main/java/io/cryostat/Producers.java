@@ -22,6 +22,7 @@ import java.util.concurrent.ForkJoinPool;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.libcryostat.sys.FileSystem;
+import io.cryostat.recordings.LongRunningRequestGenerator;
 
 import io.quarkus.arc.DefaultBean;
 import io.vertx.mutiny.core.Vertx;
@@ -74,6 +75,13 @@ public class Producers {
         boolean singleThread = Runtime.getRuntime().availableProcessors() < 2;
         return new InterruptibleReportGenerator(
                 singleThread ? Executors.newSingleThreadExecutor() : ForkJoinPool.commonPool());
+    }
+
+    @Produces
+    @RequestScoped
+    @DefaultBean
+    public static LongRunningRequestGenerator produceArchiveRequestGenerator() {
+        return new LongRunningRequestGenerator();
     }
 
     @Produces
