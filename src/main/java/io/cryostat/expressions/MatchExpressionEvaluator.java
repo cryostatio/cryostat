@@ -274,9 +274,9 @@ public class MatchExpressionEvaluator {
             return List.of(
                     EnvOption.declarations(
                             Decls.newFunction(
-                                    "eventTypeIds",
+                                    "jfrEventTypeIds",
                                     Decls.newOverload(
-                                            "eventTypeIds_void",
+                                            "jfrEventTypeIds_void",
                                             List.of(
                                                     Decls.newObjectType(
                                                             SimplifiedTarget.class.getName())),
@@ -288,14 +288,14 @@ public class MatchExpressionEvaluator {
             return List.of(
                     ProgramOption.functions(
                             Overload.unary(
-                                    "eventTypeIds",
+                                    "jfrEventTypeIds",
                                     (arg) ->
                                             ListT.newStringArrayList(
-                                                    getEventTypeIds(
+                                                    getJfrEventTypeIds(
                                                             (SimplifiedTarget) arg.value())))));
         }
 
-        private String[] getEventTypeIds(SimplifiedTarget st) {
+        private String[] getJfrEventTypeIds(SimplifiedTarget st) {
             Target target = Target.find("id", st.id()).singleResult();
             try {
                 return connectionManager.executeConnectedTask(
