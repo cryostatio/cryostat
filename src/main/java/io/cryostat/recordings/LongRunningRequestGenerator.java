@@ -19,8 +19,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Future;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.reports.ReportsService;
@@ -55,7 +53,6 @@ public class LongRunningRequestGenerator {
     private static final String GRAFANA_UPLOAD_FAIL = "GrafanaUploadFailed";
     private static final String REPORT_SUCCESS = "ReportSuccess";
     private static final String REPORT_FAILURE = "ReportFailure";
-    private final ExecutorService executor;
 
     @Inject Logger logger;
     @Inject private EventBus bus;
@@ -65,42 +62,27 @@ public class LongRunningRequestGenerator {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
-    public LongRunningRequestGenerator(ExecutorService executor) {
-        this.executor = executor;
-    }
+    public LongRunningRequestGenerator() {}
 
-    public Future<String> performArchive(ArchiveRequest request) {
-        Objects.requireNonNull(request.recording);
-        return executor.submit(
-                () -> {
-                    logger.trace("Job ID: " + request.getId() + " submitted.");
-                    try {
-                        String rec =
-                                recordingHelper
-                                        .archiveRecording(request.recording, null, null)
-                                        .name();
-                        logger.trace("Recording archived, firing notification");
-                        bus.publish(
-                                MessagingServer.class.getName(),
-                                new Notification(
-                                        ARCHIVE_RECORDING_SUCCESS,
-                                        Map.of("jobId", request.getId(), "recording", rec)));
-                        return request.getId();
-                    } catch (Exception e) {
-                        logger.warn("Archiving failed");
-                        bus.publish(
-                                MessagingServer.class.getName(),
-                                new Notification(
-                                        ARCHIVE_RECORDING_FAIL, Map.of("jobId", request.getId())));
-                        throw new CompletionException(e);
-                    }
-                });
-    }
-
-    @ConsumeEvent(value = ARCHIVE_ADDRESS)
+    @ConsumeEvent(value = ARCHIVE_ADDRESS, blocking = true)
     public void onMessage(ArchiveRequest request) {
         try {
-            performArchive(request);
+            logger.trace("Job ID: " + request.getId() + " submitted.");
+            try {
+                String rec = recordingHelper.archiveRecording(request.recording, null, null).name();
+                logger.trace("Recording archived, firing notification");
+                bus.publish(
+                        MessagingServer.class.getName(),
+                        new Notification(
+                                ARCHIVE_RECORDING_SUCCESS,
+                                Map.of("jobId", request.getId(), "recording", rec)));
+            } catch (Exception e) {
+                logger.warn("Archiving failed");
+                bus.publish(
+                        MessagingServer.class.getName(),
+                        new Notification(ARCHIVE_RECORDING_FAIL, Map.of("jobId", request.getId())));
+                throw new CompletionException(e);
+            }
         } catch (Exception e) {
             logger.warn("Exception thrown while servicing request: ", e);
         }

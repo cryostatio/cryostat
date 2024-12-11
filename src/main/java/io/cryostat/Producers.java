@@ -81,9 +81,7 @@ public class Producers {
     @RequestScoped
     @DefaultBean
     public static LongRunningRequestGenerator produceArchiveRequestGenerator() {
-        boolean singleThread = Runtime.getRuntime().availableProcessors() < 2;
-        return new LongRunningRequestGenerator(
-                singleThread ? Executors.newSingleThreadExecutor() : ForkJoinPool.commonPool());
+        return new LongRunningRequestGenerator();
     }
 
     @Produces
