@@ -32,6 +32,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import javax.management.remote.JMXServiceURL;
 
@@ -108,26 +109,38 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 @Override
                 protected HashMap<String, SharedIndexInformer<Endpoints>> initialize()
                         throws ConcurrentException {
-                    // TODO: add support for some wildcard indicating a single Informer for any
-                    // namespace that Cryostat has permissions to. This will need some restructuring
-                    // of how the namespaces within the discovery tree are mapped.
                     var result = new HashMap<String, SharedIndexInformer<Endpoints>>();
-                    kubeConfig
-                            .getWatchNamespaces()
-                            .forEach(
-                                    ns -> {
-                                        result.put(
-                                                ns,
-                                                client.endpoints()
-                                                        .inNamespace(ns)
-                                                        .inform(
-                                                                KubeApiDiscovery.this,
-                                                                informerResyncPeriod.toMillis()));
-                                        logger.debugv(
-                                                "Started Endpoints SharedInformer for namespace"
-                                                        + " \"{0}\" with resync period {1}",
-                                                ns, informerResyncPeriod);
-                                    });
+                    if (kubeConfig.watchAllNamespaces()) {
+                        result.put(
+                                KubeConfig.ALL_NAMESPACES,
+                                client.endpoints()
+                                        .inAnyNamespace()
+                                        .inform(
+                                                KubeApiDiscovery.this,
+                                                informerResyncPeriod.toMillis()));
+                        logger.debugv(
+                                "Started Endpoints Informer for All Namespaces with resync period"
+                                        + " {0}",
+                                informerResyncPeriod);
+                    } else {
+                        kubeConfig
+                                .getWatchNamespaces()
+                                .forEach(
+                                        ns -> {
+                                            result.put(
+                                                    ns,
+                                                    client.endpoints()
+                                                            .inNamespace(ns)
+                                                            .inform(
+                                                                    KubeApiDiscovery.this,
+                                                                    informerResyncPeriod
+                                                                            .toMillis()));
+                                            logger.debugv(
+                                                    "Started Endpoints SharedInformer for namespace"
+                                                            + " \"{0}\" with resync period {1}",
+                                                    ns, informerResyncPeriod);
+                                        });
+                    }
                     return result;
                 }
             };
@@ -144,11 +157,13 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
         logger.debugv("Starting {0} client", REALM);
         safeGetInformers();
+        // TODO we should not need to force manual re-syncs this way - the Informer is already
+        // supposed to resync itself.
         resyncWorker.scheduleAtFixedRate(
                 () -> {
                     try {
                         logger.debug("Resyncing");
-                        notify(NamespaceQueryEvent.from(kubeConfig.getWatchNamespaces()));
+                        notify(NamespaceQueryEvent.from(getWatchNamespaces()));
                     } catch (Exception e) {
                         logger.warn(e);
                     }
@@ -156,6 +171,17 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 0,
                 informerResyncPeriod.toMillis(),
                 TimeUnit.MILLISECONDS);
+    }
+
+    private List<String> getWatchNamespaces() {
+        if (kubeConfig.watchAllNamespaces()) {
+            return client.namespaces().list().getItems().stream()
+                    .map(ns -> ns.getMetadata().getName())
+                    .toList();
+        }
+        return kubeConfig.getWatchNamespaces().stream()
+                .filter(ns -> !KubeConfig.ALL_NAMESPACES.equals(ns))
+                .toList();
     }
 
     void onStop(@Observes ShutdownEvent evt) {
@@ -226,6 +252,15 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
             for (EndpointPort port : subset.getPorts()) {
                 for (EndpointAddress addr : subset.getAddresses()) {
                     var ref = addr.getTargetRef();
+                    if (ref == null) {
+                        logger.debugv(
+                                "Endpoints object {0} in {1} with address {2} had a null"
+                                        + " targetRef",
+                                endpoints.getMetadata().getName(),
+                                endpoints.getMetadata().getNamespace(),
+                                addr.getIp());
+                        continue;
+                    }
                     tts.add(
                             new TargetTuple(
                                     ref,
@@ -295,8 +330,24 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                     persistedTargets.add(node.target);
                 }
 
+                Stream<Endpoints> endpoints;
+                if (kubeConfig.watchAllNamespaces()) {
+                    endpoints =
+                            safeGetInformers()
+                                    .get(KubeConfig.ALL_NAMESPACES)
+                                    .getStore()
+                                    .list()
+                                    .stream()
+                                    .filter(
+                                            ep ->
+                                                    Objects.equals(
+                                                            ep.getMetadata().getNamespace(),
+                                                            namespace));
+                } else {
+                    endpoints = safeGetInformers().get(namespace).getStore().list().stream();
+                }
                 Set<Target> observedTargets =
-                        safeGetInformers().get(namespace).getStore().list().stream()
+                        endpoints
                                 .map((endpoint) -> getTargetTuplesFrom(endpoint))
                                 .flatMap(List::stream)
                                 .filter((tuple) -> Objects.nonNull(tuple.objRef))
@@ -533,6 +584,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
     @ApplicationScoped
     static final class KubeConfig {
+        static final String ALL_NAMESPACES = "*";
         private static final String OWN_NAMESPACE = ".";
 
         @Inject Logger logger;
@@ -546,6 +598,11 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
         @ConfigProperty(name = "cryostat.discovery.kubernetes.namespace-path")
         String namespacePath;
+
+        boolean watchAllNamespaces() {
+            return watchNamespaces.orElse(List.of()).stream()
+                    .anyMatch(ns -> ALL_NAMESPACES.equals(ns));
+        }
 
         Collection<String> getWatchNamespaces() {
             return watchNamespaces.orElse(List.of()).stream()
