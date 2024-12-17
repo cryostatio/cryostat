@@ -92,6 +92,7 @@ ENTRYPOINT [ "/deployments/app/entrypoint.bash", "/opt/jboss/container/java/run/
 
 # We make distinct layers so if there are application changes the library layers can be re-used
 COPY --chown=185 src/main/docker/include/cryostat.jfc /usr/lib/jvm/jre/lib/jfr/
+COPY --chown=185 src/main/docker/include/template_presets/* /opt/cryostat.d/presets.d/
 COPY --chown=185 src/main/docker/include/genpass.bash /deployments/app/
 COPY --chown=185 src/main/docker/include/entrypoint.bash /deployments/app/
 COPY --chown=185 src/main/docker/include/truststore-setup.bash /deployments/app/
