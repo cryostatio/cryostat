@@ -72,7 +72,7 @@ public class AgentClient {
     public static final String NULL_CREDENTIALS = "No credentials found for agent";
 
     @ConfigProperty(name = ConfigProperties.AGENT_TLS_ENABLED)
-    private boolean TLS_ENABLED;
+    private boolean tlsEnabled;
 
     private final Target target;
     private final WebClient webClient;
@@ -446,6 +446,14 @@ public class AgentClient {
             HttpMethod mtd, String path, Buffer payload, BodyCodec<T> codec) {
         logger.debugv("{0} {1} {2}", mtd, getUri(), path);
 
+        if (tlsEnabled && !getUri().getScheme().equals("https")) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Agent is configured with TLS enabled (%s) but the agent URI is not an"
+                                    + " https connection.",
+                            ConfigProperties.AGENT_TLS_ENABLED));
+        }
+
         Credential credential =
                 DiscoveryPlugin.<DiscoveryPlugin>find("callback", getUri())
                         .singleResult()
@@ -454,7 +462,7 @@ public class AgentClient {
         HttpRequest<T> req =
                 webClient
                         .request(mtd, getUri().getPort(), getUri().getHost(), path)
-                        .ssl("https".equals(getUri().getScheme()))
+                        .ssl("https".equals(getUri().getScheme()) && tlsEnabled)
                         .timeout(httpTimeout.toMillis())
                         .followRedirects(true)
                         .as(codec)
