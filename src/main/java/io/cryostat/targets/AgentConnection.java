@@ -91,11 +91,7 @@ class AgentConnection implements JFRConnection {
     }
 
     public static boolean isAgentConnection(URI uri) {
-        if (TLS_ENABLED) {
-            return Set.of("https", "cryostat-agent").contains(uri.getScheme());
-        } else {
-            return Set.of("http", "https", "cryostat-agent").contains(uri.getScheme());
-        }
+        return Set.of("http", "https", "cryostat-agent").contains(uri.getScheme());
     }
 
     @Override
