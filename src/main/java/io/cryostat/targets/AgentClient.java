@@ -462,7 +462,7 @@ public class AgentClient {
         HttpRequest<T> req =
                 webClient
                         .request(mtd, getUri().getPort(), getUri().getHost(), path)
-                        .ssl("https".equals(getUri().getScheme()) && tlsEnabled)
+                        .ssl("https".equals(getUri().getScheme()))
                         .timeout(httpTimeout.toMillis())
                         .followRedirects(true)
                         .as(codec)
