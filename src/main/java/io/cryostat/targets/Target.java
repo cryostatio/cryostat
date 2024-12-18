@@ -15,6 +15,7 @@
  */
 package io.cryostat.targets;
 
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -32,6 +33,7 @@ import java.util.stream.Collectors;
 
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.util.URIUtil;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -278,6 +280,7 @@ public class Target extends PanacheEntity {
     @ApplicationScoped
     static class Listener {
 
+        @Inject URIUtil uriUtil;
         @Inject Logger logger;
         @Inject EventBus bus;
 
@@ -290,7 +293,17 @@ public class Target extends PanacheEntity {
             if (!Objects.equals(encodedAlias, target.alias)) {
                 target.alias = encodedAlias;
             }
-
+            try {
+                if (!uriUtil.validateUri(target.connectUrl)) {
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "Connect URL of \"%s\" is unacceptable with the"
+                                            + " current URI range settings",
+                                    target.connectUrl));
+                }
+            } catch (MalformedURLException me) {
+                throw new IllegalArgumentException();
+            }
             if (target.labels == null) {
                 target.labels = new HashMap<>();
             }

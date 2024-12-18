@@ -201,8 +201,15 @@ public class Discovery {
                             callbackUri));
         }
 
-        // TODO apply URI range validation to the remote address
         InetAddress remoteAddress = getRemoteAddress(ctx);
+        URI remoteURI = new URI(remoteAddress.getHostAddress());
+        if (!uriUtil.validateUri(remoteURI)) {
+            throw new BadRequestException(
+                    String.format(
+                            "Remote Address of \"%s\" is unacceptable with the"
+                                    + " current URI range settings",
+                            remoteURI));
+        }
         URI location;
         DiscoveryPlugin plugin;
         if (StringUtils.isNotBlank(pluginId) && StringUtils.isNotBlank(priorToken)) {
@@ -312,6 +319,14 @@ public class Discovery {
         plugin.realm.children.addAll(body);
         for (var b : body) {
             if (b.target != null) {
+                // URI range validation
+                if (!uriUtil.validateUri(b.target.connectUrl)) {
+                    throw new BadRequestException(
+                            String.format(
+                                    "Connect URL of \"%s\" is unacceptable with the"
+                                            + " current URI range settings",
+                                    b.target.connectUrl));
+                }
                 b.target.discoveryNode = b;
                 b.target.discoveryNode.parent = plugin.realm;
                 b.parent = plugin.realm;
