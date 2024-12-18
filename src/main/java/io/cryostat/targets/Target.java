@@ -302,7 +302,7 @@ public class Target extends PanacheEntity {
                                     target.connectUrl));
                 }
             } catch (MalformedURLException me) {
-                throw new IllegalArgumentException();
+                throw new IllegalArgumentException(me);
             }
             if (target.labels == null) {
                 target.labels = new HashMap<>();
