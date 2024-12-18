@@ -16,6 +16,7 @@
 package io.cryostat.targets;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.util.Set;
 
@@ -28,6 +29,7 @@ import org.openjdk.jmc.rjmx.common.ConnectionException;
 import org.openjdk.jmc.rjmx.common.IConnectionHandle;
 import org.openjdk.jmc.rjmx.common.ServiceNotAvailableException;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.CryostatFlightRecorderService;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.templates.RemoteTemplateService;
@@ -40,6 +42,7 @@ import io.cryostat.libcryostat.sys.Clock;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 class AgentConnection implements JFRConnection {
@@ -47,6 +50,9 @@ class AgentConnection implements JFRConnection {
     private final AgentClient client;
     private final TemplateService customTemplateService;
     private final Logger logger = Logger.getLogger(getClass());
+
+    @ConfigProperty(name = ConfigProperties.AGENT_TLS_REQUIRED)
+    private static boolean TLS_REQUIRED;
 
     AgentConnection(AgentClient client, TemplateService customTemplateService) {
         this.client = client;
@@ -156,8 +162,15 @@ class AgentConnection implements JFRConnection {
         @Inject S3TemplateService customTemplateService;
         @Inject Logger logger;
 
-        public AgentConnection createConnection(Target target) {
-            return new AgentConnection(clientFactory.create(target), customTemplateService);
+        public AgentConnection createConnection(Target target) throws MalformedURLException {
+            if (TLS_REQUIRED && target.connectUrl.getScheme().equals("https")) {
+                return new AgentConnection(clientFactory.create(target), customTemplateService);
+            } else {
+                throw new MalformedURLException(
+                        String.format(
+                                "Agent connections are required to be TLS by (%s)",
+                                ConfigProperties.AGENT_TLS_REQUIRED));
+            }
         }
     }
 }
