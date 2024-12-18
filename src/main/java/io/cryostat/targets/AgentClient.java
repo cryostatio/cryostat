@@ -71,7 +71,7 @@ public class AgentClient {
 
     public static final String NULL_CREDENTIALS = "No credentials found for agent";
 
-    @ConfigProperty(name = ConfigProperties.AGENT_TLS_ENABLED)
+    @ConfigProperty(name = ConfigProperties.AGENT_TLS_REQUIRED)
     private boolean tlsEnabled;
 
     private final Target target;
@@ -451,7 +451,7 @@ public class AgentClient {
                     String.format(
                             "Agent is configured with TLS enabled (%s) but the agent URI is not an"
                                     + " https connection.",
-                            ConfigProperties.AGENT_TLS_ENABLED));
+                            ConfigProperties.AGENT_TLS_REQUIRED));
         }
 
         Credential credential =
