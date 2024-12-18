@@ -59,4 +59,6 @@ public class ConfigProperties {
     public static final String SSL_TRUSTSTORE_DIR = "ssl.truststore.dir";
 
     public static final String URI_RANGE = "cryostat.target.uri-range";
+
+    public static final String AGENT_TLS_ENABLED = "cryostat.agent.tls.enabled";
 }

@@ -28,6 +28,7 @@ import org.openjdk.jmc.rjmx.common.ConnectionException;
 import org.openjdk.jmc.rjmx.common.IConnectionHandle;
 import org.openjdk.jmc.rjmx.common.ServiceNotAvailableException;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.CryostatFlightRecorderService;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.templates.RemoteTemplateService;
@@ -40,6 +41,8 @@ import io.cryostat.libcryostat.sys.Clock;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 class AgentConnection implements JFRConnection {
@@ -47,6 +50,9 @@ class AgentConnection implements JFRConnection {
     private final AgentClient client;
     private final TemplateService customTemplateService;
     private final Logger logger = Logger.getLogger(getClass());
+
+    @ConfigProperty(name = ConfigProperties.AGENT_TLS_ENABLED)
+    private static boolean TLS_ENABLED;
 
     AgentConnection(AgentClient client, TemplateService customTemplateService) {
         this.client = client;
@@ -86,7 +92,11 @@ class AgentConnection implements JFRConnection {
     }
 
     public static boolean isAgentConnection(URI uri) {
-        return Set.of("http", "https", "cryostat-agent").contains(uri.getScheme());
+        if (TLS_ENABLED) {
+            return Set.of("https", "cryostat-agent").contains(uri.getScheme());
+        } else {
+            return Set.of("http", "https", "cryostat-agent").contains(uri.getScheme());
+        }
     }
 
     @Override

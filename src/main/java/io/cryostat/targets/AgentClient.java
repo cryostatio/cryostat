@@ -71,6 +71,9 @@ public class AgentClient {
 
     public static final String NULL_CREDENTIALS = "No credentials found for agent";
 
+    @ConfigProperty(name = ConfigProperties.AGENT_TLS_ENABLED)
+    private boolean TLS_ENABLED;
+
     private final Target target;
     private final WebClient webClient;
     private final Duration httpTimeout;
