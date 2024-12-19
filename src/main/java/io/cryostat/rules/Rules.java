@@ -15,14 +15,22 @@
  */
 package io.cryostat.rules;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
+import java.util.Objects;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.util.EntityExistsException;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
@@ -36,6 +44,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
@@ -45,7 +55,71 @@ import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 @Path("/api/v4/rules")
 public class Rules {
 
+    @ConfigProperty(name = ConfigProperties.RULES_DIR)
+    java.nio.file.Path dir;
+
+    @Inject Logger logger;
     @Inject EventBus bus;
+    @Inject ObjectMapper mapper;
+
+    @Transactional
+    void onStart(@Observes StartupEvent evt) {
+        if (!checkDir()) {
+            return;
+        }
+        try {
+            Files.walk(dir)
+                    .filter(Files::isRegularFile)
+                    .filter(Files::isReadable)
+                    .peek(
+                            p ->
+                                    logger.tracev(
+                                            "Processing declarative Automated Rule definition at"
+                                                    + " {}",
+                                            p))
+                    .forEach(this::processDeclarativeRule);
+        } catch (IOException e) {
+            logger.error(e);
+        }
+    }
+
+    private void processDeclarativeRule(java.nio.file.Path path) {
+        try (var is = new BufferedInputStream(Files.newInputStream(path))) {
+            var declarativeRule = mapper.readValue(is, Rule.class);
+            logger.tracev(
+                    "Processing eclarative Automated" + " Rule with name \"{}\"",
+                    declarativeRule.name);
+            var exists = Rule.find("name", declarativeRule.name).count() != 0;
+            if (exists) {
+                var existingRule = Rule.<Rule>find("name", declarativeRule.name).singleResult();
+                // remove for equality check. The declarative rule is not expected to have a
+                // database ID yet existingRule.id = null;
+                if (Objects.equals(declarativeRule, existingRule)) {
+                    return;
+                }
+                logger.debugv(
+                        "Rule with name \"{}\" already exists in database. Replacing with"
+                                + " declarative rule at {}. Previous definition:\n"
+                                + "{}",
+                        declarativeRule.name,
+                        path,
+                        mapper.writeValueAsString(existingRule));
+                existingRule.delete();
+            }
+            declarativeRule.persist();
+        } catch (IOException ioe) {
+            logger.warn(ioe);
+        } catch (Exception e) {
+            logger.error(e);
+        }
+    }
+
+    private boolean checkDir() {
+        return Files.exists(dir)
+                && Files.isReadable(dir)
+                && Files.isExecutable(dir)
+                && Files.isDirectory(dir);
+    }
 
     @GET
     @RolesAllowed("read")
