@@ -34,6 +34,7 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -85,6 +86,7 @@ class RulesPostJsonIT extends StandardSelfTest {
 
     @Test
     @Order(2)
+    @Disabled("https://github.com/quarkusio/quarkus/issues/44976")
     void testAddRuleThrowsWhenMimeUnsupported() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 
@@ -107,6 +109,7 @@ class RulesPostJsonIT extends StandardSelfTest {
 
     @Test
     @Order(3)
+    @Disabled("https://github.com/quarkusio/quarkus/issues/44976")
     void testAddRuleThrowsWhenMimeInvalid() throws Exception {
         CompletableFuture<JsonObject> response = new CompletableFuture<>();
 

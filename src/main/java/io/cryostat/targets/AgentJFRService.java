@@ -257,7 +257,7 @@ class AgentJFRService implements CryostatFlightRecorderService {
                     QuantityConversionException,
                     EventOptionException,
                     EventTypeException {
-        if (template.getType().equals(TemplateType.CUSTOM)) {
+        if (!template.getType().equals(TemplateType.TARGET)) {
             return start(
                     recordingOptions,
                     templateService.getXml(template.getName(), template.getType()).orElseThrow());
