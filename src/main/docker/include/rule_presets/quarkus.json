@@ -2,6 +2,6 @@
     "name": "quarkus",
     "description": "Preset Automated Rule for enabling Quarkus framework-specific events when available",
     "eventSpecifier": "template=Quarkus,type=PRESET",
-    "matchExpression": "jfrEventTypeIds(target).exists(x, x.contains(\"quarkus\"))",
+    "matchExpression": "jfrEventTypeIds(target).exists(x, x.startsWith(\"quarkus\"))",
     "enabled": false
 }
