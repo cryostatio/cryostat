@@ -33,6 +33,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
@@ -95,6 +96,9 @@ public class Discovery {
 
     @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
     Duration discoveryPingPeriod;
+
+    @ConfigProperty(name = ConfigProperties.AGENT_TLS_REQUIRED)
+    boolean agentTlsRequired;
 
     @Inject Logger logger;
     @Inject ObjectMapper mapper;
@@ -210,6 +214,14 @@ public class Discovery {
                                     + " current URI range settings",
                             remoteURI));
         }
+
+        if (agentTlsRequired && !remoteURI.getScheme().equals("https")) {
+            throw new BadRequestException(
+                    String.format(
+                            "TLS for agent connections is required by (%s)",
+                            ConfigProperties.AGENT_TLS_REQUIRED));
+        }
+
         URI location;
         DiscoveryPlugin plugin;
         if (StringUtils.isNotBlank(pluginId) && StringUtils.isNotBlank(priorToken)) {
@@ -326,6 +338,12 @@ public class Discovery {
                                     "Connect URL of \"%s\" is unacceptable with the"
                                             + " current URI range settings",
                                     b.target.connectUrl));
+                }
+                if (agentTlsRequired && !b.target.connectUrl.getScheme().equals("https")) {
+                    throw new BadRequestException(
+                            String.format(
+                                    "TLS for agent connections is required by (%s)",
+                                    ConfigProperties.AGENT_TLS_REQUIRED));
                 }
                 b.target.discoveryNode = b;
                 b.target.discoveryNode.parent = plugin.realm;
