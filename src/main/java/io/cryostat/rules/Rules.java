@@ -19,7 +19,6 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
-import java.util.Objects;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.expressions.MatchExpression;
@@ -71,12 +70,6 @@ public class Rules {
             Files.walk(dir)
                     .filter(Files::isRegularFile)
                     .filter(Files::isReadable)
-                    .peek(
-                            p ->
-                                    logger.tracev(
-                                            "Processing declarative Automated Rule definition at"
-                                                    + " {}",
-                                            p))
                     .forEach(this::processDeclarativeRule);
         } catch (IOException e) {
             logger.error(e);
@@ -87,24 +80,17 @@ public class Rules {
         try (var is = new BufferedInputStream(Files.newInputStream(path))) {
             var declarativeRule = mapper.readValue(is, Rule.class);
             logger.tracev(
-                    "Processing eclarative Automated" + " Rule with name \"{}\"",
-                    declarativeRule.name);
+                    "Processing declarative Automated Rule with name \"{}\" at {}",
+                    declarativeRule.name,
+                    path);
             var exists = Rule.find("name", declarativeRule.name).count() != 0;
             if (exists) {
-                var existingRule = Rule.<Rule>find("name", declarativeRule.name).singleResult();
-                // remove for equality check. The declarative rule is not expected to have a
-                // database ID yet existingRule.id = null;
-                if (Objects.equals(declarativeRule, existingRule)) {
-                    return;
-                }
-                logger.debugv(
-                        "Rule with name \"{}\" already exists in database. Replacing with"
-                                + " declarative rule at {}. Previous definition:\n"
-                                + "{}",
+                logger.tracev(
+                        "Rule with name \"{}\" already exists in database. Skipping declarative"
+                                + " rule at {}",
                         declarativeRule.name,
-                        path,
-                        mapper.writeValueAsString(existingRule));
-                existingRule.delete();
+                        path);
+                return;
             }
             declarativeRule.persist();
         } catch (IOException ioe) {
