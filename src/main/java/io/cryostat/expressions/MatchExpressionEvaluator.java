@@ -23,15 +23,18 @@ import java.util.Objects;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
+import io.cryostat.events.SerializableEventTypeInfo;
 import io.cryostat.expressions.MatchExpression.ExpressionEvent;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.TargetDiscovery;
+import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.cache.CacheManager;
 import io.quarkus.cache.CacheResult;
 import io.quarkus.cache.CompositeCacheKey;
+import io.quarkus.logging.Log;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -42,7 +45,12 @@ import jdk.jfr.Event;
 import jdk.jfr.Label;
 import jdk.jfr.Name;
 import org.jboss.logging.Logger;
+import org.projectnessie.cel.EnvOption;
+import org.projectnessie.cel.Library;
+import org.projectnessie.cel.ProgramOption;
 import org.projectnessie.cel.checker.Decls;
+import org.projectnessie.cel.common.types.ListT;
+import org.projectnessie.cel.interpreter.functions.Overload;
 import org.projectnessie.cel.tools.Script;
 import org.projectnessie.cel.tools.ScriptCreateException;
 import org.projectnessie.cel.tools.ScriptException;
@@ -56,6 +64,7 @@ public class MatchExpressionEvaluator {
     @Inject ScriptHost scriptHost;
     @Inject Logger logger;
     @Inject CacheManager cacheManager;
+    @Inject TargetConnectionManager connectionManager;
 
     @ConsumeEvent(value = MatchExpression.EXPRESSION_ADDRESS, blocking = true)
     void onMessage(ExpressionEvent event) {
@@ -104,6 +113,7 @@ public class MatchExpressionEvaluator {
                             Decls.newVar(
                                     "target",
                                     Decls.newObjectType(SimplifiedTarget.class.getName())))
+                    .withLibraries(List.of(new EventTypesLibrary(connectionManager)))
                     .build();
         } finally {
             evt.end();
@@ -221,6 +231,7 @@ public class MatchExpressionEvaluator {
      * expression-relevant fields exposed, connection URI exposed as a String, etc.
      */
     private static record SimplifiedTarget(
+            long id,
             boolean agent,
             String connectUrl,
             String alias,
@@ -240,12 +251,66 @@ public class MatchExpressionEvaluator {
 
         static SimplifiedTarget from(Target target) {
             return new SimplifiedTarget(
+                    target.id,
                     target.isAgent(),
                     target.connectUrl.toString(),
                     target.alias,
                     target.jvmId,
                     target.labels,
                     target.annotations);
+        }
+    }
+
+    static class EventTypesLibrary implements Library {
+
+        private final TargetConnectionManager connectionManager;
+
+        EventTypesLibrary(TargetConnectionManager connectionManager) {
+            this.connectionManager = connectionManager;
+        }
+
+        @Override
+        public List<EnvOption> getCompileOptions() {
+            return List.of(
+                    EnvOption.declarations(
+                            Decls.newFunction(
+                                    "jfrEventTypeIds",
+                                    Decls.newOverload(
+                                            "jfrEventTypeIds_void",
+                                            List.of(
+                                                    Decls.newObjectType(
+                                                            SimplifiedTarget.class.getName())),
+                                            Decls.newListType(Decls.String)))));
+        }
+
+        @Override
+        public List<ProgramOption> getProgramOptions() {
+            return List.of(
+                    ProgramOption.functions(
+                            Overload.unary(
+                                    "jfrEventTypeIds",
+                                    (arg) ->
+                                            ListT.newStringArrayList(
+                                                    getJfrEventTypeIds(
+                                                            (SimplifiedTarget) arg.value())))));
+        }
+
+        private String[] getJfrEventTypeIds(SimplifiedTarget st) {
+            Target target = Target.find("id", st.id()).singleResult();
+            try {
+                return connectionManager.executeConnectedTask(
+                        target,
+                        connection ->
+                                connection.getService().getAvailableEventTypes().stream()
+                                        .map(SerializableEventTypeInfo::fromEventTypeInfo)
+                                        .map(SerializableEventTypeInfo::typeId)
+                                        .distinct()
+                                        .toList()
+                                        .toArray(new String[0]));
+            } catch (Exception e) {
+                Log.error(e);
+                return new String[0];
+            }
         }
     }
 }
