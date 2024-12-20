@@ -215,7 +215,7 @@ public class Discovery {
                             remoteURI));
         }
 
-        if (agentTlsRequired && !remoteURI.getScheme().equals("https")) {
+        if (agentTlsRequired && !callbackUri.getScheme().equals("https")) {
             throw new BadRequestException(
                     String.format(
                             "TLS for agent connections is required by (%s)",
@@ -339,7 +339,7 @@ public class Discovery {
                                             + " current URI range settings",
                                     b.target.connectUrl));
                 }
-                if (agentTlsRequired && !b.target.connectUrl.getScheme().equals("https")) {
+                if (agentTlsRequired && !plugin.callback.getScheme().equals("https")) {
                     throw new BadRequestException(
                             String.format(
                                     "TLS for agent connections is required by (%s)",
