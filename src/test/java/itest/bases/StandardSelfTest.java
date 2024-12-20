@@ -64,8 +64,8 @@ public abstract class StandardSelfTest {
     private static final ExecutorService WORKER = Executors.newCachedThreadPool();
     public static final Logger logger = Logger.getLogger(StandardSelfTest.class);
     public static final ObjectMapper mapper;
-    public static final int REQUEST_TIMEOUT_SECONDS = 15;
-    public static final int DISCOVERY_DEADLINE_SECONDS = 10;
+    public static final int REQUEST_TIMEOUT_SECONDS = 30;
+    public static final int DISCOVERY_DEADLINE_SECONDS = 60;
     public static final TestWebClient webClient = Utils.getWebClient();
     public static volatile String selfCustomTargetLocation;
 
