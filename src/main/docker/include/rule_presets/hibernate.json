@@ -1,0 +1,7 @@
+{
+    "name": "hibernate",
+    "description": "Preset Automated Rule for enabling Hibernate ORM events when available",
+    "eventSpecifier": "template=Hibernate,type=PRESET",
+    "matchExpression": "jfrEventTypeIds(target).exists(x, x.startsWith(\"org.hibernate.orm.\"))",
+    "enabled": false
+}

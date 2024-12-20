@@ -16,6 +16,8 @@
 package itest;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -33,9 +35,13 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusIntegrationTest
 public class PresetTemplatesIT extends StandardSelfTest {
+
+    static final String[] TEMPLATE_NAMES = new String[] {"Quarkus", "Hibernate"};
 
     @Test
     public void shouldListPresetTemplates() throws Exception {
@@ -50,14 +56,19 @@ public class PresetTemplatesIT extends StandardSelfTest {
                     future.complete(ar.result().bodyAsJsonArray());
                 });
         JsonArray response = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        MatcherAssert.assertThat(response.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(response.size(), Matchers.equalTo(TEMPLATE_NAMES.length));
     }
 
-    @Test
-    public void shouldHavePresetQuarkusTemplate() throws Exception {
-        String url = "/api/v4/event_templates/PRESET/Quarkus";
+    static List<String> templateNames() {
+        return Arrays.asList(TEMPLATE_NAMES);
+    }
+
+    @ParameterizedTest
+    @MethodSource("templateNames")
+    public void shouldHaveExpectedPresetTemplates(String templateName) throws Exception {
+        String url = String.format("/api/v4/event_templates/PRESET/%s", templateName);
         File file =
-                downloadFile(url, "quarkus", ".jfc")
+                downloadFile(url, templateName, ".jfc")
                         .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                         .toFile();
 
@@ -77,7 +88,7 @@ public class PresetTemplatesIT extends StandardSelfTest {
 
         MatcherAssert.assertThat(labelAttr, Matchers.notNullValue());
 
-        String templateName = labelAttr.getExplicitValue();
-        MatcherAssert.assertThat(templateName, Matchers.equalTo("Quarkus"));
+        String name = labelAttr.getExplicitValue();
+        MatcherAssert.assertThat(name, Matchers.equalTo(templateName));
     }
 }

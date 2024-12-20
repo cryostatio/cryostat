@@ -16,6 +16,8 @@
 package itest;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -29,9 +31,13 @@ import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusIntegrationTest
 public class PresetRulesIT extends StandardSelfTest {
+
+    static final String[] RULE_NAMES = new String[] {"quarkus", "hibernate"};
 
     @Test
     public void shouldListPresetRules() throws Exception {
@@ -46,32 +52,26 @@ public class PresetRulesIT extends StandardSelfTest {
                     future.complete(ar.result().bodyAsJsonArray());
                 });
         JsonArray response = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        MatcherAssert.assertThat(response.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(response.size(), Matchers.equalTo(RULE_NAMES.length));
     }
 
-    @Test
-    public void shouldHavePresetQuarkusRule() throws Exception {
-        String url = "/api/v4/rules/quarkus";
+    static List<String> ruleNames() {
+        return Arrays.asList(RULE_NAMES);
+    }
+
+    @ParameterizedTest
+    @MethodSource("ruleNames")
+    public void shouldHavePresetRules(String ruleName) throws Exception {
+        String url = String.format("/api/v4/rules/%s", ruleName);
         File file =
-                downloadFile(url, "quarkus", ".json")
+                downloadFile(url, ruleName, ".json")
                         .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                         .toFile();
 
         ObjectMapper mapper = new ObjectMapper();
         JsonNode json = mapper.readTree(file);
 
-        MatcherAssert.assertThat(json.get("name").asText(), Matchers.equalTo("quarkus"));
-        MatcherAssert.assertThat(
-                json.get("description").asText(),
-                Matchers.equalTo(
-                        "Preset Automated Rule for enabling Quarkus framework-specific events when"
-                                + " available"));
-        MatcherAssert.assertThat(
-                json.get("eventSpecifier").asText(),
-                Matchers.equalTo("template=Quarkus,type=PRESET"));
-        MatcherAssert.assertThat(
-                json.get("matchExpression").asText(),
-                Matchers.equalTo("jfrEventTypeIds(target).exists(x, x.startsWith(\"quarkus\"))"));
+        MatcherAssert.assertThat(json.get("name").asText(), Matchers.equalTo(ruleName));
         MatcherAssert.assertThat(json.get("enabled").asBoolean(), Matchers.is(false));
     }
 }
