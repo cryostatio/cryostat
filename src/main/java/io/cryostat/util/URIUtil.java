@@ -53,7 +53,7 @@ public class URIUtil {
         return URIRange.fromString(uriRange).validate(uri.getHost());
     }
 
-    boolean isJmxUrl(URI uri) {
+    public boolean isJmxUrl(URI uri) {
         try {
             new JMXServiceURL(uri.toString());
             return true;
