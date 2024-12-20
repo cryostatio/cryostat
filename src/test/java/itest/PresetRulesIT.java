@@ -71,7 +71,7 @@ public class PresetRulesIT extends StandardSelfTest {
                 Matchers.equalTo("template=Quarkus,type=PRESET"));
         MatcherAssert.assertThat(
                 json.get("matchExpression").asText(),
-                Matchers.equalTo("jfrEventTypeIds(target).exists(x, x.contains(\"quarkus\"))"));
+                Matchers.equalTo("jfrEventTypeIds(target).exists(x, x.startsWith(\"quarkus\"))"));
         MatcherAssert.assertThat(json.get("enabled").asBoolean(), Matchers.is(false));
     }
 }
