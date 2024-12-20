@@ -26,6 +26,7 @@ DEPLOY_GRAFANA=${DEPLOY_GRAFANA:-true}
 DRY_RUN=${DRY_RUN:-false}
 USE_TLS=${USE_TLS:-true}
 SAMPLE_APPS_USE_TLS=${SAMPLE_APPS_USE_TLS:-true}
+ENFORCE_AGENT_TLS=${ENFORCE_AGENT_TLS:-true}
 
 display_usage() {
     echo "Usage:"
@@ -91,6 +92,7 @@ while getopts "hs:prGtAOVXc:bnk" opt; do
             ;;
         A)
             SAMPLE_APPS_USE_TLS=false
+            ENFORCE_AGENT_TLS=false
             ;;
         O)
             PULL_IMAGES=false
