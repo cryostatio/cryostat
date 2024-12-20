@@ -21,11 +21,8 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import org.openjdk.jmc.flightrecorder.configuration.events.EventConfiguration;
-import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLAttributeInstance;
-import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLModel;
-import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLTagInstance;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
@@ -33,20 +30,19 @@ import io.vertx.ext.web.client.HttpRequest;
 import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusIntegrationTest
-public class PresetTemplatesIT extends StandardSelfTest {
+public class PresetRulesIT extends StandardSelfTest {
 
-    static final String[] TEMPLATE_NAMES = new String[] {"Quarkus", "Hibernate"};
+    static final String[] RULE_NAMES = new String[] {"quarkus", "hibernate"};
 
     @Test
-    public void shouldListPresetTemplates() throws Exception {
+    public void shouldListPresetRules() throws Exception {
         CompletableFuture<JsonArray> future = new CompletableFuture<>();
-        HttpRequest<Buffer> req = webClient.get("/api/v4/event_templates/PRESET");
+        HttpRequest<Buffer> req = webClient.get("/api/v4/rules");
         req.send(
                 ar -> {
                     if (ar.failed()) {
@@ -56,39 +52,26 @@ public class PresetTemplatesIT extends StandardSelfTest {
                     future.complete(ar.result().bodyAsJsonArray());
                 });
         JsonArray response = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        MatcherAssert.assertThat(response.size(), Matchers.equalTo(TEMPLATE_NAMES.length));
+        MatcherAssert.assertThat(response.size(), Matchers.equalTo(RULE_NAMES.length));
     }
 
-    static List<String> templateNames() {
-        return Arrays.asList(TEMPLATE_NAMES);
+    static List<String> ruleNames() {
+        return Arrays.asList(RULE_NAMES);
     }
 
     @ParameterizedTest
-    @MethodSource("templateNames")
-    public void shouldHaveExpectedPresetTemplates(String templateName) throws Exception {
-        String url = String.format("/api/v4/event_templates/PRESET/%s", templateName);
+    @MethodSource("ruleNames")
+    public void shouldHavePresetRules(String ruleName) throws Exception {
+        String url = String.format("/api/v4/rules/%s", ruleName);
         File file =
-                downloadFile(url, templateName, ".jfc")
+                downloadFile(url, ruleName, ".json")
                         .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                         .toFile();
 
-        XMLModel model = EventConfiguration.createModel(file);
-        model.checkErrors();
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode json = mapper.readTree(file);
 
-        Assertions.assertFalse(model.hasErrors());
-
-        XMLTagInstance configuration = model.getRoot();
-        XMLAttributeInstance labelAttr = null;
-        for (XMLAttributeInstance attr : configuration.getAttributeInstances()) {
-            if (attr.getAttribute().getName().equals("label")) {
-                labelAttr = attr;
-                break;
-            }
-        }
-
-        MatcherAssert.assertThat(labelAttr, Matchers.notNullValue());
-
-        String name = labelAttr.getExplicitValue();
-        MatcherAssert.assertThat(name, Matchers.equalTo(templateName));
+        MatcherAssert.assertThat(json.get("name").asText(), Matchers.equalTo(ruleName));
+        MatcherAssert.assertThat(json.get("enabled").asBoolean(), Matchers.is(false));
     }
 }

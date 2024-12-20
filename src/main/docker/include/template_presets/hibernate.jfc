@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration version="2.0" label="Hibernate" description="Hibernate ORM events" provider="Cryostat">
+  <event name="org.hibernate.orm.CacheGet">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.CachePut">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.DirtyCalculationEvent">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.FlushEvent">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.JdbcBatchExecution">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.JdbcConnectionAcquisition">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.JdbcConnectionRelease">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.JdbcPreparedStatementCreation">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.JdbcPreparedStatementExecution">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.PartialFlushEvent">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.PrePartialFlushEvent">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.SessionClosed">
+    <setting name="enabled">true</setting>
+  </event>
+  <event name="org.hibernate.orm.SessionOpen">
+    <setting name="enabled">true</setting>
+  </event>
+</configuration>
