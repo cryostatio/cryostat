@@ -35,6 +35,7 @@ import io.quarkus.cache.CacheManager;
 import io.quarkus.cache.CacheResult;
 import io.quarkus.cache.CompositeCacheKey;
 import io.quarkus.logging.Log;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -174,34 +175,39 @@ public class MatchExpressionEvaluator {
     }
 
     public List<Target> getMatchedTargets(MatchExpression matchExpression) {
-        var targets =
-                Target.<Target>listAll().stream()
-                        .filter(
-                                target -> {
-                                    try {
-                                        return applies(matchExpression, target);
-                                    } catch (ScriptException e) {
-                                        logger.error(
-                                                "Error while processing expression: "
-                                                        + matchExpression,
-                                                e);
-                                        return false;
-                                    }
-                                })
-                        .collect(Collectors.toList());
+        return QuarkusTransaction.joiningExisting()
+                .call(
+                        () -> {
+                            var targets =
+                                    Target.<Target>listAll().stream()
+                                            .filter(
+                                                    target -> {
+                                                        try {
+                                                            return applies(matchExpression, target);
+                                                        } catch (ScriptException e) {
+                                                            logger.error(
+                                                                    "Error while processing"
+                                                                            + " expression: "
+                                                                            + matchExpression,
+                                                                    e);
+                                                            return false;
+                                                        }
+                                                    })
+                                            .collect(Collectors.toList());
 
-        var ids = new HashSet<>();
-        var it = targets.iterator();
-        while (it.hasNext()) {
-            var t = it.next();
-            if (ids.contains(t.jvmId)) {
-                it.remove();
-                continue;
-            }
-            ids.add(t.jvmId);
-        }
+                            var ids = new HashSet<>();
+                            var it = targets.iterator();
+                            while (it.hasNext()) {
+                                var t = it.next();
+                                if (ids.contains(t.jvmId)) {
+                                    it.remove();
+                                    continue;
+                                }
+                                ids.add(t.jvmId);
+                            }
 
-        return targets;
+                            return targets;
+                        });
     }
 
     @Name("io.cryostat.rules.MatchExpressionEvaluator.MatchExpressionApplies")
