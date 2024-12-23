@@ -51,9 +51,6 @@ class AgentConnection implements JFRConnection {
     private final TemplateService customTemplateService;
     private final Logger logger = Logger.getLogger(getClass());
 
-    @ConfigProperty(name = ConfigProperties.AGENT_TLS_REQUIRED)
-    private static boolean TLS_REQUIRED;
-
     AgentConnection(AgentClient client, TemplateService customTemplateService) {
         this.client = client;
         this.customTemplateService = customTemplateService;
@@ -158,19 +155,21 @@ class AgentConnection implements JFRConnection {
     @ApplicationScoped
     public static class Factory {
 
+        @ConfigProperty(name = ConfigProperties.AGENT_TLS_REQUIRED)
+        boolean tlsRequired;
+
         @Inject AgentClient.Factory clientFactory;
         @Inject S3TemplateService customTemplateService;
         @Inject Logger logger;
 
         public AgentConnection createConnection(Target target) throws MalformedURLException {
-            if (TLS_REQUIRED && target.connectUrl.getScheme().equals("https")) {
-                return new AgentConnection(clientFactory.create(target), customTemplateService);
-            } else {
+            if (tlsRequired && !target.connectUrl.getScheme().equals("https")) {
                 throw new MalformedURLException(
                         String.format(
                                 "Agent connections are required to be TLS by (%s)",
                                 ConfigProperties.AGENT_TLS_REQUIRED));
             }
+            return new AgentConnection(clientFactory.create(target), customTemplateService);
         }
     }
 }
