@@ -19,7 +19,7 @@
         maxAge bigint not null,
         maxSize bigint not null,
         metadata jsonb,
-        name varchar(255),
+        name text check (char_length(name) < 64),
         remoteId bigint not null,
         startTime bigint not null,
         state smallint check (state between 0 and 4),
@@ -40,8 +40,8 @@
     create table DiscoveryNode (
         id bigint not null,
         labels jsonb,
-        name varchar(255) not null,
-        nodeType varchar(255) not null,
+        name text not null check (char_length(name) < 255),
+        nodeType text not null check (char_length(nodeType) < 255),
         parentNode bigint,
         primary key (id)
     );
@@ -49,7 +49,7 @@
     create table DiscoveryPlugin (
         id uuid not null,
         builtin boolean not null,
-        callback varchar(255) unique,
+        callback text unique,
         credential_id bigint unique,
         realm_id bigint not null unique,
         primary key (id)
@@ -57,20 +57,20 @@
 
     create table MatchExpression (
         id bigint not null,
-        script varchar(255) not null,
+        script text not null check (char_length(script) < 1024),
         primary key (id)
     );
 
     create table Rule (
         id bigint not null,
         archivalPeriodSeconds integer not null,
-        description varchar(255),
+        description text check (char_length(description) < 1024),
         enabled boolean not null,
-        eventSpecifier varchar(255) not null,
+        eventSpecifier text not null check (char_length(eventSpecifier) < 255),
         initialDelaySeconds integer not null,
         maxAgeSeconds integer not null,
         maxSizeBytes integer not null,
-        name varchar(255) unique,
+        name text unique check (char_length(name) < 255),
         preservedArchives integer not null,
         matchExpression bigint unique,
         primary key (id)
@@ -78,10 +78,10 @@
 
     create table Target (
         id bigint not null,
-        alias varchar(255),
+        alias text check (char_length(alias) < 255),
         annotations jsonb,
         connectUrl bytea unique,
-        jvmId varchar(255),
+        jvmId text check (char_length(jvmId) < 255),
         labels jsonb,
         discoveryNode bigint unique,
         primary key (id)
