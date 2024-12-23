@@ -19,9 +19,9 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 
 import com.fasterxml.jackson.databind.JsonNode;
@@ -44,7 +44,7 @@ public class JsonRequestFilter implements ContainerRequestFilter {
                     "/api/v4/matchExpressions",
                     "/api/v4/graphql");
 
-    private final Map<String, Pattern> compiledPatterns = new HashMap<>();
+    private final Map<String, Pattern> compiledPatterns = new ConcurrentHashMap<>();
     @Inject ObjectMapper objectMapper;
 
     @Override
