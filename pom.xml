@@ -473,6 +473,7 @@
             <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
             <maven.home>${maven.home}</maven.home>
           </systemPropertyVariables>
+          <skipTests>${skip.ut}</skipTests>
         </configuration>
       </plugin>
       <plugin>
