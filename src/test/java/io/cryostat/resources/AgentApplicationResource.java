@@ -23,8 +23,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
 import org.jboss.logging.Logger;
+import org.junit.runner.Description;
+import org.junit.runners.model.Statement;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.containers.Network;
+import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
 
 public class AgentApplicationResource
@@ -32,49 +35,86 @@ public class AgentApplicationResource
 
     private static final String IMAGE_NAME =
             "quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest";
-    private static final int AGENT_PORT = 9977;
+    public static final int PORT = 9977;
+    public static final String ALIAS = "quarkus-cryostat-agent";
     private static final Map<String, String> envMap =
             new HashMap<>(
                     Map.of(
                             "JAVA_OPTS_APPEND",
-                            "-javaagent:/deployments/app/cryostat-agent.jar",
+                            """
+                            -javaagent:/deployments/app/cryostat-agent.jar
+                            -Djava.util.logging.manager=org.jboss.logmanager.LogManager
+                            -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=trace
+                            """,
                             "QUARKUS_HTTP_PORT",
-                            "101010",
+                            "9898",
                             "CRYOSTAT_AGENT_APP_NAME",
                             "quarkus-cryostat-agent",
+                            "CRYOSTAT_AGENT_WEBCLIENT_TLS_REQUIRED",
+                            "false",
                             "CRYOSTAT_AGENT_WEBSERVER_HOST",
                             "0.0.0.0",
                             "CRYOSTAT_AGENT_WEBSERVER_PORT",
-                            Integer.toString(AGENT_PORT),
-                            "CRYOSTAT_AGENT_BASEURI",
-                            "http://cryostat:8081/",
+                            Integer.toString(PORT),
                             "CRYOSTAT_AGENT_BASEURI_RANGE",
                             "public",
                             "CRYOSTAT_AGENT_API_WRITES_ENABLED",
                             "true"));
     private static final Logger logger = Logger.getLogger(AgentApplicationResource.class);
     private Optional<String> containerNetworkId;
+    private AuthProxyContainer authProxy;
     private GenericContainer<?> container;
     private AtomicInteger cryostatPort = new AtomicInteger(8081);
 
     @Override
     public Map<String, String> start() {
+        Optional<Network> network =
+                containerNetworkId.map(
+                        id ->
+                                new Network() {
+                                    @Override
+                                    public String getId() {
+                                        return id;
+                                    }
+
+                                    @Override
+                                    public void close() {}
+
+                                    @Override
+                                    public Statement apply(
+                                            Statement base, Description description) {
+                                        throw new UnsupportedOperationException(
+                                                "Unimplemented method 'apply'");
+                                    }
+                                });
+        authProxy = new AuthProxyContainer(network, cryostatPort.get());
+
         container =
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
-                        .withExposedPorts(AGENT_PORT)
+                        .dependsOn(authProxy)
+                        .withExposedPorts(PORT)
                         .withEnv(envMap)
-                        .waitingFor(Wait.forListeningPort());
-        containerNetworkId.ifPresent(container::withNetworkMode);
+                        .withNetworkAliases(ALIAS)
+                        .waitingFor(new HostPortWaitStrategy().forPorts(PORT));
+        network.ifPresent(container::withNetwork);
         container.addEnv(
-                "CRYOSTAT_AGENT_BASEURI", String.format("http://cryostat:%d/", cryostatPort.get()));
-        container.addEnv(
-                "CRYOSTAT_AGENT_CALLBACK",
-                String.format("http://%s:%d/", container.getContainerName(), AGENT_PORT));
+                "CRYOSTAT_AGENT_BASEURI",
+                String.format("http://%s:%d/", AuthProxyContainer.ALIAS, AuthProxyContainer.PORT));
+        container.addEnv("CRYOSTAT_AGENT_CALLBACK", String.format("http://%s:%d/", ALIAS, PORT));
 
         container.start();
 
-        // return Map.of("quarkus.test.arg-line", "--name=cryostat");
-        return Map.of();
+        return Map.of(
+                "quarkus.test.arg-line", "--network-alias=cryostat",
+                "cryostat.agent.tls.required", "false",
+                "cryostat.http.proxy.host", ALIAS,
+                "cryostat.http.proxy.port", Integer.toString(cryostatPort.get()),
+                "quarkus.http.proxy.proxy-address-forwarding", "true",
+                "quarkus.http.proxy.allow-x-forwarded", "true",
+                "quarkus.http.proxy.enable-forwarded-host", "true",
+                "quarkus.http.proxy.enable-forwarded-prefix", "true",
+                "quarkus.http.access-log.pattern", "long",
+                "quarkus.http.access-log.enabled", "true");
     }
 
     @Override
@@ -82,6 +122,10 @@ public class AgentApplicationResource
         if (container != null) {
             container.stop();
             container.close();
+        }
+        if (authProxy != null) {
+            authProxy.stop();
+            authProxy.close();
         }
     }
 
