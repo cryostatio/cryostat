@@ -15,19 +15,69 @@
  */
 package itest;
 
+import java.time.Duration;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+
 import io.cryostat.resources.AgentApplicationResource;
+import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
-import itest.bases.StandardSelfTest;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.HttpResponse;
+import itest.bases.HttpClientTest;
+import junit.framework.AssertionFailedError;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
+import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-public class AgentDiscoveryIT extends StandardSelfTest {
+public class AgentDiscoveryIT extends HttpClientTest {
+
+    static final Logger logger = Logger.getLogger(AgentDiscoveryIT.class);
+    static final Duration TIMEOUT = Duration.ofSeconds(60);
 
     @Test
-    void shouldDiscoverTarget() {
-        waitForDiscovery(1);
+    void shouldDiscoverTarget() throws InterruptedException, TimeoutException, ExecutionException {
+        long last = System.nanoTime();
+        long elapsed = 0;
+        while (true) {
+            HttpResponse<Buffer> req =
+                    webClient.extensions().get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS);
+            if (HttpStatusCodeIdentifier.isSuccessCode(req.statusCode())) {
+                JsonArray result = req.bodyAsJsonArray();
+                if (result.size() == 1) {
+                    JsonObject obj = result.getJsonObject(0);
+                    MatcherAssert.assertThat(
+                            obj.getString("alias"),
+                            Matchers.equalTo(AgentApplicationResource.ALIAS));
+                    MatcherAssert.assertThat(
+                            obj.getString("connectUrl"),
+                            Matchers.equalTo(
+                                    String.format(
+                                            "http://%s:%d/",
+                                            AgentApplicationResource.ALIAS,
+                                            AgentApplicationResource.PORT)));
+
+                    MatcherAssert.assertThat(obj.getBoolean("agent"), Matchers.is(true));
+                    break;
+                } else if (result.size() > 1) {
+                    throw new IllegalStateException("Discovered too many targets");
+                }
+            }
+
+            long now = System.nanoTime();
+            elapsed += (now - last);
+            last = now;
+            if (Duration.ofNanos(elapsed).compareTo(TIMEOUT) > 0) {
+                throw new AssertionFailedError("Timed out");
+            }
+            Thread.sleep(5_000);
+        }
     }
 }
