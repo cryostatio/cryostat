@@ -473,7 +473,7 @@ public class RecordingHelper {
                     try (InputStream snapshot =
                             remoteRecordingStreamFactory.open(connection, target, desc)) {
                         if (!snapshotIsReadable(target, snapshot)) {
-                            connection.getService().close(desc);
+                            safeCloseRecording(connection, desc);
                             throw new SnapshotCreationException(
                                     "Snapshot was not readable - are there any source recordings?");
                         }
@@ -570,24 +570,20 @@ public class RecordingHelper {
     }
 
     public Uni<ActiveRecording> deleteRecording(ActiveRecording recording) {
-        var closed =
-                connectionManager.executeConnectedTask(
-                        recording.target,
-                        conn -> {
-                            var desc = getDescriptorById(conn, recording.remoteId);
-                            if (desc.isEmpty()) {
-                                throw new NotFoundException();
-                            }
-                            conn.getService().close(desc.get());
-                            return recording;
-                        });
+        connectionManager.executeConnectedTask(
+                recording.target,
+                conn -> {
+                    getDescriptorById(conn, recording.remoteId)
+                            .ifPresent(d -> safeCloseRecording(conn, d));
+                    return null;
+                });
         return QuarkusTransaction.joiningExisting()
                 .call(
                         () -> {
-                            closed.target.activeRecordings.remove(recording);
-                            closed.target.persist();
-                            closed.delete();
-                            return Uni.createFrom().item(closed);
+                            recording.target.activeRecordings.remove(recording);
+                            recording.target.persist();
+                            recording.delete();
+                            return Uni.createFrom().item(recording);
                         });
     }
 
