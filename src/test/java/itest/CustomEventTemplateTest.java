@@ -15,6 +15,9 @@
  */
 package itest;
 
+import io.cryostat.resources.S3StorageResource;
+
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.DisabledOnIntegrationTest;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.buffer.Buffer;
@@ -29,6 +32,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@QuarkusTestResource(S3StorageResource.class)
 @DisabledOnIntegrationTest("classpath resources are not loadable in integration test")
 public class CustomEventTemplateTest extends StandardSelfTest {
 
