@@ -23,6 +23,7 @@ env:
 jobs:
   get-pom-properties:
     runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
     - uses: actions/checkout@v4
       with:
@@ -50,7 +51,6 @@ jobs:
     permissions:
       packages: write
       contents: read
-    if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
@@ -113,6 +113,7 @@ jobs:
   unit-test:
     name: Run unit tests
     runs-on: ubuntu-latest
+    needs: [get-pom-properties]
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -237,7 +238,6 @@ jobs:
           podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} containers-storage:${{env.CI_IMG}}:${tag}
         done
     - name: Push to quay.io
-      if: github.repository_owner == 'cryostatio'
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
       with:
