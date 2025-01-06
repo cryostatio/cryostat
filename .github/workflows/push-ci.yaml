@@ -164,6 +164,8 @@ jobs:
     strategy:
       matrix:
         arch: [amd64, arm64]
+    env:
+      CI_ARCH: ${{ matrix.arch }}
     steps:
     - uses: actions/checkout@v4
       with:
@@ -189,13 +191,13 @@ jobs:
     - name: Prepare test harness
       run: ./mvnw -Dquarkus.quinoa=false -Dquarkus.container-image.build=false -Dspotless.check.skip -DskipTests package
     - run: docker images
-    - run: docker inspect ${{env.CI_IMG}}:linux-${{ matrix.arch }}
+    - run: docker inspect ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Replace artifact metadata
       run: |
         [ -d target ] || mkdir target ; \
         touch target/quarkus-artifact.properties ; \
         > target/quarkus-artifact.properties ; \
-        echo "metadata.container-image=${{env.CI_IMG}}:linux-${{ matrix.arch }}" >> target/quarkus-artifact.properties ; \
+        echo "metadata.container-image=${{ env.CI_IMG }}:linux-${{ matrix.arch }}" >> target/quarkus-artifact.properties ; \
         echo "metadata.pull-required=false" >> target/quarkus-artifact.properties ; \
         echo "type=jar-container" >> target/quarkus-artifact.properties
     - name: Run tests
@@ -235,7 +237,7 @@ jobs:
       run: |
         find containers -type f -exec podman load -i {} \;
         for tag in $(podman images --filter label=io.cryostat.component --format '{{ .Tag }}'); do
-          podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} containers-storage:${{env.CI_IMG}}:${tag}
+          podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} containers-storage:${{ env.CI_IMG }}:${tag}
         done
     - name: Push to quay.io
       id: push-to-quay
