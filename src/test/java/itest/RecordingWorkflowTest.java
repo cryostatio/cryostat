@@ -24,7 +24,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import io.cryostat.resources.LocalStackResource;
+import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpMimeType;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -46,7 +46,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(LocalStackResource.class)
+@QuarkusTestResource(S3StorageResource.class)
 public class RecordingWorkflowTest extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "workflow_itest";
