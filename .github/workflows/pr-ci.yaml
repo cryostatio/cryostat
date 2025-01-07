@@ -90,8 +90,7 @@ jobs:
 
   build-and-test:
     needs: [checkout-branch]
-    # runs-on: ubuntu-latest
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     env:
       deps-cache-name: cache-yarn
       build-cache-name: cache-webpack

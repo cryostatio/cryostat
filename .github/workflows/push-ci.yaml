@@ -38,8 +38,7 @@ jobs:
       image-version: ${{ steps.query-pom.outputs.image-version }}
 
   build-and-test:
-    # runs-on: ubuntu-latest
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     needs: [get-pom-properties]
     strategy:
       matrix:
