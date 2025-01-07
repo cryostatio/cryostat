@@ -19,7 +19,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
-import io.cryostat.resources.LocalStackResource;
+import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpMimeType;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(LocalStackResource.class)
+@QuarkusTestResource(S3StorageResource.class)
 public class ReportGenerationTest extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "someRecording";
