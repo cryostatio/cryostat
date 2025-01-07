@@ -90,8 +90,7 @@ jobs:
 
   build-and-test:
     needs: [checkout-branch]
-    # runs-on: ubuntu-latest
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     env:
       deps-cache-name: cache-yarn
       build-cache-name: cache-webpack
@@ -137,6 +136,8 @@ jobs:
         cd src/main/webui
         yarn install && yarn yarn:frzinstall
         cd -
+    - name: Add CRIU PPA
+      run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
     - name: Ensure podman 4+ and podman-docker installed
       run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0), podman-docker"
     - name: Set up testcontainers for podman
