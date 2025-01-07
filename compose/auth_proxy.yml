@@ -9,8 +9,6 @@ services:
       QUARKUS_HTTP_PROXY_ALLOW_X_FORWARDED: "true"
       QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_HOST: "true"
       QUARKUS_HTTP_PROXY_ENABLE_FORWARDED_PREFIX: "true"
-      QUARKUS_HTTP_ACCESS_LOG_PATTERN: long
-      QUARKUS_HTTP_ACCESS_LOG_ENABLED: "true"
   auth:
     # the proxy does not actually depend on cryostat being up, but we use this
     # to ensure that when the smoketest tries to open the auth login page in a
