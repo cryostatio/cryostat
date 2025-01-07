@@ -27,7 +27,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-import io.cryostat.resources.LocalStackResource;
+import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpMimeType;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -48,7 +48,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(LocalStackResource.class)
+@QuarkusTestResource(S3StorageResource.class)
 public class RecordingWorkflowTest extends StandardSelfTest {
 
     private final ExecutorService worker = ForkJoinPool.commonPool();

@@ -41,10 +41,12 @@ import java.util.stream.Collectors;
 
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode;
+import io.cryostat.resources.S3StorageResource;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
@@ -65,6 +67,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @QuarkusTest
+@QuarkusTestResource(S3StorageResource.class)
 @TestMethodOrder(OrderAnnotation.class)
 class GraphQLTest extends StandardSelfTest {
 

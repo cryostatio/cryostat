@@ -26,19 +26,21 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
-public class LocalStackResource
+public class S3StorageResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
-    private static int S3_PORT = 4566;
-    private static final String IMAGE_NAME = "docker.io/localstack/localstack:stable";
+    private static int S3_PORT = 8333;
+    private static final String IMAGE_NAME = "quay.io/cryostat/cryostat-storage:latest";
     private static final Map<String, String> envMap =
             Map.of(
-                    "START_WEB", "0",
-                    "SERVICES", "s3",
-                    "EAGER_SERVICE_LOADING", "1",
-                    "SKIP_SSL_CERT_DOWNLOAD", "1",
-                    "DISABLE_EVENTS", "1");
-    private static final Logger logger = Logger.getLogger(LocalStackResource.class);
+                    "DATA_DIR", "/data",
+                    "IP_BIND", "0.0.0.0",
+                    "WEED_V", "4",
+                    "REST_ENCRYPTION_ENABLE", "1",
+                    "CRYOSTAT_ACCESS_KEY", "access_key",
+                    "CRYOSTAT_SECRET_KEY", "secret_key",
+                    "CRYOSTAT_BUCKETS", "archivedrecordings,archivedreports,eventtemplates,probes");
+    private static final Logger logger = Logger.getLogger(S3StorageResource.class);
     private Optional<String> containerNetworkId;
     private GenericContainer<?> container;
 
@@ -48,7 +50,8 @@ public class LocalStackResource
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .withExposedPorts(S3_PORT)
                         .withEnv(envMap)
-                        .waitingFor(Wait.forHealthcheck());
+                        .withTmpFs(Map.of("/data", "rw"))
+                        .waitingFor(Wait.forListeningPort());
         containerNetworkId.ifPresent(container::withNetworkMode);
 
         container.start();
@@ -62,8 +65,9 @@ public class LocalStackResource
         properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
         properties.put("quarkus.s3.path-style-access", "true");
         properties.put("quarkus.s3.aws.credentials.type", "static");
-        properties.put("quarkus.s3.aws.credentials.static-provider.access-key-id", "unused");
-        properties.put("quarkus.s3.aws.credentials.static-provider.secret-access-key", "unused");
+        properties.put("quarkus.s3.aws.credentials.static-provider.access-key-id", "access_key");
+        properties.put(
+                "quarkus.s3.aws.credentials.static-provider.secret-access-key", "secret_key");
         properties.put(
                 "aws.access-key-id",
                 properties.get("quarkus.s3.aws.credentials.static-provider.access-key-id"));
@@ -72,18 +76,18 @@ public class LocalStackResource
                 "aws.secret-access-key",
                 properties.get("quarkus.s3.aws.credentials.static-provider.secret-access-key"));
         properties.put("aws.secretAccessKey", properties.get("aws.secret-access-key"));
-        properties.entrySet().forEach(e -> System.setProperty(e.getKey(), e.getValue()));
-        logger.debugv("Configured properties: {0}", properties);
 
         return properties;
     }
 
     @Override
     public void stop() {
+        logger.info("stopping");
         if (container != null) {
             container.stop();
             container.close();
         }
+        logger.info("stopped");
     }
 
     @Override
