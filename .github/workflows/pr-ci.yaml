@@ -95,10 +95,13 @@ jobs:
   build-and-test:
     needs: [checkout-branch]
     runs-on: ubuntu-latest
+<<<<<<< HEAD
     strategy:
       matrix:
         # java: [ '17', '21' ]
         java: ['17']
+=======
+>>>>>>> 19ffc04 (ci(criu): add CRIU PPA for Podman dependency (#770))
     env:
       cache-name: cache-yarn
     name: Build and test Java ${{ matrix.java }}
@@ -134,6 +137,7 @@ jobs:
         cd src/main/webui
         yarn install && yarn yarn:frzinstall
         cd -
+<<<<<<< HEAD
     - name: Install podman v4
       run: |
         echo "deb $OPENSUSE_UNOFFICIAL_LIBCONTAINERS_SOURCE_URL/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:unstable.list
@@ -146,6 +150,12 @@ jobs:
         cat <(echo '#!/usr/bin/env bash') <(echo 'exec podman "$@"') > $HOME/.bin/docker
         chmod +x $HOME/.bin/docker
         echo "PATH=$HOME/.bin:$PATH" >> "$GITHUB_ENV"
+=======
+    - name: Add CRIU PPA
+      run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
+    - name: Ensure podman 4+ and podman-docker installed
+      run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0), podman-docker"
+>>>>>>> 19ffc04 (ci(criu): add CRIU PPA for Podman dependency (#770))
     - name: Set up testcontainers for podman
       run: |
         echo ryuk.container.privileged=true > ~/.testcontainers.properties
