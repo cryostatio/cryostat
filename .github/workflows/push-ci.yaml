@@ -53,6 +53,8 @@ jobs:
       contents: read
     if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
+    - name: Add CRIU PPA
+      run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
     - name: Install podman 4 and qemu
       run: |
         sudo apt update
@@ -107,6 +109,12 @@ jobs:
     runs-on: ubuntu-latest
     needs: [get-pom-properties, build-and-test]
     steps:
+    - name: Add CRIU PPA
+      run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
+    - name: Install podman 4 and qemu
+      run: |
+        sudo apt update
+        sudo apt -y satisfy "podman (>= 4.0), qemu-user-static"
     - name: Download container tarballs
       uses: actions/download-artifact@v4
       with:
