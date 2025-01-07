@@ -29,13 +29,8 @@ import org.testcontainers.utility.DockerImageName;
 public class S3StorageResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
-<<<<<<< HEAD:src/test/java/io/cryostat/resources/LocalStackResource.java
-    private static int S3_PORT = 4566;
-    private static final String IMAGE_NAME = "docker.io/localstack/localstack:latest";
-=======
     private static int S3_PORT = 8333;
     private static final String IMAGE_NAME = "quay.io/cryostat/cryostat-storage:latest";
->>>>>>> b913b87 (test(storage): deploy cryostat-storage rather than localstack (#764)):src/test/java/io/cryostat/resources/S3StorageResource.java
     private static final Map<String, String> envMap =
             Map.of(
                     "DATA_DIR", "/data",
