@@ -1,21 +1,20 @@
 services:
-  gameserver-jdk17:
-    depends_on:
-      cryostat:
-        condition: service_healthy
-    image: ${GAMESERVER_JDK17_TEST_IMAGE:-quay.io/redhat-java-monitoring/gameserver-cryostat-agent:latest-jdk17}
-    hostname: gameserver-jdk17
+  gameserver:
+    # depends_on:
+    #   cryostat:
+    #     condition: service_healthy
+    image: ${GAMESERVER_TEST_IMAGE:-quay.io/redhat-java-monitoring/gameserver-cryostat-agent:latest}
+    hostname: gameserver
     ports:
-      - "7092"
-      - "9495"
+      - "25565"
     environment:
-      CRYOSTAT_AGENT_APP_NAME: gameserver-jdk17
-      CRYOSTAT_AGENT_WEBSERVER_HOST: gameserver-jdk17
-      CRYOSTAT_AGENT_WEBSERVER_PORT: 9495
+      CRYOSTAT_AGENT_APP_NAME: gameserver
+      CRYOSTAT_AGENT_WEBSERVER_HOST: gameserver
+      CRYOSTAT_AGENT_WEBSERVER_PORT: 9496
       CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_PATH: /auth_certs/certificate.pem
       CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_TYPE: X.509
       CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_ALIAS: cryostat
-      CRYOSTAT_AGENT_CALLBACK: http://gameserver-jdk17:9495/
+      CRYOSTAT_AGENT_CALLBACK: http://gameserver:9496/
       CRYOSTAT_AGENT_BASEURI: ${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/
       CRYOSTAT_AGENT_BASEURI_RANGE: public
       CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
@@ -26,15 +25,15 @@ services:
       CRYOSTAT_AGENT_HARVESTER_MAX_FILES: 3
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS: 60000
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
-      VERSION: 1.20.4
-      EULA: "true"
-      ONLINE_MODE: "false"
-      OVERRIDE_SERVER_PROPERTIES: "true"
-      ENABLE_JMX: "true"
-      JMX_HOST: gameserver-jdk17
-      JMX_PORT: "7092"
-      JVM_OPTS: >-
+      MINECRAFT_ONLINE_MODE: "false"
+      JAVA_OPTS: >-
         -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=trace
         -javaagent:/opt/cryostat/agent.jar
     volumes:
       - ${DIR}/compose/auth_certs:/auth_certs:z
+    healthcheck:
+      test: /usr/bin/healthcheck
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
