@@ -19,6 +19,7 @@ OPEN_TABS=${OPEN_TABS:-false}
 
 PRECREATE_BUCKETS=${PRECREATE_BUCKETS:-archivedrecordings,archivedreports,eventtemplates,probes}
 
+LOG_LEVEL=0
 CRYOSTAT_HTTP_HOST=${CRYOSTAT_HTTP_HOST:-cryostat}
 CRYOSTAT_HTTP_PORT=${CRYOSTAT_HTTP_PORT:-8080}
 USE_PROXY=${USE_PROXY:-true}
@@ -44,11 +45,12 @@ display_usage() {
     echo -e "\t-b\t\t\t\t\t\topen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
     echo -e "\t-n\t\t\t\t\t\tdo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
     echo -e "\t-k\t\t\t\t\t\tdisable TLS on the auth proxy."
+    echo -e "\t-v\t\t\t\t\t\tenable verbose logging. Can be passed multiple times to increase verbosity."
 }
 
 s3=seaweed
 container_engine="$(command -v podman)"
-while getopts "hs:prGtAOVXc:bnk" opt; do
+while getopts "hs:prGtAOVXc:bnkv" opt; do
     case $opt in
         h)
             display_usage
@@ -96,6 +98,9 @@ while getopts "hs:prGtAOVXc:bnk" opt; do
             ;;
         O)
             PULL_IMAGES=false
+            ;;
+        v)
+            LOG_LEVEL=$((LOG_LEVEL+1))
             ;;
         V)
             KEEP_VOLUMES=true
@@ -168,6 +173,16 @@ else
     fi
     GRAFANA_DASHBOARD_EXT_URL=http://grafana:3000/
 fi
+if [ $LOG_LEVEL = 0 ]; then
+    CRYOSTAT_LOG_LEVEL=INFO
+elif [ $LOG_LEVEL = 1 ]; then
+    CRYOSTAT_LOG_LEVEL=DEBUG
+elif [ $LOG_LEVEL = 2 ]; then
+    CRYOSTAT_LOG_LEVEL=TRACE
+else
+    CRYOSTAT_LOG_LEVEL=ALL
+fi
+export CRYOSTAT_LOG_LEVEL
 export CRYOSTAT_HTTP_HOST
 export CRYOSTAT_HTTP_PORT
 export GRAFANA_DASHBOARD_EXT_URL

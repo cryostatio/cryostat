@@ -136,6 +136,9 @@ import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 @ApplicationScoped
 public class RecordingHelper {
 
+    private static final int S3_API_PART_LIMIT = 10_000;
+    private static final int MIB = 1024 * 1024;
+
     public static final String JFR_MIME = HttpMimeType.JFR.mime();
 
     private static final Pattern TEMPLATE_PATTERN =
@@ -473,7 +476,7 @@ public class RecordingHelper {
                     try (InputStream snapshot =
                             remoteRecordingStreamFactory.open(connection, target, desc)) {
                         if (!snapshotIsReadable(target, snapshot)) {
-                            connection.getService().close(desc);
+                            safeCloseRecording(connection, desc);
                             throw new SnapshotCreationException(
                                     "Snapshot was not readable - are there any source recordings?");
                         }
@@ -570,24 +573,20 @@ public class RecordingHelper {
     }
 
     public Uni<ActiveRecording> deleteRecording(ActiveRecording recording) {
-        var closed =
-                connectionManager.executeConnectedTask(
-                        recording.target,
-                        conn -> {
-                            var desc = getDescriptorById(conn, recording.remoteId);
-                            if (desc.isEmpty()) {
-                                throw new NotFoundException();
-                            }
-                            conn.getService().close(desc.get());
-                            return recording;
-                        });
+        connectionManager.executeConnectedTask(
+                recording.target,
+                conn -> {
+                    getDescriptorById(conn, recording.remoteId)
+                            .ifPresent(d -> safeCloseRecording(conn, d));
+                    return null;
+                });
         return QuarkusTransaction.joiningExisting()
                 .call(
                         () -> {
-                            closed.target.activeRecordings.remove(recording);
-                            closed.target.persist();
-                            closed.delete();
-                            return Uni.createFrom().item(closed);
+                            recording.target.activeRecordings.remove(recording);
+                            recording.target.persist();
+                            recording.delete();
+                            return Uni.createFrom().item(recording);
                         });
     }
 
@@ -818,14 +817,13 @@ public class RecordingHelper {
         if (StringUtils.isBlank(savename)) {
             savename = filename;
         }
-        int mib = 1024 * 1024;
         String key = archivedRecordingKey(recording.target.jvmId, filename);
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
         long accum = 0;
         try (var stream = getActiveInputStream(recording);
                 var ch = Channels.newChannel(stream)) {
-            ByteBuffer buf = ByteBuffer.allocate(20 * mib);
+            ByteBuffer buf = ByteBuffer.allocate(20 * MIB);
             CreateMultipartUploadRequest.Builder builder =
                     CreateMultipartUploadRequest.builder()
                             .bucket(archiveBucket)
@@ -840,7 +838,7 @@ public class RecordingHelper {
             CreateMultipartUploadRequest request = builder.build();
             multipartId = storage.createMultipartUpload(request).uploadId();
             int read = 0;
-            for (int i = 1; i <= 10_000; i++) {
+            for (int i = 1; i <= S3_API_PART_LIMIT; i++) {
                 read = ch.read(buf);
 
                 if (read == 0) {
@@ -868,7 +866,7 @@ public class RecordingHelper {
                 parts.add(Pair.of(i, eTag));
                 buf.clear();
                 // S3 API limit
-                if (i == 10_000) {
+                if (i == S3_API_PART_LIMIT) {
                     throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
                 }
             }

@@ -15,7 +15,9 @@ services:
     hostname: cryostat
     user: "1000"
     environment:
-      QUARKUS_LOG_LEVEL: ALL
+      QUARKUS_LOG_LEVEL: ${CRYOSTAT_LOG_LEVEL:-INFO}
+      QUARKUS_HTTP_ACCESS_LOG_ENABLED: "true"
+      QUARKUS_HTTP_ACCESS_LOG_PATTERN: long
       QUARKUS_HTTP_HOST: "cryostat"
       QUARKUS_HTTP_PORT: ${CRYOSTAT_HTTP_PORT}
       QUARKUS_HIBERNATE_ORM_LOG_SQL: "true"
