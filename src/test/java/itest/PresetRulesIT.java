@@ -19,11 +19,8 @@ import java.io.File;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import org.openjdk.jmc.flightrecorder.configuration.events.EventConfiguration;
-import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLAttributeInstance;
-import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLModel;
-import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLTagInstance;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
@@ -31,16 +28,15 @@ import io.vertx.ext.web.client.HttpRequest;
 import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-public class PresetTemplatesIT extends StandardSelfTest {
+public class PresetRulesIT extends StandardSelfTest {
 
     @Test
-    public void shouldListPresetTemplates() throws Exception {
+    public void shouldListPresetRules() throws Exception {
         CompletableFuture<JsonArray> future = new CompletableFuture<>();
-        HttpRequest<Buffer> req = webClient.get("/api/v4/event_templates/PRESET");
+        HttpRequest<Buffer> req = webClient.get("/api/v4/rules");
         req.send(
                 ar -> {
                     if (ar.failed()) {
@@ -54,30 +50,28 @@ public class PresetTemplatesIT extends StandardSelfTest {
     }
 
     @Test
-    public void shouldHavePresetQuarkusTemplate() throws Exception {
-        String url = "/api/v4/event_templates/PRESET/Quarkus";
+    public void shouldHavePresetQuarkusRule() throws Exception {
+        String url = "/api/v4/rules/quarkus";
         File file =
-                downloadFile(url, "quarkus", ".jfc")
+                downloadFile(url, "quarkus", ".json")
                         .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                         .toFile();
 
-        XMLModel model = EventConfiguration.createModel(file);
-        model.checkErrors();
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode json = mapper.readTree(file);
 
-        Assertions.assertFalse(model.hasErrors());
-
-        XMLTagInstance configuration = model.getRoot();
-        XMLAttributeInstance labelAttr = null;
-        for (XMLAttributeInstance attr : configuration.getAttributeInstances()) {
-            if (attr.getAttribute().getName().equals("label")) {
-                labelAttr = attr;
-                break;
-            }
-        }
-
-        MatcherAssert.assertThat(labelAttr, Matchers.notNullValue());
-
-        String templateName = labelAttr.getExplicitValue();
-        MatcherAssert.assertThat(templateName, Matchers.equalTo("Quarkus"));
+        MatcherAssert.assertThat(json.get("name").asText(), Matchers.equalTo("quarkus"));
+        MatcherAssert.assertThat(
+                json.get("description").asText(),
+                Matchers.equalTo(
+                        "Preset Automated Rule for enabling Quarkus framework-specific events when"
+                                + " available"));
+        MatcherAssert.assertThat(
+                json.get("eventSpecifier").asText(),
+                Matchers.equalTo("template=Quarkus,type=PRESET"));
+        MatcherAssert.assertThat(
+                json.get("matchExpression").asText(),
+                Matchers.equalTo("jfrEventTypeIds(target).exists(x, x.startsWith(\"quarkus\"))"));
+        MatcherAssert.assertThat(json.get("enabled").asBoolean(), Matchers.is(false));
     }
 }
