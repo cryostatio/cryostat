@@ -192,7 +192,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                     Matchers.matchesRegex(
                             TARGET_ALIAS + "_" + TEST_RECORDING_NAME + "_[\\d]{8}T[\\d]{6}Z.jfr"));
             String savedDownloadUrl = recordingInfo.getString("downloadUrl");
-
             Thread.sleep(3_000L); // wait for the dump to complete
 
             // verify the in-memory recording list has not changed, except recording is now stopped
@@ -250,6 +249,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             MatcherAssert.assertThat(
                     reportResponse.statusCode(),
                     Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
+            MatcherAssert.assertThat(reportResponse.getHeader("Location"), Matchers.notNullValue());
             MatcherAssert.assertThat(reportResponse.bodyAsString(), Matchers.notNullValue());
 
             // Check that report generation concludes

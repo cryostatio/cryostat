@@ -103,11 +103,7 @@ public class Reports {
         return Response.ok(request.getId(), MediaType.TEXT_PLAIN)
                 .status(202)
                 .location(
-                        UriBuilder.fromUri(
-                                        String.format(
-                                                "/api/v4/targets/%d/reports/%d",
-                                                pair.getLeft(), pair.getRight()))
-                                .build())
+                        UriBuilder.fromUri(String.format("/api/v4/reports/%s", encodedKey)).build())
                 .build();
     }
 
@@ -129,7 +125,9 @@ public class Reports {
 
         // Check if we've already cached a result for this report, return it if so
         if (reportsService.keyExists(recording)) {
-            return Response.ok(reportsService.reportFor(recording).await().atMost(timeout))
+            return Response.ok(
+                            reportsService.reportFor(recording).await().atMost(timeout),
+                            MediaType.APPLICATION_JSON)
                     .status(200)
                     .build();
         }

@@ -113,7 +113,17 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                 .assertThat()
                 .statusCode(202)
                 .contentType(ContentType.TEXT)
-                .body(Matchers.any(String.class));
+                .body(Matchers.any(String.class))
+                .assertThat()
+                // 202 Indicates report generation is in progress and sends an intermediate
+                // response.
+                // Verify we get a location header from a 202.
+                .header(
+                        "Location",
+                        "http://localhost:8081/api/v4/targets/"
+                                + targetId
+                                + "/reports/"
+                                + remoteId);
 
         given().log()
                 .all()
@@ -165,7 +175,12 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                 .assertThat()
                 .statusCode(202)
                 .contentType(ContentType.TEXT)
-                .body(Matchers.any(String.class));
+                .body(Matchers.any(String.class))
+                .assertThat()
+                // 202 Indicates report generation is in progress and sends an intermediate
+                // response.
+                // Verify we get a location header from a 202.
+                .header("Location", "http://localhost:8081" + reportUrl);
 
         given().log()
                 .all()
