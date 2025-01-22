@@ -31,6 +31,7 @@ import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.JobBuilder;
@@ -77,17 +78,20 @@ public class TargetUpdateService {
         scheduler.shutdown();
     }
 
-    @ConsumeEvent(Credential.CREDENTIALS_STORED)
+    @ConsumeEvent(value = Credential.CREDENTIALS_STORED, blocking = true)
+    @Transactional
     void onCredentialsStored(Credential credential) {
         updateTargetsForExpression(credential);
     }
 
-    @ConsumeEvent(Credential.CREDENTIALS_UPDATED)
+    @ConsumeEvent(value = Credential.CREDENTIALS_UPDATED, blocking = true)
+    @Transactional
     void onCredentialsUpdated(Credential credential) {
         updateTargetsForExpression(credential);
     }
 
-    @ConsumeEvent(Credential.CREDENTIALS_DELETED)
+    @ConsumeEvent(value = Credential.CREDENTIALS_DELETED, blocking = true)
+    @Transactional
     void onCredentialsDeleted(Credential credential) {
         updateTargetsForExpression(credential);
     }
