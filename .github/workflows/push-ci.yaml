@@ -23,6 +23,7 @@ env:
 jobs:
   get-pom-properties:
     runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
     - uses: actions/checkout@v4
       with:
@@ -37,7 +38,7 @@ jobs:
     outputs:
       image-version: ${{ steps.query-pom.outputs.image-version }}
 
-  build-and-test:
+  build-images:
     runs-on: ubuntu-latest
     needs: [get-pom-properties]
     strategy:
@@ -46,11 +47,10 @@ jobs:
     env:
       IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
       frontend-cache-name: cache-yarn
-    name: Build and test
+    name: Build images
     permissions:
       packages: write
       contents: read
-    if: ${{ github.repository_owner == 'cryostatio' }}
     steps:
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
@@ -87,26 +87,128 @@ jobs:
         yarn install && yarn yarn:frzinstall
         popd
     - name: Build ${{ matrix.arch }} container image
-      id: build-image
       run: |
         ./mvnw -B -U \
+        -DskipTests \
         -Dquarkus.container-image.image=${{ env.CI_IMG }}:linux-${{ matrix.arch }} \
         -Dquarkus.docker.executable-name=docker \
         -Dquarkus.docker.buildx.platform=linux/${{ matrix.arch }} \
         -Dbuild.arch=${{ matrix.arch }} \
-        clean verify
+        clean package
     - name: Copy docker image to podman
       run: podman pull docker-daemon:${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Save container image
       run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - uses: actions/upload-artifact@v4
       with:
-        name: cryostat-${{ matrix.arch }}
+        name: cryostat-${{ matrix.arch }}-podman
         path: cryostat-${{ matrix.arch }}.tar
+    - name: Save container image (docker)
+      run: podman save -o cryostat-${{ matrix.arch }}-docker.tar --format docker-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
+    - uses: actions/upload-artifact@v4
+      with:
+        name: cryostat-${{ matrix.arch }}-docker
+        path: cryostat-${{ matrix.arch }}-docker.tar
+
+  unit-test:
+    name: Run unit tests
+    runs-on: ubuntu-latest
+    needs: [get-pom-properties]
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+    - name: Install podman 4 and qemu
+      run: |
+        sudo apt update
+        sudo apt -y satisfy "podman (>= 4.0), qemu-user-static"
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+        fetch-depth: 0
+    - uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'maven'
+    - run: git submodule init && git submodule update
+    - name: Cache yarn packages and frontend build
+      uses: actions/cache@v4
+      with:
+        path: |
+          ./src/main/webui/.yarn/cache
+          ./src/main/webui/.yarn/install-state.gz
+          ./src/main/webui/node_modules
+          ./src/main/webui/.build_cache
+        key: ${{ runner.os }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.frontend-cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+    - name: Initialize web assets
+      run: |
+        pushd  src/main/webui
+        yarn install && yarn yarn:frzinstall
+        popd
+    - name: Run unit tests
+      run: |
+        ./mvnw -B -U \
+        -Dquarkus.quinoa=false \
+        -Dspotless.check.skip \
+        compile test
+
+  integration-test:
+    name: Run integration tests
+    runs-on: ubuntu-latest
+    needs: [build-images]
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    env:
+      CI_ARCH: ${{ matrix.arch }}
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+        fetch-depth: 0
+    - name: Install qemu
+      run: |
+        sudo apt update
+        sudo apt -y satisfy "qemu-user-static"
+    - uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'maven'
+    - name: Download container tarball
+      uses: actions/download-artifact@v4
+      with:
+        path: containers
+        name: cryostat-${{ matrix.arch }}-docker
+    - run: ls -a containers
+    - name: Import container tarball
+      run: docker image load -i containers/cryostat-${{ matrix.arch }}-docker.tar
+    - name: Prepare test harness
+      run: ./mvnw -Dquarkus.quinoa=false -Dquarkus.container-image.build=false -Dspotless.check.skip -DskipTests package
+    - run: docker images
+    - run: docker inspect ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
+    - name: Replace artifact metadata
+      run: |
+        [ -d target ] || mkdir target ; \
+        touch target/quarkus-artifact.properties ; \
+        > target/quarkus-artifact.properties ; \
+        echo "metadata.container-image=${{ env.CI_IMG }}:linux-${{ matrix.arch }}" >> target/quarkus-artifact.properties ; \
+        echo "metadata.pull-required=false" >> target/quarkus-artifact.properties ; \
+        echo "type=jar-container" >> target/quarkus-artifact.properties
+    - name: Run tests
+      run: ./mvnw -B -U failsafe:integration-test failsafe:verify
+    - name: Dump logs
+      if: always()
+      run: cat target/quarkus.log
 
   publish-manifest:
     runs-on: ubuntu-latest
-    needs: [get-pom-properties, build-and-test]
+    needs: [get-pom-properties, build-images, unit-test, integration-test]
     steps:
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
@@ -118,7 +220,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         path: containers
-        pattern: cryostat-*
+        pattern: cryostat-*-podman
         merge-multiple: true
     - name: Create manifest
       run: podman manifest create ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }}
@@ -135,10 +237,9 @@ jobs:
       run: |
         find containers -type f -exec podman load -i {} \;
         for tag in $(podman images --filter label=io.cryostat.component --format '{{ .Tag }}'); do
-          podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} containers-storage:${{env.CI_IMG}}:${tag}
+          podman manifest add ${{ env.CI_IMG }}:${{ needs.get-pom-properties.outputs.image-version }} containers-storage:${{ env.CI_IMG }}:${tag}
         done
     - name: Push to quay.io
-      if: github.repository_owner == 'cryostatio'
       id: push-to-quay
       uses: redhat-actions/push-to-registry@v2
       with:
