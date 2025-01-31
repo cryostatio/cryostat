@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.InputStream;
+import java.time.Duration;
 
 import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
@@ -33,18 +34,19 @@ public class RemoteRecordingInputStreamFactory {
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingHelper recordingHelper;
 
-    public ProgressInputStream open(ActiveRecording recording) throws Exception {
+    public ProgressInputStream open(ActiveRecording recording, Duration timeout) throws Exception {
         return connectionManager.executeConnectedTask(
                 recording.target,
                 conn -> {
                     IRecordingDescriptor desc =
                             recordingHelper.getDescriptor(conn, recording).orElseThrow();
-                    return open(conn, recording.target, desc);
-                });
+                    return openDirect(conn, recording.target, desc);
+                },
+                timeout);
     }
 
-    public ProgressInputStream open(JFRConnection conn, Target target, IRecordingDescriptor desc)
-            throws Exception {
+    public ProgressInputStream openDirect(
+            JFRConnection conn, Target target, IRecordingDescriptor desc) throws Exception {
         InputStream bareStream = conn.getService().openStream(desc, false);
         return new ProgressInputStream(
                 bareStream, n -> connectionManager.markConnectionInUse(target));

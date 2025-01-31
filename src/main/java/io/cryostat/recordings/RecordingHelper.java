@@ -176,6 +176,9 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_TIMEOUT)
+    Duration uploadFailedTimeout;
+
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURLProperty;
 
@@ -475,7 +478,7 @@ public class RecordingHelper {
                     desc = updatedDescriptor.get();
 
                     try (InputStream snapshot =
-                            remoteRecordingStreamFactory.open(connection, target, desc)) {
+                            remoteRecordingStreamFactory.openDirect(connection, target, desc)) {
                         if (!snapshotIsReadable(target, snapshot)) {
                             safeCloseRecording(connection, desc);
                             throw new SnapshotCreationException(
@@ -822,7 +825,7 @@ public class RecordingHelper {
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
         long accum = 0;
-        try (var stream = getActiveInputStream(recording);
+        try (var stream = getActiveInputStream(recording, uploadFailedTimeout);
                 var ch = Channels.newChannel(stream)) {
             ByteBuffer buf = ByteBuffer.allocate(20 * MIB);
             CreateMultipartUploadRequest.Builder builder =
@@ -996,14 +999,16 @@ public class RecordingHelper {
         return Pair.of(parts[0], parts[1]);
     }
 
-    public InputStream getActiveInputStream(ActiveRecording recording) throws Exception {
-        return remoteRecordingStreamFactory.open(recording);
+    public InputStream getActiveInputStream(ActiveRecording recording, Duration timeout)
+            throws Exception {
+        return getActiveInputStream(recording.target.id, recording.remoteId, timeout);
     }
 
-    public InputStream getActiveInputStream(long targetId, long remoteId) throws Exception {
+    public InputStream getActiveInputStream(long targetId, long remoteId, Duration timeout)
+            throws Exception {
         var target = Target.getTargetById(targetId);
         var recording = target.getRecordingById(remoteId);
-        var stream = remoteRecordingStreamFactory.open(recording);
+        var stream = remoteRecordingStreamFactory.open(recording, timeout);
         return stream;
     }
 
@@ -1323,7 +1328,7 @@ public class RecordingHelper {
                             try {
                                 Path tempFile = fs.createTempFile(null, null);
                                 try (var stream =
-                                        remoteRecordingStreamFactory.open(
+                                        remoteRecordingStreamFactory.openDirect(
                                                 connection, target, descriptor)) {
                                     fs.copy(stream, tempFile, StandardCopyOption.REPLACE_EXISTING);
                                 }

@@ -204,7 +204,11 @@ public class TargetConnectionManager {
     }
 
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
-        return executeConnectedTaskUni(target, task).await().atMost(failedTimeout);
+        return executeConnectedTask(target, task, failedTimeout);
+    }
+
+    public <T> T executeConnectedTask(Target target, ConnectedTask<T> task, Duration timeout) {
+        return executeConnectedTaskUni(target, task).await().atMost(timeout);
     }
 
     public <T> Uni<T> executeDirect(
