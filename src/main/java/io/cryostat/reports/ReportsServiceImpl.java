@@ -42,8 +42,8 @@ class ReportsServiceImpl implements ReportsService {
 
     private static final String NO_SIDECAR_URL = "http://localhost/";
 
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration connectionFailedTimeout;
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_TIMEOUT)
+    Duration uploadFailedTimeout;
 
     @ConfigProperty(name = ConfigProperties.REPORTS_SIDECAR_URL)
     String sidecarUri;
@@ -59,7 +59,7 @@ class ReportsServiceImpl implements ReportsService {
             ActiveRecording recording, Predicate<IRule> predicate) {
         InputStream stream;
         try {
-            stream = helper.getActiveInputStream(recording, connectionFailedTimeout);
+            stream = helper.getActiveInputStream(recording, uploadFailedTimeout);
         } catch (Exception e) {
             throw new ReportGenerationException(e);
         }
