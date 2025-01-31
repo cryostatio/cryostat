@@ -48,9 +48,9 @@ public class LongRunningRequestGenerator {
     public static final String ACTIVE_REPORT_ADDRESS =
             "io.cryostat.recordings.ArchiveRequestGenerator.ActiveReportRequest";
     private static final String ARCHIVE_RECORDING_SUCCESS = "ArchiveRecordingSuccess";
-    private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailed";
+    private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailure";
     private static final String GRAFANA_UPLOAD_SUCCESS = "GrafanaUploadSuccess";
-    private static final String GRAFANA_UPLOAD_FAIL = "GrafanaUploadFailed";
+    private static final String GRAFANA_UPLOAD_FAIL = "GrafanaUploadFailure";
     private static final String REPORT_SUCCESS = "ReportSuccess";
     private static final String REPORT_FAILURE = "ReportFailure";
 
