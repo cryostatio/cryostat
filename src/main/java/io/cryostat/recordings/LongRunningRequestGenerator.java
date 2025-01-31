@@ -62,7 +62,7 @@ public class LongRunningRequestGenerator {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_FAILED_TIMEOUT)
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_TIMEOUT)
     Duration uploadFailedTimeout;
 
     public LongRunningRequestGenerator() {}

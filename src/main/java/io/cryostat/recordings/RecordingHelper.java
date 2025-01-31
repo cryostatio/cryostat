@@ -176,7 +176,7 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
 
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_FAILED_TIMEOUT)
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_TIMEOUT)
     Duration uploadFailedTimeout;
 
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
