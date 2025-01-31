@@ -478,7 +478,7 @@ public class RecordingHelper {
                     desc = updatedDescriptor.get();
 
                     try (InputStream snapshot =
-                            remoteRecordingStreamFactory.open(connection, target, desc)) {
+                            remoteRecordingStreamFactory.openDirect(connection, target, desc)) {
                         if (!snapshotIsReadable(target, snapshot)) {
                             safeCloseRecording(connection, desc);
                             throw new SnapshotCreationException(
@@ -1001,13 +1001,14 @@ public class RecordingHelper {
 
     public InputStream getActiveInputStream(ActiveRecording recording, Duration timeout)
             throws Exception {
-        return remoteRecordingStreamFactory.open(recording, timeout);
+        return getActiveInputStream(recording.target.id, recording.remoteId, timeout);
     }
 
-    public InputStream getActiveInputStream(long targetId, long remoteId) throws Exception {
+    public InputStream getActiveInputStream(long targetId, long remoteId, Duration timeout)
+            throws Exception {
         var target = Target.getTargetById(targetId);
         var recording = target.getRecordingById(remoteId);
-        var stream = remoteRecordingStreamFactory.open(recording, connectionFailedTimeout);
+        var stream = remoteRecordingStreamFactory.open(recording, timeout);
         return stream;
     }
 
@@ -1327,7 +1328,7 @@ public class RecordingHelper {
                             try {
                                 Path tempFile = fs.createTempFile(null, null);
                                 try (var stream =
-                                        remoteRecordingStreamFactory.open(
+                                        remoteRecordingStreamFactory.openDirect(
                                                 connection, target, descriptor)) {
                                     fs.copy(stream, tempFile, StandardCopyOption.REPLACE_EXISTING);
                                 }

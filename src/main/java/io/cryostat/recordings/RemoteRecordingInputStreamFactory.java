@@ -35,18 +35,18 @@ public class RemoteRecordingInputStreamFactory {
     @Inject RecordingHelper recordingHelper;
 
     public ProgressInputStream open(ActiveRecording recording, Duration timeout) throws Exception {
-        return connectionManager.executeConnectedTaskTimeout(
+        return connectionManager.executeConnectedTask(
                 recording.target,
                 conn -> {
                     IRecordingDescriptor desc =
                             recordingHelper.getDescriptor(conn, recording).orElseThrow();
-                    return open(conn, recording.target, desc);
+                    return openDirect(conn, recording.target, desc);
                 },
                 timeout);
     }
 
-    public ProgressInputStream open(JFRConnection conn, Target target, IRecordingDescriptor desc)
-            throws Exception {
+    public ProgressInputStream openDirect(
+            JFRConnection conn, Target target, IRecordingDescriptor desc) throws Exception {
         InputStream bareStream = conn.getService().openStream(desc, false);
         return new ProgressInputStream(
                 bareStream, n -> connectionManager.markConnectionInUse(target));
