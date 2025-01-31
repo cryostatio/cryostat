@@ -17,6 +17,7 @@ package io.cryostat.reports;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
+import java.time.Duration;
 import java.util.Map;
 import java.util.function.Predicate;
 
@@ -41,6 +42,9 @@ class ReportsServiceImpl implements ReportsService {
 
     private static final String NO_SIDECAR_URL = "http://localhost/";
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionFailedTimeout;
+
     @ConfigProperty(name = ConfigProperties.REPORTS_SIDECAR_URL)
     String sidecarUri;
 
@@ -55,7 +59,7 @@ class ReportsServiceImpl implements ReportsService {
             ActiveRecording recording, Predicate<IRule> predicate) {
         InputStream stream;
         try {
-            stream = helper.getActiveInputStream(recording);
+            stream = helper.getActiveInputStream(recording, connectionFailedTimeout);
         } catch (Exception e) {
             throw new ReportGenerationException(e);
         }

@@ -49,6 +49,9 @@ public class ActiveRecordingsDownload {
     @Named(Producers.BASE64_URL)
     Base64 base64Url;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionFailedTimeout;
+
     @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_ENABLED)
     boolean transientArchivesEnabled;
 
@@ -66,7 +69,9 @@ public class ActiveRecordingsDownload {
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format("attachment; filename=\"%s.jfr\"", recording.name))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
-                    .entity(recordingHelper.getActiveInputStream(recording))
+                    .entity(
+                            recordingHelper.getActiveInputStream(
+                                    recording, connectionFailedTimeout))
                     .build();
         }
 

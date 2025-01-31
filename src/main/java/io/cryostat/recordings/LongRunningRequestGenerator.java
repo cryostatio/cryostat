@@ -62,6 +62,9 @@ public class LongRunningRequestGenerator {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_FAILED_TIMEOUT)
+    Duration uploadFailedTimeout;
+
     public LongRunningRequestGenerator() {}
 
     @ConsumeEvent(value = ARCHIVE_ADDRESS, blocking = true)
@@ -88,7 +91,10 @@ public class LongRunningRequestGenerator {
     public void onMessage(GrafanaArchiveUploadRequest request) {
         try {
             logger.trace("Job ID: " + request.getId() + " submitted.");
-            recordingHelper.uploadToJFRDatasource(request.getPair()).await().atMost(timeout);
+            recordingHelper
+                    .uploadToJFRDatasource(request.getPair())
+                    .await()
+                    .atMost(uploadFailedTimeout);
             logger.trace("Grafana upload complete, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
@@ -108,7 +114,7 @@ public class LongRunningRequestGenerator {
             recordingHelper
                     .uploadToJFRDatasource(request.getTargetId(), request.getRemoteId())
                     .await()
-                    .atMost(timeout);
+                    .atMost(uploadFailedTimeout);
             logger.trace("Grafana upload complete, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),

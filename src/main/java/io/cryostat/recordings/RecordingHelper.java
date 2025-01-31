@@ -175,6 +175,9 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_FAILED_TIMEOUT)
+    Duration uploadFailedTimeout;
+
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURLProperty;
 
@@ -821,7 +824,7 @@ public class RecordingHelper {
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
         long accum = 0;
-        try (var stream = getActiveInputStream(recording);
+        try (var stream = getActiveInputStream(recording, uploadFailedTimeout);
                 var ch = Channels.newChannel(stream)) {
             ByteBuffer buf = ByteBuffer.allocate(20 * MIB);
             CreateMultipartUploadRequest.Builder builder =
@@ -973,14 +976,15 @@ public class RecordingHelper {
         return Pair.of(parts[0], parts[1]);
     }
 
-    public InputStream getActiveInputStream(ActiveRecording recording) throws Exception {
-        return remoteRecordingStreamFactory.open(recording);
+    public InputStream getActiveInputStream(ActiveRecording recording, Duration timeout)
+            throws Exception {
+        return remoteRecordingStreamFactory.open(recording, timeout);
     }
 
     public InputStream getActiveInputStream(long targetId, long remoteId) throws Exception {
         var target = Target.getTargetById(targetId);
         var recording = target.getRecordingById(remoteId);
-        var stream = remoteRecordingStreamFactory.open(recording);
+        var stream = remoteRecordingStreamFactory.open(recording, connectionFailedTimeout);
         return stream;
     }
 
