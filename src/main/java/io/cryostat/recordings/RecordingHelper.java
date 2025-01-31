@@ -18,6 +18,7 @@ package io.cryostat.recordings;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
@@ -916,6 +917,28 @@ public class RecordingHelper {
             // Amazon S3 couldn't be contacted for a response, or the client
             // couldn't parse the response from Amazon S3.
             throw e;
+        }
+        if (expiry == null) {
+            ArchivedRecording archivedRecording =
+                    new ArchivedRecording(
+                            recording.target.jvmId,
+                            filename,
+                            downloadUrl(recording.target.jvmId, filename),
+                            reportUrl(recording.target.jvmId, filename),
+                            recording.metadata,
+                            accum,
+                            now.getEpochSecond());
+
+            URI connectUrl = recording.target.connectUrl;
+
+            var event =
+                    new ArchivedRecordingEvent(
+                            ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
+                            ArchivedRecordingEvent.Payload.of(connectUrl, archivedRecording));
+            bus.publish(event.category().category(), event.payload().recording());
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(event.category().category(), event.payload()));
         }
         return new ArchivedRecording(
                 recording.target.jvmId,
