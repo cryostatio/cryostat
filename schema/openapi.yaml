@@ -630,7 +630,7 @@ info:
     name: Apache 2.0
     url: https://github.com/cryostatio/cryostat/blob/main/LICENSE
   title: Cryostat API
-  version: 4.0.0-snapshot
+  version: 4.1.0-snapshot
 openapi: 3.0.3
 paths:
   /api/beta/diagnostics/targets/{targetId}/gc:
