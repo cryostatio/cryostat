@@ -1,4 +1,4 @@
 [submodule "src/main/webui"]
 	path = src/main/webui
 	url = https://github.com/cryostatio/cryostat-web
-	branch = main
+	branch = cryostat-v4.0
