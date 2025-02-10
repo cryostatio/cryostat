@@ -4,7 +4,7 @@ services:
       resources:
         limits:
           cpus: "2"
-          memory: 512m
+          memory: 1024m
     image: ${CRYOSTAT_IMAGE:-quay.io/cryostat/cryostat:latest}
     volumes:
       - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/user/1000/podman/podman.sock:Z
