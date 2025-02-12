@@ -1,0 +1,18 @@
+services:
+  clojure-kit:
+    image: ${GAMESERVER_TEST_IMAGE:-quay.io/redhat-java-monitoring/clojure-kit:latest}
+    hostname: clojure-kit
+    labels:
+      io.cryostat.discovery: "true"
+      io.cryostat.jmxHost: "clojure-kit"
+      io.cryostat.jmxPort: "8766"
+    ports:
+      - "8765:8765"
+    expose:
+      - "8766"
+    environment:
+      PORT: 8765
+      JAVA_OPTS_APPEND: >-
+        -Dcom.sun.management.jmxremote.port=8766
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
