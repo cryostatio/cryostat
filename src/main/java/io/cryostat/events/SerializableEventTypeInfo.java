@@ -27,15 +27,17 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 
 @SuppressFBWarnings("EI_EXPOSE_REP")
 public record SerializableEventTypeInfo(
-        String name,
         String typeId,
+        String name,
         String description,
         String[] category,
         Map<String, SerializableOptionDescriptor> options) {
 
     public SerializableEventTypeInfo {
-        Objects.requireNonNull(name);
         Objects.requireNonNull(typeId);
+        if (name == null) {
+            name = "";
+        }
         if (description == null) {
             description = "";
         }
@@ -61,6 +63,6 @@ public record SerializableEventTypeInfo(
                     SerializableOptionDescriptor.fromOptionDescriptor(entry.getValue()));
         }
 
-        return new SerializableEventTypeInfo(name, typeId, description, category, options);
+        return new SerializableEventTypeInfo(typeId, name, description, category, options);
     }
 }
