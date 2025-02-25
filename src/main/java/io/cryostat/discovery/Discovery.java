@@ -192,7 +192,7 @@ public class Discovery {
         try {
             String callback = body.getString("callback");
             if (StringUtils.isBlank(callback)) {
-                throw new BadRequestException();
+                throw new BadRequestException("callback cannot be blank");
             }
             callbackUri = new URI(callback);
         } catch (URISyntaxException e) {
@@ -229,7 +229,7 @@ public class Discovery {
 
         for (var e : new String[] {callbackUri.getScheme(), callbackUri.getHost()}) {
             if (StringUtils.isBlank(e)) {
-                throw new BadRequestException();
+                throw new BadRequestException("callback must contain scheme and host");
             }
         }
         if (agentTlsRequired && !callbackUri.getScheme().equals("https")) {
@@ -250,7 +250,7 @@ public class Discovery {
                 throw new ForbiddenException();
             }
             if (!Objects.equals(plugin.callback, unauthCallback)) {
-                throw new BadRequestException();
+                throw new BadRequestException("plugin callback mismatch");
             }
             try {
                 location = jwtFactory.getPluginLocation(plugin);
