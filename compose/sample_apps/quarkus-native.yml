@@ -1,0 +1,19 @@
+services:
+  quarkus-native:
+    image: ${QUARKUS_NATIVE_TEST_IMAGE:-quay.io/redhat-java-monitoring/quarkus-native:latest}
+    hostname: quarkus-native
+    labels:
+      io.cryostat.discovery: "true"
+      io.cryostat.jmxHost: "quarkus-native"
+      io.cryostat.jmxPort: "8761"
+    expose:
+      - "8761"
+    environment:
+      QUARKUS_HTTP_PORT: 8760
+      QUARKUS_HTTP_HOST: 0.0.0.0
+    command: >-
+        -XX:+FlightRecorder
+        -XX:StartFlightRecording=filename=/tmp/,name=onstart,settings=default,disk=true,maxage=5m
+        -Dcom.sun.management.jmxremote.port=8761
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
