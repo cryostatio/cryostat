@@ -17,6 +17,7 @@ package io.cryostat.discovery;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -27,7 +28,11 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @QuarkusTest
 @TestHTTPEndpoint(Discovery.class)
@@ -88,6 +93,63 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
         }
     }
 
-    // TODO write tests for discovery plugin registration process
+    @Nested
+    class PluginValidations {
+        @ParameterizedTest
+        @NullAndEmptySource
+        @ValueSource(strings = {"invalid uri", "no.protocol.example.com"})
+        void rejectsInvalidCallback(String callback) {
+            Map<String, String> payload = new HashMap<>();
+            payload.put("callback", callback);
+            payload.put("realm", "test");
+            given().log()
+                    .all()
+                    .when()
+                    .body(payload)
+                    .contentType(ContentType.JSON)
+                    .post("/api/v4/discovery")
+                    .then()
+                    .log()
+                    .all()
+                    .and()
+                    .assertThat()
+                    .statusCode(400);
+        }
 
+        @ParameterizedTest
+        @NullAndEmptySource
+        void rejectsInvalidRealmName(String realm) {
+            Map<String, String> payload = new HashMap<>();
+            payload.put("callback", "http://example.com");
+            payload.put("realm", realm);
+            given().log()
+                    .all()
+                    .when()
+                    .body(payload)
+                    .contentType(ContentType.JSON)
+                    .post("/api/v4/discovery")
+                    .then()
+                    .log()
+                    .all()
+                    .and()
+                    .assertThat()
+                    .statusCode(400);
+        }
+
+        @Test
+        void rejectsPublishForUnregisteredPlugin() {
+            given().log()
+                    .all()
+                    .when()
+                    .body(Map.of("realm", "test_realm", "callback", "http://localhost:8081"))
+                    .contentType(ContentType.JSON)
+                    .post("/api/v4/discovery")
+                    .then()
+                    .log()
+                    .all()
+                    .and()
+                    .assertThat()
+                    .statusCode(400);
+        }
+    }
 }
