@@ -28,8 +28,11 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -141,15 +144,15 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
             given().log()
                     .all()
                     .when()
-                    .body(Map.of("realm", "test_realm", "callback", "http://localhost:8081"))
+                    .body(List.of())
                     .contentType(ContentType.JSON)
-                    .post("/api/v4/discovery")
+                    .post("/api/v4/discovery/abcd1234")
                     .then()
                     .log()
                     .all()
                     .and()
                     .assertThat()
-                    .statusCode(400);
+                    .statusCode(404);
         }
     }
 }
