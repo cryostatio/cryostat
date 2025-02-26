@@ -87,7 +87,4 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
                             Matchers.equalTo("id"), Matchers.not(Matchers.blankOrNullString())));
         }
     }
-
-    // TODO write tests for discovery plugin registration process
-
 }
