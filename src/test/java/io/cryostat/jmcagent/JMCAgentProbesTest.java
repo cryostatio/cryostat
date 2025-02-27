@@ -19,9 +19,7 @@ import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
-import org.junit.jupiter.api.Disabled;
 
 @QuarkusTest
 @TestHTTPEndpoint(JMCAgentProbes.class)
-@Disabled("https://github.com/cryostatio/cryostat-core/issues/450")
 public class JMCAgentProbesTest extends AbstractTransactionalTestBase {}
