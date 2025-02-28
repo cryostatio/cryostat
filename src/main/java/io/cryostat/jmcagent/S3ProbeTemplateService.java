@@ -77,30 +77,31 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     private static final String TEMPLATE_DELETED_CATEGORY = "ProbeTemplateDeleted";
     private static final String TEMPLATE_UPLOADED_CATEGORY = "ProbeTemplateUploaded";
 
-    
     void onStart(@Observes StartupEvent evt) {
         storageBuckets.createIfNecessary(bucket);
         if (!checkDir()) {
-           return;
+            return;
         }
         try {
-                Files.walk(dir)
-                        .filter(Files::isRegularFile)
-                        .filter(Files::isReadable)
-                        .forEach(
-                                path -> {
-                                    try (var is = Files.newInputStream(path)) {
-                                        logger.debugv("Uploading probe template from {0} to S3", path.toString());
-                                        addTemplate(is, path.toString());
-                                    } catch (IOException | SAXException e) {
-                                        logger.error(e);
-                                    } catch (DuplicateProbeTemplateException e) {
-                                        logger.warn(e);
-                                    }
-                                });
-                        } catch (IOException e) {
-                                logger.warn(e);
-                        }
+            Files.walk(dir)
+                    .filter(Files::isRegularFile)
+                    .filter(Files::isReadable)
+                    .forEach(
+                            path -> {
+                                try (var is = Files.newInputStream(path)) {
+                                    logger.debugv(
+                                            "Uploading probe template from {0} to S3",
+                                            path.toString());
+                                    addTemplate(is, path.toString());
+                                } catch (IOException | SAXException e) {
+                                    logger.error(e);
+                                } catch (DuplicateProbeTemplateException e) {
+                                    logger.warn(e);
+                                }
+                            });
+        } catch (IOException e) {
+            logger.warn(e);
+        }
     }
 
     private boolean checkDir() {
@@ -222,7 +223,8 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
             template.setFileName(fileName);
             template.deserialize(stream);
             var existing = getTemplates();
-            if (existing.stream().anyMatch(t -> Objects.equals(t.getFileName(), template.getFileName()))) {
+            if (existing.stream()
+                    .anyMatch(t -> Objects.equals(t.getFileName(), template.getFileName()))) {
                 throw new DuplicateProbeTemplateException(template.getFileName());
             }
             storage.putObject(
