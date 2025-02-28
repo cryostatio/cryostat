@@ -18,10 +18,6 @@ package itest;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-import io.cryostat.resources.GrafanaResource;
-import io.cryostat.resources.JFRDatasourceResource;
-
-import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonObject;
@@ -31,12 +27,9 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-@QuarkusTestResource(GrafanaResource.class)
-@QuarkusTestResource(JFRDatasourceResource.class)
 public class HealthIT extends StandardSelfTest {
 
     JsonObject response;
@@ -68,25 +61,58 @@ public class HealthIT extends StandardSelfTest {
                 Matchers.matchesRegex("^v[\\d]\\.[\\d]\\.[\\d](?:-snapshot)?"));
     }
 
-    @Disabled("TODO")
     @Test
-    void shouldHaveAvailableDatasource() {
+    void shouldIncludeGitHash() {
+        Assertions.assertTrue(response.containsKey("build"));
+        Assertions.assertTrue(response.getJsonObject("build").containsKey("git"));
+        Assertions.assertTrue(
+                response.getJsonObject("build").getJsonObject("git").containsKey("hash"));
+        MatcherAssert.assertThat(
+                response.getJsonObject("build").getJsonObject("git").getString("hash"),
+                Matchers.not(Matchers.emptyOrNullString()));
+        MatcherAssert.assertThat(
+                response.getJsonObject("build").getJsonObject("git").getString("hash"),
+                Matchers.matchesRegex("^[a-f0-9]+$"));
+    }
+
+    @Test
+    void shouldHaveConfiguredDatasource() {
         Assertions.assertTrue(response.containsKey("datasourceConfigured"));
         MatcherAssert.assertThat(
                 response.getString("datasourceConfigured"), Matchers.equalTo("true"));
-        Assertions.assertTrue(response.containsKey("datasourceAvailable"));
-        MatcherAssert.assertThat(
-                response.getString("datasourceAvailable"), Matchers.equalTo("true"));
     }
 
-    @Disabled("TODO")
     @Test
-    void shouldHaveAvailableDashboard() {
+    void shouldHaveConfiguredDashboard() {
         Assertions.assertTrue(response.containsKey("dashboardConfigured"));
         MatcherAssert.assertThat(
                 response.getString("dashboardConfigured"), Matchers.equalTo("true"));
+    }
+
+    @Test
+    void shouldHaveConfigureREports() {
+        Assertions.assertTrue(response.containsKey("reportsConfigured"));
+        MatcherAssert.assertThat(
+                response.getString("reportsConfigured"), Matchers.equalTo("false"));
+    }
+
+    @Test
+    void shouldHaveAvailableDatasource() {
+        Assertions.assertTrue(response.containsKey("datasourceAvailable"));
+        MatcherAssert.assertThat(
+                response.getString("datasourceAvailable"), Matchers.equalTo("false"));
+    }
+
+    @Test
+    void shouldHaveAvailableDashboard() {
         Assertions.assertTrue(response.containsKey("dashboardAvailable"));
         MatcherAssert.assertThat(
-                response.getString("dashboardAvailable"), Matchers.equalTo("true"));
+                response.getString("dashboardAvailable"), Matchers.equalTo("false"));
+    }
+
+    @Test
+    void shouldHaveAvailableREports() {
+        Assertions.assertTrue(response.containsKey("reportsAvailable"));
+        MatcherAssert.assertThat(response.getString("reportsAvailable"), Matchers.equalTo("true"));
     }
 }
