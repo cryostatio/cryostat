@@ -266,6 +266,8 @@ cleanup() {
     ${container_engine} volume rm jmxtls_cfg || true
     ${container_engine} rm templates_helper || true
     ${container_engine} volume rm templates || true
+    ${container_engine} rm probes_helper || true
+    ${container_engine} volume rm probes || true
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
         kill -0 "${i}" && kill "${i}"
@@ -333,6 +335,14 @@ createEventTemplateVolume() {
     fi
 }
 createEventTemplateVolume
+
+createProbeTemplateVolume() {
+    "${container_engine}" volume create probes
+    "${container_engine}" container create --name probes_helper -v probes:/probes busybox
+    if [ -d "${DIR}/probes" ]; then
+        "${container_engine}" cp "${DIR}/probes" probes_helper:/probes
+    fi
+}
 
 setupUserHosts() {
     # This requires https://github.com/figiel/hosts to work. See README.
