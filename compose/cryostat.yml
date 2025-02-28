@@ -10,6 +10,7 @@ services:
       - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/user/1000/podman/podman.sock:Z
       - jmxtls_cfg:/truststore:U
       - templates:/opt/cryostat.d/templates.d:U
+      - probes:/opt/cryostat.d/probes.d:U
     security_opt:
       - label:disable
     hostname: cryostat
@@ -49,4 +50,6 @@ volumes:
   jmxtls_cfg:
     external: true
   templates:
+    external: true
+  probes:
     external: true
