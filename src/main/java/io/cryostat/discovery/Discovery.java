@@ -39,7 +39,6 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
 import com.fasterxml.jackson.annotation.JsonView;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
@@ -163,15 +162,18 @@ public class Discovery {
     @Path("/api/v4/discovery/{id}")
     @RolesAllowed("read")
     public void checkRegistration(
-            @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
-            throws SocketException,
-                    UnknownHostException,
-                    MalformedURLException,
-                    ParseException,
-                    JOSEException,
-                    URISyntaxException {
+            @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token) {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
-        jwtValidator.validateJwt(ctx, plugin, token, true);
+        try {
+            jwtValidator.validateJwt(ctx, plugin, token, true);
+        } catch (MalformedURLException
+                | URISyntaxException
+                | UnknownHostException
+                | SocketException
+                | JOSEException
+                | ParseException e) {
+            throw new BadRequestException(e);
+        }
     }
 
     @Transactional
@@ -182,39 +184,54 @@ public class Discovery {
     @RolesAllowed("write")
     @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     public PluginRegistration register(@Context RoutingContext ctx, JsonObject body)
-            throws URISyntaxException,
-                    MalformedURLException,
-                    JOSEException,
-                    UnknownHostException,
-                    SocketException,
-                    ParseException,
-                    BadJWTException,
-                    SchedulerException {
+            throws SchedulerException {
         String pluginId = body.getString("id");
         String priorToken = body.getString("token");
         String realmName = body.getString("realm");
-        URI callbackUri = new URI(body.getString("callback"));
+        URI callbackUri;
+        try {
+            String callback = body.getString("callback");
+            if (StringUtils.isBlank(callback)) {
+                throw new BadRequestException("callback cannot be blank");
+            }
+            callbackUri = new URI(callback);
+        } catch (URISyntaxException e) {
+            throw new BadRequestException(e);
+        }
         URI unauthCallback = UriBuilder.fromUri(callbackUri).userInfo(null).build();
 
-        // URI range validation
-        if (!uriUtil.validateUri(callbackUri)) {
-            throw new BadRequestException(
-                    String.format(
-                            "cryostat.target.callback of \"%s\" is unacceptable with the"
-                                    + " current URI range settings",
-                            callbackUri));
-        }
-
         InetAddress remoteAddress = getRemoteAddress(ctx);
-        URI remoteURI = new URI(remoteAddress.getHostAddress());
-        if (!uriUtil.validateUri(remoteURI)) {
-            throw new BadRequestException(
-                    String.format(
-                            "Remote Address of \"%s\" is unacceptable with the"
-                                    + " current URI range settings",
-                            remoteURI));
+        URI remoteURI;
+        try {
+            remoteURI = new URI(remoteAddress.getHostAddress());
+        } catch (URISyntaxException e) {
+            throw new BadRequestException(e);
         }
 
+        try {
+            if (!uriUtil.validateUri(callbackUri)) {
+                throw new BadRequestException(
+                        String.format(
+                                "cryostat.target.callback of \"%s\" is unacceptable with the"
+                                        + " current URI range settings",
+                                callbackUri));
+            }
+            if (!uriUtil.validateUri(remoteURI)) {
+                throw new BadRequestException(
+                        String.format(
+                                "Remote Address of \"%s\" is unacceptable with the"
+                                        + " current URI range settings",
+                                remoteURI));
+            }
+        } catch (MalformedURLException e) {
+            throw new BadRequestException(e);
+        }
+
+        for (var e : new String[] {callbackUri.getScheme(), callbackUri.getHost()}) {
+            if (StringUtils.isBlank(e)) {
+                throw new BadRequestException("callback must contain scheme and host");
+            }
+        }
         if (agentTlsRequired && !callbackUri.getScheme().equals("https")) {
             throw new BadRequestException(
                     String.format(
@@ -233,10 +250,20 @@ public class Discovery {
                 throw new ForbiddenException();
             }
             if (!Objects.equals(plugin.callback, unauthCallback)) {
-                throw new BadRequestException();
+                throw new BadRequestException("plugin callback mismatch");
             }
-            location = jwtFactory.getPluginLocation(plugin);
-            jwtFactory.parseDiscoveryPluginJwt(plugin, priorToken, location, remoteAddress, false);
+            try {
+                location = jwtFactory.getPluginLocation(plugin);
+                jwtFactory.parseDiscoveryPluginJwt(
+                        plugin, priorToken, location, remoteAddress, false);
+            } catch (URISyntaxException
+                    | UnknownHostException
+                    | SocketException
+                    | BadJWTException
+                    | JOSEException
+                    | ParseException e) {
+                throw new BadRequestException(e);
+            }
         } else {
             // check if a plugin record with the same callback already exists. If it does,
             // ping it:
@@ -274,7 +301,11 @@ public class Discovery {
             universe.children.add(plugin.realm);
             universe.persist();
 
-            location = jwtFactory.getPluginLocation(plugin);
+            try {
+                location = jwtFactory.getPluginLocation(plugin);
+            } catch (URISyntaxException e) {
+                throw new BadRequestException(e);
+            }
 
             var dataMap = new JobDataMap();
             dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
@@ -297,7 +328,12 @@ public class Discovery {
             scheduler.scheduleJob(jobDetail, trigger);
         }
 
-        String token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, location);
+        String token;
+        try {
+            token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, location);
+        } catch (URISyntaxException | JOSEException | UnknownHostException | SocketException e) {
+            throw new BadRequestException(e);
+        }
 
         // TODO implement more generic env map passing by some platform detection
         // strategy or generalized config properties
@@ -318,26 +354,32 @@ public class Discovery {
             @Context RoutingContext ctx,
             @RestPath UUID id,
             @RestQuery String token,
-            List<DiscoveryNode> body)
-            throws SocketException,
-                    UnknownHostException,
-                    MalformedURLException,
-                    ParseException,
-                    JOSEException,
-                    URISyntaxException {
+            List<DiscoveryNode> body) {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
-        jwtValidator.validateJwt(ctx, plugin, token, true);
+        try {
+            jwtValidator.validateJwt(ctx, plugin, token, true);
+        } catch (MalformedURLException
+                | URISyntaxException
+                | UnknownHostException
+                | SocketException
+                | JOSEException
+                | ParseException e) {
+            throw new BadRequestException(e);
+        }
         plugin.realm.children.clear();
         plugin.realm.children.addAll(body);
         for (var b : body) {
             if (b.target != null) {
-                // URI range validation
-                if (!uriUtil.validateUri(b.target.connectUrl)) {
-                    throw new BadRequestException(
-                            String.format(
-                                    "Connect URL of \"%s\" is unacceptable with the"
-                                            + " current URI range settings",
-                                    b.target.connectUrl));
+                try {
+                    if (!uriUtil.validateUri(b.target.connectUrl)) {
+                        throw new BadRequestException(
+                                String.format(
+                                        "Connect URL of \"%s\" is unacceptable with the"
+                                                + " current URI range settings",
+                                        b.target.connectUrl));
+                    }
+                } catch (MalformedURLException e) {
+                    throw new BadRequestException(e);
                 }
                 if (!uriUtil.isJmxUrl(b.target.connectUrl)) {
                     if (agentTlsRequired && !b.target.connectUrl.getScheme().equals("https")) {
@@ -370,15 +412,18 @@ public class Discovery {
     @Path("/api/v4/discovery/{id}")
     @PermitAll
     public void deregister(@Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
-            throws SocketException,
-                    UnknownHostException,
-                    MalformedURLException,
-                    ParseException,
-                    JOSEException,
-                    URISyntaxException,
-                    SchedulerException {
+            throws SchedulerException {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
-        jwtValidator.validateJwt(ctx, plugin, token, false);
+        try {
+            jwtValidator.validateJwt(ctx, plugin, token, false);
+        } catch (MalformedURLException
+                | URISyntaxException
+                | UnknownHostException
+                | SocketException
+                | JOSEException
+                | ParseException e) {
+            throw new BadRequestException(e);
+        }
         if (plugin.builtin) {
             throw new ForbiddenException();
         }
@@ -396,8 +441,7 @@ public class Discovery {
     @JsonView(DiscoveryNode.Views.Flat.class)
     @Path("/api/v4/discovery_plugins")
     @RolesAllowed("read")
-    public List<DiscoveryPlugin> getPlugins(@RestQuery String realm)
-            throws JsonProcessingException {
+    public List<DiscoveryPlugin> getPlugins(@RestQuery String realm) {
         // TODO filter for the matching realm name within the DB query
         return DiscoveryPlugin.findAll().<DiscoveryPlugin>list().stream()
                 .filter(p -> StringUtils.isBlank(realm) || p.realm.name.equals(realm))
@@ -407,7 +451,7 @@ public class Discovery {
     @GET
     @Path("/api/v4/discovery_plugins/{id}")
     @RolesAllowed("read")
-    public DiscoveryPlugin getPlugin(@RestPath UUID id) throws JsonProcessingException {
+    public DiscoveryPlugin getPlugin(@RestPath UUID id) {
         return DiscoveryPlugin.find("id", id).singleResult();
     }
 

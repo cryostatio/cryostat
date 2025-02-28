@@ -15,6 +15,7 @@
  */
 package itest;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -143,11 +144,10 @@ public class ReportGenerationTest extends StandardSelfTest {
     }
 
     @Test
-    @Disabled
     void testGetArchivedReport() throws Exception {
         JsonObject activeRecording = null;
         CompletableFuture<String> saveRecordingResp = new CompletableFuture<>();
-        String savedRecordingName = null;
+        String archivedRecordingName = null;
 
         try {
             // Create a recording
@@ -172,6 +172,22 @@ public class ReportGenerationTest extends StandardSelfTest {
             // Wait some time to get more recording data
             Thread.sleep(5_000);
 
+            // Check that recording archiving concludes
+            CountDownLatch archiveLatch = new CountDownLatch(1);
+            Future<JsonObject> archiveFuture =
+                    worker.submit(
+                            () -> {
+                                try {
+                                    return expectNotification(
+                                                    "ArchiveRecordingSuccess", 15, TimeUnit.SECONDS)
+                                            .get();
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                } finally {
+                                    archiveLatch.countDown();
+                                }
+                            });
+
             // Save the recording to archive
             webClient
                     .patch(
@@ -195,16 +211,23 @@ public class ReportGenerationTest extends StandardSelfTest {
                                 }
                             });
 
-            savedRecordingName = saveRecordingResp.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            String archiveJobId = saveRecordingResp.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            JsonObject notification = archiveFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            MatcherAssert.assertThat(
+                    notification.getJsonObject("message").getMap(),
+                    Matchers.hasEntry("jobId", archiveJobId));
+            archivedRecordingName = notification.getJsonObject("message").getString("recording");
+            MatcherAssert.assertThat(
+                    archivedRecordingName, Matchers.not(Matchers.blankOrNullString()));
 
-            // Get a report for the archived recording
-            CompletableFuture<JsonObject> archiveResponse = new CompletableFuture<>();
+            // Request a report for the archived recording
+            CompletableFuture<String> jobIdResponse = new CompletableFuture<>();
             webClient
-                    .get(String.format("%s/%s", "/api/v4/reports", savedRecordingName))
+                    .get(activeRecording.getString("reportUrl"))
                     .putHeader(HttpHeaders.ACCEPT.toString(), HttpMimeType.JSON.mime())
                     .send(
                             ar -> {
-                                if (assertRequestStatus(ar, archiveResponse)) {
+                                if (assertRequestStatus(ar, jobIdResponse)) {
                                     MatcherAssert.assertThat(
                                             ar.result().statusCode(),
                                             Matchers.both(Matchers.greaterThanOrEqualTo(200))
@@ -212,15 +235,62 @@ public class ReportGenerationTest extends StandardSelfTest {
                                     MatcherAssert.assertThat(
                                             ar.result()
                                                     .getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                                            Matchers.equalTo("application/json;charset=UTF-8"));
-                                    archiveResponse.complete(ar.result().bodyAsJsonObject());
+                                            Matchers.equalTo("text/plain"));
+                                    jobIdResponse.complete(ar.result().bodyAsString());
                                 }
                             });
-            JsonObject jsonResponse = archiveResponse.get();
-            MatcherAssert.assertThat(jsonResponse, Matchers.notNullValue());
+
+            // Check that report generation concludes
+            CountDownLatch reportLatch = new CountDownLatch(1);
+            Future<JsonObject> reportFuture =
+                    worker.submit(
+                            () -> {
+                                try {
+                                    return expectNotification("ReportSuccess", 15, TimeUnit.SECONDS)
+                                            .get();
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                } finally {
+                                    reportLatch.countDown();
+                                }
+                            });
+
+            // wait for report generation to complete
+            String reportJobId = jobIdResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            notification = reportFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             MatcherAssert.assertThat(
-                    jsonResponse.getMap(),
-                    Matchers.is(Matchers.aMapWithSize(Matchers.greaterThan(0))));
+                    notification.getJsonObject("message").getMap(),
+                    Matchers.equalTo(Map.of("jobId", reportJobId)));
+
+            // FIXME caching is not working in the test harness, so after the job completes we still
+            // aren't able to retrieve the report document - we just get issued a new job ID
+            //
+            // Request a report for the archived recording
+            // CompletableFuture<JsonObject> reportResponse = new CompletableFuture<>();
+            // webClient
+            //         .get(activeRecording.getString("reportUrl"))
+            //         .putHeader(HttpHeaders.ACCEPT.toString(), HttpMimeType.JSON.mime())
+            //         .send(
+            //                 ar -> {
+            //                     if (assertRequestStatus(ar, reportResponse)) {
+            //                         MatcherAssert.assertThat(
+            //                                 ar.result().statusCode(),
+            //                                 Matchers.both(Matchers.greaterThanOrEqualTo(200))
+            //                                         .and(Matchers.lessThan(400)));
+            //                         MatcherAssert.assertThat(
+            //                                 ar.result()
+            //
+            // .getHeader(HttpHeaders.CONTENT_TYPE.toString()),
+            //                                 Matchers.equalTo("application/json;charset=UTF-8"));
+            //                         reportResponse.complete(ar.result().bodyAsJsonObject());
+            //                     }
+            //                 });
+
+            // JsonObject jsonResponse = reportResponse.get();
+            // MatcherAssert.assertThat(jsonResponse, Matchers.notNullValue());
+            // MatcherAssert.assertThat(
+            //         jsonResponse.getMap(),
+            //         Matchers.is(Matchers.aMapWithSize(Matchers.greaterThan(0))));
         } finally {
             if (activeRecording != null) {
                 // Clean up recording
@@ -242,12 +312,12 @@ public class ReportGenerationTest extends StandardSelfTest {
 
             CompletableFuture<JsonObject> deleteArchivedRecResp = new CompletableFuture<>();
             webClient
-                    .delete(String.format("%s/%s", archiveListRequestURL(), savedRecordingName))
+                    .delete(String.format("%s/%s", archiveListRequestURL(), archivedRecordingName))
                     .send(
                             ar -> {
                                 if (assertRequestStatus(ar, deleteArchivedRecResp)) {
                                     MatcherAssert.assertThat(
-                                            ar.result().statusCode(), Matchers.equalTo(200));
+                                            ar.result().statusCode(), Matchers.equalTo(204));
                                     deleteArchivedRecResp.complete(ar.result().bodyAsJsonObject());
                                 }
                             });
@@ -258,7 +328,7 @@ public class ReportGenerationTest extends StandardSelfTest {
                         new ITestCleanupFailedException(
                                 String.format(
                                         "Failed to delete archived recording %s",
-                                        savedRecordingName),
+                                        archivedRecordingName),
                                 e));
             }
         }

@@ -1,0 +1,35 @@
+services:
+  micronaut-cryostat-agent:
+    image: ${MICRONAUT_TEST_IMAGE:-quay.io/redhat-java-monitoring/micronaut-cryostat-agent:latest}
+    hostname: micronaut-cryostat-agent
+    ports:
+      - "10020:10020"
+    expose:
+      - "9922"
+    environment:
+      JAVA_OPTS_APPEND: >-
+        -Djava.util.logging.manager=org.jboss.logmanager.LogManager
+        -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=trace
+        -javaagent:/opt/cryostat/cryostat-agent.jar
+      MICRONAUT_SERVER_PORT: 10020
+      CRYOSTAT_AGENT_APP_NAME: micronaut-cryostat-agent
+      CRYOSTAT_AGENT_WEBSERVER_HOST: micronaut-cryostat-agent
+      CRYOSTAT_AGENT_WEBSERVER_PORT: 9922
+      CRYOSTAT_AGENT_CALLBACK: http://micronaut-cryostat-agent:9922/
+      CRYOSTAT_AGENT_BASEURI: ${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/
+      CRYOSTAT_AGENT_BASEURI_RANGE: public
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_PATH: /auth_certs/certificate.pem
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_TYPE: X.509
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_ALIAS: cryostat
+      CRYOSTAT_AGENT_API_WRITES_ENABLED: "true"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:10020 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+    volumes:
+      - ${DIR}/compose/auth_certs:/auth_certs:z

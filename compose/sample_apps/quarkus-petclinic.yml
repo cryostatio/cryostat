@@ -1,0 +1,53 @@
+services:
+  quarkus-petclinic:
+    image: ${QUARKUS_PETCLINIC_IMAGE:-quay.io/redhat-java-monitoring/quarkus-petclinic:latest}
+    hostname: quarkus-petclinic
+    depends_on:
+      quarkus-petclinic-db:
+        condition: service_healthy
+    ports:
+      - "10011:10011"
+    labels:
+      io.cryostat.discovery: "true"
+      io.cryostat.jmxHost: "quarkus-petclinic"
+      io.cryostat.jmxPort: "11223"
+    environment:
+      JAVA_OPTS_APPEND: >-
+        -Dquarkus.http.host=0.0.0.0
+        -Djava.util.logging.manager=org.jboss.logmanager.LogManager
+        -Dcom.sun.management.jmxremote.autodiscovery=false
+        -Dcom.sun.management.jmxremote
+        -Dcom.sun.management.jmxremote.port=11223
+        -Dcom.sun.management.jmxremote.rmi.port=11223
+        -Djava.rmi.server.hostname=quarkus-petclinic
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
+        -Dcom.sun.management.jmxremote.local.only=false
+      QUARKUS_HTTP_PORT: 10011
+      QUARKUS_DATASOURCE_JDBC_URL: jdbc:postgresql://quarkus-petclinic-db:5432/petclinic
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:10010 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+
+  quarkus-petclinic-db:
+    image: "postgres:14"
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 128m
+    environment:
+      - POSTGRES_USER=developer
+      - POSTGRES_PASSWORD=developer
+      - POSTGRES_DB=petclinic
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --dbname $$POSTGRES_DB --username $$POSTGRES_USER"]
+      interval: 5s
+      timeout: 5s
+      retries: 6
+    ports:
+      - "5432:5432"
