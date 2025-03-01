@@ -343,6 +343,7 @@ createProbeTemplateVolume() {
         "${container_engine}" cp "${DIR}/probes" probes_helper:/probes
     fi
 }
+createProbeTemplateVolume
 
 setupUserHosts() {
     # This requires https://github.com/figiel/hosts to work. See README.
