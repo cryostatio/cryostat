@@ -70,12 +70,6 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
-    - uses: DamianReeves/write-file-action@v1.3
-      with:
-        path: /etc/hosts
-        write-mode: append
-        contents: |
-          0.0.0.0 docker.io index.docker.io
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
     - name: Install podman 4
@@ -160,12 +154,6 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
-    - uses: DamianReeves/write-file-action@v1.3
-      with:
-        path: /etc/hosts
-        write-mode: append
-        contents: |
-          0.0.0.0 docker.io index.docker.io
     - name: Install podman 4
       run: |
         sudo apt update
@@ -233,12 +221,6 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
-    - uses: DamianReeves/write-file-action@v1.3
-      with:
-        path: /etc/hosts
-        write-mode: append
-        contents: |
-          0.0.0.0 docker.io index.docker.io
     - uses: actions/checkout@v4
       with:
         submodules: true
@@ -296,12 +278,6 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
-    - uses: DamianReeves/write-file-action@v1.3
-      with:
-        path: /etc/hosts
-        write-mode: append
-        contents: |
-          0.0.0.0 docker.io index.docker.io
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
     - name: Install podman 4

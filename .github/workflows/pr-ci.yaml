@@ -130,12 +130,6 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
-    - uses: DamianReeves/write-file-action@v1.3
-      with:
-        path: /etc/hosts
-        write-mode: append
-        contents: |
-          0.0.0.0 docker.io index.docker.io
     - run: git submodule init && git submodule update
     - name: Cache yarn packages
       uses: actions/cache@v4
