@@ -15,7 +15,7 @@ services:
       AWS_ACCESS_KEY_ID: minioroot
       AWS_SECRET_ACCESS_KEY: minioroot
   s3:
-    image: ${MINIO_IMAGE:-docker.io/minio/minio:latest}
+    image: ${MINIO_IMAGE:-quay.io/minio/minio:latest}
     hostname: s3
     expose:
       - "9000"
