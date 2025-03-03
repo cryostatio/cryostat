@@ -1,6 +1,6 @@
 services:
   opensearch-node:
-    image: docker.io/opensearchproject/opensearch:latest
+    image: quay.io/openstack.kolla/opensearch:2024.1-rocky-9
     hostname: opensearch-node
     environment:
       discovery.type: single-node
@@ -23,7 +23,7 @@ services:
       # - "9600" # Performance Analyzer
 
   opensearch-dashboards:
-    image: docker.io/opensearchproject/opensearch-dashboards:latest
+    image: quay.io/openstack.kolla/opensearch-dashboards:2024.1-rocky-9
     hostname: opensearch-dashboards
     ports:
       - 5601:5601
