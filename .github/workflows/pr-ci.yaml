@@ -114,17 +114,17 @@ jobs:
         cache: 'maven'
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: $HOME/.testcontainers.properties
+        path: ${{ runner.home }}/.testcontainers.properties
         write-mode: overwrite
         contents: |
           docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
           ryuk.container.image=quay.io/infinispan-test/ryuk\:0.8.1
+          tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
           ryuk.container.privileged=true
           testcontainers.reuse.enable=false
-          tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: $HOME/.config/containers/registries.conf.d/999-block-docker-io.conf
+        path: ~/.config/containers/registries.conf.d/999-block-docker-io.conf
         write-mode: overwrite
         contents: |
           [[registry]]
@@ -158,11 +158,6 @@ jobs:
       run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
     - name: Ensure podman 4+ and podman-docker installed
       run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0), podman-docker"
-    - name: Set up testcontainers for podman
-      run: |
-        echo ryuk.container.privileged=true > ~/.testcontainers.properties
-        echo docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy >> ~/.testcontainers.properties
-        echo testcontainers.reuse.enable=false >> ~/.testcontainers.properties
     - name: Start Podman API
       run: systemctl --user enable --now podman.socket
     - name: Set DOCKER_HOST environment variable

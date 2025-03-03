@@ -54,17 +54,17 @@ jobs:
     steps:
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: $HOME/.testcontainers.properties
+        path: ${{ runner.home }}/.testcontainers.properties
         write-mode: overwrite
         contents: |
           docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
           ryuk.container.image=quay.io/infinispan-test/ryuk\:0.8.1
+          tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
           ryuk.container.privileged=true
           testcontainers.reuse.enable=false
-          tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: $HOME/.config/containers/registries.conf.d/999-block-docker-io.conf
+        path: ~/.config/containers/registries.conf.d/999-block-docker-io.conf
         write-mode: overwrite
         contents: |
           [[registry]]
@@ -138,17 +138,17 @@ jobs:
     steps:
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: $HOME/.testcontainers.properties
+        path: ${{ runner.home }}/.testcontainers.properties
         write-mode: overwrite
         contents: |
           docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
           ryuk.container.image=quay.io/infinispan-test/ryuk\:0.8.1
+          tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
           ryuk.container.privileged=true
           testcontainers.reuse.enable=false
-          tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: $HOME/.config/containers/registries.conf.d/999-block-docker-io.conf
+        path: ~/.config/containers/registries.conf.d/999-block-docker-io.conf
         write-mode: overwrite
         contents: |
           [[registry]]
@@ -205,17 +205,17 @@ jobs:
     steps:
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: $HOME/.testcontainers.properties
+        path: ${{ runner.home }}/.testcontainers.properties
         write-mode: overwrite
         contents: |
           docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
           ryuk.container.image=quay.io/infinispan-test/ryuk\:0.8.1
+          tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
           ryuk.container.privileged=true
           testcontainers.reuse.enable=false
-          tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: $HOME/.config/containers/registries.conf.d/999-block-docker-io.conf
+        path: ~/.config/containers/registries.conf.d/999-block-docker-io.conf
         write-mode: overwrite
         contents: |
           [[registry]]
@@ -262,17 +262,17 @@ jobs:
     steps:
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: $HOME/.testcontainers.properties
+        path: ${{ runner.home }}/.testcontainers.properties
         write-mode: overwrite
         contents: |
           docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
           ryuk.container.image=quay.io/infinispan-test/ryuk\:0.8.1
+          tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
           ryuk.container.privileged=true
           testcontainers.reuse.enable=false
-          tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: $HOME/.config/containers/registries.conf.d/999-block-docker-io.conf
+        path: ~/.config/containers/registries.conf.d/999-block-docker-io.conf
         write-mode: overwrite
         contents: |
           [[registry]]
