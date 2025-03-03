@@ -19,6 +19,7 @@ env:
   CI_USER: cryostat+bot
   CI_REGISTRY: quay.io/cryostat
   CI_IMG: quay.io/cryostat/cryostat
+  TESTCONTAINERS_RYUK_DISABLED: true
 
 jobs:
   get-pom-properties:
