@@ -281,7 +281,7 @@ fi
 
 createProxyCfgVolume() {
     "${container_engine}" volume create auth_proxy_cfg
-    "${container_engine}" container create --name proxy_cfg_helper -v auth_proxy_cfg:/tmp busybox
+    "${container_engine}" container create --name proxy_cfg_helper -v auth_proxy_cfg:/tmp registry.access.redhat.com/ubi9/ubi-micro
     local cfg
     cfg="$(mktemp)"
     chmod 644 "${cfg}"
@@ -295,7 +295,7 @@ fi
 
 createProxyCertsVolume() {
     "${container_engine}" volume create auth_proxy_certs
-    "${container_engine}" container create --name proxy_certs_helper -v auth_proxy_certs:/certs busybox
+    "${container_engine}" container create --name proxy_certs_helper -v auth_proxy_certs:/certs registry.access.redhat.com/ubi9/ubi-micro
     if [ -f "${DIR}/compose/auth_certs/certificate.pem" ] && [ -f "${DIR}/compose/auth_certs/private.key" ]; then
         chmod 644 "${DIR}/compose/auth_certs/private.key"
         "${container_engine}" cp "${DIR}/compose/auth_certs/certificate.pem" proxy_certs_helper:/certs/certificate.pem
@@ -309,7 +309,7 @@ fi
 
 createLocalstackCfgVolume() {
     "${container_engine}" volume create localstack_cfg
-    "${container_engine}" container create --name localstack_cfg_helper -v localstack_cfg:/tmp busybox
+    "${container_engine}" container create --name localstack_cfg_helper -v localstack_cfg:/tmp registry.access.redhat.com/ubi9/ubi-micro
     "${container_engine}" cp "${DIR}/compose/localstack_buckets.sh" localstack_cfg_helper:/tmp
 }
 if [ "${s3}" = "localstack" ]; then
@@ -318,7 +318,7 @@ fi
 
 createJmxTlsCertVolume() {
     "${container_engine}" volume create jmxtls_cfg
-    "${container_engine}" container create --name jmxtls_cfg_helper -v jmxtls_cfg:/truststore busybox
+    "${container_engine}" container create --name jmxtls_cfg_helper -v jmxtls_cfg:/truststore registry.access.redhat.com/ubi9/ubi-micro
     if [ -d "${DIR}/truststore" ]; then
         "${container_engine}" cp "${DIR}/truststore" jmxtls_cfg_helper:/truststore
     fi
@@ -327,7 +327,7 @@ createJmxTlsCertVolume
 
 createEventTemplateVolume() {
     "${container_engine}" volume create templates
-    "${container_engine}" container create --name templates_helper -v templates:/templates busybox
+    "${container_engine}" container create --name templates_helper -v templates:/templates registry.access.redhat.com/ubi9/ubi-micro
     if [ -d "${DIR}/templates" ]; then
         "${container_engine}" cp "${DIR}/templates" templates_helper:/templates
     fi
