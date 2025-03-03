@@ -95,6 +95,7 @@ export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
 ```properties
 docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
 ryuk.container.image=quay.io/infinispan-test/ryuk\:0.8.1
+tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
 ryuk.container.privileged=true
 testcontainers.reuse.enable=false
 ```
