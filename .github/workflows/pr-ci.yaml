@@ -112,6 +112,30 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: 'maven'
+    - uses: DamianReeves/write-file-action@v1.3
+      with:
+        path: $HOME/.testcontainers.properties
+        write-mode: overwrite
+        contents: |
+          docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
+          ryuk.container.image=quay.io/infinispan-test/ryuk\:0.8.1
+          ryuk.container.privileged=true
+          testcontainers.reuse.enable=false
+          tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
+    - uses: DamianReeves/write-file-action@v1.3
+      with:
+        path: $HOME/.config/containers/registries.conf.d/999-block-docker-io.conf
+        write-mode: overwrite
+        contents: |
+          [[registry]]
+          location = "docker.io"
+          blocked = true
+    - uses: DamianReeves/write-file-action@v1.3
+      with:
+        path: /etc/hosts
+        write-mode: append
+        contents: |
+          0.0.0.0 docker.io index.docker.io
     - run: git submodule init && git submodule update
     - name: Cache yarn packages
       uses: actions/cache@v4
