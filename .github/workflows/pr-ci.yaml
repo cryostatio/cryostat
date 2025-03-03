@@ -114,7 +114,7 @@ jobs:
         cache: 'maven'
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: ~/.testcontainers.properties
+        path: /home/runner/.testcontainers.properties
         write-mode: overwrite
         contents: |
           docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
@@ -124,7 +124,7 @@ jobs:
           testcontainers.reuse.enable=false
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: ~/.config/containers/registries.conf.d/999-block-docker-io.conf
+        path: /home/runner/.config/containers/registries.conf.d/999-block-docker-io.conf
         write-mode: overwrite
         contents: |
           [[registry]]
