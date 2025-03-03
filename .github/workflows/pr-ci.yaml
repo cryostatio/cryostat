@@ -9,6 +9,9 @@ on:
     types:
       - created
 
+env:
+  TESTCONTAINERS_RYUK_DISABLED: true
+
 jobs:
   check-before-build:
     runs-on: ubuntu-latest
