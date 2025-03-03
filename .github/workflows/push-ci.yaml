@@ -71,11 +71,11 @@ jobs:
           location = "docker.io"
           blocked = true
     - name: Add CRIU PPA
-      run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
-    - name: Install podman 4
+      run: sudo add-apt-repository ppa:criu/ppa
+    - name: Install podman 4 and qemu
       run: |
         sudo apt update
-        sudo apt -y satisfy "podman (>= 4.0)"
+        sudo apt -y satisfy "podman (>= 4.0), qemu-user-static"
     - uses: actions/checkout@v4
       with:
         submodules: true
@@ -154,10 +154,10 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
-    - name: Install podman 4
+    - name: Install podman 4 and qemu
       run: |
         sudo apt update
-        sudo apt -y satisfy "podman (>= 4.0)"
+        sudo apt -y satisfy "podman (>= 4.0), qemu-user-static"
     - uses: actions/checkout@v4
       with:
         submodules: true
@@ -279,11 +279,11 @@ jobs:
           location = "docker.io"
           blocked = true
     - name: Add CRIU PPA
-      run: sudo add-apt-repository ppa:criu/ppa && sudo apt update
-    - name: Install podman 4
+      run: sudo add-apt-repository ppa:criu/ppa
+    - name: Install podman 4 and qemu
       run: |
         sudo apt update
-        sudo apt -y satisfy "podman (>= 4.0)"
+        sudo apt -y satisfy "podman (>= 4.0), qemu-user-static"
     - name: Download container tarballs
       uses: actions/download-artifact@v4
       with:
