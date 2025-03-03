@@ -124,7 +124,7 @@ jobs:
           testcontainers.reuse.enable=false
     - uses: DamianReeves/write-file-action@v1.3
       with:
-        path: ~/.config/containers/registries.conf.d/999-block-docker-io.conf
+        path: ${{ runner.home }}/.config/containers/registries.conf.d/999-block-docker-io.conf
         write-mode: overwrite
         contents: |
           [[registry]]
