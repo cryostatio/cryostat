@@ -19,8 +19,10 @@ import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
 
+import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
 import org.apache.http.client.utils.URLEncodedUtils;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.BeforeEach;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
+@QuarkusTestResource(S3StorageResource.class)
 public abstract class AbstractTestBase {
 
     public static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
