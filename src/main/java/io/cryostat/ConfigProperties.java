@@ -57,6 +57,7 @@ public class ConfigProperties {
 
     public static final String CUSTOM_TEMPLATES_DIR = "templates-dir";
     public static final String PRESET_TEMPLATES_DIR = "preset-templates-dir";
+    public static final String PROBE_TEMPLATES_DIR = "probe-templates-dir";
     public static final String SSL_TRUSTSTORE_DIR = "ssl.truststore.dir";
     public static final String RULES_DIR = "rules-dir";
 
