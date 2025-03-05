@@ -338,7 +338,7 @@ createEventTemplateVolume
 
 createProbeTemplateVolume() {
     "${container_engine}" volume create probes
-    "${container_engine}" container create --name probes_helper -v probes:/probes busybox
+    "${container_engine}" container create --name probes_helper -v probes:/probes registry.access.redhat.com/ubi9/ubi-micro
     if [ -d "${DIR}/probes" ]; then
         "${container_engine}" cp "${DIR}/probes" probes_helper:/probes
     fi
