@@ -40,9 +40,10 @@ nb-configuration.xml
 .env
 
 .quinoa/
-templates/
-*.jfr
 .quarkus/
+*.jfr
+templates/
+probes/
 truststore/
 compose/**/*.key
 compose/**/*.pem
