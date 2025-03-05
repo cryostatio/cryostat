@@ -18,6 +18,8 @@ package io.cryostat.jmcagent;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +60,9 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_PROBE_TEMPLATES)
     String bucket;
 
+    @ConfigProperty(name = ConfigProperties.PROBE_TEMPLATES_DIR)
+    Path dir;
+
     @Inject S3Client storage;
     @Inject StorageBuckets storageBuckets;
 
@@ -74,6 +79,36 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
 
     void onStart(@Observes StartupEvent evt) {
         storageBuckets.createIfNecessary(bucket);
+        if (!checkDir()) {
+            return;
+        }
+        try {
+            Files.walk(dir)
+                    .filter(Files::isRegularFile)
+                    .filter(Files::isReadable)
+                    .forEach(
+                            path -> {
+                                try (var is = Files.newInputStream(path)) {
+                                    logger.debugv(
+                                            "Uploading probe template from {0} to S3",
+                                            path.toString());
+                                    addTemplate(is, path.toString());
+                                } catch (IOException | SAXException e) {
+                                    logger.error(e);
+                                } catch (DuplicateProbeTemplateException e) {
+                                    logger.warn(e);
+                                }
+                            });
+        } catch (IOException e) {
+            logger.warn(e);
+        }
+    }
+
+    private boolean checkDir() {
+        return Files.exists(dir)
+                && Files.isReadable(dir)
+                && Files.isExecutable(dir)
+                && Files.isDirectory(dir);
     }
 
     @Override
@@ -187,6 +222,11 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
             ProbeTemplate template = new ProbeTemplate();
             template.setFileName(fileName);
             template.deserialize(stream);
+            var existing = getTemplates();
+            if (existing.stream()
+                    .anyMatch(t -> Objects.equals(t.getFileName(), template.getFileName()))) {
+                throw new DuplicateProbeTemplateException(template.getFileName());
+            }
             storage.putObject(
                     PutObjectRequest.builder()
                             .bucket(bucket)
@@ -242,5 +282,11 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                                                 .build())
                         .toList());
         return Tagging.builder().tagSet(tags).build();
+    }
+
+    static class DuplicateProbeTemplateException extends IllegalArgumentException {
+        DuplicateProbeTemplateException(String templateName) {
+            super(String.format("Probe Template with name \"%s\" already exists", templateName));
+        }
     }
 }
