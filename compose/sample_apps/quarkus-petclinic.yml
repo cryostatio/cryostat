@@ -34,16 +34,16 @@ services:
       timeout: 5s
 
   quarkus-petclinic-db:
-    image: "postgres:14"
+    image: "quay.io/sclorg/postgresql-15-c9s"
     deploy:
       resources:
         limits:
           cpus: "1"
           memory: 128m
     environment:
-      - POSTGRES_USER=developer
-      - POSTGRES_PASSWORD=developer
-      - POSTGRES_DB=petclinic
+      - POSTGRESQL_USER=developer
+      - POSTGRESQL_PASSWORD=developer
+      - POSTGRESQL_DATABASE=petclinic
     healthcheck:
       test: ["CMD-SHELL", "pg_isready --dbname $$POSTGRES_DB --username $$POSTGRES_USER"]
       interval: 5s

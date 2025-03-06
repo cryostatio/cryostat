@@ -1,6 +1,6 @@
 services:
   opensearch-node:
-    image: quay.io/openstack.kolla/opensearch:2024.1-rocky-9
+    image: quay.io/choral-k8s/opensearch:2.19.1
     hostname: opensearch-node
     environment:
       discovery.type: single-node
@@ -23,7 +23,7 @@ services:
       # - "9600" # Performance Analyzer
 
   opensearch-dashboards:
-    image: quay.io/openstack.kolla/opensearch-dashboards:2024.1-rocky-9
+    image: quay.io/choral-k8s/opensearch-dashboards:2.19.1
     hostname: opensearch-dashboards
     ports:
       - 5601:5601
