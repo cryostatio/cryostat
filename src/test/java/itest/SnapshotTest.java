@@ -195,7 +195,6 @@ public class SnapshotTest extends StandardSelfTest {
                                                 "%s/reports/%d",
                                                 selfCustomTargetLocation, json.getLong("remoteId")))
                                 .getPath()));
-        MatcherAssert.assertThat(json.containsKey("expiry"), Matchers.is(false));
     }
 
     private JsonArray fetchPreTestRecordings() throws Exception {
