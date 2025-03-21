@@ -16,10 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.InputStream;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.time.Instant;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
@@ -52,50 +49,17 @@ public class ActiveRecordingsDownload {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
 
-    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_ENABLED)
-    boolean transientArchivesEnabled;
-
-    @ConfigProperty(name = ConfigProperties.STORAGE_TRANSIENT_ARCHIVES_TTL)
-    Duration transientArchivesTtl;
-
     @GET
     @Blocking
     @RolesAllowed("read")
     public RestResponse<InputStream> handleActiveDownload(@RestPath long id) throws Exception {
         ActiveRecording recording = ActiveRecording.find("id", id).singleResult();
-        if (!transientArchivesEnabled) {
-            return ResponseBuilder.<InputStream>ok()
-                    .header(
-                            HttpHeaders.CONTENT_DISPOSITION,
-                            String.format("attachment; filename=\"%s.jfr\"", recording.name))
-                    .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
-                    .entity(
-                            recordingHelper.getActiveInputStream(
-                                    recording, connectionFailedTimeout))
-                    .build();
-        }
-
-        String savename = recording.name;
-        String filename =
-                recordingHelper
-                        .archiveRecording(
-                                recording, savename, Instant.now().plus(transientArchivesTtl))
-                        .name();
-        String encodedKey = recordingHelper.encodedKey(recording.target.jvmId, filename);
-        if (!savename.endsWith(".jfr")) {
-            savename += ".jfr";
-        }
-        return ResponseBuilder.<InputStream>create(RestResponse.Status.PERMANENT_REDIRECT)
+        return ResponseBuilder.<InputStream>ok()
                 .header(
                         HttpHeaders.CONTENT_DISPOSITION,
-                        String.format("attachment; filename=\"%s\"", savename))
-                .location(
-                        URI.create(
-                                String.format(
-                                        "/api/v4/download/%s?f=%s",
-                                        encodedKey,
-                                        base64Url.encodeAsString(
-                                                savename.getBytes(StandardCharsets.UTF_8)))))
+                        String.format("attachment; filename=\"%s.jfr\"", recording.name))
+                .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
+                .entity(recordingHelper.getActiveInputStream(recording, connectionFailedTimeout))
                 .build();
     }
 }
