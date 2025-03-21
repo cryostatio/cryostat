@@ -72,7 +72,7 @@ class ScheduledArchiveJob implements Job {
         }
 
         try {
-            previousRecordings.add(recordingHelper.archiveRecording(recording, null, null).name());
+            previousRecordings.add(recordingHelper.archiveRecording(recording, null).name());
         } catch (Exception e) {
             throw new JobExecutionException(e);
         }
