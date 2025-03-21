@@ -71,7 +71,7 @@ public class LongRunningRequestGenerator {
     public void onMessage(ArchiveRequest request) {
         logger.trace("Job ID: " + request.getId() + " submitted.");
         try {
-            String rec = recordingHelper.archiveRecording(request.recording, null, null).name();
+            String rec = recordingHelper.archiveRecording(request.recording, null).name();
             logger.trace("Recording archived, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),

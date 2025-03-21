@@ -18,7 +18,6 @@ package io.cryostat.recordings;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -275,21 +274,13 @@ public class ActiveRecordings {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record Metadata(Map<String, String> labels, Instant expiry) {
+    public record Metadata(Map<String, String> labels) {
         public Metadata {
             Objects.requireNonNull(labels);
         }
 
-        public Metadata(Map<String, String> labels) {
-            this(labels, null);
-        }
-
         public Metadata(Metadata other) {
             this(new HashMap<>((other.labels)));
-        }
-
-        public Metadata(Metadata other, Instant expiry) {
-            this(new HashMap<>((other.labels)), expiry);
         }
 
         public static Metadata empty() {
