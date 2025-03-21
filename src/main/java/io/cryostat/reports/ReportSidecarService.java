@@ -30,12 +30,20 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import org.jboss.resteasy.reactive.PartType;
 import org.jboss.resteasy.reactive.RestForm;
 
-@Path("/report")
 @RegisterRestClient(configKey = "reports")
 @ApplicationScoped
 public interface ReportSidecarService {
+    @Path("/report")
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     Uni<Map<String, AnalysisResult>> generate(
             @RestForm("file") @PartType(MediaType.APPLICATION_OCTET_STREAM) InputStream file);
+
+    @Path("/remote_report")
+    @POST
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    Uni<Map<String, AnalysisResult>> generatePresigned(
+            @RestForm("path") @PartType(MediaType.TEXT_PLAIN) String path,
+            @RestForm("query") @PartType(MediaType.TEXT_PLAIN) String query,
+            @RestForm("filter") @PartType(MediaType.TEXT_PLAIN) String filter);
 }
