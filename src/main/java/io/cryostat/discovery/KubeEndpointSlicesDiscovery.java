@@ -73,7 +73,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     private static final String NAMESPACE_QUERY_ADDR = "NS_QUERY_ENDPOINT_SLICE";
     private static final String ENDPOINT_SLICE_DISCOVERY_ADDR = "ENDPOINT_SLICE_DISC";
 
-    public static final String REALM = "KubernetesEndpointSlices";
+    public static final String REALM = "KubernetesApi";
 
     public static final String DISCOVERY_NAMESPACE_LABEL_KEY = "discovery.cryostat.io/namespace";
 

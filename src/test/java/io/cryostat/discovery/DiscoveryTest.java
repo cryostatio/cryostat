@@ -53,7 +53,7 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
                         "children",
                         Matchers.hasItems(
                                 Matchers.hasEntry("name", "Custom Targets"),
-                                Matchers.hasEntry("name", "KubernetesEndpointSlices"),
+                                Matchers.hasEntry("name", "KubernetesApi"),
                                 Matchers.hasEntry("name", "Podman"),
                                 Matchers.hasEntry("name", "Docker"),
                                 Matchers.hasEntry("name", "JDP")))
