@@ -21,8 +21,6 @@ public class ConfigProperties {
             "storage.buckets.event-templates.name";
     public static final String AWS_BUCKET_NAME_PROBE_TEMPLATES =
             "storage.buckets.probe-templates.name";
-    public static final String AWS_OBJECT_EXPIRATION_LABELS =
-            "storage.buckets.archives.expiration-label";
 
     public static final String CONTAINERS_POLL_PERIOD = "cryostat.discovery.containers.poll-period";
     public static final String CONTAINERS_REQUEST_TIMEOUT =

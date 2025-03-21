@@ -130,7 +130,7 @@ public class ActiveRecordings {
                         .toList();
         var archives = new ArrayList<ArchivedRecording>();
         for (var r : list) {
-            archives.add(recordingHelper.archiveRecording(r, null, null));
+            archives.add(recordingHelper.archiveRecording(r, null));
         }
         return archives;
     }
@@ -262,7 +262,7 @@ public class ActiveRecordings {
     @Description("Archive the specified Flight Recording")
     public ArchivedRecording doArchive(@Source ActiveRecording recording) throws Exception {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
-        return recordingHelper.archiveRecording(ar, null, null);
+        return recordingHelper.archiveRecording(ar, null);
     }
 
     public TargetNodes.ActiveRecordings active(
