@@ -15,8 +15,6 @@
  */
 package io.cryostat.discovery;
 
-import static io.cryostat.discovery.KubeEndpointsDiscovery.KubeDiscoveryNodeType;
-
 import java.net.URI;
 import java.nio.file.Path;
 import java.time.Duration;
@@ -32,6 +30,7 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import javax.management.remote.JMXServiceURL;
@@ -92,7 +91,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
     ScheduledExecutorService resyncWorker = Executors.newSingleThreadScheduledExecutor();
 
-    @ConfigProperty(name = "cryostat.discovery.kubernetes2.enabled")
+    @ConfigProperty(name = "cryostat.discovery.kubernetes.enabled")
     boolean enabled;
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.port-names")
@@ -664,6 +663,87 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 logger.warn("Target conversion exception", e);
                 return null;
             }
+        }
+    }
+
+    static enum KubeDiscoveryNodeType implements NodeType {
+        NAMESPACE("Namespace"),
+        STATEFULSET(
+                "StatefulSet",
+                c -> ns -> n -> c.apps().statefulSets().inNamespace(ns).withName(n).get()),
+        DAEMONSET(
+                "DaemonSet",
+                c -> ns -> n -> c.apps().daemonSets().inNamespace(ns).withName(n).get()),
+        DEPLOYMENT(
+                "Deployment",
+                c -> ns -> n -> c.apps().deployments().inNamespace(ns).withName(n).get()),
+        REPLICASET(
+                "ReplicaSet",
+                c -> ns -> n -> c.apps().replicaSets().inNamespace(ns).withName(n).get()),
+        REPLICATIONCONTROLLER(
+                "ReplicationController",
+                c -> ns -> n -> c.replicationControllers().inNamespace(ns).withName(n).get()),
+        POD("Pod", c -> ns -> n -> c.pods().inNamespace(ns).withName(n).get()),
+        ENDPOINT("Endpoint", c -> ns -> n -> c.endpoints().inNamespace(ns).withName(n).get()),
+        ENDPOINT_SLICE(
+                "EndpointSlice",
+                c ->
+                        ns ->
+                                n ->
+                                        c.discovery()
+                                                .v1()
+                                                .endpointSlices()
+                                                .inNamespace(ns)
+                                                .withName(n)
+                                                .get()),
+        // OpenShift resources
+        DEPLOYMENTCONFIG("DeploymentConfig"),
+        ;
+
+        private final String kubernetesKind;
+        private final transient Function<
+                        KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
+                getFn;
+
+        KubeDiscoveryNodeType(String kubernetesKind) {
+            this(kubernetesKind, client -> namespace -> name -> null);
+        }
+
+        KubeDiscoveryNodeType(
+                String kubernetesKind,
+                Function<
+                                KubernetesClient,
+                                Function<String, Function<String, ? extends HasMetadata>>>
+                        getFn) {
+            this.kubernetesKind = kubernetesKind;
+            this.getFn = getFn;
+        }
+
+        @Override
+        public String getKind() {
+            return kubernetesKind;
+        }
+
+        public Function<KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
+                getQueryFunction() {
+            return getFn;
+        }
+
+        public static KubeDiscoveryNodeType fromKubernetesKind(String kubernetesKind) {
+            if (kubernetesKind == null) {
+                return null;
+            }
+            for (KubeDiscoveryNodeType nt : values()) {
+                if (kubernetesKind.equalsIgnoreCase(nt.kubernetesKind)) {
+                    return nt;
+                }
+            }
+            return null;
+        }
+
+        @Override
+        public String toString() {
+            return getKind();
         }
     }
 }
