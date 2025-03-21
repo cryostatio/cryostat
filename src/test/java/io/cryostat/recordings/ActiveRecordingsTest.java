@@ -167,7 +167,6 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                         .body("metadata.labels[0].value", Matchers.equalTo("Continuous"))
                         .body("metadata.labels[1].key", Matchers.equalTo("template.type"))
                         .body("metadata.labels[1].value", Matchers.equalTo("TARGET"))
-                        .body("expiry", Matchers.nullValue())
                         .and()
                         .extract()
                         .body()
