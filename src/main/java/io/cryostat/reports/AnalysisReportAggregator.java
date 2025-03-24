@@ -86,16 +86,20 @@ public class AnalysisReportAggregator {
     public String scrape() {
         var sb = new StringBuilder();
         map.forEach(
-                (t, r) ->
-                        r.forEach(
-                                (k, v) ->
-                                        sb.append(k.replaceAll("\\.", "_"))
-                                                .append('{')
-                                                .append(nodeLabels(t.id))
-                                                .append('}')
-                                                .append('=')
-                                                .append(v.getScore())
-                                                .append('\n')));
+                (t, r) -> {
+                    Target target = Target.getTargetById(t.id);
+                    r.forEach(
+                            (k, v) ->
+                                    // TODO do this on batch processing update, not on scrape, to
+                                    // save on db queries.
+                                    sb.append(k.replaceAll("[\\.\\s]+", "_"))
+                                            .append('{')
+                                            .append(nodeLabels(target))
+                                            .append('}')
+                                            .append('=')
+                                            .append(v.getScore())
+                                            .append('\n'));
+                });
         return sb.toString();
     }
 
@@ -103,8 +107,7 @@ public class AnalysisReportAggregator {
         map.put(target, report);
     }
 
-    private static String nodeLabels(long targetId) {
-        var target = Target.<Target>findById(targetId);
+    private static String nodeLabels(Target target) {
         var ownerChain = new Stack<DiscoveryNode>();
         var node = target.discoveryNode;
         while (node != null && !node.nodeType.equals(BaseNodeType.UNIVERSE.getKind())) {
