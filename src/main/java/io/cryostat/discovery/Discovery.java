@@ -292,7 +292,7 @@ public class Discovery {
             plugin.callback = callbackUri;
             plugin.realm =
                     DiscoveryNode.environment(
-                            requireNonBlank(realmName, "realm"), BaseNodeType.REALM);
+                            requireNonBlank(realmName, "realm"), NodeType.BaseNodeType.REALM);
             plugin.builtin = false;
 
             var universe = DiscoveryNode.getUniverse();
