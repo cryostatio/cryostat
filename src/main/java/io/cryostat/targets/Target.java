@@ -40,8 +40,10 @@ import io.cryostat.ws.Notification;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.hibernate.orm.panache.Panache;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.CascadeType;
@@ -63,17 +65,21 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.annotations.SoftDelete;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
 @Entity
 @EntityListeners(Target.Listener.class)
-@NamedQueries({@NamedQuery(name = "Target.unconnected", query = "from Target where jvmId is null")})
 @Table(
         indexes = {
             @Index(columnList = "jvmId"),
             @Index(columnList = "connectUrl"),
         })
+@NamedQueries({
+    @NamedQuery(name = "Target.unconnected", query = "from Target where jvmId is null"),
+})
+@SoftDelete
 public class Target extends PanacheEntity {
 
     public static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
@@ -84,7 +90,7 @@ public class Target extends PanacheEntity {
 
     @NotBlank public String alias;
 
-    public String jvmId;
+    @Nullable public String jvmId;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @NotNull
@@ -120,31 +126,46 @@ public class Target extends PanacheEntity {
         return this.connectUrl.toString();
     }
 
+    public static List<Target> getTargetsIncludingDeleted() {
+        return Panache.getSession()
+                // ignore soft deletion field
+                .createNativeQuery("select * from Target", Target.class)
+                .getResultList();
+    }
+
     public static Target getTargetById(long targetId) {
-        return Target.find("id", targetId).singleResult();
+        return Panache.getSession()
+                // ignore soft deletion field
+                .createNativeQuery("select * from Target where id = :id", Target.class)
+                .setParameter("id", targetId)
+                .getSingleResult();
     }
 
     public static Target getTargetByConnectUrl(URI connectUrl) {
-        return find("connectUrl", connectUrl).singleResult();
+        return Panache.getSession()
+                // ignore soft deletion field
+                .createNativeQuery(
+                        "select * from Target where connectUrl = :connectUrl", Target.class)
+                .setParameter("connectUrl", connectUrl.toString())
+                .getSingleResult();
     }
 
     public static Optional<Target> getTargetByJvmId(String jvmId) {
-        return find("jvmId", jvmId).firstResultOptional();
+        return Panache.getSession()
+                // ignore soft deletion field
+                .createNativeQuery("select * from Target where jvmId = :jvmId", Target.class)
+                .setParameter("jvmId", jvmId)
+                .uniqueResultOptional();
     }
 
     public static Optional<Target> getTarget(Predicate<Target> predicate) {
-        List<Target> targets = listAll();
-        return targets.stream().filter(predicate).findFirst();
-    }
-
-    public static boolean deleteByConnectUrl(URI connectUrl) {
-        return delete("connectUrl", connectUrl) > 0;
+        return Target.<Target>findAll().stream().filter(predicate).findFirst();
     }
 
     public static List<Target> findByRealm(String realm) {
-        List<Target> targets = findAll().list();
-
-        return targets.stream()
+        // TODO reimplement this to work by grabbing the relevant Realm discovery node, then
+        // traversing the tree to find Target leaves
+        return Target.<Target>listAll().stream()
                 .filter((t) -> realm.equals(t.annotations.cryostat().get("REALM")))
                 .collect(Collectors.toList());
     }
