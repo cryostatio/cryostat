@@ -1,3 +1,10 @@
+-- Soft deletion support for Target table
+alter table Target add column deleted boolean default false;
+
+-- Clean up discovery nodes and targets for fresh start with soft deletion
+delete from DiscoveryNode where nodeType not in ('Universe', 'Realm');
+delete from Target where true;
+
 -- Quarkus Quartz setup so that scheduled jobs, triggers, etc. are persisted in
 -- the database and can survive application restarts
 -- https://github.com/quartz-scheduler/quartz/blob/2a97f397949ec58fc980a661fd2930213b29d77b/quartz/src/main/resources/org/quartz/impl/jdbcjobstore/tables_postgres.sql
