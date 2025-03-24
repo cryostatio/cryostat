@@ -18,12 +18,11 @@ package io.cryostat.recordings;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.concurrent.CompletionException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
-import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
+import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.reports.ReportsService;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
@@ -32,7 +31,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import io.vertx.mutiny.core.eventbus.Message;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.apache.commons.lang3.tuple.Pair;
@@ -63,6 +61,7 @@ public class LongRunningRequestGenerator {
     @Inject private EventBus bus;
     @Inject private RecordingHelper recordingHelper;
     @Inject private ReportsService reportsService;
+    @Inject AnalysisReportAggregator analysisReportAggregator;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
@@ -172,34 +171,6 @@ public class LongRunningRequestGenerator {
                                     new Notification(
                                             REPORT_FAILURE, Map.of("jobId", request.getId())));
                         });
-    }
-
-    @ConsumeEvent(value = ActiveRecordings.ARCHIVED_RECORDING_CREATED, blocking = false)
-    public void onMessage(ArchivedRecording recording) {
-        // TODO extract these to constants, and/or use other labelling
-        var key = "origin";
-        var value = "automated-analysis";
-        var origin = recording.metadata().labels().get(key);
-        if (value.equals(origin)) {
-            var id = UUID.randomUUID();
-            var jvmId = recording.jvmId();
-            var filename = recording.name();
-            logger.infov(
-                    "Archived recording with {0}={1} label observed. Triggering batch report"
-                            + " processing for {2}/{3}.",
-                    key, value, jvmId, filename);
-            var request = new ArchivedReportRequest(id.toString(), Pair.of(jvmId, filename));
-            bus.<Map<String, AnalysisResult>>request(ARCHIVE_REPORT_ADDRESS, request)
-                    .onItem()
-                    .transform(Message::body)
-                    .subscribe()
-                    .with(
-                            report ->
-                                    // TODO insert this into an in-memory cache for scraping
-                                    // endpoint
-                                    logger.tracev("Got report for {0}/{1}", jvmId, filename),
-                            logger::warn);
-        }
     }
 
     // Spotbugs doesn't like us storing an ActiveRecording here as part
