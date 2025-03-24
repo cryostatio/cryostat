@@ -282,7 +282,7 @@ public class TargetConnectionManager {
             try {
                 connection.close();
                 targetLocks.remove(connectUrl);
-            } catch (RuntimeException e) {
+            } catch (Exception e) {
                 evt.setExceptionThrown(true);
                 throw e;
             } finally {
