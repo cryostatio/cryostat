@@ -64,6 +64,6 @@ public class Targets {
                     Get details about a particular target given its ID.
                     """)
     public Target getById(@RestPath Long id) {
-        return Target.find("id", id).singleResult();
+        return Target.getTargetById(id);
     }
 }
