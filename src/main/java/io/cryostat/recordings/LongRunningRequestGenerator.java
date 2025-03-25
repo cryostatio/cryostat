@@ -150,13 +150,13 @@ public class LongRunningRequestGenerator {
 
     @ConsumeEvent(value = ARCHIVE_REPORT_ADDRESS, blocking = true)
     public Uni<Map<String, AnalysisResult>> onMessage(ArchivedReportRequest request) {
-        logger.info("Job ID: " + request.getId() + " submitted.");
+        logger.tracev("Job ID: {0} submitted.", request.id());
         return reportsService
                 .reportFor(request.getPair().getKey(), request.getPair().getValue())
                 .onItem()
                 .invoke(
                         () -> {
-                            logger.info("Report generation complete, firing notification");
+                            logger.trace("Report generation complete, firing notification");
                             bus.publish(
                                     MessagingServer.class.getName(),
                                     new Notification(
