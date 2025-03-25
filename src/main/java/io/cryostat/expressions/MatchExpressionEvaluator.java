@@ -15,7 +15,6 @@
  */
 package io.cryostat.expressions;
 
-import java.net.URI;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -295,15 +294,7 @@ public class MatchExpressionEvaluator {
         }
 
         private String[] getJfrEventTypeIds(SimplifiedTarget st) {
-            // "synthetic" target instance which does not need to be persisted, as it will only be
-            // used to establish this connection for the JFR Event Type query
-            Target target = new Target();
-            target.id = st.id;
-            target.jvmId = st.jvmId;
-            target.connectUrl = URI.create(st.connectUrl);
-            target.alias = st.alias;
-            target.annotations = st.annotations;
-            target.labels = st.labels;
+            var target = Target.getTargetById(st.id());
             try {
                 return connectionManager.executeConnectedTask(
                         target,

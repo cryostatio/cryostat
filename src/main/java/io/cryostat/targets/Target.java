@@ -31,6 +31,7 @@ import java.util.stream.Collectors;
 
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.util.URIUtil;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
@@ -58,6 +59,7 @@ import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreRemove;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -150,6 +152,37 @@ public class Target extends PanacheEntity {
         return id != null && id > 0 && StringUtils.isNotBlank(jvmId);
     }
 
+    public static Target createOrUndelete(URI connectUrl) {
+        Objects.requireNonNull(connectUrl);
+        var target =
+                Panache.getSession()
+                        // ignore soft deletion field
+                        .createNativeQuery(
+                                "select * from Target where connectUrl = :connectUrl", Target.class)
+                        .setParameter("connectUrl", connectUrl.toString().getBytes())
+                        .uniqueResult();
+        if (target == null) {
+            target = new Target();
+            target.connectUrl = connectUrl;
+        } else {
+            int updates =
+                    Panache.getSession()
+                            .createNativeQuery(
+                                    "update target set deleted = false where id = :id",
+                                    Target.class)
+                            .setParameter("id", target.id)
+                            .executeUpdate();
+            if (updates != 1) {
+                Logger.getLogger(Target.class)
+                        .warnv(
+                                "Attempted to undelete Target {0} with connectUrl={1}, but update"
+                                        + " affected {2} rows",
+                                target.id, connectUrl, updates);
+            }
+        }
+        return target;
+    }
+
     public static List<Target> getTargetsIncludingDeleted() {
         return Panache.getSession()
                 // ignore soft deletion field
@@ -158,11 +191,18 @@ public class Target extends PanacheEntity {
     }
 
     public static Target getTargetById(long targetId) {
-        return Panache.getSession()
-                // ignore soft deletion field
-                .createNativeQuery("select * from Target where id = :id", Target.class)
-                .setParameter("id", targetId)
-                .getSingleResult();
+        return getTargetById(targetId, false);
+    }
+
+    public static Target getTargetById(long targetId, boolean includeDeleted) {
+        if (includeDeleted) {
+            return Panache.getSession()
+                    .createNativeQuery("select * from Target where id = :id", Target.class)
+                    .setParameter("id", targetId)
+                    .getSingleResult();
+        } else {
+            return Target.find("id", targetId).singleResult();
+        }
     }
 
     public static Target getTargetByConnectUrl(URI connectUrl) {
@@ -170,7 +210,7 @@ public class Target extends PanacheEntity {
                 // ignore soft deletion field
                 .createNativeQuery(
                         "select * from Target where connectUrl = :connectUrl", Target.class)
-                .setParameter("connectUrl", connectUrl.toString())
+                .setParameter("connectUrl", connectUrl.toString().getBytes())
                 .getSingleResult();
     }
 
@@ -178,7 +218,7 @@ public class Target extends PanacheEntity {
         return Panache.getSession()
                 // ignore soft deletion field
                 .createNativeQuery("select * from Target where jvmId = :jvmId", Target.class)
-                .setParameter("jvmId", jvmId)
+                .setParameter("jvmId", jvmId.getBytes())
                 .uniqueResultOptional();
     }
 
@@ -333,8 +373,9 @@ public class Target extends PanacheEntity {
     static class Listener {
 
         @Inject URIUtil uriUtil;
-        @Inject Logger logger;
+        @Inject RecordingHelper recordingHelper;
         @Inject EventBus bus;
+        @Inject Logger logger;
 
         @PrePersist
         void prePersist(Target target) {
@@ -373,9 +414,15 @@ public class Target extends PanacheEntity {
             notify(EventKind.MODIFIED, target);
         }
 
+        @PreRemove
+        void preRemove(Target target) {
+            target.jvmId = null;
+        }
+
         @PostRemove
         void postRemove(Target target) {
             notify(EventKind.LOST, target);
+            target.activeRecordings.forEach(recordingHelper::deleteRecording);
         }
 
         private void notify(EventKind eventKind, Target target) {
