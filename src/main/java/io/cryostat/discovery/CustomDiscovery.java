@@ -103,6 +103,10 @@ public class CustomDiscovery {
             TargetStub target,
             @RestQuery boolean dryrun,
             @RestQuery boolean storeCredentials) {
+
+            if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
+                throw new BadRequestException("Duplicate connection URL");
+            }
         return doCreate(uriInfo, target, dryrun, storeCredentials);
     }
 
@@ -128,11 +132,23 @@ public class CustomDiscovery {
             @RestForm String password,
             @RestQuery boolean dryrun,
             @RestQuery boolean storeCredentials) {
-        return doCreate(
-                uriInfo,
-                new TargetStub(connectUrl, alias, username, password),
-                dryrun,
-                storeCredentials);
+            if (Target.find("connectUrl", connectUrl).singleResultOptional().isPresent()) {
+                throw new BadRequestException("Duplicate connection URL");
+            }
+        var target = Target.createOrUndelete(connectUrl);
+        target.alias = alias;
+
+        Credential credential = null;
+        if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
+            credential = new Credential();
+            credential.matchExpression =
+                    new MatchExpression(
+                            String.format("target.connectUrl == \"%s\"", connectUrl.toString()));
+            credential.username = username;
+            credential.password = password;
+        }
+
+        return doCreate(uriInfo, TargetStub.from(target, credential), dryrun, storeCredentials);
     }
 
     @SuppressFBWarnings(value = "DLS_DEAD_LOCAL_STORE")
@@ -148,10 +164,6 @@ public class CustomDiscovery {
                                 "The provided URI \"%s\" is unacceptable with the"
                                         + " current URI range settings.",
                                 target.connectUrl));
-            }
-
-            if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
-                throw new BadRequestException("Duplicate connection URL");
             }
 
             try {
@@ -267,7 +279,11 @@ public class CustomDiscovery {
             return t;
         }
 
-        Optional<Credential> getCredential() {
+        public static TargetStub from(Target target, Credential credential) {
+            return new TargetStub(target.connectUrl, target.alias, credential.username, credential.password);
+		}
+
+		Optional<Credential> getCredential() {
             Credential credential = null;
             if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
                 credential = new Credential();
