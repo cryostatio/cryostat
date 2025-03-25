@@ -132,20 +132,31 @@ public class LongRunningRequestGenerator {
     }
 
     @ConsumeEvent(value = ACTIVE_REPORT_ADDRESS, blocking = true)
-    public void onMessage(ActiveReportRequest request) {
-        try {
-            logger.trace("Job ID: " + request.getId() + " submitted.");
-            reportsService.reportFor(request.recording).await().atMost(timeout);
-            logger.trace("Report generation complete, firing notification");
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(REPORT_SUCCESS, Map.of("jobId", request.getId())));
-        } catch (Exception e) {
-            logger.warn("Exception thrown while servicing request: ", e);
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(REPORT_FAILURE, Map.of("jobId", request.getId())));
-        }
+    public Uni<Map<String, AnalysisResult>> onMessage(ActiveReportRequest request) {
+        logger.trace("Job ID: " + request.getId() + " submitted.");
+        return reportsService
+                .reportFor(request.recording)
+                .onItem()
+                .invoke(
+                        () -> {
+                            logger.trace("Report generation complete, firing notification");
+                            bus.publish(
+                                    MessagingServer.class.getName(),
+                                    new Notification(
+                                            REPORT_SUCCESS, Map.of("jobId", request.getId())));
+                        })
+                .ifNoItem()
+                .after(uploadFailedTimeout)
+                .fail()
+                .onFailure()
+                .invoke(
+                        (e) -> {
+                            logger.warn("Exception thrown while servicing request: ", e);
+                            bus.publish(
+                                    MessagingServer.class.getName(),
+                                    new Notification(
+                                            REPORT_FAILURE, Map.of("jobId", request.getId())));
+                        });
     }
 
     @ConsumeEvent(value = ARCHIVE_REPORT_ADDRESS, blocking = true)
