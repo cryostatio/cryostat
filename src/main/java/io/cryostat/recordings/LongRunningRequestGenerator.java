@@ -162,6 +162,9 @@ public class LongRunningRequestGenerator {
                                     new Notification(
                                             REPORT_SUCCESS, Map.of("jobId", request.getId())));
                         })
+                .ifNoItem()
+                .after(uploadFailedTimeout)
+                .fail()
                 .onFailure()
                 .invoke(
                         (e) -> {
