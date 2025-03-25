@@ -82,7 +82,15 @@ public class LongRunningRequestGenerator {
                     MessagingServer.class.getName(),
                     new Notification(
                             ARCHIVE_RECORDING_SUCCESS,
-                            Map.of("jobId", request.getId(), "recording", rec.name())));
+                            Map.of(
+                                    "jobId",
+                                    request.getId(),
+                                    "recording",
+                                    rec.name(),
+                                    "reportUrl",
+                                    rec.reportUrl(),
+                                    "downloadUrl",
+                                    rec.downloadUrl())));
             return rec;
         } catch (Exception e) {
             logger.warn("Archiving failed");
