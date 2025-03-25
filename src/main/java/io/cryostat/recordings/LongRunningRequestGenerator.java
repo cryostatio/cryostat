@@ -22,6 +22,7 @@ import java.util.concurrent.CompletionException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
+import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.reports.ReportsService;
 import io.cryostat.ws.MessagingServer;
@@ -72,16 +73,17 @@ public class LongRunningRequestGenerator {
     public LongRunningRequestGenerator() {}
 
     @ConsumeEvent(value = ARCHIVE_ADDRESS, blocking = true)
-    public void onMessage(ArchiveRequest request) {
+    public ArchivedRecording onMessage(ArchiveRequest request) {
         logger.trace("Job ID: " + request.getId() + " submitted.");
         try {
-            String rec = recordingHelper.archiveRecording(request.recording, null, null).name();
+            var rec = recordingHelper.archiveRecording(request.recording, null, null);
             logger.trace("Recording archived, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
                             ARCHIVE_RECORDING_SUCCESS,
-                            Map.of("jobId", request.getId(), "recording", rec)));
+                            Map.of("jobId", request.getId(), "recording", rec.name())));
+            return rec;
         } catch (Exception e) {
             logger.warn("Archiving failed");
             bus.publish(
@@ -92,42 +94,80 @@ public class LongRunningRequestGenerator {
     }
 
     @ConsumeEvent(value = GRAFANA_ARCHIVE_ADDRESS, blocking = true)
-    public void onMessage(GrafanaArchiveUploadRequest request) {
+    public Uni<Void> onMessage(GrafanaArchiveUploadRequest request) {
         try {
             logger.trace("Job ID: " + request.getId() + " submitted.");
-            recordingHelper
+            return recordingHelper
                     .uploadToJFRDatasource(request.getPair())
-                    .await()
-                    .atMost(uploadFailedTimeout);
-            logger.trace("Grafana upload complete, firing notification");
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(GRAFANA_UPLOAD_SUCCESS, Map.of("jobId", request.getId())));
+                    .onItem()
+                    .<Void>transform((v) -> null)
+                    .invoke(
+                            () -> {
+                                logger.trace("Grafana upload complete, firing notification");
+                                bus.publish(
+                                        MessagingServer.class.getName(),
+                                        new Notification(
+                                                GRAFANA_UPLOAD_SUCCESS,
+                                                Map.of("jobId", request.getId())));
+                            })
+                    .ifNoItem()
+                    .after(uploadFailedTimeout)
+                    .fail()
+                    .onFailure()
+                    .invoke(
+                            (e) -> {
+                                logger.warn("Exception thrown while servicing request: ", e);
+                                bus.publish(
+                                        MessagingServer.class.getName(),
+                                        new Notification(
+                                                GRAFANA_UPLOAD_FAIL,
+                                                Map.of("jobId", request.getId())));
+                            });
         } catch (Exception e) {
-            logger.warn("Exception thrown while servicing request: ", e);
+            logger.error("Exception thrown while preparing request: ", e);
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(GRAFANA_UPLOAD_FAIL, Map.of("jobId", request.getId())));
+            return Uni.createFrom().failure(e);
         }
     }
 
     @ConsumeEvent(value = GRAFANA_ACTIVE_ADDRESS, blocking = true)
-    public void onMessage(GrafanaActiveUploadRequest request) {
+    public Uni<Void> onMessage(GrafanaActiveUploadRequest request) {
         try {
             logger.trace("Job ID: " + request.getId() + " submitted.");
-            recordingHelper
+            return recordingHelper
                     .uploadToJFRDatasource(request.getTargetId(), request.getRemoteId())
-                    .await()
-                    .atMost(uploadFailedTimeout);
-            logger.trace("Grafana upload complete, firing notification");
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(GRAFANA_UPLOAD_SUCCESS, Map.of("jobId", request.getId())));
+                    .onItem()
+                    .<Void>transform((v) -> null)
+                    .invoke(
+                            () -> {
+                                logger.trace("Grafana upload complete, firing notification");
+                                bus.publish(
+                                        MessagingServer.class.getName(),
+                                        new Notification(
+                                                GRAFANA_UPLOAD_SUCCESS,
+                                                Map.of("jobId", request.getId())));
+                            })
+                    .ifNoItem()
+                    .after(uploadFailedTimeout)
+                    .fail()
+                    .onFailure()
+                    .invoke(
+                            (e) -> {
+                                logger.warn("Exception thrown while servicing request: ", e);
+                                bus.publish(
+                                        MessagingServer.class.getName(),
+                                        new Notification(
+                                                GRAFANA_UPLOAD_FAIL,
+                                                Map.of("jobId", request.getId())));
+                            });
         } catch (Exception e) {
-            logger.warn("Exception thrown while servicing request: ", e);
+            logger.error("Exception thrown while preparing request: ", e);
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(GRAFANA_UPLOAD_FAIL, Map.of("jobId", request.getId())));
+            return Uni.createFrom().failure(e);
         }
     }
 
