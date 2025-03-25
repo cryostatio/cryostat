@@ -15,6 +15,7 @@
  */
 package itest;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -34,7 +35,6 @@ import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -121,7 +121,7 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
                                 }
                             });
             JsonArray listResp = listRespFuture1.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            Assertions.assertTrue(listResp.isEmpty());
+            MatcherAssert.assertThat(listResp.getList(), Matchers.equalTo(List.of()));
 
         } finally {
             // Clean up recording
