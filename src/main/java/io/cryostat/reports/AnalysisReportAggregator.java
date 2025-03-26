@@ -30,6 +30,8 @@ import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
 import io.cryostat.targets.Target;
+import io.cryostat.targets.Target.EventKind;
+import io.cryostat.targets.Target.TargetDiscovery;
 
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Multi;
@@ -79,6 +81,15 @@ public class AnalysisReportAggregator {
                 reports.remove(jvmId);
                 ownerChains.remove(jvmId);
             }
+        }
+    }
+
+    @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
+    void onMessage(TargetDiscovery event) {
+        if (EventKind.LOST.equals(event.kind())) {
+            var jvmId = event.serviceRef().jvmId;
+            reports.remove(jvmId);
+            ownerChains.remove(jvmId);
         }
     }
 
