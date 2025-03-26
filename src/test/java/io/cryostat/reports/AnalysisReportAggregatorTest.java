@@ -78,7 +78,7 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                         .when()
                         .basePath("/")
                         .pathParams(Map.of("targetId", targetId))
-                        .formParam("recordingName", "analysisReportAggregator")
+                        .formParam("recordingName", "analysisReportAggregatorAll")
                         .formParam("events", "template=Continuous")
                         .formParam(
                                 "metadata",
@@ -172,7 +172,7 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                         .when()
                         .basePath("/")
                         .pathParams(Map.of("targetId", targetId))
-                        .formParam("recordingName", "analysisReportAggregator")
+                        .formParam("recordingName", "analysisReportAggregatorSingle")
                         .formParam("events", "template=Continuous")
                         .formParam(
                                 "metadata",
