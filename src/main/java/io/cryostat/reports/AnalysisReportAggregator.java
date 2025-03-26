@@ -51,26 +51,22 @@ public class AnalysisReportAggregator {
     @Inject EventBus bus;
     @Inject Logger logger;
 
+    public static final String AUTOANALYZE_LABEL = "autoanalyze";
+
     private final Map<String, List<Pair<String, String>>> ownerChains = new ConcurrentHashMap<>();
     private final Map<String, Map<String, AnalysisResult>> reports = new ConcurrentHashMap<>();
 
     @ConsumeEvent(value = ActiveRecordings.ARCHIVED_RECORDING_CREATED, blocking = true)
     @Transactional
     public void onMessage(ArchivedRecording recording) {
-        // TODO extract these to constants, and/or use other labelling
-        var key = "origin";
-        var value = "automated-analysis";
-        var origin = recording.metadata().labels().get(key);
-        if (value.equals(origin)) {
+        var autoanalyze = recording.metadata().labels().get(AUTOANALYZE_LABEL);
+        if (Boolean.parseBoolean(autoanalyze)) {
             var id = UUID.randomUUID();
             var jvmId = recording.jvmId();
             var target = Target.getTargetByJvmId(jvmId).orElseThrow();
             ownerChains.put(target.jvmId, ownerChain(target));
             var filename = recording.name();
-            logger.tracev(
-                    "Archived recording with {0}={1} label observed. Triggering batch report"
-                            + " processing for {2}/{3}.",
-                    key, value, jvmId, filename);
+            logger.tracev("Triggering batch report processing for {0}/{1}.", jvmId, filename);
             var request = new ArchivedReportRequest(id.toString(), Pair.of(jvmId, filename));
             try {
                 var report =
