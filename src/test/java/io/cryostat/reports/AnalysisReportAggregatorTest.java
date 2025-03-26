@@ -83,7 +83,7 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                         .formParam(
                                 "metadata",
                                 mapper.writeValueAsString(
-                                        Map.of("labels", Map.of("origin", "automated-analysis"))))
+                                        Map.of("labels", Map.of("autoanalyze", "true"))))
                         .formParam("duration", 5)
                         .formParam("archiveOnStop", true)
                         .pathParam("targetId", targetId)
@@ -177,7 +177,7 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                         .formParam(
                                 "metadata",
                                 mapper.writeValueAsString(
-                                        Map.of("labels", Map.of("origin", "automated-analysis"))))
+                                        Map.of("labels", Map.of("autoanalyze", "true"))))
                         .formParam("duration", 5)
                         .formParam("archiveOnStop", true)
                         .pathParam("targetId", targetId)
