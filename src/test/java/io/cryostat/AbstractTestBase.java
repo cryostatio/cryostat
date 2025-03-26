@@ -68,6 +68,9 @@ public abstract class AbstractTestBase {
     @Inject Logger logger;
     @Inject S3Client storage;
 
+    protected int selfId = -1;
+    protected String selfJvmId = "";
+
     @BeforeEach
     void waitForStorage() throws InterruptedException {
         long totalTime = 0;
@@ -98,20 +101,25 @@ public abstract class AbstractTestBase {
     }
 
     protected int defineSelfCustomTarget() {
-        return given().basePath("/")
-                .log()
-                .all()
-                .contentType(ContentType.URLENC)
-                .formParam("connectUrl", SELF_JMX_URL)
-                .formParam("alias", SELFTEST_ALIAS)
-                .when()
-                .post("/api/v4/targets")
-                .then()
-                .log()
-                .all()
-                .extract()
-                .jsonPath()
-                .getInt("id");
+        var jp =
+                given().basePath("/")
+                        .log()
+                        .all()
+                        .contentType(ContentType.URLENC)
+                        .formParam("connectUrl", SELF_JMX_URL)
+                        .formParam("alias", SELFTEST_ALIAS)
+                        .when()
+                        .post("/api/v4/targets")
+                        .then()
+                        .log()
+                        .all()
+                        .extract()
+                        .jsonPath();
+
+        this.selfId = jp.getInt("id");
+        this.selfJvmId = jp.getString("jvmId");
+
+        return this.selfId;
     }
 
     protected JsonObject expectWebSocketNotification(String category)
