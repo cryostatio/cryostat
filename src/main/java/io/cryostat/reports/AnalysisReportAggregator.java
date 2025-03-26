@@ -91,16 +91,7 @@ public class AnalysisReportAggregator {
     // TODO should this include results from lost targets?
     public String scrape() {
         var sb = new StringBuilder();
-        reports.forEach(
-                (id, r) -> {
-                    r.forEach(
-                            (k, v) ->
-                                    sb.append(k.replaceAll("[\\.\\s]+", "_"))
-                                            .append(chainToLabels(ownerChains.get(id)))
-                                            .append('=')
-                                            .append(v.getScore())
-                                            .append('\n'));
-                });
+        reports.forEach((id, r) -> sb.append(stringify(id, r)));
         return sb.toString();
     }
 
@@ -114,6 +105,10 @@ public class AnalysisReportAggregator {
         if (report == null) {
             throw new NotFoundException();
         }
+        return stringify(jvmId, report);
+    }
+
+    private String stringify(String jvmId, Map<String, AnalysisResult> report) {
         var sb = new StringBuilder();
         report.forEach(
                 (k, v) ->
