@@ -63,12 +63,12 @@ public class AnalysisReportAggregator {
         if (Boolean.parseBoolean(autoanalyze)) {
             var id = UUID.randomUUID();
             var jvmId = recording.jvmId();
-            var target = Target.getTargetByJvmId(jvmId).orElseThrow();
-            ownerChains.put(target.jvmId, ownerChain(target));
-            var filename = recording.name();
-            logger.tracev("Triggering batch report processing for {0}/{1}.", jvmId, filename);
-            var request = new ArchivedReportRequest(id.toString(), Pair.of(jvmId, filename));
             try {
+                var target = Target.getTargetByJvmId(jvmId).orElseThrow();
+                ownerChains.put(target.jvmId, ownerChain(target));
+                var filename = recording.name();
+                logger.tracev("Triggering batch report processing for {0}/{1}.", jvmId, filename);
+                var request = new ArchivedReportRequest(id.toString(), Pair.of(jvmId, filename));
                 var report =
                         bus.<Map<String, AnalysisResult>>requestAndAwait(
                                         LongRunningRequestGenerator.ARCHIVE_REPORT_ADDRESS, request)
