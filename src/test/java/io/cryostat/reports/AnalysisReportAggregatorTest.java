@@ -33,15 +33,20 @@ import jakarta.websocket.DeploymentException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusTest
 @TestHTTPEndpoint(AnalysisReportAggregator.class)
+@TestMethodOrder(OrderAnnotation.class)
 public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;
 
     @Test
+    @Order(1)
     void testGetNoSource() {
         String scrape =
                 given().log()
@@ -63,34 +68,37 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
     }
 
     @Test
-    void testScrape()
+    @Order(2)
+    void testScrapeAll()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         int targetId = defineSelfCustomTarget();
-        given().log()
-                .all()
-                .when()
-                .basePath("/")
-                .pathParams(Map.of("targetId", targetId))
-                .formParam("recordingName", "analysisReportAggregator")
-                .formParam("events", "template=Continuous")
-                .formParam(
-                        "metadata",
-                        mapper.writeValueAsString(
-                                Map.of("labels", Map.of("origin", "automated-analysis"))))
-                .formParam("duration", 5)
-                .formParam("archiveOnStop", true)
-                .pathParam("targetId", targetId)
-                .post("/api/v4/targets/{targetId}/recordings")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(201)
-                .and()
-                .extract()
-                .body()
-                .jsonPath();
+        var recording =
+                given().log()
+                        .all()
+                        .when()
+                        .basePath("/")
+                        .pathParams(Map.of("targetId", targetId))
+                        .formParam("recordingName", "analysisReportAggregator")
+                        .formParam("events", "template=Continuous")
+                        .formParam(
+                                "metadata",
+                                mapper.writeValueAsString(
+                                        Map.of("labels", Map.of("origin", "automated-analysis"))))
+                        .formParam("duration", 5)
+                        .formParam("archiveOnStop", true)
+                        .pathParam("targetId", targetId)
+                        .post("/api/v4/targets/{targetId}/recordings")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath();
+        int remoteId = recording.getInt("remoteId");
 
         expectWebSocketNotification("ReportSuccess");
 
@@ -138,5 +146,127 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                                                                     Matchers.lessThanOrEqualTo(
                                                                             100.0))));
                         });
+
+        given().log()
+                .all()
+                .when()
+                .basePath("/")
+                .pathParams("targetId", targetId, "remoteId", remoteId)
+                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    @Test
+    @Order(3)
+    void testScrapeSingle()
+            throws InterruptedException, IOException, DeploymentException, TimeoutException {
+        int targetId = defineSelfCustomTarget();
+        var recording =
+                given().log()
+                        .all()
+                        .when()
+                        .basePath("/")
+                        .pathParams(Map.of("targetId", targetId))
+                        .formParam("recordingName", "analysisReportAggregator")
+                        .formParam("events", "template=Continuous")
+                        .formParam(
+                                "metadata",
+                                mapper.writeValueAsString(
+                                        Map.of("labels", Map.of("origin", "automated-analysis"))))
+                        .formParam("duration", 5)
+                        .formParam("archiveOnStop", true)
+                        .pathParam("targetId", targetId)
+                        .post("/api/v4/targets/{targetId}/recordings")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath();
+        int remoteId = recording.getInt("remoteId");
+
+        expectWebSocketNotification("ReportSuccess");
+
+        String scrape =
+                given().log()
+                        .all()
+                        .when()
+                        .get(selfJvmId)
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.TEXT)
+                        .and()
+                        .extract()
+                        .body()
+                        .asString();
+        MatcherAssert.assertThat(scrape, Matchers.not(Matchers.emptyString()));
+        Arrays.asList(scrape.split("\n")).stream()
+                .map(String::strip)
+                .map(
+                        s ->
+                                Pair.of(
+                                        s.substring(0, s.lastIndexOf('=')),
+                                        s.substring(s.lastIndexOf('=') + 1)))
+                .forEach(
+                        kv -> {
+                            MatcherAssert.assertThat(
+                                    kv.getKey(),
+                                    Matchers.allOf(
+                                            Matchers.containsString("Realm=\"Custom Targets\""),
+                                            Matchers.containsString(
+                                                    String.format("JVM=\"%s\"", SELF_JMX_URL))));
+                            double score = Double.parseDouble(kv.getValue());
+                            MatcherAssert.assertThat(
+                                    score,
+                                    Matchers.either(Matchers.equalTo(-1.0))
+                                            .or(
+                                                    Matchers.both(
+                                                                    Matchers.greaterThanOrEqualTo(
+                                                                            0.0))
+                                                            .and(
+                                                                    Matchers.lessThanOrEqualTo(
+                                                                            100.0))));
+                        });
+
+        given().log()
+                .all()
+                .when()
+                .basePath("/")
+                .pathParams("targetId", targetId, "remoteId", remoteId)
+                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    @Test
+    @Order(4)
+    void testScrapeSingleNonexistent() {
+        given().log()
+                .all()
+                .when()
+                .get("nonexistent")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(404);
     }
 }
