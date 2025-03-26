@@ -17,14 +17,27 @@ package io.cryostat;
 
 import static io.restassured.RestAssured.given;
 
+import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 
 import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.http.TestHTTPResource;
 import io.restassured.http.ContentType;
+import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
+import jakarta.websocket.ClientEndpoint;
+import jakarta.websocket.ContainerProvider;
+import jakarta.websocket.DeploymentException;
+import jakarta.websocket.OnMessage;
+import jakarta.websocket.Session;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -39,6 +52,9 @@ public abstract class AbstractTestBase {
     public static String SELF_JMX_URL_ENCODED =
             URLEncodedUtils.formatSegments(SELF_JMX_URL).substring(1);
     public static final String SELFTEST_ALIAS = "selftest";
+
+    @TestHTTPResource("/api/notifications")
+    URI wsUri;
 
     @ConfigProperty(name = "storage.buckets.archives.name")
     String archivesBucket;
@@ -96,5 +112,43 @@ public abstract class AbstractTestBase {
                 .extract()
                 .jsonPath()
                 .getInt("id");
+    }
+
+    protected JsonObject expectWebSocketNotification(String category)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        return expectWebSocketNotification(category, v -> true);
+    }
+
+    protected JsonObject expectWebSocketNotification(
+            String category, Predicate<JsonObject> predicate)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        long start = System.nanoTime();
+        long timeout = TimeUnit.SECONDS.toNanos(30);
+        var client = new WebSocketClient();
+        try (Session session =
+                ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri)) {
+            long now;
+            do {
+                now = System.nanoTime();
+                JsonObject msg = new JsonObject(client.wsMessages.poll(10, TimeUnit.SECONDS));
+                String msgCategory = msg.getJsonObject("meta").getString("category");
+                if (category.equals(msgCategory) && predicate.test(msg)) {
+                    return msg;
+                }
+            } while (now < start + timeout);
+        } finally {
+            client.wsMessages.clear();
+        }
+        throw new TimeoutException();
+    }
+
+    @ClientEndpoint
+    private class WebSocketClient {
+        private final LinkedBlockingDeque<String> wsMessages = new LinkedBlockingDeque<>();
+
+        @OnMessage
+        void message(String msg) {
+            wsMessages.add(msg);
+        }
     }
 }
