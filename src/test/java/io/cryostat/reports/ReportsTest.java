@@ -18,40 +18,27 @@ package io.cryostat.reports;
 import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.Map;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.CacheEnabledTestProfile;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
-import io.quarkus.test.common.http.TestHTTPResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
 import io.vertx.core.json.JsonObject;
-import jakarta.websocket.ClientEndpoint;
-import jakarta.websocket.ContainerProvider;
 import jakarta.websocket.DeploymentException;
-import jakarta.websocket.OnMessage;
-import jakarta.websocket.Session;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(Reports.class)
 @TestProfile(CacheEnabledTestProfile.class)
 public class ReportsTest extends AbstractTransactionalTestBase {
-
-    @TestHTTPResource("/api/notifications")
-    URI wsUri;
-
-    private static final LinkedBlockingDeque<String> WS_MESSAGES = new LinkedBlockingDeque<>();
 
     @Test
     void testGetBadArchiveSource() {
@@ -218,7 +205,7 @@ public class ReportsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testArchiveAndGetReportByUrl()
-            throws InterruptedException, IOException, DeploymentException {
+            throws InterruptedException, IOException, DeploymentException, TimeoutException {
         int targetId = defineSelfCustomTarget();
         JsonPath activeRecording =
                 given().log()
@@ -263,34 +250,13 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                         .body()
                         .asString();
 
-        String archivedRecordingName = null;
-        String reportUrl = null;
-        boolean archiveJobComplete = false;
-        long start = System.nanoTime();
-        long timeout = TimeUnit.SECONDS.toNanos(30);
-        try (Session session =
-                ContainerProvider.getWebSocketContainer()
-                        .connectToServer(WebSocketClient.class, wsUri)) {
-            long now;
-            do {
-                now = System.nanoTime();
-
-                JsonObject msg = new JsonObject(WS_MESSAGES.poll(10, TimeUnit.SECONDS));
-                String category = msg.getJsonObject("meta").getString("category");
-                if ("ArchiveRecordingSuccess".equals(category)) {
-                    JsonObject body = msg.getJsonObject("message");
-                    MatcherAssert.assertThat(
-                            body.getString("jobId"), Matchers.equalTo(archiveJobId));
-                    archivedRecordingName = body.getString("recording");
-                    reportUrl = body.getString("reportUrl");
-                    archiveJobComplete = true;
-                    break;
-                }
-            } while (now < start + timeout);
-        } finally {
-            WS_MESSAGES.clear();
-        }
-        Assertions.assertTrue(archiveJobComplete);
+        JsonObject archiveMessage = expectWebSocketNotification("ArchiveRecordingSuccess");
+        MatcherAssert.assertThat(
+                archiveMessage.getJsonObject("message").getString("jobId"),
+                Matchers.equalTo(archiveJobId));
+        String archivedRecordingName =
+                archiveMessage.getJsonObject("message").getString("recording");
+        String reportUrl = archiveMessage.getJsonObject("message").getString("reportUrl");
 
         String reportJobId =
                 given().log()
@@ -314,29 +280,11 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                         .extract()
                         .body()
                         .asString();
-        boolean reportJobComplete = false;
-        start = System.nanoTime();
-        try (Session session =
-                ContainerProvider.getWebSocketContainer()
-                        .connectToServer(WebSocketClient.class, wsUri)) {
-            long now;
-            do {
-                now = System.nanoTime();
 
-                JsonObject msg = new JsonObject(WS_MESSAGES.poll(10, TimeUnit.SECONDS));
-                String category = msg.getJsonObject("meta").getString("category");
-                if ("ReportSuccess".equals(category)) {
-                    JsonObject body = msg.getJsonObject("message");
-                    MatcherAssert.assertThat(
-                            body.getString("jobId"), Matchers.equalTo(reportJobId));
-                    reportJobComplete = true;
-                    break;
-                }
-            } while (now < start + timeout);
-        } finally {
-            WS_MESSAGES.clear();
-        }
-        Assertions.assertTrue(reportJobComplete);
+        JsonObject reportMessage = expectWebSocketNotification("ReportSuccess");
+        MatcherAssert.assertThat(
+                reportMessage.getJsonObject("message").getString("jobId"),
+                Matchers.equalTo(reportJobId));
 
         given().log()
                 .all()
@@ -374,13 +322,5 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                 .and()
                 .assertThat()
                 .statusCode(204);
-    }
-
-    @ClientEndpoint
-    static class WebSocketClient {
-        @OnMessage
-        void message(String msg) {
-            WS_MESSAGES.add(msg);
-        }
     }
 }
