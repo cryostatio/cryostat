@@ -32,6 +32,7 @@ import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
 import io.cryostat.targets.Target;
 
 import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.mutiny.Multi;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -89,10 +90,9 @@ public class AnalysisReportAggregator {
     @Produces(MediaType.TEXT_PLAIN)
     @Transactional
     // TODO should this include results from lost targets?
-    public String scrape() {
-        var sb = new StringBuilder();
-        reports.forEach((id, r) -> sb.append(stringify(id, r)));
-        return sb.toString();
+    public Multi<String> scrape() {
+        return Multi.createFrom()
+                .items(reports.entrySet().stream().map(e -> stringify(e.getKey(), e.getValue())));
     }
 
     @GET
