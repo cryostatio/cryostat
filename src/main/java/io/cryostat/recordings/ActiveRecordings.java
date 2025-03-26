@@ -280,6 +280,10 @@ public class ActiveRecordings {
             Objects.requireNonNull(labels);
         }
 
+        public Metadata() {
+            this(Map.of());
+        }
+
         public Metadata(Map<String, String> labels) {
             this(labels, null);
         }

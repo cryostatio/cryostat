@@ -17,6 +17,7 @@ package io.cryostat.rules;
 
 import java.time.Duration;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -100,6 +101,8 @@ public class RuleExecutor {
                 recordingHelper.getPreferredTemplate(
                         attempt.target(), pair.getKey(), pair.getValue());
 
+        var labels = new HashMap<>(attempt.rule().metadata.labels());
+        labels.put("rule", attempt.rule().name);
         ActiveRecording recording =
                 recordingHelper
                         .startRecording(
@@ -107,7 +110,7 @@ public class RuleExecutor {
                                 RecordingReplace.STOPPED,
                                 template,
                                 createRecordingOptions(attempt.rule()),
-                                Map.of("rule", attempt.rule().name))
+                                labels)
                         .await()
                         .atMost(Duration.ofSeconds(10));
 
