@@ -16,6 +16,7 @@
 package io.cryostat.reports;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
@@ -36,6 +37,7 @@ import io.cryostat.targets.Target.TargetDiscovery;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Multi;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.GET;
@@ -95,6 +97,7 @@ public class AnalysisReportAggregator {
 
     @GET
     @Produces(MediaType.TEXT_PLAIN)
+    @RolesAllowed("read")
     @Transactional
     // TODO should this include results from lost targets?
     public Multi<String> scrape() {
@@ -105,14 +108,20 @@ public class AnalysisReportAggregator {
     @GET
     @Path("/{jvmId}")
     @Produces(MediaType.TEXT_PLAIN)
+    @RolesAllowed("read")
     @Transactional
     // TODO should this include results from lost targets?
     public String scrape(@RestPath String jvmId) {
-        var report = reports.get(jvmId);
-        if (report == null) {
+        var report = getReport(jvmId);
+        return stringify(jvmId, report);
+    }
+
+    public Map<String, AnalysisResult> getReport(String jvmId) {
+        var r = reports.get(jvmId);
+        if (r == null) {
             throw new NotFoundException();
         }
-        return stringify(jvmId, report);
+        return new HashMap<>(r);
     }
 
     private String stringify(String jvmId, Map<String, AnalysisResult> report) {
