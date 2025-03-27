@@ -34,9 +34,11 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import io.cryostat.targets.Target;
 
 @ApplicationScoped
 public class LongRunningRequestGenerator {
@@ -73,10 +75,13 @@ public class LongRunningRequestGenerator {
     public LongRunningRequestGenerator() {}
 
     @ConsumeEvent(value = ARCHIVE_ADDRESS, blocking = true)
+    @Transactional
     public ArchivedRecording onMessage(ArchiveRequest request) {
         logger.trace("Job ID: " + request.getId() + " submitted.");
         try {
-            var rec = recordingHelper.archiveRecording(request.recording, null, null);
+            var target = Target.<Target>findById(request.recording.target.id);
+            var recording = target.getRecordingById(request.recording.remoteId);
+            var rec = recordingHelper.archiveRecording(recording, null, null);
             logger.trace("Recording archived, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
@@ -92,7 +97,7 @@ public class LongRunningRequestGenerator {
                                     "downloadUrl",
                                     rec.downloadUrl())));
             if (request.deleteOnCompletion) {
-                recordingHelper.deleteRecording(request.recording).subscribe();
+                recordingHelper.deleteRecording(recording).await().atMost(timeout);
             }
             return rec;
         } catch (Exception e) {

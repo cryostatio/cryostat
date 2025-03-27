@@ -39,6 +39,7 @@ import org.openjdk.jmc.rjmx.common.ConnectionException;
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.net.JFRConnectionToolkit;
+import io.cryostat.core.net.JFRJMXConnection;
 import io.cryostat.credentials.Credential;
 import io.cryostat.credentials.CredentialsFinder;
 import io.cryostat.expressions.MatchExpressionEvaluator;
@@ -282,6 +283,8 @@ public class TargetConnectionManager {
             try {
                 connection.close();
                 targetLocks.remove(connectUrl);
+            } catch (JFRJMXConnection.ConnectionFailureException e) {
+                evt.setExceptionThrown(true);
             } catch (Exception e) {
                 evt.setExceptionThrown(true);
                 throw e;

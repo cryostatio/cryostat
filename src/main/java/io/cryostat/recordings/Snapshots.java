@@ -41,8 +41,8 @@ public class Snapshots {
     @RolesAllowed("write")
     public Uni<RestResponse<LinkedRecordingDescriptor>> createSnapshotUsingTargetId(
             @RestPath long targetId) throws Exception {
-        return recordingHelper
-                .createSnapshot(Target.find("id", targetId).singleResult())
+        return Uni.createFrom()
+                .item(recordingHelper.createSnapshot(Target.find("id", targetId).singleResult()))
                 .onItem()
                 .transform(
                         recording ->
