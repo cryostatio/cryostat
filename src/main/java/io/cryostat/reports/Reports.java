@@ -127,18 +127,11 @@ public class Reports {
                         target, Map.of(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true"))
                 .onItem()
                 .transform(
-                        (recording) -> new ArchiveRequest(UUID.randomUUID().toString(), recording))
+                        (recording) ->
+                                new ArchiveRequest(UUID.randomUUID().toString(), recording, false))
                 .invoke(
-                        request -> {
-                            Runnable cleanup =
-                                    () ->
-                                            helper.deleteRecording(request.recording())
-                                                    .await()
-                                                    .atMost(timeout);
-                            bus.request(LongRunningRequestGenerator.ARCHIVE_ADDRESS, request)
-                                    .subscribe()
-                                    .with(item -> cleanup.run(), err -> cleanup.run());
-                        })
+                        request ->
+                                bus.publish(LongRunningRequestGenerator.ARCHIVE_ADDRESS, request))
                 .map(
                         request ->
                                 Response.ok(request.getId(), MediaType.TEXT_PLAIN)
