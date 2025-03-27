@@ -1,6 +1,18 @@
 ---
 components:
   schemas:
+    AnalysisResult:
+      properties:
+        evaluation:
+          $ref: '#/components/schemas/Evaluation'
+        name:
+          type: string
+        score:
+          format: double
+          type: number
+        topic:
+          type: string
+      type: object
     Annotations:
       properties:
         cryostat:
@@ -226,6 +238,19 @@ components:
       required:
         - id
         - realm
+      type: object
+    Evaluation:
+      properties:
+        explanation:
+          type: string
+        solution:
+          type: string
+        suggestions:
+          items:
+            $ref: '#/components/schemas/Suggestion'
+          type: array
+        summary:
+          type: string
       type: object
     Event:
       properties:
@@ -540,6 +565,15 @@ components:
         description:
           type: string
         name:
+          type: string
+      type: object
+    Suggestion:
+      properties:
+        name:
+          type: string
+        setting:
+          type: string
+        value:
           type: string
       type: object
     Target:
@@ -1388,6 +1422,12 @@ paths:
                   type: string
                 type: array
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       tags:
         - Analysis Report Aggregator
   /api/v4/metrics/reports/{jvmId}:
@@ -1405,6 +1445,12 @@ paths:
               schema:
                 type: string
           description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
       tags:
         - Analysis Report Aggregator
   /api/v4/probes:
@@ -2255,6 +2301,32 @@ paths:
         - SecurityScheme: []
       tags:
         - Active Recordings
+  /api/v4/targets/{targetId}/reports:
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  $ref: '#/components/schemas/AnalysisResult'
+                type: object
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Reports
   /api/v4/targets/{targetId}/reports/{recordingId}:
     get:
       parameters:
