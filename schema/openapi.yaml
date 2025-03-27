@@ -500,6 +500,8 @@ components:
           format: int32
           minimum: -1
           type: integer
+        metadata:
+          $ref: '#/components/schemas/Metadata'
         name:
           pattern: \S
           type: string
@@ -512,6 +514,7 @@ components:
         - description
         - matchExpression
         - eventSpecifier
+        - metadata
       type: object
     SerializableEventTypeInfo:
       properties:
@@ -1374,6 +1377,36 @@ paths:
         - SecurityScheme: []
       tags:
         - Match Expressions
+  /api/v4/metrics/reports:
+    get:
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                items:
+                  type: string
+                type: array
+          description: OK
+      tags:
+        - Analysis Report Aggregator
+  /api/v4/metrics/reports/{jvmId}:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+      tags:
+        - Analysis Report Aggregator
   /api/v4/probes:
     get:
       responses:
@@ -1557,6 +1590,9 @@ paths:
                 maxSizeBytes:
                   format: int32
                   type: integer
+                metadata:
+                  nullable: true
+                  type: string
                 name:
                   type: string
                 preservedArchives:
@@ -1586,6 +1622,9 @@ paths:
                 maxSizeBytes:
                   format: int32
                   type: integer
+                metadata:
+                  nullable: true
+                  type: string
                 name:
                   type: string
                 preservedArchives:
