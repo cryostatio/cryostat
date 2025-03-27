@@ -48,6 +48,8 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
     @Test
     @Order(1)
     void testGetNoSource() {
+        int targetId = defineSelfCustomTarget();
+
         String scrape =
                 given().log()
                         .all()
@@ -65,6 +67,20 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                         .body()
                         .asString();
         MatcherAssert.assertThat(scrape, Matchers.is(Matchers.emptyString()));
+
+
+        given().log()
+                .all()
+                .when()
+                .basePath("/api/v4/targets/{targetId}/reports")
+                .pathParams("targetId", targetId)
+                .get()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(404);
     }
 
     @Test
@@ -240,6 +256,20 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                                                                     Matchers.lessThanOrEqualTo(
                                                                             100.0))));
                         });
+
+        given().log()
+                .all()
+                .when()
+                .basePath("/api/v4/targets/{targetId}/reports")
+                .pathParams("targetId", targetId)
+                .get()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON);
 
         given().log()
                 .all()

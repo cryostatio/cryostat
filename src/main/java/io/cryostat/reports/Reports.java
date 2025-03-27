@@ -16,10 +16,12 @@
 package io.cryostat.reports;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
+import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.ActiveReportRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
@@ -36,6 +38,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
@@ -59,6 +62,7 @@ public class Reports {
     @Inject StorageBuckets storageBuckets;
     @Inject RecordingHelper helper;
     @Inject ReportsService reportsService;
+    @Inject AnalysisReportAggregator reportAggregator;
     @Inject EventBus bus;
     @Inject Logger logger;
 
@@ -105,6 +109,15 @@ public class Reports {
                 .location(
                         UriBuilder.fromUri(String.format("/api/v4/reports/%s", encodedKey)).build())
                 .build();
+    }
+
+    @GET
+    @Path("/api/v4/targets/{targetId}/reports")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("read")
+    public Map<String, AnalysisResult> getCached(@RestPath long targetId) {
+        var target = Target.getTargetById(targetId);
+        return reportAggregator.getReport(target.jvmId);
     }
 
     @GET
