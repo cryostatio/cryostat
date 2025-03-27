@@ -27,12 +27,10 @@ import io.cryostat.recordings.LongRunningRequestGenerator.ActiveReportRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchiveRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
 import io.cryostat.recordings.RecordingHelper;
-import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
 
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
-import io.smallrye.mutiny.Uni;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
@@ -50,6 +48,7 @@ import jakarta.ws.rs.core.UriBuilder;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestQuery;
 
 @Path("")
 public class Reports {
@@ -121,30 +120,21 @@ public class Reports {
     @Transactional
     @Path("/api/v4/targets/{targetId}/reports")
     @RolesAllowed("write")
-    public Uni<Response> analyze(@RestPath long targetId) {
+    public Response analyze(
+            HttpServerResponse resp, @RestPath long targetId, @RestQuery boolean clean) {
         var target = Target.getTargetById(targetId);
-        return helper.createSnapshot(
-                        target, Map.of(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true"))
-                .onItem()
-                .transform(
-                        (recording) ->
-                                new ArchiveRequest(UUID.randomUUID().toString(), recording, false))
-                .invoke(
-                        request ->
-                                bus.publish(LongRunningRequestGenerator.ARCHIVE_ADDRESS, request))
-                .map(
-                        request ->
-                                Response.ok(request.getId(), MediaType.TEXT_PLAIN)
-                                        .status(Response.Status.ACCEPTED)
-                                        .location(
-                                                UriBuilder.fromUri(
-                                                                String.format(
-                                                                        "/api/v4/targets/%d/reports",
-                                                                        targetId))
-                                                        .build())
-                                        .build())
-                .onFailure(SnapshotCreationException.class)
-                .recoverWithItem(Response.status(Response.Status.BAD_REQUEST).build());
+        var recording =
+                helper.createSnapshot(
+                        target, Map.of(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true"));
+        var request = new ArchiveRequest(UUID.randomUUID().toString(), recording, clean);
+        resp.bodyEndHandler(
+                (v) -> bus.publish(LongRunningRequestGenerator.ARCHIVE_ADDRESS, request));
+        return Response.ok(request.getId(), MediaType.TEXT_PLAIN)
+                .status(Response.Status.ACCEPTED)
+                .location(
+                        UriBuilder.fromUri(String.format("/api/v4/targets/%d/reports", targetId))
+                                .build())
+                .build();
     }
 
     @GET
