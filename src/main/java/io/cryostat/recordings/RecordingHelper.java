@@ -483,15 +483,6 @@ public class RecordingHelper {
         target.activeRecordings.add(recording);
         target.persist();
 
-        var event =
-                new ActiveRecordingEvent(
-                        ActiveRecordings.RecordingEventCategory.SNAPSHOT_CREATED,
-                        ActiveRecordingEvent.Payload.of(this, recording));
-        bus.publish(event.category().category(), event.payload().recording());
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(event.category().category(), event.payload()));
-
         return Uni.createFrom().item(recording);
     }
 
