@@ -112,6 +112,7 @@ public class Reports {
     }
 
     @GET
+    @Blocking
     @Path("/api/v4/targets/{targetId}/reports")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
