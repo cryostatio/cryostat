@@ -24,19 +24,24 @@ import io.cryostat.StorageBuckets;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.ActiveReportRequest;
+import io.cryostat.recordings.LongRunningRequestGenerator.ArchiveRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target;
 
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Uni;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
@@ -111,6 +116,44 @@ public class Reports {
                 .build();
     }
 
+    @POST
+    @Blocking
+    @Transactional
+    @Path("/api/v4/targets/{targetId}/reports")
+    @RolesAllowed("write")
+    public Uni<Response> analyze(@RestPath long targetId) {
+        var target = Target.getTargetById(targetId);
+        return helper.createSnapshot(
+                        target, Map.of(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true"))
+                .onItem()
+                .transform(
+                        (recording) -> new ArchiveRequest(UUID.randomUUID().toString(), recording))
+                .invoke(
+                        request -> {
+                            Runnable cleanup =
+                                    () ->
+                                            helper.deleteRecording(request.recording())
+                                                    .await()
+                                                    .atMost(timeout);
+                            bus.request(LongRunningRequestGenerator.ARCHIVE_ADDRESS, request)
+                                    .subscribe()
+                                    .with(item -> cleanup.run(), err -> cleanup.run());
+                        })
+                .map(
+                        request ->
+                                Response.ok(request.getId(), MediaType.TEXT_PLAIN)
+                                        .status(Response.Status.ACCEPTED)
+                                        .location(
+                                                UriBuilder.fromUri(
+                                                                String.format(
+                                                                        "/api/v4/targets/%d/reports",
+                                                                        targetId))
+                                                        .build())
+                                        .build())
+                .onFailure(SnapshotCreationException.class)
+                .recoverWithItem(Response.status(Response.Status.BAD_REQUEST).build());
+    }
+
     @GET
     @Blocking
     @Path("/api/v4/targets/{targetId}/reports")
@@ -142,7 +185,7 @@ public class Reports {
             return Response.ok(
                             reportsService.reportFor(recording).await().atMost(timeout),
                             MediaType.APPLICATION_JSON)
-                    .status(200)
+                    .status(Response.Status.OK)
                     .build();
         }
 
@@ -155,7 +198,7 @@ public class Reports {
                 (e) -> bus.publish(LongRunningRequestGenerator.ACTIVE_REPORT_ADDRESS, request));
         // TODO implement query parameter for evaluation predicate
         return Response.ok(request.getId(), MediaType.TEXT_PLAIN)
-                .status(202)
+                .status(Response.Status.ACCEPTED)
                 .location(
                         UriBuilder.fromUri(
                                         String.format(
