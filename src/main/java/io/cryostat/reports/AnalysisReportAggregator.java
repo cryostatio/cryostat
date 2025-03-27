@@ -47,7 +47,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/metrics/reports")
+@Path("/api/v4/metrics/reports")
 public class AnalysisReportAggregator {
 
     @Inject EventBus bus;
