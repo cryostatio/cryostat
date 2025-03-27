@@ -2327,6 +2327,30 @@ paths:
         - SecurityScheme: []
       tags:
         - Reports
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Reports
   /api/v4/targets/{targetId}/reports/{recordingId}:
     get:
       parameters:
