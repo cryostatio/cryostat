@@ -91,6 +91,9 @@ public class LongRunningRequestGenerator {
                                     rec.reportUrl(),
                                     "downloadUrl",
                                     rec.downloadUrl())));
+            if (request.deleteOnCompletion) {
+                recordingHelper.deleteRecording(request.recording).subscribe();
+            }
             return rec;
         } catch (Exception e) {
             logger.warn("Archiving failed");
@@ -239,11 +242,15 @@ public class LongRunningRequestGenerator {
     // of the record. It shouldn't be a problem and we do similar things
     // elswhere with other records.
     @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
-    public record ArchiveRequest(String id, ActiveRecording recording) {
+    public record ArchiveRequest(String id, ActiveRecording recording, boolean deleteOnCompletion) {
 
         public ArchiveRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(recording);
+        }
+
+        public ArchiveRequest(String id, ActiveRecording recording) {
+            this(id, recording, false);
         }
 
         public String getId() {
