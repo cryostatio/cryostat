@@ -450,12 +450,11 @@ public class RecordingHelper {
         return Uni.createFrom().item(recording);
     }
 
-    public Uni<ActiveRecording> createSnapshot(Target target) {
+    public ActiveRecording createSnapshot(Target target) {
         return this.createSnapshot(target, Map.of());
     }
 
-    public Uni<ActiveRecording> createSnapshot(
-            Target target, Map<String, String> additionalLabels) {
+    public ActiveRecording createSnapshot(Target target, Map<String, String> additionalLabels) {
         var desc =
                 connectionManager.executeConnectedTask(
                         target,
@@ -483,7 +482,7 @@ public class RecordingHelper {
         target.activeRecordings.add(recording);
         target.persist();
 
-        return Uni.createFrom().item(recording);
+        return recording;
     }
 
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
@@ -549,21 +548,26 @@ public class RecordingHelper {
     }
 
     public Uni<ActiveRecording> deleteRecording(ActiveRecording recording) {
-        connectionManager.executeConnectedTask(
-                recording.target,
-                conn -> {
-                    getDescriptorById(conn, recording.remoteId)
-                            .ifPresent(d -> safeCloseRecording(conn, d));
-                    return null;
-                });
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () -> {
-                            recording.target.activeRecordings.remove(recording);
-                            recording.target.persist();
-                            recording.delete();
-                            return Uni.createFrom().item(recording);
-                        });
+        return connectionManager
+                .executeConnectedTaskUni(
+                        recording.target,
+                        conn -> {
+                            getDescriptorById(conn, recording.remoteId)
+                                    .ifPresent(d -> safeCloseRecording(conn, d));
+                            return null;
+                        })
+                .onItem()
+                .transform(
+                        (r) ->
+                                QuarkusTransaction.joiningExisting()
+                                        .call(
+                                                () -> {
+                                                    recording.target.activeRecordings.remove(
+                                                            recording);
+                                                    recording.target.persist();
+                                                    recording.delete();
+                                                    return recording;
+                                                }));
     }
 
     public LinkedRecordingDescriptor toExternalForm(ActiveRecording recording) {
