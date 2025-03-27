@@ -451,78 +451,59 @@ public class RecordingHelper {
     }
 
     public Uni<ActiveRecording> createSnapshot(Target target) {
-        return connectionManager.executeConnectedTaskUni(
-                target,
-                connection -> {
-                    IRecordingDescriptor desc = connection.getService().getSnapshotRecording();
+        return this.createSnapshot(target, Map.of());
+    }
 
-                    String rename =
-                            String.format("%s-%d", desc.getName().toLowerCase(), desc.getId());
+    public Uni<ActiveRecording> createSnapshot(
+            Target target, Map<String, String> additionalLabels) {
+        var desc =
+                connectionManager.executeConnectedTask(
+                        target,
+                        connection -> {
+                            IRecordingDescriptor rec =
+                                    connection.getService().getSnapshotRecording();
+                            try (InputStream snapshot =
+                                    remoteRecordingStreamFactory.openDirect(
+                                            connection, target, rec)) {
+                                if (!snapshotIsReadable(target, snapshot)) {
+                                    safeCloseRecording(connection, rec);
+                                    throw new SnapshotCreationException(
+                                            "Snapshot was not readable - are there any source"
+                                                    + " recordings?");
+                                }
+                            }
+                            return rec;
+                        });
 
-                    RecordingOptionsBuilder recordingOptionsBuilder =
-                            recordingOptionsBuilderFactory.create(target).name(rename);
+        var labels = new HashMap<String, String>(additionalLabels);
+        labels.putAll(Map.of("jvmId", target.jvmId, "connectUrl", target.connectUrl.toString()));
+        ActiveRecording recording = ActiveRecording.from(target, desc, new Metadata(labels));
+        recording.persist();
 
-                    connection
-                            .getService()
-                            .updateRecordingOptions(desc, recordingOptionsBuilder.build());
+        target.activeRecordings.add(recording);
+        target.persist();
 
-                    Optional<IRecordingDescriptor> updatedDescriptor =
-                            getDescriptorByName(connection, rename);
+        var event =
+                new ActiveRecordingEvent(
+                        ActiveRecordings.RecordingEventCategory.SNAPSHOT_CREATED,
+                        ActiveRecordingEvent.Payload.of(this, recording));
+        bus.publish(event.category().category(), event.payload().recording());
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
 
-                    if (updatedDescriptor.isEmpty()) {
-                        throw new IllegalStateException(
-                                "The most recent snapshot of the recording cannot be"
-                                        + " found after renaming.");
-                    }
-
-                    desc = updatedDescriptor.get();
-
-                    try (InputStream snapshot =
-                            remoteRecordingStreamFactory.openDirect(connection, target, desc)) {
-                        if (!snapshotIsReadable(target, snapshot)) {
-                            safeCloseRecording(connection, desc);
-                            throw new SnapshotCreationException(
-                                    "Snapshot was not readable - are there any source recordings?");
-                        }
-                    }
-
-                    ActiveRecording recording =
-                            ActiveRecording.from(
-                                    target,
-                                    desc,
-                                    new Metadata(
-                                            Map.of(
-                                                    "jvmId",
-                                                    target.jvmId,
-                                                    "connectUrl",
-                                                    target.connectUrl.toString())));
-                    recording.persist();
-
-                    target.activeRecordings.add(recording);
-                    target.persist();
-
-                    var event =
-                            new ActiveRecordingEvent(
-                                    ActiveRecordings.RecordingEventCategory.SNAPSHOT_CREATED,
-                                    ActiveRecordingEvent.Payload.of(this, recording));
-                    bus.publish(event.category().category(), event.payload().recording());
-                    bus.publish(
-                            MessagingServer.class.getName(),
-                            new Notification(event.category().category(), event.payload()));
-
-                    return recording;
-                });
+        return Uni.createFrom().item(recording);
     }
 
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
-        if (!connectionManager.markConnectionInUse(target)) {
-            throw new IOException(
-                    "Target connection unexpectedly closed while streaming recording");
-        }
-
         try {
+            if (!connectionManager.markConnectionInUse(target)) {
+                throw new IOException(
+                        "Target connection unexpectedly closed while streaming recording");
+            }
             return snapshot.read() != -1;
-        } catch (IOException e) {
+        } catch (Exception e) {
+            logger.warn(e);
             return false;
         }
     }

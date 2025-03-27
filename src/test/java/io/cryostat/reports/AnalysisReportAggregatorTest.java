@@ -68,7 +68,6 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                         .asString();
         MatcherAssert.assertThat(scrape, Matchers.is(Matchers.emptyString()));
 
-
         given().log()
                 .all()
                 .when()
