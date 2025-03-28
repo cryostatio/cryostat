@@ -64,7 +64,7 @@ public class JMCAgentTemplatesTest extends AbstractTransactionalTestBase {
                 .multiPart("name", filename)
                 .multiPart(
                         "probeTemplate",
-                        """
+"""
 <jfragent>
     <config>
         <classprefix>__JFREvent</classprefix>

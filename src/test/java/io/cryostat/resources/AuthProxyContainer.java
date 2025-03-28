@@ -42,7 +42,7 @@ public class AuthProxyContainer extends GenericContainer<AuthProxyContainer> {
                             "OAUTH2_PROXY_EMAIL_DOMAINS",
                             "*"));
     private static final String ALPHA_CONFIG =
-            """
+"""
 server:
   BindAddress: http://AUTHPROXY_HOST:AUTHPROXY_PORT
 upstreamConfig:

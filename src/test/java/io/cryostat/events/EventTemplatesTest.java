@@ -158,7 +158,7 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
                 given().contentType(ContentType.MULTIPART)
                         .multiPart(
                                 "template",
-                                """
+"""
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration version="2.0" label="Empty" description="Empty Template" provider="EventTemplatesTest">
 </configuration>
@@ -205,7 +205,7 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
                 given().contentType(ContentType.MULTIPART)
                         .multiPart(
                                 "template",
-                                """
+"""
 <?xml version="1.0" encoding="UTF-8"?>
 <configuration version="2.0" label="Empty" description="Empty Template" provider="EventTemplatesTest">
  <event name="io.cryostat.targets.TargetConnectionManager.TargetConnectionOpened">
