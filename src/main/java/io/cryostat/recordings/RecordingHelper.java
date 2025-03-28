@@ -943,6 +943,33 @@ public class RecordingHelper {
                 now.getEpochSecond());
     }
 
+    public Optional<ArchivedRecording> getArchivedRecordingInfo(String jvmId, String filename) {
+        return listArchivedRecordingObjects(jvmId).stream()
+                .filter(
+                        item -> {
+                            String objectName = item.key().strip();
+                            String f = objectName.split("/")[1];
+                            return Objects.equals(filename, f);
+                        })
+                .map(
+                        item -> {
+                            String objectName = item.key().strip();
+                            String f = objectName.split("/")[1];
+                            Metadata metadata =
+                                    getArchivedRecordingMetadata(jvmId, f)
+                                            .orElseGet(Metadata::empty);
+                            return new ArchivedRecording(
+                                    jvmId,
+                                    filename,
+                                    downloadUrl(jvmId, f),
+                                    reportUrl(jvmId, f),
+                                    metadata,
+                                    item.size(),
+                                    item.lastModified().getEpochSecond());
+                        })
+                .findFirst();
+    }
+
     public Optional<Metadata> getArchivedRecordingMetadata(String jvmId, String filename) {
         return getArchivedRecordingMetadata(archivedRecordingKey(jvmId, filename));
     }

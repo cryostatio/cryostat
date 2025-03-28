@@ -16,8 +16,11 @@
 package io.cryostat.reports;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
@@ -31,6 +34,7 @@ import io.cryostat.targets.Target;
 
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Uni;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
@@ -50,6 +54,7 @@ import jakarta.ws.rs.core.UriBuilder;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
 public class Reports {
@@ -157,9 +162,26 @@ public class Reports {
     @Path("/api/v4/targets/{targetId}/reports")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
-    public Map<String, AnalysisResult> getCached(@RestPath long targetId) {
+    public Uni<RestResponse<Map<String, AnalysisResult>>> getCached(@RestPath long targetId) {
         var target = Target.getTargetById(targetId);
-        return reportAggregator.getReport(target.jvmId);
+        return reportAggregator
+                .getEntry(target.jvmId)
+                .onItem()
+                .transform(
+                        e -> {
+                            var builder =
+                                    RestResponse.ResponseBuilder
+                                            .<Map<String, AnalysisResult>>create(200)
+                                            .entity(e.report());
+                            var timestamp = e.timestamp();
+                            if (timestamp > 0) {
+                                builder.lastModified(
+                                        Date.from(
+                                                Instant.ofEpochSecond(
+                                                        timestamp)));
+                            }
+                            return builder.build();
+                        });
     }
 
     @GET

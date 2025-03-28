@@ -563,7 +563,6 @@ public class ArchivedRecordings {
         return response.location(uri).build();
     }
 
-    // TODO include jvmId and filename
     public record ArchivedRecording(
             String jvmId,
             String name,
