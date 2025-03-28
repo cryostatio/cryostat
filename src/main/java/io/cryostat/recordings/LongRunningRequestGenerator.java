@@ -25,6 +25,7 @@ import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.reports.ReportsService;
+import io.cryostat.targets.Target;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -38,7 +39,6 @@ import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import io.cryostat.targets.Target;
 
 @ApplicationScoped
 public class LongRunningRequestGenerator {

@@ -450,11 +450,12 @@ public class RecordingHelper {
         return Uni.createFrom().item(recording);
     }
 
-    public ActiveRecording createSnapshot(Target target) {
+    public Uni<ActiveRecording> createSnapshot(Target target) {
         return this.createSnapshot(target, Map.of());
     }
 
-    public ActiveRecording createSnapshot(Target target, Map<String, String> additionalLabels) {
+    public Uni<ActiveRecording> createSnapshot(
+            Target target, Map<String, String> additionalLabels) {
         var desc =
                 connectionManager.executeConnectedTask(
                         target,
@@ -482,7 +483,7 @@ public class RecordingHelper {
         target.activeRecordings.add(recording);
         target.persist();
 
-        return recording;
+        return Uni.createFrom().item(recording);
     }
 
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
