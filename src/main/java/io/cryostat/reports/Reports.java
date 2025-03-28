@@ -50,7 +50,6 @@ import jakarta.ws.rs.core.UriBuilder;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
-import org.jboss.resteasy.reactive.RestQuery;
 
 @Path("")
 public class Reports {
@@ -123,15 +122,26 @@ public class Reports {
     @Path("/api/v4/targets/{targetId}/reports")
     @RolesAllowed("write")
     public Response analyze(
-            HttpServerResponse resp, @RestPath long targetId, @QueryParam("clean") @DefaultValue("true") boolean clean) {
+            HttpServerResponse resp,
+            @RestPath long targetId,
+            @QueryParam("clean") @DefaultValue("true") boolean clean) {
         var target = Target.getTargetById(targetId);
-        var recording =
-                helper.createSnapshot(
-                        target, Map.of(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true"));
-        var request = new ArchiveRequest(UUID.randomUUID().toString(), recording, clean);
+        var jobId = UUID.randomUUID().toString();
         resp.bodyEndHandler(
-                (v) -> bus.publish(LongRunningRequestGenerator.ARCHIVE_ADDRESS, request));
-        return Response.ok(request.getId(), MediaType.TEXT_PLAIN)
+                (v) -> {
+                    helper.createSnapshot(
+                                    target,
+                                    Map.of(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true"))
+                            .subscribe()
+                            .with(
+                                    recording -> {
+                                        var request = new ArchiveRequest(jobId, recording, clean);
+                                        bus.publish(
+                                                LongRunningRequestGenerator.ARCHIVE_ADDRESS,
+                                                request);
+                                    });
+                });
+        return Response.ok(jobId, MediaType.TEXT_PLAIN)
                 .status(Response.Status.ACCEPTED)
                 .location(
                         UriBuilder.fromUri(String.format("/api/v4/targets/%d/reports", targetId))

@@ -211,7 +211,7 @@ public class ActiveRecordings {
                         .toList();
         var snapshots = new ArrayList<ActiveRecording>();
         for (var t : targets) {
-            snapshots.add(recordingHelper.createSnapshot(t));
+            snapshots.add(recordingHelper.createSnapshot(t).await().atMost(timeout));
         }
         return snapshots;
     }
@@ -242,7 +242,7 @@ public class ActiveRecordings {
     @Description("Create a new Flight Recorder Snapshot on the specified Target")
     public ActiveRecording doSnapshot(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
-        return recordingHelper.createSnapshot(fTarget);
+        return recordingHelper.createSnapshot(fTarget).await().atMost(timeout);
     }
 
     @Transactional
