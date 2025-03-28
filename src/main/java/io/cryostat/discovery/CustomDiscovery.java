@@ -115,8 +115,7 @@ public class CustomDiscovery {
             @RestForm String password,
             @RestQuery boolean dryrun,
             @RestQuery boolean storeCredentials) {
-        var target = new Target();
-        target.connectUrl = connectUrl;
+        var target = Target.createOrUndelete(connectUrl);
         target.alias = alias;
 
         Credential credential = null;

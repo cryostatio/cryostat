@@ -626,9 +626,8 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                                 "/jndi/rmi://" + host + ':' + port.getPort() + "/jmxrmi");
                 URI connectUrl = URI.create(jmxUrl.toString());
 
-                Target target = new Target();
+                Target target = Target.createOrUndelete(connectUrl);
                 target.activeRecordings = new ArrayList<>();
-                target.connectUrl = connectUrl;
                 target.alias = objRef.getName();
                 target.labels = (obj != null ? obj.getMetadata().getLabels() : new HashMap<>());
                 target.annotations =

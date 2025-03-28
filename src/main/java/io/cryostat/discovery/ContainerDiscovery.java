@@ -259,9 +259,8 @@ public abstract class ContainerDiscovery {
             return null;
         }
 
-        Target target = new Target();
+        Target target = Target.createOrUndelete(connectUrl);
         target.activeRecordings = new ArrayList<>();
-        target.connectUrl = connectUrl;
         target.alias = Optional.ofNullable(desc.Names.get(0)).orElse(desc.Id);
         target.labels = desc.Labels;
         target.annotations =
