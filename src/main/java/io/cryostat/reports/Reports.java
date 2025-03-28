@@ -108,8 +108,11 @@ public class Reports {
         ArchivedReportRequest request =
                 new ArchivedReportRequest(UUID.randomUUID().toString(), pair);
         response.bodyEndHandler(
-                (e) -> bus.publish(LongRunningRequestGenerator.ARCHIVE_REPORT_ADDRESS, request));
-        return Response.ok(request.getId(), MediaType.TEXT_PLAIN)
+                (e) ->
+                        bus.publish(
+                                LongRunningRequestGenerator.ARCHIVE_REPORT_REQUEST_ADDRESS,
+                                request));
+        return Response.ok(request.id(), MediaType.TEXT_PLAIN)
                 .status(202)
                 .location(
                         UriBuilder.fromUri(String.format("/api/v4/reports/%s", encodedKey)).build())
@@ -137,7 +140,7 @@ public class Reports {
                                     recording -> {
                                         var request = new ArchiveRequest(jobId, recording, clean);
                                         bus.publish(
-                                                LongRunningRequestGenerator.ARCHIVE_ADDRESS,
+                                                LongRunningRequestGenerator.ARCHIVE_REQUEST_ADDRESS,
                                                 request);
                                     });
                 });
@@ -190,9 +193,12 @@ public class Reports {
         ActiveReportRequest request =
                 new ActiveReportRequest(UUID.randomUUID().toString(), recording);
         response.bodyEndHandler(
-                (e) -> bus.publish(LongRunningRequestGenerator.ACTIVE_REPORT_ADDRESS, request));
+                (e) ->
+                        bus.publish(
+                                LongRunningRequestGenerator.ACTIVE_REPORT_REQUEST_ADDRESS,
+                                request));
         // TODO implement query parameter for evaluation predicate
-        return Response.ok(request.getId(), MediaType.TEXT_PLAIN)
+        return Response.ok(request.id(), MediaType.TEXT_PLAIN)
                 .status(Response.Status.ACCEPTED)
                 .location(
                         UriBuilder.fromUri(

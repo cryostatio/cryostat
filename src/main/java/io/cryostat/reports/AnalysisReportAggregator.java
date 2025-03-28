@@ -29,6 +29,8 @@ import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.recordings.ActiveRecordings;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.LongRunningRequestGenerator;
+import io.cryostat.recordings.LongRunningRequestGenerator.ActiveReportCompletion;
+import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportCompletion;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.EventKind;
@@ -75,7 +77,8 @@ public class AnalysisReportAggregator {
                 var request = new ArchivedReportRequest(id.toString(), Pair.of(jvmId, filename));
                 var report =
                         bus.<Map<String, AnalysisResult>>requestAndAwait(
-                                        LongRunningRequestGenerator.ARCHIVE_REPORT_ADDRESS, request)
+                                        LongRunningRequestGenerator.ARCHIVE_REPORT_REQUEST_ADDRESS,
+                                        request)
                                 .body();
                 reports.put(target.jvmId, report);
             } catch (Exception e) {
@@ -83,6 +86,42 @@ public class AnalysisReportAggregator {
                 reports.remove(jvmId);
                 ownerChains.remove(jvmId);
             }
+        }
+    }
+
+    @ConsumeEvent(
+            value = LongRunningRequestGenerator.ACTIVE_REPORT_COMPLETE_ADDRESS,
+            blocking = true)
+    @Transactional
+    public void onMessage(ActiveReportCompletion evt) {
+        var jvmId = evt.recording().target.jvmId;
+        try {
+            var target = Target.getTargetByJvmId(jvmId).orElseThrow();
+            ownerChains.put(target.jvmId, ownerChain(target));
+            var report = evt.report();
+            reports.put(target.jvmId, report);
+        } catch (Exception e) {
+            logger.warn(e);
+            reports.remove(jvmId);
+            ownerChains.remove(jvmId);
+        }
+    }
+
+    @ConsumeEvent(
+            value = LongRunningRequestGenerator.ARCHIVED_REPORT_COMPLETE_ADDRESS,
+            blocking = true)
+    @Transactional
+    public void onMessage(ArchivedReportCompletion evt) {
+        var jvmId = evt.jvmId();
+        try {
+            var target = Target.getTargetByJvmId(jvmId).orElseThrow();
+            ownerChains.put(target.jvmId, ownerChain(target));
+            var report = evt.report();
+            reports.put(target.jvmId, report);
+        } catch (Exception e) {
+            logger.warn(e);
+            reports.remove(jvmId);
+            ownerChains.remove(jvmId);
         }
     }
 
