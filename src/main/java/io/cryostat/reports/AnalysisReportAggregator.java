@@ -59,6 +59,7 @@ public class AnalysisReportAggregator {
 
     public static final String AUTOANALYZE_LABEL = "autoanalyze";
 
+    // TODO replace these with a single Caffeine cache with a write timeout
     private final Map<String, List<Pair<String, String>>> ownerChains = new ConcurrentHashMap<>();
     private final Map<String, Map<String, AnalysisResult>> reports = new ConcurrentHashMap<>();
 
