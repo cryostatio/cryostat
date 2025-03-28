@@ -456,8 +456,8 @@ public class RecordingHelper {
 
     public Uni<ActiveRecording> createSnapshot(
             Target target, Map<String, String> additionalLabels) {
-        var desc =
-                connectionManager.executeConnectedTask(
+        return connectionManager
+                .executeConnectedTaskUni(
                         target,
                         connection -> {
                             IRecordingDescriptor rec =
@@ -473,17 +473,25 @@ public class RecordingHelper {
                                 }
                             }
                             return rec;
+                        })
+                .onItem()
+                .transform(
+                        desc -> {
+                            var labels = new HashMap<String, String>(additionalLabels);
+                            labels.putAll(
+                                    Map.of(
+                                            "jvmId",
+                                            target.jvmId,
+                                            "connectUrl",
+                                            target.connectUrl.toString()));
+                            ActiveRecording recording =
+                                    ActiveRecording.from(target, desc, new Metadata(labels));
+                            recording.persist();
+
+                            target.activeRecordings.add(recording);
+                            target.persist();
+                            return recording;
                         });
-
-        var labels = new HashMap<String, String>(additionalLabels);
-        labels.putAll(Map.of("jvmId", target.jvmId, "connectUrl", target.connectUrl.toString()));
-        ActiveRecording recording = ActiveRecording.from(target, desc, new Metadata(labels));
-        recording.persist();
-
-        target.activeRecordings.add(recording);
-        target.persist();
-
-        return Uni.createFrom().item(recording);
     }
 
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
