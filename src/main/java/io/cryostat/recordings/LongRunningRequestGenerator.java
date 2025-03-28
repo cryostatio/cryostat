@@ -43,16 +43,22 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class LongRunningRequestGenerator {
 
-    public static final String ARCHIVE_ADDRESS =
-            "io.cryostat.recordings.ArchiveRequestGenerator.ArchiveRequest";
-    public static final String GRAFANA_ARCHIVE_ADDRESS =
-            "io.cryostat.recordings.ArchiveRequestGenerator.GrafanaArchiveUploadRequest";
-    public static final String GRAFANA_ACTIVE_ADDRESS =
-            "io.cryostat.recordings.ArchiveRequestGenerator.GrafanaActiveUploadRequest";
-    public static final String ARCHIVE_REPORT_ADDRESS =
-            "io.cryostat.recordings.ArchiveRequestGenerator.ArchiveReportRequest";
-    public static final String ACTIVE_REPORT_ADDRESS =
-            "io.cryostat.recordings.ArchiveRequestGenerator.ActiveReportRequest";
+    public static final String ARCHIVE_REQUEST_ADDRESS =
+            "io.cryostat.recordings.LongRunningRequestGenerator.ArchiveRequest";
+    public static final String GRAFANA_ARCHIVE_REQUEST_ADDRESS =
+            "io.cryostat.recordings.LongRunningRequestGenerator.GrafanaArchiveUploadRequest";
+    public static final String GRAFANA_ACTIVE_REQUEST_ADDRESS =
+            "io.cryostat.recordings.LongRunningRequestGenerator.GrafanaActiveUploadRequest";
+    public static final String ARCHIVE_REPORT_REQUEST_ADDRESS =
+            "io.cryostat.recordings.LongRunningRequestGenerator.ArchiveReportRequest";
+    public static final String ACTIVE_REPORT_REQUEST_ADDRESS =
+            "io.cryostat.recordings.LongRunningRequestGenerator.ActiveReportRequest";
+
+    public static final String ACTIVE_REPORT_COMPLETE_ADDRESS =
+            "io.cryostat.recording.LongRunningRequestGenerator.ActiveReportComplete";
+    public static final String ARCHIVED_REPORT_COMPLETE_ADDRESS =
+            "io.cryostat.recording.LongRunningRequestGenerator.ArchivedReportComplete";
+
     private static final String ARCHIVE_RECORDING_SUCCESS = "ArchiveRecordingSuccess";
     private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailure";
     private static final String GRAFANA_UPLOAD_SUCCESS = "GrafanaUploadSuccess";
@@ -74,10 +80,10 @@ public class LongRunningRequestGenerator {
 
     public LongRunningRequestGenerator() {}
 
-    @ConsumeEvent(value = ARCHIVE_ADDRESS, blocking = true)
+    @ConsumeEvent(value = ARCHIVE_REQUEST_ADDRESS, blocking = true)
     @Transactional
     public ArchivedRecording onMessage(ArchiveRequest request) {
-        logger.trace("Job ID: " + request.getId() + " submitted.");
+        logger.trace("Job ID: " + request.id() + " submitted.");
         try {
             var target = Target.<Target>findById(request.recording.target.id);
             var recording = target.getRecordingById(request.recording.remoteId);
@@ -89,7 +95,7 @@ public class LongRunningRequestGenerator {
                             ARCHIVE_RECORDING_SUCCESS,
                             Map.of(
                                     "jobId",
-                                    request.getId(),
+                                    request.id(),
                                     "recording",
                                     rec.name(),
                                     "reportUrl",
@@ -104,17 +110,17 @@ public class LongRunningRequestGenerator {
             logger.warn("Archiving failed");
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(ARCHIVE_RECORDING_FAIL, Map.of("jobId", request.getId())));
+                    new Notification(ARCHIVE_RECORDING_FAIL, Map.of("jobId", request.id())));
             throw new CompletionException(e);
         }
     }
 
-    @ConsumeEvent(value = GRAFANA_ARCHIVE_ADDRESS, blocking = true)
+    @ConsumeEvent(value = GRAFANA_ARCHIVE_REQUEST_ADDRESS, blocking = true)
     public Uni<Void> onMessage(GrafanaArchiveUploadRequest request) {
         try {
-            logger.trace("Job ID: " + request.getId() + " submitted.");
+            logger.trace("Job ID: " + request.id() + " submitted.");
             return recordingHelper
-                    .uploadToJFRDatasource(request.getPair())
+                    .uploadToJFRDatasource(request.pair())
                     .onItem()
                     .<Void>transform((v) -> null)
                     .invoke(
@@ -124,7 +130,7 @@ public class LongRunningRequestGenerator {
                                         MessagingServer.class.getName(),
                                         new Notification(
                                                 GRAFANA_UPLOAD_SUCCESS,
-                                                Map.of("jobId", request.getId())));
+                                                Map.of("jobId", request.id())));
                             })
                     .ifNoItem()
                     .after(uploadFailedTimeout)
@@ -137,23 +143,23 @@ public class LongRunningRequestGenerator {
                                         MessagingServer.class.getName(),
                                         new Notification(
                                                 GRAFANA_UPLOAD_FAIL,
-                                                Map.of("jobId", request.getId())));
+                                                Map.of("jobId", request.id())));
                             });
         } catch (Exception e) {
             logger.error("Exception thrown while preparing request: ", e);
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(GRAFANA_UPLOAD_FAIL, Map.of("jobId", request.getId())));
+                    new Notification(GRAFANA_UPLOAD_FAIL, Map.of("jobId", request.id())));
             return Uni.createFrom().failure(e);
         }
     }
 
-    @ConsumeEvent(value = GRAFANA_ACTIVE_ADDRESS, blocking = true)
+    @ConsumeEvent(value = GRAFANA_ACTIVE_REQUEST_ADDRESS, blocking = true)
     public Uni<Void> onMessage(GrafanaActiveUploadRequest request) {
         try {
-            logger.trace("Job ID: " + request.getId() + " submitted.");
+            logger.trace("Job ID: " + request.id() + " submitted.");
             return recordingHelper
-                    .uploadToJFRDatasource(request.getTargetId(), request.getRemoteId())
+                    .uploadToJFRDatasource(request.targetId(), request.remoteId())
                     .onItem()
                     .<Void>transform((v) -> null)
                     .invoke(
@@ -163,7 +169,7 @@ public class LongRunningRequestGenerator {
                                         MessagingServer.class.getName(),
                                         new Notification(
                                                 GRAFANA_UPLOAD_SUCCESS,
-                                                Map.of("jobId", request.getId())));
+                                                Map.of("jobId", request.id())));
                             })
                     .ifNoItem()
                     .after(uploadFailedTimeout)
@@ -176,30 +182,34 @@ public class LongRunningRequestGenerator {
                                         MessagingServer.class.getName(),
                                         new Notification(
                                                 GRAFANA_UPLOAD_FAIL,
-                                                Map.of("jobId", request.getId())));
+                                                Map.of("jobId", request.id())));
                             });
         } catch (Exception e) {
             logger.error("Exception thrown while preparing request: ", e);
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(GRAFANA_UPLOAD_FAIL, Map.of("jobId", request.getId())));
+                    new Notification(GRAFANA_UPLOAD_FAIL, Map.of("jobId", request.id())));
             return Uni.createFrom().failure(e);
         }
     }
 
-    @ConsumeEvent(value = ACTIVE_REPORT_ADDRESS, blocking = true)
+    @ConsumeEvent(value = ACTIVE_REPORT_REQUEST_ADDRESS, blocking = true)
     public Uni<Map<String, AnalysisResult>> onMessage(ActiveReportRequest request) {
-        logger.trace("Job ID: " + request.getId() + " submitted.");
+        logger.trace("Job ID: " + request.id() + " submitted.");
         return reportsService
                 .reportFor(request.recording)
                 .onItem()
                 .invoke(
-                        () -> {
+                        (report) -> {
                             logger.trace("Report generation complete, firing notification");
                             bus.publish(
                                     MessagingServer.class.getName(),
                                     new Notification(
-                                            REPORT_SUCCESS, Map.of("jobId", request.getId())));
+                                            REPORT_SUCCESS, Map.of("jobId", request.id())));
+                            bus.publish(
+                                    ACTIVE_REPORT_COMPLETE_ADDRESS,
+                                    new ActiveReportCompletion(
+                                            request.id(), request.recording(), report));
                         })
                 .ifNoItem()
                 .after(uploadFailedTimeout)
@@ -211,23 +221,30 @@ public class LongRunningRequestGenerator {
                             bus.publish(
                                     MessagingServer.class.getName(),
                                     new Notification(
-                                            REPORT_FAILURE, Map.of("jobId", request.getId())));
+                                            REPORT_FAILURE, Map.of("jobId", request.id())));
                         });
     }
 
-    @ConsumeEvent(value = ARCHIVE_REPORT_ADDRESS, blocking = true)
+    @ConsumeEvent(value = ARCHIVE_REPORT_REQUEST_ADDRESS, blocking = true)
     public Uni<Map<String, AnalysisResult>> onMessage(ArchivedReportRequest request) {
         logger.tracev("Job ID: {0} submitted.", request.id());
         return reportsService
-                .reportFor(request.getPair().getKey(), request.getPair().getValue())
+                .reportFor(request.pair().getKey(), request.pair().getValue())
                 .onItem()
                 .invoke(
-                        () -> {
+                        (report) -> {
                             logger.trace("Report generation complete, firing notification");
                             bus.publish(
                                     MessagingServer.class.getName(),
                                     new Notification(
-                                            REPORT_SUCCESS, Map.of("jobId", request.getId())));
+                                            REPORT_SUCCESS, Map.of("jobId", request.id())));
+                            bus.publish(
+                                    ARCHIVED_REPORT_COMPLETE_ADDRESS,
+                                    new ArchivedReportCompletion(
+                                            request.id(),
+                                            request.pair().getKey(),
+                                            request.pair().getValue(),
+                                            report));
                         })
                 .ifNoItem()
                 .after(uploadFailedTimeout)
@@ -239,7 +256,7 @@ public class LongRunningRequestGenerator {
                             bus.publish(
                                     MessagingServer.class.getName(),
                                     new Notification(
-                                            REPORT_FAILURE, Map.of("jobId", request.getId())));
+                                            REPORT_FAILURE, Map.of("jobId", request.id())));
                         });
     }
 
@@ -248,7 +265,6 @@ public class LongRunningRequestGenerator {
     // elswhere with other records.
     @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
     public record ArchiveRequest(String id, ActiveRecording recording, boolean deleteOnCompletion) {
-
         public ArchiveRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(recording);
@@ -257,62 +273,20 @@ public class LongRunningRequestGenerator {
         public ArchiveRequest(String id, ActiveRecording recording) {
             this(id, recording, false);
         }
-
-        public String getId() {
-            return id;
-        }
     }
 
     public record GrafanaArchiveUploadRequest(String id, Pair<String, String> pair) {
-
         public GrafanaArchiveUploadRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(pair);
         }
-
-        public String getId() {
-            return id;
-        }
-
-        public Pair<String, String> getPair() {
-            return pair;
-        }
     }
 
     public record GrafanaActiveUploadRequest(String id, long remoteId, long targetId) {
-
         public GrafanaActiveUploadRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(remoteId);
             Objects.requireNonNull(targetId);
-        }
-
-        public String getId() {
-            return id;
-        }
-
-        public long getRemoteId() {
-            return remoteId;
-        }
-
-        public long getTargetId() {
-            return targetId;
-        }
-    }
-
-    public record ArchivedReportRequest(String id, Pair<String, String> pair) {
-
-        public ArchivedReportRequest {
-            Objects.requireNonNull(id);
-            Objects.requireNonNull(pair);
-        }
-
-        public String getId() {
-            return id;
-        }
-
-        public Pair<String, String> getPair() {
-            return pair;
         }
     }
 
@@ -321,14 +295,35 @@ public class LongRunningRequestGenerator {
     // elswhere with other records.
     @SuppressFBWarnings(value = {"EI_EXPOSE_REP2", "EI_EXPOSE_REP"})
     public record ActiveReportRequest(String id, ActiveRecording recording) {
-
         public ActiveReportRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(recording);
         }
+    }
 
-        public String getId() {
-            return id;
+    public record ActiveReportCompletion(
+            String id, ActiveRecording recording, Map<String, AnalysisResult> report) {
+        public ActiveReportCompletion {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(recording);
+            Objects.requireNonNull(report);
+        }
+    }
+
+    public record ArchivedReportRequest(String id, Pair<String, String> pair) {
+        public ArchivedReportRequest {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(pair);
+        }
+    }
+
+    public record ArchivedReportCompletion(
+            String id, String jvmId, String filename, Map<String, AnalysisResult> report) {
+        public ArchivedReportCompletion {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(filename);
+            Objects.requireNonNull(report);
         }
     }
 }
