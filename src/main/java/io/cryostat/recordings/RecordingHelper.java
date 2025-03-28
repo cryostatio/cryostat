@@ -484,13 +484,21 @@ public class RecordingHelper {
                                             target.jvmId,
                                             "connectUrl",
                                             target.connectUrl.toString()));
-                            ActiveRecording recording =
-                                    ActiveRecording.from(target, desc, new Metadata(labels));
-                            recording.persist();
+                            return QuarkusTransaction.joiningExisting()
+                                    .call(
+                                            () -> {
+                                                var fTarget = Target.<Target>findById(target.id);
+                                                ActiveRecording recording =
+                                                        ActiveRecording.from(
+                                                                fTarget,
+                                                                desc,
+                                                                new Metadata(labels));
+                                                recording.persist();
 
-                            target.activeRecordings.add(recording);
-                            target.persist();
-                            return recording;
+                                                fTarget.activeRecordings.add(recording);
+                                                fTarget.persist();
+                                                return recording;
+                                            });
                         });
     }
 
