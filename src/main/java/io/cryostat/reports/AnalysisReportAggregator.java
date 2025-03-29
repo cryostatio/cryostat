@@ -25,7 +25,6 @@ import java.util.Objects;
 import java.util.Stack;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.discovery.DiscoveryNode;
@@ -223,10 +222,7 @@ public class AnalysisReportAggregator {
                                             .entity(stringify(e));
                             var timestamp = e.timestamp();
                             if (timestamp > 0) {
-                                builder.lastModified(
-                                        Date.from(
-                                                Instant.ofEpochSecond(
-                                                        timestamp)));
+                                builder.lastModified(Date.from(Instant.ofEpochSecond(timestamp)));
                             }
                             return builder.build();
                         });
