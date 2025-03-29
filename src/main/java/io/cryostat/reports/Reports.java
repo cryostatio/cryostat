@@ -20,7 +20,6 @@ import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
@@ -175,10 +174,7 @@ public class Reports {
                                             .entity(e.report());
                             var timestamp = e.timestamp();
                             if (timestamp > 0) {
-                                builder.lastModified(
-                                        Date.from(
-                                                Instant.ofEpochSecond(
-                                                        timestamp)));
+                                builder.lastModified(Date.from(Instant.ofEpochSecond(timestamp)));
                             }
                             return builder.build();
                         });
