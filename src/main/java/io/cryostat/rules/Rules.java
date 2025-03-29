@@ -19,11 +19,15 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.util.EntityExistsException;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.json.JsonObject;
@@ -182,7 +186,9 @@ public class Rules {
             @RestForm int preservedArchives,
             @RestForm int maxAgeSeconds,
             @RestForm int maxSizeBytes,
-            @RestForm boolean enabled) {
+            @RestForm("metadata") Optional<String> rawMetadata,
+            @RestForm boolean enabled)
+            throws JsonMappingException, JsonProcessingException {
         MatchExpression expr = new MatchExpression(matchExpression);
         expr.persist();
         Rule rule = new Rule();
@@ -195,6 +201,9 @@ public class Rules {
         rule.preservedArchives = preservedArchives;
         rule.maxAgeSeconds = maxAgeSeconds;
         rule.maxSizeBytes = maxSizeBytes;
+        if (rawMetadata.isPresent()) {
+            rule.metadata = mapper.readValue(rawMetadata.get(), Metadata.class);
+        }
         rule.enabled = enabled;
 
         if (Rule.getByName(rule.name) != null) {

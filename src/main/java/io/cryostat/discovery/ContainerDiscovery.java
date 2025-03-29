@@ -413,7 +413,7 @@ public abstract class ContainerDiscovery {
                         target.connectUrl);
                 return;
             }
-            DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
+            DiscoveryNode node = DiscoveryNode.target(target, NodeType.BaseNodeType.JVM);
             target.discoveryNode = node;
 
             String podName = desc.PodName;
@@ -473,7 +473,8 @@ public abstract class ContainerDiscovery {
                 parent.persist();
                 node.parent = null;
 
-                if (parent.hasChildren() || node.nodeType.equals(BaseNodeType.REALM.getKind())) {
+                if (parent.hasChildren()
+                        || node.nodeType.equals(NodeType.BaseNodeType.REALM.getKind())) {
                     break;
                 }
 

@@ -15,9 +15,11 @@
  */
 package io.cryostat.rules;
 
+import java.util.Map;
 import java.util.Objects;
 
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -37,10 +39,13 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
+import jakarta.persistence.PrePersist;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @EntityListeners(Rule.Listener.class)
@@ -82,6 +87,10 @@ public class Rule extends PanacheEntity {
     @Min(message = "maxAgeSeconds must be greater than -1", value = -1)
     public int maxSizeBytes;
 
+    @JdbcTypeCode(SqlTypes.JSON)
+    @NotNull
+    public Metadata metadata;
+
     public boolean enabled;
 
     public String getName() {
@@ -106,6 +115,13 @@ public class Rule extends PanacheEntity {
     @ApplicationScoped
     static class Listener {
         @Inject EventBus bus;
+
+        @PrePersist
+        public void prePersist(Rule rule) {
+            if (rule.metadata == null) {
+                rule.metadata = new Metadata(Map.of());
+            }
+        }
 
         @PostPersist
         public void postPersist(Rule rule) {

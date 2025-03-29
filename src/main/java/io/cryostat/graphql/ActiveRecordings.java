@@ -211,7 +211,7 @@ public class ActiveRecordings {
                         .toList();
         var snapshots = new ArrayList<ActiveRecording>();
         for (var t : targets) {
-            snapshots.add(recordingHelper.createSnapshot(t).await().atMost(Duration.ofSeconds(10)));
+            snapshots.add(recordingHelper.createSnapshot(t).await().atMost(timeout));
         }
         return snapshots;
     }

@@ -190,7 +190,7 @@ public class CustomDiscovery {
             target.activeRecordings = new ArrayList<>();
             target.annotations = new Annotations(null, Map.of("REALM", REALM));
 
-            DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
+            DiscoveryNode node = DiscoveryNode.target(target, NodeType.BaseNodeType.JVM);
             target.discoveryNode = node;
             DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
 
