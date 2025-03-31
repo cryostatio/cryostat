@@ -125,65 +125,69 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                         .jsonPath();
         int remoteId = recording.getInt("remoteId");
 
-        expectWebSocketNotification("ReportSuccess");
+        try {
+            expectWebSocketNotification("ReportSuccess");
 
-        String scrape =
-                given().log()
-                        .all()
-                        .when()
-                        .get()
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(200)
-                        .contentType(ContentType.TEXT)
-                        .and()
-                        .extract()
-                        .body()
-                        .asString();
-        MatcherAssert.assertThat(scrape, Matchers.not(Matchers.emptyString()));
-        Arrays.asList(scrape.split("\n")).stream()
-                .map(String::strip)
-                .map(
-                        s ->
-                                Pair.of(
-                                        s.substring(0, s.lastIndexOf('=')),
-                                        s.substring(s.lastIndexOf('=') + 1)))
-                .forEach(
-                        kv -> {
-                            MatcherAssert.assertThat(
-                                    kv.getKey(),
-                                    Matchers.allOf(
-                                            Matchers.containsString("Realm=\"Custom Targets\""),
-                                            Matchers.containsString(
-                                                    String.format("JVM=\"%s\"", SELF_JMX_URL))));
-                            double score = Double.parseDouble(kv.getValue());
-                            MatcherAssert.assertThat(
-                                    score,
-                                    Matchers.either(Matchers.equalTo(-1.0))
-                                            .or(
-                                                    Matchers.both(
-                                                                    Matchers.greaterThanOrEqualTo(
-                                                                            0.0))
-                                                            .and(
-                                                                    Matchers.lessThanOrEqualTo(
-                                                                            100.0))));
-                        });
-
-        given().log()
-                .all()
-                .when()
-                .basePath("/")
-                .pathParams("targetId", targetId, "remoteId", remoteId)
-                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(204);
+            String scrape =
+                    given().log()
+                            .all()
+                            .when()
+                            .get()
+                            .then()
+                            .log()
+                            .all()
+                            .and()
+                            .assertThat()
+                            .statusCode(200)
+                            .contentType(ContentType.TEXT)
+                            .and()
+                            .extract()
+                            .body()
+                            .asString();
+            MatcherAssert.assertThat(scrape, Matchers.not(Matchers.emptyString()));
+            Arrays.asList(scrape.split("\n")).stream()
+                    .map(String::strip)
+                    .map(
+                            s ->
+                                    Pair.of(
+                                            s.substring(0, s.lastIndexOf('=')),
+                                            s.substring(s.lastIndexOf('=') + 1)))
+                    .forEach(
+                            kv -> {
+                                MatcherAssert.assertThat(
+                                        kv.getKey(),
+                                        Matchers.allOf(
+                                                Matchers.containsString("Realm=\"Custom Targets\""),
+                                                Matchers.containsString(
+                                                        String.format(
+                                                                "JVM=\"%s\"", SELF_JMX_URL))));
+                                double score = Double.parseDouble(kv.getValue());
+                                MatcherAssert.assertThat(
+                                        score,
+                                        Matchers.either(Matchers.equalTo(-1.0))
+                                                .or(
+                                                        Matchers.both(
+                                                                        Matchers
+                                                                                .greaterThanOrEqualTo(
+                                                                                        0.0))
+                                                                .and(
+                                                                        Matchers.lessThanOrEqualTo(
+                                                                                100.0))));
+                            });
+        } finally {
+            given().log()
+                    .all()
+                    .when()
+                    .basePath("/")
+                    .pathParams("targetId", targetId, "remoteId", remoteId)
+                    .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                    .then()
+                    .log()
+                    .all()
+                    .and()
+                    .assertThat()
+                    .statusCode(204);
+        }
     }
 
     @Test
@@ -219,79 +223,84 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                         .jsonPath();
         int remoteId = recording.getInt("remoteId");
 
-        expectWebSocketNotification("ReportSuccess");
+        try {
+            expectWebSocketNotification("ReportSuccess");
 
-        String scrape =
-                given().log()
-                        .all()
-                        .when()
-                        .get(selfJvmId)
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(200)
-                        .contentType(ContentType.TEXT)
-                        .and()
-                        .extract()
-                        .body()
-                        .asString();
-        MatcherAssert.assertThat(scrape, Matchers.not(Matchers.emptyString()));
-        Arrays.asList(scrape.split("\n")).stream()
-                .map(String::strip)
-                .map(
-                        s ->
-                                Pair.of(
-                                        s.substring(0, s.lastIndexOf('=')),
-                                        s.substring(s.lastIndexOf('=') + 1)))
-                .forEach(
-                        kv -> {
-                            MatcherAssert.assertThat(
-                                    kv.getKey(),
-                                    Matchers.allOf(
-                                            Matchers.containsString("Realm=\"Custom Targets\""),
-                                            Matchers.containsString(
-                                                    String.format("JVM=\"%s\"", SELF_JMX_URL))));
-                            double score = Double.parseDouble(kv.getValue());
-                            MatcherAssert.assertThat(
-                                    score,
-                                    Matchers.either(Matchers.equalTo(-1.0))
-                                            .or(
-                                                    Matchers.both(
-                                                                    Matchers.greaterThanOrEqualTo(
-                                                                            0.0))
-                                                            .and(
-                                                                    Matchers.lessThanOrEqualTo(
-                                                                            100.0))));
-                        });
+            String scrape =
+                    given().log()
+                            .all()
+                            .when()
+                            .get(selfJvmId)
+                            .then()
+                            .log()
+                            .all()
+                            .and()
+                            .assertThat()
+                            .statusCode(200)
+                            .contentType(ContentType.TEXT)
+                            .and()
+                            .extract()
+                            .body()
+                            .asString();
+            MatcherAssert.assertThat(scrape, Matchers.not(Matchers.emptyString()));
+            Arrays.asList(scrape.split("\n")).stream()
+                    .map(String::strip)
+                    .map(
+                            s ->
+                                    Pair.of(
+                                            s.substring(0, s.lastIndexOf('=')),
+                                            s.substring(s.lastIndexOf('=') + 1)))
+                    .forEach(
+                            kv -> {
+                                MatcherAssert.assertThat(
+                                        kv.getKey(),
+                                        Matchers.allOf(
+                                                Matchers.containsString("Realm=\"Custom Targets\""),
+                                                Matchers.containsString(
+                                                        String.format(
+                                                                "JVM=\"%s\"", SELF_JMX_URL))));
+                                double score = Double.parseDouble(kv.getValue());
+                                MatcherAssert.assertThat(
+                                        score,
+                                        Matchers.either(Matchers.equalTo(-1.0))
+                                                .or(
+                                                        Matchers.both(
+                                                                        Matchers
+                                                                                .greaterThanOrEqualTo(
+                                                                                        0.0))
+                                                                .and(
+                                                                        Matchers.lessThanOrEqualTo(
+                                                                                100.0))));
+                            });
 
-        given().log()
-                .all()
-                .when()
-                .basePath("/api/v4/targets/{targetId}/reports")
-                .pathParams("targetId", targetId)
-                .get()
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(200)
-                .contentType(ContentType.JSON);
+            given().log()
+                    .all()
+                    .when()
+                    .basePath("/api/v4/targets/{targetId}/reports")
+                    .pathParams("targetId", targetId)
+                    .get()
+                    .then()
+                    .log()
+                    .all()
+                    .and()
+                    .assertThat()
+                    .statusCode(200)
+                    .contentType(ContentType.JSON);
 
-        given().log()
-                .all()
-                .when()
-                .basePath("/")
-                .pathParams("targetId", targetId, "remoteId", remoteId)
-                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(204);
+        } finally {
+            given().log()
+                    .all()
+                    .when()
+                    .basePath("/")
+                    .pathParams("targetId", targetId, "remoteId", remoteId)
+                    .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                    .then()
+                    .log()
+                    .all()
+                    .and()
+                    .assertThat()
+                    .statusCode(204);
+        }
     }
 
     @Test
