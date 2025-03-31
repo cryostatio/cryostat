@@ -53,3 +53,5 @@ volumes:
     external: true
   probes:
     external: true
+  credentials:
+    external: true
