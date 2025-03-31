@@ -189,6 +189,10 @@ public class AnalysisReportAggregator {
         }
     }
 
+    public void reset() {
+        cache.invalidateAll();
+    }
+
     @GET
     @Produces(MediaType.TEXT_PLAIN)
     @RolesAllowed("read")
