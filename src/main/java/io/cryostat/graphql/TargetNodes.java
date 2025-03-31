@@ -16,10 +16,17 @@
 package io.cryostat.graphql;
 
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
+
+import org.openjdk.jmc.flightrecorder.rules.Severity;
 
 import io.cryostat.core.net.JFRConnection;
+import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.ActiveRecordings.ActiveRecordingsFilter;
 import io.cryostat.graphql.ArchivedRecordings.ArchivedRecordingsFilter;
@@ -28,6 +35,7 @@ import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
+import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -35,6 +43,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
+import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
@@ -50,6 +59,7 @@ public class TargetNodes {
 
     @Inject RecordingHelper recordingHelper;
     @Inject TargetConnectionManager connectionManager;
+    @Inject AnalysisReportAggregator reportAggregator;
 
     @Query("targetNodes")
     @Description("Get the Target discovery nodes, i.e. the leaf nodes of the discovery tree")
@@ -78,7 +88,7 @@ public class TargetNodes {
                     recordingHelper.listActiveRecordings(fTarget).stream()
                             .filter(r -> filter == null || filter.test(r))
                             .toList();
-            recordings.aggregate = AggregateInfo.fromActive(recordings.data);
+            recordings.aggregate = RecordingAggregateInfo.fromActive(recordings.data);
         }
         return recordings;
     }
@@ -92,9 +102,25 @@ public class TargetNodes {
                     recordingHelper.listArchivedRecordings(fTarget).stream()
                             .filter(r -> filter == null || filter.test(r))
                             .toList();
-            recordings.aggregate = AggregateInfo.fromArchived(recordings.data);
+            recordings.aggregate = RecordingAggregateInfo.fromArchived(recordings.data);
         }
         return recordings;
+    }
+
+    public Uni<Report> report(@Source Target target) {
+        var fTarget = Target.getTargetById(target.id);
+        return reportAggregator
+                .getEntry(fTarget.jvmId)
+                .onItem()
+                .transform(
+                        e -> {
+                            var report = new Report();
+                            report.data = e.report();
+                            report.aggregate = ReportAggregateInfo.from(report.data);
+                            return report;
+                        })
+                .onFailure()
+                .recoverWithItem(Report::new);
     }
 
     @Transactional
@@ -112,13 +138,14 @@ public class TargetNodes {
         if (requestedFields.contains("active")) {
             recordings.active = new ActiveRecordings();
             recordings.active.data = recordingHelper.listActiveRecordings(fTarget);
-            recordings.active.aggregate = AggregateInfo.fromActive(recordings.active.data);
+            recordings.active.aggregate = RecordingAggregateInfo.fromActive(recordings.active.data);
         }
 
         if (requestedFields.contains("archived")) {
             recordings.archived = new ArchivedRecordings();
             recordings.archived.data = recordingHelper.listArchivedRecordings(fTarget);
-            recordings.archived.aggregate = AggregateInfo.fromArchived(recordings.archived.data);
+            recordings.archived.aggregate =
+                    RecordingAggregateInfo.fromArchived(recordings.archived.data);
         }
 
         return recordings;
@@ -142,39 +169,72 @@ public class TargetNodes {
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class ActiveRecordings {
         public @NonNull List<ActiveRecording> data = new ArrayList<>();
-        public @NonNull AggregateInfo aggregate = AggregateInfo.fromActive(data);
+        public @NonNull RecordingAggregateInfo aggregate = RecordingAggregateInfo.fromActive(data);
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class ArchivedRecordings {
         public @NonNull List<ArchivedRecording> data = new ArrayList<>();
-        public @NonNull AggregateInfo aggregate = AggregateInfo.fromArchived(data);
+        public @NonNull RecordingAggregateInfo aggregate =
+                RecordingAggregateInfo.fromArchived(data);
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
-    public static class AggregateInfo {
+    public static class Report {
+        public @NonNull Map<String, AnalysisResult> data = new HashMap<>();
+        public @NonNull ReportAggregateInfo aggregate = ReportAggregateInfo.from(data);
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class RecordingAggregateInfo {
         public @NonNull @Description("The number of elements in this collection") long count;
         public @NonNull @Description(
                 "The sum of sizes of elements in this collection, or 0 if not applicable") long
                 size;
 
-        private AggregateInfo(long count, long size) {
+        private RecordingAggregateInfo(long count, long size) {
             this.count = count;
             this.size = size;
         }
 
-        public static AggregateInfo empty() {
-            return new AggregateInfo(0, 0);
+        public static RecordingAggregateInfo empty() {
+            return new RecordingAggregateInfo(0, 0);
         }
 
-        public static AggregateInfo fromActive(List<ActiveRecording> recordings) {
-            return new AggregateInfo(recordings.size(), 0);
+        public static RecordingAggregateInfo fromActive(List<ActiveRecording> recordings) {
+            return new RecordingAggregateInfo(recordings.size(), 0);
         }
 
-        public static AggregateInfo fromArchived(List<ArchivedRecording> recordings) {
-            return new AggregateInfo(
+        public static RecordingAggregateInfo fromArchived(List<ArchivedRecording> recordings) {
+            return new RecordingAggregateInfo(
                     recordings.size(),
                     recordings.stream().mapToLong(ArchivedRecording::size).sum());
+        }
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class ReportAggregateInfo {
+        public @NonNull @Description("The number of elements in this collection") long count;
+        public @NonNull @Description("The maximum value in this collection") double max;
+
+        private ReportAggregateInfo(long count, double max) {
+            this.count = count;
+            this.max = max;
+        }
+
+        public static ReportAggregateInfo empty() {
+            return new ReportAggregateInfo(0, Severity.NA.getLimit());
+        }
+
+        public static ReportAggregateInfo from(Map<String, AnalysisResult> report) {
+            return new ReportAggregateInfo(
+                    report.size(),
+                    report.values().stream()
+                            .collect(
+                                    Collectors.maxBy(
+                                            Comparator.comparingDouble(AnalysisResult::getScore)))
+                            .map(AnalysisResult::getScore)
+                            .orElse(Severity.NA.getLimit()));
         }
     }
 }

@@ -15,6 +15,7 @@
  */
 package io.cryostat.reports;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
@@ -117,7 +118,7 @@ public class AnalysisReportAggregator {
                                     cache.as(CaffeineCache.class).put(jvmId, future);
                                 } catch (Exception e) {
                                     logger.warn(e);
-                                    cache.invalidate(jvmId);
+                                    cache.invalidate(jvmId).await().atMost(Duration.ofMillis(100));
                                 }
                             });
         }
@@ -185,12 +186,12 @@ public class AnalysisReportAggregator {
     @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
     void onMessage(TargetDiscovery event) {
         if (EventKind.LOST.equals(event.kind())) {
-            cache.invalidate(event.serviceRef().jvmId);
+            cache.invalidate(event.serviceRef().jvmId).await().atMost(Duration.ofMillis(100));
         }
     }
 
     public void reset() {
-        cache.invalidateAll();
+        cache.invalidateAll().await().atMost(Duration.ofMillis(100));
     }
 
     @GET
