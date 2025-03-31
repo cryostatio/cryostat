@@ -40,6 +40,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.cache.Cache;
 import io.quarkus.cache.CacheName;
 import io.quarkus.cache.CaffeineCache;
@@ -288,6 +289,7 @@ public class AnalysisReportAggregator {
                 });
     }
 
+    @SuppressFBWarnings(value = {"EI_EXPOSE_REP"})
     public record Entry(
             long timestamp,
             List<Pair<String, String>> ownerChain,

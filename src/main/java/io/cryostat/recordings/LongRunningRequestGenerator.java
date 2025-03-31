@@ -293,7 +293,7 @@ public class LongRunningRequestGenerator {
     // Spotbugs doesn't like us storing an ActiveRecording here as part
     // of the record. It shouldn't be a problem and we do similar things
     // elswhere with other records.
-    @SuppressFBWarnings(value = {"EI_EXPOSE_REP2", "EI_EXPOSE_REP"})
+    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
     public record ActiveReportRequest(String id, ActiveRecording recording) {
         public ActiveReportRequest {
             Objects.requireNonNull(id);
@@ -301,6 +301,7 @@ public class LongRunningRequestGenerator {
         }
     }
 
+    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
     public record ActiveReportCompletion(
             String id, ActiveRecording recording, Map<String, AnalysisResult> report) {
         public ActiveReportCompletion {
@@ -317,6 +318,7 @@ public class LongRunningRequestGenerator {
         }
     }
 
+    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
     public record ArchivedReportCompletion(
             String id, String jvmId, String filename, Map<String, AnalysisResult> report) {
         public ArchivedReportCompletion {
