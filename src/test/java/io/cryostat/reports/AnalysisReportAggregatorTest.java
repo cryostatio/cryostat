@@ -23,10 +23,12 @@ import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.CacheEnabledTestProfile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
@@ -41,6 +43,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 @QuarkusTest
 @TestHTTPEndpoint(AnalysisReportAggregator.class)
 @TestMethodOrder(OrderAnnotation.class)
+@TestProfile(CacheEnabledTestProfile.class)
 public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;
