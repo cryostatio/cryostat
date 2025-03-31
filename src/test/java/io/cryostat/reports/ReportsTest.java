@@ -24,14 +24,15 @@ import java.util.concurrent.TimeoutException;
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.CacheEnabledTestProfile;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
 import io.vertx.core.json.JsonObject;
+import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
-import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
@@ -39,6 +40,8 @@ import org.junit.jupiter.api.Test;
 @TestHTTPEndpoint(Reports.class)
 @TestProfile(CacheEnabledTestProfile.class)
 public class ReportsTest extends AbstractTransactionalTestBase {
+
+    @Inject ObjectMapper mapper;
 
     @Test
     void testGetBadArchiveSource() {
@@ -250,10 +253,10 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                         .body()
                         .asString();
 
-        JsonObject archiveMessage = expectWebSocketNotification("ArchiveRecordingSuccess");
-        MatcherAssert.assertThat(
-                archiveMessage.getJsonObject("message").getString("jobId"),
-                Matchers.equalTo(archiveJobId));
+        JsonObject archiveMessage =
+                expectWebSocketNotification(
+                        "ArchiveRecordingSuccess",
+                        o -> archiveJobId.equals(o.getJsonObject("message").getString("jobId")));
         String archivedRecordingName =
                 archiveMessage.getJsonObject("message").getString("recording");
         String reportUrl = archiveMessage.getJsonObject("message").getString("reportUrl");
@@ -281,10 +284,9 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                         .body()
                         .asString();
 
-        JsonObject reportMessage = expectWebSocketNotification("ReportSuccess");
-        MatcherAssert.assertThat(
-                reportMessage.getJsonObject("message").getString("jobId"),
-                Matchers.equalTo(reportJobId));
+        expectWebSocketNotification(
+                "ReportSuccess",
+                o -> reportJobId.equals(o.getJsonObject("message").getString("jobId")));
 
         given().log()
                 .all()

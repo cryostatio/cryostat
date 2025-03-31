@@ -124,26 +124,40 @@ public abstract class AbstractTestBase {
 
     protected JsonObject expectWebSocketNotification(String category)
             throws IOException, DeploymentException, InterruptedException, TimeoutException {
-        return expectWebSocketNotification(category, v -> true);
+        return expectWebSocketNotification(category, Duration.ofSeconds(30), v -> true);
+    }
+
+    protected JsonObject expectWebSocketNotification(String category, Duration timeout)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        return expectWebSocketNotification(category, timeout, v -> true);
     }
 
     protected JsonObject expectWebSocketNotification(
             String category, Predicate<JsonObject> predicate)
             throws IOException, DeploymentException, InterruptedException, TimeoutException {
-        long start = System.nanoTime();
-        long timeout = TimeUnit.SECONDS.toNanos(30);
+        return expectWebSocketNotification(category, Duration.ofSeconds(30), predicate);
+    }
+
+    protected JsonObject expectWebSocketNotification(
+            String category, Duration timeout, Predicate<JsonObject> predicate)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        long now = System.nanoTime();
+        long deadline = now + timeout.toNanos();
         var client = new WebSocketClient();
         try (Session session =
                 ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri)) {
-            long now;
             do {
                 now = System.nanoTime();
-                JsonObject msg = new JsonObject(client.wsMessages.poll(10, TimeUnit.SECONDS));
-                String msgCategory = msg.getJsonObject("meta").getString("category");
-                if (category.equals(msgCategory) && predicate.test(msg)) {
-                    return msg;
+                String msg = client.wsMessages.poll(1, TimeUnit.SECONDS);
+                if (msg == null) {
+                    continue;
                 }
-            } while (now < start + timeout);
+                JsonObject obj = new JsonObject(msg);
+                String msgCategory = obj.getJsonObject("meta").getString("category");
+                if (category.equals(msgCategory) && predicate.test(obj)) {
+                    return obj;
+                }
+            } while (now < deadline);
         } finally {
             client.wsMessages.clear();
         }

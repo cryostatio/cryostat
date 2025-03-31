@@ -35,6 +35,7 @@ import jakarta.websocket.DeploymentException;
 import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,12 @@ import org.junit.jupiter.api.TestMethodOrder;
 public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;
+    @Inject AnalysisReportAggregator aggregator;
+
+    @AfterEach
+    void reset() {
+        aggregator.reset();
+    }
 
     @Test
     @Order(1)
