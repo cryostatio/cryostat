@@ -139,7 +139,7 @@ public abstract class AbstractTestBase {
         if (selfId < 1) {
             throw new IllegalStateException();
         }
-        var spec = given().log().all().when();
+        var spec = given().log().all().when().basePath("");
         formParams.forEach(spec::formParam);
         var jp =
                 spec.pathParam("targetId", this.selfId)
@@ -166,6 +166,7 @@ public abstract class AbstractTestBase {
         given().log()
                 .all()
                 .when()
+                .basePath("")
                 .pathParams("targetId", selfId, "remoteId", selfRecordingId)
                 .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
                 .then()
@@ -180,6 +181,7 @@ public abstract class AbstractTestBase {
         return given().log()
                 .all()
                 .when()
+                .basePath("")
                 .contentType(ContentType.JSON)
                 .body(Map.of("query", query))
                 .post("/api/v4/graphql")
