@@ -96,36 +96,21 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
     @Order(2)
     void testScrapeAll()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
-        int targetId = defineSelfCustomTarget();
-        var recording =
-                given().log()
-                        .all()
-                        .when()
-                        .basePath("/")
-                        .pathParams(Map.of("targetId", targetId))
-                        .formParam("recordingName", "analysisReportAggregatorAll")
-                        .formParam("events", "template=Continuous")
-                        .formParam(
-                                "metadata",
-                                mapper.writeValueAsString(
-                                        Map.of("labels", Map.of("autoanalyze", "true"))))
-                        .formParam("duration", 5)
-                        .formParam("archiveOnStop", true)
-                        .pathParam("targetId", targetId)
-                        .post("/api/v4/targets/{targetId}/recordings")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(201)
-                        .and()
-                        .extract()
-                        .body()
-                        .jsonPath();
-        int remoteId = recording.getInt("remoteId");
-
+        defineSelfCustomTarget();
         try {
+            startSelfRecording(
+                    "analysisReportAggregatorAll",
+                    Map.of(
+                            "events",
+                            TEMPLATE_CONTINUOUS,
+                            "duration",
+                            5,
+                            "archiveOnStop",
+                            true,
+                            "metadata",
+                            mapper.writeValueAsString(
+                                    Map.of("labels", Map.of("autoanalyze", "true")))));
+
             expectWebSocketNotification("ReportSuccess");
 
             String scrape =
@@ -175,18 +160,7 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                                                                                 100.0))));
                             });
         } finally {
-            given().log()
-                    .all()
-                    .when()
-                    .basePath("/")
-                    .pathParams("targetId", targetId, "remoteId", remoteId)
-                    .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(204);
+            cleanupSelfRecording();
         }
     }
 
@@ -195,35 +169,21 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
     void testScrapeSingle()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         int targetId = defineSelfCustomTarget();
-        var recording =
-                given().log()
-                        .all()
-                        .when()
-                        .basePath("/")
-                        .pathParams(Map.of("targetId", targetId))
-                        .formParam("recordingName", "analysisReportAggregatorSingle")
-                        .formParam("events", "template=Continuous")
-                        .formParam(
-                                "metadata",
-                                mapper.writeValueAsString(
-                                        Map.of("labels", Map.of("autoanalyze", "true"))))
-                        .formParam("duration", 5)
-                        .formParam("archiveOnStop", true)
-                        .pathParam("targetId", targetId)
-                        .post("/api/v4/targets/{targetId}/recordings")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(201)
-                        .and()
-                        .extract()
-                        .body()
-                        .jsonPath();
-        int remoteId = recording.getInt("remoteId");
-
         try {
+            var recording =
+                    startSelfRecording(
+                            "analysisReportAggregatorSingle",
+                            Map.of(
+                                    "events",
+                                    TEMPLATE_CONTINUOUS,
+                                    "duration",
+                                    5,
+                                    "archiveOnStop",
+                                    true,
+                                    "metadata",
+                                    mapper.writeValueAsString(
+                                            Map.of("labels", Map.of("autoanalyze", "true")))));
+            recording.getInt("remoteId");
             expectWebSocketNotification("ReportSuccess");
 
             String scrape =
@@ -286,20 +246,8 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                     .assertThat()
                     .statusCode(200)
                     .contentType(ContentType.JSON);
-
         } finally {
-            given().log()
-                    .all()
-                    .when()
-                    .basePath("/")
-                    .pathParams("targetId", targetId, "remoteId", remoteId)
-                    .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(204);
+            cleanupSelfRecording();
         }
     }
 

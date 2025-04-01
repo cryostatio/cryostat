@@ -18,7 +18,6 @@ package io.cryostat.reports;
 import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
@@ -91,238 +90,167 @@ public class ReportsTest extends AbstractTransactionalTestBase {
     @Test
     void testGetReportByTargetAndRemoteId() {
         int targetId = defineSelfCustomTarget();
-        int remoteId =
-                given().log()
-                        .all()
-                        .when()
-                        .pathParams(Map.of("targetId", targetId))
-                        .formParam("recordingName", "activeRecordingsTestReports")
-                        .formParam("events", "template=Continuous")
-                        .pathParam("targetId", targetId)
-                        .post("/api/v4/targets/{targetId}/recordings")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(201)
-                        .and()
-                        .extract()
-                        .body()
-                        .jsonPath()
-                        .getInt("remoteId");
+        try {
+            int remoteId =
+                    startSelfRecording("activeRecordingsTestReports", TEMPLATE_CONTINUOUS)
+                            .getInt("remoteId");
 
-        given().log()
-                .all()
-                .when()
-                .pathParams("targetId", targetId, "remoteId", remoteId)
-                .get("/api/v4/targets/{targetId}/reports/{remoteId}")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(202)
-                .contentType(ContentType.TEXT)
-                .body(Matchers.any(String.class))
-                .assertThat()
-                // 202 Indicates report generation is in progress and sends an intermediate
-                // response.
-                // Verify we get a location header from a 202.
-                .header(
-                        "Location",
-                        "http://localhost:8081/api/v4/targets/"
-                                + targetId
-                                + "/reports/"
-                                + remoteId);
-
-        given().log()
-                .all()
-                .when()
-                .pathParams("targetId", targetId, "remoteId", remoteId)
-                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(204);
+            given().log()
+                    .all()
+                    .when()
+                    .pathParams("targetId", targetId, "remoteId", remoteId)
+                    .get("/api/v4/targets/{targetId}/reports/{remoteId}")
+                    .then()
+                    .log()
+                    .all()
+                    .and()
+                    .assertThat()
+                    .statusCode(202)
+                    .contentType(ContentType.TEXT)
+                    .body(Matchers.any(String.class))
+                    .assertThat()
+                    // 202 Indicates report generation is in progress and sends an intermediate
+                    // response.
+                    // Verify we get a location header from a 202.
+                    .header(
+                            "Location",
+                            "http://localhost:8081/api/v4/targets/"
+                                    + targetId
+                                    + "/reports/"
+                                    + remoteId);
+        } finally {
+            cleanupSelfRecording();
+        }
     }
 
     @Test
     void testGetReportByUrl() {
-        int targetId = defineSelfCustomTarget();
-        JsonPath recording =
-                given().log()
-                        .all()
-                        .when()
-                        .pathParams(Map.of("targetId", targetId))
-                        .formParam("recordingName", "activeRecordingsTestReportsURL")
-                        .formParam("events", "template=Continuous")
-                        .pathParam("targetId", targetId)
-                        .post("/api/v4/targets/{targetId}/recordings")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(201)
-                        .and()
-                        .extract()
-                        .body()
-                        .jsonPath();
+        defineSelfCustomTarget();
+        try {
+            JsonPath recording =
+                    startSelfRecording("activeRecordingsTestReportsURL", TEMPLATE_CONTINUOUS);
+            String reportUrl = recording.getString("reportUrl");
 
-        String reportUrl = recording.getString("reportUrl");
-        int remoteId = recording.getInt("remoteId");
-
-        given().log()
-                .all()
-                .when()
-                .get(reportUrl)
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(202)
-                .contentType(ContentType.TEXT)
-                .body(Matchers.any(String.class))
-                .assertThat()
-                // 202 Indicates report generation is in progress and sends an intermediate
-                // response.
-                // Verify we get a location header from a 202.
-                .header("Location", "http://localhost:8081" + reportUrl);
-
-        given().log()
-                .all()
-                .when()
-                .pathParams("targetId", targetId, "remoteId", remoteId)
-                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(204);
+            given().log()
+                    .all()
+                    .when()
+                    .get(reportUrl)
+                    .then()
+                    .log()
+                    .all()
+                    .and()
+                    .assertThat()
+                    .statusCode(202)
+                    .contentType(ContentType.TEXT)
+                    .body(Matchers.any(String.class))
+                    .assertThat()
+                    // 202 Indicates report generation is in progress and sends an intermediate
+                    // response.
+                    // Verify we get a location header from a 202.
+                    .header("Location", "http://localhost:8081" + reportUrl);
+        } finally {
+            cleanupSelfRecording();
+        }
     }
 
     @Test
     void testArchiveAndGetReportByUrl()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         int targetId = defineSelfCustomTarget();
-        JsonPath activeRecording =
+        String archivedRecordingName = null;
+        try {
+            JsonPath activeRecording =
+                    startSelfRecording("archivedRecordingsTestReportsURL", TEMPLATE_CONTINUOUS);
+
+            Thread.sleep(10_000);
+
+            int remoteId = activeRecording.getInt("remoteId");
+
+            String archiveJobId =
+                    given().log()
+                            .all()
+                            .when()
+                            .pathParam("targetId", targetId)
+                            .pathParam("remoteId", remoteId)
+                            .body("SAVE")
+                            .patch("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                            .then()
+                            .log()
+                            .all()
+                            .and()
+                            .assertThat()
+                            .statusCode(200)
+                            .and()
+                            .extract()
+                            .body()
+                            .asString();
+
+            JsonObject archiveMessage =
+                    expectWebSocketNotification(
+                            "ArchiveRecordingSuccess",
+                            o ->
+                                    archiveJobId.equals(
+                                            o.getJsonObject("message").getString("jobId")));
+            archivedRecordingName = archiveMessage.getJsonObject("message").getString("recording");
+            String reportUrl = archiveMessage.getJsonObject("message").getString("reportUrl");
+
+            String reportJobId =
+                    given().log()
+                            .all()
+                            .when()
+                            .get(reportUrl)
+                            .then()
+                            .log()
+                            .all()
+                            .and()
+                            .assertThat()
+                            .statusCode(202)
+                            .contentType(ContentType.TEXT)
+                            .body(Matchers.any(String.class))
+                            .assertThat()
+                            // 202 Indicates report generation is in progress and sends an
+                            // intermediate
+                            // response.
+                            // Verify we get a location header from a 202.
+                            .header("Location", "http://localhost:8081" + reportUrl)
+                            .and()
+                            .extract()
+                            .body()
+                            .asString();
+
+            expectWebSocketNotification(
+                    "ReportSuccess",
+                    o -> reportJobId.equals(o.getJsonObject("message").getString("jobId")));
+
+            given().log()
+                    .all()
+                    .when()
+                    .get(reportUrl)
+                    .then()
+                    .log()
+                    .all()
+                    .and()
+                    .assertThat()
+                    .statusCode(200)
+                    .contentType(ContentType.JSON)
+                    .body(Matchers.any(String.class));
+
+        } finally {
+            cleanupSelfRecording();
+
+            if (archivedRecordingName != null) {
                 given().log()
                         .all()
                         .when()
-                        .pathParams(Map.of("targetId", targetId))
-                        .formParam("recordingName", "archivedRecordingsTestReportsURL")
-                        .formParam("events", "template=Continuous")
-                        .pathParam("targetId", targetId)
-                        .post("/api/v4/targets/{targetId}/recordings")
+                        .pathParams("connectUrl", SELF_JMX_URL, "filename", archivedRecordingName)
+                        .delete("/api/beta/recordings/{connectUrl}/{filename}")
                         .then()
                         .log()
                         .all()
                         .and()
                         .assertThat()
-                        .statusCode(201)
-                        .and()
-                        .extract()
-                        .body()
-                        .jsonPath();
-
-        Thread.sleep(10_000);
-
-        int remoteId = activeRecording.getInt("remoteId");
-
-        String archiveJobId =
-                given().log()
-                        .all()
-                        .when()
-                        .pathParam("targetId", targetId)
-                        .pathParam("remoteId", remoteId)
-                        .body("SAVE")
-                        .patch("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(200)
-                        .and()
-                        .extract()
-                        .body()
-                        .asString();
-
-        JsonObject archiveMessage =
-                expectWebSocketNotification(
-                        "ArchiveRecordingSuccess",
-                        o -> archiveJobId.equals(o.getJsonObject("message").getString("jobId")));
-        String archivedRecordingName =
-                archiveMessage.getJsonObject("message").getString("recording");
-        String reportUrl = archiveMessage.getJsonObject("message").getString("reportUrl");
-
-        String reportJobId =
-                given().log()
-                        .all()
-                        .when()
-                        .get(reportUrl)
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(202)
-                        .contentType(ContentType.TEXT)
-                        .body(Matchers.any(String.class))
-                        .assertThat()
-                        // 202 Indicates report generation is in progress and sends an intermediate
-                        // response.
-                        // Verify we get a location header from a 202.
-                        .header("Location", "http://localhost:8081" + reportUrl)
-                        .and()
-                        .extract()
-                        .body()
-                        .asString();
-
-        expectWebSocketNotification(
-                "ReportSuccess",
-                o -> reportJobId.equals(o.getJsonObject("message").getString("jobId")));
-
-        given().log()
-                .all()
-                .when()
-                .get(reportUrl)
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .body(Matchers.any(String.class));
-
-        given().log()
-                .all()
-                .when()
-                .pathParams("targetId", targetId, "remoteId", remoteId)
-                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(204);
-
-        given().log()
-                .all()
-                .when()
-                .pathParams("connectUrl", SELF_JMX_URL, "filename", archivedRecordingName)
-                .delete("/api/beta/recordings/{connectUrl}/{filename}")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(204);
+                        .statusCode(204);
+            }
+        }
     }
 }
