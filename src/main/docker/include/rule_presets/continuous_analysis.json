@@ -1,0 +1,17 @@
+{
+  "name": "continuous_analysis",
+  "description": "",
+  "matchExpression": "true",
+  "eventSpecifier": "template=Continuous,type=TARGET",
+  "archivalPeriodSeconds": 300,
+  "initialDelaySeconds": 0,
+  "preservedArchives": 1,
+  "maxAgeSeconds": 600,
+  "maxSizeBytes": 0,
+  "metadata": {
+      "labels": {
+          "autoanalyze": "true"
+      }
+  },
+  "enabled": false
+}
