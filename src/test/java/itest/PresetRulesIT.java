@@ -37,7 +37,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 @QuarkusIntegrationTest
 public class PresetRulesIT extends StandardSelfTest {
 
-    static final String[] RULE_NAMES = new String[] {"quarkus", "hibernate"};
+    static final String[] RULE_NAMES = new String[] {"quarkus", "hibernate", "continuous_analysis"};
 
     @Test
     public void shouldListPresetRules() throws Exception {
