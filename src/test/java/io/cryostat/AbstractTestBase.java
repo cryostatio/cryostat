@@ -20,6 +20,7 @@ import static io.restassured.RestAssured.given;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -31,6 +32,7 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.restassured.http.ContentType;
+import io.restassured.path.json.JsonPath;
 import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import jakarta.websocket.ClientEndpoint;
@@ -53,6 +55,8 @@ public abstract class AbstractTestBase {
             URLEncodedUtils.formatSegments(SELF_JMX_URL).substring(1);
     public static final String SELFTEST_ALIAS = "selftest";
 
+    public static final String TEMPLATE_CONTINUOUS = "template=Continuous";
+
     @TestHTTPResource("/api/notifications")
     URI wsUri;
 
@@ -70,9 +74,13 @@ public abstract class AbstractTestBase {
 
     protected int selfId = -1;
     protected String selfJvmId = "";
+    protected int selfRecordingId = -1;
 
     @BeforeEach
     void waitForStorage() throws InterruptedException {
+        selfId = -1;
+        selfJvmId = "";
+        selfRecordingId = -1;
         long totalTime = 0;
         while (!bucketExists(archivesBucket)) {
             long start = System.nanoTime();
@@ -120,6 +128,71 @@ public abstract class AbstractTestBase {
         this.selfJvmId = jp.getString("jvmId");
 
         return this.selfId;
+    }
+
+    protected JsonPath startSelfRecording(String name, String eventTemplate) {
+        return startSelfRecording(name, Map.of("events", eventTemplate));
+    }
+
+    protected JsonPath startSelfRecording(String name, Map<String, Object> formParams) {
+        // must have called defineSelfCustomTarget first!
+        if (selfId < 1) {
+            throw new IllegalStateException();
+        }
+        var spec = given().log().all().when();
+        formParams.forEach(spec::formParam);
+        var jp =
+                spec.pathParam("targetId", this.selfId)
+                        .formParam("recordingName", name)
+                        .post("/api/v4/targets/{targetId}/recordings")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath();
+        this.selfRecordingId = jp.getInt("remoteId");
+        return jp;
+    }
+
+    protected void cleanupSelfRecording() {
+        if (selfId < 1 || selfRecordingId < 1) {
+            throw new IllegalStateException();
+        }
+        given().log()
+                .all()
+                .when()
+                .pathParams("targetId", selfId, "remoteId", selfRecordingId)
+                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    protected JsonPath graphql(String query) {
+        return given().log()
+                .all()
+                .when()
+                .contentType(ContentType.JSON)
+                .body(Map.of("query", query))
+                .post("/api/v4/graphql")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .extract()
+                .body()
+                .jsonPath();
     }
 
     protected JsonObject expectWebSocketNotification(String category)

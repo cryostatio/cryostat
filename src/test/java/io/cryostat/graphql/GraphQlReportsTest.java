@@ -15,8 +15,6 @@
  */
 package io.cryostat.graphql;
 
-import static io.restassured.RestAssured.given;
-
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
@@ -28,7 +26,6 @@ import io.cryostat.reports.AnalysisReportAggregator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
-import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.MatcherAssert;
@@ -53,39 +50,22 @@ public class GraphQlReportsTest extends AbstractTransactionalTestBase {
         int targetId = defineSelfCustomTarget();
 
         var jsonPath =
-                given().log()
-                        .all()
-                        .when()
-                        .contentType(ContentType.JSON)
-                        .body(
-                                Map.of(
-                                        "query",
-                                        """
-                                        query {
-                                            targetNodes {
-                                                target {
-                                                    id
-                                                    report {
-                                                        aggregate {
-                                                            count
-                                                            max
-                                                        }
-                                                    }
-                                                }
-                                            }
+                graphql(
+                        """
+                        query {
+                            targetNodes {
+                                target {
+                                    id
+                                    report {
+                                        aggregate {
+                                            count
+                                            max
                                         }
-                                        """))
-                        .post("/api/v4/graphql")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(200)
-                        .contentType(ContentType.JSON)
-                        .extract()
-                        .body()
-                        .jsonPath();
+                                    }
+                                }
+                            }
+                        }
+                        """);
         MatcherAssert.assertThat(jsonPath.getString("errors"), Matchers.nullValue());
         MatcherAssert.assertThat(jsonPath.getMap("data"), Matchers.not(Matchers.nullValue()));
         MatcherAssert.assertThat(
@@ -105,71 +85,39 @@ public class GraphQlReportsTest extends AbstractTransactionalTestBase {
     void testTargetReportWithSource()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         int targetId = defineSelfCustomTarget();
-        var recording =
-                given().log()
-                        .all()
-                        .when()
-                        .basePath("/")
-                        .pathParams(Map.of("targetId", targetId))
-                        .formParam("recordingName", "analysisReportAggregatorSingle")
-                        .formParam("events", "template=Continuous")
-                        .formParam(
-                                "metadata",
-                                mapper.writeValueAsString(
-                                        Map.of("labels", Map.of("autoanalyze", "true"))))
-                        .formParam("duration", 5)
-                        .formParam("archiveOnStop", true)
-                        .pathParam("targetId", targetId)
-                        .post("/api/v4/targets/{targetId}/recordings")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(201)
-                        .and()
-                        .extract()
-                        .body()
-                        .jsonPath();
-        int remoteId = recording.getInt("remoteId");
-
         try {
+            startSelfRecording(
+                    "analysisReportAggregatorSingle",
+                    Map.of(
+                            "events",
+                            TEMPLATE_CONTINUOUS,
+                            "duration",
+                            5,
+                            "archiveOnStop",
+                            true,
+                            "metadata",
+                            mapper.writeValueAsString(
+                                    Map.of("labels", Map.of("autoanalyze", "true")))));
+
             expectWebSocketNotification("ReportSuccess");
 
             var jsonPath =
-                    given().log()
-                            .all()
-                            .when()
-                            .contentType(ContentType.JSON)
-                            .body(
-                                    Map.of(
-                                            "query",
-                                            """
-                                            query {
-                                                targetNodes {
-                                                    target {
-                                                        id
-                                                        report {
-                                                            aggregate {
-                                                                count
-                                                                max
-                                                            }
-                                                        }
-                                                    }
-                                                }
+                    graphql(
+                            """
+                            query {
+                                targetNodes {
+                                    target {
+                                        id
+                                        report {
+                                            aggregate {
+                                                count
+                                                max
                                             }
-                                            """))
-                            .post("/api/v4/graphql")
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .assertThat()
-                            .statusCode(200)
-                            .contentType(ContentType.JSON)
-                            .extract()
-                            .body()
-                            .jsonPath();
+                                        }
+                                    }
+                                }
+                            }
+                            """);
             MatcherAssert.assertThat(jsonPath.getString("errors"), Matchers.nullValue());
             MatcherAssert.assertThat(jsonPath.getMap("data"), Matchers.not(Matchers.nullValue()));
             MatcherAssert.assertThat(
@@ -185,18 +133,7 @@ public class GraphQlReportsTest extends AbstractTransactionalTestBase {
                     Matchers.both(Matchers.greaterThan(0.0))
                             .and(Matchers.lessThanOrEqualTo(100.0)));
         } finally {
-            given().log()
-                    .all()
-                    .when()
-                    .basePath("/")
-                    .pathParams("targetId", targetId, "remoteId", remoteId)
-                    .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(204);
+            cleanupSelfRecording();
         }
     }
 }
