@@ -142,10 +142,6 @@ public class ActiveRecording extends PanacheEntity {
         return recording;
     }
 
-    public static ActiveRecording getByName(String name) {
-        return find("name", name).singleResult();
-    }
-
     public void setMetadata(Metadata metadata) {
         this.metadata = metadata;
     }
