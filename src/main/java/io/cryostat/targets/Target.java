@@ -48,6 +48,7 @@ import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.NamedQueries;
 import jakarta.persistence.NamedQuery;
@@ -57,6 +58,7 @@ import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
@@ -67,6 +69,11 @@ import org.jboss.logging.Logger;
 @Entity
 @EntityListeners(Target.Listener.class)
 @NamedQueries({@NamedQuery(name = "Target.unconnected", query = "from Target where jvmId is null")})
+@Table(
+        indexes = {
+            @Index(columnList = "jvmId"),
+            @Index(columnList = "connectUrl"),
+        })
 public class Target extends PanacheEntity {
 
     public static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
