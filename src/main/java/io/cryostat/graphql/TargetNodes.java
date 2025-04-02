@@ -115,6 +115,7 @@ public class TargetNodes {
                 .transform(
                         e -> {
                             var report = new Report();
+                            report.lastUpdated = e.timestamp();
                             report.data = e.report();
                             report.aggregate = ReportAggregateInfo.from(report.data);
                             return report;
@@ -183,6 +184,7 @@ public class TargetNodes {
     public static class Report {
         public @NonNull Map<String, AnalysisResult> data = new HashMap<>();
         public @NonNull ReportAggregateInfo aggregate = ReportAggregateInfo.from(data);
+        public long lastUpdated = 0;
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
