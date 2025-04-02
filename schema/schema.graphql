@@ -189,6 +189,7 @@ type Report {
     "Get entry/entries for a certain key/s"
     key: [String]
   ): [Entry_String_AnalysisResult]!
+  lastUpdated: BigInteger!
 }
 
 type ReportAggregateInfo {
