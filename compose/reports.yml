@@ -7,10 +7,13 @@ services:
     hostname: reports
     restart: unless-stopped
     deploy:
+      mode: replicated
+      replicas: ${REPORTS_REPLICAS:-1}
+      endpoint_mode: vip
       resources:
         limits:
-          cpus: "0.5"
-          memory: 512m
+          cpus: "2"
+          memory: 1024m
     expose:
       - "10001"
     labels:

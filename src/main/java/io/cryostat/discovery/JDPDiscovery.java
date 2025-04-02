@@ -130,7 +130,7 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
                                         "PORT", // "AnnotationKey.PORT,
                                         Integer.toString(rmiTarget.getPort())));
 
-                DiscoveryNode node = DiscoveryNode.target(target, BaseNodeType.JVM);
+                DiscoveryNode node = DiscoveryNode.target(target, NodeType.BaseNodeType.JVM);
 
                 target.discoveryNode = node;
                 realm.children.add(node);

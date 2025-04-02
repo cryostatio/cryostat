@@ -451,78 +451,66 @@ public class RecordingHelper {
     }
 
     public Uni<ActiveRecording> createSnapshot(Target target) {
-        return connectionManager.executeConnectedTaskUni(
-                target,
-                connection -> {
-                    IRecordingDescriptor desc = connection.getService().getSnapshotRecording();
+        return this.createSnapshot(target, Map.of());
+    }
 
-                    String rename =
-                            String.format("%s-%d", desc.getName().toLowerCase(), desc.getId());
+    public Uni<ActiveRecording> createSnapshot(
+            Target target, Map<String, String> additionalLabels) {
+        return connectionManager
+                .executeConnectedTaskUni(
+                        target,
+                        connection -> {
+                            IRecordingDescriptor rec =
+                                    connection.getService().getSnapshotRecording();
+                            try (InputStream snapshot =
+                                    remoteRecordingStreamFactory.openDirect(
+                                            connection, target, rec)) {
+                                if (!snapshotIsReadable(target, snapshot)) {
+                                    safeCloseRecording(connection, rec);
+                                    throw new SnapshotCreationException(
+                                            "Snapshot was not readable - are there any source"
+                                                    + " recordings?");
+                                }
+                            }
+                            return rec;
+                        })
+                .onItem()
+                .transform(
+                        desc -> {
+                            var labels = new HashMap<String, String>(additionalLabels);
+                            labels.putAll(
+                                    Map.of(
+                                            "jvmId",
+                                            target.jvmId,
+                                            "connectUrl",
+                                            target.connectUrl.toString()));
+                            return QuarkusTransaction.joiningExisting()
+                                    .call(
+                                            () -> {
+                                                var fTarget = Target.<Target>findById(target.id);
+                                                ActiveRecording recording =
+                                                        ActiveRecording.from(
+                                                                fTarget,
+                                                                desc,
+                                                                new Metadata(labels));
+                                                recording.persist();
 
-                    RecordingOptionsBuilder recordingOptionsBuilder =
-                            recordingOptionsBuilderFactory.create(target).name(rename);
-
-                    connection
-                            .getService()
-                            .updateRecordingOptions(desc, recordingOptionsBuilder.build());
-
-                    Optional<IRecordingDescriptor> updatedDescriptor =
-                            getDescriptorByName(connection, rename);
-
-                    if (updatedDescriptor.isEmpty()) {
-                        throw new IllegalStateException(
-                                "The most recent snapshot of the recording cannot be"
-                                        + " found after renaming.");
-                    }
-
-                    desc = updatedDescriptor.get();
-
-                    try (InputStream snapshot =
-                            remoteRecordingStreamFactory.openDirect(connection, target, desc)) {
-                        if (!snapshotIsReadable(target, snapshot)) {
-                            safeCloseRecording(connection, desc);
-                            throw new SnapshotCreationException(
-                                    "Snapshot was not readable - are there any source recordings?");
-                        }
-                    }
-
-                    ActiveRecording recording =
-                            ActiveRecording.from(
-                                    target,
-                                    desc,
-                                    new Metadata(
-                                            Map.of(
-                                                    "jvmId",
-                                                    target.jvmId,
-                                                    "connectUrl",
-                                                    target.connectUrl.toString())));
-                    recording.persist();
-
-                    target.activeRecordings.add(recording);
-                    target.persist();
-
-                    var event =
-                            new ActiveRecordingEvent(
-                                    ActiveRecordings.RecordingEventCategory.SNAPSHOT_CREATED,
-                                    ActiveRecordingEvent.Payload.of(this, recording));
-                    bus.publish(event.category().category(), event.payload().recording());
-                    bus.publish(
-                            MessagingServer.class.getName(),
-                            new Notification(event.category().category(), event.payload()));
-
-                    return recording;
-                });
+                                                fTarget.activeRecordings.add(recording);
+                                                fTarget.persist();
+                                                return recording;
+                                            });
+                        });
     }
 
     private boolean snapshotIsReadable(Target target, InputStream snapshot) throws IOException {
-        if (!connectionManager.markConnectionInUse(target)) {
-            throw new IOException(
-                    "Target connection unexpectedly closed while streaming recording");
-        }
-
         try {
+            if (!connectionManager.markConnectionInUse(target)) {
+                throw new IOException(
+                        "Target connection unexpectedly closed while streaming recording");
+            }
             return snapshot.read() != -1;
-        } catch (IOException e) {
+        } catch (Exception e) {
+            logger.warn(e);
             return false;
         }
     }
@@ -577,21 +565,26 @@ public class RecordingHelper {
     }
 
     public Uni<ActiveRecording> deleteRecording(ActiveRecording recording) {
-        connectionManager.executeConnectedTask(
-                recording.target,
-                conn -> {
-                    getDescriptorById(conn, recording.remoteId)
-                            .ifPresent(d -> safeCloseRecording(conn, d));
-                    return null;
-                });
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () -> {
-                            recording.target.activeRecordings.remove(recording);
-                            recording.target.persist();
-                            recording.delete();
-                            return Uni.createFrom().item(recording);
-                        });
+        return connectionManager
+                .executeConnectedTaskUni(
+                        recording.target,
+                        conn -> {
+                            getDescriptorById(conn, recording.remoteId)
+                                    .ifPresent(d -> safeCloseRecording(conn, d));
+                            return null;
+                        })
+                .onItem()
+                .transform(
+                        (r) ->
+                                QuarkusTransaction.joiningExisting()
+                                        .call(
+                                                () -> {
+                                                    recording.target.activeRecordings.remove(
+                                                            recording);
+                                                    recording.target.persist();
+                                                    recording.delete();
+                                                    return recording;
+                                                }));
     }
 
     public LinkedRecordingDescriptor toExternalForm(ActiveRecording recording) {
@@ -948,6 +941,33 @@ public class RecordingHelper {
                 recording.metadata,
                 accum,
                 now.getEpochSecond());
+    }
+
+    public Optional<ArchivedRecording> getArchivedRecordingInfo(String jvmId, String filename) {
+        return listArchivedRecordingObjects(jvmId).stream()
+                .filter(
+                        item -> {
+                            String objectName = item.key().strip();
+                            String f = objectName.split("/")[1];
+                            return Objects.equals(filename, f);
+                        })
+                .map(
+                        item -> {
+                            String objectName = item.key().strip();
+                            String f = objectName.split("/")[1];
+                            Metadata metadata =
+                                    getArchivedRecordingMetadata(jvmId, f)
+                                            .orElseGet(Metadata::empty);
+                            return new ArchivedRecording(
+                                    jvmId,
+                                    filename,
+                                    downloadUrl(jvmId, f),
+                                    reportUrl(jvmId, f),
+                                    metadata,
+                                    item.size(),
+                                    item.lastModified().getEpochSecond());
+                        })
+                .findFirst();
     }
 
     public Optional<Metadata> getArchivedRecordingMetadata(String jvmId, String filename) {

@@ -1,6 +1,18 @@
 ---
 components:
   schemas:
+    AnalysisResult:
+      properties:
+        evaluation:
+          $ref: '#/components/schemas/Evaluation'
+        name:
+          type: string
+        score:
+          format: double
+          type: number
+        topic:
+          type: string
+      type: object
     Annotations:
       properties:
         cryostat:
@@ -226,6 +238,19 @@ components:
       required:
         - id
         - realm
+      type: object
+    Evaluation:
+      properties:
+        explanation:
+          type: string
+        solution:
+          type: string
+        suggestions:
+          items:
+            $ref: '#/components/schemas/Suggestion'
+          type: array
+        summary:
+          type: string
       type: object
     Event:
       properties:
@@ -500,6 +525,8 @@ components:
           format: int32
           minimum: -1
           type: integer
+        metadata:
+          $ref: '#/components/schemas/Metadata'
         name:
           pattern: \S
           type: string
@@ -512,6 +539,7 @@ components:
         - description
         - matchExpression
         - eventSpecifier
+        - metadata
       type: object
     SerializableEventTypeInfo:
       properties:
@@ -537,6 +565,15 @@ components:
         description:
           type: string
         name:
+          type: string
+      type: object
+    Suggestion:
+      properties:
+        name:
+          type: string
+        setting:
+          type: string
+        value:
           type: string
       type: object
     Target:
@@ -801,6 +838,103 @@ paths:
         - SecurityScheme: []
       tags:
         - Archived Recordings
+  /api/v4.1/metrics/reports:
+    get:
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                items:
+                  type: string
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Analysis Report Aggregator
+  /api/v4.1/metrics/reports/{jvmId}:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Analysis Report Aggregator
+  /api/v4.1/targets/{targetId}/reports:
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  $ref: '#/components/schemas/AnalysisResult'
+                type: object
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Reports
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: clean
+          schema:
+            default: true
+            type: boolean
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
+      responses:
+        "200":
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Reports
   /api/v4/activedownload/{id}:
     get:
       parameters:
@@ -1557,6 +1691,9 @@ paths:
                 maxSizeBytes:
                   format: int32
                   type: integer
+                metadata:
+                  nullable: true
+                  type: string
                 name:
                   type: string
                 preservedArchives:
@@ -1586,6 +1723,9 @@ paths:
                 maxSizeBytes:
                   format: int32
                   type: integer
+                metadata:
+                  nullable: true
+                  type: string
                 name:
                   type: string
                 preservedArchives:

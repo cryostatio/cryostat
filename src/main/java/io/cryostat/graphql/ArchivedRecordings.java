@@ -21,7 +21,7 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 import io.cryostat.graphql.ActiveRecordings.MetadataLabels;
-import io.cryostat.graphql.TargetNodes.AggregateInfo;
+import io.cryostat.graphql.TargetNodes.RecordingAggregateInfo;
 import io.cryostat.graphql.TargetNodes.Recordings;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
@@ -50,7 +50,7 @@ public class ArchivedRecordings {
                         .stream()
                         .filter(filter)
                         .toList();
-        r.aggregate = AggregateInfo.fromArchived(r.data);
+        r.aggregate = RecordingAggregateInfo.fromArchived(r.data);
         return r;
     }
 
@@ -58,13 +58,13 @@ public class ArchivedRecordings {
             @Source Recordings recordings, ArchivedRecordingsFilter filter) {
         var out = new TargetNodes.ArchivedRecordings();
         out.data = new ArrayList<>();
-        out.aggregate = AggregateInfo.empty();
+        out.aggregate = RecordingAggregateInfo.empty();
 
         var in = recordings.archived;
         if (in != null && in.data != null) {
             out.data =
                     in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
-            out.aggregate = AggregateInfo.fromArchived(out.data);
+            out.aggregate = RecordingAggregateInfo.fromArchived(out.data);
         }
 
         return out;
