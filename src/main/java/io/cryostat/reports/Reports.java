@@ -126,7 +126,7 @@ public class Reports {
     @POST
     @Blocking
     @Transactional
-    @Path("/api/v4/targets/{targetId}/reports")
+    @Path("/api/v4.1/targets/{targetId}/reports")
     @RolesAllowed("write")
     public Response analyze(
             HttpServerResponse resp,
