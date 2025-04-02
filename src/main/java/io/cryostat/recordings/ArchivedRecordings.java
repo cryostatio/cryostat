@@ -189,7 +189,7 @@ public class ArchivedRecordings {
                                         recordingHelper.reportUrl(jvmId, recording.fileName()),
                                         metadata,
                                         0,
-                                        clock.getMonotonicTime())));
+                                        clock.now().getEpochSecond())));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
@@ -306,7 +306,7 @@ public class ArchivedRecordings {
                                         recordingHelper.reportUrl(jvmId, filename),
                                         metadata,
                                         recording.size(),
-                                        clock.getMonotonicTime())));
+                                        clock.now().getEpochSecond())));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
@@ -459,7 +459,7 @@ public class ArchivedRecordings {
                                             recordingHelper.reportUrl(jvmId, filename),
                                             metadata,
                                             0 /* filesize */,
-                                            clock.getMonotonicTime())));
+                                            clock.now().getEpochSecond())));
             bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
                     MessagingServer.class.getName(),
