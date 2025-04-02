@@ -205,7 +205,12 @@ public class LongRunningRequestGenerator {
                             bus.publish(
                                     MessagingServer.class.getName(),
                                     new Notification(
-                                            REPORT_SUCCESS, Map.of("jobId", request.id())));
+                                            REPORT_SUCCESS,
+                                            Map.of(
+                                                    "jobId",
+                                                    request.id(),
+                                                    "jvmId",
+                                                    request.recording.target.jvmId)));
                             bus.publish(
                                     ACTIVE_REPORT_COMPLETE_ADDRESS,
                                     new ActiveReportCompletion(
@@ -237,7 +242,12 @@ public class LongRunningRequestGenerator {
                             bus.publish(
                                     MessagingServer.class.getName(),
                                     new Notification(
-                                            REPORT_SUCCESS, Map.of("jobId", request.id())));
+                                            REPORT_SUCCESS,
+                                            Map.of(
+                                                    "jobId",
+                                                    request.id(),
+                                                    "jvmId",
+                                                    request.pair().getKey())));
                             bus.publish(
                                     ARCHIVED_REPORT_COMPLETE_ADDRESS,
                                     new ArchivedReportCompletion(
