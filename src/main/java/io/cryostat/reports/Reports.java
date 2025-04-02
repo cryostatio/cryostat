@@ -158,7 +158,7 @@ public class Reports {
 
     @GET
     @Blocking
-    @Path("/api/v4/targets/{targetId}/reports")
+    @Path("/api/v4.1/targets/{targetId}/reports")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
     public Uni<RestResponse<Map<String, AnalysisResult>>> getCached(@RestPath long targetId) {
