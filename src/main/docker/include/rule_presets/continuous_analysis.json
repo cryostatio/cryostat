@@ -10,7 +10,8 @@
   "maxSizeBytes": 0,
   "metadata": {
       "labels": {
-          "autoanalyze": "true"
+          "autoanalyze": "true",
+          "origin": "automated-analysis"
       }
   },
   "enabled": false
