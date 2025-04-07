@@ -41,6 +41,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.NamedQueries;
@@ -51,6 +52,7 @@ import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -64,6 +66,11 @@ import org.jboss.logging.Logger;
             name = "DiscoveryNode.byTypeWithName",
             query = "from DiscoveryNode where nodeType = :nodeType and name = :name")
 })
+@Table(
+        indexes = {
+            @Index(columnList = "nodeType"),
+            @Index(columnList = "nodeType, name", unique = true)
+        })
 public class DiscoveryNode extends PanacheEntity {
 
     public static final String NODE_TYPE = "nodeType";
@@ -119,17 +126,14 @@ public class DiscoveryNode extends PanacheEntity {
     }
 
     public static Optional<DiscoveryNode> getRealm(String name) {
-        return getUniverse().children.stream().filter(n -> name.equals(n.name)).findFirst();
+        return findAllByNodeType(BaseNodeType.REALM).stream()
+                .filter(n -> name.equals(n.name))
+                .findFirst();
     }
 
     public static Optional<DiscoveryNode> getChild(
             DiscoveryNode node, Predicate<DiscoveryNode> predicate) {
         return node.children.stream().filter(predicate).findFirst();
-    }
-
-    public static Optional<DiscoveryNode> getNode(Predicate<DiscoveryNode> predicate) {
-        List<DiscoveryNode> nodes = listAll();
-        return nodes.stream().filter(predicate).findFirst();
     }
 
     public static List<DiscoveryNode> findAllByNodeType(NodeType nodeType) {
