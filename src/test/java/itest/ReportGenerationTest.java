@@ -260,7 +260,8 @@ public class ReportGenerationTest extends StandardSelfTest {
             notification = reportFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             MatcherAssert.assertThat(
                     notification.getJsonObject("message").getMap(),
-                    Matchers.equalTo(Map.of("jobId", reportJobId)));
+                    Matchers.equalTo(
+                            Map.of("jobId", reportJobId, "jvmId", getSelfReferenceJvmId())));
 
             // FIXME caching is not working in the test harness, so after the job completes we still
             // aren't able to retrieve the report document - we just get issued a new job ID
