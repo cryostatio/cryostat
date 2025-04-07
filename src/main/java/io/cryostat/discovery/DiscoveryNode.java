@@ -69,7 +69,7 @@ import org.jboss.logging.Logger;
 @Table(
         indexes = {
             @Index(columnList = "nodeType"),
-            @Index(columnList = "nodeType, name", unique = true)
+            @Index(columnList = "nodeType, name")
         })
 public class DiscoveryNode extends PanacheEntity {
 
