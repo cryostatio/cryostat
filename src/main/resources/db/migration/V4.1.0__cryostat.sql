@@ -8,5 +8,4 @@ create index on Target (jvmId);
 create index on Target (connectUrl);
 
 create index on DiscoveryNode (nodeType);
-create unique index on DiscoveryNode (nodeType, name);
-alter table DiscoveryNode add constraint uniqueNodeTypeName unique (nodeType, name);
+create index on DiscoveryNode (nodeType, name);
