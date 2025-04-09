@@ -32,6 +32,8 @@ import io.cryostat.expressions.MatchExpression;
 import io.cryostat.expressions.MatchExpression.TargetMatcher;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -46,7 +48,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.UriInfo;
-
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -54,8 +55,6 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.projectnessie.cel.tools.ScriptException;
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Path("/api/v4/credentials")
 public class Credentials {
@@ -70,7 +69,7 @@ public class Credentials {
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
-                if (!checkDir()) {
+        if (!checkDir()) {
             return;
         }
         try {
@@ -91,16 +90,20 @@ public class Credentials {
     }
 
     private void createFromFile(java.nio.file.Path path) {
-        try (var is = new BufferedInputStream(Files.newInputStream(path))){
+        try (var is = new BufferedInputStream(Files.newInputStream(path))) {
             var credential = mapper.readValue(is, Credential.class);
-            Map<String, Object> params = new HashMap<String,Object>();
+            Map<String, Object> params = new HashMap<String, Object>();
             params.put("username", credential.username);
             params.put("password", credential.password);
             params.put("matchExpression", credential.matchExpression);
-            var exists = Credential.find("username = :username" +
-             " and password = :password" +
-             " and matchExpression = :matchExpression", params)
-             .count() != 0;
+            var exists =
+                    Credential.find(
+                                            "username = :username"
+                                                    + " and password = :password"
+                                                    + " and matchExpression = :matchExpression",
+                                            params)
+                                    .count()
+                            != 0;
             if (exists) {
                 return;
             }
