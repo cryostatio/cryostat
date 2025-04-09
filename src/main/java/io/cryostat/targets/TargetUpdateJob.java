@@ -48,7 +48,11 @@ public class TargetUpdateJob implements Job {
         List<Target> targets;
         Long targetId = (Long) context.getJobDetail().getJobDataMap().get("targetId");
         if (targetId != null) {
-            targets = List.of(Target.getTargetById(targetId));
+            Target target = Target.findById(targetId);
+            if (target == null) {
+                return;
+            }
+            targets = List.of();
         } else {
             targets = Target.<Target>find("#Target.unconnected").list();
         }

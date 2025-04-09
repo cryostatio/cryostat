@@ -50,6 +50,6 @@ public class Targets {
     @Path("/api/v4/targets/{id}")
     @RolesAllowed("read")
     public Target getById(@RestPath Long id) {
-        return Target.find("id", id).singleResult();
+        return Target.getTargetById(id);
     }
 }
