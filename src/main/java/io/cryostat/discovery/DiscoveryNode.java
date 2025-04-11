@@ -124,9 +124,10 @@ public class DiscoveryNode extends PanacheEntity {
     }
 
     public static Optional<DiscoveryNode> getRealm(String name) {
-        return findAllByNodeType(BaseNodeType.REALM).stream()
-                .filter(n -> name.equals(n.name))
-                .findFirst();
+        return DiscoveryNode.<DiscoveryNode>find(
+                        "#DiscoveryNode.byTypeWithName",
+                        Parameters.with("nodeType", BaseNodeType.REALM.getKind()).and("name", name))
+                .firstResultOptional();
     }
 
     public static Optional<DiscoveryNode> getChild(
