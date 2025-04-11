@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
 import io.cryostat.targets.Target;
@@ -132,11 +133,11 @@ public class DiscoveryNode extends PanacheEntity {
         return node.children.stream().filter(predicate).findFirst();
     }
 
-    public static List<DiscoveryNode> findAllByNodeType(NodeType nodeType) {
-        return DiscoveryNode.find(DiscoveryNode.NODE_TYPE, nodeType.getKind()).list();
-    }
-
-    public static DiscoveryNode environment(String name, NodeType nodeType) {
+    static DiscoveryNode byTypeWithName(
+            NodeType nodeType,
+            String name,
+            Predicate<DiscoveryNode> predicate,
+            Consumer<DiscoveryNode> customizer) {
         var kind = nodeType.getKind();
         return DiscoveryNode.<DiscoveryNode>find(
                         "#DiscoveryNode.byTypeWithName",
@@ -153,32 +154,29 @@ public class DiscoveryNode extends PanacheEntity {
                                                     node.labels = new HashMap<>();
                                                     node.children = new ArrayList<>();
                                                     node.target = null;
+                                                    customizer.accept(node);
                                                     node.persist();
                                                     return node;
                                                 }));
     }
 
+    public static List<DiscoveryNode> findAllByNodeType(NodeType nodeType) {
+        return DiscoveryNode.find(DiscoveryNode.NODE_TYPE, nodeType.getKind()).list();
+    }
+
+    public static DiscoveryNode environment(String name, NodeType nodeType) {
+        return byTypeWithName(nodeType, name, n -> true, n -> {});
+    }
+
     public static DiscoveryNode target(Target target, NodeType nodeType) {
-        var kind = nodeType.getKind();
-        var connectUrl = target.connectUrl.toString();
-        return DiscoveryNode.<DiscoveryNode>find(
-                        "#DiscoveryNode.byTypeWithName",
-                        Parameters.with("nodeType", kind).and("name", connectUrl))
-                .firstResultOptional()
-                .orElseGet(
-                        () ->
-                                QuarkusTransaction.joiningExisting()
-                                        .call(
-                                                () -> {
-                                                    DiscoveryNode node = new DiscoveryNode();
-                                                    node.name = connectUrl;
-                                                    node.nodeType = kind;
-                                                    node.labels = new HashMap<>(target.labels);
-                                                    node.children = null;
-                                                    node.target = target;
-                                                    node.persist();
-                                                    return node;
-                                                }));
+        return byTypeWithName(
+                nodeType,
+                target.connectUrl.toString(),
+                n -> true,
+                n -> {
+                    n.target = target;
+                    n.labels.putAll(target.labels);
+                });
     }
 
     @Override
