@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.Target;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
