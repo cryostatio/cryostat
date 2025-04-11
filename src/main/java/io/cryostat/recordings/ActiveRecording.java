@@ -90,6 +90,8 @@ public class ActiveRecording extends PanacheEntity {
     public Metadata metadata;
 
     public static ActiveRecording from(Target target, LinkedRecordingDescriptor descriptor) {
+        Objects.requireNonNull(target);
+        Objects.requireNonNull(descriptor);
         ActiveRecording recording = new ActiveRecording();
 
         recording.target = target;
@@ -109,6 +111,8 @@ public class ActiveRecording extends PanacheEntity {
 
     public static ActiveRecording from(
             Target target, IRecordingDescriptor descriptor, Metadata metadata) {
+        Objects.requireNonNull(target);
+        Objects.requireNonNull(descriptor);
         ActiveRecording recording = new ActiveRecording();
 
         recording.target = target;
@@ -143,6 +147,7 @@ public class ActiveRecording extends PanacheEntity {
     }
 
     public static ActiveRecording getByName(String name) {
+        Objects.requireNonNull(name);
         return find("name", name).singleResult();
     }
 

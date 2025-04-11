@@ -114,7 +114,7 @@ public class DiscoveryNode extends PanacheEntity {
     }
 
     public static DiscoveryNode getUniverse() {
-        return DiscoveryNode.find(NODE_TYPE, BaseNodeType.UNIVERSE.getKind())
+        return DiscoveryNode.find(NODE_TYPE, NodeType.BaseNodeType.UNIVERSE.getKind())
                 .<DiscoveryNode>singleResult();
     }
 
