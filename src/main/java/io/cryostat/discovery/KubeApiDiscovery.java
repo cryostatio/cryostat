@@ -50,6 +50,7 @@ import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
+import io.quarkus.panache.common.Parameters;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
@@ -505,13 +506,11 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 nodeType.getQueryFunction().apply(client).apply(namespace).apply(name);
 
         DiscoveryNode node =
-                DiscoveryNode.findAllByNodeType(nodeType).stream()
-                        .filter(
-                                n ->
-                                        name.equals(n.name)
-                                                && namespace.equals(
-                                                        n.labels.get(
-                                                                DISCOVERY_NAMESPACE_LABEL_KEY)))
+                DiscoveryNode.<DiscoveryNode>find(
+                                "#DiscoveryNode.byTypeWithName",
+                                Parameters.with("nodeType", kind).and("name", name))
+                        .stream()
+                        .filter(n -> namespace.equals(n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY)))
                         .findFirst()
                         .orElseGet(
                                 () -> {
