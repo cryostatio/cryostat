@@ -66,11 +66,7 @@ import org.jboss.logging.Logger;
             name = "DiscoveryNode.byTypeWithName",
             query = "from DiscoveryNode where nodeType = :nodeType and name = :name")
 })
-@Table(
-        indexes = {
-            @Index(columnList = "nodeType"),
-            @Index(columnList = "nodeType, name")
-        })
+@Table(indexes = {@Index(columnList = "nodeType"), @Index(columnList = "nodeType, name")})
 public class DiscoveryNode extends PanacheEntity {
 
     public static final String NODE_TYPE = "nodeType";
