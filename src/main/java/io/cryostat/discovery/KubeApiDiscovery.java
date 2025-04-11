@@ -505,13 +505,14 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 nodeType.getQueryFunction().apply(client).apply(namespace).apply(name);
 
         DiscoveryNode node =
-                DiscoveryNode.getNode(
-                                n -> {
-                                    return nodeType.getKind().equals(n.nodeType)
-                                            && name.equals(n.name)
-                                            && namespace.equals(
-                                                    n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY));
-                                })
+                DiscoveryNode.findAllByNodeType(nodeType).stream()
+                        .filter(
+                                n ->
+                                        name.equals(n.name)
+                                                && namespace.equals(
+                                                        n.labels.get(
+                                                                DISCOVERY_NAMESPACE_LABEL_KEY)))
+                        .findFirst()
                         .orElseGet(
                                 () -> {
                                     DiscoveryNode newNode = new DiscoveryNode();
