@@ -79,7 +79,7 @@ public class RuleService {
                                     "Attempting to activate rule \"{0}\" for target {1} -"
                                             + " attempt #{2}",
                                     attempt.rule.name, attempt.target.connectUrl, attempt.attempts);
-                            bus.publish(RuleExecutor.class.getName(), attempt);
+                            bus.requestAndAwait(RuleExecutor.class.getName(), attempt);
                         } catch (InterruptedException ie) {
                             logger.trace(ie);
                             break;
