@@ -19,7 +19,7 @@ import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.LocalEventBusCodec;
-import io.vertx.core.eventbus.EventBus;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 
@@ -28,6 +28,7 @@ public class MessageCodecs {
     @Inject EventBus bus;
 
     void onStart(@Observes StartupEvent evt) {
-        bus.registerDefaultCodec(LinkedRecordingDescriptor.class, new LocalEventBusCodec<>());
+        bus.getDelegate()
+                .registerDefaultCodec(LinkedRecordingDescriptor.class, new LocalEventBusCodec<>());
     }
 }
