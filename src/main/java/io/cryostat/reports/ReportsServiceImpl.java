@@ -19,13 +19,11 @@ import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.time.Duration;
 import java.util.Map;
-import java.util.function.Predicate;
-
-import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
+import io.cryostat.core.util.RuleFilterParser;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 
@@ -48,15 +46,18 @@ class ReportsServiceImpl implements ReportsService {
     @ConfigProperty(name = ConfigProperties.REPORTS_SIDECAR_URL)
     String sidecarUri;
 
+    @ConfigProperty(name = ConfigProperties.REPORTS_FILTER)
+    String configFilter;
+
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper helper;
     @Inject InterruptibleReportGenerator reportGenerator;
+    @Inject RuleFilterParser ruleFilterParser;
     @Inject @RestClient ReportSidecarService sidecar;
     @Inject Logger logger;
 
     @Override
-    public Uni<Map<String, AnalysisResult>> reportFor(
-            ActiveRecording recording, Predicate<IRule> predicate) {
+    public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording, String filter) {
         InputStream stream;
         try {
             stream = helper.getActiveInputStream(recording, uploadFailedTimeout);
@@ -67,18 +68,18 @@ class ReportsServiceImpl implements ReportsService {
             logger.tracev(
                     "inprocess reportFor active recording {0} {1}",
                     recording.target.jvmId, recording.remoteId);
-            return process(stream, predicate);
+            return process(stream, filter);
         } else {
             logger.tracev(
                     "sidecar reportFor active recording {0} {1}",
                     recording.target.jvmId, recording.remoteId);
-            return fireRequest(stream);
+            return fireRequest(stream, filter);
         }
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
-            String jvmId, String filename, Predicate<IRule> predicate) {
+            String jvmId, String filename, String filter) {
         InputStream stream;
         try {
             stream = helper.getArchivedRecordingStream(jvmId, filename);
@@ -87,33 +88,35 @@ class ReportsServiceImpl implements ReportsService {
         }
         if (NO_SIDECAR_URL.equals(sidecarUri)) {
             logger.tracev("inprocess reportFor archived recording {0} {1}", jvmId, filename);
-            return process(stream, predicate);
+            return process(stream, filter);
         } else {
             logger.tracev("sidecar reportFor archived recording {0} {1}", jvmId, filename);
-            return fireRequest(stream);
+            return fireRequest(stream, filter);
         }
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
-        return reportFor(recording, r -> true);
+        return reportFor(recording, RuleFilterParser.ALL_WILDCARD_TOKEN);
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
-        return reportFor(jvmId, filename, r -> true);
+        return reportFor(jvmId, filename, RuleFilterParser.ALL_WILDCARD_TOKEN);
     }
 
-    private Uni<Map<String, AnalysisResult>> process(
-            InputStream stream, Predicate<IRule> predicate) {
+    private Uni<Map<String, AnalysisResult>> process(InputStream stream, String filter) {
         return Uni.createFrom()
                 .future(
                         reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(stream), predicate));
+                                new BufferedInputStream(stream),
+                                ruleFilterParser
+                                        .parse(configFilter)
+                                        .and(ruleFilterParser.parse(filter))));
     }
 
-    private Uni<Map<String, AnalysisResult>> fireRequest(InputStream stream) {
-        return sidecar.generate(stream);
+    private Uni<Map<String, AnalysisResult>> fireRequest(InputStream stream, String filter) {
+        return sidecar.generate(stream, String.format("%s,%s", configFilter, filter));
     }
 
     public static class ReportGenerationException extends RuntimeException {
