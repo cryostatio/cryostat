@@ -160,12 +160,6 @@ class ReportsServiceImpl implements ReportsService {
         return sidecar.generate(stream, String.format("%s,%s", configFilter, filter));
     }
 
-    public static class ReportGenerationException extends RuntimeException {
-        public ReportGenerationException(Throwable cause) {
-            super(cause);
-        }
-    }
-
     @Override
     public boolean keyExists(ActiveRecording recording) {
         return false;

@@ -20,7 +20,9 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import org.openjdk.jmc.flightrecorder.rules.Severity;
@@ -116,7 +118,7 @@ public class TargetNodes {
             result. Report generation may be an expensive operation, especially if many reports are to be generated at
             once, and should not be triggered by broad GraphQL selections.
             """)
-    public Uni<Report> report(@Source Target target) {
+    public Uni<Report> report(@Source Target target, @Nullable ReportFilter filter) {
         var fTarget = Target.getTargetById(target.id);
         return reportAggregator
                 .getEntry(fTarget.jvmId)
@@ -125,7 +127,14 @@ public class TargetNodes {
                         e -> {
                             var report = new Report();
                             report.lastUpdated = e.timestamp();
-                            report.data = e.report();
+                            report.data =
+                                    e.report().entrySet().stream()
+                                            .filter(r -> filter == null || filter.test(r))
+                                            .collect(
+                                                    Collectors.toMap(
+                                                            Entry<String, AnalysisResult>::getKey,
+                                                            Entry<String, AnalysisResult>
+                                                                    ::getValue));
                             report.aggregate = ReportAggregateInfo.from(report.data);
                             return report;
                         })
@@ -246,6 +255,54 @@ public class TargetNodes {
                                             Comparator.comparingDouble(AnalysisResult::getScore)))
                             .map(AnalysisResult::getScore)
                             .orElse(Severity.NA.getLimit()));
+        }
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class ReportFilter implements Predicate<Map.Entry<String, AnalysisResult>> {
+        public @Nullable String id;
+        public @Nullable List<String> ids;
+        public @Nullable String notId;
+        public @Nullable List<String> notIds;
+        public @Nullable String topic;
+        public @Nullable List<String> topics;
+        public @Nullable String notTopic;
+        public @Nullable List<String> notTopics;
+
+        @Override
+        public boolean test(Map.Entry<String, AnalysisResult> e) {
+            Predicate<Map.Entry<String, AnalysisResult>> matchesId =
+                    r -> id == null || Objects.equals(id, r.getKey());
+            Predicate<Map.Entry<String, AnalysisResult>> matchesIds =
+                    r -> ids == null || ids.contains(r.getKey());
+
+            Predicate<Map.Entry<String, AnalysisResult>> matchesNotId =
+                    r -> notId == null || !Objects.equals(notId, r.getKey());
+            Predicate<Map.Entry<String, AnalysisResult>> matchesNotIds =
+                    r -> notIds == null || !notIds.contains(r.getKey());
+
+            Predicate<Map.Entry<String, AnalysisResult>> matchesTopic =
+                    r -> topic == null || Objects.equals(topic, r.getValue().getTopic());
+            Predicate<Map.Entry<String, AnalysisResult>> matchesTopics =
+                    r -> topics == null || topics.contains(r.getValue().getTopic());
+
+            Predicate<Map.Entry<String, AnalysisResult>> matchesNotTopic =
+                    r -> notTopic == null || !Objects.equals(notTopic, r.getValue().getTopic());
+            Predicate<Map.Entry<String, AnalysisResult>> matchesNotTopics =
+                    r -> notTopics == null || !notTopics.contains(r.getValue().getTopic());
+
+            return List.of(
+                            matchesId,
+                            matchesIds,
+                            matchesNotId,
+                            matchesNotIds,
+                            matchesTopic,
+                            matchesTopics,
+                            matchesNotTopic,
+                            matchesNotTopics)
+                    .stream()
+                    .reduce(x -> true, Predicate::and)
+                    .test(e);
         }
     }
 }

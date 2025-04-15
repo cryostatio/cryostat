@@ -259,7 +259,7 @@ type Target {
   result. Report generation may be an expensive operation, especially if many reports are to be generated at
   once, and should not be triggered by broad GraphQL selections.
   """
-  report: Report
+  report(filter: ReportFilterInput): Report
 }
 
 type ThreadMetrics {
@@ -353,4 +353,15 @@ input RecordingSettingsInput {
   template: String!
   templateType: String!
   toDisk: Boolean
+}
+
+input ReportFilterInput {
+  id: String
+  ids: [String]
+  notId: String
+  notIds: [String]
+  notTopic: String
+  notTopics: [String]
+  topic: String
+  topics: [String]
 }
