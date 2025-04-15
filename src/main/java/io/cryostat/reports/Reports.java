@@ -106,8 +106,10 @@ public class Reports {
     // Response isn't strongly typed which allows us to return either the Analysis result
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?
-    public Response get(HttpServerResponse response, @RestPath String encodedKey) {
-        // TODO implement query parameter for evaluation predicate
+    public Response get(
+            HttpServerResponse response,
+            @RestPath String encodedKey,
+            @QueryParam("filter") @DefaultValue("") String filter) {
         var pair = helper.decodedKey(encodedKey);
 
         // Check if we have a cached result already for this report
@@ -126,7 +128,7 @@ public class Reports {
         // and return the job ID with a location header.
         logger.trace("Cache miss. Creating archived reports request");
         ArchivedReportRequest request =
-                new ArchivedReportRequest(UUID.randomUUID().toString(), pair);
+                new ArchivedReportRequest(UUID.randomUUID().toString(), pair, filter);
         response.bodyEndHandler(
                 (e) ->
                         bus.publish(
@@ -236,7 +238,10 @@ public class Reports {
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?
     public Response getActive(
-            HttpServerResponse response, @RestPath long targetId, @RestPath long recordingId)
+            HttpServerResponse response,
+            @RestPath long targetId,
+            @RestPath long recordingId,
+            @QueryParam("filter") @DefaultValue("") String filter)
             throws Exception {
         var target = Target.getTargetById(targetId);
         var recording = target.getRecordingById(recordingId);
@@ -257,13 +262,12 @@ public class Reports {
         // and return the job ID with a location header.
         logger.trace("Cache miss. Creating active reports request");
         ActiveReportRequest request =
-                new ActiveReportRequest(UUID.randomUUID().toString(), recording);
+                new ActiveReportRequest(UUID.randomUUID().toString(), recording, filter);
         response.bodyEndHandler(
                 (e) ->
                         bus.publish(
                                 LongRunningRequestGenerator.ACTIVE_REPORT_REQUEST_ADDRESS,
                                 request));
-        // TODO implement query parameter for evaluation predicate
         return Response.ok(request.id(), MediaType.TEXT_PLAIN)
                 .status(Response.Status.ACCEPTED)
                 .location(

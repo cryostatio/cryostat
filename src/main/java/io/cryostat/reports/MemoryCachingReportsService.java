@@ -16,12 +16,10 @@
 package io.cryostat.reports;
 
 import java.util.Map;
-import java.util.function.Predicate;
-
-import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
+import io.cryostat.core.util.RuleFilterParser;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 
@@ -70,11 +68,10 @@ class MemoryCachingReportsService implements ReportsService {
     @Inject Logger logger;
 
     @Override
-    public Uni<Map<String, AnalysisResult>> reportFor(
-            ActiveRecording recording, Predicate<IRule> predicate) {
+    public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording, String filter) {
         if (!quarkusCache || !memoryCache) {
             logger.trace("cache disabled, delegating...");
-            return delegate.reportFor(recording, predicate);
+            return delegate.reportFor(recording, filter);
         }
         String key = ReportsService.key(recording);
         logger.tracev("reportFor {0}", key);
@@ -88,10 +85,10 @@ class MemoryCachingReportsService implements ReportsService {
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
-            String jvmId, String filename, Predicate<IRule> predicate) {
+            String jvmId, String filename, String filter) {
         if (!quarkusCache || !memoryCache) {
             logger.trace("cache disabled, delegating...");
-            return delegate.reportFor(jvmId, filename, predicate);
+            return delegate.reportFor(jvmId, filename, filter);
         }
         String key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         logger.tracev("reportFor {0}", key);
@@ -105,12 +102,12 @@ class MemoryCachingReportsService implements ReportsService {
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
-        return reportFor(recording, r -> true);
+        return reportFor(recording, RuleFilterParser.ALL_WILDCARD_TOKEN);
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
-        return reportFor(jvmId, filename, r -> true);
+        return reportFor(jvmId, filename, RuleFilterParser.ALL_WILDCARD_TOKEN);
     }
 
     @Override

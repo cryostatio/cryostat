@@ -22,6 +22,7 @@ import java.util.concurrent.CompletionException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
+import io.cryostat.core.util.RuleFilterParser;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.reports.ReportsService;
@@ -204,7 +205,7 @@ public class LongRunningRequestGenerator {
     public Uni<Map<String, AnalysisResult>> onMessage(ActiveReportRequest request) {
         logger.trace("Job ID: " + request.id() + " submitted.");
         return reportsService
-                .reportFor(request.recording)
+                .reportFor(request.recording, request.filter)
                 .onItem()
                 .invoke(
                         (report) -> {
@@ -241,7 +242,7 @@ public class LongRunningRequestGenerator {
     public Uni<Map<String, AnalysisResult>> onMessage(ArchivedReportRequest request) {
         logger.tracev("Job ID: {0} submitted.", request.id());
         return reportsService
-                .reportFor(request.pair().getKey(), request.pair().getValue())
+                .reportFor(request.pair().getKey(), request.pair().getValue(), request.filter)
                 .onItem()
                 .invoke(
                         (report) -> {
@@ -311,10 +312,14 @@ public class LongRunningRequestGenerator {
     // of the record. It shouldn't be a problem and we do similar things
     // elswhere with other records.
     @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
-    public record ActiveReportRequest(String id, ActiveRecording recording) {
+    public record ActiveReportRequest(String id, ActiveRecording recording, String filter) {
         public ActiveReportRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(recording);
+        }
+
+        public ActiveReportRequest(String id, ActiveRecording recording) {
+            this(id, recording, RuleFilterParser.ALL_WILDCARD_TOKEN);
         }
     }
 
@@ -328,10 +333,14 @@ public class LongRunningRequestGenerator {
         }
     }
 
-    public record ArchivedReportRequest(String id, Pair<String, String> pair) {
+    public record ArchivedReportRequest(String id, Pair<String, String> pair, String filter) {
         public ArchivedReportRequest {
             Objects.requireNonNull(id);
             Objects.requireNonNull(pair);
+        }
+
+        public ArchivedReportRequest(String id, Pair<String, String> pair) {
+            this(id, pair, RuleFilterParser.ALL_WILDCARD_TOKEN);
         }
     }
 

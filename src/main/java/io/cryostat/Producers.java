@@ -20,6 +20,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator;
+import io.cryostat.core.util.RuleFilterParser;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.recordings.LongRunningRequestGenerator;
@@ -74,6 +75,13 @@ public class Producers {
         boolean singleThread = Runtime.getRuntime().availableProcessors() < 2;
         return new InterruptibleReportGenerator(
                 singleThread ? Executors.newSingleThreadExecutor() : ForkJoinPool.commonPool());
+    }
+
+    @Produces
+    @ApplicationScoped
+    @DefaultBean
+    public static RuleFilterParser produceRuleFilterParser() {
+        return new RuleFilterParser();
     }
 
     @Produces
