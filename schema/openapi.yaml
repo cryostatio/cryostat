@@ -1806,6 +1806,11 @@ paths:
           required: true
           schema:
             type: string
+        - in: query
+          name: filter
+          schema:
+            default: ""
+            type: string
       requestBody:
         content:
           application/json:
@@ -2638,6 +2643,11 @@ paths:
           schema:
             format: int64
             type: integer
+        - in: query
+          name: filter
+          schema:
+            default: ""
+            type: string
       requestBody:
         content:
           application/json:
