@@ -79,7 +79,7 @@ class MemoryCachingReportsService implements ReportsService {
                 key,
                 k -> {
                     logger.tracev("reportFor {0} cache miss", k);
-                    return delegate.reportFor(recording);
+                    return delegate.reportFor(recording, filter);
                 });
     }
 
@@ -96,7 +96,7 @@ class MemoryCachingReportsService implements ReportsService {
                 key,
                 k -> {
                     logger.tracev("reportFor {0} cache miss", k);
-                    return delegate.reportFor(jvmId, filename);
+                    return delegate.reportFor(jvmId, filename, filter);
                 });
     }
 
