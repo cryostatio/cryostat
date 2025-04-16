@@ -24,7 +24,6 @@ import java.util.concurrent.CompletionException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
-import io.cryostat.core.util.RuleFilterParser;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.util.HttpMimeType;
@@ -175,12 +174,12 @@ class StorageCachingReportsService implements ReportsService {
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
-        return reportFor(recording, RuleFilterParser.ALL_WILDCARD_TOKEN);
+        return reportFor(recording, null);
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
-        return reportFor(jvmId, filename, RuleFilterParser.ALL_WILDCARD_TOKEN);
+        return reportFor(jvmId, filename, null);
     }
 
     @Override
