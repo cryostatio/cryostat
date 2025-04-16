@@ -22,7 +22,6 @@ import java.util.concurrent.CompletionException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
-import io.cryostat.core.util.RuleFilterParser;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.reports.ReportsService;
@@ -312,7 +311,7 @@ public class LongRunningRequestGenerator {
         }
 
         public ActiveReportRequest(String id, ActiveRecording recording) {
-            this(id, recording, RuleFilterParser.ALL_WILDCARD_TOKEN);
+            this(id, recording, null);
         }
     }
 
@@ -333,7 +332,7 @@ public class LongRunningRequestGenerator {
         }
 
         public ArchivedReportRequest(String id, Pair<String, String> pair) {
-            this(id, pair, RuleFilterParser.ALL_WILDCARD_TOKEN);
+            this(id, pair, null);
         }
     }
 

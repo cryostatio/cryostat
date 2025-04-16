@@ -19,6 +19,7 @@ import java.io.BufferedInputStream;
 import java.io.InputStream;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
@@ -47,7 +48,7 @@ class ReportsServiceImpl implements ReportsService {
     String sidecarUri;
 
     @ConfigProperty(name = ConfigProperties.REPORTS_FILTER)
-    String configFilter;
+    Optional<String> configFilter;
 
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper helper;
@@ -97,12 +98,27 @@ class ReportsServiceImpl implements ReportsService {
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
-        return reportFor(recording, RuleFilterParser.ALL_WILDCARD_TOKEN);
+        return reportFor(recording, null);
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
-        return reportFor(jvmId, filename, RuleFilterParser.ALL_WILDCARD_TOKEN);
+        return reportFor(jvmId, filename, null);
+    }
+
+    private String getEffectiveFilter(String requested) {
+        // if the request has its own filter, combine it with the config filter by separating them
+        // with a comma
+        return Optional.ofNullable(requested)
+                .flatMap(
+                        s ->
+                                configFilter
+                                        .map(c -> String.format("%s,%s", c, s))
+                                        .or(() -> Optional.of(s)))
+                // if there is no request filter, fall back to the config filter
+                .or(() -> configFilter)
+                // if there is no config filter either, then use the wildcard filter to process all
+                .orElse(RuleFilterParser.ALL_WILDCARD_TOKEN);
     }
 
     private Uni<Map<String, AnalysisResult>> process(InputStream stream, String filter) {
@@ -110,13 +126,11 @@ class ReportsServiceImpl implements ReportsService {
                 .future(
                         reportGenerator.generateEvalMapInterruptibly(
                                 new BufferedInputStream(stream),
-                                ruleFilterParser
-                                        .parse(configFilter)
-                                        .and(ruleFilterParser.parse(filter))));
+                                ruleFilterParser.parse(getEffectiveFilter(filter))));
     }
 
     private Uni<Map<String, AnalysisResult>> fireRequest(InputStream stream, String filter) {
-        return sidecar.generate(stream, String.format("%s,%s", configFilter, filter));
+        return sidecar.generate(stream, getEffectiveFilter(filter));
     }
 
     public static class ReportGenerationException extends RuntimeException {
