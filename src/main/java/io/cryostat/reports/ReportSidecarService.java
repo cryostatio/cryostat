@@ -37,5 +37,6 @@ public interface ReportSidecarService {
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     Uni<Map<String, AnalysisResult>> generate(
-            @RestForm("file") @PartType(MediaType.APPLICATION_OCTET_STREAM) InputStream file);
+            @RestForm("file") @PartType(MediaType.APPLICATION_OCTET_STREAM) InputStream file,
+            @RestForm("filter") @PartType(MediaType.TEXT_PLAIN) String filter);
 }
