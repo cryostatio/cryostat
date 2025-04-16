@@ -19,7 +19,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
+
+import org.openjdk.jmc.flightrecorder.rules.IRule;
+import org.openjdk.jmc.flightrecorder.rules.RuleRegistry;
+import org.openjdk.jmc.flightrecorder.rules.util.RulesToolkit.EventAvailability;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
@@ -50,6 +56,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
@@ -139,6 +146,15 @@ public class Reports {
                 .location(
                         UriBuilder.fromUri(String.format("/api/v4/reports/%s", encodedKey)).build())
                 .build();
+    }
+
+    @GET
+    @Path("/api/v4.1/reports_rules")
+    @RolesAllowed("read")
+    public Stream<ReportRule> listReportRules() {
+        return RuleRegistry.getRules().stream()
+                .map(ReportRule::new)
+                .sorted((a, b) -> StringUtils.compare(a.id(), b.id()));
     }
 
     @POST
@@ -277,5 +293,19 @@ public class Reports {
                                                 target.id, recordingId))
                                 .build())
                 .build();
+    }
+
+    private record ReportRule(
+            String id, String name, String topic, Map<String, EventAvailability> requiredEvents) {
+        ReportRule {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(name);
+            Objects.requireNonNull(topic);
+            Objects.requireNonNull(requiredEvents);
+        }
+
+        ReportRule(IRule rule) {
+            this(rule.getId(), rule.getName(), rule.getTopic(), rule.getRequiredEvents());
+        }
     }
 }
