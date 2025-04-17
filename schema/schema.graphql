@@ -122,8 +122,6 @@ type MemoryUtilization {
 }
 
 type Metadata {
-  "ISO-8601"
-  expiry: DateTime
   labels(
     "Get entry/entries for a certain key/s"
     key: [String]
