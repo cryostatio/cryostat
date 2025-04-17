@@ -101,20 +101,6 @@ public class RuleExecutor {
                 recordingHelper.getPreferredTemplate(
                         attempt.target(), pair.getKey(), pair.getValue());
 
-<<<<<<< HEAD
-        ActiveRecording recording =
-                recordingHelper
-                        .startRecording(
-                                attachedTarget,
-                                RecordingReplace.STOPPED,
-                                template,
-                                createRecordingOptions(attempt.rule()),
-                                Map.of("rule", attempt.rule().name))
-                        .await()
-                        .atMost(Duration.ofSeconds(10));
-=======
-        var labels = new HashMap<>(attempt.rule().metadata.labels());
-        labels.put("rule", attempt.rule().name);
         try {
             ActiveRecording recording =
                     recordingHelper
@@ -123,11 +109,9 @@ public class RuleExecutor {
                                     RecordingReplace.STOPPED,
                                     template,
                                     createRecordingOptions(attempt.rule()),
-                                    labels)
+                                    Map.of("rule", attempt.rule().name))
                             .await()
                             .atMost(Duration.ofSeconds(10));
->>>>>>> e0ed798 (fix(rules): correct error handling behaviour across component boundary (#879))
-
             if (attempt.rule().isArchiver()) {
                 scheduleArchival(attempt.rule(), attachedTarget, recording);
             }
