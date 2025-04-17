@@ -55,6 +55,7 @@ public class ConfigProperties {
     public static final String PROBE_TEMPLATES_DIR = "probe-templates-dir";
     public static final String SSL_TRUSTSTORE_DIR = "ssl.truststore.dir";
     public static final String RULES_DIR = "rules-dir";
+    public static final String CREDENTIALS_DIR = "credentials-dir";
 
     public static final String URI_RANGE = "cryostat.target.uri-range";
 
