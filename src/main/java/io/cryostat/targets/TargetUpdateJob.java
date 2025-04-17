@@ -17,6 +17,7 @@ package io.cryostat.targets;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.concurrent.Executor;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
@@ -26,6 +27,7 @@ import io.cryostat.recordings.RecordingHelper;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -48,17 +50,24 @@ public class TargetUpdateJob implements Job {
         List<Target> targets;
         Long targetId = (Long) context.getJobDetail().getJobDataMap().get("targetId");
         if (targetId != null) {
-            targets = List.of(Target.getTargetById(targetId));
+            try {
+                targets = List.of(Target.getTargetById(targetId));
+            } catch (NoResultException e) {
+                // target disappeared in the meantime. No big deal.
+                logger.debug(e);
+                return;
+            }
         } else {
             targets = Target.<Target>find("#Target.unconnected").list();
         }
 
+        Executor executor;
         if (targets.size() == 1) {
-            updateTarget(targets.get(0));
+            executor = Runnable::run;
         } else {
-            targets.forEach(
-                    t -> Infrastructure.getDefaultExecutor().execute(() -> updateTargetTx(t.id)));
+            executor = Infrastructure.getDefaultExecutor();
         }
+        targets.forEach(t -> executor.execute(() -> updateTargetTx(t.id)));
     }
 
     private void updateTargetTx(long id) {
