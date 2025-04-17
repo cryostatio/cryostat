@@ -164,14 +164,7 @@ class RulesPostJsonIT extends StandardSelfTest {
                             .put("preservedArchives", 0)
                             .put("maxAgeSeconds", 0)
                             .put("maxSizeBytes", 0)
-                            .put("enabled", false)
-                            .put(
-                                    "metadata",
-                                    new HashMap<>() {
-                                        {
-                                            put("expiry", null);
-                                        }
-                                    });
+                            .put("enabled", false);
             MatcherAssert.assertThat(
                     firstResponse.getRight(), Matchers.equalTo(expectedCreationResponse));
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();
