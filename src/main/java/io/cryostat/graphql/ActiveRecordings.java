@@ -42,7 +42,6 @@ import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.targets.Target;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Nullable;
 import io.smallrye.graphql.execution.ExecutionException;
 import io.smallrye.mutiny.Multi;
@@ -68,7 +67,6 @@ public class ActiveRecordings {
     Duration timeout;
 
     @Transactional
-    @Blocking
     @Mutation
     @Description(
             "Start a new Flight Recording on all Targets under the subtrees of the discovery nodes"
@@ -114,7 +112,6 @@ public class ActiveRecordings {
     }
 
     @Transactional
-    @Blocking
     @Mutation
     @Description(
             "Archive an existing Flight Recording matching the given filter, on all Targets under"
@@ -152,7 +149,6 @@ public class ActiveRecordings {
     }
 
     @Transactional
-    @Blocking
     @Mutation
     @Description(
             "Stop an existing Flight Recording matching the given filter, on all Targets under"
@@ -190,7 +186,6 @@ public class ActiveRecordings {
     }
 
     @Transactional
-    @Blocking
     @Mutation
     @Description(
             "Delete an existing Flight Recording matching the given filter, on all Targets under"
@@ -219,7 +214,6 @@ public class ActiveRecordings {
     }
 
     @Transactional
-    @Blocking
     @Mutation
     @Description(
             "Create a Flight Recorder Snapshot on all Targets under"
@@ -241,7 +235,6 @@ public class ActiveRecordings {
     }
 
     @Transactional
-    @Blocking
     @Description("Start a new Flight Recording on the specified Target")
     public Uni<ActiveRecording> doStartRecording(
             @Source Target target, @NonNull RecordingSettings recording)
@@ -261,7 +254,6 @@ public class ActiveRecordings {
     }
 
     @Transactional
-    @Blocking
     @Description("Create a new Flight Recorder Snapshot on the specified Target")
     public Uni<ActiveRecording> doSnapshot(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
@@ -269,7 +261,6 @@ public class ActiveRecordings {
     }
 
     @Transactional
-    @Blocking
     @Description("Stop the specified Flight Recording")
     public Uni<ActiveRecording> doStop(@Source ActiveRecording recording) throws Exception {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
@@ -277,7 +268,6 @@ public class ActiveRecordings {
     }
 
     @Transactional
-    @Blocking
     @Description("Delete the specified Flight Recording")
     public Uni<ActiveRecording> doDelete(@Source ActiveRecording recording) {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
