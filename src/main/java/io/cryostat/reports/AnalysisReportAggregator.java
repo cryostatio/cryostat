@@ -183,7 +183,7 @@ public class AnalysisReportAggregator {
                         });
     }
 
-    @ConsumeEvent(Target.TARGET_JVM_DISCOVERY)
+    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
     void onMessage(TargetDiscovery event) {
         if (EventKind.LOST.equals(event.kind())) {
             cache.invalidate(event.serviceRef().jvmId).await().atMost(Duration.ofMillis(100));

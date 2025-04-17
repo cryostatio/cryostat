@@ -33,6 +33,8 @@ public class ConfigProperties {
     public static final String CONNECTIONS_UPLOAD_TIMEOUT = "cryostat.connections.upload-timeout";
 
     public static final String REPORTS_SIDECAR_URL = "quarkus.rest-client.reports.url";
+    public static final String REPORTS_USE_PRESIGNED_TRANSFER =
+            "cryostat.services.reports.use-presigned-transfer";
     public static final String REPORTS_MEMORY_CACHE_ENABLED =
             "cryostat.services.reports.memory-cache.enabled";
     public static final String REPORTS_STORAGE_CACHE_ENABLED =
