@@ -41,7 +41,7 @@ import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
-import io.vertx.core.eventbus.EventBus;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -79,7 +79,7 @@ public class RuleService {
                                     "Attempting to activate rule \"{0}\" for target {1} -"
                                             + " attempt #{2}",
                                     attempt.rule.name, attempt.target.connectUrl, attempt.attempts);
-                            bus.publish(RuleExecutor.class.getName(), attempt);
+                            bus.requestAndAwait(RuleExecutor.class.getName(), attempt);
                         } catch (InterruptedException ie) {
                             logger.trace(ie);
                             break;

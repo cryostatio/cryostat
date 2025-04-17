@@ -294,10 +294,6 @@ components:
         statusMessage:
           type: string
       type: object
-    Instant:
-      example: 2022-03-10T16:15:50Z
-      format: date-time
-      type: string
     JsonObject:
       items:
         properties:
@@ -372,8 +368,6 @@ components:
       type: object
     Metadata:
       properties:
-        expiry:
-          $ref: '#/components/schemas/Instant'
         labels:
           additionalProperties:
             type: string
