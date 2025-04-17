@@ -21,8 +21,6 @@ public class ConfigProperties {
             "storage.buckets.event-templates.name";
     public static final String AWS_BUCKET_NAME_PROBE_TEMPLATES =
             "storage.buckets.probe-templates.name";
-    public static final String AWS_OBJECT_EXPIRATION_LABELS =
-            "storage.buckets.archives.expiration-label";
 
     public static final String CONTAINERS_POLL_PERIOD = "cryostat.discovery.containers.poll-period";
     public static final String CONTAINERS_REQUEST_TIMEOUT =
@@ -35,6 +33,8 @@ public class ConfigProperties {
     public static final String CONNECTIONS_UPLOAD_TIMEOUT = "cryostat.connections.upload-timeout";
 
     public static final String REPORTS_SIDECAR_URL = "quarkus.rest-client.reports.url";
+    public static final String REPORTS_USE_PRESIGNED_TRANSFER =
+            "cryostat.services.reports.use-presigned-transfer";
     public static final String REPORTS_MEMORY_CACHE_ENABLED =
             "cryostat.services.reports.memory-cache.enabled";
     public static final String REPORTS_STORAGE_CACHE_ENABLED =
@@ -51,15 +51,13 @@ public class ConfigProperties {
     public static final String STORAGE_EXT_URL = "storage-ext.url";
     public static final String STORAGE_PRESIGNED_DOWNLOADS_ENABLED =
             "storage.presigned-downloads.enabled";
-    public static final String STORAGE_TRANSIENT_ARCHIVES_ENABLED =
-            "storage.transient-archives.enabled";
-    public static final String STORAGE_TRANSIENT_ARCHIVES_TTL = "storage.transient-archives.ttl";
 
     public static final String CUSTOM_TEMPLATES_DIR = "templates-dir";
     public static final String PRESET_TEMPLATES_DIR = "preset-templates-dir";
     public static final String PROBE_TEMPLATES_DIR = "probe-templates-dir";
     public static final String SSL_TRUSTSTORE_DIR = "ssl.truststore.dir";
     public static final String RULES_DIR = "rules-dir";
+    public static final String CREDENTIALS_DIR = "credentials-dir";
 
     public static final String URI_RANGE = "cryostat.target.uri-range";
 

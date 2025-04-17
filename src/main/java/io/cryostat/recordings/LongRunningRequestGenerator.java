@@ -87,7 +87,7 @@ public class LongRunningRequestGenerator {
         try {
             var target = Target.<Target>findById(request.recording.target.id);
             var recording = target.getRecordingById(request.recording.remoteId);
-            var rec = recordingHelper.archiveRecording(recording, null, null);
+            var rec = recordingHelper.archiveRecording(recording, null);
             logger.trace("Recording archived, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),

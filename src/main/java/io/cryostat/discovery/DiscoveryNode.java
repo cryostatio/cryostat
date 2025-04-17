@@ -21,8 +21,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.Target;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -41,6 +43,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.NamedQueries;
@@ -51,6 +54,7 @@ import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -64,6 +68,7 @@ import org.jboss.logging.Logger;
             name = "DiscoveryNode.byTypeWithName",
             query = "from DiscoveryNode where nodeType = :nodeType and name = :name")
 })
+@Table(indexes = {@Index(columnList = "nodeType"), @Index(columnList = "nodeType, name")})
 public class DiscoveryNode extends PanacheEntity {
 
     public static final String NODE_TYPE = "nodeType";
@@ -119,7 +124,10 @@ public class DiscoveryNode extends PanacheEntity {
     }
 
     public static Optional<DiscoveryNode> getRealm(String name) {
-        return getUniverse().children.stream().filter(n -> name.equals(n.name)).findFirst();
+        return DiscoveryNode.<DiscoveryNode>find(
+                        "#DiscoveryNode.byTypeWithName",
+                        Parameters.with("nodeType", BaseNodeType.REALM.getKind()).and("name", name))
+                .firstResultOptional();
     }
 
     public static Optional<DiscoveryNode> getChild(
@@ -127,16 +135,11 @@ public class DiscoveryNode extends PanacheEntity {
         return node.children.stream().filter(predicate).findFirst();
     }
 
-    public static Optional<DiscoveryNode> getNode(Predicate<DiscoveryNode> predicate) {
-        List<DiscoveryNode> nodes = listAll();
-        return nodes.stream().filter(predicate).findFirst();
-    }
-
-    public static List<DiscoveryNode> findAllByNodeType(NodeType nodeType) {
-        return DiscoveryNode.find(DiscoveryNode.NODE_TYPE, nodeType.getKind()).list();
-    }
-
-    public static DiscoveryNode environment(String name, NodeType nodeType) {
+    static DiscoveryNode byTypeWithName(
+            NodeType nodeType,
+            String name,
+            Predicate<DiscoveryNode> predicate,
+            Consumer<DiscoveryNode> customizer) {
         var kind = nodeType.getKind();
         return DiscoveryNode.<DiscoveryNode>find(
                         "#DiscoveryNode.byTypeWithName",
@@ -153,32 +156,29 @@ public class DiscoveryNode extends PanacheEntity {
                                                     node.labels = new HashMap<>();
                                                     node.children = new ArrayList<>();
                                                     node.target = null;
+                                                    customizer.accept(node);
                                                     node.persist();
                                                     return node;
                                                 }));
     }
 
+    public static List<DiscoveryNode> findAllByNodeType(NodeType nodeType) {
+        return DiscoveryNode.find(DiscoveryNode.NODE_TYPE, nodeType.getKind()).list();
+    }
+
+    public static DiscoveryNode environment(String name, NodeType nodeType) {
+        return byTypeWithName(nodeType, name, n -> true, n -> {});
+    }
+
     public static DiscoveryNode target(Target target, NodeType nodeType) {
-        var kind = nodeType.getKind();
-        var connectUrl = target.connectUrl.toString();
-        return DiscoveryNode.<DiscoveryNode>find(
-                        "#DiscoveryNode.byTypeWithName",
-                        Parameters.with("nodeType", kind).and("name", connectUrl))
-                .firstResultOptional()
-                .orElseGet(
-                        () ->
-                                QuarkusTransaction.joiningExisting()
-                                        .call(
-                                                () -> {
-                                                    DiscoveryNode node = new DiscoveryNode();
-                                                    node.name = connectUrl;
-                                                    node.nodeType = kind;
-                                                    node.labels = new HashMap<>(target.labels);
-                                                    node.children = null;
-                                                    node.target = target;
-                                                    node.persist();
-                                                    return node;
-                                                }));
+        return byTypeWithName(
+                nodeType,
+                target.connectUrl.toString(),
+                n -> true,
+                n -> {
+                    n.target = target;
+                    n.labels.putAll(target.labels);
+                });
     }
 
     @Override

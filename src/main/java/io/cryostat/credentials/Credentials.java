@@ -15,21 +15,30 @@
  */
 package io.cryostat.credentials;
 
+import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.expressions.MatchExpression.TargetMatcher;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DELETE;
@@ -39,6 +48,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.UriInfo;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -49,9 +59,59 @@ import org.projectnessie.cel.tools.ScriptException;
 @Path("/api/v4/credentials")
 public class Credentials {
 
+    @ConfigProperty(name = ConfigProperties.CREDENTIALS_DIR)
+    java.nio.file.Path dir;
+
     @Inject TargetConnectionManager connectionManager;
     @Inject TargetMatcher targetMatcher;
     @Inject Logger logger;
+    @Inject ObjectMapper mapper;
+
+    @Transactional
+    void onStart(@Observes StartupEvent evt) {
+        if (!checkDir()) {
+            return;
+        }
+        try {
+            Files.walk(dir)
+                    .filter(Files::isRegularFile)
+                    .filter(Files::isReadable)
+                    .forEach(this::createFromFile);
+        } catch (IOException e) {
+            logger.error(e);
+        }
+    }
+
+    private boolean checkDir() {
+        return Files.exists(dir)
+                && Files.isReadable(dir)
+                && Files.isExecutable(dir)
+                && Files.isDirectory(dir);
+    }
+
+    private void createFromFile(java.nio.file.Path path) {
+        try (var is = new BufferedInputStream(Files.newInputStream(path))) {
+            var credential = mapper.readValue(is, Credential.class);
+            Map<String, Object> params = new HashMap<String, Object>();
+            params.put("username", credential.username);
+            params.put("password", credential.password);
+            params.put("matchExpression", credential.matchExpression);
+            var exists =
+                    Credential.find(
+                                            "username = :username"
+                                                    + " and password = :password"
+                                                    + " and matchExpression = :matchExpression",
+                                            params)
+                                    .count()
+                            != 0;
+            if (exists) {
+                return;
+            }
+            credential.persist();
+        } catch (Exception e) {
+            logger.error("Failed to create credentials from file", e);
+        }
+    }
 
     @POST
     @Blocking

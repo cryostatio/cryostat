@@ -17,8 +17,11 @@ package io.cryostat.reports;
 
 import java.io.BufferedInputStream;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
@@ -33,9 +36,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.InternalServerErrorException;
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
+import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 @ApplicationScoped
 class ReportsServiceImpl implements ReportsService {
@@ -48,10 +56,20 @@ class ReportsServiceImpl implements ReportsService {
     @ConfigProperty(name = ConfigProperties.REPORTS_SIDECAR_URL)
     String sidecarUri;
 
+    @ConfigProperty(name = ConfigProperties.REPORTS_USE_PRESIGNED_TRANSFER)
+    boolean usePresignedTransfer;
+
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
+    String archiveBucket;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
+    Optional<String> externalStorageUrl;
+
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper helper;
     @Inject InterruptibleReportGenerator reportGenerator;
     @Inject @RestClient ReportSidecarService sidecar;
+    @Inject S3Presigner presigner;
     @Inject Logger logger;
 
     @Override
@@ -63,7 +81,7 @@ class ReportsServiceImpl implements ReportsService {
         } catch (Exception e) {
             throw new ReportGenerationException(e);
         }
-        if (NO_SIDECAR_URL.equals(sidecarUri)) {
+        if (!useSidecar()) {
             logger.tracev(
                     "inprocess reportFor active recording {0} {1}",
                     recording.target.jvmId, recording.remoteId);
@@ -72,7 +90,7 @@ class ReportsServiceImpl implements ReportsService {
             logger.tracev(
                     "sidecar reportFor active recording {0} {1}",
                     recording.target.jvmId, recording.remoteId);
-            return fireRequest(stream);
+            return sidecar.generate(stream);
         }
     }
 
@@ -85,12 +103,22 @@ class ReportsServiceImpl implements ReportsService {
         } catch (Exception e) {
             throw new ReportGenerationException(e);
         }
-        if (NO_SIDECAR_URL.equals(sidecarUri)) {
+        if (!useSidecar()) {
             logger.tracev("inprocess reportFor archived recording {0} {1}", jvmId, filename);
             return process(stream, predicate);
+        } else if (usePresignedSidecar()) {
+            logger.tracev(
+                    "sidecar reportFor presigned archived recording {0} {1}", jvmId, filename);
+            try {
+                var uri = getPresignedPath(jvmId, filename);
+                return sidecar.generatePresigned(uri.getPath(), uri.getQuery(), null);
+            } catch (URISyntaxException e) {
+                logger.error(e);
+                throw new InternalServerErrorException(e);
+            }
         } else {
             logger.tracev("sidecar reportFor archived recording {0} {1}", jvmId, filename);
-            return fireRequest(stream);
+            return sidecar.generate(stream);
         }
     }
 
@@ -104,24 +132,6 @@ class ReportsServiceImpl implements ReportsService {
         return reportFor(jvmId, filename, r -> true);
     }
 
-    private Uni<Map<String, AnalysisResult>> process(
-            InputStream stream, Predicate<IRule> predicate) {
-        return Uni.createFrom()
-                .future(
-                        reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(stream), predicate));
-    }
-
-    private Uni<Map<String, AnalysisResult>> fireRequest(InputStream stream) {
-        return sidecar.generate(stream);
-    }
-
-    public static class ReportGenerationException extends RuntimeException {
-        public ReportGenerationException(Throwable cause) {
-            super(cause);
-        }
-    }
-
     @Override
     public boolean keyExists(ActiveRecording recording) {
         return false;
@@ -130,5 +140,42 @@ class ReportsServiceImpl implements ReportsService {
     @Override
     public boolean keyExists(String jvmId, String filename) {
         return false;
+    }
+
+    private boolean useSidecar() {
+        return sidecarUri != null && !sidecarUri.isBlank() && !NO_SIDECAR_URL.equals(sidecarUri);
+    }
+
+    private boolean usePresignedSidecar() {
+        return useSidecar() && usePresignedTransfer;
+    }
+
+    private Uni<Map<String, AnalysisResult>> process(
+            InputStream stream, Predicate<IRule> predicate) {
+        return Uni.createFrom()
+                .future(
+                        reportGenerator.generateEvalMapInterruptibly(
+                                new BufferedInputStream(stream), predicate));
+    }
+
+    private URI getPresignedPath(String jvmId, String filename) throws URISyntaxException {
+        logger.infov("Handling presigned download request for {0}/{1}", jvmId, filename);
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(helper.archivedRecordingKey(Pair.of(jvmId, filename)))
+                        .build();
+        GetObjectPresignRequest presignRequest =
+                GetObjectPresignRequest.builder()
+                        .signatureDuration(Duration.ofMinutes(1))
+                        .getObjectRequest(getRequest)
+                        .build();
+        return URI.create(presigner.presignGetObject(presignRequest).url().toString()).normalize();
+    }
+
+    public static class ReportGenerationException extends RuntimeException {
+        public ReportGenerationException(Throwable cause) {
+            super(cause);
+        }
     }
 }

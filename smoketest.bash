@@ -354,6 +354,15 @@ createProbeTemplateVolume() {
 }
 createProbeTemplateVolume
 
+createCredentialVolume() {
+    "${container_engine}" volume create credentials
+    "${container_engine}" container create --name credentials_helper -v credentials:/credentials registry.access.redhat.com/ubi9/ubi-micro
+    if [ -d "${DIR}/credentials" ]; then
+        "${container_engine}" cp "${DIR}/credentials" credentials_helper:/credentials
+    fi
+}
+createCredentialVolume
+
 setupUserHosts() {
     # This requires https://github.com/figiel/hosts to work. See README.
     truncate -s 0 "${HOSTSFILE}"

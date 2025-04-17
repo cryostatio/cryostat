@@ -30,7 +30,6 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Date;
@@ -169,9 +168,6 @@ public class RecordingHelper {
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
-
-    @ConfigProperty(name = ConfigProperties.AWS_OBJECT_EXPIRATION_LABELS)
-    String objectExpirationLabel;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
@@ -554,7 +550,7 @@ public class RecordingHelper {
                         () -> {
                             out.persist();
                             if (archive) {
-                                archiveRecording(out, null, null);
+                                archiveRecording(out, null);
                             }
                             return Uni.createFrom().item(out);
                         });
@@ -764,14 +760,7 @@ public class RecordingHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents().stream()
-                .filter(
-                        o -> {
-                            var metadata = getArchivedRecordingMetadata(o.key());
-                            var temporary = metadata.map(m -> m.expiry() != null).orElse(false);
-                            return !temporary;
-                        })
-                .toList();
+        return storage.listObjectsV2(builder.build()).contents().stream().toList();
     }
 
     public List<ArchivedRecording> listArchivedRecordings(String jvmId) {
@@ -800,8 +789,8 @@ public class RecordingHelper {
         return listArchivedRecordings(target.jvmId);
     }
 
-    public ArchivedRecording archiveRecording(
-            ActiveRecording recording, String savename, Instant expiry) throws Exception {
+    public ArchivedRecording archiveRecording(ActiveRecording recording, String savename)
+            throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
         String transformedAlias =
@@ -828,10 +817,7 @@ public class RecordingHelper {
                             .contentType(JFR_MIME)
                             .contentDisposition(
                                     String.format("attachment; filename=\"%s\"", savename))
-                            .tagging(createActiveRecordingTagging(recording, expiry));
-            if (expiry != null && expiry.isAfter(Instant.now())) {
-                builder = builder.expires(expiry);
-            }
+                            .tagging(createActiveRecordingTagging(recording));
             CreateMultipartUploadRequest request = builder.build();
             multipartId = storage.createMultipartUpload(request).uploadId();
             int read = 0;
@@ -911,28 +897,26 @@ public class RecordingHelper {
             // couldn't parse the response from Amazon S3.
             throw e;
         }
-        if (expiry == null) {
-            ArchivedRecording archivedRecording =
-                    new ArchivedRecording(
-                            recording.target.jvmId,
-                            filename,
-                            downloadUrl(recording.target.jvmId, filename),
-                            reportUrl(recording.target.jvmId, filename),
-                            recording.metadata,
-                            accum,
-                            now.getEpochSecond());
+        ArchivedRecording archivedRecording =
+                new ArchivedRecording(
+                        recording.target.jvmId,
+                        filename,
+                        downloadUrl(recording.target.jvmId, filename),
+                        reportUrl(recording.target.jvmId, filename),
+                        recording.metadata,
+                        accum,
+                        now.getEpochSecond());
 
-            URI connectUrl = recording.target.connectUrl;
+        URI connectUrl = recording.target.connectUrl;
 
-            var event =
-                    new ArchivedRecordingEvent(
-                            ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
-                            ArchivedRecordingEvent.Payload.of(connectUrl, archivedRecording));
-            bus.publish(event.category().category(), event.payload().recording());
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(event.category().category(), event.payload()));
-        }
+        var event =
+                new ArchivedRecordingEvent(
+                        ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
+                        ArchivedRecordingEvent.Payload.of(connectUrl, archivedRecording));
+        bus.publish(event.category().category(), event.payload().recording());
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
         return new ArchivedRecording(
                 recording.target.jvmId,
                 filename,
@@ -1122,11 +1106,11 @@ public class RecordingHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
-    Tagging createActiveRecordingTagging(ActiveRecording recording, Instant expiry) {
+    Tagging createActiveRecordingTagging(ActiveRecording recording) {
         Map<String, String> labels = new HashMap<>(recording.metadata.labels());
         labels.put("connectUrl", recording.target.connectUrl.toString());
         labels.put("jvmId", recording.target.jvmId);
-        Metadata metadata = new Metadata(labels, expiry);
+        Metadata metadata = new Metadata(labels);
         return createMetadataTagging(metadata);
     }
 
@@ -1153,37 +1137,18 @@ public class RecordingHelper {
                                                                                         .UTF_8)))
                                                 .build())
                         .toList());
-        if (metadata.expiry() != null) {
-            tags.add(
-                    Tag.builder()
-                            .key(
-                                    base64Url.encodeAsString(
-                                            objectExpirationLabel.getBytes(StandardCharsets.UTF_8)))
-                            .value(
-                                    base64Url.encodeAsString(
-                                            metadata.expiry()
-                                                    .atOffset(ZoneOffset.UTC)
-                                                    .toString()
-                                                    .getBytes(StandardCharsets.UTF_8)))
-                            .build());
-        }
         return Tagging.builder().tagSet(tags).build();
     }
 
     private Metadata taggingToMetadata(List<Tag> tagSet) {
         // TODO parse out other metadata than labels
-        Instant expiry = null;
         var labels = new HashMap<String, String>();
         for (var tag : tagSet) {
             var key = decodeBase64(tag.key());
             var value = decodeBase64(tag.value());
-            if (key.equals(objectExpirationLabel)) {
-                expiry = Instant.parse(value);
-            } else {
-                labels.put(key, value);
-            }
+            labels.put(key, value);
         }
-        return new Metadata(labels, expiry);
+        return new Metadata(labels);
     }
 
     public ActiveRecording updateRecordingMetadata(
