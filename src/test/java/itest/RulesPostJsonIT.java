@@ -171,7 +171,6 @@ class RulesPostJsonIT extends StandardSelfTest {
                                     new HashMap<>() {
                                         {
                                             put("labels", List.of());
-                                            put("expiry", null);
                                         }
                                     });
             MatcherAssert.assertThat(

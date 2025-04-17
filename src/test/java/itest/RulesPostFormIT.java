@@ -136,7 +136,6 @@ class RulesPostFormIT extends StandardSelfTest {
                                     new HashMap<>() {
                                         {
                                             put("labels", List.of());
-                                            put("expiry", null);
                                         }
                                     });
             MatcherAssert.assertThat(firstResponse.getRight(), Matchers.equalTo(expectedResponse));

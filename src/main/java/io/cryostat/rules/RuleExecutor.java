@@ -42,6 +42,7 @@ import io.cryostat.targets.Target.TargetDiscovery;
 
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -77,23 +78,23 @@ public class RuleExecutor {
 
     @ConsumeEvent(blocking = true)
     @Transactional
-    void onMessage(ActivationAttempt attempt) throws QuantityConversionException {
+    Uni<Void> onMessage(ActivationAttempt attempt) {
         Target attachedTarget = Target.<Target>find("id", attempt.target().id).singleResult();
-        recordingHelper
-                .getActiveRecording(
+        var priorRecording =
+                recordingHelper.getActiveRecording(
                         attachedTarget,
-                        r -> Objects.equals(r.name, attempt.rule().getRecordingName()))
-                .ifPresent(
-                        rec -> {
-                            try {
-                                recordingHelper
-                                        .stopRecording(rec)
-                                        .await()
-                                        .atMost(connectionFailedTimeout);
-                            } catch (Exception e) {
-                                logger.warn(e);
-                            }
-                        });
+                        r -> Objects.equals(r.name, attempt.rule().getRecordingName()));
+        if (priorRecording.isPresent()) {
+            try {
+                recordingHelper
+                        .stopRecording(priorRecording.get())
+                        .await()
+                        .atMost(connectionFailedTimeout);
+            } catch (Exception e) {
+                logger.warn(e);
+                return Uni.createFrom().failure(e);
+            }
+        }
 
         Pair<String, TemplateType> pair =
                 recordingHelper.parseEventSpecifier(attempt.rule().eventSpecifier);
@@ -103,20 +104,27 @@ public class RuleExecutor {
 
         var labels = new HashMap<>(attempt.rule().metadata.labels());
         labels.put("rule", attempt.rule().name);
-        ActiveRecording recording =
-                recordingHelper
-                        .startRecording(
-                                attachedTarget,
-                                RecordingReplace.STOPPED,
-                                template,
-                                createRecordingOptions(attempt.rule()),
-                                labels)
-                        .await()
-                        .atMost(Duration.ofSeconds(10));
+        try {
+            ActiveRecording recording =
+                    recordingHelper
+                            .startRecording(
+                                    attachedTarget,
+                                    RecordingReplace.STOPPED,
+                                    template,
+                                    createRecordingOptions(attempt.rule()),
+                                    labels)
+                            .await()
+                            .atMost(Duration.ofSeconds(10));
 
-        if (attempt.rule().isArchiver()) {
-            scheduleArchival(attempt.rule(), attachedTarget, recording);
+            if (attempt.rule().isArchiver()) {
+                scheduleArchival(attempt.rule(), attachedTarget, recording);
+            }
+        } catch (QuantityConversionException e) {
+            logger.error(e);
+            return Uni.createFrom().failure(e);
         }
+
+        return Uni.createFrom().nullItem();
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
