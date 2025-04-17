@@ -29,7 +29,7 @@ import org.openjdk.jmc.common.unit.QuantityConversionException;
 import io.cryostat.ConfigProperties;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
-import io.cryostat.graphql.TargetNodes.AggregateInfo;
+import io.cryostat.graphql.TargetNodes.RecordingAggregateInfo;
 import io.cryostat.graphql.TargetNodes.Recordings;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.libcryostat.templates.Template;
@@ -130,7 +130,7 @@ public class ActiveRecordings {
                         .toList();
         var archives = new ArrayList<ArchivedRecording>();
         for (var r : list) {
-            archives.add(recordingHelper.archiveRecording(r, null, null));
+            archives.add(recordingHelper.archiveRecording(r, null));
         }
         return archives;
     }
@@ -211,7 +211,7 @@ public class ActiveRecordings {
                         .toList();
         var snapshots = new ArrayList<ActiveRecording>();
         for (var t : targets) {
-            snapshots.add(recordingHelper.createSnapshot(t).await().atMost(Duration.ofSeconds(10)));
+            snapshots.add(recordingHelper.createSnapshot(t).await().atMost(timeout));
         }
         return snapshots;
     }
@@ -262,20 +262,20 @@ public class ActiveRecordings {
     @Description("Archive the specified Flight Recording")
     public ArchivedRecording doArchive(@Source ActiveRecording recording) throws Exception {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
-        return recordingHelper.archiveRecording(ar, null, null);
+        return recordingHelper.archiveRecording(ar, null);
     }
 
     public TargetNodes.ActiveRecordings active(
             @Source Recordings recordings, ActiveRecordingsFilter filter) {
         var out = new TargetNodes.ActiveRecordings();
         out.data = new ArrayList<>();
-        out.aggregate = AggregateInfo.empty();
+        out.aggregate = RecordingAggregateInfo.empty();
 
         var in = recordings.active;
         if (in != null && in.data != null) {
             out.data =
                     in.data.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
-            out.aggregate = AggregateInfo.fromActive(out.data);
+            out.aggregate = RecordingAggregateInfo.fromActive(out.data);
         }
 
         return out;

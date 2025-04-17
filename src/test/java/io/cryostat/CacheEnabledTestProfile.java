@@ -15,20 +15,17 @@
  */
 package io.cryostat;
 
-import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
+import java.util.Map;
 
-import io.quarkus.runtime.StartupEvent;
-import io.quarkus.vertx.LocalEventBusCodec;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.event.Observes;
-import jakarta.inject.Inject;
+import io.quarkus.test.junit.QuarkusTestProfile;
 
-public class MessageCodecs {
+public class CacheEnabledTestProfile implements QuarkusTestProfile {
 
-    @Inject EventBus bus;
-
-    void onStart(@Observes StartupEvent evt) {
-        bus.getDelegate()
-                .registerDefaultCodec(LinkedRecordingDescriptor.class, new LocalEventBusCodec<>());
+    @Override
+    public Map<String, String> getConfigOverrides() {
+        return Map.of(
+                "quarkus.cache.enabled", "true",
+                "cryostat.services.reports.memory-cache.enabled", "true",
+                "cryostat.services.reports.storage-cache.enabled", "true");
     }
 }

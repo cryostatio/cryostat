@@ -189,7 +189,7 @@ public class ArchivedRecordings {
                                         recordingHelper.reportUrl(jvmId, recording.fileName()),
                                         metadata,
                                         0,
-                                        clock.getMonotonicTime())));
+                                        clock.now().getEpochSecond())));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
@@ -306,7 +306,7 @@ public class ArchivedRecordings {
                                         recordingHelper.reportUrl(jvmId, filename),
                                         metadata,
                                         recording.size(),
-                                        clock.getMonotonicTime())));
+                                        clock.now().getEpochSecond())));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
@@ -459,7 +459,7 @@ public class ArchivedRecordings {
                                             recordingHelper.reportUrl(jvmId, filename),
                                             metadata,
                                             0 /* filesize */,
-                                            clock.getMonotonicTime())));
+                                            clock.now().getEpochSecond())));
             bus.publish(event.category().category(), event.payload().recording());
             bus.publish(
                     MessagingServer.class.getName(),
@@ -495,11 +495,13 @@ public class ArchivedRecordings {
         logger.trace("Creating grafana upload request");
         GrafanaArchiveUploadRequest request =
                 new GrafanaArchiveUploadRequest(UUID.randomUUID().toString(), pair);
-        logger.trace(
-                "Request created: (" + request.getId() + ", " + request.getPair().toString() + ")");
+        logger.tracev("Request created: ({0}, {1})", request.id(), request.pair());
         response.endHandler(
-                (e) -> bus.publish(LongRunningRequestGenerator.GRAFANA_ARCHIVE_ADDRESS, request));
-        return request.getId();
+                (e) ->
+                        bus.publish(
+                                LongRunningRequestGenerator.GRAFANA_ARCHIVE_REQUEST_ADDRESS,
+                                request));
+        return request.id();
     }
 
     @GET
@@ -561,7 +563,6 @@ public class ArchivedRecordings {
         return response.location(uri).build();
     }
 
-    // TODO include jvmId and filename
     public record ArchivedRecording(
             String jvmId,
             String name,

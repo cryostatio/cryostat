@@ -16,6 +16,7 @@
 package itest;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
@@ -129,7 +130,14 @@ class RulesPostFormIT extends StandardSelfTest {
                             .put("preservedArchives", 0)
                             .put("maxAgeSeconds", 0)
                             .put("maxSizeBytes", 0)
-                            .put("enabled", false);
+                            .put("enabled", false)
+                            .put(
+                                    "metadata",
+                                    new HashMap<>() {
+                                        {
+                                            put("labels", List.of());
+                                        }
+                                    });
             MatcherAssert.assertThat(firstResponse.getRight(), Matchers.equalTo(expectedResponse));
 
             CompletableFuture<JsonObject> duplicatePostResponse = new CompletableFuture<>();

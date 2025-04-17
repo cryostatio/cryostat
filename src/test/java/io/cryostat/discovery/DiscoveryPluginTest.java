@@ -171,7 +171,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
 
         // test what happens if we try to publish an invalid node - in this case, one containing no
         // target definition
-        var node = new Node(null, BaseNodeType.JVM.name(), null);
+        var node = new Node(null, NodeType.BaseNodeType.JVM.name(), null);
         given().log()
                 .all()
                 .when()
@@ -188,7 +188,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
 
         // test what happens if we publish an acceptable singleton list
         var target = new Target(URI.create("http://localhost:8081"), "test-node");
-        node = new Node("test-node", BaseNodeType.JVM.name(), target);
+        node = new Node("test-node", NodeType.BaseNodeType.JVM.name(), target);
         given().log()
                 .all()
                 .when()

@@ -36,7 +36,7 @@ display_usage() {
     echo -e "\t-p\t\t\t\t\t\tdisable auth Proxy."
     echo -e "\t-s [seaweed|minio|cloudserver|localstack]\tS3 implementation to spin up (default \"seaweed\")."
     echo -e "\t-G\t\t\t\t\t\texclude Grafana dashboard and jfr-datasource from deployment."
-    echo -e "\t-r\t\t\t\t\t\tconfigure a cryostat-Reports sidecar instance"
+    echo -e "\t-r [replicas]\t\t\t\t\tconfigure a cryostat-reports sidecar instance(s). Optional argument is the number of replicas, which defaults to 1."
     echo -e "\t-t [all|comma-list]\t\t\t\tinclude sample applications for Testing. Leave blank or use 'all' to deploy everything, otherwise use a comma-separated list from:\n\t\t\t\t\t\t\t\t$(find "${DIR}/compose/sample_apps" -type f -name '*.yml' -exec basename {} \; | cut -d. -f1 | grep -v https | sort | tr '\n' ',' | sed 's/,$//')"
     echo -e "\t-A\t\t\t\t\t\tdisable TLS on sample applications' Agents."
     echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
@@ -117,6 +117,14 @@ while getopts "hs:prGtAOVXc:bnkv" opt; do
             ;;
         r)
             FILES+=('./compose/reports.yml')
+            nextopt=${!OPTIND}
+            if [[ -n $nextopt && $nextopt != -* ]] ; then
+                OPTIND=$((OPTIND + 1))
+                REPORTS_REPLICAS="${nextopt}"
+            else
+                # there is no nextopt, ie `-r` was passed and there is no argument or the next argument is another flag
+                REPORTS_REPLICAS=1
+            fi
             ;;
         n)
             DRY_RUN=true
@@ -189,6 +197,7 @@ export GRAFANA_DASHBOARD_EXT_URL
 export DATABASE_GENERATION
 export CRYOSTAT_PROXY_PORT
 export CRYOSTAT_PROXY_PROTOCOL
+export REPORTS_REPLICAS
 
 s3Manifest="${DIR}/compose/s3-${s3}.yml"
 if [ ! -f "${s3Manifest}" ]; then

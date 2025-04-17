@@ -10,7 +10,7 @@ if ! command -v httpz && ! command -v wget; then
 fi
 
 "${DIR}"/../mvnw -f "${DIR}/../pom.xml" -B -U -Dspotless.check.skip clean compile test-compile
-"${DIR}"/../mvnw -f "${DIR}/../pom.xml" -B -U -Dmaven.test.skip -Dquarkus.quinoa=false -Dspotless.check.skip -Dquarkus.smallrye-openapi.info-title="Cryostat API" clean quarkus:dev &
+"${DIR}"/../mvnw -f "${DIR}/../pom.xml" -B -U -Dquarkus.log.level=info -Dmaven.test.skip -Dquarkus.quinoa=false -Dspotless.check.skip -Dquarkus.smallrye-openapi.info-title="Cryostat API" clean quarkus:dev &
 pid="$!"
 function cleanup() {
     kill $pid

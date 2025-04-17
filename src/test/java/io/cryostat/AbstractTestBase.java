@@ -17,14 +17,29 @@ package io.cryostat;
 
 import static io.restassured.RestAssured.given;
 
+import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
+import java.util.Map;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 
 import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.http.TestHTTPResource;
 import io.restassured.http.ContentType;
+import io.restassured.path.json.JsonPath;
+import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
+import jakarta.websocket.ClientEndpoint;
+import jakarta.websocket.ContainerProvider;
+import jakarta.websocket.DeploymentException;
+import jakarta.websocket.OnMessage;
+import jakarta.websocket.Session;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -40,6 +55,11 @@ public abstract class AbstractTestBase {
             URLEncodedUtils.formatSegments(SELF_JMX_URL).substring(1);
     public static final String SELFTEST_ALIAS = "selftest";
 
+    public static final String TEMPLATE_CONTINUOUS = "template=Continuous";
+
+    @TestHTTPResource("/api/notifications")
+    URI wsUri;
+
     @ConfigProperty(name = "storage.buckets.archives.name")
     String archivesBucket;
 
@@ -52,8 +72,15 @@ public abstract class AbstractTestBase {
     @Inject Logger logger;
     @Inject S3Client storage;
 
+    protected int selfId = -1;
+    protected String selfJvmId = "";
+    protected int selfRecordingId = -1;
+
     @BeforeEach
     void waitForStorage() throws InterruptedException {
+        selfId = -1;
+        selfJvmId = "";
+        selfRecordingId = -1;
         long totalTime = 0;
         while (!bucketExists(archivesBucket)) {
             long start = System.nanoTime();
@@ -82,19 +109,143 @@ public abstract class AbstractTestBase {
     }
 
     protected int defineSelfCustomTarget() {
-        return given().basePath("/")
-                .log()
+        var jp =
+                given().basePath("/")
+                        .log()
+                        .all()
+                        .contentType(ContentType.URLENC)
+                        .formParam("connectUrl", SELF_JMX_URL)
+                        .formParam("alias", SELFTEST_ALIAS)
+                        .when()
+                        .post("/api/v4/targets")
+                        .then()
+                        .log()
+                        .all()
+                        .extract()
+                        .jsonPath();
+
+        this.selfId = jp.getInt("id");
+        this.selfJvmId = jp.getString("jvmId");
+
+        return this.selfId;
+    }
+
+    protected JsonPath startSelfRecording(String name, String eventTemplate) {
+        return startSelfRecording(name, Map.of("events", eventTemplate));
+    }
+
+    protected JsonPath startSelfRecording(String name, Map<String, Object> formParams) {
+        // must have called defineSelfCustomTarget first!
+        if (selfId < 1) {
+            throw new IllegalStateException();
+        }
+        var spec = given().log().all().when().basePath("");
+        formParams.forEach(spec::formParam);
+        var jp =
+                spec.pathParam("targetId", this.selfId)
+                        .formParam("recordingName", name)
+                        .post("/api/v4/targets/{targetId}/recordings")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath();
+        this.selfRecordingId = jp.getInt("remoteId");
+        return jp;
+    }
+
+    protected void cleanupSelfRecording() {
+        if (selfId < 1 || selfRecordingId < 1) {
+            throw new IllegalStateException();
+        }
+        given().log()
                 .all()
-                .contentType(ContentType.URLENC)
-                .formParam("connectUrl", SELF_JMX_URL)
-                .formParam("alias", SELFTEST_ALIAS)
                 .when()
-                .post("/api/v4/targets")
+                .basePath("")
+                .pathParams("targetId", selfId, "remoteId", selfRecordingId)
+                .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
                 .then()
                 .log()
                 .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    protected JsonPath graphql(String query) {
+        return given().log()
+                .all()
+                .when()
+                .basePath("")
+                .contentType(ContentType.JSON)
+                .body(Map.of("query", query))
+                .post("/api/v4/graphql")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
                 .extract()
-                .jsonPath()
-                .getInt("id");
+                .body()
+                .jsonPath();
+    }
+
+    protected JsonObject expectWebSocketNotification(String category)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        return expectWebSocketNotification(category, Duration.ofSeconds(30), v -> true);
+    }
+
+    protected JsonObject expectWebSocketNotification(String category, Duration timeout)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        return expectWebSocketNotification(category, timeout, v -> true);
+    }
+
+    protected JsonObject expectWebSocketNotification(
+            String category, Predicate<JsonObject> predicate)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        return expectWebSocketNotification(category, Duration.ofSeconds(30), predicate);
+    }
+
+    protected JsonObject expectWebSocketNotification(
+            String category, Duration timeout, Predicate<JsonObject> predicate)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        long now = System.nanoTime();
+        long deadline = now + timeout.toNanos();
+        var client = new WebSocketClient();
+        try (Session session =
+                ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri)) {
+            do {
+                now = System.nanoTime();
+                String msg = client.wsMessages.poll(1, TimeUnit.SECONDS);
+                if (msg == null) {
+                    continue;
+                }
+                JsonObject obj = new JsonObject(msg);
+                String msgCategory = obj.getJsonObject("meta").getString("category");
+                if (category.equals(msgCategory) && predicate.test(obj)) {
+                    return obj;
+                }
+            } while (now < deadline);
+        } finally {
+            client.wsMessages.clear();
+        }
+        throw new TimeoutException();
+    }
+
+    @ClientEndpoint
+    private class WebSocketClient {
+        private final LinkedBlockingDeque<String> wsMessages = new LinkedBlockingDeque<>();
+
+        @OnMessage
+        void message(String msg) {
+            wsMessages.add(msg);
+        }
     }
 }

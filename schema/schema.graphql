@@ -26,15 +26,15 @@ type ActiveRecording {
 }
 
 type ActiveRecordings {
-  aggregate: AggregateInfo!
+  aggregate: RecordingAggregateInfo!
   data: [ActiveRecording]!
 }
 
-type AggregateInfo {
-  "The number of elements in this collection"
-  count: BigInteger!
-  "The sum of sizes of elements in this collection, or 0 if not applicable"
-  size: BigInteger!
+type AnalysisResult {
+  evaluation: Evaluation
+  name: String
+  score: Float!
+  topic: String
 }
 
 type Annotations {
@@ -61,7 +61,7 @@ type ArchivedRecording {
 }
 
 type ArchivedRecordings {
-  aggregate: AggregateInfo!
+  aggregate: RecordingAggregateInfo!
   data: [ArchivedRecording]!
 }
 
@@ -79,9 +79,21 @@ type DiscoveryNode {
   target: Target
 }
 
+type Entry_String_AnalysisResult {
+  key: String
+  value: AnalysisResult
+}
+
 type Entry_String_String {
   key: String
   value: String
+}
+
+type Evaluation {
+  explanation: String
+  solution: String
+  suggestions: [Suggestion]
+  summary: String
 }
 
 type MBeanMetrics {
@@ -110,8 +122,6 @@ type MemoryUtilization {
 }
 
 type Metadata {
-  "ISO-8601"
-  expiry: DateTime
   labels(
     "Get entry/entries for a certain key/s"
     key: [String]
@@ -159,9 +169,32 @@ type Query {
   targetNodes(filter: DiscoveryNodeFilterInput): [DiscoveryNode]
 }
 
+type RecordingAggregateInfo {
+  "The number of elements in this collection"
+  count: BigInteger!
+  "The sum of sizes of elements in this collection, or 0 if not applicable"
+  size: BigInteger!
+}
+
 type Recordings {
   active(filter: ActiveRecordingsFilterInput): ActiveRecordings
   archived(filter: ArchivedRecordingsFilterInput): ArchivedRecordings
+}
+
+type Report {
+  aggregate: ReportAggregateInfo!
+  data(
+    "Get entry/entries for a certain key/s"
+    key: [String]
+  ): [Entry_String_AnalysisResult]!
+  lastUpdated: BigInteger!
+}
+
+type ReportAggregateInfo {
+  "The number of elements in this collection"
+  count: BigInteger!
+  "The maximum value in this collection"
+  max: Float!
 }
 
 type RuntimeMetrics {
@@ -186,6 +219,12 @@ type RuntimeMetrics {
   vmVersion: String
 }
 
+type Suggestion {
+  name: String
+  setting: String
+  value: String
+}
+
 type Target {
   activeRecordings(filter: ActiveRecordingsFilterInput): ActiveRecordings
   agent: Boolean!
@@ -207,6 +246,7 @@ type Target {
   mbeanMetrics: MBeanMetrics
   "Get the active and archived recordings belonging to this target"
   recordings: Recordings
+  report: Report
 }
 
 type ThreadMetrics {

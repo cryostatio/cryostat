@@ -16,32 +16,44 @@
 package io.cryostat.reports;
 
 import java.time.Duration;
+import java.time.Instant;
+import java.util.Date;
+import java.util.Map;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
+import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.ActiveReportRequest;
+import io.cryostat.recordings.LongRunningRequestGenerator.ArchiveRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Uni;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
+import org.jboss.resteasy.reactive.RestResponse;
 
 @Path("")
 public class Reports {
@@ -59,6 +71,7 @@ public class Reports {
     @Inject StorageBuckets storageBuckets;
     @Inject RecordingHelper helper;
     @Inject ReportsService reportsService;
+    @Inject AnalysisReportAggregator reportAggregator;
     @Inject EventBus bus;
     @Inject Logger logger;
 
@@ -99,12 +112,72 @@ public class Reports {
         ArchivedReportRequest request =
                 new ArchivedReportRequest(UUID.randomUUID().toString(), pair);
         response.bodyEndHandler(
-                (e) -> bus.publish(LongRunningRequestGenerator.ARCHIVE_REPORT_ADDRESS, request));
-        return Response.ok(request.getId(), MediaType.TEXT_PLAIN)
+                (e) ->
+                        bus.publish(
+                                LongRunningRequestGenerator.ARCHIVE_REPORT_REQUEST_ADDRESS,
+                                request));
+        return Response.ok(request.id(), MediaType.TEXT_PLAIN)
                 .status(202)
                 .location(
                         UriBuilder.fromUri(String.format("/api/v4/reports/%s", encodedKey)).build())
                 .build();
+    }
+
+    @POST
+    @Blocking
+    @Transactional
+    @Path("/api/v4.1/targets/{targetId}/reports")
+    @RolesAllowed("write")
+    public Response analyze(
+            HttpServerResponse resp,
+            @RestPath long targetId,
+            @QueryParam("clean") @DefaultValue("true") boolean clean) {
+        var target = Target.getTargetById(targetId);
+        var jobId = UUID.randomUUID().toString();
+        resp.bodyEndHandler(
+                (v) -> {
+                    helper.createSnapshot(
+                                    target,
+                                    Map.of(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true"))
+                            .subscribe()
+                            .with(
+                                    recording -> {
+                                        var request = new ArchiveRequest(jobId, recording, clean);
+                                        bus.publish(
+                                                LongRunningRequestGenerator.ARCHIVE_REQUEST_ADDRESS,
+                                                request);
+                                    });
+                });
+        return Response.ok(jobId, MediaType.TEXT_PLAIN)
+                .status(Response.Status.ACCEPTED)
+                .location(
+                        UriBuilder.fromUri(String.format("/api/v4/targets/%d/reports", targetId))
+                                .build())
+                .build();
+    }
+
+    @GET
+    @Blocking
+    @Path("/api/v4.1/targets/{targetId}/reports")
+    @Produces(MediaType.APPLICATION_JSON)
+    @RolesAllowed("read")
+    public Uni<RestResponse<Map<String, AnalysisResult>>> getCached(@RestPath long targetId) {
+        var target = Target.getTargetById(targetId);
+        return reportAggregator
+                .getEntry(target.jvmId)
+                .onItem()
+                .transform(
+                        e -> {
+                            var builder =
+                                    RestResponse.ResponseBuilder
+                                            .<Map<String, AnalysisResult>>create(200)
+                                            .entity(e.report());
+                            var timestamp = e.timestamp();
+                            if (timestamp > 0) {
+                                builder.lastModified(Date.from(Instant.ofEpochSecond(timestamp)));
+                            }
+                            return builder.build();
+                        });
     }
 
     @GET
@@ -128,7 +201,7 @@ public class Reports {
             return Response.ok(
                             reportsService.reportFor(recording).await().atMost(timeout),
                             MediaType.APPLICATION_JSON)
-                    .status(200)
+                    .status(Response.Status.OK)
                     .build();
         }
 
@@ -138,10 +211,13 @@ public class Reports {
         ActiveReportRequest request =
                 new ActiveReportRequest(UUID.randomUUID().toString(), recording);
         response.bodyEndHandler(
-                (e) -> bus.publish(LongRunningRequestGenerator.ACTIVE_REPORT_ADDRESS, request));
+                (e) ->
+                        bus.publish(
+                                LongRunningRequestGenerator.ACTIVE_REPORT_REQUEST_ADDRESS,
+                                request));
         // TODO implement query parameter for evaluation predicate
-        return Response.ok(request.getId(), MediaType.TEXT_PLAIN)
-                .status(202)
+        return Response.ok(request.id(), MediaType.TEXT_PLAIN)
+                .status(Response.Status.ACCEPTED)
                 .location(
                         UriBuilder.fromUri(
                                         String.format(

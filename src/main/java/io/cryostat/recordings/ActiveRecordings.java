@@ -18,7 +18,6 @@ package io.cryostat.recordings;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -133,14 +132,13 @@ public class ActiveRecordings {
                 ArchiveRequest request =
                         new ArchiveRequest(UUID.randomUUID().toString(), activeRecording);
                 logger.tracev(
-                        "Request created: ("
-                                + request.getId()
-                                + ", "
-                                + request.recording().name
-                                + ")");
+                        "Request created: ({0}, {1})", request.id(), request.recording().name);
                 response.endHandler(
-                        (e) -> bus.publish(LongRunningRequestGenerator.ARCHIVE_ADDRESS, request));
-                return request.getId();
+                        (e) ->
+                                bus.publish(
+                                        LongRunningRequestGenerator.ARCHIVE_REQUEST_ADDRESS,
+                                        request));
+                return request.id();
             default:
                 throw new BadRequestException(body);
         }
@@ -238,17 +236,17 @@ public class ActiveRecordings {
         logger.trace("Creating grafana upload request");
         GrafanaActiveUploadRequest request =
                 new GrafanaActiveUploadRequest(UUID.randomUUID().toString(), remoteId, targetId);
-        logger.trace(
-                "Request created: ("
-                        + request.getId()
-                        + ", "
-                        + request.getRemoteId()
-                        + ", "
-                        + request.getTargetId()
-                        + ")");
+        logger.tracev(
+                "Request created: ({0}, {1}, {2})"
+                        + request.id()
+                        + request.remoteId()
+                        + request.targetId());
         response.endHandler(
-                (e) -> bus.publish(LongRunningRequestGenerator.GRAFANA_ACTIVE_ADDRESS, request));
-        return request.getId();
+                (e) ->
+                        bus.publish(
+                                LongRunningRequestGenerator.GRAFANA_ACTIVE_REQUEST_ADDRESS,
+                                request));
+        return request.id();
     }
 
     public record LinkedRecordingDescriptor(
@@ -275,21 +273,17 @@ public class ActiveRecordings {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record Metadata(Map<String, String> labels, Instant expiry) {
+    public record Metadata(Map<String, String> labels) {
         public Metadata {
             Objects.requireNonNull(labels);
         }
 
-        public Metadata(Map<String, String> labels) {
-            this(labels, null);
+        public Metadata() {
+            this(Map.of());
         }
 
         public Metadata(Metadata other) {
             this(new HashMap<>((other.labels)));
-        }
-
-        public Metadata(Metadata other, Instant expiry) {
-            this(new HashMap<>((other.labels)), expiry);
         }
 
         public static Metadata empty() {
@@ -303,7 +297,6 @@ public class ActiveRecordings {
     public static final String ARCHIVED_RECORDING_CREATED = "ArchivedRecordingCreated";
     public static final String ACTIVE_RECORDING_DELETED = "ActiveRecordingDeleted";
     public static final String ACTIVE_RECORDING_SAVED = "ActiveRecordingSaved";
-    public static final String SNAPSHOT_RECORDING_CREATED = "SnapshotCreated";
     public static final String RECORDING_METADATA_UPDATED = "RecordingMetadataUpdated";
 
     public enum RecordingEventCategory {
@@ -313,7 +306,6 @@ public class ActiveRecordings {
         ACTIVE_DELETED(ACTIVE_RECORDING_DELETED),
         ARCHIVED_CREATED(ARCHIVED_RECORDING_CREATED),
         ARCHIVED_DELETED(ARCHIVED_RECORDING_DELETED),
-        SNAPSHOT_CREATED(SNAPSHOT_RECORDING_CREATED),
         METADATA_UPDATED(RECORDING_METADATA_UPDATED),
         ;
 
