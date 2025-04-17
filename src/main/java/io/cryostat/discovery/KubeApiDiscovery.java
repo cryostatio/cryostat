@@ -505,29 +505,19 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 nodeType.getQueryFunction().apply(client).apply(namespace).apply(name);
 
         DiscoveryNode node =
-                DiscoveryNode.getNode(
-                                n -> {
-                                    return nodeType.getKind().equals(n.nodeType)
-                                            && name.equals(n.name)
-                                            && namespace.equals(
-                                                    n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY));
-                                })
-                        .orElseGet(
-                                () -> {
-                                    DiscoveryNode newNode = new DiscoveryNode();
-                                    newNode.name = name;
-                                    newNode.nodeType = nodeType.getKind();
-                                    newNode.children = new ArrayList<>();
-                                    newNode.target = null;
-                                    Map<String, String> labels =
-                                            kubeObj != null
-                                                    ? kubeObj.getMetadata().getLabels()
-                                                    : new HashMap<>();
-                                    // Add namespace to label to retrieve node later
-                                    labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
-                                    newNode.labels = labels;
-                                    return newNode;
-                                });
+                DiscoveryNode.byTypeWithName(
+                        nodeType,
+                        name,
+                        n -> namespace.equals(n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY)),
+                        n -> {
+                            Map<String, String> labels =
+                                    kubeObj != null
+                                            ? kubeObj.getMetadata().getLabels()
+                                            : new HashMap<>();
+                            // Add namespace to label to retrieve node later
+                            labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
+                            n.labels.putAll(labels);
+                        });
         return Pair.of(kubeObj, node);
     }
 
