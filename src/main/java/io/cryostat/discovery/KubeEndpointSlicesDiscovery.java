@@ -40,13 +40,13 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.Target.EventKind;
 
-import io.fabric8.kubernetes.api.model.EndpointAddress;
-import io.fabric8.kubernetes.api.model.EndpointPort;
-import io.fabric8.kubernetes.api.model.EndpointSubset;
-import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.ObjectReference;
 import io.fabric8.kubernetes.api.model.OwnerReference;
+import io.fabric8.kubernetes.api.model.discovery.v1.Endpoint;
+import io.fabric8.kubernetes.api.model.discovery.v1.EndpointConditions;
+import io.fabric8.kubernetes.api.model.discovery.v1.EndpointPort;
+import io.fabric8.kubernetes.api.model.discovery.v1.EndpointSlice;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
@@ -68,10 +68,10 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
-public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
+public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<EndpointSlice> {
 
-    private static final String NAMESPACE_QUERY_ADDR = "NS_QUERY";
-    private static final String ENDPOINTS_DISCOVERY_ADDR = "ENDPOINTS_DISC";
+    private static final String NAMESPACE_QUERY_ADDR = "NS_QUERY_ENDPOINT_SLICE";
+    private static final String ENDPOINT_SLICE_DISCOVERY_ADDR = "ENDPOINT_SLICE_DISC";
 
     public static final String REALM = "KubernetesApi";
 
@@ -103,28 +103,30 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     @ConfigProperty(name = "cryostat.discovery.kubernetes.resync-period")
     Duration informerResyncPeriod;
 
-    private final LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>> nsInformers =
-            new LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>>() {
+    private final LazyInitializer<HashMap<String, SharedIndexInformer<EndpointSlice>>> nsInformers =
+            new LazyInitializer<HashMap<String, SharedIndexInformer<EndpointSlice>>>() {
                 @Override
-                protected HashMap<String, SharedIndexInformer<Endpoints>> initialize()
+                protected HashMap<String, SharedIndexInformer<EndpointSlice>> initialize()
                         throws ConcurrentException {
                     // TODO: add support for some wildcard indicating a single Informer for any
                     // namespace that Cryostat has permissions to. This will need some restructuring
                     // of how the namespaces within the discovery tree are mapped.
-                    var result = new HashMap<String, SharedIndexInformer<Endpoints>>();
+                    var result = new HashMap<String, SharedIndexInformer<EndpointSlice>>();
                     kubeConfig
                             .getWatchNamespaces()
                             .forEach(
                                     ns -> {
                                         result.put(
                                                 ns,
-                                                client.endpoints()
+                                                client.discovery()
+                                                        .v1()
+                                                        .endpointSlices()
                                                         .inNamespace(ns)
                                                         .inform(
-                                                                KubeApiDiscovery.this,
+                                                                KubeEndpointSlicesDiscovery.this,
                                                                 informerResyncPeriod.toMillis()));
                                         logger.debugv(
-                                                "Started Endpoints SharedInformer for namespace"
+                                                "Started EndpointSlice SharedInformer for namespace"
                                                         + " \"{0}\" with resync period {1}",
                                                 ns, informerResyncPeriod);
                                     });
@@ -170,7 +172,8 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                         (ns, informer) -> {
                             informer.close();
                             logger.debugv(
-                                    "Closed Endpoints SharedInformer for namespace \"{0}\"", ns);
+                                    "Closed EndpointSlice SharedInformer for namespace \"{0}\"",
+                                    ns);
                         });
     }
 
@@ -189,25 +192,25 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     }
 
     @Override
-    public void onAdd(Endpoints endpoints) {
+    public void onAdd(EndpointSlice slice) {
         logger.debugv(
-                "Endpoint {0} created in namespace {1}",
-                endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
-        notify(NamespaceQueryEvent.from(endpoints.getMetadata().getNamespace()));
+                "EndpointSlice {0} created in namespace {1}",
+                slice.getMetadata().getName(), slice.getMetadata().getNamespace());
+        notify(NamespaceQueryEvent.from(slice.getMetadata().getNamespace()));
     }
 
     @Override
-    public void onUpdate(Endpoints oldEndpoints, Endpoints newEndpoints) {
+    public void onUpdate(EndpointSlice oldSlice, EndpointSlice newSlice) {
         logger.debugv(
-                "Endpoint {0} modified in namespace {1}",
-                newEndpoints.getMetadata().getName(), newEndpoints.getMetadata().getNamespace());
-        notify(NamespaceQueryEvent.from(newEndpoints.getMetadata().getNamespace()));
+                "EndpointSlice {0} modified in namespace {1}",
+                newSlice.getMetadata().getName(), newSlice.getMetadata().getNamespace());
+        notify(NamespaceQueryEvent.from(newSlice.getMetadata().getNamespace()));
     }
 
     @Override
-    public void onDelete(Endpoints endpoints, boolean deletedFinalStateUnknown) {
+    public void onDelete(EndpointSlice endpoints, boolean deletedFinalStateUnknown) {
         logger.debugv(
-                "Endpoint {0} deleted in namespace {1}",
+                "EndpointSlice {0} deleted in namespace {1}",
                 endpoints.getMetadata().getName(), endpoints.getMetadata().getNamespace());
         if (deletedFinalStateUnknown) {
             logger.warnv("Deleted final state unknown: {0}", endpoints);
@@ -220,27 +223,28 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 || jmxPortNumbers.orElse(EMPTY_PORT_NUMBERS).contains(port.getPort());
     }
 
-    List<TargetTuple> tuplesFromEndpoints(Endpoints endpoints) {
+    List<TargetTuple> tuplesFromEndpoints(EndpointSlice slice) {
         List<TargetTuple> tts = new ArrayList<>();
-        for (EndpointSubset subset : endpoints.getSubsets()) {
-            for (EndpointPort port : subset.getPorts()) {
-                for (EndpointAddress addr : subset.getAddresses()) {
-                    var ref = addr.getTargetRef();
+        for (EndpointPort port : slice.getPorts()) {
+            for (Endpoint endpoint : slice.getEndpoints()) {
+                for (String addr : endpoint.getAddresses()) {
+                    var ref = endpoint.getTargetRef();
                     tts.add(
                             new TargetTuple(
                                     ref,
                                     queryForNode(ref.getNamespace(), ref.getName(), ref.getKind())
                                             .getLeft(),
                                     addr,
-                                    port));
+                                    port,
+                                    endpoint.getConditions()));
                 }
             }
         }
         return tts;
     }
 
-    private List<TargetTuple> getTargetTuplesFrom(Endpoints endpoints) {
-        return tuplesFromEndpoints(endpoints).stream()
+    private List<TargetTuple> getTargetTuplesFrom(EndpointSlice slice) {
+        return tuplesFromEndpoints(slice).stream()
                 .filter(
                         (ref) -> {
                             return Objects.nonNull(ref) && isCompatiblePort(ref.port);
@@ -248,7 +252,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                 .collect(Collectors.toList());
     }
 
-    private Map<String, SharedIndexInformer<Endpoints>> safeGetInformers() {
+    private Map<String, SharedIndexInformer<EndpointSlice>> safeGetInformers() {
         try {
             return nsInformers.get();
         } catch (ConcurrentException e) {
@@ -282,7 +286,8 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
         for (var namespace : evt.namespaces) {
             try {
                 List<DiscoveryNode> targetNodes =
-                        DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT).stream()
+                        DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT_SLICE)
+                                .stream()
                                 .filter(
                                         (n) ->
                                                 namespace.equals(
@@ -297,7 +302,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
                 Set<Target> observedTargets =
                         safeGetInformers().get(namespace).getStore().list().stream()
-                                .map((endpoint) -> getTargetTuplesFrom(endpoint))
+                                .map(this::getTargetTuplesFrom)
                                 .flatMap(List::stream)
                                 .filter((tuple) -> Objects.nonNull(tuple.objRef))
                                 .map(
@@ -341,7 +346,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
         }
     }
 
-    @ConsumeEvent(value = ENDPOINTS_DISCOVERY_ADDR, blocking = true, ordered = true)
+    @ConsumeEvent(value = ENDPOINT_SLICE_DISCOVERY_ADDR, blocking = true, ordered = true)
     @Transactional(TxType.REQUIRED)
     public void handleEndpointEvent(EndpointDiscoveryEvent evt) {
         String namespace = evt.namespace;
@@ -373,7 +378,7 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     }
 
     private void notify(EndpointDiscoveryEvent evt) {
-        bus.publish(ENDPOINTS_DISCOVERY_ADDR, evt);
+        bus.publish(ENDPOINT_SLICE_DISCOVERY_ADDR, evt);
     }
 
     private void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
@@ -423,7 +428,8 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
         String targetKind = targetRef.getKind();
         KubeDiscoveryNodeType targetType = KubeDiscoveryNodeType.fromKubernetesKind(targetKind);
 
-        DiscoveryNode targetNode = DiscoveryNode.target(target, KubeDiscoveryNodeType.ENDPOINT);
+        DiscoveryNode targetNode =
+                DiscoveryNode.target(target, KubeDiscoveryNodeType.ENDPOINT_SLICE);
         target.discoveryNode = targetNode;
         target.persist();
 
@@ -585,35 +591,33 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     private class TargetTuple {
         ObjectReference objRef;
         HasMetadata obj;
-        EndpointAddress addr;
+        String addr;
         EndpointPort port;
+        EndpointConditions conditions;
 
         TargetTuple(
-                ObjectReference objRef, HasMetadata obj, EndpointAddress addr, EndpointPort port) {
+                ObjectReference objRef,
+                HasMetadata obj,
+                String addr,
+                EndpointPort port,
+                EndpointConditions conditions) {
             this.objRef = objRef;
             this.obj = obj;
             this.addr = addr;
             this.port = port;
+            this.conditions = conditions;
         }
 
         public Target toTarget() {
             try {
-                String ip = addr.getIp().replaceAll("\\.", "-");
-                String namespace = objRef.getNamespace();
-
                 boolean isPod = objRef.getKind().equals(KubeDiscoveryNodeType.POD.getKind());
-
-                String host = String.format("%s.%s", ip, namespace);
-                if (isPod) {
-                    host = String.format("%s.pod", host);
-                }
 
                 JMXServiceURL jmxUrl =
                         new JMXServiceURL(
                                 "rmi",
                                 "",
                                 0,
-                                "/jndi/rmi://" + host + ':' + port.getPort() + "/jmxrmi");
+                                "/jndi/rmi://" + addr + ':' + port.getPort() + "/jmxrmi");
                 URI connectUrl = URI.create(jmxUrl.toString());
 
                 Target target = new Target();
@@ -628,13 +632,21 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                                         "REALM",
                                         REALM,
                                         "HOST",
-                                        addr.getIp(),
+                                        addr,
                                         "PORT",
                                         Integer.toString(port.getPort()),
                                         "NAMESPACE",
                                         objRef.getNamespace(),
                                         isPod ? "POD_NAME" : "OBJECT_NAME",
-                                        objRef.getName()));
+                                        objRef.getName(),
+                                        "CONDITION_READY",
+                                        String.valueOf(Boolean.TRUE.equals(conditions.getReady())),
+                                        "CONDITION_SERVING",
+                                        String.valueOf(
+                                                Boolean.TRUE.equals(conditions.getServing())),
+                                        "CONDITION_TERMINATING",
+                                        String.valueOf(
+                                                Boolean.TRUE.equals(conditions.getTerminating()))));
 
                 return target;
             } catch (Exception e) {
@@ -643,68 +655,85 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
             }
         }
     }
-}
 
-enum KubeDiscoveryNodeType implements NodeType {
-    NAMESPACE("Namespace"),
-    STATEFULSET(
-            "StatefulSet",
-            c -> ns -> n -> c.apps().statefulSets().inNamespace(ns).withName(n).get()),
-    DAEMONSET("DaemonSet", c -> ns -> n -> c.apps().daemonSets().inNamespace(ns).withName(n).get()),
-    DEPLOYMENT(
-            "Deployment", c -> ns -> n -> c.apps().deployments().inNamespace(ns).withName(n).get()),
-    REPLICASET(
-            "ReplicaSet", c -> ns -> n -> c.apps().replicaSets().inNamespace(ns).withName(n).get()),
-    REPLICATIONCONTROLLER(
-            "ReplicationController",
-            c -> ns -> n -> c.replicationControllers().inNamespace(ns).withName(n).get()),
-    POD("Pod", c -> ns -> n -> c.pods().inNamespace(ns).withName(n).get()),
-    ENDPOINT("Endpoint", c -> ns -> n -> c.endpoints().inNamespace(ns).withName(n).get()),
-    // OpenShift resources
-    DEPLOYMENTCONFIG("DeploymentConfig"),
-    ;
+    static enum KubeDiscoveryNodeType implements NodeType {
+        NAMESPACE("Namespace"),
+        STATEFULSET(
+                "StatefulSet",
+                c -> ns -> n -> c.apps().statefulSets().inNamespace(ns).withName(n).get()),
+        DAEMONSET(
+                "DaemonSet",
+                c -> ns -> n -> c.apps().daemonSets().inNamespace(ns).withName(n).get()),
+        DEPLOYMENT(
+                "Deployment",
+                c -> ns -> n -> c.apps().deployments().inNamespace(ns).withName(n).get()),
+        REPLICASET(
+                "ReplicaSet",
+                c -> ns -> n -> c.apps().replicaSets().inNamespace(ns).withName(n).get()),
+        REPLICATIONCONTROLLER(
+                "ReplicationController",
+                c -> ns -> n -> c.replicationControllers().inNamespace(ns).withName(n).get()),
+        POD("Pod", c -> ns -> n -> c.pods().inNamespace(ns).withName(n).get()),
+        ENDPOINT("Endpoint", c -> ns -> n -> c.endpoints().inNamespace(ns).withName(n).get()),
+        ENDPOINT_SLICE(
+                "EndpointSlice",
+                c ->
+                        ns ->
+                                n ->
+                                        c.discovery()
+                                                .v1()
+                                                .endpointSlices()
+                                                .inNamespace(ns)
+                                                .withName(n)
+                                                .get()),
+        // OpenShift resources
+        DEPLOYMENTCONFIG("DeploymentConfig"),
+        ;
 
-    private final String kubernetesKind;
-    private final transient Function<
-                    KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
-            getFn;
+        private final String kubernetesKind;
+        private final transient Function<
+                        KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
+                getFn;
 
-    KubeDiscoveryNodeType(String kubernetesKind) {
-        this(kubernetesKind, client -> namespace -> name -> null);
-    }
+        KubeDiscoveryNodeType(String kubernetesKind) {
+            this(kubernetesKind, client -> namespace -> name -> null);
+        }
 
-    KubeDiscoveryNodeType(
-            String kubernetesKind,
-            Function<KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
-                    getFn) {
-        this.kubernetesKind = kubernetesKind;
-        this.getFn = getFn;
-    }
+        KubeDiscoveryNodeType(
+                String kubernetesKind,
+                Function<
+                                KubernetesClient,
+                                Function<String, Function<String, ? extends HasMetadata>>>
+                        getFn) {
+            this.kubernetesKind = kubernetesKind;
+            this.getFn = getFn;
+        }
 
-    @Override
-    public String getKind() {
-        return kubernetesKind;
-    }
+        @Override
+        public String getKind() {
+            return kubernetesKind;
+        }
 
-    public Function<KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
-            getQueryFunction() {
-        return getFn;
-    }
+        public Function<KubernetesClient, Function<String, Function<String, ? extends HasMetadata>>>
+                getQueryFunction() {
+            return getFn;
+        }
 
-    public static KubeDiscoveryNodeType fromKubernetesKind(String kubernetesKind) {
-        if (kubernetesKind == null) {
+        public static KubeDiscoveryNodeType fromKubernetesKind(String kubernetesKind) {
+            if (kubernetesKind == null) {
+                return null;
+            }
+            for (KubeDiscoveryNodeType nt : values()) {
+                if (kubernetesKind.equalsIgnoreCase(nt.kubernetesKind)) {
+                    return nt;
+                }
+            }
             return null;
         }
-        for (KubeDiscoveryNodeType nt : values()) {
-            if (kubernetesKind.equalsIgnoreCase(nt.kubernetesKind)) {
-                return nt;
-            }
-        }
-        return null;
-    }
 
-    @Override
-    public String toString() {
-        return getKind();
+        @Override
+        public String toString() {
+            return getKind();
+        }
     }
 }
