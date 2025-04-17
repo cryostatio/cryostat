@@ -41,6 +41,7 @@ import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.targets.Target;
 
+import io.smallrye.common.annotation.Blocking;
 import io.smallrye.graphql.api.Nullable;
 import io.smallrye.graphql.execution.ExecutionException;
 import io.smallrye.mutiny.Multi;
