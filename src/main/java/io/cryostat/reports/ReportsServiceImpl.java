@@ -20,7 +20,6 @@ import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
@@ -31,7 +30,6 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.ActiveRecording;
-import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -160,16 +158,7 @@ class ReportsServiceImpl implements ReportsService {
                                 new BufferedInputStream(stream), predicate));
     }
 
-    private URI getPresignedUri(ActiveRecording recording) throws Exception {
-        // TODO refactor, this is copied out of Recordings.java
-        String savename = recording.name;
-        ArchivedRecording rec =
-                helper.archiveRecording(recording, savename, Instant.now().plusSeconds(60));
-        return getPresignedPath(recording.target.jvmId, rec.name());
-    }
-
     private URI getPresignedPath(String jvmId, String filename) throws URISyntaxException {
-        // TODO refactor, this is copied out of Recordings.java
         logger.infov("Handling presigned download request for {0}/{1}", jvmId, filename);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
