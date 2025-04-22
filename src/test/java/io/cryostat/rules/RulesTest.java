@@ -20,6 +20,8 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.*;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
@@ -207,6 +209,7 @@ public class RulesTest extends AbstractTransactionalTestBase {
         copy.put("description", "new description");
         copy.put("eventSpecifier", "template=Profiling,type=TARGET");
         copy.put("matchExpression", EXPR_2);
+        copy.put("metadata", Map.of("labels", Map.of("foo", "bar")));
         given().log()
                 .all()
                 .body(copy.toString())
@@ -239,7 +242,12 @@ public class RulesTest extends AbstractTransactionalTestBase {
                         "[0].enabled", is(false),
                         "[0].description", equalTo("new description"),
                         "[0].eventSpecifier", equalTo("template=Profiling,type=TARGET"),
-                        "[0].matchExpression", equalTo(EXPR_2));
+                        "[0].matchExpression", equalTo(EXPR_2),
+                        "[0].metadata",
+                                equalTo(
+                                        Map.of(
+                                                "labels",
+                                                List.of(Map.of("key", "foo", "value", "bar")))));
 
         given().log()
                 .all()
