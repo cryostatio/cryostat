@@ -225,9 +225,21 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
     List<TargetTuple> tuplesFromEndpoints(EndpointSlice slice) {
         List<TargetTuple> tts = new ArrayList<>();
-        for (EndpointPort port : slice.getPorts()) {
-            for (Endpoint endpoint : slice.getEndpoints()) {
-                for (String addr : endpoint.getAddresses()) {
+        List<EndpointPort> ports = slice.getPorts();
+        if (ports == null) {
+            return tts;
+        }
+        for (EndpointPort port : ports) {
+            List<Endpoint> endpoints = slice.getEndpoints();
+            if (endpoints == null) {
+                continue;
+            }
+            for (Endpoint endpoint : endpoints) {
+                List<String> addresses = endpoint.getAddresses();
+                if (addresses == null) {
+                    continue;
+                }
+                for (String addr : addresses) {
                     var ref = endpoint.getTargetRef();
                     tts.add(
                             new TargetTuple(
