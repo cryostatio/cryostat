@@ -352,7 +352,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                                         EventKind.FOUND)));
             } catch (Exception e) {
                 logger.error(
-                        String.format("Failed to syncronize Endpoints in namespace %s", namespace),
+                        String.format(
+                                "Failed to syncronize EndpointSlices in namespace %s", namespace),
                         e);
             }
         }
