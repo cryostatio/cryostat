@@ -164,15 +164,13 @@ public class Rules {
             throw new BadRequestException("Rule name cannot be updated");
         }
 
-        if (body.containsKey("enabled")) {
-            boolean enabled = body.getBoolean("enabled");
-            // order matters here, we want to clean before we disable
-            if (clean && !enabled) {
-                bus.send(Rule.RULE_ADDRESS + "?clean", rule);
-            }
-            rule.enabled = enabled;
+        // order matters here, we want to clean before we disable
+        if (clean) {
+            bus.send(Rule.RULE_ADDRESS + "?clean", rule);
         }
-
+        if (body.containsKey("enabled")) {
+            rule.enabled = body.getBoolean("enabled");
+        }
         if (body.containsKey("matchExpression")) {
             MatchExpression expr = new MatchExpression(body.getString("matchExpression"));
             expr.persist();
