@@ -197,7 +197,9 @@ public class Rules {
         if (body.containsKey("maxSizeBytes")) {
             rule.maxSizeBytes = body.getInteger("maxSizeBytes");
         }
-        // rule.metadata = TODO ;
+        if (body.containsKey("metadata")) {
+            rule.metadata = body.getJsonObject("metadata").mapTo(Metadata.class);
+        }
 
         rule.persist();
 
