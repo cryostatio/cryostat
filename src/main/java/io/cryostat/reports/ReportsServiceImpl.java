@@ -209,10 +209,4 @@ class ReportsServiceImpl implements ReportsService {
                         .build();
         return URI.create(presigner.presignGetObject(presignRequest).url().toString()).normalize();
     }
-
-    public static class ReportGenerationException extends RuntimeException {
-        public ReportGenerationException(Throwable cause) {
-            super(cause);
-        }
-    }
 }
