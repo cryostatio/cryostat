@@ -285,6 +285,14 @@ components:
         useRethrow:
           type: boolean
       type: object
+    EventAvailability:
+      enum:
+        - AVAILABLE
+        - ENABLED
+        - DISABLED
+        - NONE
+        - UNKNOWN
+      type: string
     Field:
       properties:
         contentType:
@@ -477,6 +485,19 @@ components:
         - STOPPED
         - CLOSED
       type: string
+    ReportRule:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        requiredEvents:
+          additionalProperties:
+            $ref: '#/components/schemas/EventAvailability'
+          type: object
+        topic:
+          type: string
+      type: object
     RequestData:
       properties:
         matchExpression:
@@ -919,6 +940,25 @@ paths:
       summary: Retrieve the latest aggregate report data for the specified target
       tags:
         - Analysis Report Aggregator
+  /api/v4.1/reports_rules:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ReportRule'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme: []
+      tags:
+        - Reports
   /api/v4.1/targets/{targetId}/reports:
     get:
       description: |
