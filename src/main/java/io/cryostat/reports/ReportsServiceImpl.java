@@ -16,6 +16,7 @@
 package io.cryostat.reports;
 
 import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -96,40 +97,38 @@ class ReportsServiceImpl implements ReportsService {
             logger.tracev(
                     "inprocess reportFor active recording {0} {1}",
                     recording.target.jvmId, recording.remoteId);
-            return process(stream, filter);
+            return process(stream, filter).invoke(safeClose(stream));
         } else {
             logger.tracev(
                     "sidecar reportFor active recording {0} {1}",
                     recording.target.jvmId, recording.remoteId);
-            return fireRequest(stream, filter);
+            return fireRequest(stream, filter).invoke(safeClose(stream));
         }
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
             String jvmId, String filename, String filter) {
-        InputStream stream;
         try {
-            stream = helper.getArchivedRecordingStream(jvmId, filename);
-        } catch (Exception e) {
-            throw new ReportGenerationException(e);
-        }
-        if (!useSidecar()) {
-            logger.tracev("inprocess reportFor archived recording {0} {1}", jvmId, filename);
-            return process(stream, filter);
-        } else if (usePresignedSidecar()) {
-            logger.tracev(
-                    "sidecar reportFor presigned archived recording {0} {1}", jvmId, filename);
-            try {
+            if (!useSidecar()) {
+                InputStream stream = helper.getArchivedRecordingStream(jvmId, filename);
+                logger.tracev("inprocess reportFor archived recording {0} {1}", jvmId, filename);
+                return process(stream, filter).invoke(safeClose(stream));
+            } else if (usePresignedSidecar()) {
+                logger.tracev(
+                        "sidecar reportFor presigned archived recording {0} {1}", jvmId, filename);
                 var uri = getPresignedPath(jvmId, filename);
                 return sidecar.generatePresigned(uri.getPath(), uri.getQuery(), filter);
-            } catch (URISyntaxException e) {
-                logger.error(e);
-                throw new InternalServerErrorException(e);
+            } else {
+                InputStream stream = helper.getArchivedRecordingStream(jvmId, filename);
+                logger.tracev("sidecar reportFor archived recording {0} {1}", jvmId, filename);
+                return fireRequest(stream, filter).invoke(safeClose(stream));
             }
-        } else {
-            logger.tracev("sidecar reportFor archived recording {0} {1}", jvmId, filename);
-            return fireRequest(stream, filter);
+        } catch (URISyntaxException e) {
+            logger.error(e);
+            throw new InternalServerErrorException(e);
+        } catch (Exception e) {
+            throw new ReportGenerationException(e);
         }
     }
 
@@ -201,6 +200,16 @@ class ReportsServiceImpl implements ReportsService {
                         .getObjectRequest(getRequest)
                         .build();
         return URI.create(presigner.presignGetObject(presignRequest).url().toString()).normalize();
+    }
+
+    private Runnable safeClose(InputStream stream) {
+        return () -> {
+            try {
+                stream.close();
+            } catch (IOException e) {
+                logger.warn(e);
+            }
+        };
     }
 
     public static class ReportGenerationException extends RuntimeException {
