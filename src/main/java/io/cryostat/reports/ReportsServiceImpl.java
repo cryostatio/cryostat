@@ -22,9 +22,6 @@ import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Predicate;
-
-import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
@@ -163,12 +160,6 @@ class ReportsServiceImpl implements ReportsService {
         return sidecar.generate(stream, getEffectiveFilter(filter));
     }
 
-    public static class ReportGenerationException extends RuntimeException {
-        public ReportGenerationException(Throwable cause) {
-            super(cause);
-        }
-    }
-
     @Override
     public boolean keyExists(ActiveRecording recording) {
         return false;
@@ -187,14 +178,6 @@ class ReportsServiceImpl implements ReportsService {
         return useSidecar() && usePresignedTransfer;
     }
 
-    private Uni<Map<String, AnalysisResult>> process(
-            InputStream stream, Predicate<IRule> predicate) {
-        return Uni.createFrom()
-                .future(
-                        reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(stream), predicate));
-    }
-
     private URI getPresignedPath(String jvmId, String filename) throws URISyntaxException {
         logger.infov("Handling presigned download request for {0}/{1}", jvmId, filename);
         GetObjectRequest getRequest =
@@ -208,5 +191,11 @@ class ReportsServiceImpl implements ReportsService {
                         .getObjectRequest(getRequest)
                         .build();
         return URI.create(presigner.presignGetObject(presignRequest).url().toString()).normalize();
+    }
+
+    public static class ReportGenerationException extends RuntimeException {
+        public ReportGenerationException(Throwable cause) {
+            super(cause);
+        }
     }
 }
