@@ -97,12 +97,12 @@ class ReportsServiceImpl implements ReportsService {
             logger.tracev(
                     "inprocess reportFor active recording {0} {1}",
                     recording.target.jvmId, recording.remoteId);
-            return process(stream, filter).invoke(safeClose(stream));
+            return process(stream, filter).eventually(safeClose(stream));
         } else {
             logger.tracev(
                     "sidecar reportFor active recording {0} {1}",
                     recording.target.jvmId, recording.remoteId);
-            return fireRequest(stream, filter).invoke(safeClose(stream));
+            return fireRequest(stream, filter).eventually(safeClose(stream));
         }
     }
 
@@ -113,7 +113,7 @@ class ReportsServiceImpl implements ReportsService {
             if (!useSidecar()) {
                 InputStream stream = helper.getArchivedRecordingStream(jvmId, filename);
                 logger.tracev("inprocess reportFor archived recording {0} {1}", jvmId, filename);
-                return process(stream, filter).invoke(safeClose(stream));
+                return process(stream, filter).eventually(safeClose(stream));
             } else if (usePresignedSidecar()) {
                 logger.tracev(
                         "sidecar reportFor presigned archived recording {0} {1}", jvmId, filename);
@@ -122,7 +122,7 @@ class ReportsServiceImpl implements ReportsService {
             } else {
                 InputStream stream = helper.getArchivedRecordingStream(jvmId, filename);
                 logger.tracev("sidecar reportFor archived recording {0} {1}", jvmId, filename);
-                return fireRequest(stream, filter).invoke(safeClose(stream));
+                return fireRequest(stream, filter).eventually(safeClose(stream));
             }
         } catch (URISyntaxException e) {
             logger.error(e);
