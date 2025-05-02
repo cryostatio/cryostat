@@ -39,7 +39,8 @@ public class S3StorageResource
                     "REST_ENCRYPTION_ENABLE", "1",
                     "CRYOSTAT_ACCESS_KEY", "access_key",
                     "CRYOSTAT_SECRET_KEY", "secret_key",
-                    "CRYOSTAT_BUCKETS", "archivedrecordings,archivedreports,eventtemplates,probes");
+                    "CRYOSTAT_BUCKETS",
+                            "archivedrecordings,archivedreports,eventtemplates,probes,threaddumps");
     private static final Logger logger = Logger.getLogger(S3StorageResource.class);
     private Optional<String> containerNetworkId;
     private GenericContainer<?> container;
