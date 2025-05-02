@@ -40,6 +40,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -85,6 +86,7 @@ public class Diagnostics {
     Base64 base64Url;
 
     private static final String DUMP_THREADS = "threadPrint";
+    private static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
@@ -104,7 +106,10 @@ public class Diagnostics {
     @RolesAllowed("write")
     @Blocking
     @POST
-    public void threadDump(@RestPath long targetId) {
+    public void threadDump(@RestPath long targetId, @RestQuery String format) {
+        if (!(format.equals(DUMP_THREADS) || format.equals(DUMP_THREADS_TO_FIlE))) {
+            throw new BadRequestException();
+        }
         Object[] params = new Object[1];
         String[] signature = new String[] {String[].class.getName()};
         targetConnectionManager.executeConnectedTask(
@@ -113,7 +118,7 @@ public class Diagnostics {
                     String content =
                             conn.invokeMBeanOperation(
                                     DIAGNOSTIC_BEAN_NAME,
-                                    DUMP_THREADS,
+                                    format,
                                     params,
                                     signature,
                                     String.class);
