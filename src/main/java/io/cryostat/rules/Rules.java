@@ -19,6 +19,7 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
@@ -159,13 +160,47 @@ public class Rules {
             throw new NotFoundException("Rule with name " + name + " not found");
         }
 
-        boolean enabled = body.getBoolean("enabled");
-        // order matters here, we want to clean before we disable
-        if (clean && !enabled) {
-            bus.send(Rule.RULE_ADDRESS + "?clean", rule);
+        if (!Objects.equals(body.getString("name"), name)) {
+            throw new BadRequestException("Rule name cannot be updated");
         }
 
-        rule.enabled = enabled;
+        // order matters here, we want to clean before we disable
+        if (clean) {
+            bus.send(Rule.RULE_ADDRESS + "?clean", rule);
+        }
+        if (body.containsKey("enabled")) {
+            rule.enabled = body.getBoolean("enabled");
+        }
+        if (body.containsKey("matchExpression")) {
+            MatchExpression expr = new MatchExpression(body.getString("matchExpression"));
+            expr.persist();
+            rule.matchExpression = expr;
+        }
+        if (body.containsKey("description")) {
+            rule.description = body.getString("description");
+        }
+        if (body.containsKey("eventSpecifier")) {
+            rule.eventSpecifier = body.getString("eventSpecifier");
+        }
+        if (body.containsKey("archivalPeriodSeconds")) {
+            rule.archivalPeriodSeconds = body.getInteger("archivalPeriodSeconds");
+        }
+        if (body.containsKey("initialDelaySeconds")) {
+            rule.initialDelaySeconds = body.getInteger("initialDelaySeconds");
+        }
+        if (body.containsKey("preservedArchives")) {
+            rule.preservedArchives = body.getInteger("preservedArchives");
+        }
+        if (body.containsKey("maxAgeSeconds")) {
+            rule.maxAgeSeconds = body.getInteger("maxAgeSeconds");
+        }
+        if (body.containsKey("maxSizeBytes")) {
+            rule.maxSizeBytes = body.getInteger("maxSizeBytes");
+        }
+        if (body.containsKey("metadata")) {
+            rule.metadata = body.getJsonObject("metadata").mapTo(Metadata.class);
+        }
+
         rule.persist();
 
         return rule;
