@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -46,6 +47,8 @@ import io.fabric8.kubernetes.api.model.EndpointPort;
 import io.fabric8.kubernetes.api.model.EndpointSubset;
 import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.Namespace;
+import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectReference;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.client.KubernetesClient;
@@ -113,6 +116,9 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
     @ConfigProperty(name = "cryostat.discovery.kubernetes.resync-period")
     Duration informerResyncPeriod;
 
+    @ConfigProperty(name = "cryostat.discovery.kubernetes.force-resync.enabled")
+    boolean forceResyncEnabled;
+
     private final LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>> nsInformers =
             new LazyInitializer<HashMap<String, SharedIndexInformer<Endpoints>>>() {
                 @Override
@@ -166,18 +172,34 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
         logger.debugv("Starting {0} client", REALM);
         safeGetInformers();
-        // TODO we should not need to force manual re-syncs this way - the Informer is already
-        // supposed to resync itself.
-        if (!watchAllNamespaces()) {
+        if (forceResyncEnabled) {
+            // TODO we should not need to force manual re-syncs this way - the Informer is already
+            // supposed to resync itself. However, this has been observed to fail before and
+            // Watchers/Informers lose connection to the k8s API server and never regain it, so
+            // discovery gets stuck at that point in time until the Cryostat container is restarted.
+            // This resync keeps things running and limping along even if the Informer fails -
+            // updates will be delayed, but they will still happen.
+            Callable<Collection<String>> resyncNamespaces;
+            if (watchAllNamespaces()) {
+                resyncNamespaces =
+                        () ->
+                                client.namespaces().list().getItems().stream()
+                                        .map(Namespace::getMetadata)
+                                        .map(ObjectMeta::getName)
+                                        .toList();
+            } else {
+                resyncNamespaces =
+                        () ->
+                                kubeConfig.getWatchNamespaces().stream()
+                                        .filter(ns -> !ALL_NAMESPACES.equals(ns))
+                                        .toList();
+            }
             resyncWorker.scheduleAtFixedRate(
                     () -> {
                         try {
-                            logger.debug("Resyncing");
-                            notify(
-                                    NamespaceQueryEvent.from(
-                                            kubeConfig.getWatchNamespaces().stream()
-                                                    .filter(ns -> !ALL_NAMESPACES.equals(ns))
-                                                    .toList()));
+                            var namespaces = resyncNamespaces.call();
+                            logger.debugv("Resyncing namespaces: {}", namespaces);
+                            notify(NamespaceQueryEvent.from(namespaces));
                         } catch (Exception e) {
                             logger.warn(e);
                         }
