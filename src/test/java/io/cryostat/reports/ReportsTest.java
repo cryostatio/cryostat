@@ -18,6 +18,7 @@ package io.cryostat.reports;
 import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
@@ -85,6 +86,73 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                 .and()
                 .assertThat()
                 .statusCode(404);
+    }
+
+    @Test
+    void testGetTargetReport()
+            throws InterruptedException, IOException, DeploymentException, TimeoutException {
+        int targetId = defineSelfCustomTarget();
+        String archivedRecordingName = null;
+        try {
+            startSelfRecording("targetAnalysisReportRecording", TEMPLATE_CONTINUOUS);
+
+            String archiveJobId =
+                    given().log()
+                            .all()
+                            .when()
+                            .pathParams("targetId", targetId)
+                            .post("/api/v4.1/targets/{targetId}/reports")
+                            .then()
+                            .log()
+                            .all()
+                            .and()
+                            .assertThat()
+                            // 202 Indicates report generation is in progress and sends an
+                            // intermediate
+                            // response.
+                            .statusCode(202)
+                            .contentType(ContentType.TEXT)
+                            .body(Matchers.any(String.class))
+                            .assertThat()
+                            // Verify we get a location header from a 202.
+                            .header(
+                                    "Location",
+                                    String.format(
+                                            "http://localhost:8081/api/v4/targets/%d/reports",
+                                            targetId))
+                            .and()
+                            .extract()
+                            .body()
+                            .asString();
+
+            JsonObject archiveMessage =
+                    expectWebSocketNotification(
+                            "ArchiveRecordingSuccess",
+                            o ->
+                                    archiveJobId.equals(
+                                            o.getJsonObject("message").getString("jobId")));
+            archivedRecordingName = archiveMessage.getJsonObject("message").getString("recording");
+
+            expectWebSocketNotification(
+                    "ReportSuccess",
+                    o -> Objects.equals(selfJvmId, o.getJsonObject("message").getString("jvmId")));
+        } finally {
+            cleanupSelfRecording();
+
+            if (archivedRecordingName != null) {
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("connectUrl", SELF_JMX_URL, "filename", archivedRecordingName)
+                        .delete("/api/beta/recordings/{connectUrl}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(204);
+            }
+        }
     }
 
     @Test
