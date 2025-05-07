@@ -133,6 +133,10 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
                                         .inform(
                                                 KubeApiDiscovery.this,
                                                 informerResyncPeriod.toMillis()));
+                        logger.debugv(
+                                "Started Endpoints SharedInformer for all namespaces with resync"
+                                        + " period {0}",
+                                informerResyncPeriod);
                     } else {
                         kubeConfig
                                 .getWatchNamespaces()
