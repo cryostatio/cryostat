@@ -277,6 +277,8 @@ cleanup() {
     ${container_engine} volume rm templates || true
     ${container_engine} rm probes_helper || true
     ${container_engine} volume rm probes || true
+    ${container_engine} rm credentials_helper || true
+    ${container_engine} volume rm credentials || true
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
         kill -0 "${i}" && kill "${i}"

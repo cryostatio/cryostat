@@ -58,6 +58,9 @@ import org.jboss.resteasy.reactive.RestResponse;
 @Path("")
 public class Reports {
 
+    private static final String TARGET_ANALYSIS_LABEL_KEY = "source";
+    private static final String TARGET_ANALYSIS_LABEL_VALUE = "target-analysis";
+
     @ConfigProperty(name = ConfigProperties.REPORTS_STORAGE_CACHE_ENABLED)
     boolean storageCacheEnabled;
 
@@ -138,7 +141,11 @@ public class Reports {
                 (v) -> {
                     helper.createSnapshot(
                                     target,
-                                    Map.of(AnalysisReportAggregator.AUTOANALYZE_LABEL, "true"))
+                                    Map.of(
+                                            AnalysisReportAggregator.AUTOANALYZE_LABEL,
+                                            "true",
+                                            TARGET_ANALYSIS_LABEL_KEY,
+                                            TARGET_ANALYSIS_LABEL_VALUE))
                             .subscribe()
                             .with(
                                     recording -> {
