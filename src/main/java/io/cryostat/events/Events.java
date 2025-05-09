@@ -30,6 +30,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
@@ -43,6 +44,15 @@ public class Events {
     @GET
     @Path("/api/v4/targets/{id}/events")
     @RolesAllowed("read")
+    @Operation(
+            summary = "List JFR event types registered within the given target",
+            description =
+                    """
+                    Retrieve a list of JFR event types registered within the given target. This will include all
+                    built-in JFR types emitted by the target JVM, as well as custom event types specific to that
+                    target JVM if they are correctly registered. Custom event types, or event types emitted by plugins
+                    and extensions, may not always appear in this list.
+                    """)
     public List<SerializableEventTypeInfo> listEvents(@RestPath long id, @RestQuery String q)
             throws Exception {
         return searchEvents(Target.find("id", id).singleResult(), q);
