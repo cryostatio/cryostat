@@ -1143,9 +1143,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve the entire discovery tree.
       tags:
         - Discovery
     post:
+      description: |
+        Register a new discovery plugin, or refresh an existing plugin's registration and generate a new
+        token. New registrations require the realm and callback fields. Registration refreshers
+        additionally require the id and token fields, which are supplied in the response to the original
+        registration.
       requestBody:
         content:
           application/json:
@@ -1164,10 +1170,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Register as a new discovery plugin or refresh existing registration
       tags:
         - Discovery
   /api/v4/discovery/{id}:
     delete:
+      description: |
+        Delete the plugin's registration along with its discovery Realm node and all of its children. This
+        is used when a discovery plugin is shutting down.
       parameters:
         - in: path
           name: id
@@ -1181,9 +1191,13 @@ paths:
       responses:
         "204":
           description: No Content
+      summary: Delete the given plugin's registration
       tags:
         - Discovery
     get:
+      description: |
+        Endpoint for discovery plugins to check their own current registration status, ie. whether their
+        registration ID is still known and their current token is still valid.
       parameters:
         - in: path
           name: id
@@ -1203,9 +1217,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Endpoint for discovery plugins to check their own registration status
       tags:
         - Discovery
     post:
+      description: |
+        Using its plugin ID and current token, a discovery plugin uses this endpoint to publish a JSON
+        request body containing a list of discovery nodes. The discovery plugin itself is a Realm node in
+        the overall discovery tree, so the published list of nodes here will replace the plugin Realm
+        node's list of children.
       parameters:
         - in: path
           name: id
@@ -1226,10 +1246,13 @@ paths:
       responses:
         "201":
           description: Created
+      summary: Publish updated target discovery information
       tags:
         - Discovery
   /api/v4/discovery_plugins:
     get:
+      description: |
+        Retrieve a list of currently registered discovery plugins only, not including their subtrees.
       parameters:
         - in: query
           name: realm
@@ -1250,10 +1273,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List currently registered discovery plugins
       tags:
         - Discovery
   /api/v4/discovery_plugins/{id}:
     get:
+      description: |
+        Retrieve information about a specific discovery plugin, including its discovery Realm node and
+        subtree.
       parameters:
         - in: path
           name: id
@@ -1273,6 +1300,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve a specific discovery plugin
       tags:
         - Discovery
   /api/v4/download/{encodedKey}:
@@ -1886,6 +1914,11 @@ paths:
       tags:
         - Targets
     post:
+      description: |
+        Create a target definition given a JSON request body target stub. The target stub must contain the
+        connectUrl and alias, and optionally contain a username and password to create a Stored Credential
+        associated with this target. The dryrun parameter can be used to perform this operation as a check,
+        to verify if such a target could be created (no connectUrl conflict and acceptable credentials).
       parameters:
         - in: query
           name: dryrun
@@ -1939,10 +1972,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Create a target definition
       tags:
         - Custom Discovery
   /api/v4/targets/{id}:
     delete:
+      description: |
+        Delete the specified target by ID. Only allows deletion of targets that were defined by the same
+        Custom Target discovery API. Other targets must be removed by the discovery mechanisms which
+        discovered them.
       parameters:
         - in: path
           name: id
@@ -1959,6 +1997,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete the specified target
       tags:
         - Custom Discovery
     get:
@@ -2497,3 +2536,10 @@ paths:
       summary: Check if the application is able to accept and respond to requests.
       tags:
         - Health
+tags:
+  - description: |
+      Endpoints for Discovery Plugins to register with a Cryostat instance, refresh their registration
+      token, publish information about known targets, and unregister themselves.
+
+      The reference implementation of a Discovery Plugin is the Cryostat Agent.
+    name: Discovery
