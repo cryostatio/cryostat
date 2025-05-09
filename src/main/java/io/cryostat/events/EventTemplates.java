@@ -41,6 +41,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -69,6 +70,14 @@ public class EventTemplates {
     @GET
     @Blocking
     @RolesAllowed("read")
+    @Operation(
+            summary = "List server event templates",
+            description =
+                    """
+                    Retrieve a list of templates available on this Cryostat server. These templates can be applied to
+                    recordings started on any discovered target, but any event configurations within the template which
+                    reference events that do not exist on the target will be ignored.
+                    """)
     public List<Template> listTemplates() throws Exception {
         var list = new ArrayList<Template>();
         list.add(ALL_EVENTS_TEMPLATE);
@@ -81,6 +90,7 @@ public class EventTemplates {
     @Path("/{templateType}")
     @Blocking
     @RolesAllowed("read")
+    @Operation(summary = "List server event templates of the given type")
     public List<Template> getTemplates(@RestPath String templateType)
             throws IOException, FlightRecorderException {
         TemplateType tt = TemplateType.valueOf(templateType);
@@ -99,6 +109,13 @@ public class EventTemplates {
     @Blocking
     @RolesAllowed("read")
     @Produces(MediaType.APPLICATION_XML)
+    @Operation(
+            summary = "Get a specific event template",
+            description =
+                    """
+                    Get the .jfc (XML) file definition for the given server event template. This is the same type of
+                    event configuration file that ships with OpenJDK distributions.
+                    """)
     public String getTemplate(@RestPath String templateType, @RestPath String templateName)
             throws IOException, FlightRecorderException {
         TemplateType tt = TemplateType.valueOf(templateType);
@@ -118,6 +135,12 @@ public class EventTemplates {
 
     @POST
     @RolesAllowed("write")
+    @Operation(
+            summary = "Upload a custom event template",
+            description =
+                    """
+                    Upload a new custom event template to the server. This must be in OpenJDK .jfc (XML) format.
+                    """)
     public RestResponse<Template> postTemplates(
             @Context UriInfo uriInfo, @RestForm("template") FileUpload body) throws IOException {
         if (body == null || body.filePath() == null || !"template".equals(body.name())) {
@@ -138,6 +161,13 @@ public class EventTemplates {
     @Blocking
     @Path("/{templateName}")
     @RolesAllowed("write")
+    @Operation(
+            summary = "Delete a custom event template",
+            description =
+                    """
+                    Delete a custom event template from the server. Only previously uploaded custom event templates can
+                    be deleted.
+                    """)
     public void deleteTemplate(@RestPath String templateName) throws FlightRecorderException {
         if (StringUtils.isBlank(templateName)) {
             throw new BadRequestException();

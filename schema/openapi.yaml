@@ -1331,6 +1331,10 @@ paths:
         - Archived Recordings
   /api/v4/event_templates:
     get:
+      description: |
+        Retrieve a list of templates available on this Cryostat server. These templates can be applied to
+        recordings started on any discovered target, but any event configurations within the template which
+        reference events that do not exist on the target will be ignored.
       responses:
         "200":
           content:
@@ -1346,9 +1350,12 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List server event templates
       tags:
         - Event Templates
     post:
+      description: |
+        Upload a new custom event template to the server. This must be in OpenJDK .jfc (XML) format.
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -1370,10 +1377,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Upload a custom event template
       tags:
         - Event Templates
   /api/v4/event_templates/{templateName}:
     delete:
+      description: |
+        Delete a custom event template from the server. Only previously uploaded custom event templates can
+        be deleted.
       parameters:
         - in: path
           name: templateName
@@ -1389,6 +1400,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete a custom event template
       tags:
         - Event Templates
   /api/v4/event_templates/{templateType}:
@@ -1414,10 +1426,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List server event templates of the given type
       tags:
         - Event Templates
   /api/v4/event_templates/{templateType}/{templateName}:
     get:
+      description: |
+        Get the .jfc (XML) file definition for the given server event template. This is the same type of
+        event configuration file that ships with OpenJDK distributions.
       parameters:
         - in: path
           name: templateName
@@ -1442,6 +1458,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get a specific event template
       tags:
         - Event Templates
   /api/v4/grafana/{encodedKey}:
@@ -2025,6 +2042,10 @@ paths:
         - Targets
   /api/v4/targets/{id}/event_templates:
     get:
+      description: |
+        Retrieve a list of event templates available on the given target when starting recordings on the
+        same target. This includes all of the server's available templates, plus the templates available
+        specifically from the target (ex. within /usr/lib/jvm/java/lib/jfr).
       parameters:
         - in: path
           name: id
@@ -2047,10 +2068,13 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve a list of event templates available on the given target
       tags:
         - Target Event Templates
   /api/v4/targets/{id}/event_templates/{templateType}/{templateName}:
     get:
+      description: |
+        Get the .jfc (XML) file definition for the given target event template.
       parameters:
         - in: path
           name: id
@@ -2081,10 +2105,16 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get a specific event template
       tags:
         - Target Event Templates
   /api/v4/targets/{id}/events:
     get:
+      description: |
+        Retrieve a list of JFR event types registered within the given target. This will include all
+        built-in JFR types emitted by the target JVM, as well as custom event types specific to that
+        target JVM if they are correctly registered. Custom event types, or event types emitted by plugins
+        and extensions, may not always appear in this list.
       parameters:
         - in: path
           name: id
@@ -2111,6 +2141,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List JFR event types registered within the given target
       tags:
         - Events
   /api/v4/targets/{id}/probes:
