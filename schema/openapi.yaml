@@ -984,6 +984,10 @@ paths:
         - Auth
   /api/v4/credentials:
     get:
+      description: |
+        Returns a list of match results. A match result includes the Stored Credential's ID,
+        its Match Expression, and a list of currently discovered Targets which match that expression
+        and are therefore candidates for Cryostat to select this Credential.
       responses:
         "200":
           content:
@@ -999,9 +1003,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List information about all of the available Stored Credentials.
       tags:
         - Credentials
     post:
+      description: |
+        Define a new Stored Credential. Requires a match expression which defines which targets require
+        this credential, and the username and password to use to pass authentication checks on those
+        targets. Stored Credentials are stored in an encrypted keyring using symmetric encryption and an
+        encryption key configured on the Cryostat database.
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -1027,6 +1037,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Define a new Stored Credential
       tags:
         - Credentials
   /api/v4/credentials/test/{targetId}:
@@ -1061,6 +1072,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Test if the supplied username/password are valid credentials for the specified target.
       tags:
         - Credentials
   /api/v4/credentials/{id}:
@@ -1081,9 +1093,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete a Stored Credential
       tags:
         - Credentials
     get:
+      description: |
+        Get match result information about a specific Stored Credential. A match result includes the Stored
+        Credential's ID, its Match Expression, and a list of currently discovered Targets which match that
+        expression and are therefore candidates for Cryostat to select this Credential.
       parameters:
         - in: path
           name: id
@@ -1104,6 +1121,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get information about a Stored Credential
       tags:
         - Credentials
   /api/v4/discovery:
