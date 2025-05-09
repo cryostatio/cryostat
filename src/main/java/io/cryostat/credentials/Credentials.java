@@ -69,7 +69,9 @@ public class Credentials {
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
+        logger.trace("Walking Credentials dir: " + dir.toString());
         if (!checkDir()) {
+            logger.warn("Failed to find credentials dir: " + dir.toString());
             return;
         }
         try {
@@ -90,8 +92,10 @@ public class Credentials {
     }
 
     private void createFromFile(java.nio.file.Path path) {
+        logger.trace("Creating credential from path: " + path.toString());
         try (var is = new BufferedInputStream(Files.newInputStream(path))) {
             var credential = mapper.readValue(is, Credential.class);
+            credential.matchExpression.persist();
             Map<String, Object> params = new HashMap<String, Object>();
             params.put("username", credential.username);
             params.put("password", credential.password);
@@ -105,6 +109,7 @@ public class Credentials {
                                     .count()
                             != 0;
             if (exists) {
+                logger.trace("Credential exists");
                 return;
             }
             credential.persist();
