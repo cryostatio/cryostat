@@ -55,6 +55,12 @@ import org.eclipse.microprofile.rest.client.ext.ClientHeadersFactory;
 import org.hibernate.annotations.GenericGenerator;
 import org.jboss.logging.Logger;
 
+/**
+ * DiscoveryPlugin instances track registrations of discovery plugins. The reference implementation
+ * for a discovery plugin is the Cryostat Agent. Plugins communicate with Cryostat via the {@link
+ * io.cryostat.discovery.Discovery} API endpoints. Registration through that API generates a
+ * DiscoveryPlugin record to place that plugin into the discovery tree.
+ */
 @Entity
 @EntityListeners(DiscoveryPlugin.Listener.class)
 public class DiscoveryPlugin extends PanacheEntityBase {
