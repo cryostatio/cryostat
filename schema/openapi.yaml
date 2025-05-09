@@ -683,6 +683,9 @@ openapi: 3.0.3
 paths:
   /api/beta/diagnostics/targets/{targetId}/gc:
     post:
+      description: |
+        Request the remote target to perform a garbage collection. The target JVM is free to ignore this
+        request. This is generally equivalent to a System.gc() call made within the target JVM.
       parameters:
         - in: path
           name: targetId
@@ -699,6 +702,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Initiate a garbage collection on the specified target
       tags:
         - Diagnostics
   /api/beta/fs/recordings:
