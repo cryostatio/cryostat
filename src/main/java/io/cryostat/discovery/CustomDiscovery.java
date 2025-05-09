@@ -34,6 +34,7 @@ import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -82,24 +83,10 @@ public class CustomDiscovery {
     @RolesAllowed("write")
     public RestResponse<Target> create(
             @Context UriInfo uriInfo,
-            Target target,
+            TargetStub target,
             @RestQuery boolean dryrun,
             @RestQuery boolean storeCredentials) {
-        try {
-            if (!uriUtil.validateUri(target.connectUrl)) {
-                throw new BadRequestException(
-                        String.format(
-                                "The provided URI \"%s\" is unacceptable with the"
-                                        + " current URI range settings.",
-                                target.connectUrl));
-            }
-            // Continue with target creation if URI is valid...
-        } catch (Exception e) {
-            logger.error("Target validation failed", e);
-            throw new BadRequestException("Target validation failed", e);
-        }
-        // TODO handle credentials embedded in JSON body
-        return doCreate(uriInfo, target, Optional.empty(), dryrun, storeCredentials);
+        return doCreate(uriInfo, target, dryrun, storeCredentials);
     }
 
     @Transactional
@@ -115,30 +102,19 @@ public class CustomDiscovery {
             @RestForm String password,
             @RestQuery boolean dryrun,
             @RestQuery boolean storeCredentials) {
-        var target = new Target();
-        target.connectUrl = connectUrl;
-        target.alias = alias;
-
-        Credential credential = null;
-        if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
-            credential = new Credential();
-            credential.matchExpression =
-                    new MatchExpression(
-                            String.format("target.connectUrl == \"%s\"", connectUrl.toString()));
-            credential.username = username;
-            credential.password = password;
-        }
-
-        return doCreate(uriInfo, target, Optional.ofNullable(credential), dryrun, storeCredentials);
+        return doCreate(
+                uriInfo,
+                new TargetStub(connectUrl, alias, username, password),
+                dryrun,
+                storeCredentials);
     }
 
+    @SuppressFBWarnings(value = "DLS_DEAD_LOCAL_STORE")
     RestResponse<Target> doCreate(
-            UriInfo uriInfo,
-            Target target,
-            Optional<Credential> credential,
-            boolean dryrun,
-            boolean storeCredentials) {
+            UriInfo uriInfo, TargetStub targetStub, boolean dryrun, boolean storeCredentials) {
         try {
+            var target = targetStub.asTarget();
+            var credential = targetStub.getCredential();
             target.connectUrl = sanitizeConnectUrl(target.connectUrl.toString());
             if (!uriUtil.validateUri(target.connectUrl)) {
                 throw new BadRequestException(
@@ -221,7 +197,10 @@ public class CustomDiscovery {
     public void delete(@RestPath long id) throws URISyntaxException {
         Target target = Target.find("id", id).singleResult();
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
-        realm.children.remove(target.discoveryNode);
+        boolean withinRealm = realm.children.remove(target.discoveryNode);
+        if (!withinRealm) {
+            throw new BadRequestException();
+        }
         target.discoveryNode.parent = null;
         realm.persist();
         target.delete();
@@ -244,5 +223,28 @@ public class CustomDiscovery {
         }
 
         return out;
+    }
+
+    record TargetStub(URI connectUrl, String alias, String username, String password) {
+        Target asTarget() {
+            var t = new Target();
+            t.alias = alias;
+            t.connectUrl = connectUrl;
+            return t;
+        }
+
+        Optional<Credential> getCredential() {
+            Credential credential = null;
+            if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
+                credential = new Credential();
+                credential.matchExpression =
+                        new MatchExpression(
+                                String.format(
+                                        "target.connectUrl == \"%s\"", connectUrl.toString()));
+                credential.username = username;
+                credential.password = password;
+            }
+            return Optional.ofNullable(credential);
+        }
     }
 }
