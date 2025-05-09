@@ -598,6 +598,23 @@ components:
         - labels
         - annotations
       type: object
+    TargetStub:
+      properties:
+        alias:
+          type: string
+        connectUrl:
+          format: uri
+          type: string
+        credential:
+          allOf:
+            - $ref: '#/components/schemas/Credential'
+          nullable: true
+          type: object
+        password:
+          type: string
+        username:
+          type: string
+      type: object
     Target_Flat:
       properties:
         agent:
@@ -1850,7 +1867,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Target'
+              $ref: '#/components/schemas/TargetStub'
           application/x-www-form-urlencoded:
             schema:
               properties:
