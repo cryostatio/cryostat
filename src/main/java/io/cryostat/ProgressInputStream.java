@@ -20,6 +20,10 @@ import java.util.function.Consumer;
 
 import org.apache.commons.io.input.ProxyInputStream;
 
+/**
+ * An InputStream which informs a provided {@link java.util.function.Consumer} about the number of
+ * bytes read each time a chunk is read from this stream.
+ */
 public class ProgressInputStream extends ProxyInputStream {
 
     private final Consumer<Integer> onUpdate;

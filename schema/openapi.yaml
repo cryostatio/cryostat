@@ -1424,6 +1424,10 @@ paths:
         - Archived Recordings
   /api/v4/grafana_dashboard_url:
     get:
+      description: |
+        Returns the URL for the associated Grafana dashboard instance. If there is an internally-accessible
+        (for Cryostat) URL and an externally-accessible URL (for users) URL, the externally-accessible URL
+        is preferred. If neither are configured then the response is an HTTP 400 Bad Request.
       responses:
         "200":
           content:
@@ -1431,10 +1435,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/DashboardUrl'
           description: OK
+      summary: Return the URL which users can visit to access the associated Grafana dashboard instance.
       tags:
         - Health
   /api/v4/grafana_datasource_url:
     get:
+      description: |
+        Returns the URL for the jfr-datasource instance which Cryostat is configured to use. This datasource
+        accepts JFR file uploads from Cryostat and allows the Grafana dashboard to perform queries on the
+        data within the recording file.
       responses:
         "200":
           content:
@@ -1442,6 +1451,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DatasourceUrl'
           description: OK
+      summary: Return the URL to the associated jfr-datasource instance.
       tags:
         - Health
   /api/v4/logout:
@@ -2437,6 +2447,11 @@ paths:
         - Trust Store
   /health:
     get:
+      description: |
+        Returns a map indicating whether various external components (ex.
+            jfr-datasource, grafana-dashboard) are configured and whether those
+            components can be reached by the Cryostat application. Also includes
+            application semantic version and build information.
       responses:
         "200":
           content:
@@ -2444,12 +2459,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApplicationHealth'
           description: OK
+      summary: Check the overall status of the application
       tags:
         - Health
   /health/liveness:
     get:
+      description: |
+        Performs a no-op on a worker thread. This is a simply check to determine if
+        the application has available threads to service requests. HTTP 204 No Content
+        is the only expected response. If the application is not live and no worker
+        threads are available, then the client will never receive a response.
       responses:
         "204":
           description: No Content
+      summary: Check if the application is able to accept and respond to requests.
       tags:
         - Health

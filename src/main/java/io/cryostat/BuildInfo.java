@@ -25,6 +25,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
+/** Describes the current build of the application. Contains information about the VCS commit. */
 @ApplicationScoped
 public class BuildInfo {
 
