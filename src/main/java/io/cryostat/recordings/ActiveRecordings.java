@@ -55,6 +55,8 @@ import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -77,6 +79,13 @@ public class ActiveRecordings {
     @Blocking
     @Transactional
     @RolesAllowed("read")
+    @Operation(
+            summary = "List active recordings on the specified target",
+            description =
+                    """
+                    Retrieve a list of active recordings currently present on the specified target. This may initiate
+                    a new remote connection to the target to update Cryostat's model of available recordings.
+                    """)
     public List<LinkedRecordingDescriptor> list(@RestPath long targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         return recordingHelper.listActiveRecordings(target).stream()
@@ -88,6 +97,15 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}")
     @RolesAllowed("read")
+    @Operation(
+            summary = "Download a Flight Recording binary file",
+            description =
+                    """
+                    Given a recording ID and a remote recording ID within that target, Cryostat will open a remote
+                    connection to the target and pipe back a data stream containing the Flight Recording binary file
+                    format for that recording. The client can feed this data to other tooling which ingests the JFR
+                    binary file format.
+                    """)
     public RestResponse<InputStream> download(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
         Target target = Target.find("id", targetId).singleResult();
@@ -106,6 +124,13 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}")
     @RolesAllowed("write")
+    @Operation(
+            summary = "Update a remote recording on the specified target",
+            description =
+                    """
+                    Remote recordings can be stopped by sending the request body "stop", or copied to archives by
+                    sending the request body "save". The body is case-insensitive.
+                    """)
     public String patch(
             HttpServerResponse response,
             @RestPath long targetId,
@@ -121,7 +146,7 @@ public class ActiveRecordings {
             throw new NotFoundException();
         }
         ActiveRecording activeRecording = recording.get();
-        switch (body.toLowerCase()) {
+        switch (body.strip().toLowerCase()) {
             case "stop":
                 recordingHelper
                         .stopRecording(activeRecording)
@@ -148,15 +173,29 @@ public class ActiveRecordings {
     @Transactional
     @Blocking
     @RolesAllowed("write")
+    @Operation(
+            summary = "Start a new recording on the specified target",
+            description =
+                    """
+                    Create a new Flight Recording on the specified target. The recording will be immediately started
+                    and begin capturing Flight Recording data.
+                    The recording must be given a name (unique within the
+                    target). An event specifier string must be included, which follows the format
+                    "template={name},(type={type})". The type parameter is optional and the template name is required.
+                    See the Event Templates API for more information about the values that can be used here.
+                    """)
     public RestResponse<LinkedRecordingDescriptor> create(
             @Context UriInfo uriInfo,
             @RestPath long targetId,
-            @RestForm String recordingName,
-            @RestForm String events,
+            @Parameter(required = true, description = "must be unique within the target") @RestForm
+                    String recordingName,
+            @Parameter(required = true, description = "ex. template=Profiling,type=TARGET")
+                    @RestForm
+                    String events,
             @RestForm Optional<String> replace,
             // restart param is deprecated, only 'replace' should be used and takes priority if both
             // are provided
-            @Deprecated @RestForm Optional<Boolean> restart,
+            @Parameter(deprecated = true) @Deprecated @RestForm Optional<Boolean> restart,
             @RestForm Optional<Long> duration,
             @RestForm Optional<Boolean> toDisk,
             @RestForm Optional<Long> maxAge,
@@ -215,6 +254,13 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}")
     @RolesAllowed("write")
+    @Operation(
+            summary = "Delete a recording from the specified target",
+            description =
+                    """
+                    Delete a recording from the specified target. This will remove it both from Cryostat's database
+                    as well as remove the recording and release all resources in the remote target JVM.
+                    """)
     public void delete(@RestPath long targetId, @RestPath long remoteId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         var recording = target.getRecordingById(remoteId);
@@ -228,6 +274,13 @@ public class ActiveRecordings {
     @Blocking
     @Path("/{remoteId}/upload")
     @RolesAllowed("write")
+    @Operation(
+            summary = "Upload a recording for analysis in Grafana dashboard",
+            description =
+                    """
+                    Upload the current data stream of the specified recording to the jfr-datasource for online analysis
+                    in the associated Grafana dashboard.
+                    """)
     public String uploadToGrafana(
             HttpServerResponse response, @RestPath long targetId, @RestPath long remoteId)
             throws Exception {

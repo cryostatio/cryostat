@@ -31,6 +31,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
 import org.apache.commons.codec.binary.Base64;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -52,6 +53,15 @@ public class ActiveRecordingsDownload {
     @GET
     @Blocking
     @RolesAllowed("read")
+    @Operation(
+            summary = "Download a Flight Recording binary file",
+            description =
+                    """
+                    Given a recording ID and a remote recording ID within that target, Cryostat will open a remote
+                    connection to the target and pipe back a data stream containing the Flight Recording binary file
+                    format for that recording. The client can feed this data to other tooling which ingests the JFR
+                    binary file format.
+                    """)
     public RestResponse<InputStream> handleActiveDownload(@RestPath long id) throws Exception {
         ActiveRecording recording = ActiveRecording.find("id", id).singleResult();
         return ResponseBuilder.<InputStream>ok()
