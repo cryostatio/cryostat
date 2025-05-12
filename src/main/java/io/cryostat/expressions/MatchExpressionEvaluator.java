@@ -233,7 +233,7 @@ public class MatchExpressionEvaluator {
     public static class ScriptCreation extends Event {}
 
     /**
-     * Restricted view of a {@link io.cryostat.targets.Target} with only particular
+     * Restricted read-only view of a {@link io.cryostat.targets.Target} with only particular
      * expression-relevant fields exposed, connection URI exposed as a String, etc.
      */
     private static record SimplifiedTarget(
