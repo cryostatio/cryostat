@@ -1619,9 +1619,15 @@ paths:
                   $ref: '#/components/schemas/ProbeTemplateResponse'
                 type: array
           description: OK
+      summary: List defined probe templates
       tags:
         - JMC Agent Templates
     post:
+      description: |2
+            Create a probe template. This requires a probe template file upload in XML format. See
+            https://github.com/openjdk/jmc/blob/master/agent/README.md and
+            https://github.com/openjdk/jmc/blob/master/agent/src/main/resources/org/openjdk/jmc/agent/impl/jfrprobes_schema.xsd
+            for more information about this file format.
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -1639,6 +1645,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProbeTemplate'
           description: OK
+      summary: Create a probe template
       tags:
         - JMC Agent Templates
   /api/v4/probes/{probeTemplateName}:
@@ -1652,6 +1659,7 @@ paths:
       responses:
         "204":
           description: No Content
+      summary: Delete the specified probe template
       tags:
         - JMC Agent Templates
   /api/v4/recordings:
@@ -2168,6 +2176,7 @@ paths:
       responses:
         "204":
           description: No Content
+      summary: Remove all loaded probes from the specified target
       tags:
         - JMC Agent Probes
     get:
@@ -2187,10 +2196,13 @@ paths:
                   $ref: '#/components/schemas/ProbeResponse'
                 type: array
           description: OK
+      summary: List loaded probes on the specified target
       tags:
         - JMC Agent Probes
   /api/v4/targets/{id}/probes/{probeTemplateName}:
     post:
+      description: |
+        Activate a probe template (specified by template name) on the specified target (specified by ID).
       parameters:
         - in: path
           name: id
@@ -2206,6 +2218,7 @@ paths:
       responses:
         "201":
           description: Created
+      summary: Activate a probe template on the specified target
       tags:
         - JMC Agent Probes
   /api/v4/targets/{targetId}/recordingOptions:
