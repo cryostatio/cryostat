@@ -722,6 +722,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List all archived recordings grouped by target
       tags:
         - Archived Recordings
   /api/beta/fs/recordings/{jvmId}:
@@ -747,6 +748,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List all archived recordings belonging to the specified target
       tags:
         - Archived Recordings
   /api/beta/fs/recordings/{jvmId}/{filename}:
@@ -771,12 +773,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete an archived recording by name belonging to the specified target
       tags:
         - Archived Recordings
   /api/beta/recordings/{connectUrl}/{filename}:
     delete:
       parameters:
-        - in: path
+        - description: the connection URL associated with the target
+          in: path
           name: connectUrl
           required: true
           schema:
@@ -795,6 +799,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete an archived recording belonging to the specified target
       tags:
         - Archived Recordings
   /api/beta/recordings/{jvmId}:
@@ -820,9 +825,13 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List archived recordings belonging to the specified target
       tags:
         - Archived Recordings
     post:
+      description: |
+        Upload a JFR binary file into the archives, associating the archived recording with a particular
+        target JVM. This is primarily used by the Cryostat Agent for pushing harvested recording files.
       parameters:
         - in: path
           name: jvmId
@@ -851,6 +860,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Upload a JFR binary file to archives, associated with a particular target
       tags:
         - Archived Recordings
   /api/v4.1/metrics/reports:
@@ -952,6 +962,11 @@ paths:
         - Reports
   /api/v4/activedownload/{id}:
     get:
+      description: |
+        Given a recording ID and a remote recording ID within that target, Cryostat will open a remote
+        connection to the target and pipe back a data stream containing the Flight Recording binary file
+        format for that recording. The client can feed this data to other tooling which ingests the JFR
+        binary file format.
       parameters:
         - in: path
           name: id
@@ -973,6 +988,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Download a Flight Recording binary file
       tags:
         - Active Recordings Download
   /api/v4/auth:
@@ -1305,6 +1321,9 @@ paths:
         - Discovery
   /api/v4/download/{encodedKey}:
     get:
+      description: |
+        Get a download URL for an archived recording. The response will be an HTTP redirect with a Location
+        header pointing to the location where the client can download the recording JFR binary file.
       parameters:
         - in: path
           name: encodedKey
@@ -1327,6 +1346,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get a download URL for an archived recording
       tags:
         - Archived Recordings
   /api/v4/event_templates:
@@ -1463,6 +1483,9 @@ paths:
         - Event Templates
   /api/v4/grafana/{encodedKey}:
     post:
+      description: |
+        Upload an archived recording to the jfr-datasource for later online analysis in the associated
+        Grafana dashboard.
       parameters:
         - in: path
           name: encodedKey
@@ -1487,6 +1510,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Upload an archived recording to Grafana for online analysis
       tags:
         - Archived Recordings
   /api/v4/grafana_dashboard_url:
@@ -1664,6 +1688,8 @@ paths:
         - JMC Agent Templates
   /api/v4/recordings:
     get:
+      description: |
+        List all archived recordings from all targets, including (re-)uploaded files.
       responses:
         "200":
           content:
@@ -1679,9 +1705,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List all archived recordings
       tags:
         - Archived Recordings
     post:
+      description: |
+        (Re-)upload a JFR binary file into the archives. This allows for the restoration of archived files
+        after they have been otherwise removed, or for portability across Cryostat instances or between
+        Cryostat version upgrades. This can also be used to upload JFR files which were not collected by
+        Cryostat, so that Cryostat can be used to perform online analysis of the file.
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -1706,10 +1738,12 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Upload a JFR binary file to archives
       tags:
         - Archived Recordings
   /api/v4/recordings/{filename}:
     delete:
+      deprecated: true
       parameters:
         - in: path
           name: filename
@@ -1725,6 +1759,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete an archived recording by filename
       tags:
         - Archived Recordings
   /api/v4/reports/{encodedKey}:
@@ -2223,6 +2258,8 @@ paths:
         - JMC Agent Probes
   /api/v4/targets/{targetId}/recordingOptions:
     get:
+      description: |
+        Retrieve a map of the current options for the specified target.
       parameters:
         - in: path
           name: targetId
@@ -2244,9 +2281,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get the current set of options for the specified target
       tags:
         - Recording Options
     patch:
+      description: |
+        Set default recording options for the specified target. These options will be applied to any
+        recordings started on this target if no override values are specified when the recording is
+        created.
       parameters:
         - in: path
           name: targetId
@@ -2280,10 +2322,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Update the recording options for the specified target
       tags:
         - Recording Options
   /api/v4/targets/{targetId}/recordings:
     get:
+      description: |
+        Retrieve a list of active recordings currently present on the specified target. This may initiate
+        a new remote connection to the target to update Cryostat's model of available recordings.
       parameters:
         - in: path
           name: targetId
@@ -2306,9 +2352,17 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List active recordings on the specified target
       tags:
         - Active Recordings
     post:
+      description: |
+        Create a new Flight Recording on the specified target. The recording will be immediately started
+        and begin capturing Flight Recording data.
+        The recording must be given a name (unique within the
+        target). An event specifier string must be included, which follows the format
+        "template={name},(type={type})". The type parameter is optional and the template name is required.
+        See the Event Templates API for more information about the values that can be used here.
       parameters:
         - in: path
           name: targetId
@@ -2367,10 +2421,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Start a new recording on the specified target
       tags:
         - Active Recordings
   /api/v4/targets/{targetId}/recordings/{remoteId}:
     delete:
+      description: |
+        Delete a recording from the specified target. This will remove it both from Cryostat's database
+        as well as remove the recording and release all resources in the remote target JVM.
       parameters:
         - in: path
           name: remoteId
@@ -2393,9 +2451,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete a recording from the specified target
       tags:
         - Active Recordings
     get:
+      description: |
+        Given a recording ID and a remote recording ID within that target, Cryostat will open a remote
+        connection to the target and pipe back a data stream containing the Flight Recording binary file
+        format for that recording. The client can feed this data to other tooling which ingests the JFR
+        binary file format.
       parameters:
         - in: path
           name: remoteId
@@ -2423,9 +2487,13 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Download a Flight Recording binary file
       tags:
         - Active Recordings
     patch:
+      description: |
+        Remote recordings can be stopped by sending the request body "stop", or copied to archives by
+        sending the request body "save". The body is case-insensitive.
       parameters:
         - in: path
           name: remoteId
@@ -2457,10 +2525,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Update a remote recording on the specified target
       tags:
         - Active Recordings
   /api/v4/targets/{targetId}/recordings/{remoteId}/upload:
     post:
+      description: |
+        Upload the current data stream of the specified recording to the jfr-datasource for online analysis
+        in the associated Grafana dashboard.
       parameters:
         - in: path
           name: remoteId
@@ -2492,6 +2564,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Upload a recording for analysis in Grafana dashboard
       tags:
         - Active Recordings
   /api/v4/targets/{targetId}/reports/{recordingId}:
@@ -2547,6 +2620,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Create a JFR Snapshot on the specified target
       tags:
         - Snapshots
   /api/v4/tls/certs:
