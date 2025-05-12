@@ -1533,6 +1533,10 @@ paths:
         - Auth
   /api/v4/matchExpressions:
     get:
+      description: |
+        Retrieve a list of all currently defined Match Expressions. These objects cannot be created
+        independently in the current API definition, so each of these expressions will be associated with
+        an Automated Rule or Stored Credential.
       responses:
         "200":
           content:
@@ -1549,9 +1553,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve a list of all currently defined Match Expressions
       tags:
         - Match Expressions
     post:
+      description: |
+        Given a list of Target IDs, retrieve each Target instance from the database, then return the list
+        filtered by the Targets which satisfy the Match Expression. If a given ID does not exist in the
+        database then the whole request will fail. The expression must evaluate to a boolean value for each
+        target. The match expression will not be stored.
       requestBody:
         content:
           application/json:
@@ -1570,6 +1580,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Test a MatchExpression against a list of Targets
       tags:
         - Match Expressions
   /api/v4/matchExpressions/{id}:
@@ -1594,6 +1605,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve a single Match Expression
       tags:
         - Match Expressions
   /api/v4/probes:
