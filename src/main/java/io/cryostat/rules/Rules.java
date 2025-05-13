@@ -48,6 +48,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -113,6 +114,7 @@ public class Rules {
 
     @GET
     @RolesAllowed("read")
+    @Operation(summary = "List all Automated Rules")
     public List<Rule> list() {
         return Rule.listAll();
     }
@@ -120,6 +122,7 @@ public class Rules {
     @GET
     @RolesAllowed("read")
     @Path("/{name}")
+    @Operation(summary = "Get an Automated Rule by name")
     public Rule get(@RestPath String name) {
         return Rule.getByName(name);
     }
@@ -128,6 +131,7 @@ public class Rules {
     @POST
     @RolesAllowed("write")
     @Consumes(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Create a new Automated Rule")
     public RestResponse<Rule> create(@Context UriInfo uriInfo, Rule rule) {
         // TODO validate the incoming rule
         if (rule == null) {
@@ -153,6 +157,12 @@ public class Rules {
     @RolesAllowed("write")
     @Path("/{name}")
     @Consumes(MediaType.APPLICATION_JSON)
+    @Operation(
+            summary = "Update an Automated Rule",
+            description =
+                    """
+                    Update Automated Rule parameters, such as whether the rule is currently active or not.
+                    """)
     public Rule update(@RestPath String name, @RestQuery boolean clean, JsonObject body) {
         Rule rule = Rule.getByName(name);
         if (rule == null) {
@@ -222,6 +232,7 @@ public class Rules {
     @DELETE
     @RolesAllowed("write")
     @Path("/{name}")
+    @Operation(summary = "Delete an Automated Rule by name")
     public void delete(@RestPath String name, @RestQuery boolean clean) {
         Rule rule = Rule.getByName(name);
         if (rule == null) {

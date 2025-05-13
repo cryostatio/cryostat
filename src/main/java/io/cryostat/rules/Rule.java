@@ -49,6 +49,13 @@ import jakarta.validation.constraints.PositiveOrZero;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+/**
+ * Represents an Automated Rule which triggers Flight Recording creation on matching {@link
+ * io.cryostat.target.Target} instances. Automated Rules may also be configured to periodically pull
+ * the latest recording data stream out from the target into Cryostat's S3 object storage.
+ *
+ * @see io.cryostat.expressions.MatchExpression
+ */
 @Entity
 @EntityListeners(Rule.Listener.class)
 @Table(indexes = {@Index(columnList = "name")})
