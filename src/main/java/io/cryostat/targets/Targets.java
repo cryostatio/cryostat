@@ -26,6 +26,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
@@ -42,6 +43,13 @@ public class Targets {
     @GET
     @Path("/api/v4/targets")
     @RolesAllowed("read")
+    @Operation(
+            summary = "List currently discovered targets",
+            description =
+                    """
+                    Get a list of the currently discovered targets. These are essentialy the same as the leaf nodes of
+                    the discovery tree. See 'GET /api/v4/discovery'.
+                    """)
     public List<Target> list() {
         return Target.listAll();
     }
@@ -49,6 +57,12 @@ public class Targets {
     @GET
     @Path("/api/v4/targets/{id}")
     @RolesAllowed("read")
+    @Operation(
+            summary = "Get a target by ID",
+            description =
+                    """
+                    Get details about a particular target given its ID.
+                    """)
     public Target getById(@RestPath Long id) {
         return Target.find("id", id).singleResult();
     }
