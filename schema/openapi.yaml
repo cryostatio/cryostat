@@ -1012,6 +1012,13 @@ paths:
         - Active Recordings Download
   /api/v4/auth:
     post:
+      description: |
+        In modern Cryostat deployments it is customary to deploy Cryostat behind an authenticating reverse
+        proxy, so authentication is not actually handled by Cryostat itself. This endpoint is used by the
+        Cryostat Web UI client to send an authenticated client request, including some authentication
+        headers, to the Cryostat server so that it can extract information about the logged-in user. The
+        response contains the current user's username if it can be determined, or else an empty string.
+        This is only used for display in the Web UI. API clients do not need to use this endpoint.
       responses:
         "200":
           content:
@@ -1019,6 +1026,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
           description: OK
+      summary: Authenticate to the Cryostat server
       tags:
         - Auth
   /api/v4/credentials:
@@ -1572,6 +1580,7 @@ paths:
             application/json:
               schema: {}
           description: OK
+      summary: OAuth2 sign out. Invalidate the current user session
       tags:
         - Auth
   /api/v4/matchExpressions:
@@ -2666,6 +2675,11 @@ paths:
         - Snapshots
   /api/v4/tls/certs:
     get:
+      description: |
+        In addition to the standard system/OpenJDK certificate trust store, Cryostat can be configured to
+        trust additional certificates which may be presented by target JVM JMX servers or by Cryostat Agent
+        HTTPS servers. This endpoint returns a list of local file paths to additional certificate files,
+        which Cryostat will have loaded into an additional trust store at startup.
       responses:
         "200":
           content:
@@ -2675,6 +2689,7 @@ paths:
                   type: string
                 type: array
           description: OK
+      summary: List additional trusted SSL/TLS certificates
       tags:
         - Trust Store
   /health:
