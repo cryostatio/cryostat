@@ -246,7 +246,7 @@ type Target {
   mbeanMetrics: MBeanMetrics
   "Get the active and archived recordings belonging to this target"
   recordings: Recordings
-  report: Report
+  report(filter: ReportFilterInput): Report
 }
 
 type ThreadMetrics {
@@ -340,4 +340,15 @@ input RecordingSettingsInput {
   template: String!
   templateType: String!
   toDisk: Boolean
+}
+
+input ReportFilterInput {
+  id: String
+  ids: [String]
+  notId: String
+  notIds: [String]
+  notTopic: String
+  notTopics: [String]
+  topic: String
+  topics: [String]
 }

@@ -33,6 +33,7 @@ import io.restassured.path.json.JsonPath;
 import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
+import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
@@ -42,6 +43,28 @@ import org.junit.jupiter.api.Test;
 public class ReportsTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;
+
+    @Test
+    void testGetReportsRules() {
+        var json =
+                given().log()
+                        .all()
+                        .when()
+                        .get("/api/v4.1/reports_rules")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath();
+        MatcherAssert.assertThat(json, Matchers.notNullValue());
+        MatcherAssert.assertThat(json.get("$.size()"), Matchers.greaterThan(0));
+    }
 
     @Test
     void testGetBadArchiveSource() {
