@@ -1831,6 +1831,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List all Automated Rules
       tags:
         - Rules
     post:
@@ -1916,6 +1917,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Create a new Automated Rule
       tags:
         - Rules
   /api/v4/rules/{name}:
@@ -1939,6 +1941,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete an Automated Rule by name
       tags:
         - Rules
     get:
@@ -1961,9 +1964,12 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get an Automated Rule by name
       tags:
         - Rules
     patch:
+      description: |
+        Update Automated Rule parameters, such as whether the rule is currently active or not.
       parameters:
         - in: path
           name: name
@@ -1992,6 +1998,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Update an Automated Rule
       tags:
         - Rules
   /api/v4/targets:
