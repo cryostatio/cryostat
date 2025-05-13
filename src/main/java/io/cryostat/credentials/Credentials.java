@@ -99,16 +99,13 @@ public class Credentials {
             Map<String, Object> params = new HashMap<String, Object>();
             params.put("username", credential.username);
             params.put("password", credential.password);
-            params.put("matchExpression", credential.matchExpression);
+            var matchExpressionExists =
+                    MatchExpression.find("script", credential.matchExpression.script).count() != 0;
             var exists =
-                    Credential.find(
-                                            "username = :username"
-                                                    + " and password = :password"
-                                                    + " and matchExpression = :matchExpression",
-                                            params)
+                    Credential.find("username = :username" + " and password = :password", params)
                                     .count()
                             != 0;
-            if (exists) {
+            if (exists && matchExpressionExists) {
                 logger.trace("Credential exists");
                 return;
             }
