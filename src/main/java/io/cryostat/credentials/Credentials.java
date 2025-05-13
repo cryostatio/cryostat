@@ -40,6 +40,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.transaction.TransactionManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -64,6 +65,7 @@ public class Credentials {
 
     @Inject TargetConnectionManager connectionManager;
     @Inject TargetMatcher targetMatcher;
+    @Inject TransactionManager tm;
     @Inject Logger logger;
     @Inject ObjectMapper mapper;
 
@@ -91,22 +93,30 @@ public class Credentials {
                 && Files.isDirectory(dir);
     }
 
-    private void createFromFile(java.nio.file.Path path) {
+    void createFromFile(java.nio.file.Path path) {
         logger.trace("Creating credential from path: " + path.toString());
         try (var is = new BufferedInputStream(Files.newInputStream(path))) {
             var credential = mapper.readValue(is, Credential.class);
+            // FIXME: Persisting the matchExpression here will allow duplicates
+            // since the matchExpression gets a new ID. If the data model gets
+            // reworked to deduplicate we'll need to add application logic here
+            // to link it to the existing match expression.
             credential.matchExpression.persist();
             Map<String, Object> params = new HashMap<String, Object>();
             params.put("username", credential.username);
             params.put("password", credential.password);
-            var matchExpressionExists =
-                    MatchExpression.find("script", credential.matchExpression.script).count() != 0;
+            params.put("matchExpression", credential.matchExpression);
             var exists =
-                    Credential.find("username = :username" + " and password = :password", params)
+                    Credential.find(
+                                            "username = :username"
+                                                    + " and password = :password"
+                                                    + " and matchExpression = :matchExpression",
+                                            params)
                                     .count()
                             != 0;
-            if (exists && matchExpressionExists) {
+            if (exists) {
                 logger.trace("Credential exists");
+                tm.rollback();
                 return;
             }
             credential.persist();
