@@ -237,12 +237,6 @@ public class DiscoveryNode extends PanacheEntity {
             if (node.labels == null) {
                 node.labels = new HashMap<>();
             }
-            if (node.children != null && node.target != null) {
-                throw new IllegalStateException();
-            }
-            if (node.children == null && node.target == null) {
-                throw new IllegalStateException();
-            }
         }
 
         @PostPersist
