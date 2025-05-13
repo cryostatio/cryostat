@@ -17,6 +17,11 @@ package io.cryostat.targets;
 
 import jakarta.ws.rs.WebApplicationException;
 
+/**
+ * Indicates an HTTP exception during regular communications with a Cryostat Agent instance.
+ *
+ * @see io.cryostat.target.AgentClient
+ */
 public class AgentApiException extends WebApplicationException {
     public AgentApiException(int statusCode) {
         super(String.format("Unexpected HTTP response code %d", statusCode));

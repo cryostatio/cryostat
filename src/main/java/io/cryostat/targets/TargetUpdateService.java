@@ -42,6 +42,11 @@ import org.quartz.SimpleScheduleBuilder;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 
+/**
+ * Watch for {@link io.cryostat.target.Target} instances to be discovered, or matching {@link
+ * io.cryostat.credentials.Credential} to be added, and schedule {@link
+ * io.cryostat.targets.TargetUpdateJob} jobs to compute the target JVM hash IDs.
+ */
 @ApplicationScoped
 public class TargetUpdateService {
 

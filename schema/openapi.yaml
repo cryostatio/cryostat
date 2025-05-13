@@ -2012,6 +2012,9 @@ paths:
         - Rules
   /api/v4/targets:
     get:
+      description: |
+        Get a list of the currently discovered targets. These are essentialy the same as the leaf nodes of
+        the discovery tree. See 'GET /api/v4/discovery'.
       responses:
         "200":
           content:
@@ -2027,6 +2030,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List currently discovered targets
       tags:
         - Targets
     post:
@@ -2117,6 +2121,8 @@ paths:
       tags:
         - Custom Discovery
     get:
+      description: |
+        Get details about a particular target given its ID.
       parameters:
         - in: path
           name: id
@@ -2137,6 +2143,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get a target by ID
       tags:
         - Targets
   /api/v4/targets/{id}/event_templates:
