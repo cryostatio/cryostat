@@ -24,6 +24,19 @@ import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * Implement URI range validation. The configuration property 'cryostat.target.uri-range' can be
+ * used to control this feature. The value of this property should be one of the enum member names
+ * (case insensitive). The enum members are ordered in descending order of strictness: LOOPBACK is
+ * the strictest and only accepts hostnames that map back to the current host (ex. 'localhost',
+ * '127.0.0.1'), PUBLIC is the least strict and accepts any hostname. This is used by administrators
+ * to lock down the Cryostat instance and ensure that it will only initiate network connections to
+ * hosts within an expected "distance" from Cryostat on the network. PUBLIC is the default for
+ * historical and convenience reasons. In many practical deployment situtations, DNS_LOCAL is a good
+ * default to take and stricter settings should be considered.
+ *
+ * @see io.cryostat.ConfigProperties
+ */
 public enum URIRange {
     LOOPBACK(hostname -> check(hostname, InetAddress::isLoopbackAddress)),
     LINK_LOCAL(hostname -> check(hostname, InetAddress::isLinkLocalAddress)),
