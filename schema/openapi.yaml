@@ -865,6 +865,9 @@ paths:
         - Archived Recordings
   /api/v4.1/metrics/reports:
     get:
+      description: |
+        Retrieve the latest aggregate report data across all targets with recent automated analysis reports
+        scores. These are multi-dimensional metrics in Prometheus format.
       responses:
         "200":
           content:
@@ -880,10 +883,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve the latest aggregate report data
       tags:
         - Analysis Report Aggregator
   /api/v4.1/metrics/reports/{jvmId}:
     get:
+      description: |
+        Retrieve the latest aggregate report data for a given target's recent automated analysis reports
+        scores. These are multi-dimensional metrics in Prometheus format.
       parameters:
         - in: path
           name: jvmId
@@ -903,10 +910,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve the latest aggregate report data for the specified target
       tags:
         - Analysis Report Aggregator
   /api/v4.1/targets/{targetId}/reports:
     get:
+      description: |
+        Get the current cached automated analysis report for the specified target, if any. If no such
+        report currently exists for the specified target then the response will be an HTTP 404 Not Found,
+        and automated analysis report generation will not be triggered.
       parameters:
         - in: path
           name: targetId
@@ -929,9 +941,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve current automated analysis report for a target
       tags:
         - Reports
     post:
+      description: |
+        Composite action that 1) creates a Snapshot active recording on the specified target, 2) archives
+        that Snapshot immediately, 3) performs automated analysis report generation on the archived file.
+        The response will include a Location header pointing the client to an endpoint where the report can
+        be retrieved, which may require the client to wait for a Job UUID notification.
       parameters:
         - in: path
           name: targetId
@@ -958,6 +976,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Perform "target analysis" on the specified target
       tags:
         - Reports
   /api/v4/activedownload/{id}:
@@ -1764,6 +1783,14 @@ paths:
         - Archived Recordings
   /api/v4/reports/{encodedKey}:
     get:
+      description: |
+        Given an encoded key from another endpoint, request an actual automated analysis report. If the
+        requested report already exists in one of the tiered caching layers then the report will be
+        directly returned as a JSON response body. If the report does not yet exist then the response will
+        contain a Job UUID as a plain text response body. Cryostat will emit a WebSocket notification later
+        using the same Job UUID to indicate that the report generation has been completed and the document
+        is now available. The client may then re-issue a request to this endpoint with the same encoded key
+        to retrieve the report document.
       parameters:
         - in: path
           name: encodedKey
@@ -1784,6 +1811,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get an automated analysis report
       tags:
         - Reports
   /api/v4/rules:
@@ -2569,6 +2597,11 @@ paths:
         - Active Recordings
   /api/v4/targets/{targetId}/reports/{recordingId}:
     get:
+      description: |
+        Request an automated analysis report for a particular active recording on the specified target. If
+        such a report already exists it will be returned directly as a JSON response body. If the report
+        does not yet exist then an asynchronous task for it will be started, and a Job UUID will be
+        sent as the plaintext response body.
       parameters:
         - in: path
           name: recordingId
@@ -2596,6 +2629,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get an automated analysis report for a particular recording on the specified target
       tags:
         - Reports
   /api/v4/targets/{targetId}/snapshot:
