@@ -109,7 +109,6 @@ class AgentConnection implements JFRConnection {
         }
     }
 
-    @Override
     public <T> T invokeMBeanOperation(
             String beanName,
             String operation,
