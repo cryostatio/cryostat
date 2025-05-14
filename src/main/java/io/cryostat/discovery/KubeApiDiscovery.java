@@ -222,10 +222,34 @@ public class KubeApiDiscovery implements ResourceEventHandler<Endpoints> {
 
     List<TargetTuple> tuplesFromEndpoints(Endpoints endpoints) {
         List<TargetTuple> tts = new ArrayList<>();
-        for (EndpointSubset subset : endpoints.getSubsets()) {
-            for (EndpointPort port : subset.getPorts()) {
-                for (EndpointAddress addr : subset.getAddresses()) {
+        List<EndpointSubset> subsets = endpoints.getSubsets();
+        if (subsets == null) {
+            return tts;
+        }
+        for (EndpointSubset subset : subsets) {
+            if (subset == null) {
+                continue;
+            }
+            List<EndpointPort> ports = subset.getPorts();
+            if (ports == null) {
+                continue;
+            }
+            for (EndpointPort port : ports) {
+                if (port == null) {
+                    continue;
+                }
+                List<EndpointAddress> addresses = subset.getAddresses();
+                if (addresses == null) {
+                    continue;
+                }
+                for (EndpointAddress addr : addresses) {
+                    if (addr == null) {
+                        continue;
+                    }
                     var ref = addr.getTargetRef();
+                    if (ref == null) {
+                        continue;
+                    }
                     tts.add(
                             new TargetTuple(
                                     ref,
