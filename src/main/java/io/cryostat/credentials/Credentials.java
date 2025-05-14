@@ -21,9 +21,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -69,7 +67,9 @@ public class Credentials {
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
+        logger.trace("Walking Credentials dir: " + dir.toString());
         if (!checkDir()) {
+            logger.warn("Failed to find credentials dir: " + dir.toString());
             return;
         }
         try {
@@ -89,24 +89,14 @@ public class Credentials {
                 && Files.isDirectory(dir);
     }
 
-    private void createFromFile(java.nio.file.Path path) {
+    void createFromFile(java.nio.file.Path path) {
+        logger.trace("Creating credential from path: " + path.toString());
         try (var is = new BufferedInputStream(Files.newInputStream(path))) {
             var credential = mapper.readValue(is, Credential.class);
-            Map<String, Object> params = new HashMap<String, Object>();
-            params.put("username", credential.username);
-            params.put("password", credential.password);
-            params.put("matchExpression", credential.matchExpression);
-            var exists =
-                    Credential.find(
-                                            "username = :username"
-                                                    + " and password = :password"
-                                                    + " and matchExpression = :matchExpression",
-                                            params)
-                                    .count()
-                            != 0;
-            if (exists) {
-                return;
-            }
+            // FIXME: Persisting the matchExpression here will allow duplicates
+            // since the matchExpression gets a new ID. If the data model gets
+            // reworked to deduplicate we'll need to add application logic here
+            // to link it to the existing match expression.
             credential.persist();
         } catch (Exception e) {
             logger.error("Failed to create credentials from file", e);

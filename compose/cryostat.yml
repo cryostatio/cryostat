@@ -11,6 +11,7 @@ services:
       - jmxtls_cfg:/truststore:U
       - templates:/opt/cryostat.d/templates.d:U
       - probes:/opt/cryostat.d/probes.d:U
+      - credentials:/opt/cryostat.d/credentials.d:U
     security_opt:
       - label:disable
     hostname: cryostat
