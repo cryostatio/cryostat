@@ -60,6 +60,7 @@ import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.codec.BodyCodec;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.inject.Named;
 import jakarta.ws.rs.ForbiddenException;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
@@ -72,7 +73,7 @@ public class AgentClient {
     public static final String NULL_CREDENTIALS = "No credentials found for agent";
 
     @ConfigProperty(name = ConfigProperties.AGENT_TLS_REQUIRED)
-    private boolean tlsEnabled;
+    private boolean tlsRequired;
 
     private final Target target;
     private final WebClient webClient;
@@ -446,10 +447,10 @@ public class AgentClient {
             HttpMethod mtd, String path, Buffer payload, BodyCodec<T> codec) {
         logger.debugv("{0} {1} {2}", mtd, getUri(), path);
 
-        if (tlsEnabled && !getUri().getScheme().equals("https")) {
+        if (tlsRequired && !getUri().getScheme().equals("https")) {
             throw new IllegalArgumentException(
                     String.format(
-                            "Agent is configured with TLS enabled (%s) but the agent URI is not an"
+                            "Agent is configured with TLS required (%s) but the agent URI is not an"
                                     + " https connection.",
                             ConfigProperties.AGENT_TLS_REQUIRED));
         }
@@ -483,7 +484,11 @@ public class AgentClient {
     public static class Factory {
 
         @Inject ObjectMapper mapper;
-        @Inject WebClient webClient;
+
+        @Inject
+        @Named(TargetsModule.AGENT_CLIENT)
+        WebClient webClient;
+
         @Inject Logger logger;
 
         @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)

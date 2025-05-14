@@ -62,4 +62,5 @@ public class ConfigProperties {
     public static final String URI_RANGE = "cryostat.target.uri-range";
 
     public static final String AGENT_TLS_REQUIRED = "cryostat.agent.tls.required";
+    public static final String AGENT_TLS_VERIFY_HOST = "cryostat.agent.tls.verify-host";
 }
