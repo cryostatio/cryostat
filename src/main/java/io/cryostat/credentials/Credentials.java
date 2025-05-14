@@ -26,6 +26,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.expressions.MatchExpression.TargetMatcher;
 import io.cryostat.targets.Target;
@@ -60,46 +61,34 @@ public class Credentials {
     @ConfigProperty(name = ConfigProperties.CREDENTIALS_DIR)
     java.nio.file.Path dir;
 
+    @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject TargetConnectionManager connectionManager;
     @Inject TargetMatcher targetMatcher;
-    @Inject Logger logger;
     @Inject ObjectMapper mapper;
+    @Inject Logger logger;
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
-        logger.trace("Walking Credentials dir: " + dir.toString());
-        if (!checkDir()) {
-            logger.warn("Failed to find credentials dir: " + dir.toString());
-            return;
-        }
         try {
-            Files.walk(dir)
-                    .filter(Files::isRegularFile)
-                    .filter(Files::isReadable)
-                    .forEach(this::createFromFile);
+            declarativeConfiguration
+                    .walk(dir)
+                    .forEach(
+                            path -> {
+                                logger.tracev("Creating credential from path: {0}", path);
+                                try (var is = new BufferedInputStream(Files.newInputStream(path))) {
+                                    var credential = mapper.readValue(is, Credential.class);
+                                    // FIXME: Persisting the matchExpression here will allow
+                                    // duplicates since the matchExpression gets a new ID. If the
+                                    // data model gets reworked to deduplicate we'll need to add
+                                    // application logic here to link it to the existing match
+                                    // expression.
+                                    credential.persist();
+                                } catch (Exception e) {
+                                    logger.error("Failed to create credentials from file", e);
+                                }
+                            });
         } catch (IOException e) {
             logger.error(e);
-        }
-    }
-
-    private boolean checkDir() {
-        return Files.exists(dir)
-                && Files.isReadable(dir)
-                && Files.isExecutable(dir)
-                && Files.isDirectory(dir);
-    }
-
-    void createFromFile(java.nio.file.Path path) {
-        logger.trace("Creating credential from path: " + path.toString());
-        try (var is = new BufferedInputStream(Files.newInputStream(path))) {
-            var credential = mapper.readValue(is, Credential.class);
-            // FIXME: Persisting the matchExpression here will allow duplicates
-            // since the matchExpression gets a new ID. If the data model gets
-            // reworked to deduplicate we'll need to add application logic here
-            // to link it to the existing match expression.
-            credential.persist();
-        } catch (Exception e) {
-            logger.error("Failed to create credentials from file", e);
         }
     }
 
