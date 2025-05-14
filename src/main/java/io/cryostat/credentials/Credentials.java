@@ -21,9 +21,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -40,7 +38,6 @@ import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.transaction.TransactionManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -65,7 +62,6 @@ public class Credentials {
 
     @Inject TargetConnectionManager connectionManager;
     @Inject TargetMatcher targetMatcher;
-    @Inject TransactionManager tm;
     @Inject Logger logger;
     @Inject ObjectMapper mapper;
 
@@ -101,24 +97,6 @@ public class Credentials {
             // since the matchExpression gets a new ID. If the data model gets
             // reworked to deduplicate we'll need to add application logic here
             // to link it to the existing match expression.
-            credential.matchExpression.persist();
-            Map<String, Object> params = new HashMap<String, Object>();
-            params.put("username", credential.username);
-            params.put("password", credential.password);
-            params.put("matchExpression", credential.matchExpression);
-            var exists =
-                    Credential.find(
-                                            "username = :username"
-                                                    + " and password = :password"
-                                                    + " and matchExpression = :matchExpression",
-                                            params)
-                                    .count()
-                            != 0;
-            if (exists) {
-                logger.trace("Credential exists");
-                tm.rollback();
-                return;
-            }
             credential.persist();
         } catch (Exception e) {
             logger.error("Failed to create credentials from file", e);
