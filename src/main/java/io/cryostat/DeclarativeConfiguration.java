@@ -56,7 +56,8 @@ public class DeclarativeConfiguration {
         if (resolveSymlinks) {
             // attempt to resolve symlinks, which will be deduplicated later
             paths =
-                    paths.map(
+                    paths.filter(Files::isRegularFile)
+                            .map(
                                     p -> {
                                         try {
                                             return p.toRealPath();
