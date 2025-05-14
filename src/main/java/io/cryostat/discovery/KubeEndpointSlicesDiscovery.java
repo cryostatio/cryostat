@@ -241,6 +241,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 }
                 for (String addr : addresses) {
                     var ref = endpoint.getTargetRef();
+                    if (ref == null) {
+                        continue;
+                    }
                     tts.add(
                             new TargetTuple(
                                     ref,

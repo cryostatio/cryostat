@@ -144,7 +144,9 @@ public class DiscoveryNode extends PanacheEntity {
         return DiscoveryNode.<DiscoveryNode>find(
                         "#DiscoveryNode.byTypeWithName",
                         Parameters.with("nodeType", kind).and("name", name))
-                .firstResultOptional()
+                .stream()
+                .filter(predicate)
+                .findFirst()
                 .orElseGet(
                         () ->
                                 QuarkusTransaction.joiningExisting()
