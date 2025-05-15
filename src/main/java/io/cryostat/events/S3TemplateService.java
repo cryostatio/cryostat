@@ -39,6 +39,7 @@ import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLTagInstance;
 import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLValidationResult;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.FlightRecorderException;
@@ -85,6 +86,7 @@ public class S3TemplateService implements MutableTemplateService {
     @ConfigProperty(name = ConfigProperties.CUSTOM_TEMPLATES_DIR)
     Path dir;
 
+    @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject S3Client storage;
     @Inject StorageBuckets storageBuckets;
 
@@ -98,13 +100,9 @@ public class S3TemplateService implements MutableTemplateService {
 
     void onStart(@Observes StartupEvent evt) {
         storageBuckets.createIfNecessary(bucket);
-        if (!checkDir()) {
-            return;
-        }
         try {
-            Files.walk(dir)
-                    .filter(Files::isRegularFile)
-                    .filter(Files::isReadable)
+            declarativeConfiguration
+                    .walk(dir)
                     .forEach(
                             p -> {
                                 try (var is = Files.newInputStream(p)) {

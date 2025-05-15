@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.jmcagent.ProbeTemplate;
@@ -63,6 +64,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     @ConfigProperty(name = ConfigProperties.PROBE_TEMPLATES_DIR)
     Path dir;
 
+    @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject S3Client storage;
     @Inject StorageBuckets storageBuckets;
 
@@ -79,13 +81,9 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
 
     void onStart(@Observes StartupEvent evt) {
         storageBuckets.createIfNecessary(bucket);
-        if (!checkDir()) {
-            return;
-        }
         try {
-            Files.walk(dir)
-                    .filter(Files::isRegularFile)
-                    .filter(Files::isReadable)
+            declarativeConfiguration
+                    .walk(dir)
                     .forEach(
                             path -> {
                                 try (var is = Files.newInputStream(path)) {
@@ -102,13 +100,6 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
         } catch (IOException e) {
             logger.warn(e);
         }
-    }
-
-    private boolean checkDir() {
-        return Files.exists(dir)
-                && Files.isReadable(dir)
-                && Files.isExecutable(dir)
-                && Files.isDirectory(dir);
     }
 
     @Override
