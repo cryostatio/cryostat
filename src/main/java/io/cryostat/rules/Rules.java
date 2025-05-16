@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.util.EntityExistsException;
@@ -61,54 +62,43 @@ public class Rules {
     @ConfigProperty(name = ConfigProperties.RULES_DIR)
     java.nio.file.Path dir;
 
-    @Inject Logger logger;
+    @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject EventBus bus;
     @Inject ObjectMapper mapper;
+    @Inject Logger logger;
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
-        if (!checkDir()) {
-            return;
-        }
         try {
-            Files.walk(dir)
-                    .filter(Files::isRegularFile)
-                    .filter(Files::isReadable)
-                    .forEach(this::processDeclarativeRule);
+            declarativeConfiguration
+                    .walk(dir)
+                    .forEach(
+                            path -> {
+                                try (var is = new BufferedInputStream(Files.newInputStream(path))) {
+                                    var declarativeRule = mapper.readValue(is, Rule.class);
+                                    logger.tracev(
+                                            "Processing declarative Automated Rule with name"
+                                                    + " \"{0}\" at {1}",
+                                            declarativeRule.name, path);
+                                    var exists =
+                                            Rule.find("name", declarativeRule.name).count() != 0;
+                                    if (exists) {
+                                        logger.tracev(
+                                                "Rule with name \"{0}\" already exists in database."
+                                                        + " Skipping declarative rule at {1}",
+                                                declarativeRule.name, path);
+                                        return;
+                                    }
+                                    declarativeRule.persist();
+                                } catch (IOException ioe) {
+                                    logger.warn(ioe);
+                                } catch (Exception e) {
+                                    logger.error(e);
+                                }
+                            });
         } catch (IOException e) {
             logger.error(e);
         }
-    }
-
-    private void processDeclarativeRule(java.nio.file.Path path) {
-        try (var is = new BufferedInputStream(Files.newInputStream(path))) {
-            var declarativeRule = mapper.readValue(is, Rule.class);
-            logger.tracev(
-                    "Processing declarative Automated Rule with name \"{}\" at {}",
-                    declarativeRule.name,
-                    path);
-            var exists = Rule.find("name", declarativeRule.name).count() != 0;
-            if (exists) {
-                logger.tracev(
-                        "Rule with name \"{}\" already exists in database. Skipping declarative"
-                                + " rule at {}",
-                        declarativeRule.name,
-                        path);
-                return;
-            }
-            declarativeRule.persist();
-        } catch (IOException ioe) {
-            logger.warn(ioe);
-        } catch (Exception e) {
-            logger.error(e);
-        }
-    }
-
-    private boolean checkDir() {
-        return Files.exists(dir)
-                && Files.isReadable(dir)
-                && Files.isExecutable(dir)
-                && Files.isDirectory(dir);
     }
 
     @GET

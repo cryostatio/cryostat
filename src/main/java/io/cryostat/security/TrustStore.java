@@ -15,12 +15,12 @@
  */
 package io.cryostat.security;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.DeclarativeConfiguration;
 
 import io.smallrye.common.annotation.Blocking;
 import jakarta.inject.Inject;
@@ -37,6 +37,7 @@ public class TrustStore {
     @ConfigProperty(name = ConfigProperties.SSL_TRUSTSTORE_DIR)
     java.nio.file.Path trustStoreDir;
 
+    @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject Logger logger;
 
     @Blocking
@@ -51,10 +52,8 @@ public class TrustStore {
         if (!accessible) {
             return List.of();
         }
-        return Files.walk(trustStoreDir)
-                .map(java.nio.file.Path::toFile)
-                .filter(File::isFile)
-                .map(File::getPath)
+        return declarativeConfiguration.walk(trustStoreDir).stream()
+                .map(java.nio.file.Path::toString)
                 .toList();
     }
 }
