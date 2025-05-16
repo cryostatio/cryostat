@@ -4,7 +4,6 @@ services:
       s3:
         condition: service_healthy
     environment:
-      STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
       QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:9000
       STORAGE_EXT_URL: /storage/
       QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
