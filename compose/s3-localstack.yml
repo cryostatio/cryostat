@@ -5,13 +5,11 @@ services:
         condition: service_healthy
     environment:
       STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
+      CRYOSTAT_SERVICES_REPORTS_STORAGE_CACHE_NAME: archivedreports
       QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:4566
       STORAGE_EXT_URL: /storage/
       QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
       QUARKUS_S3_AWS_REGION: us-east-1
-      QUARKUS_S3_AWS_CREDENTIALS_TYPE: static
-      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_ACCESS_KEY_ID: unused
-      QUARKUS_S3_AWS_CREDENTIALS_STATIC_PROVIDER_SECRET_ACCESS_KEY: unused
       AWS_ACCESS_KEY_ID: unused
       AWS_SECRET_ACCESS_KEY: unused
   s3:
