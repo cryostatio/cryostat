@@ -29,6 +29,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 
 @Path("/api/v4/tls/certs")
@@ -43,6 +44,15 @@ public class TrustStore {
     @Blocking
     @GET
     @Produces(MediaType.APPLICATION_JSON)
+    @Operation(
+            summary = "List additional trusted SSL/TLS certificates",
+            description =
+                    """
+                    In addition to the standard system/OpenJDK certificate trust store, Cryostat can be configured to
+                    trust additional certificates which may be presented by target JVM JMX servers or by Cryostat Agent
+                    HTTPS servers. This endpoint returns a list of local file paths to additional certificate files,
+                    which Cryostat will have loaded into an additional trust store at startup.
+                    """)
     public List<String> listCerts() throws IOException {
         var accessible =
                 Files.exists(trustStoreDir)

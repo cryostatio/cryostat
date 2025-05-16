@@ -45,6 +45,16 @@ import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
+/**
+ * Implementation for automated analysis report generation. Handles direct report generation or
+ * delegation to sidecar reports generators (see https://github.com/cryostatio/cryostat-reports),
+ * for active or archived recordings. Results, whether directly generated or retrieved from
+ * delegated sidecars, may be entered into tiered cache layers.
+ *
+ * @see io.cryostat.recordings.LongRunningRequestGenerator
+ * @see io.cryostat.reports.MemoryCachingReportsService
+ * @see io.cryostat.reports.StorageCachingReportsService
+ */
 @ApplicationScoped
 class ReportsServiceImpl implements ReportsService {
 

@@ -40,6 +40,7 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
@@ -59,6 +60,12 @@ public class JMCAgentProbes {
     @Blocking
     @POST
     @Path("/api/v4/targets/{id}/probes/{probeTemplateName}")
+    @Operation(
+            summary = "Activate a probe template on the specified target",
+            description =
+                    """
+                    Activate a probe template (specified by template name) on the specified target (specified by ID).
+                    """)
     public void postProbe(@RestPath long id, @RestPath String probeTemplateName) {
         try {
             Target target = Target.getTargetById(id);
@@ -102,6 +109,7 @@ public class JMCAgentProbes {
     @Blocking
     @DELETE
     @Path("/api/v4/targets/{id}/probes")
+    @Operation(summary = "Remove all loaded probes from the specified target")
     public void deleteProbe(@RestPath long id) {
         try {
             Target target = Target.getTargetById(id);
@@ -133,6 +141,7 @@ public class JMCAgentProbes {
     @Blocking
     @GET
     @Path("/api/v4/targets/{id}/probes")
+    @Operation(summary = "List loaded probes on the specified target")
     public List<ProbeResponse> getProbes(@RestPath long id) {
         try {
             Target target = Target.getTargetById(id);

@@ -23,6 +23,10 @@ import io.quarkus.runtime.Quarkus;
 import io.quarkus.runtime.QuarkusApplication;
 import io.quarkus.runtime.annotations.QuarkusMain;
 
+/**
+ * Main application entrypoint. Perform any required early initialization tasks, then kick off the
+ * webserver.
+ */
 @QuarkusMain
 public class Cryostat {
 

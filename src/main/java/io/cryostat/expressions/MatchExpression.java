@@ -45,6 +45,14 @@ import jakarta.validation.constraints.NotBlank;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
 
+/**
+ * Match Expressions contain small snippets of Common Expression Language and are used to evaluate
+ * other resources' applicability to {@link io.cryostat.target.Target}s. {@link
+ * io.cryostat.rules.Rule}s and {@link io.cryostat.credentials.Credential}s use Match Expressions to
+ * determine the set of Targets they should apply to. When evaluating a Match Expression, Cryostat
+ * passes a slightly slimmed down and read-only representation of the Target instance into the
+ * expression context so that the expression can make assertions about the Target's properties.
+ */
 @Entity
 @EntityListeners(MatchExpression.Listener.class)
 public class MatchExpression extends PanacheEntity {

@@ -34,6 +34,7 @@ import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.Provider;
 
 @Provider
+/** Filter incoming request bodies or outgoing response bodies to scrub particular content. */
 public class JsonRequestFilter implements ContainerRequestFilter {
 
     static final Set<String> disallowedFields = Set.of("id");

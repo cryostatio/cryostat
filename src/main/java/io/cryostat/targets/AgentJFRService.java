@@ -55,6 +55,19 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.buffer.Buffer;
 import org.jboss.logging.Logger;
 
+/**
+ * {@link io.cryostat.core.net.CryostatFlightRecorderService} implementation representing a Cryostat
+ * Agent instance. The CryostatFlightRecorderService is based on {@link
+ * org.openjdk.jmc.flightrecorder.configuration.IFlightRecorderService}.
+ * CryostatFlightRecorderService extends this with some Cryostat-specific operations. The original
+ * CryostatFlightRecorderService implementation is {@link
+ * io.cryostat.core.net.JmxFlightRecorderService}, which uses a JMX connection to the target JVM to
+ * implement its various operations. This implementation uses HTTP rather than JMX and communicates
+ * with Cryostat Agent instances.
+ *
+ * @see io.cryostat.targets.AgentClient
+ * @see io.cryostat.targets.AgentConnection
+ */
 class AgentJFRService implements CryostatFlightRecorderService {
 
     private final AgentClient client;

@@ -45,6 +45,7 @@ import jakarta.transaction.Transactional.TxType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+/** Discovery mechanism for the Java Discovery Protocol (multicast). */
 @ApplicationScoped
 public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
 

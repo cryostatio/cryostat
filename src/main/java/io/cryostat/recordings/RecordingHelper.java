@@ -133,6 +133,19 @@ import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 
+/**
+ * Utility class for all things relating to Flight Recording operations. This class is used to
+ * interact with remote target JVMs when performing any kind of JFR operations such as starting,
+ * stopping, or deleting recordings, as well as retrieving recording data streams or piping these
+ * data streams to other destinations. This also implements complementary operations on archived
+ * recordings, which are active recordings that have already been copied from data streams into S3
+ * object storage.
+ *
+ * @see io.cryostat.target.Target
+ * @see io.cryostat.recordings.Recording
+ * @see io.cryostat.recordings.ActiveRecordings
+ * @see io.cryostat.recordings.ArchivedRecordings
+ */
 @ApplicationScoped
 public class RecordingHelper {
 
