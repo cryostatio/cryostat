@@ -169,6 +169,9 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
 
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES_META)
+    Optional<String> archiveMetaBucket;
+
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
 
@@ -960,14 +963,17 @@ public class RecordingHelper {
 
     public Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
         try {
-            return Optional.of(
-                    taggingToMetadata(
-                            storage.getObjectTagging(
-                                            GetObjectTaggingRequest.builder()
-                                                    .bucket(archiveBucket)
-                                                    .key(storageKey)
-                                                    .build())
-                                    .tagSet()));
+            if (useObjectTagging()) {
+                return Optional.of(
+                        taggingToMetadata(
+                                storage.getObjectTagging(
+                                                GetObjectTaggingRequest.builder()
+                                                        .bucket(archiveBucket)
+                                                        .key(storageKey)
+                                                        .build())
+                                        .tagSet()));
+            }
+            return Optional.empty();
         } catch (NoSuchKeyException nske) {
             logger.warn(nske);
             return Optional.empty();
@@ -1180,6 +1186,11 @@ public class RecordingHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
+    private boolean useObjectTagging() {
+        // use the Object Tagging feature if an archives metadata bucket hasn't been specified
+        return archiveMetaBucket.map(StringUtils::isBlank).orElse(true);
+    }
+
     public ArchivedRecording updateArchivedRecordingMetadata(
             String jvmId, String filename, Map<String, String> updatedLabels) {
         String key = archivedRecordingKey(jvmId, filename);
@@ -1192,13 +1203,17 @@ public class RecordingHelper {
 
         Metadata updatedMetadata = new Metadata(updatedLabels);
 
-        Tagging tagging = createMetadataTagging(updatedMetadata);
-        storage.putObjectTagging(
-                PutObjectTaggingRequest.builder()
-                        .bucket(archiveBucket)
-                        .key(key)
-                        .tagging(tagging)
-                        .build());
+        if (useObjectTagging()) {
+            Tagging tagging = createMetadataTagging(updatedMetadata);
+            storage.putObjectTagging(
+                    PutObjectTaggingRequest.builder()
+                            .bucket(archiveBucket)
+                            .key(key)
+                            .tagging(tagging)
+                            .build());
+        } else {
+
+        }
 
         var response =
                 storage.headObject(
