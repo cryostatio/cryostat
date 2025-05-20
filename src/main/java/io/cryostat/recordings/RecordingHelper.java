@@ -763,7 +763,7 @@ public class RecordingHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents().stream().toList();
+        return storage.listObjectsV2(builder.build()).contents();
     }
 
     public List<ArchivedRecording> listArchivedRecordings(String jvmId) {
