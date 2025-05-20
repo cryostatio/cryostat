@@ -13,6 +13,8 @@ services:
   s3:
     image: ${MINIO_IMAGE:-quay.io/minio/minio:latest}
     hostname: s3
+    ports:
+      - "9001:9001"
     expose:
       - "9000"
     command: server /data --console-address ":9001"
