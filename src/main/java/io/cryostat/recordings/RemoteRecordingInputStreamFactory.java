@@ -28,6 +28,12 @@ import io.cryostat.targets.TargetConnectionManager;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
+/**
+ * Creates {@link java.io.InputStream}s that pipe Flight Recording data from a remote target JVM.
+ * This class ensures that the cached target connection is continuously marked as in use, so that
+ * the {@link io.cryostat.target.TargetConnectionManager} does not prematurely evict and close the
+ * connection while streaming is still underway.
+ */
 @ApplicationScoped
 public class RemoteRecordingInputStreamFactory {
 

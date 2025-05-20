@@ -31,6 +31,10 @@ import org.apache.commons.collections4.bidimap.DualHashBidiMap;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
 
+/**
+ * Utility for mapping and caching {@link io.cryostat.targets.Target} to associated {@link
+ * io.cryostat.credentials.Credential}.
+ */
 @ApplicationScoped
 public class CredentialsFinder {
 
