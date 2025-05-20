@@ -20,6 +20,8 @@ import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.Matchers.*;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
@@ -113,7 +115,7 @@ public class RulesTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    public void testUpdate() {
+    public void testUpdateEnabled() {
         var copy = rule.copy();
         copy.put("enabled", false);
         given().log()
@@ -149,7 +151,7 @@ public class RulesTest extends AbstractTransactionalTestBase {
 
         given().log()
                 .all()
-                .body(new JsonObject().put("enabled", true).toString())
+                .body(copy.copy().put("enabled", true).toString())
                 .contentType(ContentType.JSON)
                 .patch(RULE_NAME)
                 .then()
@@ -165,7 +167,7 @@ public class RulesTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    public void testUpdateWithClean() {
+    public void testUpdateEnabledWithClean() {
         given().log()
                 .all()
                 .body(rule.toString())
@@ -182,7 +184,7 @@ public class RulesTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .queryParam("clean", true)
-                .body(new JsonObject().put("enabled", false).toString())
+                .body(rule.copy().put("enabled", false).toString())
                 .contentType(ContentType.JSON)
                 .patch(RULE_NAME)
                 .then()
@@ -198,6 +200,70 @@ public class RulesTest extends AbstractTransactionalTestBase {
 
         Mockito.verify(bus, Mockito.times(1))
                 .send(Mockito.eq(Rule.RULE_ADDRESS + "?clean"), Mockito.any(Rule.class));
+    }
+
+    @Test
+    public void testUpdate() {
+        var copy = rule.copy();
+        copy.put("enabled", false);
+        copy.put("description", "new description");
+        copy.put("eventSpecifier", "template=Profiling,type=TARGET");
+        copy.put("matchExpression", EXPR_2);
+        copy.put("metadata", Map.of("labels", Map.of("foo", "bar")));
+        given().log()
+                .all()
+                .body(copy.toString())
+                .contentType(ContentType.JSON)
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(201)
+                .body(
+                        "id", notNullValue(),
+                        "name", is(RULE_NAME));
+
+        given().log()
+                .all()
+                .get()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(200)
+                .body(
+                        "size()", is(1),
+                        "[0].name", is(RULE_NAME),
+                        "[0].enabled", is(false),
+                        "[0].description", equalTo("new description"),
+                        "[0].eventSpecifier", equalTo("template=Profiling,type=TARGET"),
+                        "[0].matchExpression", equalTo(EXPR_2),
+                        "[0].metadata",
+                                equalTo(
+                                        Map.of(
+                                                "labels",
+                                                List.of(Map.of("key", "foo", "value", "bar")))));
+
+        given().log()
+                .all()
+                .body(copy.copy().put("enabled", true).toString())
+                .contentType(ContentType.JSON)
+                .patch(RULE_NAME)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(200)
+                .body(
+                        "name", is(RULE_NAME),
+                        "enabled", is(true));
     }
 
     @Test
