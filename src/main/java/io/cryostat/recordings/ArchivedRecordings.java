@@ -33,26 +33,19 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.libcryostat.sys.Clock;
-import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator.GrafanaArchiveUploadRequest;
 import io.cryostat.targets.Target;
 import io.cryostat.util.HttpMimeType;
-import io.cryostat.ws.MessagingServer;
-import io.cryostat.ws.Notification;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -70,16 +63,7 @@ import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
-import software.amazon.awssdk.core.sync.RequestBody;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.Delete;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.DeleteObjectsRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
-import software.amazon.awssdk.services.s3.model.ObjectIdentifier;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
@@ -90,7 +74,6 @@ public class ArchivedRecordings {
 
     @Inject EventBus bus;
     @Inject Clock clock;
-    @Inject S3Client storage;
     @Inject StorageBuckets storageBuckets;
     @Inject S3Presigner presigner;
     @Inject RecordingHelper recordingHelper;
@@ -108,10 +91,6 @@ public class ArchivedRecordings {
 
     @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
     Optional<String> externalStorageUrl;
-
-    void onStart(@Observes StartupEvent evt) {
-        storageBuckets.createIfNecessary(bucket);
-    }
 
     @GET
     @Blocking
@@ -162,61 +141,19 @@ public class ArchivedRecordings {
         logger.tracev(
                 "recording:{0}, labels:{1}, maxFiles:{2}", recording.fileName(), labels, maxFiles);
         doUpload(recording, metadata, jvmId);
-        var objs = new ArrayList<S3Object>();
-        recordingHelper.listArchivedRecordingObjects(jvmId).iterator().forEachRemaining(objs::add);
+        var objs = new ArrayList<S3Object>(recordingHelper.listArchivedRecordingObjects(jvmId));
         var toRemove =
                 objs.stream()
                         .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
                         .skip(max)
+                        .map(S3Object::key)
+                        .map(s -> s.split("/"))
+                        .map(a -> Pair.of(a[0], a[1]))
                         .toList();
         if (toRemove.isEmpty()) {
             return;
         }
-        logger.tracev("Removing {0}", toRemove);
-
-        // FIXME this notification should be emitted in the deletion operation stream so that there
-        // is one notification per deleted object
-        var target = Target.getTargetByJvmId(jvmId);
-        var event =
-                new ArchivedRecordingEvent(
-                        ActiveRecordings.RecordingEventCategory.ARCHIVED_DELETED,
-                        ArchivedRecordingEvent.Payload.of(
-                                target.map(t -> t.connectUrl).orElse(null),
-                                new ArchivedRecording(
-                                        jvmId,
-                                        recording.fileName(),
-                                        recordingHelper.downloadUrl(jvmId, recording.fileName()),
-                                        recordingHelper.reportUrl(jvmId, recording.fileName()),
-                                        metadata,
-                                        0,
-                                        clock.now().getEpochSecond())));
-        bus.publish(event.category().category(), event.payload().recording());
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(event.category().category(), event.payload()));
-        storage.deleteObjects(
-                        DeleteObjectsRequest.builder()
-                                .bucket(bucket)
-                                .delete(
-                                        Delete.builder()
-                                                .objects(
-                                                        toRemove.stream()
-                                                                .map(S3Object::key)
-                                                                .map(
-                                                                        k ->
-                                                                                ObjectIdentifier
-                                                                                        .builder()
-                                                                                        .key(k)
-                                                                                        .build())
-                                                                .toList())
-                                                .build())
-                                .build())
-                .errors()
-                .forEach(
-                        err -> {
-                            logger.errorv(
-                                    "Deletion failure: {0} due to {1}", err.key(), err.message());
-                        });
+        toRemove.forEach(p -> recordingHelper.deleteArchivedRecording(p.getKey(), p.getValue()));
     }
 
     @GET
@@ -273,46 +210,14 @@ public class ArchivedRecordings {
         logger.tracev(
                 "Upload: {0} {1} {2} {3}",
                 recording.name(), recording.fileName(), recording.filePath(), metadata.labels());
-        String filename = recording.fileName().strip();
-        if (StringUtils.isBlank(filename)) {
-            throw new BadRequestException();
-        }
-        if (!filename.endsWith(".jfr")) {
-            filename = filename + ".jfr";
-        }
-        Map<String, String> labels = new HashMap<>(metadata.labels());
-        labels.put("jvmId", jvmId);
-        String key = recordingHelper.archivedRecordingKey(jvmId, filename);
-        storage.putObject(
-                PutObjectRequest.builder()
-                        .bucket(bucket)
-                        .key(key)
-                        .contentType(RecordingHelper.JFR_MIME)
-                        .tagging(recordingHelper.createMetadataTagging(new Metadata(labels)))
-                        .build(),
-                RequestBody.fromFile(recording.filePath()));
+        var archivedRecording = recordingHelper.uploadArchivedRecording(jvmId, recording, metadata);
         logger.trace("Upload complete");
 
-        var target = Target.getTargetByJvmId(jvmId);
-        var event =
-                new ArchivedRecordingEvent(
-                        ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
-                        ArchivedRecordingEvent.Payload.of(
-                                target.map(t -> t.connectUrl).orElse(null),
-                                new ArchivedRecording(
-                                        jvmId,
-                                        filename,
-                                        recordingHelper.downloadUrl(jvmId, filename),
-                                        recordingHelper.reportUrl(jvmId, filename),
-                                        metadata,
-                                        recording.size(),
-                                        clock.now().getEpochSecond())));
-        bus.publish(event.category().category(), event.payload().recording());
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(event.category().category(), event.payload()));
-
-        return Map.of("name", filename, "metadata", Map.of("labels", metadata.labels()));
+        return Map.of(
+                "name",
+                archivedRecording.name(),
+                "metadata",
+                archivedRecording.metadata().labels());
     }
 
     @DELETE
@@ -320,14 +225,8 @@ public class ArchivedRecordings {
     @Path("/api/v4/recordings/{filename}")
     @RolesAllowed("write")
     public void delete(@RestPath String filename) throws Exception {
-        var key = String.format("%s/%s", "uploads", filename);
-        try {
-            storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
-        } catch (NoSuchKeyException e) {
-            throw new NotFoundException(e);
-        }
         // TODO scan all prefixes for matching filename? This is an old v1 API problem.
-        storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
+        recordingHelper.deleteArchivedRecording("uploads", filename);
     }
 
     @GET
@@ -415,60 +314,7 @@ public class ArchivedRecordings {
     @RolesAllowed("write")
     public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
             throws Exception {
-        logger.tracev("Handling archived recording deletion: {0} / {1}", jvmId, filename);
-        var metadata =
-                recordingHelper
-                        .getArchivedRecordingMetadata(jvmId, filename)
-                        .orElseGet(Metadata::empty);
-
-        var connectUrl =
-                Target.getTargetByJvmId(jvmId)
-                        .map(t -> t.connectUrl)
-                        .map(c -> c.toString())
-                        .filter(StringUtils::isNotBlank)
-                        .orElseGet(
-                                () ->
-                                        metadata.labels()
-                                                .computeIfAbsent(
-                                                        "connectUrl", k -> "lost-" + jvmId));
-        logger.tracev(
-                "Archived recording from connectUrl \"{0}\" has metadata: {1}",
-                connectUrl, metadata);
-        logger.tracev(
-                "Sending S3 deletion request for {0} {1}",
-                bucket, recordingHelper.archivedRecordingKey(jvmId, filename));
-
-        var key = recordingHelper.archivedRecordingKey(jvmId, filename);
-        storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
-                .sdkHttpResponse();
-        var resp =
-                storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
-        logger.tracev(
-                "Got SDK response {0} {1}",
-                resp.sdkHttpResponse().statusCode(), resp.sdkHttpResponse().statusText());
-        if (resp.sdkHttpResponse().isSuccessful()) {
-            var event =
-                    new ArchivedRecordingEvent(
-                            ActiveRecordings.RecordingEventCategory.ARCHIVED_DELETED,
-                            ArchivedRecordingEvent.Payload.of(
-                                    URI.create(connectUrl),
-                                    new ArchivedRecording(
-                                            jvmId,
-                                            filename,
-                                            recordingHelper.downloadUrl(jvmId, filename),
-                                            recordingHelper.reportUrl(jvmId, filename),
-                                            metadata,
-                                            0 /* filesize */,
-                                            clock.now().getEpochSecond())));
-            bus.publish(event.category().category(), event.payload().recording());
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(event.category().category(), event.payload()));
-        } else {
-            throw new HttpException(
-                    resp.sdkHttpResponse().statusCode(),
-                    resp.sdkHttpResponse().statusText().orElse(""));
-        }
+        recordingHelper.deleteArchivedRecording(jvmId, filename);
     }
 
     @POST
@@ -478,18 +324,7 @@ public class ArchivedRecordings {
     public String uploadArchivedToGrafana(HttpServerResponse response, @RestPath String encodedKey)
             throws Exception {
         var pair = recordingHelper.decodedKey(encodedKey);
-        var key = recordingHelper.archivedRecordingKey(pair);
-        storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
-                .sdkHttpResponse();
-        var found =
-                recordingHelper.listArchivedRecordingObjects().stream()
-                        .anyMatch(
-                                o -> {
-                                    return Objects.equals(o.key(), key);
-                                });
-        if (!found) {
-            throw new NotFoundException();
-        }
+        recordingHelper.assertArchivedRecordingExists(pair.getKey(), pair.getValue());
         // Send an intermediate response back to the client while another thread handles the upload
         // request
         logger.trace("Creating grafana upload request");
@@ -513,8 +348,7 @@ public class ArchivedRecordings {
         Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
         String key = recordingHelper.archivedRecordingKey(pair);
 
-        storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
-                .sdkHttpResponse();
+        recordingHelper.assertArchivedRecordingExists(pair.getKey(), pair.getValue());
 
         if (!presignedDownloadsEnabled) {
             return ResponseBuilder.ok()
