@@ -1358,7 +1358,7 @@ public class RecordingHelper {
                             .build());
         } else {
             try {
-                deleteArchivedRecording(jvmId, filename);
+                deleteArchivedRecordingMetadataFile(jvmId, filename);
                 createArchivedRecordingMetadataFile(jvmId, filename, updatedMetadata);
             } catch (JsonProcessingException e) {
                 throw new InternalServerErrorException(e);
