@@ -57,16 +57,16 @@ class BucketedArchivedRecordingMetadataService implements ArchivedRecordingMetad
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES_META)
     String bucket;
 
+    // don't use the application-wide instance. That one serializes maps as key-value pair lists for
+    // historical API reasons, but for this internal usage we just want the default behaviour.
+    private final ObjectMapper mapper = new ObjectMapper();
+
     void onStart(@Observes StartupEvent evt) {
         if (!METADATA_STORAGE_MODE_BUCKETED.equals(storageMode)) {
             return;
         }
         storageBuckets.createIfNecessary(bucket);
     }
-
-    // don't use the application-wide instance. That one serializes maps as key-value pair lists for
-    // historical API reasons, but for this internal usage we just want the default behaviour.
-    private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public void create(String storageKey, Metadata metadata) throws JsonProcessingException {
