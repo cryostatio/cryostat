@@ -840,8 +840,13 @@ public class RecordingHelper {
                             .key(key)
                             .contentType(JFR_MIME)
                             .contentDisposition(
-                                    String.format("attachment; filename=\"%s\"", savename))
-                            .tagging(createActiveRecordingTagging(recording));
+                                    String.format("attachment; filename=\"%s\"", savename));
+            if (useObjectTagging()) {
+                builder = builder.tagging(createActiveRecordingTagging(recording));
+            } else {
+                createArchivedRecordingMetadataFile(
+                        recording.target.jvmId, filename, createActiveRecordingMetadata(recording));
+            }
             CreateMultipartUploadRequest request = builder.build();
             multipartId = storage.createMultipartUpload(request).uploadId();
             int read = 0;
@@ -853,8 +858,9 @@ public class RecordingHelper {
                 }
                 accum += read;
                 if (read == -1) {
-                    logger.tracev("Completed upload of {0} chunks ({1} bytes)", i - 1, accum + 1);
-                    logger.tracev("Key: {0}", key);
+                    logger.tracev(
+                            "Key: {0} completed upload of {1} chunks ({2} bytes)",
+                            key, i - 1, accum + 1);
                     break;
                 }
 
@@ -994,11 +1000,46 @@ public class RecordingHelper {
                                                         .build())
                                         .tagSet()));
             }
-            return Optional.empty();
+            GetObjectRequest.Builder builder =
+                    GetObjectRequest.builder().bucket(archiveMetaBucket.get()).key(storageKey);
+            return Optional.of(
+                    mapper.readValue(storage.getObject(builder.build()), Metadata.class));
         } catch (NoSuchKeyException nske) {
             logger.warn(nske);
             return Optional.empty();
+        } catch (IOException ioe) {
+            logger.error(ioe);
+            return Optional.empty();
         }
+    }
+
+    private PutObjectResponse createArchivedRecordingMetadataFile(
+            String jvmId, String filename, Metadata metadata)
+            throws S3Exception, AwsServiceException, SdkClientException, JsonProcessingException {
+        return createArchivedRecordingMetadataFile(archivedRecordingKey(jvmId, filename), metadata);
+    }
+
+    private PutObjectResponse createArchivedRecordingMetadataFile(
+            String storageKey, Metadata metadata)
+            throws S3Exception, AwsServiceException, SdkClientException, JsonProcessingException {
+        PutObjectRequest.Builder builder =
+                PutObjectRequest.builder()
+                        .bucket(archiveMetaBucket.get())
+                        .key(storageKey)
+                        .contentType(HttpMimeType.JSON.mime());
+        return storage.putObject(
+                builder.build(), RequestBody.fromBytes(mapper.writeValueAsBytes(metadata)));
+    }
+
+    private DeleteObjectResponse deleteArchivedRecordingMetadatafile(
+            String jvmId, String filename) {
+        return deleteArchivedRecordingMetadatafile(archivedRecordingKey(jvmId, filename));
+    }
+
+    private DeleteObjectResponse deleteArchivedRecordingMetadatafile(String storageKey) {
+        DeleteObjectRequest.Builder builder =
+                DeleteObjectRequest.builder().bucket(archiveMetaBucket.get()).key(storageKey);
+        return storage.deleteObject(builder.build());
     }
 
     private String decodeBase64(String encoded) {
@@ -1134,6 +1175,15 @@ public class RecordingHelper {
                     resp.sdkHttpResponse().statusText().orElse(""));
         }
 
+        if (!useObjectTagging()) {
+            resp = deleteArchivedRecordingMetadatafile(jvmId, filename);
+            if (!resp.sdkHttpResponse().isSuccessful()) {
+                throw new HttpException(
+                        resp.sdkHttpResponse().statusCode(),
+                        resp.sdkHttpResponse().statusText().orElse(""));
+            }
+        }
+
         var event =
                 new ArchivedRecordingEvent(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_DELETED,
@@ -1252,8 +1302,16 @@ public class RecordingHelper {
                 PutObjectRequest.builder()
                         .bucket(archiveBucket)
                         .key(key)
-                        .tagging(createMetadataTagging(new Metadata(labels)));
                         .contentType(RecordingHelper.JFR_MIME);
+        if (useObjectTagging()) {
+            requestBuilder = requestBuilder.tagging(createMetadataTagging(new Metadata(labels)));
+        } else {
+            try {
+                createArchivedRecordingMetadataFile(jvmId, filename, metadata);
+            } catch (JsonProcessingException jpe) {
+                throw new InternalServerErrorException(jpe);
+            }
+        }
         storage.putObject(requestBuilder.build(), RequestBody.fromFile(recording.filePath()));
 
         var target = Target.getTargetByJvmId(jvmId);
@@ -1300,7 +1358,7 @@ public class RecordingHelper {
                             .build());
         } else {
             try {
-                deleteArchivedRecordingMetadataFile(jvmId, filename);
+                deleteArchivedRecording(jvmId, filename);
                 createArchivedRecordingMetadataFile(jvmId, filename, updatedMetadata);
             } catch (JsonProcessingException e) {
                 throw new InternalServerErrorException(e);
