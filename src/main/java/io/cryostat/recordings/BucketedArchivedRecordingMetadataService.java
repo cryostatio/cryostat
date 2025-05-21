@@ -43,6 +43,13 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 @LookupIfProperty(
         name = ConfigProperties.ARCHIVED_RECORDINGS_METADATA_STORAGE_MODE,
         stringValue = BucketedArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKETED)
+/**
+ * Implements archived recording metadata as standalone objects in a bucket. When the storage mode
+ * is set to select this implementation, archived recordings' metadata is not stored using the S3
+ * object Tags, but rather as separate JSON files in separate buckets. This ensures broader
+ * compatibility with different S3-like implementations and providers, and also circumvents any
+ * limitations on tag count or tag size/length.
+ */
 class BucketedArchivedRecordingMetadataService implements ArchivedRecordingMetadataService {
 
     static final String METADATA_STORAGE_MODE_BUCKETED = "bucketed";
