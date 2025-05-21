@@ -42,8 +42,6 @@ class StorageCachingReportsListener {
 
     @Inject S3Client storage;
 
-    @Inject RecordingHelper recordingHelper;
-
     @Inject Logger logger;
 
     @ConsumeEvent(value = ActiveRecordings.ARCHIVED_RECORDING_DELETED)
@@ -54,7 +52,7 @@ class StorageCachingReportsListener {
         Optional.ofNullable(recording.metadata().labels().get("jvmId"))
                 .ifPresent(
                         jvmId -> {
-                            var key = recordingHelper.archivedRecordingKey(jvmId, recording.name());
+                            var key = RecordingHelper.archivedRecordingKey(jvmId, recording.name());
                             logger.tracev("Picked up deletion of archived recording: {0}", key);
                             var req = DeleteObjectRequest.builder().bucket(bucket).key(key).build();
                             try {

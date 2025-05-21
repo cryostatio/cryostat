@@ -68,7 +68,6 @@ class StorageCachingReportsService implements ReportsService {
     Duration timeout;
 
     @Inject S3Client storage;
-    @Inject RecordingHelper recordingHelper;
     @Inject ObjectMapper mapper;
 
     @Inject @Delegate @Any ReportsService delegate;
@@ -90,7 +89,7 @@ class StorageCachingReportsService implements ReportsService {
             logger.trace("cache disabled, delegating...");
             return delegate.reportFor(jvmId, filename, predicate);
         }
-        var key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        var key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         logger.tracev("reportFor {0}", key);
         return checkStorage(key)
                 .onItem()
@@ -185,7 +184,7 @@ class StorageCachingReportsService implements ReportsService {
 
     @Override
     public boolean keyExists(String jvmId, String filename) {
-        String key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        String key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         return enabled && checkStorage(key).await().atMost(timeout);
     }
 

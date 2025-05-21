@@ -163,7 +163,7 @@ class ReportsServiceImpl implements ReportsService {
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
                         .bucket(archiveBucket)
-                        .key(helper.archivedRecordingKey(Pair.of(jvmId, filename)))
+                        .key(RecordingHelper.archivedRecordingKey(Pair.of(jvmId, filename)))
                         .build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()

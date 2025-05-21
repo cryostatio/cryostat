@@ -1009,7 +1009,7 @@ public class RecordingHelper {
         return (jvmId + "/" + filename).strip();
     }
 
-    public String archivedRecordingKey(Pair<String, String> pair) {
+    public static String archivedRecordingKey(Pair<String, String> pair) {
         return archivedRecordingKey(pair.getKey(), pair.getValue());
     }
 

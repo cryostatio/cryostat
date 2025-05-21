@@ -346,7 +346,7 @@ public class ArchivedRecordings {
     public RestResponse<Object> handleStorageDownload(
             @RestPath String encodedKey, @RestQuery String f) throws URISyntaxException {
         Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
-        String key = recordingHelper.archivedRecordingKey(pair);
+        String key = RecordingHelper.archivedRecordingKey(pair);
 
         recordingHelper.assertArchivedRecordingExists(pair.getKey(), pair.getValue());
 
