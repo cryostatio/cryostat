@@ -16,6 +16,8 @@
 package io.cryostat;
 
 public class ConfigProperties {
+    public static final String ARCHIVED_RECORDINGS_METADATA_STORAGE_MODE =
+            "cryostat.archived-recordings.metadata.storage-mode";
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
     public static final String AWS_BUCKET_NAME_ARCHIVES_META = "storage.buckets.archives-meta.name";
     public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =

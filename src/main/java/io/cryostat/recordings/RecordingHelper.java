@@ -80,7 +80,6 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Uni;
@@ -118,7 +117,6 @@ import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
-import software.amazon.awssdk.awscore.exception.AwsServiceException;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -128,7 +126,6 @@ import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
 import software.amazon.awssdk.services.s3.model.CompletedPart;
 import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.DeleteObjectResponse;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
@@ -137,9 +134,7 @@ import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder;
-import software.amazon.awssdk.services.s3.model.PutObjectResponse;
 import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
-import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
@@ -148,6 +143,7 @@ import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 @ApplicationScoped
 public class RecordingHelper {
 
+    private static final String METADATA_STORAGE_MODE_TAGGING = "tagging";
     private static final int S3_API_PART_LIMIT = 10_000;
     private static final int MIB = 1024 * 1024;
 
@@ -161,9 +157,6 @@ public class RecordingHelper {
 
     @Inject WebClient webClient;
     @Inject StorageBuckets buckets;
-    // don't use the application-wide instance. That one serializes maps as key-value pair lists for
-    // historical API reasons, but for this internal usage we just want the default behaviour.
-    private final ObjectMapper mapper = new ObjectMapper();
     @Inject FileSystem fs;
     @Inject Clock clock;
     @Inject TargetConnectionManager connectionManager;
@@ -173,6 +166,7 @@ public class RecordingHelper {
     @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
     @Inject PresetTemplateService presetTemplateService;
+    @Inject ArchivedRecordingMetadataService metadataService;
     @Inject Scheduler scheduler;
 
     @Inject
@@ -182,11 +176,11 @@ public class RecordingHelper {
     @Inject EventBus bus;
     @Inject Logger logger;
 
+    @ConfigProperty(name = ConfigProperties.ARCHIVED_RECORDINGS_METADATA_STORAGE_MODE)
+    String metadataStorageMode;
+
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
-
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES_META)
-    Optional<String> archiveMetaBucket;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
@@ -239,9 +233,6 @@ public class RecordingHelper {
         }
 
         buckets.createIfNecessary(archiveBucket);
-        if (!useObjectTagging()) {
-            buckets.createIfNecessary(archiveMetaBucket.get());
-        }
     }
 
     // FIXME hacky. This opens a remote connection on each call and updates our database with the
@@ -844,7 +835,7 @@ public class RecordingHelper {
             if (useObjectTagging()) {
                 builder = builder.tagging(createActiveRecordingTagging(recording));
             } else {
-                createArchivedRecordingMetadataFile(
+                metadataService.create(
                         recording.target.jvmId, filename, createActiveRecordingMetadata(recording));
             }
             CreateMultipartUploadRequest request = builder.build();
@@ -1000,10 +991,7 @@ public class RecordingHelper {
                                                         .build())
                                         .tagSet()));
             }
-            GetObjectRequest.Builder builder =
-                    GetObjectRequest.builder().bucket(archiveMetaBucket.get()).key(storageKey);
-            return Optional.of(
-                    mapper.readValue(storage.getObject(builder.build()), Metadata.class));
+            return Optional.of(metadataService.read(storageKey));
         } catch (NoSuchKeyException nske) {
             logger.warn(nske);
             return Optional.empty();
@@ -1013,40 +1001,11 @@ public class RecordingHelper {
         }
     }
 
-    private PutObjectResponse createArchivedRecordingMetadataFile(
-            String jvmId, String filename, Metadata metadata)
-            throws S3Exception, AwsServiceException, SdkClientException, JsonProcessingException {
-        return createArchivedRecordingMetadataFile(archivedRecordingKey(jvmId, filename), metadata);
-    }
-
-    private PutObjectResponse createArchivedRecordingMetadataFile(
-            String storageKey, Metadata metadata)
-            throws S3Exception, AwsServiceException, SdkClientException, JsonProcessingException {
-        PutObjectRequest.Builder builder =
-                PutObjectRequest.builder()
-                        .bucket(archiveMetaBucket.get())
-                        .key(storageKey)
-                        .contentType(HttpMimeType.JSON.mime());
-        return storage.putObject(
-                builder.build(), RequestBody.fromBytes(mapper.writeValueAsBytes(metadata)));
-    }
-
-    private DeleteObjectResponse deleteArchivedRecordingMetadatafile(
-            String jvmId, String filename) {
-        return deleteArchivedRecordingMetadatafile(archivedRecordingKey(jvmId, filename));
-    }
-
-    private DeleteObjectResponse deleteArchivedRecordingMetadatafile(String storageKey) {
-        DeleteObjectRequest.Builder builder =
-                DeleteObjectRequest.builder().bucket(archiveMetaBucket.get()).key(storageKey);
-        return storage.deleteObject(builder.build());
-    }
-
     private String decodeBase64(String encoded) {
         return new String(base64Url.decode(encoded), StandardCharsets.UTF_8);
     }
 
-    public String archivedRecordingKey(String jvmId, String filename) {
+    public static String archivedRecordingKey(String jvmId, String filename) {
         return (jvmId + "/" + filename).strip();
     }
 
@@ -1176,12 +1135,7 @@ public class RecordingHelper {
         }
 
         if (!useObjectTagging()) {
-            resp = deleteArchivedRecordingMetadatafile(jvmId, filename);
-            if (!resp.sdkHttpResponse().isSuccessful()) {
-                throw new HttpException(
-                        resp.sdkHttpResponse().statusCode(),
-                        resp.sdkHttpResponse().statusText().orElse(""));
-            }
+            metadataService.delete(jvmId, filename);
         }
 
         var event =
@@ -1282,8 +1236,7 @@ public class RecordingHelper {
     }
 
     private boolean useObjectTagging() {
-        // use the Object Tagging feature if an archives metadata bucket hasn't been specified
-        return archiveMetaBucket.map(StringUtils::isBlank).orElse(true);
+        return METADATA_STORAGE_MODE_TAGGING.equalsIgnoreCase(metadataStorageMode);
     }
 
     public ArchivedRecording uploadArchivedRecording(
@@ -1307,7 +1260,7 @@ public class RecordingHelper {
             requestBuilder = requestBuilder.tagging(createMetadataTagging(new Metadata(labels)));
         } else {
             try {
-                createArchivedRecordingMetadataFile(jvmId, filename, metadata);
+                metadataService.create(jvmId, filename, metadata);
             } catch (JsonProcessingException jpe) {
                 throw new InternalServerErrorException(jpe);
             }
@@ -1358,8 +1311,7 @@ public class RecordingHelper {
                             .build());
         } else {
             try {
-                deleteArchivedRecordingMetadataFile(jvmId, filename);
-                createArchivedRecordingMetadataFile(jvmId, filename, updatedMetadata);
+                metadataService.update(jvmId, filename, updatedMetadata);
             } catch (JsonProcessingException e) {
                 throw new InternalServerErrorException(e);
             }
