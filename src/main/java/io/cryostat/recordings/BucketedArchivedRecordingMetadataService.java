@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
@@ -88,11 +89,15 @@ class BucketedArchivedRecordingMetadataService implements ArchivedRecordingMetad
     }
 
     @Override
-    public Metadata read(String storageKey) throws IOException {
+    public Optional<Metadata> read(String storageKey) throws IOException {
         logger.infov("create {}", storageKey);
         GetObjectRequest.Builder builder =
                 GetObjectRequest.builder().bucket(bucket).key(storageKey);
-        return mapper.readValue(storage.getObject(builder.build()), Metadata.class);
+        var resp = storage.getObject(builder.build());
+        if (resp.response().sdkHttpResponse().isSuccessful()) {
+            return Optional.of(mapper.readValue(resp, Metadata.class));
+        }
+        return Optional.empty();
     }
 
     @Override

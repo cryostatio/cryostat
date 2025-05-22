@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 
@@ -43,7 +44,7 @@ class NoopArchivedRecordingMetadataService implements ArchivedRecordingMetadataS
     }
 
     @Override
-    public Metadata read(String storageKey) throws IOException {
+    public Optional<Metadata> read(String storageKey) throws IOException {
         // TODO Auto-generated method stub
         throw new UnsupportedOperationException("Unimplemented method 'read'");
     }
