@@ -78,7 +78,6 @@ class BucketedArchivedRecordingMetadataService implements ArchivedRecordingMetad
 
     @Override
     public void create(String storageKey, Metadata metadata) throws JsonProcessingException {
-        logger.infov("create {}", storageKey);
         PutObjectRequest.Builder builder =
                 PutObjectRequest.builder()
                         .bucket(bucket)
@@ -90,7 +89,6 @@ class BucketedArchivedRecordingMetadataService implements ArchivedRecordingMetad
 
     @Override
     public Optional<Metadata> read(String storageKey) throws IOException {
-        logger.infov("create {}", storageKey);
         GetObjectRequest.Builder builder =
                 GetObjectRequest.builder().bucket(bucket).key(storageKey);
         var resp = storage.getObject(builder.build());
@@ -102,7 +100,6 @@ class BucketedArchivedRecordingMetadataService implements ArchivedRecordingMetad
 
     @Override
     public void delete(String storageKey) {
-        logger.infov("delete {}", storageKey);
         DeleteObjectRequest.Builder builder =
                 DeleteObjectRequest.builder().bucket(bucket).key(storageKey);
         storage.deleteObject(builder.build());
