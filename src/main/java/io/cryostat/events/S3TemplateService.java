@@ -51,11 +51,11 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.common.annotation.Identifier;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.tuple.Pair;
@@ -93,7 +93,7 @@ public class S3TemplateService implements MutableTemplateService {
     @Inject EventBus bus;
 
     @Inject
-    @Named(Producers.BASE64_URL)
+    @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
 
     @Inject Logger logger;
