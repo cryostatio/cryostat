@@ -38,20 +38,13 @@ import jakarta.ws.rs.Produces;
 class NoopArchivedRecordingMetadataService implements ArchivedRecordingMetadataService {
 
     @Override
-    public void create(String storageKey, Metadata metadata) throws JsonProcessingException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'create'");
-    }
+    public void create(String storageKey, Metadata metadata) throws JsonProcessingException {}
 
     @Override
     public Optional<Metadata> read(String storageKey) throws IOException {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'read'");
+        return Optional.empty();
     }
 
     @Override
-    public void delete(String storageKey) {
-        // TODO Auto-generated method stub
-        throw new UnsupportedOperationException("Unimplemented method 'delete'");
-    }
+    public void delete(String storageKey) {}
 }
