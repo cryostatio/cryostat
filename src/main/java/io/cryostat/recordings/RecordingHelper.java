@@ -991,7 +991,7 @@ public class RecordingHelper {
                                                         .build())
                                         .tagSet()));
             }
-            return Optional.of(metadataService.read(storageKey));
+            return metadataService.read(storageKey);
         } catch (NoSuchKeyException nske) {
             logger.warn(nske);
             return Optional.empty();

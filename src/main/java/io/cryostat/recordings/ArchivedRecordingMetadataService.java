@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 
@@ -29,11 +30,11 @@ public interface ArchivedRecordingMetadataService {
 
     void create(String storageKey, Metadata metadata) throws JsonProcessingException;
 
-    default Metadata read(String jvmId, String filename) throws IOException {
+    default Optional<Metadata> read(String jvmId, String filename) throws IOException {
         return read(RecordingHelper.archivedRecordingKey(jvmId, filename));
     }
 
-    Metadata read(String storageKey) throws IOException;
+    Optional<Metadata> read(String storageKey) throws IOException;
 
     default void update(String storageKey, Metadata metadata) throws JsonProcessingException {
         delete(storageKey);
