@@ -91,6 +91,7 @@ import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
@@ -166,7 +167,7 @@ public class RecordingHelper {
     @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
     @Inject PresetTemplateService presetTemplateService;
-    @Inject ArchivedRecordingMetadataService metadataService;
+    @Inject Instance<ArchivedRecordingMetadataService> metadataService;
     @Inject Scheduler scheduler;
 
     @Inject
@@ -835,8 +836,12 @@ public class RecordingHelper {
             if (useObjectTagging()) {
                 builder = builder.tagging(createActiveRecordingTagging(recording));
             } else {
-                metadataService.create(
-                        recording.target.jvmId, filename, createActiveRecordingMetadata(recording));
+                metadataService
+                        .get()
+                        .create(
+                                recording.target.jvmId,
+                                filename,
+                                createActiveRecordingMetadata(recording));
             }
             CreateMultipartUploadRequest request = builder.build();
             multipartId = storage.createMultipartUpload(request).uploadId();
@@ -991,7 +996,7 @@ public class RecordingHelper {
                                                         .build())
                                         .tagSet()));
             }
-            return metadataService.read(storageKey);
+            return metadataService.get().read(storageKey);
         } catch (NoSuchKeyException nske) {
             logger.warn(nske);
             return Optional.empty();
@@ -1135,7 +1140,7 @@ public class RecordingHelper {
         }
 
         if (!useObjectTagging()) {
-            metadataService.delete(jvmId, filename);
+            metadataService.get().delete(jvmId, filename);
         }
 
         var event =
@@ -1260,7 +1265,7 @@ public class RecordingHelper {
             requestBuilder = requestBuilder.tagging(createMetadataTagging(new Metadata(labels)));
         } else {
             try {
-                metadataService.create(jvmId, filename, metadata);
+                metadataService.get().create(jvmId, filename, metadata);
             } catch (JsonProcessingException jpe) {
                 throw new InternalServerErrorException(jpe);
             }
@@ -1311,7 +1316,7 @@ public class RecordingHelper {
                             .build());
         } else {
             try {
-                metadataService.update(jvmId, filename, updatedMetadata);
+                metadataService.get().update(jvmId, filename, updatedMetadata);
             } catch (JsonProcessingException e) {
                 throw new InternalServerErrorException(e);
             }
