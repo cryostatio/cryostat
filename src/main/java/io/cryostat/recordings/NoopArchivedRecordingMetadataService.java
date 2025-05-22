@@ -18,16 +18,17 @@ package io.cryostat.recordings;
 import java.io.IOException;
 import java.util.Optional;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import io.quarkus.arc.DefaultBean;
+import io.quarkus.arc.lookup.LookupIfProperty;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.ws.rs.Produces;
 
-@Produces
 @ApplicationScoped
-@DefaultBean
+@LookupIfProperty(
+        name = ConfigProperties.ARCHIVED_RECORDINGS_METADATA_STORAGE_MODE,
+        stringValue = NoopArchivedRecordingMetadataService.METADATA_STORAGE_MODE_NOOP)
 /**
  * No-op implementation of {@link ArchivedRecordingMetadataService}. The default metadata storage
  * mode is 'tagging', which uses embedded object tags and is directly implemented within {@link
@@ -36,6 +37,8 @@ import jakarta.ws.rs.Produces;
  * injected as the default, but should never actually be invoked.
  */
 class NoopArchivedRecordingMetadataService implements ArchivedRecordingMetadataService {
+
+    static final String METADATA_STORAGE_MODE_NOOP = "noop";
 
     @Override
     public void create(String storageKey, Metadata metadata) throws JsonProcessingException {}
