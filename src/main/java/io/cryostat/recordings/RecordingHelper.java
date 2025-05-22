@@ -82,6 +82,7 @@ import io.cryostat.ws.Notification;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.common.annotation.Identifier;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -91,7 +92,6 @@ import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
@@ -170,7 +170,7 @@ public class RecordingHelper {
     @Inject Scheduler scheduler;
 
     @Inject
-    @Named(Producers.BASE64_URL)
+    @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
 
     @Inject EventBus bus;

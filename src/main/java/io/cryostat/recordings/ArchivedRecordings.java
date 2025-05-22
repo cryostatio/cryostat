@@ -40,12 +40,12 @@ import io.cryostat.util.HttpMimeType;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.common.annotation.Identifier;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -80,7 +80,7 @@ public class ArchivedRecordings {
     @Inject Logger logger;
 
     @Inject
-    @Named(Producers.BASE64_URL)
+    @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
