@@ -1,0 +1,20 @@
+services:
+  cryostat:
+    environment:
+      # the endpoint, region, and credentials values below MUST be set by external environment variable
+      # before running the smoketest.bash script.
+      CRYOSTAT_ARCHIVED_RECORDINGS_METADATA_STORAGE_MODE: bucketed
+      QUARKUS_S3_ENDPOINT_OVERRIDE: ${B2_ENDPOINT:-https://s3.us-east-005.backblazeb2.com}
+      # STORAGE_EXT_URL: /storage/
+      QUARKUS_S3_PATH_STYLE_ACCESS: "false"
+      QUARKUS_S3_AWS_REGION: ${B2_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+
+  # this stub is just here to satisfy the smoketest script. It is not actually involved in anything.
+  s3:
+    image: registry.access.redhat.com/ubi9/ubi-micro
+    hostname: s3
+    command: /usr/bin/bash -c "while true; do sleep 5; done"
+    expose:
+      - "9000"
