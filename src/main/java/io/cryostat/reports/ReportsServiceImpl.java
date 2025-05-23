@@ -62,9 +62,6 @@ class ReportsServiceImpl implements ReportsService {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
 
-    @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
-    Optional<String> externalStorageUrl;
-
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper helper;
     @Inject InterruptibleReportGenerator reportGenerator;
