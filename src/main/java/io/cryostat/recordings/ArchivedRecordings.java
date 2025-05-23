@@ -15,6 +15,7 @@
  */
 package io.cryostat.recordings;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
@@ -153,7 +154,14 @@ public class ArchivedRecordings {
         if (toRemove.isEmpty()) {
             return;
         }
-        toRemove.forEach(p -> recordingHelper.deleteArchivedRecording(p.getKey(), p.getValue()));
+        toRemove.forEach(
+                p -> {
+                    try {
+                        recordingHelper.deleteArchivedRecording(p.getKey(), p.getValue());
+                    } catch (IOException ioe) {
+                        logger.error(ioe);
+                    }
+                });
     }
 
     @GET
@@ -206,7 +214,8 @@ public class ArchivedRecordings {
     }
 
     @Blocking
-    Map<String, Object> doUpload(FileUpload recording, Metadata metadata, String jvmId) {
+    Map<String, Object> doUpload(FileUpload recording, Metadata metadata, String jvmId)
+            throws IOException {
         logger.tracev(
                 "Upload: {0} {1} {2} {3}",
                 recording.name(), recording.fileName(), recording.filePath(), metadata.labels());
