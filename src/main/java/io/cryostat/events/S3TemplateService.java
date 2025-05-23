@@ -300,13 +300,6 @@ public class S3TemplateService implements MutableTemplateService {
         return Tagging.builder().tagSet(tags).build();
     }
 
-    private boolean checkDir() {
-        return Files.exists(dir)
-                && Files.isReadable(dir)
-                && Files.isExecutable(dir)
-                && Files.isDirectory(dir);
-    }
-
     private XMLModel parseXml(InputStream inputStream) throws IOException, ParseException {
         try (inputStream) {
             var model = EventConfiguration.createModel(inputStream);
