@@ -5,8 +5,6 @@ services:
         condition: service_healthy
     environment:
       STORAGE_BUCKETS_ARCHIVES_NAME: archivedrecordings
-      # store archived recordings metadata as files in a separate bucket, not as object tagging on the recording files
-      CRYOSTAT_ARCHIVED_RECORDINGS_METADATA_STORAGE_MODE: bucketed
       QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:9000
       STORAGE_EXT_URL: /storage/
       QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
