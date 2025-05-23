@@ -21,7 +21,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;

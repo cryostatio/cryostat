@@ -19,16 +19,12 @@ import java.io.IOException;
 import java.util.Optional;
 
 import io.cryostat.recordings.ActiveRecordings.Metadata;
+import io.cryostat.util.CRUDService;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-
-public interface ArchivedRecordingMetadataService {
-    default void create(String jvmId, String filename, Metadata metadata)
-            throws JsonProcessingException {
+public interface ArchivedRecordingMetadataService extends CRUDService<String, Metadata> {
+    default void create(String jvmId, String filename, Metadata metadata) throws IOException {
         create(RecordingHelper.archivedRecordingKey(jvmId, filename), metadata);
     }
-
-    void create(String storageKey, Metadata metadata) throws JsonProcessingException;
 
     default Optional<Metadata> read(String jvmId, String filename) throws IOException {
         return read(RecordingHelper.archivedRecordingKey(jvmId, filename));
@@ -36,20 +32,12 @@ public interface ArchivedRecordingMetadataService {
 
     Optional<Metadata> read(String storageKey) throws IOException;
 
-    default void update(String storageKey, Metadata metadata) throws JsonProcessingException {
-        delete(storageKey);
-        create(storageKey, metadata);
-    }
-
-    default void update(String jvmId, String filename, Metadata metadata)
-            throws JsonProcessingException {
+    default void update(String jvmId, String filename, Metadata metadata) throws IOException {
         delete(jvmId, filename);
         create(jvmId, filename, metadata);
     }
 
-    default void delete(String jvmId, String filename) {
+    default void delete(String jvmId, String filename) throws IOException {
         delete(RecordingHelper.archivedRecordingKey(jvmId, filename));
     }
-
-    void delete(String storageKey);
 }

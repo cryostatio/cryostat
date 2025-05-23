@@ -79,7 +79,6 @@ import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
@@ -96,7 +95,6 @@ import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
-import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.Response;
@@ -1123,7 +1121,7 @@ public class RecordingHelper {
     }
 
     /* Archived Recording Helpers */
-    public void deleteArchivedRecording(String jvmId, String filename) {
+    public void deleteArchivedRecording(String jvmId, String filename) throws IOException {
         assertArchivedRecordingExists(jvmId, filename);
         var metadata = getArchivedRecordingMetadata(jvmId, filename).orElseGet(Metadata::empty);
         var target = Target.getTargetByJvmId(jvmId);
@@ -1245,7 +1243,7 @@ public class RecordingHelper {
     }
 
     public ArchivedRecording uploadArchivedRecording(
-            String jvmId, FileUpload recording, Metadata metadata) {
+            String jvmId, FileUpload recording, Metadata metadata) throws IOException {
         String filename = recording.fileName().strip();
         if (StringUtils.isBlank(filename)) {
             throw new BadRequestException();
@@ -1264,11 +1262,7 @@ public class RecordingHelper {
         if (useObjectTagging()) {
             requestBuilder = requestBuilder.tagging(createMetadataTagging(new Metadata(labels)));
         } else {
-            try {
-                metadataService.get().create(jvmId, filename, metadata);
-            } catch (JsonProcessingException jpe) {
-                throw new InternalServerErrorException(jpe);
-            }
+            metadataService.get().create(jvmId, filename, metadata);
         }
         storage.putObject(requestBuilder.build(), RequestBody.fromFile(recording.filePath()));
 
@@ -1295,7 +1289,7 @@ public class RecordingHelper {
     }
 
     public ArchivedRecording updateArchivedRecordingMetadata(
-            String jvmId, String filename, Map<String, String> updatedLabels) {
+            String jvmId, String filename, Map<String, String> updatedLabels) throws IOException {
         String key = archivedRecordingKey(jvmId, filename);
         Optional<Metadata> existingMetadataOpt = getArchivedRecordingMetadata(key);
 
@@ -1315,11 +1309,7 @@ public class RecordingHelper {
                             .tagging(tagging)
                             .build());
         } else {
-            try {
-                metadataService.get().update(jvmId, filename, updatedMetadata);
-            } catch (JsonProcessingException e) {
-                throw new InternalServerErrorException(e);
-            }
+            metadataService.get().update(jvmId, filename, updatedMetadata);
         }
 
         var response = assertArchivedRecordingExists(jvmId, filename);
