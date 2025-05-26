@@ -35,6 +35,12 @@ import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 
+/**
+ * Attempt to connect to a remote target JVM to retrieve {@link java.lang.management.RuntimeMXBean}
+ * data and calculate the JVM hash ID.
+ *
+ * @see io.cryostat.target.Target
+ */
 public class TargetUpdateJob implements Job {
 
     @Inject Logger logger;

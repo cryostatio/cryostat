@@ -50,6 +50,16 @@ import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+/**
+ * Tiered caching layer for automated analysis reports. Uses S3 object storage to cache automated
+ * analysis reports as JSON files. This is only done for archived recordings, not active recordings.
+ * Since archived recordings contain fixed, static data, once a single report is generated for that
+ * recording file then the automated analysis report file is always valid. The report documents
+ * themselves are not particularly large files and storing them should be cheap (much cheaper than
+ * storing the input recording file). If in-memory report caching is disabled, or a report has
+ * dropped out of that cache due to TTL, then retrieving the report file from S3 object storage is
+ * still much cheaper than, and preferable to, regenerating the report again.
+ */
 @Priority(20)
 @Decorator
 @Dependent

@@ -30,6 +30,7 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.projectnessie.cel.tools.ScriptException;
@@ -43,6 +44,15 @@ public class MatchExpressions {
     @POST
     @RolesAllowed("read")
     @Blocking
+    @Operation(
+            summary = "Test a MatchExpression against a list of Targets",
+            description =
+                    """
+                    Given a list of Target IDs, retrieve each Target instance from the database, then return the list
+                    filtered by the Targets which satisfy the Match Expression. If a given ID does not exist in the
+                    database then the whole request will fail. The expression must evaluate to a boolean value for each
+                    target. The match expression will not be stored.
+                    """)
     public MatchedExpression test(RequestData requestData) throws ScriptException {
         var targets = new HashSet<Target>();
         if (requestData.targetIds == null) {
@@ -56,11 +66,20 @@ public class MatchExpressions {
     @GET
     @RolesAllowed("read")
     @Blocking
+    @Operation(
+            summary = "Retrieve a list of all currently defined Match Expressions",
+            description =
+                    """
+                    Retrieve a list of all currently defined Match Expressions. These objects cannot be created
+                    independently in the current API definition, so each of these expressions will be associated with
+                    an Automated Rule or Stored Credential.
+                    """)
     public Multi<Map<String, Object>> list() {
         List<MatchExpression> exprs = MatchExpression.listAll();
         // FIXME hack so that this endpoint renders the response as the entity object with id and
         // script fields, rather than allowing Jackson serialization to handle it normally where it
-        // will be encoded as only the script as a raw string
+        // will be encoded as only the script as a raw string. This should be done using a JsonView
+        // or similar technique instead
         return Multi.createFrom()
                 .items(exprs.stream().map(expr -> Map.of("id", expr.id, "script", expr.script)));
     }
@@ -69,6 +88,7 @@ public class MatchExpressions {
     @Path("/{id}")
     @RolesAllowed("read")
     @Blocking
+    @Operation(summary = "Retrieve a single Match Expression")
     public MatchedExpression get(@RestPath long id) throws ScriptException {
         return targetMatcher.match(MatchExpression.find("id", id).singleResult());
     }

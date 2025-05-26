@@ -52,6 +52,11 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
+/**
+ * Represents a Flight Recording currently present on a remote @{link io.cryostat.target.Target}
+ * JVM. This Recording may be in any state, but should actually be present on the remote Target. It
+ * may have been created by Cryostat, by another external tool, or by the target JVM itself.
+ */
 @Entity
 @EntityListeners(ActiveRecording.Listener.class)
 @Table(

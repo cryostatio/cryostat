@@ -31,6 +31,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
+/** Event listener for pruning cached automated analysis reports when sources disappear. */
 @ApplicationScoped
 class StorageCachingReportsListener {
 

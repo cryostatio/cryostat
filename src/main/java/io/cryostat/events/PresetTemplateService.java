@@ -57,6 +57,13 @@ import org.jboss.logging.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.parser.Parser;
 
+/**
+ * Event Template service implementation for Preset templates. Preset templates are ones located in
+ * src/main/docker/include/template_presets and are available to be applied to any discovered
+ * target. These behave similarly to {@link io.cryostat.events.S3TemplateService} Custom Event
+ * Templates, except Presets are shipped with the Cryostat distribution and cannot be deleted by end
+ * users at runtime.
+ */
 @ApplicationScoped
 public class PresetTemplateService implements TemplateService {
 

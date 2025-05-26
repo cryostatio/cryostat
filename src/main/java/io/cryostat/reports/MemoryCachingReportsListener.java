@@ -34,6 +34,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+/** Event listener for pruning cached automated analysis reports when sources disappear. */
 @ApplicationScoped
 class MemoryCachingReportsListener {
 

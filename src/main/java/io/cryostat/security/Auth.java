@@ -25,6 +25,7 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.SecurityContext;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
@@ -35,6 +36,7 @@ public class Auth {
     @Path("/api/v4/logout")
     @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
+    @Operation(summary = "OAuth2 sign out. Invalidate the current user session")
     public RestResponse<Object> logout(@Context RoutingContext context) {
         return ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(URI.create("/oauth2/sign_out"))
@@ -45,6 +47,17 @@ public class Auth {
     @Path("/api/v4/auth")
     @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
+    @Operation(
+            summary = "Authenticate to the Cryostat server",
+            description =
+                    """
+                    In modern Cryostat deployments it is customary to deploy Cryostat behind an authenticating reverse
+                    proxy, so authentication is not actually handled by Cryostat itself. This endpoint is used by the
+                    Cryostat Web UI client to send an authenticated client request, including some authentication
+                    headers, to the Cryostat server so that it can extract information about the logged-in user. The
+                    response contains the current user's username if it can be determined, or else an empty string.
+                    This is only used for display in the Web UI. API clients do not need to use this endpoint.
+                    """)
     public AuthResponse login(@Context RoutingContext context, SecurityContext securityContext) {
         String user =
                 securityContext.getUserPrincipal() != null

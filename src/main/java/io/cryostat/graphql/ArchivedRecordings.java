@@ -31,6 +31,7 @@ import io.cryostat.recordings.RecordingHelper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.NonNull;
 import org.eclipse.microprofile.graphql.Query;
@@ -42,6 +43,7 @@ public class ArchivedRecordings {
     @Inject RecordingHelper recordingHelper;
 
     @Query("archivedRecordings")
+    @Description("List archived recordings")
     public TargetNodes.ArchivedRecordings listArchivedRecordings(ArchivedRecordingsFilter filter) {
         var r = new TargetNodes.ArchivedRecordings();
         r.data =
@@ -54,6 +56,7 @@ public class ArchivedRecordings {
         return r;
     }
 
+    @Description("List and optionally filter archived recordings belonging to a Target")
     public TargetNodes.ArchivedRecordings archived(
             @Source Recordings recordings, ArchivedRecordingsFilter filter) {
         var out = new TargetNodes.ArchivedRecordings();
@@ -71,12 +74,14 @@ public class ArchivedRecordings {
     }
 
     @NonNull
+    @Description("Delete an archived recording")
     public ArchivedRecording doDelete(@Source ArchivedRecording recording) {
         recordingHelper.deleteArchivedRecording(recording.jvmId(), recording.name());
         return recording;
     }
 
     @NonNull
+    @Description("Update the metadata associated with an archived recording")
     public ArchivedRecording doPutMetadata(
             @Source ArchivedRecording recording, MetadataLabels metadataInput) {
         recordingHelper.updateArchivedRecordingMetadata(
