@@ -40,8 +40,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @ApplicationScoped
 @LookupIfProperty(
-        name = ConfigProperties.ARCHIVED_RECORDINGS_METADATA_STORAGE_MODE,
-        stringValue = BucketedArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKETED)
+        name = ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE,
+        stringValue = ArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKET)
 /**
  * Implements archived recording metadata as standalone objects in a bucket. When the storage mode
  * is set to select this implementation, archived recordings' metadata is not stored using the S3
@@ -51,24 +51,25 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
  */
 class BucketedArchivedRecordingMetadataService implements ArchivedRecordingMetadataService {
 
-    static final String METADATA_STORAGE_MODE_BUCKETED = "bucketed";
-
     @Inject StorageBuckets storageBuckets;
     @Inject S3Client storage;
     @Inject Logger logger;
 
-    @ConfigProperty(name = ConfigProperties.ARCHIVED_RECORDINGS_METADATA_STORAGE_MODE)
+    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE)
     String storageMode;
 
-    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES_META)
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_METADATA)
     String bucket;
+
+    @ConfigProperty(name = ConfigProperties.AWS_METADATA_PREFIX_RECORDINGS)
+    String prefix;
 
     // don't use the application-wide instance. That one serializes maps as key-value pair lists for
     // historical API reasons, but for this internal usage we just want the default behaviour.
     private final ObjectMapper mapper = new ObjectMapper();
 
     void onStart(@Observes StartupEvent evt) {
-        if (!METADATA_STORAGE_MODE_BUCKETED.equals(storageMode)) {
+        if (!METADATA_STORAGE_MODE_BUCKET.equals(storageMode)) {
             return;
         }
         storageBuckets.createIfNecessary(bucket);
@@ -79,7 +80,7 @@ class BucketedArchivedRecordingMetadataService implements ArchivedRecordingMetad
         PutObjectRequest.Builder builder =
                 PutObjectRequest.builder()
                         .bucket(bucket)
-                        .key(storageKey)
+                        .key(prefix(storageKey))
                         .contentType(HttpMimeType.JSON.mime());
         storage.putObject(
                 builder.build(), RequestBody.fromBytes(mapper.writeValueAsBytes(metadata)));
@@ -88,7 +89,7 @@ class BucketedArchivedRecordingMetadataService implements ArchivedRecordingMetad
     @Override
     public Optional<Metadata> read(String storageKey) throws IOException {
         GetObjectRequest.Builder builder =
-                GetObjectRequest.builder().bucket(bucket).key(storageKey);
+                GetObjectRequest.builder().bucket(bucket).key(prefix(storageKey));
         var resp = storage.getObject(builder.build());
         if (resp.response().sdkHttpResponse().isSuccessful()) {
             return Optional.of(mapper.readValue(resp, Metadata.class));
@@ -99,7 +100,11 @@ class BucketedArchivedRecordingMetadataService implements ArchivedRecordingMetad
     @Override
     public void delete(String storageKey) {
         DeleteObjectRequest.Builder builder =
-                DeleteObjectRequest.builder().bucket(bucket).key(storageKey);
+                DeleteObjectRequest.builder().bucket(bucket).key(prefix(storageKey));
         storage.deleteObject(builder.build());
+    }
+
+    private String prefix(String key) {
+        return String.format("%s/%s", prefix, key);
     }
 }

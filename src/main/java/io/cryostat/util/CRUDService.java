@@ -16,18 +16,29 @@
 package io.cryostat.util;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
 
-public interface CRUDService<K, V> {
+public interface CRUDService<Key, InValue, OutValue> {
 
-    void create(K k, V v) throws IOException;
+    default List<OutValue> list() throws IOException {
+        return List.of();
+    }
 
-    Optional<V> read(K k) throws IOException;
+    default Stream<OutValue> find(Predicate<OutValue> p) throws IOException {
+        return list().stream().filter(p);
+    }
 
-    default void update(K k, V v) throws IOException {
+    void create(Key k, InValue v) throws IOException;
+
+    Optional<OutValue> read(Key k) throws IOException;
+
+    default void update(Key k, InValue v) throws IOException {
         delete(k);
         create(k, v);
     }
 
-    void delete(K k) throws IOException;
+    void delete(Key k) throws IOException;
 }

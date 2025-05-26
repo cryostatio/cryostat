@@ -47,6 +47,8 @@ import io.cryostat.core.templates.MutableTemplateService;
 import io.cryostat.libcryostat.templates.InvalidEventTemplateException;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
+import io.cryostat.recordings.ArchivedRecordingMetadataService;
+import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -55,6 +57,7 @@ import io.smallrye.common.annotation.Identifier;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
@@ -68,6 +71,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -80,8 +84,15 @@ public class S3TemplateService implements MutableTemplateService {
     static final String EVENT_TEMPLATE_CREATED = "TemplateUploaded";
     static final String EVENT_TEMPLATE_DELETED = "TemplateDeleted";
 
+    private static final String META_KEY_NAME = "label";
+    private static final String META_KEY_DESCRIPTION = "description";
+    private static final String META_KEY_PROVIDER = "provider";
+
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_EVENT_TEMPLATES)
     String bucket;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_EVENT_TEMPLATES_STORAGE_MODE)
+    String metadataStorageMode;
 
     @ConfigProperty(name = ConfigProperties.CUSTOM_TEMPLATES_DIR)
     Path dir;
@@ -89,6 +100,7 @@ public class S3TemplateService implements MutableTemplateService {
     @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject S3Client storage;
     @Inject StorageBuckets storageBuckets;
+    @Inject Instance<BucketedEventTemplateMetadataService> metadataService;
 
     @Inject EventBus bus;
 
@@ -144,7 +156,7 @@ public class S3TemplateService implements MutableTemplateService {
                         t -> {
                             try {
                                 return convertObject(t);
-                            } catch (InvalidEventTemplateException e) {
+                            } catch (InvalidEventTemplateException | IOException e) {
                                 logger.error(e);
                                 return null;
                             }
@@ -166,48 +178,78 @@ public class S3TemplateService implements MutableTemplateService {
         }
     }
 
+    private ArchivedRecordingMetadataService.StorageMode storageMode() {
+        return RecordingHelper.storageMode(metadataStorageMode);
+    }
+
     private List<S3Object> getObjects() {
         var builder = ListObjectsV2Request.builder().bucket(bucket);
         return storage.listObjectsV2(builder.build()).contents();
     }
 
-    private Template convertObject(S3Object object) throws InvalidEventTemplateException {
-        var req = GetObjectTaggingRequest.builder().bucket(bucket).key(object.key()).build();
-        var tagging = storage.getObjectTagging(req);
-        var list = tagging.tagSet();
-        if (!tagging.hasTagSet() || list.isEmpty()) {
-            throw new InvalidEventTemplateException("No metadata found");
+    private Template convertObject(S3Object object)
+            throws InvalidEventTemplateException, IOException {
+        String label, description, provider;
+
+        switch (storageMode()) {
+            case TAGGING:
+                var getReq =
+                        GetObjectTaggingRequest.builder().bucket(bucket).key(object.key()).build();
+                var tagging = storage.getObjectTagging(getReq);
+                var list = tagging.tagSet();
+                if (!tagging.hasTagSet() || list.isEmpty()) {
+                    throw new InvalidEventTemplateException("No metadata found");
+                }
+                var decodedList = new ArrayList<Pair<String, String>>();
+                list.forEach(
+                        t -> {
+                            var encodedKey = t.key();
+                            var decodedKey =
+                                    new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8)
+                                            .trim();
+                            var encodedValue = t.value();
+                            var decodedValue =
+                                    new String(
+                                                    base64Url.decode(encodedValue),
+                                                    StandardCharsets.UTF_8)
+                                            .trim();
+                            decodedList.add(Pair.of(decodedKey, decodedValue));
+                        });
+                label =
+                        decodedList.stream()
+                                .filter(t -> t.getKey().equals(META_KEY_NAME))
+                                .map(Pair::getValue)
+                                .findFirst()
+                                .orElseThrow();
+                description =
+                        decodedList.stream()
+                                .filter(t -> t.getKey().equals(META_KEY_DESCRIPTION))
+                                .map(Pair::getValue)
+                                .findFirst()
+                                .orElseThrow();
+                provider =
+                        decodedList.stream()
+                                .filter(t -> t.getKey().equals(META_KEY_PROVIDER))
+                                .map(Pair::getValue)
+                                .findFirst()
+                                .orElseThrow();
+                break;
+            case METADATA:
+                var headReq = HeadObjectRequest.builder().bucket(bucket).key(object.key()).build();
+                var meta = storage.headObject(headReq).metadata();
+                label = Objects.requireNonNull(meta.get(META_KEY_NAME));
+                description = Objects.requireNonNull(meta.get(META_KEY_DESCRIPTION));
+                provider = Objects.requireNonNull(meta.get(META_KEY_PROVIDER));
+                break;
+            case BUCKET:
+                var t = metadataService.get().read(object.key()).orElseThrow();
+                label = t.getName();
+                description = t.getDescription();
+                provider = t.getProvider();
+                break;
+            default:
+                throw new IllegalStateException();
         }
-        var decodedList = new ArrayList<Pair<String, String>>();
-        list.forEach(
-                t -> {
-                    var encodedKey = t.key();
-                    var decodedKey =
-                            new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8).trim();
-                    var encodedValue = t.value();
-                    var decodedValue =
-                            new String(base64Url.decode(encodedValue), StandardCharsets.UTF_8)
-                                    .trim();
-                    decodedList.add(Pair.of(decodedKey, decodedValue));
-                });
-        var label =
-                decodedList.stream()
-                        .filter(t -> t.getKey().equals("label"))
-                        .map(Pair::getValue)
-                        .findFirst()
-                        .orElseThrow();
-        var description =
-                decodedList.stream()
-                        .filter(t -> t.getKey().equals("description"))
-                        .map(Pair::getValue)
-                        .findFirst()
-                        .orElseThrow();
-        var provider =
-                decodedList.stream()
-                        .filter(t -> t.getKey().equals("provider"))
-                        .map(Pair::getValue)
-                        .findFirst()
-                        .orElseThrow();
 
         return new Template(label, description, provider, TemplateType.CUSTOM);
     }
@@ -227,18 +269,62 @@ public class S3TemplateService implements MutableTemplateService {
             if (existing.stream().anyMatch(t -> Objects.equals(t.getName(), template.getName()))) {
                 throw new DuplicateTemplateException(template.getName());
             }
-            storage.putObject(
+            var reqBuilder =
                     PutObjectRequest.builder()
                             .bucket(bucket)
                             .key(template.getName())
-                            .contentType(MediaType.APPLICATION_XML)
-                            .tagging(
-                                    createTemplateTagging(
+                            .contentType(MediaType.APPLICATION_XML);
+            switch (storageMode()) {
+                case TAGGING:
+                    var map =
+                            Map.of(
+                                    META_KEY_NAME, template.getName(),
+                                    META_KEY_DESCRIPTION, template.getDescription(),
+                                    META_KEY_PROVIDER, template.getProvider());
+                    var tagging =
+                            Tagging.builder()
+                                    .tagSet(
+                                            map.entrySet().stream()
+                                                    .map(
+                                                            e ->
+                                                                    Tag.builder()
+                                                                            .key(
+                                                                                    base64Url
+                                                                                            .encodeAsString(
+                                                                                                    e.getKey()
+                                                                                                            .getBytes(
+                                                                                                                    StandardCharsets
+                                                                                                                            .UTF_8)))
+                                                                            .value(
+                                                                                    base64Url
+                                                                                            .encodeAsString(
+                                                                                                    e.getValue()
+                                                                                                            .getBytes(
+                                                                                                                    StandardCharsets
+                                                                                                                            .UTF_8)))
+                                                                            .build())
+                                                    .toList())
+                                    .build();
+                    reqBuilder = reqBuilder.tagging(tagging);
+                    break;
+                case METADATA:
+                    reqBuilder =
+                            reqBuilder.metadata(
+                                    Map.of(
+                                            META_KEY_NAME,
                                             template.getName(),
+                                            META_KEY_DESCRIPTION,
                                             template.getDescription(),
-                                            template.getProvider()))
-                            .build(),
-                    RequestBody.fromString(model.toString()));
+                                            META_KEY_PROVIDER,
+                                            template.getProvider()));
+                    break;
+                case BUCKET:
+                    metadataService.get().create(template.getName(), template);
+                    break;
+                default:
+                    throw new IllegalStateException();
+            }
+            storage.putObject(reqBuilder.build(), RequestBody.fromString(model.toString()));
 
             bus.publish(
                     MessagingServer.class.getName(),
@@ -274,45 +360,17 @@ public class S3TemplateService implements MutableTemplateService {
         }
     }
 
-    private Tagging createTemplateTagging(
-            String templateName, String description, String provider) {
-        var map = Map.of("label", templateName, "description", description, "provider", provider);
-        var tags = new ArrayList<Tag>();
-        tags.addAll(
-                map.entrySet().stream()
-                        .map(
-                                e ->
-                                        Tag.builder()
-                                                .key(
-                                                        base64Url.encodeAsString(
-                                                                e.getKey()
-                                                                        .getBytes(
-                                                                                StandardCharsets
-                                                                                        .UTF_8)))
-                                                .value(
-                                                        base64Url.encodeAsString(
-                                                                e.getValue()
-                                                                        .getBytes(
-                                                                                StandardCharsets
-                                                                                        .UTF_8)))
-                                                .build())
-                        .toList());
-        return Tagging.builder().tagSet(tags).build();
-    }
-
     private XMLModel parseXml(InputStream inputStream) throws IOException, ParseException {
-        try (inputStream) {
-            var model = EventConfiguration.createModel(inputStream);
-            model.checkErrors();
+        var model = EventConfiguration.createModel(inputStream);
+        model.checkErrors();
 
-            for (XMLValidationResult result : model.getResults()) {
-                if (result.isError()) {
-                    throw new IllegalArgumentException(
-                            new InvalidEventTemplateException(result.getText()));
-                }
+        for (XMLValidationResult result : model.getResults()) {
+            if (result.isError()) {
+                throw new IllegalArgumentException(
+                        new InvalidEventTemplateException(result.getText()));
             }
-            return model;
         }
+        return model;
     }
 
     private Template createTemplate(XMLModel model) throws IOException, ParseException {

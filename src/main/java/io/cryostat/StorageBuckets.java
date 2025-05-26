@@ -16,8 +16,9 @@
 package io.cryostat;
 
 import java.time.Duration;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -44,10 +45,17 @@ public class StorageBuckets {
     @ConfigProperty(name = "storage.buckets.creation-retry.period")
     Duration creationRetryPeriod;
 
-    private final Set<String> buckets = ConcurrentHashMap.newKeySet();
-    private final ScheduledExecutorService worker = Executors.newSingleThreadScheduledExecutor();
+    private final BlockingQueue<String> buckets = new ArrayBlockingQueue<>(16);
+    private final ScheduledExecutorService q = Executors.newSingleThreadScheduledExecutor();
+    private final ExecutorService pool = Executors.newCachedThreadPool();
+    private volatile boolean shutdown = false;
 
     public void createIfNecessary(String bucket) {
+        if (buckets.contains(bucket)) {
+            logger.debugv("Bucket \"{0}\" already queued, skipping");
+            return;
+        }
+        logger.debugv("Queueing bucket check/creation: \"{0}\"", bucket);
         buckets.add(bucket);
     }
 
@@ -78,11 +86,15 @@ public class StorageBuckets {
     }
 
     void onStart(@Observes StartupEvent evt) {
-        worker.scheduleAtFixedRate(
+        q.scheduleAtFixedRate(
                 () -> {
-                    var it = buckets.iterator();
-                    while (it.hasNext()) {
-                        if (tryCreate(it.next())) it.remove();
+                    while (!shutdown) {
+                        try {
+                            String bucket = buckets.take();
+                            pool.execute(() -> tryCreate(bucket));
+                        } catch (InterruptedException e) {
+                            break;
+                        }
                     }
                 },
                 0,
@@ -91,6 +103,7 @@ public class StorageBuckets {
     }
 
     void onStop(@Observes ShutdownEvent evt) {
-        worker.shutdown();
+        shutdown = true;
+        q.shutdownNow();
     }
 }

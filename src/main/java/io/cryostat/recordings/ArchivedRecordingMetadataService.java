@@ -21,7 +21,12 @@ import java.util.Optional;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.util.CRUDService;
 
-public interface ArchivedRecordingMetadataService extends CRUDService<String, Metadata> {
+public interface ArchivedRecordingMetadataService extends CRUDService<String, Metadata, Metadata> {
+
+    public static final String METADATA_STORAGE_MODE_TAGGING = "tagging";
+    public static final String METADATA_STORAGE_MODE_OBJECTMETA = "metadata";
+    public static final String METADATA_STORAGE_MODE_BUCKET = "bucket";
+
     default void create(String jvmId, String filename, Metadata metadata) throws IOException {
         create(RecordingHelper.archivedRecordingKey(jvmId, filename), metadata);
     }
@@ -39,5 +44,21 @@ public interface ArchivedRecordingMetadataService extends CRUDService<String, Me
 
     default void delete(String jvmId, String filename) throws IOException {
         delete(RecordingHelper.archivedRecordingKey(jvmId, filename));
+    }
+
+    static enum StorageMode {
+        TAGGING(METADATA_STORAGE_MODE_TAGGING),
+        METADATA(METADATA_STORAGE_MODE_OBJECTMETA),
+        BUCKET(METADATA_STORAGE_MODE_BUCKET),
+        ;
+        private final String key;
+
+        private StorageMode(String key) {
+            this.key = key;
+        }
+
+        public String getKey() {
+            return key;
+        }
     }
 }
