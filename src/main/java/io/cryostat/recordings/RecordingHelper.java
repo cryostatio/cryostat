@@ -834,7 +834,7 @@ public class RecordingHelper {
                     builder = builder.tagging(createActiveRecordingTagging(recording));
                     break;
                 case METADATA:
-                    // TODO
+                    builder = builder.metadata(createActiveRecordingMetadata(recording).labels());
                     break;
                 case BUCKET:
                     metadataService
