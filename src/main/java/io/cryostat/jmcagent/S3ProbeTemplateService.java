@@ -31,6 +31,8 @@ import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.jmcagent.ProbeTemplate;
 import io.cryostat.core.jmcagent.ProbeTemplateService;
+import io.cryostat.recordings.ArchivedRecordingMetadataService;
+import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -38,7 +40,9 @@ import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.tuple.Pair;
@@ -50,6 +54,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
@@ -58,8 +63,15 @@ import software.amazon.awssdk.services.s3.model.Tagging;
 
 public class S3ProbeTemplateService implements ProbeTemplateService {
 
+    private static final String META_KEY_CLASS_PREFIX = "classPrefix";
+    private static final String META_KEY_ALLOW_TO_STRING = "allowToString";
+    private static final String META_KEY_ALLOW_CONVERTER = "allowConverter";
+
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_PROBE_TEMPLATES)
     String bucket;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_PROBE_TEMPLATES_STORAGE_MODE)
+    String storageMode;
 
     @ConfigProperty(name = ConfigProperties.PROBE_TEMPLATES_DIR)
     Path dir;
@@ -67,6 +79,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject S3Client storage;
     @Inject StorageBuckets storageBuckets;
+    @Inject Instance<BucketedProbeTemplateMetadataService> metadataService;
 
     @Inject EventBus bus;
 
@@ -86,11 +99,11 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                     .walk(dir)
                     .forEach(
                             path -> {
-                                try (var is = Files.newInputStream(path)) {
+                                try {
                                     logger.debugv(
                                             "Uploading probe template from {0} to S3",
                                             path.toString());
-                                    addTemplate(is, path.toString());
+                                    addTemplate(path, path.toString());
                                 } catch (IOException | SAXException e) {
                                     logger.error(e);
                                 } catch (DuplicateProbeTemplateException e) {
@@ -131,19 +144,39 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     }
 
     public void deleteTemplate(String templateName) {
-        var template =
-                getTemplates().stream()
-                        .filter(t -> t.getFileName().equals(templateName))
-                        .findFirst()
-                        .orElseThrow();
+        if (!storage.headObject(
+                        HeadObjectRequest.builder().bucket(bucket).key(templateName).build())
+                .sdkHttpResponse()
+                .isSuccessful()) {
+            throw new NotFoundException();
+        }
         var req = DeleteObjectRequest.builder().bucket(bucket).key(templateName).build();
+        switch (storageMode()) {
+            case TAGGING:
+            // fall-through
+            case METADATA:
+                // no-op, S3 will clean up tagging/metadata along with the actual object
+                break;
+            case BUCKET:
+                try {
+                    metadataService.get().delete(templateName);
+                } catch (IOException ioe) {
+                    logger.warn(ioe);
+                }
+                break;
+            default:
+                throw new IllegalStateException();
+        }
         if (storage.deleteObject(req).sdkHttpResponse().isSuccessful()) {
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
-                            TEMPLATE_DELETED_CATEGORY,
-                            Map.of("probeTemplate", template.getFileName())));
+                            TEMPLATE_DELETED_CATEGORY, Map.of("probeTemplate", templateName)));
         }
+    }
+
+    private ArchivedRecordingMetadataService.StorageMode storageMode() {
+        return RecordingHelper.storageMode(storageMode);
     }
 
     private InputStream getModel(String name) {
@@ -157,48 +190,71 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     }
 
     private ProbeTemplate convertObject(S3Object object) throws Exception {
-        var req = GetObjectTaggingRequest.builder().bucket(bucket).key(object.key()).build();
-        var tagging = storage.getObjectTagging(req);
-        var list = tagging.tagSet();
-        if (!tagging.hasTagSet() || list.isEmpty()) {
-            throw new Exception("No metadata found");
+        String fileName = object.key();
+        String classPrefix;
+        boolean allowToString, allowConverter;
+        switch (storageMode()) {
+            case TAGGING:
+                var getTaggingReq =
+                        GetObjectTaggingRequest.builder().bucket(bucket).key(object.key()).build();
+                var tagging = storage.getObjectTagging(getTaggingReq);
+                var tagSet = tagging.tagSet();
+                if (!tagging.hasTagSet() || tagSet.isEmpty()) {
+                    throw new Exception("No metadata found");
+                }
+                var decodedTagList = new ArrayList<Pair<String, String>>();
+                tagSet.forEach(
+                        t -> {
+                            var encodedKey = t.key();
+                            var decodedKey =
+                                    new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8)
+                                            .trim();
+                            var encodedValue = t.value();
+                            var decodedValue =
+                                    new String(
+                                                    base64Url.decode(encodedValue),
+                                                    StandardCharsets.UTF_8)
+                                            .trim();
+                            decodedTagList.add(Pair.of(decodedKey, decodedValue));
+                        });
+                classPrefix =
+                        decodedTagList.stream()
+                                .filter(t -> t.getKey().equals(META_KEY_CLASS_PREFIX))
+                                .map(Pair::getValue)
+                                .findFirst()
+                                .orElseThrow();
+                allowToString =
+                        Boolean.valueOf(
+                                decodedTagList.stream()
+                                        .filter(t -> t.getKey().equals(META_KEY_ALLOW_TO_STRING))
+                                        .map(Pair::getValue)
+                                        .findFirst()
+                                        .orElseThrow());
+                allowConverter =
+                        Boolean.valueOf(
+                                decodedTagList.stream()
+                                        .filter(t -> t.getKey().equals(META_KEY_ALLOW_CONVERTER))
+                                        .map(Pair::getValue)
+                                        .findFirst()
+                                        .orElseThrow());
+                break;
+            case METADATA:
+                var getMetaReq =
+                        HeadObjectRequest.builder().bucket(bucket).key(object.key()).build();
+                var meta = storage.headObject(getMetaReq).metadata();
+                classPrefix = Objects.requireNonNull(meta.get(META_KEY_CLASS_PREFIX));
+                allowToString = Boolean.valueOf(meta.get(META_KEY_ALLOW_TO_STRING));
+                allowConverter = Boolean.valueOf(meta.get(META_KEY_ALLOW_CONVERTER));
+                break;
+            case BUCKET:
+                var pt = metadataService.get().read(fileName).orElseThrow();
+                classPrefix = pt.getClassPrefix();
+                allowToString = pt.getAllowToString();
+                allowConverter = pt.getAllowConverter();
+                break;
+            default:
+                throw new IllegalStateException();
         }
-        var decodedList = new ArrayList<Pair<String, String>>();
-        list.forEach(
-                t -> {
-                    var encodedKey = t.key();
-                    var decodedKey =
-                            new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8).trim();
-                    var encodedValue = t.value();
-                    var decodedValue =
-                            new String(base64Url.decode(encodedValue), StandardCharsets.UTF_8)
-                                    .trim();
-                    decodedList.add(Pair.of(decodedKey, decodedValue));
-                });
-        var fileName =
-                decodedList.stream()
-                        .filter(t -> t.getKey().equals("fileName"))
-                        .map(Pair::getValue)
-                        .findFirst()
-                        .orElseThrow();
-        var classPrefix =
-                decodedList.stream()
-                        .filter(t -> t.getKey().equals("classPrefix"))
-                        .map(Pair::getValue)
-                        .findFirst()
-                        .orElseThrow();
-        var allowToString =
-                decodedList.stream()
-                        .filter(t -> t.getKey().equals("allowToString"))
-                        .map(Pair::getValue)
-                        .findFirst()
-                        .orElseThrow();
-        var allowConverter =
-                decodedList.stream()
-                        .filter(t -> t.getKey().equals("allowConverter"))
-                        .map(Pair::getValue)
-                        .findFirst()
-                        .orElseThrow();
         // filename, classprefix, allowtostring, allowconverter
         return new ProbeTemplate(
                 fileName,
@@ -207,9 +263,8 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                 Boolean.valueOf(allowConverter));
     }
 
-    public ProbeTemplate addTemplate(InputStream stream, String fileName)
-            throws IOException, SAXException {
-        try (stream) {
+    public ProbeTemplate addTemplate(Path path, String fileName) throws IOException, SAXException {
+        try (var stream = Files.newInputStream(path)) {
             ProbeTemplate template = new ProbeTemplate();
             template.setFileName(fileName);
             template.deserialize(stream);
@@ -218,19 +273,37 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                     .anyMatch(t -> Objects.equals(t.getFileName(), template.getFileName()))) {
                 throw new DuplicateProbeTemplateException(template.getFileName());
             }
-            storage.putObject(
+            var reqBuilder =
                     PutObjectRequest.builder()
                             .bucket(bucket)
                             .key(fileName)
-                            .contentType(MediaType.APPLICATION_XML)
-                            .tagging(
+                            .contentType(MediaType.APPLICATION_XML);
+            switch (storageMode()) {
+                case TAGGING:
+                    reqBuilder =
+                            reqBuilder.tagging(
                                     createTemplateTagging(
-                                            fileName,
                                             template.getClassPrefix(),
                                             String.valueOf(template.getAllowToString()),
-                                            String.valueOf(template.getAllowConverter())))
-                            .build(),
-                    RequestBody.fromString(template.serialize()));
+                                            String.valueOf(template.getAllowConverter())));
+                    break;
+                case METADATA:
+                    reqBuilder =
+                            reqBuilder.metadata(
+                                    Map.of(
+                                            META_KEY_CLASS_PREFIX, template.getClassPrefix(),
+                                            META_KEY_ALLOW_CONVERTER,
+                                                    Boolean.toString(template.getAllowConverter()),
+                                            META_KEY_ALLOW_TO_STRING,
+                                                    Boolean.toString(template.getAllowToString())));
+                    break;
+                case BUCKET:
+                    metadataService.get().create(fileName, template);
+                    break;
+                default:
+                    throw new IllegalStateException();
+            }
+            storage.putObject(reqBuilder.build(), RequestBody.fromString(template.serialize()));
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
@@ -241,11 +314,9 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     }
 
     private Tagging createTemplateTagging(
-            String templateName, String classPrefix, String allowToString, String allowConverter) {
+            String classPrefix, String allowToString, String allowConverter) {
         var map =
                 Map.of(
-                        "fileName",
-                        templateName,
                         "classPrefix",
                         classPrefix,
                         "allowToString",

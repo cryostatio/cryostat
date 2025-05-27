@@ -75,15 +75,11 @@ public class JMCAgentTemplates {
         if (body == null || body.filePath() == null || !"probeTemplate".equals(body.name())) {
             throw new BadRequestException("Request must contain a 'probeTemplate' file upload");
         }
-        try (var stream = fs.newInputStream(body.filePath())) {
-            var probeTemplate = service.addTemplate(stream, name);
-            return ResponseBuilder.<ProbeTemplate>created(
-                            uriInfo.getAbsolutePathBuilder()
-                                    .path(probeTemplate.getFileName())
-                                    .build())
-                    .entity(probeTemplate)
-                    .build();
-        }
+        var probeTemplate = service.addTemplate(body.filePath(), name);
+        return ResponseBuilder.<ProbeTemplate>created(
+                        uriInfo.getAbsolutePathBuilder().path(probeTemplate.getFileName()).build())
+                .entity(probeTemplate)
+                .build();
     }
 
     static record ProbeTemplateResponse(String name, String description) {
