@@ -15,6 +15,7 @@
  */
 package io.cryostat.events;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -120,7 +121,9 @@ public class S3TemplateService implements MutableTemplateService {
                                         .walk(dir)
                                         .forEach(
                                                 p -> {
-                                                    try (var is = Files.newInputStream(p)) {
+                                                    try (var is =
+                                                            new BufferedInputStream(
+                                                                    Files.newInputStream(p))) {
                                                         logger.debugv(
                                                                 "Uploading template from {0} to S3",
                                                                 p.toString());
@@ -261,7 +264,7 @@ public class S3TemplateService implements MutableTemplateService {
 
     private InputStream getModel(String name) {
         var req = GetObjectRequest.builder().bucket(bucket).key(name).build();
-        return storage.getObject(req);
+        return new BufferedInputStream(storage.getObject(req));
     }
 
     @Override

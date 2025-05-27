@@ -15,6 +15,7 @@
  */
 package io.cryostat.recordings;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -1077,7 +1078,7 @@ public class RecordingHelper {
         GetObjectRequest getRequest =
                 GetObjectRequest.builder().bucket(archiveBucket).key(key).build();
 
-        return storage.getObject(getRequest);
+        return new BufferedInputStream(storage.getObject(getRequest));
     }
 
     public String downloadUrl(ActiveRecording recording) {

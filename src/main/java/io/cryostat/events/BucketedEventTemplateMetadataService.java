@@ -15,6 +15,7 @@
  */
 package io.cryostat.events;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
@@ -115,8 +116,12 @@ class BucketedEventTemplateMetadataService implements CRUDService<String, Templa
     @Override
     public Optional<Template> read(String k) throws IOException {
         try (var stream =
-                storage.getObject(
-                        GetObjectRequest.builder().bucket(bucket).key(prefix(k)).build())) {
+                new BufferedInputStream(
+                        storage.getObject(
+                                GetObjectRequest.builder()
+                                        .bucket(bucket)
+                                        .key(prefix(k))
+                                        .build()))) {
             return Optional.of(mapper.readValue(stream, TemplateMeta.class))
                     .map(TemplateMeta::asTemplate);
         }

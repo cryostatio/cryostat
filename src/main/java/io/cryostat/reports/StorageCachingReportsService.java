@@ -15,6 +15,7 @@
  */
 package io.cryostat.reports;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -157,7 +158,7 @@ class StorageCachingReportsService implements ReportsService {
                                             .bucket(bucket)
                                             .key(suffixKey(key))
                                             .build();
-                            try (var res = storage.getObject(req)) {
+                            try (var res = new BufferedInputStream(storage.getObject(req))) {
                                 return mapper.readValue(
                                         res, new TypeReference<Map<String, AnalysisResult>>() {});
                             } catch (IOException ioe) {

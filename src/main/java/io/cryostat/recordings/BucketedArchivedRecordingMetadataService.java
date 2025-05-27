@@ -15,6 +15,7 @@
  */
 package io.cryostat.recordings;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.util.Optional;
 
@@ -92,7 +93,7 @@ class BucketedArchivedRecordingMetadataService implements ArchivedRecordingMetad
                 GetObjectRequest.builder().bucket(bucket).key(prefix(storageKey));
         var resp = storage.getObject(builder.build());
         if (resp.response().sdkHttpResponse().isSuccessful()) {
-            return Optional.of(mapper.readValue(resp, Metadata.class));
+            return Optional.of(mapper.readValue(new BufferedInputStream(resp), Metadata.class));
         }
         return Optional.empty();
     }

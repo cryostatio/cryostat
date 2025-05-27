@@ -15,6 +15,7 @@
  */
 package io.cryostat.jmcagent;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -136,7 +137,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
 
     private InputStream getModel(String name) {
         var req = GetObjectRequest.builder().bucket(bucket).key(name).build();
-        return storage.getObject(req);
+        return new BufferedInputStream(storage.getObject(req));
     }
 
     private ProbeTemplate convertObject(String fileName) throws IOException, SAXException {
@@ -149,7 +150,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     }
 
     public ProbeTemplate addTemplate(Path path, String fileName) throws IOException, SAXException {
-        try (var stream = Files.newInputStream(path)) {
+        try (var stream = new BufferedInputStream(Files.newInputStream(path))) {
             ProbeTemplate template = new ProbeTemplate();
             template.setFileName(fileName);
             template.deserialize(stream);
