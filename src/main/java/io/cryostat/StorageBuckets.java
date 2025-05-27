@@ -18,6 +18,8 @@ package io.cryostat;
 import java.time.Duration;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -46,47 +48,57 @@ public class StorageBuckets {
     Duration creationRetryPeriod;
 
     private final BlockingQueue<String> buckets = new ArrayBlockingQueue<>(16);
-    private final ScheduledExecutorService q = Executors.newSingleThreadScheduledExecutor();
+    private final ConcurrentHashMap<String, CompletableFuture<Void>> locks =
+            new ConcurrentHashMap<>();
+    private final ScheduledExecutorService q = Executors.newScheduledThreadPool(2);
     private final ExecutorService pool = Executors.newCachedThreadPool();
     private volatile boolean shutdown = false;
 
-    public void createIfNecessary(String bucket) {
+    public CompletableFuture<Void> createIfNecessary(String bucket) {
         if (buckets.contains(bucket)) {
             logger.debugv("Bucket \"{0}\" already queued, skipping");
-            return;
+            return CompletableFuture.completedFuture(null);
         }
+        var cf = locks.computeIfAbsent(bucket, k -> new CompletableFuture<Void>());
         logger.debugv("Queueing bucket check/creation: \"{0}\"", bucket);
         buckets.add(bucket);
+        return cf;
     }
 
-    private boolean tryCreate(String bucket) {
-        boolean exists = false;
+    private void tryCreate(String bucket) {
+        var cf = locks.get(bucket);
+        if (cf == null) {
+            throw new IllegalStateException();
+        }
         logger.debugv("Checking if storage bucket \"{0}\" exists ...", bucket);
+        boolean exists = false;
         try {
             exists =
                     HttpStatusCodeIdentifier.isSuccessCode(
                             storage.headBucket(HeadBucketRequest.builder().bucket(bucket).build())
                                     .sdkHttpResponse()
                                     .statusCode());
-            logger.debugv("Storage bucket \"{0}\" exists? {1}", bucket, exists);
         } catch (Exception e) {
-            logger.warn(e);
+            exists = false;
         }
-        if (!exists) {
-            logger.debugv("Attempting to create storage bucket \"{0}\" ...", bucket);
-            try {
+        logger.debugv("Storage bucket \"{0}\" exists? {1}", bucket, exists);
+        try {
+            if (!exists) {
+                logger.debugv("Attempting to create storage bucket \"{0}\" ...", bucket);
                 storage.createBucket(CreateBucketRequest.builder().bucket(bucket).build());
                 logger.debugv("Storage bucket \"{0}\" created", bucket);
-            } catch (Exception e) {
-                logger.warn(e);
-                return false;
             }
+            cf.complete(null);
+        } catch (Exception e) {
+            q.schedule(
+                    () -> buckets.add(bucket),
+                    creationRetryPeriod.toMillis(),
+                    TimeUnit.MILLISECONDS);
         }
-        return true;
     }
 
     void onStart(@Observes StartupEvent evt) {
-        q.scheduleAtFixedRate(
+        q.submit(
                 () -> {
                     while (!shutdown) {
                         try {
@@ -96,14 +108,14 @@ public class StorageBuckets {
                             break;
                         }
                     }
-                },
-                0,
-                creationRetryPeriod.toMillis(),
-                TimeUnit.MILLISECONDS);
+                });
     }
 
     void onStop(@Observes ShutdownEvent evt) {
         shutdown = true;
         q.shutdownNow();
+        locks.values().forEach(cf -> cf.complete(null));
+        locks.clear();
+        buckets.clear();
     }
 }

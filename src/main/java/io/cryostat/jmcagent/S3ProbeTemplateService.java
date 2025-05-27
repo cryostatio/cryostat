@@ -66,26 +66,31 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     private static final String TEMPLATE_UPLOADED_CATEGORY = "ProbeTemplateUploaded";
 
     void onStart(@Observes StartupEvent evt) {
-        storageBuckets.createIfNecessary(bucket);
-        try {
-            declarativeConfiguration
-                    .walk(dir)
-                    .forEach(
-                            path -> {
-                                try {
-                                    logger.debugv(
-                                            "Uploading probe template from {0} to S3",
-                                            path.toString());
-                                    addTemplate(path, path.toString());
-                                } catch (IOException | SAXException e) {
-                                    logger.error(e);
-                                } catch (DuplicateProbeTemplateException e) {
-                                    logger.warn(e);
-                                }
-                            });
-        } catch (IOException e) {
-            logger.warn(e);
-        }
+        storageBuckets
+                .createIfNecessary(bucket)
+                .thenRunAsync(
+                        () -> {
+                            try {
+                                declarativeConfiguration
+                                        .walk(dir)
+                                        .forEach(
+                                                path -> {
+                                                    try {
+                                                        logger.debugv(
+                                                                "Uploading probe template from {0}"
+                                                                        + " to S3",
+                                                                path.toString());
+                                                        addTemplate(path, path.toString());
+                                                    } catch (IOException | SAXException e) {
+                                                        logger.error(e);
+                                                    } catch (DuplicateProbeTemplateException e) {
+                                                        logger.warn(e);
+                                                    }
+                                                });
+                            } catch (IOException e) {
+                                logger.warn(e);
+                            }
+                        });
     }
 
     @Override

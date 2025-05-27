@@ -111,27 +111,32 @@ public class S3TemplateService implements MutableTemplateService {
     @Inject Logger logger;
 
     void onStart(@Observes StartupEvent evt) {
-        storageBuckets.createIfNecessary(bucket);
-        try {
-            declarativeConfiguration
-                    .walk(dir)
-                    .forEach(
-                            p -> {
-                                try (var is = Files.newInputStream(p)) {
-                                    logger.debugv(
-                                            "Uploading template from {0} to S3", p.toString());
-                                    addTemplate(is);
-                                } catch (IOException
-                                        | InvalidXmlException
-                                        | InvalidEventTemplateException e) {
-                                    logger.error(e);
-                                } catch (IllegalArgumentException e) {
-                                    logger.warn(e);
-                                }
-                            });
-        } catch (IOException e) {
-            logger.error(e);
-        }
+        storageBuckets
+                .createIfNecessary(bucket)
+                .thenRunAsync(
+                        () -> {
+                            try {
+                                declarativeConfiguration
+                                        .walk(dir)
+                                        .forEach(
+                                                p -> {
+                                                    try (var is = Files.newInputStream(p)) {
+                                                        logger.debugv(
+                                                                "Uploading template from {0} to S3",
+                                                                p.toString());
+                                                        addTemplate(is);
+                                                    } catch (IOException
+                                                            | InvalidXmlException
+                                                            | InvalidEventTemplateException e) {
+                                                        logger.error(e);
+                                                    } catch (IllegalArgumentException e) {
+                                                        logger.warn(e);
+                                                    }
+                                                });
+                            } catch (IOException e) {
+                                logger.error(e);
+                            }
+                        });
     }
 
     @Override
