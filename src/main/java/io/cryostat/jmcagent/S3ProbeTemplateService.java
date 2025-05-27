@@ -63,9 +63,9 @@ import software.amazon.awssdk.services.s3.model.Tagging;
 
 public class S3ProbeTemplateService implements ProbeTemplateService {
 
-    private static final String META_KEY_CLASS_PREFIX = "classPrefix";
-    private static final String META_KEY_ALLOW_TO_STRING = "allowToString";
-    private static final String META_KEY_ALLOW_CONVERTER = "allowConverter";
+    private static final String META_KEY_CLASS_PREFIX = "classprefix";
+    private static final String META_KEY_ALLOW_TO_STRING = "allowtostring";
+    private static final String META_KEY_ALLOW_CONVERTER = "allowconverter";
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_PROBE_TEMPLATES)
     String bucket;
@@ -117,7 +117,10 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
 
     @Override
     public List<ProbeTemplate> getTemplates() {
-        return getObjects().stream()
+        return storage
+                .listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
+                .contents()
+                .stream()
                 .map(
                         t -> {
                             try {
@@ -184,11 +187,6 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
         return storage.getObject(req);
     }
 
-    private List<S3Object> getObjects() {
-        var builder = ListObjectsV2Request.builder().bucket(bucket);
-        return storage.listObjectsV2(builder.build()).contents();
-    }
-
     private ProbeTemplate convertObject(S3Object object) throws Exception {
         String fileName = object.key();
         String classPrefix;
@@ -242,9 +240,14 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                 var getMetaReq =
                         HeadObjectRequest.builder().bucket(bucket).key(object.key()).build();
                 var meta = storage.headObject(getMetaReq).metadata();
-                classPrefix = Objects.requireNonNull(meta.get(META_KEY_CLASS_PREFIX));
-                allowToString = Boolean.valueOf(meta.get(META_KEY_ALLOW_TO_STRING));
-                allowConverter = Boolean.valueOf(meta.get(META_KEY_ALLOW_CONVERTER));
+                try {
+                    classPrefix = Objects.requireNonNull(meta.get(META_KEY_CLASS_PREFIX));
+                    allowToString = Boolean.valueOf(meta.get(META_KEY_ALLOW_TO_STRING));
+                    allowConverter = Boolean.valueOf(meta.get(META_KEY_ALLOW_CONVERTER));
+                } catch (NullPointerException npe) {
+                    npe.printStackTrace();
+                    throw new IOException(npe);
+                }
                 break;
             case BUCKET:
                 var pt = metadataService.get().read(fileName).orElseThrow();
@@ -303,12 +306,17 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                 default:
                     throw new IllegalStateException();
             }
-            storage.putObject(reqBuilder.build(), RequestBody.fromString(template.serialize()));
+            var xml = template.serialize();
+            storage.putObject(reqBuilder.build(), RequestBody.fromString(xml));
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
                             TEMPLATE_UPLOADED_CATEGORY,
-                            Map.of("probeTemplate", template.getFileName())));
+                            Map.of(
+                                    "probeTemplate",
+                                    template.getFileName(),
+                                    "templateContent",
+                                    xml)));
             return template;
         }
     }

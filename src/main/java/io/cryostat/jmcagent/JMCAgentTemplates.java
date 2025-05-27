@@ -82,7 +82,7 @@ public class JMCAgentTemplates {
                 .build();
     }
 
-    static record ProbeTemplateResponse(String name, String description) {
+    static record ProbeTemplateResponse(String name, String xml) {
         ProbeTemplateResponse(SerializableProbeTemplateInfo templateInfo) {
             this(templateInfo.name(), templateInfo.xml());
         }
