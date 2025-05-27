@@ -466,9 +466,9 @@ components:
       type: object
     ProbeTemplateResponse:
       properties:
-        description:
-          type: string
         name:
+          type: string
+        xml:
           type: string
       type: object
     RecordingState:
