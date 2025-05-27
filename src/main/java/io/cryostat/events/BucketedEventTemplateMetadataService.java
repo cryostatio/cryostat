@@ -52,6 +52,9 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
         stringValue = ArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKET)
 class BucketedEventTemplateMetadataService implements CRUDService<String, Template, Template> {
 
+    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_EVENT_TEMPLATES_STORAGE_MODE)
+    String storageMode;
+
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_METADATA)
     String bucket;
 
@@ -70,6 +73,9 @@ class BucketedEventTemplateMetadataService implements CRUDService<String, Templa
     @Inject Logger logger;
 
     void onStart(@Observes StartupEvent evt) {
+        if (!ArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKET.equals(storageMode)) {
+            return;
+        }
         buckets.createIfNecessary(bucket);
     }
 
