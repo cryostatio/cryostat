@@ -68,11 +68,7 @@ public class JMCAgentProbes {
                         JMCAgentJMXHelper helper = new JMCAgentJMXHelper(connection.getHandle());
                         try {
                             ProbeTemplate template = new ProbeTemplate();
-                            // Retrieve template and deserialize to validate
                             String templateContent = service.getTemplateContent(probeTemplateName);
-                            template.deserialize(
-                                    new ByteArrayInputStream(
-                                            templateContent.getBytes(StandardCharsets.UTF_8)));
                             helper.defineEventProbes(templateContent);
                             bus.publish(
                                     MessagingServer.class.getName(),

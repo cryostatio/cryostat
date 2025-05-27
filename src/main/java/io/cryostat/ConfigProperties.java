@@ -21,8 +21,6 @@ public class ConfigProperties {
             "storage.metadata.archives.storage-mode";
     public static final String STORAGE_METADATA_EVENT_TEMPLATES_STORAGE_MODE =
             "storage.metadata.event-templates.storage-mode";
-    public static final String STORAGE_METADATA_PROBE_TEMPLATES_STORAGE_MODE =
-            "storage.metadata.probe-templates.storage-mode";
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
     public static final String AWS_BUCKET_NAME_METADATA = "storage.buckets.metadata.name";
     public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =
@@ -33,8 +31,6 @@ public class ConfigProperties {
             "storage.metadata.prefix.recordings";
     public static final String AWS_METADATA_PREFIX_EVENT_TEMPLATES =
             "storage.metadata.prefix.event-templates";
-    public static final String AWS_METADATA_PREFIX_PROBE_TEMPLATES =
-            "storage.metadata.prefix.probe-templates";
 
     public static final String CONTAINERS_POLL_PERIOD = "cryostat.discovery.containers.poll-period";
     public static final String CONTAINERS_REQUEST_TIMEOUT =
