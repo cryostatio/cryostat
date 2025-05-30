@@ -112,6 +112,7 @@ public class AgentClient {
                 .map(Unchecked.function(s -> mapper.readValue(s, MBeanMetrics.class)));
     }
 
+    @SuppressWarnings("unchecked")
     <T> Uni<T> invokeMBeanOperation(
             String beanName,
             String operation,
@@ -150,6 +151,9 @@ public class AgentClient {
                     .map(HttpResponse::bodyAsBuffer)
                     .map(
                             buff -> {
+                                if (returnType.equals(String.class)) {
+                                    return (T) buff.toString();
+                                }
                                 // TODO implement conditional handling based on expected returnType
                                 return null;
                             });
