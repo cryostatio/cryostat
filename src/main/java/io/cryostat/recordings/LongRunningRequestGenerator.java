@@ -22,6 +22,7 @@ import java.util.concurrent.CompletionException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
+import io.cryostat.diagnostic.DiagnosticsHelper;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.reports.ReportsService;
@@ -59,17 +60,23 @@ public class LongRunningRequestGenerator {
     public static final String ARCHIVED_REPORT_COMPLETE_ADDRESS =
             "io.cryostat.recording.LongRunningRequestGenerator.ArchivedReportComplete";
 
+    public static final String THREAD_DUMP_ADDRESS =
+            "io.cryostat.recordings.LongRunningRequestGenerator.ThreadDump";
+
     private static final String ARCHIVE_RECORDING_SUCCESS = "ArchiveRecordingSuccess";
     private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailure";
     private static final String GRAFANA_UPLOAD_SUCCESS = "GrafanaUploadSuccess";
     private static final String GRAFANA_UPLOAD_FAIL = "GrafanaUploadFailure";
     private static final String REPORT_SUCCESS = "ReportSuccess";
     private static final String REPORT_FAILURE = "ReportFailure";
+    private static final String THREAD_DUMP_SUCCESS = "ThreadDumpSuccess";
+    private static final String THREAD_DUMP_FAILURE = "ThreadDumpFailure";
 
     @Inject Logger logger;
     @Inject private EventBus bus;
     @Inject private RecordingHelper recordingHelper;
     @Inject private ReportsService reportsService;
+    @Inject private DiagnosticsHelper diagnosticsHelper;
     @Inject AnalysisReportAggregator analysisReportAggregator;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
@@ -79,6 +86,34 @@ public class LongRunningRequestGenerator {
     Duration uploadFailedTimeout;
 
     public LongRunningRequestGenerator() {}
+
+    @ConsumeEvent(value = THREAD_DUMP_ADDRESS, blocking = true)
+    @Transactional
+    public void onMessage(ThreadDumpRequest request) {
+        logger.trace("Job ID: " + request.id() + " submitted.");
+        try {
+            var target = Target.<Target>findById(request.jvmId);
+            var dump = diagnosticsHelper.dumpThreads(request.format, target.id);
+            logger.trace("Thread Dump complete, firing notification");
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            THREAD_DUMP_SUCCESS,
+                            Map.of(
+                                    "jobId",
+                                    request.id(),
+                                    "targetId",
+                                    dump.jvmId(),
+                                    "downloadUrl",
+                                    dump.downloadUrl())));
+        } catch (Exception e) {
+            logger.warn("Failed to dump threads");
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(THREAD_DUMP_FAILURE, Map.of("jobId", request.id())));
+            throw new CompletionException(e);
+        }
+    }
 
     @ConsumeEvent(value = ARCHIVE_REQUEST_ADDRESS, blocking = true)
     @Transactional
@@ -336,6 +371,14 @@ public class LongRunningRequestGenerator {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(filename);
             Objects.requireNonNull(report);
+        }
+    }
+
+    public record ThreadDumpRequest(String id, String jvmId, String format) {
+        public ThreadDumpRequest {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(format);
         }
     }
 }

@@ -15,39 +15,35 @@
  */
 package io.cryostat.diagnostic;
 
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
-import io.cryostat.StorageBuckets;
+import io.cryostat.recordings.LongRunningRequestGenerator;
+import io.cryostat.recordings.LongRunningRequestGenerator.ThreadDumpRequest;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
 
-import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.vertx.core.http.HttpServerResponse;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.inject.Named;
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
-import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -57,17 +53,11 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
-import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.S3Object;
-import software.amazon.awssdk.services.s3.model.Tag;
-import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
@@ -76,18 +66,14 @@ import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequ
 public class Diagnostics {
 
     @Inject TargetConnectionManager targetConnectionManager;
-    @Inject StorageBuckets buckets;
     @Inject S3Client storage;
     @Inject S3Presigner presigner;
     @Inject Logger log;
+    @Inject LongRunningRequestGenerator generator;
 
     @Inject
     @Named(Producers.BASE64_URL)
     Base64 base64Url;
-
-    private static final String DUMP_THREADS = "threadPrint";
-    private static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
-    private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
     String bucket;
@@ -98,33 +84,34 @@ public class Diagnostics {
     @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
     Optional<String> externalStorageUrl;
 
-    void onStart(@Observes StartupEvent evt) {
-        buckets.createIfNecessary(bucket);
-    }
+    @Inject EventBus bus;
+    @Inject DiagnosticsHelper helper;
 
     @Path("/threaddump")
     @RolesAllowed("write")
     @Blocking
     @POST
-    public void threadDump(@RestPath long targetId, @RestQuery String format) {
-        if (!(format.equals(DUMP_THREADS) || format.equals(DUMP_THREADS_TO_FIlE))) {
-            throw new BadRequestException();
-        }
-        Object[] params = new Object[1];
-        String[] signature = new String[] {String[].class.getName()};
-        targetConnectionManager.executeConnectedTask(
-                Target.getTargetById(targetId),
-                conn -> {
-                    String content =
-                            conn.invokeMBeanOperation(
-                                    DIAGNOSTIC_BEAN_NAME,
-                                    format,
-                                    params,
-                                    signature,
-                                    String.class);
-                    addThreadDump(content, Target.getTargetById(targetId).jvmId);
-                    return content;
-                });
+    public String threadDump(
+            HttpServerResponse response, @RestPath long targetId, @RestQuery String format) {
+        log.trace("Creating new thread dump request");
+        ThreadDumpRequest request =
+                new ThreadDumpRequest(
+                        UUID.randomUUID().toString(), Long.toString(targetId), format);
+        response.endHandler(
+                (e) ->
+                        bus.publish(
+                                LongRunningRequestGenerator.GRAFANA_ARCHIVE_REQUEST_ADDRESS,
+                                request));
+        return request.id();
+    }
+
+    @Path("/threaddump")
+    @RolesAllowed("read")
+    @Blocking
+    @GET
+    public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
+        log.trace("Fetching thread dumps");
+        return helper.getThreadDumps(bucket);
     }
 
     @DELETE
@@ -148,8 +135,8 @@ public class Diagnostics {
     @GET
     public RestResponse<Object> handleStorageDownload(
             @RestPath String encodedKey, @RestQuery String query) throws URISyntaxException {
-        Pair<String, String> decodedKey = decodedKey(encodedKey);
-        String key = threadDumpKey(decodedKey);
+        Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
+        String key = helper.threadDumpKey(decodedKey);
 
         storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
                 .sdkHttpResponse();
@@ -160,7 +147,7 @@ public class Diagnostics {
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format("attachment; filename=\"%s\"", decodedKey.getValue()))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
-                    .entity(getThreadDumpStream(encodedKey))
+                    .entity(helper.getThreadDumpStream(encodedKey))
                     .build();
         }
 
@@ -199,92 +186,6 @@ public class Diagnostics {
                                     new String(base64Url.decode(query), StandardCharsets.UTF_8)));
         }
         return response.location(uri).build();
-    }
-
-    public InputStream getThreadDumpStream(String jvmId, String threadDumpID) {
-        return getThreadDumpStream(encodedKey(jvmId, threadDumpID));
-    }
-
-    public InputStream getThreadDumpStream(String encodedKey) {
-        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
-
-        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
-
-        return storage.getObject(getRequest);
-    }
-
-    public Pair<String, String> decodedKey(String encodedKey) {
-        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
-        String[] parts = key.split("/");
-        if (parts.length != 2) {
-            throw new IllegalArgumentException();
-        }
-        return Pair.of(parts[0], parts[1]);
-    }
-
-    public String encodedKey(String jvmId, String filename) {
-        Objects.requireNonNull(jvmId);
-        Objects.requireNonNull(filename);
-        return base64Url.encodeAsString(
-                (threadDumpKey(jvmId, filename)).getBytes(StandardCharsets.UTF_8));
-    }
-
-    public String threadDumpKey(String jvmId, String filename) {
-        return (jvmId + "/" + filename).strip();
-    }
-
-    public String threadDumpKey(Pair<String, String> pair) {
-        return threadDumpKey(pair.getKey(), pair.getValue());
-    }
-
-    public ThreadDump addThreadDump(String content, String jvmId) {
-        String uuid = UUID.randomUUID().toString();
-        storage.putObject(
-                PutObjectRequest.builder()
-                        .bucket(bucket)
-                        .key(uuid)
-                        .contentType(MediaType.TEXT_PLAIN)
-                        .tagging(createTagging(jvmId, uuid))
-                        .build(),
-                RequestBody.fromString(content));
-        return new ThreadDump(content, jvmId, downloadUrl(jvmId, uuid), uuid);
-    }
-
-    private Tagging createTagging(String jvmId, String uuid) {
-        var map = Map.of("jvmId", jvmId, "uuid", uuid);
-        var tags = new ArrayList<Tag>();
-        tags.addAll(
-                map.entrySet().stream()
-                        .map(
-                                e ->
-                                        Tag.builder()
-                                                .key(
-                                                        base64Url.encodeAsString(
-                                                                e.getKey()
-                                                                        .getBytes(
-                                                                                StandardCharsets
-                                                                                        .UTF_8)))
-                                                .value(
-                                                        base64Url.encodeAsString(
-                                                                e.getValue()
-                                                                        .getBytes(
-                                                                                StandardCharsets
-                                                                                        .UTF_8)))
-                                                .build())
-                        .toList());
-        return Tagging.builder().tagSet(tags).build();
-    }
-
-    public List<S3Object> listThreadDumps(String jvmId) {
-        var builder = ListObjectsV2Request.builder().bucket(bucket);
-        if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
-        }
-        return storage.listObjectsV2(builder.build()).contents().stream().toList();
-    }
-
-    public String downloadUrl(String jvmId, String filename) {
-        return String.format("/threaddump/download/%s", encodedKey(jvmId, filename));
     }
 
     @Path("/gc")
