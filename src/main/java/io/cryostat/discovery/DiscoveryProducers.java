@@ -33,7 +33,6 @@ import com.nimbusds.jose.crypto.MACVerifier;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Singleton;
-
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 public class DiscoveryProducers {
