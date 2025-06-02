@@ -98,10 +98,7 @@ public class Diagnostics {
                 new ThreadDumpRequest(
                         UUID.randomUUID().toString(), Long.toString(targetId), format);
         response.endHandler(
-                (e) ->
-                        bus.publish(
-                                LongRunningRequestGenerator.GRAFANA_ARCHIVE_REQUEST_ADDRESS,
-                                request));
+                (e) -> bus.publish(LongRunningRequestGenerator.THREAD_DUMP_ADDRESS, request));
         return request.id();
     }
 
@@ -116,7 +113,7 @@ public class Diagnostics {
 
     @DELETE
     @Blocking
-    @Path("/{threadDumpId}")
+    @Path("/threaddump/{threadDumpId}")
     @RolesAllowed("write")
     public void deleteThreadDump(@RestPath String threadDumpId) {
         try {
