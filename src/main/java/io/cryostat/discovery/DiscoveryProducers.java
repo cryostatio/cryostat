@@ -32,12 +32,14 @@ import com.nimbusds.jose.crypto.MACSigner;
 import com.nimbusds.jose.crypto.MACVerifier;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Singleton;
+
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 public class DiscoveryProducers {
 
     @Produces
-    @ApplicationScoped
+    @Singleton
     static SecretKey provideSecretKey(
             @ConfigProperty(name = "cryostat.discovery.plugins.jwt.secret.algorithm") String alg,
             @ConfigProperty(name = "cryostat.discovery.plugins.jwt.secret.keysize") int keysize)
