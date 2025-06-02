@@ -62,7 +62,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
-@Path("/api/beta/diagnostics/targets/{targetId}")
+@Path("/api/beta/diagnostics/")
 public class Diagnostics {
 
     @Inject TargetConnectionManager targetConnectionManager;
@@ -87,13 +87,13 @@ public class Diagnostics {
     @Inject EventBus bus;
     @Inject DiagnosticsHelper helper;
 
-    @Path("/threaddump")
+    @Path("targets/{targetId}/threaddump")
     @RolesAllowed("write")
     @Blocking
     @POST
     public String threadDump(
             HttpServerResponse response, @RestPath long targetId, @RestQuery String format) {
-        log.trace("Creating new thread dump request");
+        log.trace("Creating new thread dump request for target: " + targetId);
         ThreadDumpRequest request =
                 new ThreadDumpRequest(
                         UUID.randomUUID().toString(), Long.toString(targetId), format);
@@ -102,21 +102,24 @@ public class Diagnostics {
         return request.id();
     }
 
-    @Path("/threaddump")
+    @Path("targets/{targetId}/threaddump")
     @RolesAllowed("read")
     @Blocking
     @GET
     public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
-        log.trace("Fetching thread dumps");
-        return helper.getThreadDumps(bucket);
+        log.warn("Fetching thread dumps for target: " + targetId);
+        log.warn("Thread dumps: " + helper.getThreadDumps(targetId));
+        log.warn("Storage bucket: " + bucket);
+        return helper.getThreadDumps(targetId);
     }
 
     @DELETE
     @Blocking
-    @Path("/threaddump/{threadDumpId}")
+    @Path("targets/{targetId}/threaddump/{threadDumpId}")
     @RolesAllowed("write")
     public void deleteThreadDump(@RestPath String threadDumpId) {
         try {
+            log.warn("Deleting thread dump with ID: " + threadDumpId);
             storage.headObject(
                     HeadObjectRequest.builder().bucket(bucket).key(threadDumpId).build());
         } catch (NoSuchKeyException e) {
@@ -133,9 +136,13 @@ public class Diagnostics {
     public RestResponse<Object> handleStorageDownload(
             @RestPath String encodedKey, @RestQuery String query) throws URISyntaxException {
         Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
-        String key = helper.threadDumpKey(decodedKey);
-
-        storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
+        var threadDumpId = decodedKey.getValue().strip();
+        log.warn("Handling download Request for encodedKey: " + encodedKey);
+        log.warn("Handling download Request for query: " + query);
+        log.warn("Decoded key: " + decodedKey.toString());
+        log.warn("UUID: " + threadDumpId);
+        log.warn("Bucket: " + bucket);
+        storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(threadDumpId).build())
                 .sdkHttpResponse();
 
         if (!presignedDownloadsEnabled) {
@@ -149,7 +156,8 @@ public class Diagnostics {
         }
 
         log.tracev("Handling presigned download request for {0}", decodedKey);
-        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder().bucket(bucket).key(threadDumpId).build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()
                         .signatureDuration(Duration.ofMinutes(1))
@@ -185,7 +193,7 @@ public class Diagnostics {
         return response.location(uri).build();
     }
 
-    @Path("/gc")
+    @Path("targets/{targetId}/gc")
     @RolesAllowed("write")
     @Blocking
     @POST

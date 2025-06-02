@@ -94,7 +94,6 @@ public class LongRunningRequestGenerator {
         try {
             var target = Target.<Target>findById(request.jvmId);
             var dump = diagnosticsHelper.dumpThreads(request.format, target.id);
-            logger.trace("Thread Dump complete, firing notification");
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(

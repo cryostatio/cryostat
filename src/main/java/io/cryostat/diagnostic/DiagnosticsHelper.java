@@ -40,7 +40,6 @@ import jakarta.inject.Named;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -78,6 +77,7 @@ public class DiagnosticsHelper {
     @Inject StorageBuckets buckets;
 
     void onStart(@Observes StartupEvent evt) {
+        log.warn("Creating thread dump bucket: " + bucket);
         buckets.createIfNecessary(bucket);
     }
 
@@ -85,6 +85,8 @@ public class DiagnosticsHelper {
         if (!(format.equals(DUMP_THREADS) || format.equals(DUMP_THREADS_TO_FIlE))) {
             throw new BadRequestException();
         }
+        log.warn(
+                "Thread Dump request received for Target: " + targetId + " with format: " + format);
         Object[] params = new Object[1];
         String[] signature = new String[] {String[].class.getName()};
         return targetConnectionManager.executeConnectedTask(
@@ -97,8 +99,8 @@ public class DiagnosticsHelper {
                 });
     }
 
-    public List<ThreadDump> getThreadDumps(String jvmId) {
-        return listThreadDumps(jvmId).stream()
+    public List<ThreadDump> getThreadDumps(long targetId) {
+        return listThreadDumps(targetId).stream()
                 .map(
                         item -> {
                             try {
@@ -107,6 +109,13 @@ public class DiagnosticsHelper {
                                 log.error(e);
                                 return null;
                             }
+                        })
+                .filter(
+                        item -> {
+                            log.warn("Item jvmID: " + item.jvmId());
+                            log.warn("Item key: " + item.uuid());
+                            log.warn("Item download URL: " + item.downloadUrl());
+                            return Target.<Target>findById(targetId).jvmId.equals(item.jvmId());
                         })
                 .toList();
     }
@@ -166,6 +175,9 @@ public class DiagnosticsHelper {
                         .tagging(createTagging(jvmId, uuid))
                         .build(),
                 RequestBody.fromString(content));
+        log.warn("Putting Thread dump into storage with key: " + uuid);
+        log.warn("jvmID: " + jvmId);
+        log.warn("Bucket: " + bucket);
         return new ThreadDump(content, jvmId, downloadUrl(jvmId, uuid), uuid);
     }
 
@@ -195,18 +207,19 @@ public class DiagnosticsHelper {
     }
 
     public String downloadUrl(String jvmId, String filename) {
-        return String.format("/threaddump/download/%s", encodedKey(jvmId, filename));
+        return String.format(
+                "/api/beta/diagnostics/threaddump/download/%s", encodedKey(jvmId, filename));
     }
 
-    public String encodedKey(String jvmId, String filename) {
+    public String encodedKey(String jvmId, String uuid) {
         Objects.requireNonNull(jvmId);
-        Objects.requireNonNull(filename);
+        Objects.requireNonNull(uuid);
         return base64Url.encodeAsString(
-                (threadDumpKey(jvmId, filename)).getBytes(StandardCharsets.UTF_8));
+                (threadDumpKey(jvmId, uuid)).getBytes(StandardCharsets.UTF_8));
     }
 
-    public String threadDumpKey(String jvmId, String filename) {
-        return (jvmId + "/" + filename).strip();
+    public String threadDumpKey(String jvmId, String uuid) {
+        return (jvmId + "/" + uuid).strip();
     }
 
     public String threadDumpKey(Pair<String, String> pair) {
@@ -218,7 +231,8 @@ public class DiagnosticsHelper {
     }
 
     public InputStream getThreadDumpStream(String encodedKey) {
-        String key = new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8);
+        Pair<String, String> decodedKey = decodedKey(encodedKey);
+        var key = decodedKey.getValue().strip();
 
         GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
 
@@ -234,11 +248,10 @@ public class DiagnosticsHelper {
         return Pair.of(parts[0], parts[1]);
     }
 
-    public List<S3Object> listThreadDumps(String jvmId) {
+    public List<S3Object> listThreadDumps(long targetId) {
         var builder = ListObjectsV2Request.builder().bucket(bucket);
-        if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
-        }
+        var jvmId = Target.<Target>findById(targetId).jvmId;
+        log.warn("Listing thread dumps for jvmId: " + jvmId);
         return storage.listObjectsV2(builder.build()).contents().stream().toList();
     }
 }
