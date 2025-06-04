@@ -54,6 +54,7 @@ import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.jwt.proc.BadJWTException;
 import com.nimbusds.jwt.proc.DefaultJWTClaimsVerifier;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -93,6 +94,7 @@ public class DiscoveryJwtFactory {
     private final JWEEncrypter encrypter;
     private final JWEDecrypter decrypter;
 
+    @SuppressFBWarnings(value = "CT_CONSTRUCTOR_THROW")
     DiscoveryJwtFactory(
             @ConfigProperty(name = "cryostat.discovery.plugins.jwt.secret.algorithm")
                     String secretKeyAlgorithm,
