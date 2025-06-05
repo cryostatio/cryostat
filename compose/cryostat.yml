@@ -29,7 +29,6 @@ services:
       CRYOSTAT_DISCOVERY_DOCKER_ENABLED: ${CRYOSTAT_DISCOVERY_DOCKER_ENABLED:-true}
       CRYOSTAT_AGENT_TLS_REQUIRED: ${ENFORCE_AGENT_TLS:-false}
       JAVA_OPTS_APPEND: >-
-        -XX:+FlightRecorder
         -XX:StartFlightRecording=filename=/tmp/,name=onstart,settings=default,disk=true,maxage=5m
         -XX:StartFlightRecording=filename=/tmp/,name=startup,settings=profile,disk=true,duration=30s
         -Dcom.sun.management.jmxremote.autodiscovery=true
