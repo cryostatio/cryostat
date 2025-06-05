@@ -15,6 +15,7 @@
  */
 package itest;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,6 +43,7 @@ import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordingFile;
+import org.apache.commons.io.HexDump;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
@@ -223,13 +225,25 @@ public class RecordingWorkflowTest extends StandardSelfTest {
             Path inMemoryDownloadPath =
                     downloadFile(inMemoryDownloadUrl, TEST_RECORDING_NAME, ".jfr")
                             .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            MatcherAssert.assertThat(
+                    inMemoryDownloadPath.toFile().length(), Matchers.greaterThan(0L));
 
             Path savedDownloadPath =
                     downloadFile(savedDownloadUrl, TEST_RECORDING_NAME + "_saved", ".jfr")
                             .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            MatcherAssert.assertThat(
-                    inMemoryDownloadPath.toFile().length(), Matchers.greaterThan(0L));
             MatcherAssert.assertThat(savedDownloadPath.toFile().length(), Matchers.greaterThan(0L));
+
+            System.out.println(
+                    String.format(
+                            "inMemoryDownload %s (%d bytes):",
+                            inMemoryDownloadPath, inMemoryDownloadPath.toFile().length()));
+            HexDump.dump(Files.readAllBytes(inMemoryDownloadPath), 0, System.out, 0);
+            System.out.print("\n\n----------------\n\n");
+            System.out.println(
+                    String.format(
+                            "savedDownload %s (%d bytes):",
+                            savedDownloadPath, savedDownloadPath.toFile().length()));
+            HexDump.dump(Files.readAllBytes(savedDownloadPath), 0, System.out, 0);
 
             List<RecordedEvent> inMemoryEvents = RecordingFile.readAllEvents(inMemoryDownloadPath);
             List<RecordedEvent> savedEvents = RecordingFile.readAllEvents(savedDownloadPath);
