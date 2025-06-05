@@ -67,6 +67,14 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+/**
+ * Client layer for HTTP(S) communications with Cryostat Agent instances. See
+ * https://github.com/cryostatio/cryostat-agent . This is an HTTP-based client for communicating
+ * with Cryostat Agent instances.
+ *
+ * @see io.cryostat.target.AgentJFRService
+ * @see io.cryostat.target.AgentConnection
+ */
 public class AgentClient {
 
     public static final String NULL_CREDENTIALS = "No credentials found for agent";

@@ -25,6 +25,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -39,6 +40,7 @@ public class Snapshots {
     @POST
     @Transactional
     @RolesAllowed("write")
+    @Operation(summary = "Create a JFR Snapshot on the specified target")
     public Uni<RestResponse<LinkedRecordingDescriptor>> createSnapshotUsingTargetId(
             @RestPath long targetId) throws Exception {
         return recordingHelper

@@ -37,6 +37,8 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.Path;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -52,6 +54,12 @@ public class RecordingOptions {
     @GET
     @Blocking
     @RolesAllowed("read")
+    @Operation(
+            summary = "Get the current set of options for the specified target",
+            description =
+                    """
+                    Retrieve a map of the current options for the specified target.
+                    """)
     public Map<String, Object> getRecordingOptions(@RestPath long targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         return connectionManager.executeConnectedTask(
@@ -65,14 +73,40 @@ public class RecordingOptions {
     @PATCH
     @Blocking
     @RolesAllowed("read")
+    @Operation(
+            summary = "Update the recording options for the specified target",
+            description =
+                    """
+                    Set default recording options for the specified target. These options will be applied to any
+                    recordings started on this target if no override values are specified when the recording is
+                    created.
+                    """)
     @SuppressFBWarnings(
             value = "UC_USELESS_OBJECT",
             justification = "SpotBugs thinks the options map is unused, but it is used")
     public Map<String, Object> patchRecordingOptions(
-            @RestPath long targetId,
-            @RestForm String toDisk,
-            @RestForm String maxAge,
-            @RestForm String maxSize)
+            @Parameter(required = true) @RestPath long targetId,
+            @Parameter(
+                            required = false,
+                            description =
+                                    "whether the JFR disk repository (using disk space local to the"
+                                            + " target JVM) is enabled")
+                    @RestForm
+                    String toDisk,
+            @Parameter(
+                            required = false,
+                            description =
+                                    "the maximum age of JFR events that should be retained in the"
+                                            + " disk repository")
+                    @RestForm
+                    String maxAge,
+            @Parameter(
+                            required = false,
+                            description =
+                                    "the maximum size of data that should be retained in the disk"
+                                            + " repository")
+                    @RestForm
+                    String maxSize)
             throws Exception {
         final String unsetKeyword = "unset";
 

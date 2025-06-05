@@ -61,6 +61,15 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
+/**
+ * Represents a node in the overall discovery tree. Nodes either have a {@link
+ * io.cryostat.targets.Target} reference or a list of children (which are also DiscoveryNodes),
+ * never both. A node with a target, known as a TargetNode, represents a discovered JVM process. A
+ * node with a list of children, known as an EnvironmentMode, represents some intermediate object
+ * such as a {@link io.cryostat.discovery.DiscoveryPlugin}, a Podman Pod, a Kubernetes Deployment,
+ * etc. All {@link io.cryostat.targets.Target} instances are associated with a DiscoveryNode which
+ * places them in the tree.
+ */
 @Entity
 @EntityListeners(DiscoveryNode.Listener.class)
 @NamedQueries({

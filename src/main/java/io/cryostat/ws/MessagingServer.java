@@ -36,6 +36,18 @@ import jakarta.websocket.Session;
 import jakarta.websocket.server.ServerEndpoint;
 import org.jboss.logging.Logger;
 
+/**
+ * Implements a WebSocket-based notifications channel. Cryostat uses this notifications channel to
+ * emit updates about work being done. Many of these notifications will correspond 1:1 with HTTP API
+ * responses, but not all. The Cryostat Web graphical UI client uses these notifications to update
+ * its graphical state responsively. Other clients can mostly ignore WebSocket notifications and use
+ * HTTP API responses alone, except in the case of long-running async jobs where the HTTP API
+ * response may initially be a Job UUID which will later be included in a WebSocket notification
+ * indicating job completion.
+ *
+ * @see io.cryostat.recordings.LongRunningRequestGenerator
+ * @see io.cryostat.reports.Reports
+ */
 @ApplicationScoped
 @ServerEndpoint("/api/notifications")
 public class MessagingServer {

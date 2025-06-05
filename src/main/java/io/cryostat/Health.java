@@ -37,8 +37,10 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 
+/** Status and configuration verification for the application. */
 @Path("")
 class Health {
 
@@ -70,6 +72,15 @@ class Health {
     @Blocking
     @Path("/health")
     @PermitAll
+    @Operation(
+            summary = "Check the overall status of the application",
+            description =
+                    """
+                    Returns a map indicating whether various external components (ex.
+                        jfr-datasource, grafana-dashboard) are configured and whether those
+                        components can be reached by the Cryostat application. Also includes
+                        application semantic version and build information.
+                    """)
     public ApplicationHealth health() {
         CompletableFuture<Boolean> datasourceAvailable = new CompletableFuture<>();
         CompletableFuture<Boolean> dashboardAvailable = new CompletableFuture<>();
@@ -113,12 +124,31 @@ class Health {
     @Blocking
     @Path("/health/liveness")
     @PermitAll
+    @Operation(
+            summary = "Check if the application is able to accept and respond to requests.",
+            description =
+                    """
+                    Performs a no-op on a worker thread. This is a simply check to determine if
+                    the application has available threads to service requests. HTTP 204 No Content
+                    is the only expected response. If the application is not live and no worker
+                    threads are available, then the client will never receive a response.
+                    """)
     public void liveness() {}
 
     @GET
     @Path("/api/v4/grafana_dashboard_url")
     @PermitAll
     @Produces({MediaType.APPLICATION_JSON})
+    @Operation(
+            summary =
+                    "Return the URL which users can visit to access the associated Grafana"
+                            + " dashboard instance.",
+            description =
+                    """
+                    Returns the URL for the associated Grafana dashboard instance. If there is an internally-accessible
+                    (for Cryostat) URL and an externally-accessible URL (for users) URL, the externally-accessible URL
+                    is preferred. If neither are configured then the response is an HTTP 400 Bad Request.
+                    """)
     public DashboardUrl grafanaDashboardUrl() {
         String url =
                 dashboardExternalURL.orElseGet(
@@ -130,6 +160,14 @@ class Health {
     @Path("/api/v4/grafana_datasource_url")
     @PermitAll
     @Produces({MediaType.APPLICATION_JSON})
+    @Operation(
+            summary = "Return the URL to the associated jfr-datasource instance.",
+            description =
+                    """
+                    Returns the URL for the jfr-datasource instance which Cryostat is configured to use. This datasource
+                    accepts JFR file uploads from Cryostat and allows the Grafana dashboard to perform queries on the
+                    data within the recording file.
+                    """)
     public DatasourceUrl grafanaDatasourceUrl() {
         String url = datasourceURL.orElseThrow(() -> new BadRequestException());
         return new DatasourceUrl(url);
