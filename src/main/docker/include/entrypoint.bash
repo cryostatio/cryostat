@@ -31,7 +31,7 @@ function importTrustStores() {
             -trustcacerts \
             -keystore "${SSL_TRUSTSTORE:-$CONF_DIR/truststore.p12}" \
             -file "$cert"\
-            -storepass "$SSL_TRUSTSTORE_PASS" || true
+            -storepass "$SSL_TRUSTSTORE_PASS" 2>&1 || true
     done
 
     FLAGS+=(
