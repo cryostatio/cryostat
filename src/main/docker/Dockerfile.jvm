@@ -81,8 +81,14 @@ FROM registry.access.redhat.com/ubi9/openjdk-21-runtime:1.22-1.1747241886
 
 ENV LANGUAGE='en_US:en'
 
-EXPOSE 8181
+USER 0
+# TODO remove this once the base image incorporates an equivalent change. This enables
+# Discovery JWT symmetric encryption and signing
+RUN export NSS_CFG=$JAVA_HOME/conf/security/nss.fips.cfg && \
+    sed -i 's/attributes.*/attributes(*,CKO_SECRET_KEY,*)={ CKA_SIGN=true CKA_ENCRYPT=true }/' $NSS_CFG
 USER 185
+
+EXPOSE 8181
 LABEL io.cryostat.component=cryostat
 
 ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"

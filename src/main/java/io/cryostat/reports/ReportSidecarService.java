@@ -30,6 +30,10 @@ import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
 import org.jboss.resteasy.reactive.PartType;
 import org.jboss.resteasy.reactive.RestForm;
 
+/**
+ * Interface for HTTP client to communicate with reports sidecar generators instances. See
+ * https://github.com/cryostatio/cryostat-reports
+ */
 @RegisterRestClient(configKey = "reports")
 @ApplicationScoped
 public interface ReportSidecarService {

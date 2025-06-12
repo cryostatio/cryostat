@@ -67,6 +67,8 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
@@ -154,6 +156,7 @@ public class Discovery {
     @GET
     @Path("/api/v4/discovery")
     @RolesAllowed("read")
+    @Operation(summary = "Retrieve the entire discovery tree.")
     public DiscoveryNode get() {
         return DiscoveryNode.getUniverse();
     }
@@ -161,6 +164,14 @@ public class Discovery {
     @GET
     @Path("/api/v4/discovery/{id}")
     @RolesAllowed("read")
+    @Tag(ref = "Discovery")
+    @Operation(
+            summary = "Endpoint for discovery plugins to check their own registration status",
+            description =
+                    """
+                    Endpoint for discovery plugins to check their own current registration status, ie. whether their
+                    registration ID is still known and their current token is still valid.
+                    """)
     public void checkRegistration(
             @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token) {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
@@ -183,6 +194,24 @@ public class Discovery {
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
     @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
+    @Tag(
+            name = "Discovery",
+            description =
+                    """
+                    Endpoints for Discovery Plugins to register with a Cryostat instance, refresh their registration
+                    token, publish information about known targets, and unregister themselves.
+
+                    The reference implementation of a Discovery Plugin is the Cryostat Agent.
+                    """)
+    @Operation(
+            summary = "Register as a new discovery plugin or refresh existing registration",
+            description =
+                    """
+                    Register a new discovery plugin, or refresh an existing plugin's registration and generate a new
+                    token. New registrations require the realm and callback fields. Registration refreshers
+                    additionally require the id and token fields, which are supplied in the response to the original
+                    registration.
+                    """)
     public PluginRegistration register(@Context RoutingContext ctx, JsonObject body)
             throws SchedulerException {
         String pluginId = body.getString("id");
@@ -350,6 +379,16 @@ public class Discovery {
     @Path("/api/v4/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @PermitAll
+    @Tag(ref = "Discovery")
+    @Operation(
+            summary = "Publish updated target discovery information",
+            description =
+                    """
+                    Using its plugin ID and current token, a discovery plugin uses this endpoint to publish a JSON
+                    request body containing a list of discovery nodes. The discovery plugin itself is a Realm node in
+                    the overall discovery tree, so the published list of nodes here will replace the plugin Realm
+                    node's list of children.
+                    """)
     public void publish(
             @Context RoutingContext ctx,
             @RestPath UUID id,
@@ -411,6 +450,14 @@ public class Discovery {
     @DELETE
     @Path("/api/v4/discovery/{id}")
     @PermitAll
+    @Tag(ref = "Discovery")
+    @Operation(
+            summary = "Delete the given plugin's registration",
+            description =
+                    """
+                    Delete the plugin's registration along with its discovery Realm node and all of its children. This
+                    is used when a discovery plugin is shutting down.
+                    """)
     public void deregister(@Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
             throws SchedulerException {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
@@ -441,6 +488,13 @@ public class Discovery {
     @JsonView(DiscoveryNode.Views.Flat.class)
     @Path("/api/v4/discovery_plugins")
     @RolesAllowed("read")
+    @Tag(ref = "Discovery")
+    @Operation(
+            summary = "List currently registered discovery plugins",
+            description =
+                    """
+                    Retrieve a list of currently registered discovery plugins only, not including their subtrees.
+                    """)
     public List<DiscoveryPlugin> getPlugins(@RestQuery String realm) {
         // TODO filter for the matching realm name within the DB query
         return DiscoveryPlugin.findAll().<DiscoveryPlugin>list().stream()
@@ -451,10 +505,24 @@ public class Discovery {
     @GET
     @Path("/api/v4/discovery_plugins/{id}")
     @RolesAllowed("read")
+    @Tag(ref = "Discovery")
+    @Operation(
+            summary = "Retrieve a specific discovery plugin",
+            description =
+                    """
+                    Retrieve information about a specific discovery plugin, including its discovery Realm node and
+                    subtree.
+                    """)
     public DiscoveryPlugin getPlugin(@RestPath UUID id) {
         return DiscoveryPlugin.find("id", id).singleResult();
     }
 
+    /**
+     * Check that discovery plugins are still alive/reachable and prompt them to regenerate expiring
+     * tokens. Plugins are issued short-lived tokens at registration time. Cryostat periodically
+     * pings plugins to ensure they are still alive/reachable and to prompt them to request a fresh
+     * token if their token will be expiring soon.
+     */
     @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;

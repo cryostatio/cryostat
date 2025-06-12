@@ -79,6 +79,7 @@ public class TargetNodes {
     }
 
     @Transactional
+    @Description("Retrieve a list of active recordings currently available on the target")
     public ActiveRecordings activeRecordings(
             @Source Target target, @Nullable ActiveRecordingsFilter filter) {
         var fTarget = Target.getTargetById(target.id);
@@ -93,6 +94,7 @@ public class TargetNodes {
         return recordings;
     }
 
+    @Description("Retrieve a list of archived recordings belonging to the target")
     public ArchivedRecordings archivedRecordings(
             @Source Target target, @Nullable ArchivedRecordingsFilter filter) {
         var fTarget = Target.getTargetById(target.id);
@@ -107,6 +109,13 @@ public class TargetNodes {
         return recordings;
     }
 
+    @Description(
+            """
+            Retrieve an automated analysis report from the selected target(s). If there is no report currently
+            available then this request will not cause a report to be generated, and instead it will return an empty
+            result. Report generation may be an expensive operation, especially if many reports are to be generated at
+            once, and should not be triggered by broad GraphQL selections.
+            """)
     public Uni<Report> report(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
         return reportAggregator

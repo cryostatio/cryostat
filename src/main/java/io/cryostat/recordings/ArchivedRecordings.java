@@ -57,6 +57,8 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -97,6 +99,12 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/v4/recordings")
     @RolesAllowed("read")
+    @Operation(
+            summary = "List all archived recordings",
+            description =
+                    """
+                    List all archived recordings from all targets, including (re-)uploaded files.
+                    """)
     public List<ArchivedRecording> listArchivesV4() {
         return recordingHelper.listArchivedRecordings();
     }
@@ -105,8 +113,18 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/v4/recordings")
     @RolesAllowed("write")
+    @Operation(
+            summary = "Upload a JFR binary file to archives",
+            description =
+                    """
+                    (Re-)upload a JFR binary file into the archives. This allows for the restoration of archived files
+                    after they have been otherwise removed, or for portability across Cryostat instances or between
+                    Cryostat version upgrades. This can also be used to upload JFR files which were not collected by
+                    Cryostat, so that Cryostat can be used to perform online analysis of the file.
+                    """)
     public Map<String, Object> upload(
-            @RestForm("recording") FileUpload recording, @RestForm("labels") JsonObject rawLabels)
+            @Parameter(required = true) @RestForm("recording") FileUpload recording,
+            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels)
             throws Exception {
         Map<String, String> labels = new HashMap<>();
         if (rawLabels != null) {
@@ -122,11 +140,27 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/beta/recordings/{jvmId}")
     @RolesAllowed("write")
+    @Operation(
+            summary = "Upload a JFR binary file to archives, associated with a particular target",
+            description =
+                    """
+                    Upload a JFR binary file into the archives, associating the archived recording with a particular
+                    target JVM. This is primarily used by the Cryostat Agent for pushing harvested recording files.
+                    """)
     public void agentPush(
-            @RestPath String jvmId,
-            @RestForm("recording") FileUpload recording,
-            @RestForm("labels") JsonObject rawLabels,
-            @RestForm("maxFiles") int maxFiles)
+            @Parameter(required = true) @RestPath String jvmId,
+            @Parameter(required = true) @RestForm("recording") FileUpload recording,
+            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels,
+            @Parameter(
+                            required = false,
+                            description =
+                                    """
+                                    if supplied and greater than zero, Cryostat will only keep this many archived
+                                    recordings associated with this target. Recordings will be sorted by
+                                    'last modified' date and only the most recent 'maxFiles' will be retained.
+                                    """)
+                    @RestForm("maxFiles")
+                    int maxFiles)
             throws Exception {
         jvmId = jvmId.strip();
         int max = Integer.MAX_VALUE;
@@ -168,7 +202,8 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/beta/recordings/{jvmId}")
     @RolesAllowed("read")
-    public List<ArchivedRecording> agentGet(@RestPath String jvmId) {
+    @Operation(summary = "List archived recordings belonging to the specified target")
+    public List<ArchivedRecording> agentGet(@Parameter(required = true) @RestPath String jvmId) {
         var result = new ArrayList<ArchivedRecording>();
         recordingHelper
                 .listArchivedRecordingObjects(jvmId)
@@ -197,7 +232,14 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/beta/recordings/{connectUrl}/{filename}")
     @RolesAllowed("write")
-    public void agentDelete(@RestPath String connectUrl, @RestPath String filename)
+    @Operation(summary = "Delete an archived recording belonging to the specified target")
+    public void agentDelete(
+            @Parameter(
+                            required = true,
+                            description = "the connection URL associated with the target")
+                    @RestPath
+                    String connectUrl,
+            @Parameter(required = true) @RestPath String filename)
             throws Exception {
         String jvmId;
         if ("uploads".equals(connectUrl)) {
@@ -233,6 +275,7 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/v4/recordings/{filename}")
     @RolesAllowed("write")
+    @Operation(deprecated = true, summary = "Delete an archived recording by filename")
     public void delete(@RestPath String filename) throws Exception {
         // TODO scan all prefixes for matching filename? This is an old v1 API problem.
         recordingHelper.deleteArchivedRecording("uploads", filename);
@@ -242,6 +285,7 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/beta/fs/recordings")
     @RolesAllowed("read")
+    @Operation(summary = "List all archived recordings grouped by target")
     public Collection<ArchivedRecordingDirectory> listFsArchives() {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
         recordingHelper
@@ -283,6 +327,7 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/beta/fs/recordings/{jvmId}")
     @RolesAllowed("read")
+    @Operation(summary = "List all archived recordings belonging to the specified target")
     public Collection<ArchivedRecordingDirectory> listFsArchives(@RestPath String jvmId) {
         var map = new HashMap<String, ArchivedRecordingDirectory>();
         recordingHelper
@@ -321,6 +366,7 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/beta/fs/recordings/{jvmId}/{filename}")
     @RolesAllowed("write")
+    @Operation(summary = "Delete an archived recording by name belonging to the specified target")
     public void deleteArchivedRecording(@RestPath String jvmId, @RestPath String filename)
             throws Exception {
         recordingHelper.deleteArchivedRecording(jvmId, filename);
@@ -330,6 +376,13 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/v4/grafana/{encodedKey}")
     @RolesAllowed("write")
+    @Operation(
+            summary = "Upload an archived recording to Grafana for online analysis",
+            description =
+                    """
+                    Upload an archived recording to the jfr-datasource for later online analysis in the associated
+                    Grafana dashboard.
+                    """)
     public String uploadArchivedToGrafana(HttpServerResponse response, @RestPath String encodedKey)
             throws Exception {
         var pair = recordingHelper.decodedKey(encodedKey);
@@ -352,6 +405,13 @@ public class ArchivedRecordings {
     @Blocking
     @Path("/api/v4/download/{encodedKey}")
     @RolesAllowed("read")
+    @Operation(
+            summary = "Get a download URL for an archived recording",
+            description =
+                    """
+                    Get a download URL for an archived recording. The response will be an HTTP redirect with a Location
+                    header pointing to the location where the client can download the recording JFR binary file.
+                    """)
     public RestResponse<Object> handleStorageDownload(
             @RestPath String encodedKey, @RestQuery String f) throws URISyntaxException {
         Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);

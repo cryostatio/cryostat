@@ -79,6 +79,11 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 
+/**
+ * Event Template service implementation for Custom Event Templates. Custom Event Templates are ones
+ * that users can create and delete at runtime. These must be in conventional .jfc XML format. This
+ * implementation uses an S3 object storage service to house the XML files.
+ */
 @ApplicationScoped
 public class S3TemplateService implements MutableTemplateService {
 

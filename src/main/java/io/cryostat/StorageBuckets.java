@@ -38,6 +38,10 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CreateBucketRequest;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
+/**
+ * Utility for interacting with S3 object storage buckets. Use to ensure that the S3 object storage
+ * meets the application requirements, ex. that the expected buckets exist.
+ */
 @ApplicationScoped
 public class StorageBuckets {
 

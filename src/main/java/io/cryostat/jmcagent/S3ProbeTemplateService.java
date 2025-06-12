@@ -49,6 +49,11 @@ import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
+/**
+ * Implementation for JMC Agent event probe templates stored in S3 object storage.
+ *
+ * @see io.cryostat.events.S3TemplateService
+ */
 public class S3ProbeTemplateService implements ProbeTemplateService {
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_PROBE_TEMPLATES)
