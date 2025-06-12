@@ -70,6 +70,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+/** Discovery mechanism for Docker and Podman container engines. */
 @ApplicationScoped
 class PodmanDiscovery extends ContainerDiscovery {
     @ConfigProperty(name = "cryostat.discovery.podman.enabled")

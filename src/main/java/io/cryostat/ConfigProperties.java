@@ -15,6 +15,7 @@
  */
 package io.cryostat;
 
+/** Java constants corresponding to configuration keys set in application.properties. */
 public class ConfigProperties {
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
     public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =

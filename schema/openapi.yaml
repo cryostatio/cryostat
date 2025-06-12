@@ -683,6 +683,9 @@ openapi: 3.0.3
 paths:
   /api/beta/diagnostics/targets/{targetId}/gc:
     post:
+      description: |
+        Request the remote target to perform a garbage collection. The target JVM is free to ignore this
+        request. This is generally equivalent to a System.gc() call made within the target JVM.
       parameters:
         - in: path
           name: targetId
@@ -699,6 +702,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Initiate a garbage collection on the specified target
       tags:
         - Diagnostics
   /api/beta/fs/recordings:
@@ -718,6 +722,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List all archived recordings grouped by target
       tags:
         - Archived Recordings
   /api/beta/fs/recordings/{jvmId}:
@@ -743,6 +748,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List all archived recordings belonging to the specified target
       tags:
         - Archived Recordings
   /api/beta/fs/recordings/{jvmId}/{filename}:
@@ -767,12 +773,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete an archived recording by name belonging to the specified target
       tags:
         - Archived Recordings
   /api/beta/recordings/{connectUrl}/{filename}:
     delete:
       parameters:
-        - in: path
+        - description: the connection URL associated with the target
+          in: path
           name: connectUrl
           required: true
           schema:
@@ -791,6 +799,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete an archived recording belonging to the specified target
       tags:
         - Archived Recordings
   /api/beta/recordings/{jvmId}:
@@ -816,9 +825,13 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List archived recordings belonging to the specified target
       tags:
         - Archived Recordings
     post:
+      description: |
+        Upload a JFR binary file into the archives, associating the archived recording with a particular
+        target JVM. This is primarily used by the Cryostat Agent for pushing harvested recording files.
       parameters:
         - in: path
           name: jvmId
@@ -847,10 +860,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Upload a JFR binary file to archives, associated with a particular target
       tags:
         - Archived Recordings
   /api/v4.1/metrics/reports:
     get:
+      description: |
+        Retrieve the latest aggregate report data across all targets with recent automated analysis reports
+        scores. These are multi-dimensional metrics in Prometheus format.
       responses:
         "200":
           content:
@@ -866,10 +883,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve the latest aggregate report data
       tags:
         - Analysis Report Aggregator
   /api/v4.1/metrics/reports/{jvmId}:
     get:
+      description: |
+        Retrieve the latest aggregate report data for a given target's recent automated analysis reports
+        scores. These are multi-dimensional metrics in Prometheus format.
       parameters:
         - in: path
           name: jvmId
@@ -889,10 +910,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve the latest aggregate report data for the specified target
       tags:
         - Analysis Report Aggregator
   /api/v4.1/targets/{targetId}/reports:
     get:
+      description: |
+        Get the current cached automated analysis report for the specified target, if any. If no such
+        report currently exists for the specified target then the response will be an HTTP 404 Not Found,
+        and automated analysis report generation will not be triggered.
       parameters:
         - in: path
           name: targetId
@@ -915,9 +941,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve current automated analysis report for a target
       tags:
         - Reports
     post:
+      description: |
+        Composite action that 1) creates a Snapshot active recording on the specified target, 2) archives
+        that Snapshot immediately, 3) performs automated analysis report generation on the archived file.
+        The response will include a Location header pointing the client to an endpoint where the report can
+        be retrieved, which may require the client to wait for a Job UUID notification.
       parameters:
         - in: path
           name: targetId
@@ -944,10 +976,16 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Perform "target analysis" on the specified target
       tags:
         - Reports
   /api/v4/activedownload/{id}:
     get:
+      description: |
+        Given a recording ID and a remote recording ID within that target, Cryostat will open a remote
+        connection to the target and pipe back a data stream containing the Flight Recording binary file
+        format for that recording. The client can feed this data to other tooling which ingests the JFR
+        binary file format.
       parameters:
         - in: path
           name: id
@@ -969,10 +1007,18 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Download a Flight Recording binary file
       tags:
         - Active Recordings Download
   /api/v4/auth:
     post:
+      description: |
+        In modern Cryostat deployments it is customary to deploy Cryostat behind an authenticating reverse
+        proxy, so authentication is not actually handled by Cryostat itself. This endpoint is used by the
+        Cryostat Web UI client to send an authenticated client request, including some authentication
+        headers, to the Cryostat server so that it can extract information about the logged-in user. The
+        response contains the current user's username if it can be determined, or else an empty string.
+        This is only used for display in the Web UI. API clients do not need to use this endpoint.
       responses:
         "200":
           content:
@@ -980,10 +1026,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/AuthResponse'
           description: OK
+      summary: Authenticate to the Cryostat server
       tags:
         - Auth
   /api/v4/credentials:
     get:
+      description: |
+        Returns a list of match results. A match result includes the Stored Credential's ID,
+        its Match Expression, and a list of currently discovered Targets which match that expression
+        and are therefore candidates for Cryostat to select this Credential.
       responses:
         "200":
           content:
@@ -999,9 +1050,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List information about all of the available Stored Credentials.
       tags:
         - Credentials
     post:
+      description: |
+        Define a new Stored Credential. Requires a match expression which defines which targets require
+        this credential, and the username and password to use to pass authentication checks on those
+        targets. Stored Credentials are stored in an encrypted keyring using symmetric encryption and an
+        encryption key configured on the Cryostat database.
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -1027,6 +1084,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Define a new Stored Credential
       tags:
         - Credentials
   /api/v4/credentials/test/{targetId}:
@@ -1061,6 +1119,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Test if the supplied username/password are valid credentials for the specified target.
       tags:
         - Credentials
   /api/v4/credentials/{id}:
@@ -1081,9 +1140,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete a Stored Credential
       tags:
         - Credentials
     get:
+      description: |
+        Get match result information about a specific Stored Credential. A match result includes the Stored
+        Credential's ID, its Match Expression, and a list of currently discovered Targets which match that
+        expression and are therefore candidates for Cryostat to select this Credential.
       parameters:
         - in: path
           name: id
@@ -1104,6 +1168,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get information about a Stored Credential
       tags:
         - Credentials
   /api/v4/discovery:
@@ -1121,9 +1186,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve the entire discovery tree.
       tags:
         - Discovery
     post:
+      description: |
+        Register a new discovery plugin, or refresh an existing plugin's registration and generate a new
+        token. New registrations require the realm and callback fields. Registration refreshers
+        additionally require the id and token fields, which are supplied in the response to the original
+        registration.
       requestBody:
         content:
           application/json:
@@ -1142,10 +1213,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Register as a new discovery plugin or refresh existing registration
       tags:
         - Discovery
   /api/v4/discovery/{id}:
     delete:
+      description: |
+        Delete the plugin's registration along with its discovery Realm node and all of its children. This
+        is used when a discovery plugin is shutting down.
       parameters:
         - in: path
           name: id
@@ -1159,9 +1234,13 @@ paths:
       responses:
         "204":
           description: No Content
+      summary: Delete the given plugin's registration
       tags:
         - Discovery
     get:
+      description: |
+        Endpoint for discovery plugins to check their own current registration status, ie. whether their
+        registration ID is still known and their current token is still valid.
       parameters:
         - in: path
           name: id
@@ -1181,9 +1260,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Endpoint for discovery plugins to check their own registration status
       tags:
         - Discovery
     post:
+      description: |
+        Using its plugin ID and current token, a discovery plugin uses this endpoint to publish a JSON
+        request body containing a list of discovery nodes. The discovery plugin itself is a Realm node in
+        the overall discovery tree, so the published list of nodes here will replace the plugin Realm
+        node's list of children.
       parameters:
         - in: path
           name: id
@@ -1204,10 +1289,13 @@ paths:
       responses:
         "201":
           description: Created
+      summary: Publish updated target discovery information
       tags:
         - Discovery
   /api/v4/discovery_plugins:
     get:
+      description: |
+        Retrieve a list of currently registered discovery plugins only, not including their subtrees.
       parameters:
         - in: query
           name: realm
@@ -1228,10 +1316,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List currently registered discovery plugins
       tags:
         - Discovery
   /api/v4/discovery_plugins/{id}:
     get:
+      description: |
+        Retrieve information about a specific discovery plugin, including its discovery Realm node and
+        subtree.
       parameters:
         - in: path
           name: id
@@ -1251,10 +1343,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve a specific discovery plugin
       tags:
         - Discovery
   /api/v4/download/{encodedKey}:
     get:
+      description: |
+        Get a download URL for an archived recording. The response will be an HTTP redirect with a Location
+        header pointing to the location where the client can download the recording JFR binary file.
       parameters:
         - in: path
           name: encodedKey
@@ -1277,10 +1373,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get a download URL for an archived recording
       tags:
         - Archived Recordings
   /api/v4/event_templates:
     get:
+      description: |
+        Retrieve a list of templates available on this Cryostat server. These templates can be applied to
+        recordings started on any discovered target, but any event configurations within the template which
+        reference events that do not exist on the target will be ignored.
       responses:
         "200":
           content:
@@ -1296,9 +1397,12 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List server event templates
       tags:
         - Event Templates
     post:
+      description: |
+        Upload a new custom event template to the server. This must be in OpenJDK .jfc (XML) format.
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -1320,10 +1424,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Upload a custom event template
       tags:
         - Event Templates
   /api/v4/event_templates/{templateName}:
     delete:
+      description: |
+        Delete a custom event template from the server. Only previously uploaded custom event templates can
+        be deleted.
       parameters:
         - in: path
           name: templateName
@@ -1339,6 +1447,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete a custom event template
       tags:
         - Event Templates
   /api/v4/event_templates/{templateType}:
@@ -1364,10 +1473,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List server event templates of the given type
       tags:
         - Event Templates
   /api/v4/event_templates/{templateType}/{templateName}:
     get:
+      description: |
+        Get the .jfc (XML) file definition for the given server event template. This is the same type of
+        event configuration file that ships with OpenJDK distributions.
       parameters:
         - in: path
           name: templateName
@@ -1392,10 +1505,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get a specific event template
       tags:
         - Event Templates
   /api/v4/grafana/{encodedKey}:
     post:
+      description: |
+        Upload an archived recording to the jfr-datasource for later online analysis in the associated
+        Grafana dashboard.
       parameters:
         - in: path
           name: encodedKey
@@ -1420,10 +1537,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Upload an archived recording to Grafana for online analysis
       tags:
         - Archived Recordings
   /api/v4/grafana_dashboard_url:
     get:
+      description: |
+        Returns the URL for the associated Grafana dashboard instance. If there is an internally-accessible
+        (for Cryostat) URL and an externally-accessible URL (for users) URL, the externally-accessible URL
+        is preferred. If neither are configured then the response is an HTTP 400 Bad Request.
       responses:
         "200":
           content:
@@ -1431,10 +1553,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/DashboardUrl'
           description: OK
+      summary: Return the URL which users can visit to access the associated Grafana dashboard instance.
       tags:
         - Health
   /api/v4/grafana_datasource_url:
     get:
+      description: |
+        Returns the URL for the jfr-datasource instance which Cryostat is configured to use. This datasource
+        accepts JFR file uploads from Cryostat and allows the Grafana dashboard to perform queries on the
+        data within the recording file.
       responses:
         "200":
           content:
@@ -1442,6 +1569,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DatasourceUrl'
           description: OK
+      summary: Return the URL to the associated jfr-datasource instance.
       tags:
         - Health
   /api/v4/logout:
@@ -1452,10 +1580,15 @@ paths:
             application/json:
               schema: {}
           description: OK
+      summary: OAuth2 sign out. Invalidate the current user session
       tags:
         - Auth
   /api/v4/matchExpressions:
     get:
+      description: |
+        Retrieve a list of all currently defined Match Expressions. These objects cannot be created
+        independently in the current API definition, so each of these expressions will be associated with
+        an Automated Rule or Stored Credential.
       responses:
         "200":
           content:
@@ -1472,9 +1605,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve a list of all currently defined Match Expressions
       tags:
         - Match Expressions
     post:
+      description: |
+        Given a list of Target IDs, retrieve each Target instance from the database, then return the list
+        filtered by the Targets which satisfy the Match Expression. If a given ID does not exist in the
+        database then the whole request will fail. The expression must evaluate to a boolean value for each
+        target. The match expression will not be stored.
       requestBody:
         content:
           application/json:
@@ -1493,6 +1632,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Test a MatchExpression against a list of Targets
       tags:
         - Match Expressions
   /api/v4/matchExpressions/{id}:
@@ -1517,6 +1657,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve a single Match Expression
       tags:
         - Match Expressions
   /api/v4/probes:
@@ -1530,9 +1671,15 @@ paths:
                   $ref: '#/components/schemas/ProbeTemplateResponse'
                 type: array
           description: OK
+      summary: List defined probe templates
       tags:
         - JMC Agent Templates
     post:
+      description: |2
+            Create a probe template. This requires a probe template file upload in XML format. See
+            https://github.com/openjdk/jmc/blob/master/agent/README.md and
+            https://github.com/openjdk/jmc/blob/master/agent/src/main/resources/org/openjdk/jmc/agent/impl/jfrprobes_schema.xsd
+            for more information about this file format.
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -1550,6 +1697,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ProbeTemplate'
           description: OK
+      summary: Create a probe template
       tags:
         - JMC Agent Templates
   /api/v4/probes/{probeTemplateName}:
@@ -1563,10 +1711,13 @@ paths:
       responses:
         "204":
           description: No Content
+      summary: Delete the specified probe template
       tags:
         - JMC Agent Templates
   /api/v4/recordings:
     get:
+      description: |
+        List all archived recordings from all targets, including (re-)uploaded files.
       responses:
         "200":
           content:
@@ -1582,9 +1733,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List all archived recordings
       tags:
         - Archived Recordings
     post:
+      description: |
+        (Re-)upload a JFR binary file into the archives. This allows for the restoration of archived files
+        after they have been otherwise removed, or for portability across Cryostat instances or between
+        Cryostat version upgrades. This can also be used to upload JFR files which were not collected by
+        Cryostat, so that Cryostat can be used to perform online analysis of the file.
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -1609,10 +1766,12 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Upload a JFR binary file to archives
       tags:
         - Archived Recordings
   /api/v4/recordings/{filename}:
     delete:
+      deprecated: true
       parameters:
         - in: path
           name: filename
@@ -1628,10 +1787,19 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete an archived recording by filename
       tags:
         - Archived Recordings
   /api/v4/reports/{encodedKey}:
     get:
+      description: |
+        Given an encoded key from another endpoint, request an actual automated analysis report. If the
+        requested report already exists in one of the tiered caching layers then the report will be
+        directly returned as a JSON response body. If the report does not yet exist then the response will
+        contain a Job UUID as a plain text response body. Cryostat will emit a WebSocket notification later
+        using the same Job UUID to indicate that the report generation has been completed and the document
+        is now available. The client may then re-issue a request to this endpoint with the same encoded key
+        to retrieve the report document.
       parameters:
         - in: path
           name: encodedKey
@@ -1652,6 +1820,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get an automated analysis report
       tags:
         - Reports
   /api/v4/rules:
@@ -1671,6 +1840,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List all Automated Rules
       tags:
         - Rules
     post:
@@ -1756,6 +1926,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Create a new Automated Rule
       tags:
         - Rules
   /api/v4/rules/{name}:
@@ -1779,6 +1950,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete an Automated Rule by name
       tags:
         - Rules
     get:
@@ -1801,9 +1973,12 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get an Automated Rule by name
       tags:
         - Rules
     patch:
+      description: |
+        Update Automated Rule parameters, such as whether the rule is currently active or not.
       parameters:
         - in: path
           name: name
@@ -1832,10 +2007,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Update an Automated Rule
       tags:
         - Rules
   /api/v4/targets:
     get:
+      description: |
+        Get a list of the currently discovered targets. These are essentialy the same as the leaf nodes of
+        the discovery tree. See 'GET /api/v4/discovery'.
       responses:
         "200":
           content:
@@ -1851,9 +2030,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List currently discovered targets
       tags:
         - Targets
     post:
+      description: |
+        Create a target definition given a JSON request body target stub. The target stub must contain the
+        connectUrl and alias, and optionally contain a username and password to create a Stored Credential
+        associated with this target. The dryrun parameter can be used to perform this operation as a check,
+        to verify if such a target could be created (no connectUrl conflict and acceptable credentials).
       parameters:
         - in: query
           name: dryrun
@@ -1907,10 +2092,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Create a target definition
       tags:
         - Custom Discovery
   /api/v4/targets/{id}:
     delete:
+      description: |
+        Delete the specified target by ID. Only allows deletion of targets that were defined by the same
+        Custom Target discovery API. Other targets must be removed by the discovery mechanisms which
+        discovered them.
       parameters:
         - in: path
           name: id
@@ -1927,9 +2117,12 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete the specified target
       tags:
         - Custom Discovery
     get:
+      description: |
+        Get details about a particular target given its ID.
       parameters:
         - in: path
           name: id
@@ -1950,10 +2143,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get a target by ID
       tags:
         - Targets
   /api/v4/targets/{id}/event_templates:
     get:
+      description: |
+        Retrieve a list of event templates available on the given target when starting recordings on the
+        same target. This includes all of the server's available templates, plus the templates available
+        specifically from the target (ex. within /usr/lib/jvm/java/lib/jfr).
       parameters:
         - in: path
           name: id
@@ -1976,10 +2174,13 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Retrieve a list of event templates available on the given target
       tags:
         - Target Event Templates
   /api/v4/targets/{id}/event_templates/{templateType}/{templateName}:
     get:
+      description: |
+        Get the .jfc (XML) file definition for the given target event template.
       parameters:
         - in: path
           name: id
@@ -2010,10 +2211,16 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get a specific event template
       tags:
         - Target Event Templates
   /api/v4/targets/{id}/events:
     get:
+      description: |
+        Retrieve a list of JFR event types registered within the given target. This will include all
+        built-in JFR types emitted by the target JVM, as well as custom event types specific to that
+        target JVM if they are correctly registered. Custom event types, or event types emitted by plugins
+        and extensions, may not always appear in this list.
       parameters:
         - in: path
           name: id
@@ -2040,6 +2247,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List JFR event types registered within the given target
       tags:
         - Events
   /api/v4/targets/{id}/probes:
@@ -2054,6 +2262,7 @@ paths:
       responses:
         "204":
           description: No Content
+      summary: Remove all loaded probes from the specified target
       tags:
         - JMC Agent Probes
     get:
@@ -2073,10 +2282,13 @@ paths:
                   $ref: '#/components/schemas/ProbeResponse'
                 type: array
           description: OK
+      summary: List loaded probes on the specified target
       tags:
         - JMC Agent Probes
   /api/v4/targets/{id}/probes/{probeTemplateName}:
     post:
+      description: |
+        Activate a probe template (specified by template name) on the specified target (specified by ID).
       parameters:
         - in: path
           name: id
@@ -2092,10 +2304,13 @@ paths:
       responses:
         "201":
           description: Created
+      summary: Activate a probe template on the specified target
       tags:
         - JMC Agent Probes
   /api/v4/targets/{targetId}/recordingOptions:
     get:
+      description: |
+        Retrieve a map of the current options for the specified target.
       parameters:
         - in: path
           name: targetId
@@ -2117,9 +2332,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get the current set of options for the specified target
       tags:
         - Recording Options
     patch:
+      description: |
+        Set default recording options for the specified target. These options will be applied to any
+        recordings started on this target if no override values are specified when the recording is
+        created.
       parameters:
         - in: path
           name: targetId
@@ -2153,10 +2373,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Update the recording options for the specified target
       tags:
         - Recording Options
   /api/v4/targets/{targetId}/recordings:
     get:
+      description: |
+        Retrieve a list of active recordings currently present on the specified target. This may initiate
+        a new remote connection to the target to update Cryostat's model of available recordings.
       parameters:
         - in: path
           name: targetId
@@ -2179,9 +2403,17 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: List active recordings on the specified target
       tags:
         - Active Recordings
     post:
+      description: |
+        Create a new Flight Recording on the specified target. The recording will be immediately started
+        and begin capturing Flight Recording data.
+        The recording must be given a name (unique within the
+        target). An event specifier string must be included, which follows the format
+        "template={name},(type={type})". The type parameter is optional and the template name is required.
+        See the Event Templates API for more information about the values that can be used here.
       parameters:
         - in: path
           name: targetId
@@ -2240,10 +2472,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Start a new recording on the specified target
       tags:
         - Active Recordings
   /api/v4/targets/{targetId}/recordings/{remoteId}:
     delete:
+      description: |
+        Delete a recording from the specified target. This will remove it both from Cryostat's database
+        as well as remove the recording and release all resources in the remote target JVM.
       parameters:
         - in: path
           name: remoteId
@@ -2266,9 +2502,15 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Delete a recording from the specified target
       tags:
         - Active Recordings
     get:
+      description: |
+        Given a recording ID and a remote recording ID within that target, Cryostat will open a remote
+        connection to the target and pipe back a data stream containing the Flight Recording binary file
+        format for that recording. The client can feed this data to other tooling which ingests the JFR
+        binary file format.
       parameters:
         - in: path
           name: remoteId
@@ -2296,9 +2538,13 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Download a Flight Recording binary file
       tags:
         - Active Recordings
     patch:
+      description: |
+        Remote recordings can be stopped by sending the request body "stop", or copied to archives by
+        sending the request body "save". The body is case-insensitive.
       parameters:
         - in: path
           name: remoteId
@@ -2330,10 +2576,14 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Update a remote recording on the specified target
       tags:
         - Active Recordings
   /api/v4/targets/{targetId}/recordings/{remoteId}/upload:
     post:
+      description: |
+        Upload the current data stream of the specified recording to the jfr-datasource for online analysis
+        in the associated Grafana dashboard.
       parameters:
         - in: path
           name: remoteId
@@ -2365,10 +2615,16 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Upload a recording for analysis in Grafana dashboard
       tags:
         - Active Recordings
   /api/v4/targets/{targetId}/reports/{recordingId}:
     get:
+      description: |
+        Request an automated analysis report for a particular active recording on the specified target. If
+        such a report already exists it will be returned directly as a JSON response body. If the report
+        does not yet exist then an asynchronous task for it will be started, and a Job UUID will be
+        sent as the plaintext response body.
       parameters:
         - in: path
           name: recordingId
@@ -2396,6 +2652,7 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Get an automated analysis report for a particular recording on the specified target
       tags:
         - Reports
   /api/v4/targets/{targetId}/snapshot:
@@ -2420,10 +2677,16 @@ paths:
           description: Not Allowed
       security:
         - SecurityScheme: []
+      summary: Create a JFR Snapshot on the specified target
       tags:
         - Snapshots
   /api/v4/tls/certs:
     get:
+      description: |
+        In addition to the standard system/OpenJDK certificate trust store, Cryostat can be configured to
+        trust additional certificates which may be presented by target JVM JMX servers or by Cryostat Agent
+        HTTPS servers. This endpoint returns a list of local file paths to additional certificate files,
+        which Cryostat will have loaded into an additional trust store at startup.
       responses:
         "200":
           content:
@@ -2433,10 +2696,16 @@ paths:
                   type: string
                 type: array
           description: OK
+      summary: List additional trusted SSL/TLS certificates
       tags:
         - Trust Store
   /health:
     get:
+      description: |
+        Returns a map indicating whether various external components (ex.
+            jfr-datasource, grafana-dashboard) are configured and whether those
+            components can be reached by the Cryostat application. Also includes
+            application semantic version and build information.
       responses:
         "200":
           content:
@@ -2444,12 +2713,26 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApplicationHealth'
           description: OK
+      summary: Check the overall status of the application
       tags:
         - Health
   /health/liveness:
     get:
+      description: |
+        Performs a no-op on a worker thread. This is a simply check to determine if
+        the application has available threads to service requests. HTTP 204 No Content
+        is the only expected response. If the application is not live and no worker
+        threads are available, then the client will never receive a response.
       responses:
         "204":
           description: No Content
+      summary: Check if the application is able to accept and respond to requests.
       tags:
         - Health
+tags:
+  - description: |
+      Endpoints for Discovery Plugins to register with a Cryostat instance, refresh their registration
+      token, publish information about known targets, and unregister themselves.
+
+      The reference implementation of a Discovery Plugin is the Cryostat Agent.
+    name: Discovery

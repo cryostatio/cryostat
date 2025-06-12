@@ -34,6 +34,15 @@ import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 
+/**
+ * Perform recording archival by pulling data stream from a target and copying it into a file in S3
+ * object storage.
+ *
+ * @see io.cryostat.target.Target
+ * @see io.cryostat.recordings.ActiveRecording
+ * @see io.cryostat.rules.Rule
+ * @see io.cryostat.rules.RuleExecutor
+ */
 class ScheduledArchiveJob implements Job {
 
     private static final Pattern RECORDING_FILENAME_PATTERN =

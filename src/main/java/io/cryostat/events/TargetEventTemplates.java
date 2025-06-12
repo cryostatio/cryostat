@@ -35,6 +35,7 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 
@@ -59,6 +60,14 @@ public class TargetEventTemplates {
     @GET
     @Blocking
     @RolesAllowed("read")
+    @Operation(
+            summary = "Retrieve a list of event templates available on the given target",
+            description =
+                    """
+                    Retrieve a list of event templates available on the given target when starting recordings on the
+                    same target. This includes all of the server's available templates, plus the templates available
+                    specifically from the target (ex. within /usr/lib/jvm/java/lib/jfr).
+                    """)
     public List<Template> listTargetTemplates(@RestPath long id) throws Exception {
         Target target = Target.find("id", id).singleResult();
         var list = new ArrayList<Template>();
@@ -79,6 +88,12 @@ public class TargetEventTemplates {
     @Path("/{templateType}/{templateName}")
     @RolesAllowed("read")
     @Produces(MediaType.APPLICATION_XML)
+    @Operation(
+            summary = "Get a specific event template",
+            description =
+                    """
+                    Get the .jfc (XML) file definition for the given target event template.
+                    """)
     public String getTargetTemplate(
             @RestPath long id, @RestPath TemplateType templateType, @RestPath String templateName)
             throws Exception {

@@ -59,6 +59,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.lang3.tuple.Pair;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -198,6 +199,13 @@ public class AnalysisReportAggregator {
     @Produces(MediaType.TEXT_PLAIN)
     @RolesAllowed("read")
     @Transactional
+    @Operation(
+            summary = "Retrieve the latest aggregate report data",
+            description =
+                    """
+                    Retrieve the latest aggregate report data across all targets with recent automated analysis reports
+                    scores. These are multi-dimensional metrics in Prometheus format.
+                    """)
     // TODO should this include results from lost targets?
     public Multi<String> scrape() {
         var multis =
@@ -217,6 +225,13 @@ public class AnalysisReportAggregator {
     @Produces(MediaType.TEXT_PLAIN)
     @RolesAllowed("read")
     @Transactional
+    @Operation(
+            summary = "Retrieve the latest aggregate report data for the specified target",
+            description =
+                    """
+                    Retrieve the latest aggregate report data for a given target's recent automated analysis reports
+                    scores. These are multi-dimensional metrics in Prometheus format.
+                    """)
     // TODO should this include results from lost targets?
     public Uni<RestResponse<String>> scrape(@RestPath String jvmId) {
         return getEntry(jvmId)

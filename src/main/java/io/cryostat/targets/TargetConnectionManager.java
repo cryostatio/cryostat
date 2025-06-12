@@ -70,6 +70,22 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
 
+/**
+ * Handles creating, caching, and cleaning up remote target connections (JMX or HTTP). Since
+ * Cryostat may perform many remote operations on target JVMs in rapid succession, it is better for
+ * performance and resource utilization to cache and reuse network connections rather than opening a
+ * new connection for each operation. This class handles the creation and maintenance of these
+ * connections and cleaning them up when they have been inactive for some time. This class also
+ * handles finding relevant Stored Credentials that may be required for establishing these
+ * connections, and attaching these Credentials to the requests as needed.
+ *
+ * @see io.cryostat.target.Target
+ * @see io.cryostat.credentials.Credential
+ * @see io.cryostat.core.net.JFRConnection
+ * @see io.cryostat.core.net.JFRJMXConnection
+ * @see io.cryostat.target.AgentConnection
+ * @see io.cryostat.recordings.RemoteRecordingInputStreamFactory
+ */
 @ApplicationScoped
 public class TargetConnectionManager {
 

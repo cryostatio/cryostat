@@ -52,6 +52,16 @@ import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
 import org.quartz.SchedulerException;
 
+/**
+ * Handle {@link io.cryostat.target.Target} instances appearing and disappearing, and {@link
+ * io.cryostat.rules.Rule} instances being created or deleted. Delegates to the RuleExecutor to kick
+ * off new Flight Recordings in applicable targets and to handle periodically copying recording
+ * data, if configured to do so.
+ *
+ * @see io.cryostat.rules.RuleExecutor
+ * @see io.cryostat.expressions.MatchExpression
+ * @see io.cryostat.expressions.MatchExpressionEvaluator
+ */
 @ApplicationScoped
 public class RuleService {
 

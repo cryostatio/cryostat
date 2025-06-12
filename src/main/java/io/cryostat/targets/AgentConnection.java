@@ -45,6 +45,14 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+/**
+ * {@link io.cryostat.core.net.JFRConnection} implementation representing a Cryostat Agent instance.
+ * The original JFRConnection implementation is {@link io.cryostat.core.net.JFRJMXConnection}, which
+ * represents a view of a target JVM using JMX to perform remote operations. This class implements
+ * the same set of operations, but based on HTTP communications with Cryostat Agent instances.
+ *
+ * @see io.cryostat.targets.AgentClient
+ */
 class AgentConnection implements JFRConnection {
 
     private final AgentClient client;
