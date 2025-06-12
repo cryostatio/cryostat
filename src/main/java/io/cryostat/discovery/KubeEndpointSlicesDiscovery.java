@@ -297,12 +297,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 for (String addr : addresses) {
                     var ref = endpoint.getTargetRef();
                     if (ref == null) {
-                        logger.debugv(
-                                "Endpoints object {0} in {1} with address {2} had a null"
-                                        + " targetRef",
-                                endpoints.getMetadata().getName(),
-                                endpoints.getMetadata().getNamespace(),
-                                addr.getIp());
                         continue;
                     }
                     tts.add(
