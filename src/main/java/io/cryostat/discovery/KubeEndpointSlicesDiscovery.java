@@ -135,8 +135,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                                 KubeEndpointSlicesDiscovery.this,
                                                 informerResyncPeriod.toMillis()));
                         logger.debugv(
-                                "Started Endpoints SharedInformer for all namespaces with resync"
-                                        + " period {0}",
+                                "Started EndpointSlice SharedInformer for all namespaces with"
+                                        + " resync period {0}",
                                 informerResyncPeriod);
                     } else {
                         kubeConfig
@@ -155,8 +155,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                                                     informerResyncPeriod
                                                                             .toMillis()));
                                             logger.debugv(
-                                                    "Started Endpoints SharedInformer for namespace"
-                                                            + " \"{0}\" with resync period {1}",
+                                                    "Started EndpointSlice SharedInformer for"
+                                                        + " namespace \"{0}\" with resync period"
+                                                        + " {1}",
                                                     ns, informerResyncPeriod);
                                         });
                     }
