@@ -20,6 +20,7 @@ import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
@@ -27,6 +28,9 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
+import javax.crypto.KeyGenerator;
+import javax.crypto.SecretKey;
 
 import com.nimbusds.jose.EncryptionMethod;
 import com.nimbusds.jose.JOSEException;
@@ -40,14 +44,18 @@ import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.JWSVerifier;
 import com.nimbusds.jose.Payload;
+import com.nimbusds.jose.crypto.DirectDecrypter;
+import com.nimbusds.jose.crypto.DirectEncrypter;
+import com.nimbusds.jose.crypto.MACSigner;
+import com.nimbusds.jose.crypto.MACVerifier;
 import com.nimbusds.jose.proc.SecurityContext;
 import com.nimbusds.jwt.JWT;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import com.nimbusds.jwt.proc.BadJWTException;
 import com.nimbusds.jwt.proc.DefaultJWTClaimsVerifier;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
@@ -56,11 +64,6 @@ public class DiscoveryJwtFactory {
     public static final String RESOURCE_CLAIM = "resource";
     public static final String REALM_CLAIM = "realm";
     static final String DISCOVERY_API_PATH = "/api/v4/discovery/";
-
-    @Inject JWSSigner signer;
-    @Inject JWSVerifier verifier;
-    @Inject JWEEncrypter encrypter;
-    @Inject JWEDecrypter decrypter;
 
     @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
     Duration discoveryPingPeriod;
@@ -85,6 +88,30 @@ public class DiscoveryJwtFactory {
 
     @ConfigProperty(name = "cryostat.http.proxy.path")
     String httpPath;
+
+    private final JWSSigner signer;
+    private final JWSVerifier verifier;
+    private final JWEEncrypter encrypter;
+    private final JWEDecrypter decrypter;
+
+    @SuppressFBWarnings(value = "CT_CONSTRUCTOR_THROW")
+    DiscoveryJwtFactory(
+            @ConfigProperty(name = "cryostat.discovery.plugins.jwt.secret.algorithm")
+                    String secretKeyAlgorithm,
+            @ConfigProperty(name = "cryostat.discovery.plugins.jwt.secret.keysize")
+                    int secretKeySize) {
+        try {
+            KeyGenerator generator = KeyGenerator.getInstance(secretKeyAlgorithm);
+            generator.init(secretKeySize);
+            SecretKey secretKey = generator.generateKey();
+            this.signer = new MACSigner(secretKey);
+            this.verifier = new MACVerifier(secretKey);
+            this.encrypter = new DirectEncrypter(secretKey);
+            this.decrypter = new DirectDecrypter(secretKey);
+        } catch (NoSuchAlgorithmException | JOSEException e) {
+            throw new RuntimeException(e);
+        }
+    }
 
     public String createDiscoveryPluginJwt(
             DiscoveryPlugin plugin, InetAddress requestAddr, URI resource)

@@ -77,9 +77,22 @@
 #   accessed directly. (example: "foo.example.com,bar.example.com")
 #
 ###
-FROM registry.access.redhat.com/ubi9/openjdk-21-runtime:1.22-1.1747241886
+ARG FIPS="1"
+FROM registry.access.redhat.com/ubi9/openjdk-21-runtime:1.22-1.1747241886 as BASE
 
 ENV LANGUAGE='en_US:en'
+
+FROM BASE AS FIPS-0
+RUN echo "FIPS patch disabled"
+
+FROM BASE AS FIPS-1
+RUN echo "FIPS patch enabled"
+USER 0
+RUN export NSS_CFG=$JAVA_HOME/conf/security/nss.fips.cfg && \
+    sed -i 's/attributes.*/attributes(*,CKO_SECRET_KEY,*)={ CKA_SIGN=true CKA_ENCRYPT=true }/' $NSS_CFG
+
+
+FROM FIPS-${FIPS} as FINAL
 
 EXPOSE 8181
 USER 185
