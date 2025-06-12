@@ -15,6 +15,7 @@
  */
 package io.cryostat;
 
+/** Java constants corresponding to configuration keys set in application.properties. */
 public class ConfigProperties {
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
     public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =
@@ -62,4 +63,7 @@ public class ConfigProperties {
     public static final String URI_RANGE = "cryostat.target.uri-range";
 
     public static final String AGENT_TLS_REQUIRED = "cryostat.agent.tls.required";
+
+    public static final String DECLARATIVE_CONFIG_RESOLVE_SYMLINKS =
+            "cryostat.declarative-configuration.symlinks.resolve";
 }

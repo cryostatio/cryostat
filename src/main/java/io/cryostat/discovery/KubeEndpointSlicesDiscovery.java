@@ -67,6 +67,14 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+/**
+ * Discovery mechanism for Kubernetes and derivatives. Uses a Kubernetes client to communicate with
+ * the k8s API server. This works by querying for Endpoint objects, which represent <ip, port>
+ * tuples on k8s Services and therefore map to Pods (and therefore containers running JVMs), then
+ * constructing a subtree by chasing owner references from the Endpoint object until the ownership
+ * chain either ends or hits a Namespace object. Intermediate nodes across these chains are reused
+ * so that common ancestors are shared and a tree is formed, rather than a list of lists.
+ */
 @ApplicationScoped
 public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<EndpointSlice> {
 

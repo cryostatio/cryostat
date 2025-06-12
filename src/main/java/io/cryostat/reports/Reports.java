@@ -51,6 +51,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -90,6 +91,18 @@ public class Reports {
     @Blocking
     @Path("/api/v4/reports/{encodedKey}")
     @RolesAllowed("read")
+    @Operation(
+            summary = "Get an automated analysis report",
+            description =
+                    """
+                    Given an encoded key from another endpoint, request an actual automated analysis report. If the
+                    requested report already exists in one of the tiered caching layers then the report will be
+                    directly returned as a JSON response body. If the report does not yet exist then the response will
+                    contain a Job UUID as a plain text response body. Cryostat will emit a WebSocket notification later
+                    using the same Job UUID to indicate that the report generation has been completed and the document
+                    is now available. The client may then re-issue a request to this endpoint with the same encoded key
+                    to retrieve the report document.
+                    """)
     // Response isn't strongly typed which allows us to return either the Analysis result
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?
@@ -131,6 +144,15 @@ public class Reports {
     @Transactional
     @Path("/api/v4.1/targets/{targetId}/reports")
     @RolesAllowed("write")
+    @Operation(
+            summary = "Perform \"target analysis\" on the specified target",
+            description =
+                    """
+                    Composite action that 1) creates a Snapshot active recording on the specified target, 2) archives
+                    that Snapshot immediately, 3) performs automated analysis report generation on the archived file.
+                    The response will include a Location header pointing the client to an endpoint where the report can
+                    be retrieved, which may require the client to wait for a Job UUID notification.
+                    """)
     public Response analyze(
             HttpServerResponse resp,
             @RestPath long targetId,
@@ -168,6 +190,14 @@ public class Reports {
     @Path("/api/v4.1/targets/{targetId}/reports")
     @Produces(MediaType.APPLICATION_JSON)
     @RolesAllowed("read")
+    @Operation(
+            summary = "Retrieve current automated analysis report for a target",
+            description =
+                    """
+                    Get the current cached automated analysis report for the specified target, if any. If no such
+                    report currently exists for the specified target then the response will be an HTTP 404 Not Found,
+                    and automated analysis report generation will not be triggered.
+                    """)
     public Uni<RestResponse<Map<String, AnalysisResult>>> getCached(@RestPath long targetId) {
         var target = Target.getTargetById(targetId);
         return reportAggregator
@@ -191,6 +221,17 @@ public class Reports {
     @Blocking
     @Path("/api/v4/targets/{targetId}/reports/{recordingId}")
     @RolesAllowed("read")
+    @Operation(
+            summary =
+                    "Get an automated analysis report for a particular recording on the specified"
+                            + " target",
+            description =
+                    """
+                    Request an automated analysis report for a particular active recording on the specified target. If
+                    such a report already exists it will be returned directly as a JSON response body. If the report
+                    does not yet exist then an asynchronous task for it will be started, and a Job UUID will be
+                    sent as the plaintext response body.
+                    """)
     // Response isn't strongly typed which allows us to return either the Analysis result
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?

@@ -37,6 +37,14 @@ import software.amazon.awssdk.services.s3.model.NoSuchBucketException;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
 
+/**
+ * Map uncaught exceptions at the endpoint level to REST responses. For example, without a
+ * corresponding exception mapper, an uncaught jakarta.persistence.NoResultException would result in
+ * the web server responding with an HTTP 500 Internal Server Error (the default behaviour for all
+ * uncaught exceptions). Defining a mapper for NoResultException allows the global behaviour to be
+ * overridden to an HTTP 404 Not Found response. Individual endpoints may still use standard
+ * try-catch handling to deal with NoResultExceptions in other ways as needed.
+ */
 public class ExceptionMappers {
 
     @Inject Logger logger;

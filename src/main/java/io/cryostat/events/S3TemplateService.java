@@ -39,6 +39,7 @@ import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLTagInstance;
 import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLValidationResult;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.FlightRecorderException;
@@ -73,6 +74,11 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 
+/**
+ * Event Template service implementation for Custom Event Templates. Custom Event Templates are ones
+ * that users can create and delete at runtime. These must be in conventional .jfc XML format. This
+ * implementation uses an S3 object storage service to house the XML files.
+ */
 @ApplicationScoped
 public class S3TemplateService implements MutableTemplateService {
 
@@ -85,6 +91,7 @@ public class S3TemplateService implements MutableTemplateService {
     @ConfigProperty(name = ConfigProperties.CUSTOM_TEMPLATES_DIR)
     Path dir;
 
+    @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject S3Client storage;
     @Inject StorageBuckets storageBuckets;
 
@@ -98,13 +105,9 @@ public class S3TemplateService implements MutableTemplateService {
 
     void onStart(@Observes StartupEvent evt) {
         storageBuckets.createIfNecessary(bucket);
-        if (!checkDir()) {
-            return;
-        }
         try {
-            Files.walk(dir)
-                    .filter(Files::isRegularFile)
-                    .filter(Files::isReadable)
+            declarativeConfiguration
+                    .walk(dir)
                     .forEach(
                             p -> {
                                 try (var is = Files.newInputStream(p)) {

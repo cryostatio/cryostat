@@ -21,13 +21,12 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.expressions.MatchExpression.TargetMatcher;
 import io.cryostat.targets.Target;
@@ -49,6 +48,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -62,54 +62,34 @@ public class Credentials {
     @ConfigProperty(name = ConfigProperties.CREDENTIALS_DIR)
     java.nio.file.Path dir;
 
+    @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject TargetConnectionManager connectionManager;
     @Inject TargetMatcher targetMatcher;
-    @Inject Logger logger;
     @Inject ObjectMapper mapper;
+    @Inject Logger logger;
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
-        if (!checkDir()) {
-            return;
-        }
         try {
-            Files.walk(dir)
-                    .filter(Files::isRegularFile)
-                    .filter(Files::isReadable)
-                    .forEach(this::createFromFile);
+            declarativeConfiguration
+                    .walk(dir)
+                    .forEach(
+                            path -> {
+                                logger.tracev("Creating credential from path: {0}", path);
+                                try (var is = new BufferedInputStream(Files.newInputStream(path))) {
+                                    var credential = mapper.readValue(is, Credential.class);
+                                    // FIXME: Persisting the matchExpression here will allow
+                                    // duplicates since the matchExpression gets a new ID. If the
+                                    // data model gets reworked to deduplicate we'll need to add
+                                    // application logic here to link it to the existing match
+                                    // expression.
+                                    credential.persist();
+                                } catch (Exception e) {
+                                    logger.error("Failed to create credentials from file", e);
+                                }
+                            });
         } catch (IOException e) {
             logger.error(e);
-        }
-    }
-
-    private boolean checkDir() {
-        return Files.exists(dir)
-                && Files.isReadable(dir)
-                && Files.isExecutable(dir)
-                && Files.isDirectory(dir);
-    }
-
-    private void createFromFile(java.nio.file.Path path) {
-        try (var is = new BufferedInputStream(Files.newInputStream(path))) {
-            var credential = mapper.readValue(is, Credential.class);
-            Map<String, Object> params = new HashMap<String, Object>();
-            params.put("username", credential.username);
-            params.put("password", credential.password);
-            params.put("matchExpression", credential.matchExpression);
-            var exists =
-                    Credential.find(
-                                            "username = :username"
-                                                    + " and password = :password"
-                                                    + " and matchExpression = :matchExpression",
-                                            params)
-                                    .count()
-                            != 0;
-            if (exists) {
-                return;
-            }
-            credential.persist();
-        } catch (Exception e) {
-            logger.error("Failed to create credentials from file", e);
         }
     }
 
@@ -117,6 +97,10 @@ public class Credentials {
     @Blocking
     @RolesAllowed("read")
     @Path("/test/{targetId}")
+    @Operation(
+            summary =
+                    "Test if the supplied username/password are valid credentials for the specified"
+                            + " target.")
     public Uni<CredentialTestResult> checkCredentialForTarget(
             @RestPath long targetId, @RestForm String username, @RestForm String password)
             throws URISyntaxException {
@@ -155,6 +139,14 @@ public class Credentials {
     @Blocking
     @GET
     @RolesAllowed("read")
+    @Operation(
+            summary = "List information about all of the available Stored Credentials.",
+            description =
+                    """
+                    Returns a list of match results. A match result includes the Stored Credential's ID,
+                    its Match Expression, and a list of currently discovered Targets which match that expression
+                    and are therefore candidates for Cryostat to select this Credential.
+                    """)
     public List<CredentialMatchResult> list() {
         return Credential.<Credential>listAll().stream()
                 .map(
@@ -174,6 +166,14 @@ public class Credentials {
     @GET
     @RolesAllowed("read")
     @Path("/{id}")
+    @Operation(
+            summary = "Get information about a Stored Credential",
+            description =
+                    """
+                    Get match result information about a specific Stored Credential. A match result includes the Stored
+                    Credential's ID, its Match Expression, and a list of currently discovered Targets which match that
+                    expression and are therefore candidates for Cryostat to select this Credential.
+                    """)
     public CredentialMatchResult get(@RestPath long id) {
         try {
             Credential credential = Credential.find("id", id).singleResult();
@@ -187,6 +187,15 @@ public class Credentials {
     @Transactional
     @POST
     @RolesAllowed("write")
+    @Operation(
+            summary = "Define a new Stored Credential",
+            description =
+                    """
+                    Define a new Stored Credential. Requires a match expression which defines which targets require
+                    this credential, and the username and password to use to pass authentication checks on those
+                    targets. Stored Credentials are stored in an encrypted keyring using symmetric encryption and an
+                    encryption key configured on the Cryostat database.
+                    """)
     public RestResponse<Credential> create(
             @Context UriInfo uriInfo,
             @RestForm String matchExpression,
@@ -209,6 +218,7 @@ public class Credentials {
     @DELETE
     @RolesAllowed("write")
     @Path("/{id}")
+    @Operation(summary = "Delete a Stored Credential")
     public void delete(@RestPath long id) {
         Credential.find("id", id).singleResult().delete();
     }

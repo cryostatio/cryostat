@@ -31,6 +31,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.UriInfo;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -48,6 +49,7 @@ public class JMCAgentTemplates {
 
     @Blocking
     @GET
+    @Operation(summary = "List defined probe templates")
     public List<ProbeTemplateResponse> getProbeTemplates() {
         return service.getTemplates().stream()
                 .map(SerializableProbeTemplateInfo::fromProbeTemplate)
@@ -58,12 +60,22 @@ public class JMCAgentTemplates {
     @Blocking
     @DELETE
     @Path("/{probeTemplateName}")
+    @Operation(summary = "Delete the specified probe template")
     public void deleteProbeTemplate(@RestPath String probeTemplateName) {
         service.deleteTemplate(probeTemplateName);
     }
 
     @Blocking
     @POST
+    @Operation(
+            summary = "Create a probe template",
+            description =
+                    """
+                        Create a probe template. This requires a probe template file upload in XML format. See
+                        https://github.com/openjdk/jmc/blob/master/agent/README.md and
+                        https://github.com/openjdk/jmc/blob/master/agent/src/main/resources/org/openjdk/jmc/agent/impl/jfrprobes_schema.xsd
+                        for more information about this file format.
+                    """)
     public RestResponse<ProbeTemplate> uploadProbeTemplate(
             @Context UriInfo uriInfo,
             @RestForm("probeTemplate") FileUpload body,

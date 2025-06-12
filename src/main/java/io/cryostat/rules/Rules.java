@@ -19,9 +19,11 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.util.EntityExistsException;
@@ -48,6 +50,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -61,58 +64,48 @@ public class Rules {
     @ConfigProperty(name = ConfigProperties.RULES_DIR)
     java.nio.file.Path dir;
 
-    @Inject Logger logger;
+    @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject EventBus bus;
     @Inject ObjectMapper mapper;
+    @Inject Logger logger;
 
     @Transactional
     void onStart(@Observes StartupEvent evt) {
-        if (!checkDir()) {
-            return;
-        }
         try {
-            Files.walk(dir)
-                    .filter(Files::isRegularFile)
-                    .filter(Files::isReadable)
-                    .forEach(this::processDeclarativeRule);
+            declarativeConfiguration
+                    .walk(dir)
+                    .forEach(
+                            path -> {
+                                try (var is = new BufferedInputStream(Files.newInputStream(path))) {
+                                    var declarativeRule = mapper.readValue(is, Rule.class);
+                                    logger.tracev(
+                                            "Processing declarative Automated Rule with name"
+                                                    + " \"{0}\" at {1}",
+                                            declarativeRule.name, path);
+                                    var exists =
+                                            Rule.find("name", declarativeRule.name).count() != 0;
+                                    if (exists) {
+                                        logger.tracev(
+                                                "Rule with name \"{0}\" already exists in database."
+                                                        + " Skipping declarative rule at {1}",
+                                                declarativeRule.name, path);
+                                        return;
+                                    }
+                                    declarativeRule.persist();
+                                } catch (IOException ioe) {
+                                    logger.warn(ioe);
+                                } catch (Exception e) {
+                                    logger.error(e);
+                                }
+                            });
         } catch (IOException e) {
             logger.error(e);
         }
     }
 
-    private void processDeclarativeRule(java.nio.file.Path path) {
-        try (var is = new BufferedInputStream(Files.newInputStream(path))) {
-            var declarativeRule = mapper.readValue(is, Rule.class);
-            logger.tracev(
-                    "Processing declarative Automated Rule with name \"{}\" at {}",
-                    declarativeRule.name,
-                    path);
-            var exists = Rule.find("name", declarativeRule.name).count() != 0;
-            if (exists) {
-                logger.tracev(
-                        "Rule with name \"{}\" already exists in database. Skipping declarative"
-                                + " rule at {}",
-                        declarativeRule.name,
-                        path);
-                return;
-            }
-            declarativeRule.persist();
-        } catch (IOException ioe) {
-            logger.warn(ioe);
-        } catch (Exception e) {
-            logger.error(e);
-        }
-    }
-
-    private boolean checkDir() {
-        return Files.exists(dir)
-                && Files.isReadable(dir)
-                && Files.isExecutable(dir)
-                && Files.isDirectory(dir);
-    }
-
     @GET
     @RolesAllowed("read")
+    @Operation(summary = "List all Automated Rules")
     public List<Rule> list() {
         return Rule.listAll();
     }
@@ -120,6 +113,7 @@ public class Rules {
     @GET
     @RolesAllowed("read")
     @Path("/{name}")
+    @Operation(summary = "Get an Automated Rule by name")
     public Rule get(@RestPath String name) {
         return Rule.getByName(name);
     }
@@ -128,6 +122,7 @@ public class Rules {
     @POST
     @RolesAllowed("write")
     @Consumes(MediaType.APPLICATION_JSON)
+    @Operation(summary = "Create a new Automated Rule")
     public RestResponse<Rule> create(@Context UriInfo uriInfo, Rule rule) {
         // TODO validate the incoming rule
         if (rule == null) {
@@ -153,19 +148,59 @@ public class Rules {
     @RolesAllowed("write")
     @Path("/{name}")
     @Consumes(MediaType.APPLICATION_JSON)
+    @Operation(
+            summary = "Update an Automated Rule",
+            description =
+                    """
+                    Update Automated Rule parameters, such as whether the rule is currently active or not.
+                    """)
     public Rule update(@RestPath String name, @RestQuery boolean clean, JsonObject body) {
         Rule rule = Rule.getByName(name);
         if (rule == null) {
             throw new NotFoundException("Rule with name " + name + " not found");
         }
 
-        boolean enabled = body.getBoolean("enabled");
-        // order matters here, we want to clean before we disable
-        if (clean && !enabled) {
-            bus.send(Rule.RULE_ADDRESS + "?clean", rule);
+        if (!Objects.equals(body.getString("name"), name)) {
+            throw new BadRequestException("Rule name cannot be updated");
         }
 
-        rule.enabled = enabled;
+        // order matters here, we want to clean before we disable
+        if (clean) {
+            bus.send(Rule.RULE_ADDRESS + "?clean", rule);
+        }
+        if (body.containsKey("enabled")) {
+            rule.enabled = body.getBoolean("enabled");
+        }
+        if (body.containsKey("matchExpression")) {
+            MatchExpression expr = new MatchExpression(body.getString("matchExpression"));
+            expr.persist();
+            rule.matchExpression = expr;
+        }
+        if (body.containsKey("description")) {
+            rule.description = body.getString("description");
+        }
+        if (body.containsKey("eventSpecifier")) {
+            rule.eventSpecifier = body.getString("eventSpecifier");
+        }
+        if (body.containsKey("archivalPeriodSeconds")) {
+            rule.archivalPeriodSeconds = body.getInteger("archivalPeriodSeconds");
+        }
+        if (body.containsKey("initialDelaySeconds")) {
+            rule.initialDelaySeconds = body.getInteger("initialDelaySeconds");
+        }
+        if (body.containsKey("preservedArchives")) {
+            rule.preservedArchives = body.getInteger("preservedArchives");
+        }
+        if (body.containsKey("maxAgeSeconds")) {
+            rule.maxAgeSeconds = body.getInteger("maxAgeSeconds");
+        }
+        if (body.containsKey("maxSizeBytes")) {
+            rule.maxSizeBytes = body.getInteger("maxSizeBytes");
+        }
+        if (body.containsKey("metadata")) {
+            rule.metadata = body.getJsonObject("metadata").mapTo(Metadata.class);
+        }
+
         rule.persist();
 
         return rule;
@@ -222,6 +257,7 @@ public class Rules {
     @DELETE
     @RolesAllowed("write")
     @Path("/{name}")
+    @Operation(summary = "Delete an Automated Rule by name")
     public void delete(@RestPath String name, @RestQuery boolean clean) {
         Rule rule = Rule.getByName(name);
         if (rule == null) {

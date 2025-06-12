@@ -59,6 +59,17 @@ import org.quartz.SimpleScheduleBuilder;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 
+/**
+ * Handle executing on Automated Rule activations against Targets. Start new Flight Recordings on
+ * targets as needed, and schedule periodically copying data streams from the remote targets into
+ * Cryostat S3 object storage.
+ *
+ * @see io.cryostat.rules.RuleService
+ * @see io.cryostat.target.Target
+ * @see io.cryostat.rules.Rule
+ * @see io.cryostat.expressions.MatchExpression
+ * @see io.cryostat.expressions.MatchExpressionEvaluator
+ */
 @ApplicationScoped
 public class RuleExecutor {
 

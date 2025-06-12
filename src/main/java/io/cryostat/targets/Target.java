@@ -66,6 +66,13 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
+/**
+ * Represents a remote target JVM which Cryostat has discovered. These may be discovered by built-in
+ * discovery plugins, external discovery plugins (ex. Cryostat Agent instances), or directly by API
+ * clients via the Custom Targets API.
+ *
+ * @see io.cryostat.discovery.Discovery
+ */
 @Entity
 @EntityListeners(Target.Listener.class)
 @NamedQueries({@NamedQuery(name = "Target.unconnected", query = "from Target where jvmId is null")})
@@ -84,6 +91,20 @@ public class Target extends PanacheEntity {
 
     @NotBlank public String alias;
 
+    /**
+     * Hash ID identifying this JVM instance. This is a (mostly) unique hash computed from various
+     * factors in the remote target's {@link java.lang.management.RuntimeMXBean}. Two different
+     * remote JVM processes running as replicas of the same container will have all of the same hash
+     * inputs, except for hopefully different start timestamps. This hash ID is used to identify
+     * JVMs because multiple connectUrls may resolve to the same host:port and therefore the same
+     * actual JVM process.
+     *
+     * <p>Cryostat attempts to connect to a target immediately to retrieve the RuntimeMXBean data
+     * and compute the hash ID. If the connection attempt fails then Cryostat will retry for some
+     * time before eventually giving up. Therefore, a null JVM ID indicates that Cryostat has not
+     * yet been successful in connecting to the target JVM. The connection URL may be incorrect or
+     * there may be external network factors preventing Cryostat from establishing a connection.
+     */
     public String jvmId;
 
     @JdbcTypeCode(SqlTypes.JSON)

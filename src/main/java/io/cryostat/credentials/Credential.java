@@ -42,6 +42,21 @@ import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.ColumnTransformer;
 import org.projectnessie.cel.tools.ScriptException;
 
+/**
+ * Stored Credentials are used for communicating with secured remote targets. Target JMX servers may
+ * (should) be configured to require authentication from clients like Cryostat. Cryostat needs to be
+ * able to establish connections to these targets and pass their authentication checks, and needs to
+ * be able to do so without prompting a user for credentials every time, therefore the credentials
+ * for remote targets are stored in this encrypted keyring. Each Credential instance has a single
+ * username and password, as well as a {@link io.cryostat.expressions.MatchExpression} which should
+ * evaluate to match one or more target applications which Cryostat has discovered or will discover.
+ * The entire database table containing these credentials is encrypted using the Postgres 'pgcrypto'
+ * module and pgp symmetric encryption/decryption. The encryption key is set by configuration on the
+ * database deployment. Whenever Cryostat attempts to open a network connection to a target (see
+ * {@link io.cryostat.targets.TargetConnectionManager}) it will first check for any Credentials that
+ * match the target, then use the first matching Credential (see
+ * https://github.com/cryostatio/cryostat/issues/376)
+ */
 @Entity
 @EntityListeners(Credential.Listener.class)
 public class Credential extends PanacheEntity {
