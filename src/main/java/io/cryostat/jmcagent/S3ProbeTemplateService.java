@@ -15,19 +15,17 @@
  */
 package io.cryostat.jmcagent;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.DeclarativeConfiguration;
-import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.jmcagent.ProbeTemplate;
 import io.cryostat.core.jmcagent.ProbeTemplateService;
@@ -38,10 +36,8 @@ import io.quarkus.runtime.StartupEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.MediaType;
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.xml.sax.SAXException;
@@ -49,12 +45,9 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.model.S3Object;
-import software.amazon.awssdk.services.s3.model.Tag;
-import software.amazon.awssdk.services.s3.model.Tagging;
 
 /**
  * Implementation for JMC Agent event probe templates stored in S3 object storage.
@@ -72,48 +65,50 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
     @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject S3Client storage;
     @Inject StorageBuckets storageBuckets;
-
     @Inject EventBus bus;
-
-    @Inject
-    @Named(Producers.BASE64_URL)
-    Base64 base64Url;
-
     @Inject Logger logger;
 
     private static final String TEMPLATE_DELETED_CATEGORY = "ProbeTemplateDeleted";
     private static final String TEMPLATE_UPLOADED_CATEGORY = "ProbeTemplateUploaded";
 
     void onStart(@Observes StartupEvent evt) {
-        storageBuckets.createIfNecessary(bucket);
-        try {
-            declarativeConfiguration
-                    .walk(dir)
-                    .forEach(
-                            path -> {
-                                try (var is = Files.newInputStream(path)) {
-                                    logger.debugv(
-                                            "Uploading probe template from {0} to S3",
-                                            path.toString());
-                                    addTemplate(is, path.toString());
-                                } catch (IOException | SAXException e) {
-                                    logger.error(e);
-                                } catch (DuplicateProbeTemplateException e) {
-                                    logger.warn(e);
-                                }
-                            });
-        } catch (IOException e) {
-            logger.warn(e);
-        }
+        storageBuckets
+                .createIfNecessary(bucket)
+                .thenRunAsync(
+                        () -> {
+                            try {
+                                declarativeConfiguration
+                                        .walk(dir)
+                                        .forEach(
+                                                path -> {
+                                                    try {
+                                                        logger.debugv(
+                                                                "Uploading probe template from {0}"
+                                                                        + " to S3",
+                                                                path.toString());
+                                                        addTemplate(path, path.toString());
+                                                    } catch (IOException | SAXException e) {
+                                                        logger.error(e);
+                                                    } catch (DuplicateProbeTemplateException e) {
+                                                        logger.warn(e);
+                                                    }
+                                                });
+                            } catch (IOException e) {
+                                logger.warn(e);
+                            }
+                        });
     }
 
     @Override
     public List<ProbeTemplate> getTemplates() {
-        return getObjects().stream()
+        return storage
+                .listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
+                .contents()
+                .stream()
                 .map(
                         t -> {
                             try {
-                                return convertObject(t);
+                                return convertObject(t.key());
                             } catch (Exception e) {
                                 logger.error(e);
                                 return null;
@@ -123,98 +118,44 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                 .toList();
     }
 
-    public String getTemplateContent(String fileName) {
-        try (var stream = getModel(fileName)) {
-            ProbeTemplate template = new ProbeTemplate();
-            template.setFileName(fileName);
-            template.deserialize(stream);
-            return template.serialize();
-        } catch (Exception e) {
-            logger.error(e);
-            return null;
-        }
+    public String getTemplateContent(String fileName) throws IOException, SAXException {
+        return convertObject(fileName).serialize();
     }
 
     public void deleteTemplate(String templateName) {
-        var template =
-                getTemplates().stream()
-                        .filter(t -> t.getFileName().equals(templateName))
-                        .findFirst()
-                        .orElseThrow();
-        var req = DeleteObjectRequest.builder().bucket(bucket).key(templateName).build();
-        if (storage.deleteObject(req).sdkHttpResponse().isSuccessful()) {
+        if (!storage.headObject(
+                        HeadObjectRequest.builder().bucket(bucket).key(templateName).build())
+                .sdkHttpResponse()
+                .isSuccessful()) {
+            throw new NotFoundException();
+        }
+        if (storage.deleteObject(
+                        DeleteObjectRequest.builder().bucket(bucket).key(templateName).build())
+                .sdkHttpResponse()
+                .isSuccessful()) {
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
-                            TEMPLATE_DELETED_CATEGORY,
-                            Map.of("probeTemplate", template.getFileName())));
+                            TEMPLATE_DELETED_CATEGORY, Map.of("probeTemplate", templateName)));
         }
     }
 
     private InputStream getModel(String name) {
         var req = GetObjectRequest.builder().bucket(bucket).key(name).build();
-        return storage.getObject(req);
+        return new BufferedInputStream(storage.getObject(req));
     }
 
-    private List<S3Object> getObjects() {
-        var builder = ListObjectsV2Request.builder().bucket(bucket);
-        return storage.listObjectsV2(builder.build()).contents();
-    }
-
-    private ProbeTemplate convertObject(S3Object object) throws Exception {
-        var req = GetObjectTaggingRequest.builder().bucket(bucket).key(object.key()).build();
-        var tagging = storage.getObjectTagging(req);
-        var list = tagging.tagSet();
-        if (!tagging.hasTagSet() || list.isEmpty()) {
-            throw new Exception("No metadata found");
+    private ProbeTemplate convertObject(String fileName) throws IOException, SAXException {
+        try (var stream = getModel(fileName)) {
+            ProbeTemplate template = new ProbeTemplate();
+            template.setFileName(fileName);
+            template.deserialize(stream);
+            return template;
         }
-        var decodedList = new ArrayList<Pair<String, String>>();
-        list.forEach(
-                t -> {
-                    var encodedKey = t.key();
-                    var decodedKey =
-                            new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8).trim();
-                    var encodedValue = t.value();
-                    var decodedValue =
-                            new String(base64Url.decode(encodedValue), StandardCharsets.UTF_8)
-                                    .trim();
-                    decodedList.add(Pair.of(decodedKey, decodedValue));
-                });
-        var fileName =
-                decodedList.stream()
-                        .filter(t -> t.getKey().equals("fileName"))
-                        .map(Pair::getValue)
-                        .findFirst()
-                        .orElseThrow();
-        var classPrefix =
-                decodedList.stream()
-                        .filter(t -> t.getKey().equals("classPrefix"))
-                        .map(Pair::getValue)
-                        .findFirst()
-                        .orElseThrow();
-        var allowToString =
-                decodedList.stream()
-                        .filter(t -> t.getKey().equals("allowToString"))
-                        .map(Pair::getValue)
-                        .findFirst()
-                        .orElseThrow();
-        var allowConverter =
-                decodedList.stream()
-                        .filter(t -> t.getKey().equals("allowConverter"))
-                        .map(Pair::getValue)
-                        .findFirst()
-                        .orElseThrow();
-        // filename, classprefix, allowtostring, allowconverter
-        return new ProbeTemplate(
-                fileName,
-                classPrefix,
-                Boolean.valueOf(allowToString),
-                Boolean.valueOf(allowConverter));
     }
 
-    public ProbeTemplate addTemplate(InputStream stream, String fileName)
-            throws IOException, SAXException {
-        try (stream) {
+    public ProbeTemplate addTemplate(Path path, String fileName) throws IOException, SAXException {
+        try (var stream = new BufferedInputStream(Files.newInputStream(path))) {
             ProbeTemplate template = new ProbeTemplate();
             template.setFileName(fileName);
             template.deserialize(stream);
@@ -223,61 +164,24 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                     .anyMatch(t -> Objects.equals(t.getFileName(), template.getFileName()))) {
                 throw new DuplicateProbeTemplateException(template.getFileName());
             }
-            storage.putObject(
+            var reqBuilder =
                     PutObjectRequest.builder()
                             .bucket(bucket)
                             .key(fileName)
-                            .contentType(MediaType.APPLICATION_XML)
-                            .tagging(
-                                    createTemplateTagging(
-                                            fileName,
-                                            template.getClassPrefix(),
-                                            String.valueOf(template.getAllowToString()),
-                                            String.valueOf(template.getAllowConverter())))
-                            .build(),
-                    RequestBody.fromString(template.serialize()));
+                            .contentType(MediaType.APPLICATION_XML);
+            var xml = template.serialize();
+            storage.putObject(reqBuilder.build(), RequestBody.fromString(xml));
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
                             TEMPLATE_UPLOADED_CATEGORY,
-                            Map.of("probeTemplate", template.getFileName())));
+                            Map.of(
+                                    "probeTemplate",
+                                    template.getFileName(),
+                                    "templateContent",
+                                    xml)));
             return template;
         }
-    }
-
-    private Tagging createTemplateTagging(
-            String templateName, String classPrefix, String allowToString, String allowConverter) {
-        var map =
-                Map.of(
-                        "fileName",
-                        templateName,
-                        "classPrefix",
-                        classPrefix,
-                        "allowToString",
-                        allowToString,
-                        "allowConverter",
-                        allowConverter);
-        var tags = new ArrayList<Tag>();
-        tags.addAll(
-                map.entrySet().stream()
-                        .map(
-                                e ->
-                                        Tag.builder()
-                                                .key(
-                                                        base64Url.encodeAsString(
-                                                                e.getKey()
-                                                                        .getBytes(
-                                                                                StandardCharsets
-                                                                                        .UTF_8)))
-                                                .value(
-                                                        base64Url.encodeAsString(
-                                                                e.getValue()
-                                                                        .getBytes(
-                                                                                StandardCharsets
-                                                                                        .UTF_8)))
-                                                .build())
-                        .toList());
-        return Tagging.builder().tagSet(tags).build();
     }
 
     static class DuplicateProbeTemplateException extends IllegalArgumentException {

@@ -31,21 +31,23 @@ ENFORCE_AGENT_TLS=${ENFORCE_AGENT_TLS:-false}
 
 display_usage() {
     echo "Usage:"
-    echo -e "\t-h\t\t\t\t\t\tprint this Help text."
-    echo -e "\t-O\t\t\t\t\t\tOffline mode, do not attempt to pull container images."
-    echo -e "\t-p\t\t\t\t\t\tdisable auth Proxy."
-    echo -e "\t-s [seaweed|minio|cloudserver|localstack]\tS3 implementation to spin up (default \"seaweed\")."
-    echo -e "\t-G\t\t\t\t\t\texclude Grafana dashboard and jfr-datasource from deployment."
-    echo -e "\t-r [replicas]\t\t\t\t\tconfigure a cryostat-reports sidecar instance(s). Optional argument is the number of replicas, which defaults to 1."
-    echo -e "\t-t [all|comma-list]\t\t\t\tinclude sample applications for Testing. Leave blank or use 'all' to deploy everything, otherwise use a comma-separated list from:\n\t\t\t\t\t\t\t\t$(find "${DIR}/compose/sample_apps" -type f -name '*.yml' -exec basename {} \; | cut -d. -f1 | grep -v https | sort | tr '\n' ',' | sed 's/,$//')"
-    echo -e "\t-A\t\t\t\t\t\tdisable TLS on sample applications' Agents."
-    echo -e "\t-V\t\t\t\t\t\tdo not discard data storage Volumes on exit."
-    echo -e "\t-X\t\t\t\t\t\tdeploy additional development aid tools."
-    echo -e "\t-c [/path/to/binary]\t\t\t\tUse specified Container Engine (default \"\$(command -v podman)\")."
-    echo -e "\t-b\t\t\t\t\t\topen a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer)"
-    echo -e "\t-n\t\t\t\t\t\tdo Not apply configuration changes, instead emit the compose YAML that would have been used to stdout."
-    echo -e "\t-k\t\t\t\t\t\tdisable TLS on the auth proxy."
-    echo -e "\t-v\t\t\t\t\t\tenable verbose logging. Can be passed multiple times to increase verbosity."
+    column -t -s% <<< "
+    %-h% print this Help text.
+    %-O% Offline mode, do not attempt to pull container images that are already present on this machine.
+    %-p% disable auth Proxy.
+    %-s [none,$(ls -1 ${DIR}/compose/s3-*.yml | xargs basename -a | grep -v none | sort | cut -d/ -f2 | cut -d. -f1 | cut -d- -f2 | paste -sd ',' -)]% S3 implementation to spin up (default \"seaweed\").
+    %-G% exclude Grafana dashboard and jfr-datasource from deployment.
+    %-r [replicas]% configure a cryostat-reports sidecar instance(s). Optional argument is the number of replicas, which defaults to 1.
+    %-t [all|comma-list]% include sample applications for Testing. Leave blank or use \"all\" to deploy everything, otherwise use a comma-separated list from: $(find ${DIR}/compose/sample_apps -type f -name '*.yml' -exec basename {} \; | cut -d. -f1 | grep -v https | sort | tr '\n' ',' | sed 's/,$//')
+    %-A% disable TLS on sample applications' Agents.
+    %-V% do not discard data storage Volumes on exit.
+    %-X% deploy additional development aid tools.
+    %-c [/path/to/binary]% use specified Container engine (default \"\$(command -v podman)\").
+    %-b% open a Browser tab for each running service's first mapped port (ex. auth proxy login, database viewer).
+    %-n% do Not apply configuration changes, instead emit the compose YAML that would have been used to stdout.
+    %-k% disable TLS (inseKure) on the auth proxy.
+    %-v% enable Verbose logging. Can be passed multiple times to increase verbosity.
+    "
 }
 
 s3=seaweed

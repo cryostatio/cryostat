@@ -23,9 +23,9 @@ import io.cryostat.Producers;
 import io.cryostat.util.HttpMimeType;
 
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.common.annotation.Identifier;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
@@ -44,7 +44,7 @@ public class ActiveRecordingsDownload {
     @Inject Logger logger;
 
     @Inject
-    @Named(Producers.BASE64_URL)
+    @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)

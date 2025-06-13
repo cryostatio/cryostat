@@ -17,11 +17,21 @@ package io.cryostat;
 
 /** Java constants corresponding to configuration keys set in application.properties. */
 public class ConfigProperties {
+    public static final String STORAGE_METADATA_STORAGE_MODE = "storage.metadata.storage-mode";
+    public static final String STORAGE_METADATA_ARCHIVES_STORAGE_MODE =
+            "storage.metadata.archives.storage-mode";
+    public static final String STORAGE_METADATA_EVENT_TEMPLATES_STORAGE_MODE =
+            "storage.metadata.event-templates.storage-mode";
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
+    public static final String AWS_BUCKET_NAME_METADATA = "storage.buckets.metadata.name";
     public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =
             "storage.buckets.event-templates.name";
     public static final String AWS_BUCKET_NAME_PROBE_TEMPLATES =
             "storage.buckets.probe-templates.name";
+    public static final String AWS_METADATA_PREFIX_RECORDINGS =
+            "storage.metadata.prefix.recordings";
+    public static final String AWS_METADATA_PREFIX_EVENT_TEMPLATES =
+            "storage.metadata.prefix.event-templates";
 
     public static final String CONTAINERS_POLL_PERIOD = "cryostat.discovery.containers.poll-period";
     public static final String CONTAINERS_REQUEST_TIMEOUT =

@@ -15,6 +15,7 @@
  */
 package io.cryostat.graphql;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -75,7 +76,7 @@ public class ArchivedRecordings {
 
     @NonNull
     @Description("Delete an archived recording")
-    public ArchivedRecording doDelete(@Source ArchivedRecording recording) {
+    public ArchivedRecording doDelete(@Source ArchivedRecording recording) throws IOException {
         recordingHelper.deleteArchivedRecording(recording.jvmId(), recording.name());
         return recording;
     }
@@ -83,7 +84,7 @@ public class ArchivedRecordings {
     @NonNull
     @Description("Update the metadata associated with an archived recording")
     public ArchivedRecording doPutMetadata(
-            @Source ArchivedRecording recording, MetadataLabels metadataInput) {
+            @Source ArchivedRecording recording, MetadataLabels metadataInput) throws IOException {
         recordingHelper.updateArchivedRecordingMetadata(
                 recording.jvmId(), recording.name(), metadataInput.getLabels());
 

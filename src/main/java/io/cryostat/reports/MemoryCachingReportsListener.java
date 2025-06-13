@@ -52,8 +52,6 @@ class MemoryCachingReportsListener {
     @CacheName(MemoryCachingReportsService.ARCHIVED_REPORTS_MEMORY_CACHE_NAME)
     Cache archivedCache;
 
-    @Inject RecordingHelper recordingHelper;
-
     @Inject Logger logger;
 
     @ConsumeEvent(value = ActiveRecordings.ARCHIVED_RECORDING_DELETED)
@@ -66,7 +64,7 @@ class MemoryCachingReportsListener {
         if (StringUtils.isBlank(jvmId)) {
             return;
         }
-        String key = recordingHelper.archivedRecordingKey(jvmId, recording.name());
+        String key = RecordingHelper.archivedRecordingKey(jvmId, recording.name());
         logger.tracev("Picked up deletion of archived recording: {0}", key);
         archivedCache.invalidate(key);
     }

@@ -15,6 +15,7 @@
  */
 package io.cryostat.rules;
 
+import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.Objects;
 import java.util.Queue;
@@ -109,7 +110,11 @@ class ScheduledArchiveJob implements Job {
     }
 
     void pruneArchive(Target target, Queue<String> previousRecordings, String filename) {
-        recordingHelper.deleteArchivedRecording(target.jvmId, filename);
+        try {
+            recordingHelper.deleteArchivedRecording(target.jvmId, filename);
+        } catch (IOException e) {
+            logger.error(e);
+        }
         previousRecordings.remove(filename);
     }
 }
