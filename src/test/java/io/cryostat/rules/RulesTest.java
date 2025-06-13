@@ -56,6 +56,7 @@ public class RulesTest extends AbstractTransactionalTestBase {
         rule.put("matchExpression", EXPR_1);
         rule.put("eventSpecifier", "my_event_specifier");
         rule.put("enabled", true);
+        rule.put("metadata", Map.of("labels", Map.of("a", "b")));
     }
 
     static String RULE_NAME = "my_rule";
@@ -89,7 +90,22 @@ public class RulesTest extends AbstractTransactionalTestBase {
                 .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
-                .statusCode(201);
+                .statusCode(201)
+                .body(
+                        "name", is(RULE_NAME),
+                        "matchExpression", is(EXPR_1),
+                        "eventSpecifier", is("my_event_specifier"),
+                        "archivalPeriodSeconds", is(0),
+                        "initialDelaySeconds", is(0),
+                        "preservedArchives", is(0),
+                        "maxAgeSeconds", is(0),
+                        "maxSizeBytes", is(0),
+                        "enabled", is(true),
+                        "metadata",
+                                equalTo(
+                                        Map.of(
+                                                "labels",
+                                                List.of(Map.of("key", "a", "value", "b")))));
 
         given().log()
                 .all()
@@ -111,7 +127,12 @@ public class RulesTest extends AbstractTransactionalTestBase {
                         "[0].preservedArchives", is(0),
                         "[0].maxAgeSeconds", is(0),
                         "[0].maxSizeBytes", is(0),
-                        "[0].enabled", is(true));
+                        "[0].enabled", is(true),
+                        "[0].metadata",
+                                equalTo(
+                                        Map.of(
+                                                "labels",
+                                                List.of(Map.of("key", "a", "value", "b")))));
     }
 
     @Test
