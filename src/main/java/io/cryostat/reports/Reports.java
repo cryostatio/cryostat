@@ -180,7 +180,7 @@ public class Reports {
         return Response.ok(jobId, MediaType.TEXT_PLAIN)
                 .status(Response.Status.ACCEPTED)
                 .location(
-                        UriBuilder.fromUri(String.format("/api/v4/targets/%d/reports", targetId))
+                        UriBuilder.fromUri(String.format("/api/v4.1/targets/%d/reports", targetId))
                                 .build())
                 .build();
     }
