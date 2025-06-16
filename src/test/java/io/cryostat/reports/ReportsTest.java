@@ -118,7 +118,7 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                             .header(
                                     "Location",
                                     String.format(
-                                            "http://localhost:8081/api/v4/targets/%d/reports",
+                                            "http://localhost:8081/api/v4.1/targets/%d/reports",
                                             targetId))
                             .and()
                             .extract()
