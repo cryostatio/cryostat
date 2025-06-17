@@ -50,7 +50,9 @@ type Annotations {
 
 type ArchivedRecording {
   archivedTime: BigInteger!
+  "Delete an archived recording"
   doDelete: ArchivedRecording!
+  "Update the metadata associated with an archived recording"
   doPutMetadata(metadataInput: MetadataLabelsInput): ArchivedRecording!
   downloadUrl: String
   jvmId: String
@@ -160,6 +162,7 @@ type OperatingSystemMetrics {
 
 "Query root"
 type Query {
+  "List archived recordings"
   archivedRecordings(filter: ArchivedRecordingsFilterInput): ArchivedRecordings
   "Get all environment nodes in the discovery tree with optional filtering"
   environmentNodes(filter: DiscoveryNodeFilterInput): [DiscoveryNode]
@@ -177,7 +180,9 @@ type RecordingAggregateInfo {
 }
 
 type Recordings {
+  "List and optionally filter active recordings belonging to a Target"
   active(filter: ActiveRecordingsFilterInput): ActiveRecordings
+  "List and optionally filter archived recordings belonging to a Target"
   archived(filter: ArchivedRecordingsFilterInput): ArchivedRecordings
 }
 
@@ -226,10 +231,12 @@ type Suggestion {
 }
 
 type Target {
+  "Retrieve a list of active recordings currently available on the target"
   activeRecordings(filter: ActiveRecordingsFilterInput): ActiveRecordings
   agent: Boolean!
   alias: String!
   annotations: Annotations!
+  "Retrieve a list of archived recordings belonging to the target"
   archivedRecordings(filter: ArchivedRecordingsFilterInput): ArchivedRecordings
   connectUrl: String!
   "Create a new Flight Recorder Snapshot on the specified Target"
@@ -246,6 +253,12 @@ type Target {
   mbeanMetrics: MBeanMetrics
   "Get the active and archived recordings belonging to this target"
   recordings: Recordings
+  """
+  Retrieve an automated analysis report from the selected target(s). If there is no report currently
+  available then this request will not cause a report to be generated, and instead it will return an empty
+  result. Report generation may be an expensive operation, especially if many reports are to be generated at
+  once, and should not be triggered by broad GraphQL selections.
+  """
   report: Report
 }
 

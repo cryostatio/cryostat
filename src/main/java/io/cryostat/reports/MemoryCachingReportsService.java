@@ -38,6 +38,11 @@ import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+/**
+ * Tiered caching layer for automated analysis reports. Holds report results in an in-memory cache
+ * for a short duration to improve report retrieval performance, since report generation can be
+ * quite expensive while the resulting reports themselves are not particularly large.
+ */
 @Priority(10)
 @Decorator
 @Dependent

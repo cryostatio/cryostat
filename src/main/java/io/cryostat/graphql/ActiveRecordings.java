@@ -265,6 +265,7 @@ public class ActiveRecordings {
         return recordingHelper.archiveRecording(ar, null);
     }
 
+    @Description("List and optionally filter active recordings belonging to a Target")
     public TargetNodes.ActiveRecordings active(
             @Source Recordings recordings, ActiveRecordingsFilter filter) {
         var out = new TargetNodes.ActiveRecordings();

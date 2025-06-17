@@ -52,6 +52,7 @@ import jakarta.ws.rs.core.UriInfo;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -60,6 +61,13 @@ import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
+/**
+ * Discovery implementation that allows user-defined {@link io.cryostat.target.Target} definitions.
+ * These can be created or deleted at will by any authenticated and authorized user. This is mainly
+ * intended for ad-hoc connections to short-lived target instances, or cases where Cryostat is only
+ * deployed for a short term. For long-lived Cryostat installations monitoring regular target
+ * applications other discovery mechanisms should be preferred.
+ */
 @ApplicationScoped
 @Path("")
 public class CustomDiscovery {
@@ -81,6 +89,15 @@ public class CustomDiscovery {
     @Path("/api/v4/targets")
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
+    @Operation(
+            summary = "Create a target definition",
+            description =
+                    """
+                    Create a target definition given a JSON request body target stub. The target stub must contain the
+                    connectUrl and alias, and optionally contain a username and password to create a Stored Credential
+                    associated with this target. The dryrun parameter can be used to perform this operation as a check,
+                    to verify if such a target could be created (no connectUrl conflict and acceptable credentials).
+                    """)
     public RestResponse<Target> create(
             @Context UriInfo uriInfo,
             TargetStub target,
@@ -94,6 +111,15 @@ public class CustomDiscovery {
     @Path("/api/v4/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
     @RolesAllowed("write")
+    @Operation(
+            summary = "Create a target definition",
+            description =
+                    """
+                    Create a target definition given a form (url-encoded or multipart) containing a target connectUrl
+                    and alias, and optional username and password. The dryrun parameter can be used to perform this
+                    operation as a check, to verify if such a target could be created (no connectUrl conflict and
+                    acceptable credentials).
+                    """)
     public RestResponse<Target> createForm(
             @Context UriInfo uriInfo,
             @RestForm URI connectUrl,
@@ -194,6 +220,14 @@ public class CustomDiscovery {
     @DELETE
     @Path("/api/v4/targets/{id}")
     @RolesAllowed("write")
+    @Operation(
+            summary = "Delete the specified target",
+            description =
+                    """
+                    Delete the specified target by ID. Only allows deletion of targets that were defined by the same
+                    Custom Target discovery API. Other targets must be removed by the discovery mechanisms which
+                    discovered them.
+                    """)
     public void delete(@RestPath long id) throws URISyntaxException {
         Target target = Target.find("id", id).singleResult();
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();

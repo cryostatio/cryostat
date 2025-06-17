@@ -41,6 +41,13 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
+/**
+ * Message consumer and emitter for long-running batch processing tasks. Jobs such as copying active
+ * recording data into archives, or generating automated analysis reports, can take some time to
+ * complete due to computational complexity, network bandwidth constraints or latency, etc. This
+ * class is responsible for marshalling messages relating to these sorts of activities and
+ * delegating task execution to various implementing services.
+ */
 @ApplicationScoped
 public class LongRunningRequestGenerator {
 

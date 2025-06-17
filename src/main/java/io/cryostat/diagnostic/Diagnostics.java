@@ -49,6 +49,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -197,6 +198,13 @@ public class Diagnostics {
     @RolesAllowed("write")
     @Blocking
     @POST
+    @Operation(
+            summary = "Initiate a garbage collection on the specified target",
+            description =
+                    """
+                    Request the remote target to perform a garbage collection. The target JVM is free to ignore this
+                    request. This is generally equivalent to a System.gc() call made within the target JVM.
+                    """)
     public void gc(@RestPath long targetId) {
         targetConnectionManager.executeConnectedTask(
                 Target.getTargetById(targetId),
