@@ -193,8 +193,9 @@ public class DiagnosticsHelper {
     }
 
     public String getThreadDumpContent(String uuid) throws IOException {
-        InputStream is = getModel(uuid);
-        return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        try (InputStream is = getModel(uuid)) {
+            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        } 
     }
 
     private InputStream getModel(String name) {
