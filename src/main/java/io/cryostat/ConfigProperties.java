@@ -16,12 +16,16 @@
 package io.cryostat;
 
 public class ConfigProperties {
+    public static final String STORAGE_METADATA_STORAGE_MODE = "storage.metadata.storage-mode";
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
+    public static final String AWS_BUCKET_NAME_METADATA = "storage.buckets.metadata.name";
     public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =
             "storage.buckets.event-templates.name";
     public static final String AWS_BUCKET_NAME_PROBE_TEMPLATES =
             "storage.buckets.probe-templates.name";
     public static final String AWS_BUCKET_NAME_THREAD_DUMPS = "storage.buckets.thread-dumps.name";
+    public static final String AWS_METADATA_PREFIX_THREAD_DUMPS =
+            "storage.metadata.prefix.thread-dumps";
 
     public static final String CONTAINERS_POLL_PERIOD = "cryostat.discovery.containers.poll-period";
     public static final String CONTAINERS_REQUEST_TIMEOUT =
@@ -52,6 +56,9 @@ public class ConfigProperties {
     public static final String STORAGE_EXT_URL = "storage-ext.url";
     public static final String STORAGE_PRESIGNED_DOWNLOADS_ENABLED =
             "storage.presigned-downloads.enabled";
+
+    public static final String STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE =
+            "storage.metadata.thread-dumps.storage.mode";
 
     public static final String CUSTOM_TEMPLATES_DIR = "templates-dir";
     public static final String PRESET_TEMPLATES_DIR = "preset-templates-dir";

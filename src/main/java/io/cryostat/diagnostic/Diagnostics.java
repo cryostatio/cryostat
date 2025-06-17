@@ -93,7 +93,7 @@ public class Diagnostics {
     @POST
     public String threadDump(
             HttpServerResponse response, @RestPath long targetId, @RestQuery String format) {
-        log.trace("Creating new thread dump request for target: " + targetId);
+        log.tracev("Creating new thread dump request for target: {0}", targetId);
         ThreadDumpRequest request =
                 new ThreadDumpRequest(
                         UUID.randomUUID().toString(), Long.toString(targetId), format);
@@ -107,9 +107,9 @@ public class Diagnostics {
     @Blocking
     @GET
     public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
-        log.warn("Fetching thread dumps for target: " + targetId);
-        log.warn("Thread dumps: " + helper.getThreadDumps(targetId));
-        log.warn("Storage bucket: " + bucket);
+        log.tracev("Fetching thread dumps for target: {0}", targetId);
+        log.tracev("Thread dumps: {0}", helper.getThreadDumps(targetId));
+        log.tracev("Storage bucket: {0}", bucket);
         return helper.getThreadDumps(targetId);
     }
 
@@ -119,7 +119,7 @@ public class Diagnostics {
     @RolesAllowed("write")
     public void deleteThreadDump(@RestPath String threadDumpId) {
         try {
-            log.warn("Deleting thread dump with ID: " + threadDumpId);
+            log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
             storage.headObject(
                     HeadObjectRequest.builder().bucket(bucket).key(threadDumpId).build());
         } catch (NoSuchKeyException e) {
@@ -137,11 +137,11 @@ public class Diagnostics {
             @RestPath String encodedKey, @RestQuery String query) throws URISyntaxException {
         Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
         var threadDumpId = decodedKey.getValue().strip();
-        log.warn("Handling download Request for encodedKey: " + encodedKey);
-        log.warn("Handling download Request for query: " + query);
-        log.warn("Decoded key: " + decodedKey.toString());
-        log.warn("UUID: " + threadDumpId);
-        log.warn("Bucket: " + bucket);
+        log.tracev("Handling download Request for encodedKey: {0}", encodedKey);
+        log.tracev("Handling download Request for query: {0}", query);
+        log.tracev("Decoded key: {0}", decodedKey.toString());
+        log.tracev("UUID: {0}", threadDumpId);
+        log.tracev("Bucket: {0}", bucket);
         storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(threadDumpId).build())
                 .sdkHttpResponse();
 
