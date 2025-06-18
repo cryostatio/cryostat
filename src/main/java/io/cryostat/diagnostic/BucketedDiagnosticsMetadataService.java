@@ -130,17 +130,17 @@ public class BucketedDiagnosticsMetadataService
 
     // just a thin serialization adapter. Jackson ObjectMapper complains about not being able to
     // instantiate the Template type directly.
-    static record ThreadDumpMeta(String uuid, String jvmId, String content, String downloadUrl) {
+    static record ThreadDumpMeta(String uuid, String jvmId, String downloadUrl, long lastModified) {
         static ThreadDumpMeta from(ThreadDump threadDump) {
             return new ThreadDumpMeta(
                     threadDump.uuid(),
                     threadDump.jvmId(),
-                    threadDump.content(),
-                    threadDump.downloadUrl());
+                    threadDump.downloadUrl(),
+                    threadDump.lastModified());
         }
 
         ThreadDump asThreadDump() {
-            return new ThreadDump(content, jvmId, downloadUrl, uuid);
+            return new ThreadDump(jvmId, downloadUrl, uuid, lastModified);
         }
     }
 }

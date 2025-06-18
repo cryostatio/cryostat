@@ -59,7 +59,7 @@ public class ConfigProperties {
             "storage.presigned-downloads.enabled";
 
     public static final String STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE =
-            "storage.metadata.thread-dumps.storage.mode";
+            "storage.metadata.thread-dumps.storage-mode";
 
     public static final String CUSTOM_TEMPLATES_DIR = "templates-dir";
     public static final String PRESET_TEMPLATES_DIR = "preset-templates-dir";

@@ -48,8 +48,8 @@ import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -213,10 +213,9 @@ public class Diagnostics {
                                 "java.lang:type=Memory", "gc", null, null, Void.class));
     }
 
-    public record ThreadDump(String content, String jvmId, String downloadUrl, String uuid) {
+    public record ThreadDump(String jvmId, String downloadUrl, String uuid, long lastModified) {
 
         public ThreadDump {
-            Objects.requireNonNull(content);
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(downloadUrl);
             Objects.requireNonNull(uuid);

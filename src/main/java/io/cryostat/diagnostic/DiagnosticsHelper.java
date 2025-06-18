@@ -29,6 +29,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
+import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -71,6 +72,7 @@ public class DiagnosticsHelper {
 
     @Inject S3Client storage;
     @Inject Logger log;
+    @Inject Clock clock;
 
     @Inject Instance<BucketedDiagnosticsMetadataService> metadataService;
 
@@ -189,13 +191,14 @@ public class DiagnosticsHelper {
             default:
                 throw new IllegalStateException();
         }
-        return new ThreadDump(getThreadDumpContent(uuid), jvmId, downloadUrl(jvmId, uuid), uuid);
+        return new ThreadDump(
+                jvmId, downloadUrl(jvmId, uuid), uuid, object.lastModified().toEpochMilli());
     }
 
     public String getThreadDumpContent(String uuid) throws IOException {
         try (InputStream is = getModel(uuid)) {
             return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-        } 
+        }
     }
 
     private InputStream getModel(String name) {
@@ -227,7 +230,11 @@ public class DiagnosticsHelper {
                             .get()
                             .create(
                                     uuid,
-                                    new ThreadDump(content, jvmId, downloadUrl(jvmId, uuid), uuid));
+                                    new ThreadDump(
+                                            jvmId,
+                                            downloadUrl(jvmId, uuid),
+                                            uuid,
+                                            clock.now().getEpochSecond()));
                     break;
                 } catch (IOException ioe) {
                     log.warnv("Exception thrown while adding thread dump to storage: {0}", ioe);
@@ -236,7 +243,7 @@ public class DiagnosticsHelper {
                 throw new IllegalStateException();
         }
         storage.putObject(reqBuilder.build(), RequestBody.fromString(content));
-        return new ThreadDump(content, jvmId, downloadUrl(jvmId, uuid), uuid);
+        return new ThreadDump(jvmId, downloadUrl(jvmId, uuid), uuid, clock.now().getEpochSecond());
     }
 
     private Tagging createTagging(String jvmId, String uuid) {
