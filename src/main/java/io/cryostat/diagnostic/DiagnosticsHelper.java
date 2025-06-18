@@ -126,6 +126,7 @@ public class DiagnosticsHelper {
                                 return null;
                             }
                         })
+                .filter(Objects::nonNull)
                 .filter(
                         item -> {
                             log.tracev("Item jvmID: {0}", item.jvmId());
@@ -133,12 +134,11 @@ public class DiagnosticsHelper {
                             log.tracev("Item download URL: {0}", item.downloadUrl());
                             return Target.getTargetById(targetId).jvmId.equals(item.jvmId());
                         })
-                .filter(Objects::nonNull)
                 .toList();
     }
 
     private ThreadDump convertObject(S3Object object) throws Exception {
-        String jvmId, uuid;
+        String jvmId;
         switch (storageMode(storageMode)) {
             case StorageMode.TAGGING:
                 var req =
@@ -169,30 +169,25 @@ public class DiagnosticsHelper {
                                 .map(Pair::getValue)
                                 .findFirst()
                                 .orElseThrow();
-                uuid =
-                        decodedList.stream()
-                                .filter(t -> t.getKey().equals("uuid"))
-                                .map(Pair::getValue)
-                                .findFirst()
-                                .orElseThrow();
                 // content, jvmid, downloadurl, uuid
                 break;
             case StorageMode.METADATA:
                 var headReq = HeadObjectRequest.builder().bucket(bucket).key(object.key()).build();
                 var meta = storage.headObject(headReq).metadata();
-                uuid = Objects.requireNonNull(meta.get(META_KEY_NAME));
                 jvmId = Objects.requireNonNull(meta.get(META_KEY_JVMID));
                 break;
             case StorageMode.BUCKET:
                 var t = metadataService.get().read(object.key()).orElseThrow();
-                uuid = t.uuid();
                 jvmId = t.jvmId();
                 break;
             default:
                 throw new IllegalStateException();
         }
         return new ThreadDump(
-                jvmId, downloadUrl(jvmId, uuid), uuid, object.lastModified().toEpochMilli());
+                jvmId,
+                downloadUrl(jvmId, object.key()),
+                object.key(),
+                object.lastModified().toEpochMilli());
     }
 
     public String getThreadDumpContent(String uuid) throws IOException {
@@ -215,7 +210,7 @@ public class DiagnosticsHelper {
                         .contentType(MediaType.TEXT_PLAIN);
         switch (storageMode(storageMode)) {
             case StorageMode.TAGGING:
-                reqBuilder = reqBuilder.tagging(createTagging(jvmId, uuid));
+                reqBuilder = reqBuilder.tagging(createTagging(jvmId));
                 log.tracev("Putting Thread dump into storage with key: {0}", uuid);
                 log.tracev("jvmID: {0}", jvmId);
                 log.tracev("Bucket: {0}", bucket);
@@ -246,8 +241,8 @@ public class DiagnosticsHelper {
         return new ThreadDump(jvmId, downloadUrl(jvmId, uuid), uuid, clock.now().getEpochSecond());
     }
 
-    private Tagging createTagging(String jvmId, String uuid) {
-        var map = Map.of("jvmId", jvmId, "uuid", uuid);
+    private Tagging createTagging(String jvmId) {
+        var map = Map.of("jvmId", jvmId);
         var tags = new ArrayList<Tag>();
         tags.addAll(
                 map.entrySet().stream()
