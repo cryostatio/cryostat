@@ -1,0 +1,34 @@
+services:
+  cryostat:
+    depends_on:
+      s3:
+        condition: service_healthy
+    environment:
+      QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:7480
+      STORAGE_EXT_URL: /storage/
+      QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
+      QUARKUS_S3_AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+  s3:
+    image: ${S3GW_IMAGE:-quay.io/s3gw/s3gw:latest}
+    hostname: s3
+    expose:
+      - "7480"
+    volumes:
+      - s3gw_data:/data
+    ulimits:
+      nofile:
+        soft: 4096
+        hard: 4096
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:7480 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+
+volumes:
+  s3gw_data:
+    driver: local
