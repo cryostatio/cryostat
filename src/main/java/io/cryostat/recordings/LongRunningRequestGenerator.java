@@ -99,7 +99,7 @@ public class LongRunningRequestGenerator {
     public void onMessage(ThreadDumpRequest request) {
         logger.trace("Job ID: " + request.id() + " submitted.");
         try {
-            var target = Target.<Target>findById(request.jvmId);
+            var target = Target.getTargetById(request.targetId);
             var dump = diagnosticsHelper.dumpThreads(request.format, target.id);
             bus.publish(
                     MessagingServer.class.getName(),
@@ -380,10 +380,10 @@ public class LongRunningRequestGenerator {
         }
     }
 
-    public record ThreadDumpRequest(String id, String jvmId, String format) {
+    public record ThreadDumpRequest(String id, long targetId, String format) {
         public ThreadDumpRequest {
             Objects.requireNonNull(id);
-            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(targetId);
             Objects.requireNonNull(format);
         }
     }

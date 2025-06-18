@@ -100,9 +100,9 @@ public class BucketedDiagnosticsMetadataService
                 PutObjectRequest.builder()
                         .bucket(bucket)
                         .key(prefix(k))
-                        .contentType(HttpMimeType.JFC.mime())
+                        .contentType(HttpMimeType.PLAINTEXT.mime())
                         .build(),
-                RequestBody.fromBytes(mapper.writeValueAsBytes(ThreadDumpMeta.from(threadDump))));
+                RequestBody.fromBytes(mapper.writeValueAsBytes(threadDump)));
     }
 
     @Override
@@ -114,8 +114,7 @@ public class BucketedDiagnosticsMetadataService
                                         .bucket(bucket)
                                         .key(prefix(k))
                                         .build()))) {
-            return Optional.of(mapper.readValue(stream, ThreadDumpMeta.class))
-                    .map(ThreadDumpMeta::asThreadDump);
+            return Optional.of(mapper.readValue(stream, ThreadDump.class));
         }
     }
 
@@ -126,21 +125,5 @@ public class BucketedDiagnosticsMetadataService
 
     private String prefix(String key) {
         return String.format("%s/%s", prefix, key);
-    }
-
-    // just a thin serialization adapter. Jackson ObjectMapper complains about not being able to
-    // instantiate the Template type directly.
-    static record ThreadDumpMeta(String uuid, String jvmId, String downloadUrl, long lastModified) {
-        static ThreadDumpMeta from(ThreadDump threadDump) {
-            return new ThreadDumpMeta(
-                    threadDump.uuid(),
-                    threadDump.jvmId(),
-                    threadDump.downloadUrl(),
-                    threadDump.lastModified());
-        }
-
-        ThreadDump asThreadDump() {
-            return new ThreadDump(jvmId, downloadUrl, uuid, lastModified);
-        }
     }
 }

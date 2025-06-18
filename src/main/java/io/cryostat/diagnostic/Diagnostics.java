@@ -90,14 +90,12 @@ public class Diagnostics {
 
     @Path("targets/{targetId}/threaddump")
     @RolesAllowed("write")
-    @Blocking
     @POST
     public String threadDump(
             HttpServerResponse response, @RestPath long targetId, @RestQuery String format) {
         log.tracev("Creating new thread dump request for target: {0}", targetId);
         ThreadDumpRequest request =
-                new ThreadDumpRequest(
-                        UUID.randomUUID().toString(), Long.toString(targetId), format);
+                new ThreadDumpRequest(UUID.randomUUID().toString(), targetId, format);
         response.endHandler(
                 (e) -> bus.publish(LongRunningRequestGenerator.THREAD_DUMP_ADDRESS, request));
         return request.id();
@@ -109,8 +107,6 @@ public class Diagnostics {
     @GET
     public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
         log.tracev("Fetching thread dumps for target: {0}", targetId);
-        log.tracev("Thread dumps: {0}", helper.getThreadDumps(targetId));
-        log.tracev("Storage bucket: {0}", bucket);
         return helper.getThreadDumps(targetId);
     }
 
@@ -143,8 +139,12 @@ public class Diagnostics {
         log.tracev("Decoded key: {0}", decodedKey.toString());
         log.tracev("UUID: {0}", threadDumpId);
         log.tracev("Bucket: {0}", bucket);
-        storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(threadDumpId).build())
-                .sdkHttpResponse();
+        try {
+            storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(threadDumpId).build())
+                    .sdkHttpResponse();
+        } catch (NoSuchKeyException e) {
+            throw new NotFoundException(e);
+        }
 
         if (!presignedDownloadsEnabled) {
             return ResponseBuilder.ok()

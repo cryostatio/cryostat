@@ -131,9 +131,9 @@ public class DiagnosticsHelper {
                             log.tracev("Item jvmID: {0}", item.jvmId());
                             log.tracev("Item key: {0}", item.uuid());
                             log.tracev("Item download URL: {0}", item.downloadUrl());
-                            return Target.<Target>findById(targetId).jvmId.equals(item.jvmId());
+                            return Target.getTargetById(targetId).jvmId.equals(item.jvmId());
                         })
-                .filter(item -> !Objects.isNull(item))
+                .filter(Objects::nonNull)
                 .toList();
     }
 
@@ -314,7 +314,7 @@ public class DiagnosticsHelper {
     }
 
     public List<S3Object> listThreadDumps(long targetId) {
-        var jvmId = Target.<Target>findById(targetId).jvmId;
+        var jvmId = Target.getTargetById(targetId).jvmId;
         log.tracev("Listing thread dumps for jvmId: {0}", jvmId);
         return storage
                 .listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
