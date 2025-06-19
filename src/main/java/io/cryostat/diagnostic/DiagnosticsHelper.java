@@ -132,7 +132,8 @@ public class DiagnosticsHelper {
                             log.tracev("Item jvmID: {0}", item.jvmId());
                             log.tracev("Item key: {0}", item.uuid());
                             log.tracev("Item download URL: {0}", item.downloadUrl());
-                            return Objects.equals(Target.getTargetById(targetId).jvmId, item.jvmId());
+                            return Objects.equals(
+                                    Target.getTargetById(targetId).jvmId, item.jvmId());
                         })
                 .toList();
     }
