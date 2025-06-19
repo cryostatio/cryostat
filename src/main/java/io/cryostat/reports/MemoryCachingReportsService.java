@@ -67,8 +67,6 @@ class MemoryCachingReportsService implements ReportsService {
 
     @Inject @Delegate @Any ReportsService delegate;
 
-    @Inject RecordingHelper recordingHelper;
-
     @Inject Logger logger;
 
     @Override
@@ -95,7 +93,7 @@ class MemoryCachingReportsService implements ReportsService {
             logger.trace("cache disabled, delegating...");
             return delegate.reportFor(jvmId, filename, predicate);
         }
-        String key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        String key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         logger.tracev("reportFor {0}", key);
         return archivedCache.getAsync(
                 key,
@@ -125,7 +123,7 @@ class MemoryCachingReportsService implements ReportsService {
 
     @Override
     public boolean keyExists(String jvmId, String filename) {
-        String key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        String key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         return (quarkusCache && memoryCache)
                 && (archivedCache.as(CaffeineCache.class).keySet().contains(key)
                         || delegate.keyExists(jvmId, filename));

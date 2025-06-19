@@ -21,7 +21,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Predicate;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
@@ -71,9 +70,6 @@ class ReportsServiceImpl implements ReportsService {
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
-
-    @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
-    Optional<String> externalStorageUrl;
 
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper helper;
@@ -173,7 +169,7 @@ class ReportsServiceImpl implements ReportsService {
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
                         .bucket(archiveBucket)
-                        .key(helper.archivedRecordingKey(Pair.of(jvmId, filename)))
+                        .key(RecordingHelper.archivedRecordingKey(Pair.of(jvmId, filename)))
                         .build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()

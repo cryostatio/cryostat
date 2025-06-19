@@ -15,6 +15,7 @@
  */
 package io.cryostat.reports;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
@@ -78,7 +79,6 @@ class StorageCachingReportsService implements ReportsService {
     Duration timeout;
 
     @Inject S3Client storage;
-    @Inject RecordingHelper recordingHelper;
     @Inject ObjectMapper mapper;
 
     @Inject @Delegate @Any ReportsService delegate;
@@ -100,7 +100,7 @@ class StorageCachingReportsService implements ReportsService {
             logger.trace("cache disabled, delegating...");
             return delegate.reportFor(jvmId, filename, predicate);
         }
-        var key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        var key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         logger.tracev("reportFor {0}", key);
         return checkStorage(key)
                 .onItem()
@@ -119,7 +119,11 @@ class StorageCachingReportsService implements ReportsService {
         return Uni.createFrom()
                 .item(
                         () -> {
-                            var req = HeadObjectRequest.builder().bucket(bucket).key(key).build();
+                            var req =
+                                    HeadObjectRequest.builder()
+                                            .bucket(bucket)
+                                            .key(suffixKey(key))
+                                            .build();
                             try {
                                 return storage.headObject(req).sdkHttpResponse().isSuccessful();
                             } catch (NoSuchKeyException nske) {
@@ -138,7 +142,7 @@ class StorageCachingReportsService implements ReportsService {
                                 var req =
                                         PutObjectRequest.builder()
                                                 .bucket(bucket)
-                                                .key(key)
+                                                .key(suffixKey(key))
                                                 .contentType(HttpMimeType.JSON.mime())
                                                 .expires(Instant.now().plus(expiry))
                                                 .build();
@@ -159,8 +163,12 @@ class StorageCachingReportsService implements ReportsService {
         return Uni.createFrom()
                 .item(
                         () -> {
-                            var req = GetObjectRequest.builder().bucket(bucket).key(key).build();
-                            try (var res = storage.getObject(req)) {
+                            var req =
+                                    GetObjectRequest.builder()
+                                            .bucket(bucket)
+                                            .key(suffixKey(key))
+                                            .build();
+                            try (var res = new BufferedInputStream(storage.getObject(req))) {
                                 return mapper.readValue(
                                         res, new TypeReference<Map<String, AnalysisResult>>() {});
                             } catch (IOException ioe) {
@@ -187,7 +195,11 @@ class StorageCachingReportsService implements ReportsService {
 
     @Override
     public boolean keyExists(String jvmId, String filename) {
-        String key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        String key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         return enabled && checkStorage(key).await().atMost(timeout);
+    }
+
+    private String suffixKey(String key) {
+        return String.format("%s.report.json", key);
     }
 }

@@ -1,0 +1,22 @@
+services:
+  cryostat:
+    environment:
+      # the endpoint and credentials values below MUST be set by external environment variable
+      # before running the smoketest.bash script. The region should be overridden to match the
+      # endpoint, if necessary. The storage mode should be changed if the selected object storage
+      # provider does not support the object Tag API.
+      CRYOSTAT_ARCHIVED_RECORDINGS_METADATA_STORAGE_MODE: ${METADATA_STORAGE_MODE:-tagging}
+      QUARKUS_S3_ENDPOINT_OVERRIDE: ${S3_ENDPOINT}
+      # STORAGE_EXT_URL: /storage/
+      QUARKUS_S3_PATH_STYLE_ACCESS: "false"
+      QUARKUS_S3_AWS_REGION: ${S3_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+
+  # this stub is just here to satisfy the smoketest script. It is not actually involved in anything.
+  s3:
+    image: registry.access.redhat.com/ubi9/ubi-micro
+    hostname: s3
+    command: /usr/bin/bash -c "while true; do sleep 5; done"
+    expose:
+      - "9000"
