@@ -16,18 +16,19 @@
 package io.cryostat;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
+import io.quarkus.rest.client.reactive.Url;
 import io.smallrye.common.annotation.Blocking;
-import io.vertx.mutiny.core.buffer.Buffer;
-import io.vertx.mutiny.ext.web.client.HttpRequest;
-import io.vertx.mutiny.ext.web.client.WebClient;
+import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.PermitAll;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
@@ -35,9 +36,13 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
 
 /** Status and configuration verification for the application. */
@@ -65,7 +70,7 @@ class Health {
     String reportsClientURL;
 
     @Inject BuildInfo buildInfo;
-    @Inject WebClient webClient;
+    @Inject @RestClient HealthClient client;
     @Inject Logger logger;
 
     @GET
@@ -179,29 +184,25 @@ class Health {
             URI uri;
             try {
                 uri = new URI(configProperty.get());
-            } catch (URISyntaxException e) {
+                logger.debugv(
+                        "Testing health of {0}={1} {2}", configProperty, uri.toString(), path);
+                uri = UriBuilder.fromUri(uri).path(path).build();
+                client.test(uri.toURL())
+                        .subscribe()
+                        .with(
+                                item -> {
+                                    future.complete(
+                                            HttpStatusCodeIdentifier.isSuccessCode(
+                                                    item.getStatus()));
+                                },
+                                failure -> {
+                                    logger.warn(new IOException(failure));
+                                    future.complete(false);
+                                });
+            } catch (URISyntaxException | MalformedURLException e) {
                 logger.error(e);
                 future.complete(false);
-                return;
             }
-            logger.debugv("Testing health of {0}={1} {2}", configProperty, uri.toString(), path);
-            HttpRequest<Buffer> req = webClient.get(uri.getHost(), path);
-            if (uri.getPort() != -1) {
-                req = req.port(uri.getPort());
-            }
-            req.ssl("https".equals(uri.getScheme()))
-                    .timeout(5000)
-                    .send()
-                    .subscribe()
-                    .with(
-                            item -> {
-                                future.complete(
-                                        HttpStatusCodeIdentifier.isSuccessCode(item.statusCode()));
-                            },
-                            failure -> {
-                                logger.warn(new IOException(failure));
-                                future.complete(false);
-                            });
         } else {
             future.complete(false);
         }
@@ -220,4 +221,13 @@ class Health {
     static record DashboardUrl(String grafanaDashboardUrl) {}
 
     static record DatasourceUrl(String grafanaDatasourceUrl) {}
+
+    @RegisterRestClient(
+            configKey = "health",
+            // baseUri should not be used - we always use an overridden URL for every request
+            baseUri = "http://localhost")
+    interface HealthClient {
+        @GET
+        Uni<Response> test(@Url URL url);
+    }
 }
