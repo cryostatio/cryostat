@@ -16,10 +16,7 @@
 package io.cryostat;
 
 import java.io.IOException;
-import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -181,28 +178,19 @@ class Health {
     private void checkUri(
             Optional<String> configProperty, String path, CompletableFuture<Boolean> future) {
         if (configProperty.isPresent()) {
-            URI uri;
-            try {
-                uri = new URI(configProperty.get());
-                logger.debugv(
-                        "Testing health of {0}={1} {2}", configProperty, uri.toString(), path);
-                uri = UriBuilder.fromUri(uri).path(path).build();
-                client.test(uri.toURL())
-                        .subscribe()
-                        .with(
-                                item -> {
-                                    future.complete(
-                                            HttpStatusCodeIdentifier.isSuccessCode(
-                                                    item.getStatus()));
-                                },
-                                failure -> {
-                                    logger.warn(new IOException(failure));
-                                    future.complete(false);
-                                });
-            } catch (URISyntaxException | MalformedURLException e) {
-                logger.error(e);
-                future.complete(false);
-            }
+            URI uri = UriBuilder.fromUri(configProperty.get()).path(path).build();
+            logger.debugv("Testing health of {0}", uri.toString());
+            client.test(uri)
+                    .subscribe()
+                    .with(
+                            item -> {
+                                future.complete(
+                                        HttpStatusCodeIdentifier.isSuccessCode(item.getStatus()));
+                            },
+                            failure -> {
+                                logger.warn(new IOException(failure));
+                                future.complete(false);
+                            });
         } else {
             future.complete(false);
         }
@@ -228,6 +216,6 @@ class Health {
             baseUri = "http://localhost")
     interface HealthClient {
         @GET
-        Uni<Response> test(@Url URL url);
+        Uni<Response> test(@Url URI url);
     }
 }
