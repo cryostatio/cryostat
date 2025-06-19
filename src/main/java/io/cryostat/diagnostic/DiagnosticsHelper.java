@@ -116,7 +116,7 @@ public class DiagnosticsHelper {
     }
 
     public List<ThreadDump> getThreadDumps(long targetId) {
-        return listThreadDumps(targetId).stream()
+        return listThreadDumps().stream()
                 .map(
                         item -> {
                             try {
@@ -132,7 +132,7 @@ public class DiagnosticsHelper {
                             log.tracev("Item jvmID: {0}", item.jvmId());
                             log.tracev("Item key: {0}", item.uuid());
                             log.tracev("Item download URL: {0}", item.downloadUrl());
-                            return Target.getTargetById(targetId).jvmId.equals(item.jvmId());
+                            return Objects.equals(Target.getTargetById(targetId).jvmId, item.jvmId());
                         })
                 .toList();
     }
@@ -308,9 +308,7 @@ public class DiagnosticsHelper {
         return Pair.of(parts[0], parts[1]);
     }
 
-    public List<S3Object> listThreadDumps(long targetId) {
-        var jvmId = Target.getTargetById(targetId).jvmId;
-        log.tracev("Listing thread dumps for jvmId: {0}", jvmId);
+    public List<S3Object> listThreadDumps() {
         return storage
                 .listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
                 .contents()
