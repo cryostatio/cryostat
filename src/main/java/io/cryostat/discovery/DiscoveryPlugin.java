@@ -17,9 +17,8 @@ package io.cryostat.discovery;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
 import java.util.UUID;
+import java.util.function.Supplier;
 
 import io.cryostat.credentials.Credential;
 
@@ -28,6 +27,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
+import io.quarkus.rest.client.reactive.ReactiveClientHeadersFactory;
+import io.smallrye.mutiny.Uni;
+import io.vertx.ext.auth.authentication.UsernamePasswordCredentials;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -51,7 +53,6 @@ import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.microprofile.rest.client.ext.ClientHeadersFactory;
 import org.hibernate.annotations.GenericGenerator;
 import org.jboss.logging.Logger;
 
@@ -164,7 +165,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     }
 
     @Path("")
-    interface PluginCallback {
+    public interface PluginCallback {
 
         final Logger logger = Logger.getLogger(PluginCallback.class);
 
@@ -185,26 +186,36 @@ public class DiscoveryPlugin extends PanacheEntityBase {
         }
 
         public static class DiscoveryPluginAuthorizationHeaderFactory
-                implements ClientHeadersFactory {
+                extends ReactiveClientHeadersFactory {
 
-            private final DiscoveryPlugin plugin;
+            private final Supplier<UsernamePasswordCredentials> credentialSupplier;
 
             @SuppressFBWarnings("EI_EXPOSE_REP2")
             public DiscoveryPluginAuthorizationHeaderFactory(DiscoveryPlugin plugin) {
-                this.plugin = plugin;
+                this(
+                        () ->
+                                new UsernamePasswordCredentials(
+                                        plugin.credential.username, plugin.credential.password));
+            }
+
+            public DiscoveryPluginAuthorizationHeaderFactory(
+                    Supplier<UsernamePasswordCredentials> credentialSupplier) {
+                this.credentialSupplier = credentialSupplier;
             }
 
             @Override
-            public MultivaluedMap<String, String> update(
+            public Uni<MultivaluedMap<String, String>> getHeaders(
                     MultivaluedMap<String, String> incomingHeaders,
                     MultivaluedMap<String, String> clientOutgoingHeaders) {
-                var result = new MultivaluedHashMap<String, String>();
-                var credential = plugin.credential;
-                String basicAuth = String.format("%s:%s", credential.username, credential.password);
-                byte[] authBytes = basicAuth.getBytes(StandardCharsets.UTF_8);
-                String base64Auth = Base64.getEncoder().encodeToString(authBytes);
-                result.add(HttpHeaders.AUTHORIZATION, String.format("Basic %s", base64Auth));
-                return result;
+                return Uni.createFrom()
+                        .item(
+                                () -> {
+                                    var result = new MultivaluedHashMap<String, String>();
+                                    result.add(
+                                            HttpHeaders.AUTHORIZATION,
+                                            credentialSupplier.get().toHttpAuthorization());
+                                    return result;
+                                });
             }
         }
     }
