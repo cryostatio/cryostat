@@ -1489,7 +1489,7 @@ public class RecordingHelper {
                         });
     }
 
-    Optional<Path> getRecordingCopyPath(
+    private Optional<Path> getRecordingCopyPath(
             JFRConnection connection, Target target, String recordingName) throws Exception {
         return connection.getService().getAvailableRecordings().stream()
                 .filter(recording -> recording.getName().equals(recordingName))

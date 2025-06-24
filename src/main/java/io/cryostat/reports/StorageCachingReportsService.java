@@ -21,9 +21,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
-import java.util.function.Predicate;
-
-import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
@@ -86,19 +83,18 @@ class StorageCachingReportsService implements ReportsService {
     @Inject Logger logger;
 
     @Override
-    public Uni<Map<String, AnalysisResult>> reportFor(
-            ActiveRecording recording, Predicate<IRule> predicate) {
+    public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording, String filter) {
         String key = ReportsService.key(recording);
         logger.tracev("reportFor {0}", key);
-        return delegate.reportFor(recording, predicate);
+        return delegate.reportFor(recording, filter);
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
-            String jvmId, String filename, Predicate<IRule> predicate) {
+            String jvmId, String filename, String filter) {
         if (!enabled) {
             logger.trace("cache disabled, delegating...");
-            return delegate.reportFor(jvmId, filename, predicate);
+            return delegate.reportFor(jvmId, filename, filter);
         }
         var key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         logger.tracev("reportFor {0}", key);
@@ -109,8 +105,7 @@ class StorageCachingReportsService implements ReportsService {
                             if (found) {
                                 return getStorage(key);
                             } else {
-                                return putStorage(
-                                        key, delegate.reportFor(jvmId, filename, predicate));
+                                return putStorage(key, delegate.reportFor(jvmId, filename, filter));
                             }
                         });
     }
@@ -179,12 +174,12 @@ class StorageCachingReportsService implements ReportsService {
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
-        return reportFor(recording, r -> true);
+        return reportFor(recording, null);
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
-        return reportFor(jvmId, filename, r -> true);
+        return reportFor(jvmId, filename, null);
     }
 
     @Override

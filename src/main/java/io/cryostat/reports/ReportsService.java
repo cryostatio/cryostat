@@ -16,9 +16,6 @@
 package io.cryostat.reports;
 
 import java.util.Map;
-import java.util.function.Predicate;
-
-import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.recordings.ActiveRecording;
@@ -26,13 +23,11 @@ import io.cryostat.recordings.ActiveRecording;
 import io.smallrye.mutiny.Uni;
 
 public interface ReportsService {
-    Uni<Map<String, AnalysisResult>> reportFor(
-            ActiveRecording recording, Predicate<IRule> predicate);
+    Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording, String filter);
 
     Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording);
 
-    Uni<Map<String, AnalysisResult>> reportFor(
-            String jvmId, String filename, Predicate<IRule> predicate);
+    Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename, String filter);
 
     Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename);
 

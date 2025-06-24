@@ -19,7 +19,13 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Stream;
+
+import org.openjdk.jmc.flightrecorder.rules.IRule;
+import org.openjdk.jmc.flightrecorder.rules.RuleRegistry;
+import org.openjdk.jmc.flightrecorder.rules.util.RulesToolkit.EventAvailability;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
@@ -50,6 +56,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
@@ -106,8 +113,10 @@ public class Reports {
     // Response isn't strongly typed which allows us to return either the Analysis result
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?
-    public Response get(HttpServerResponse response, @RestPath String encodedKey) {
-        // TODO implement query parameter for evaluation predicate
+    public Response get(
+            HttpServerResponse response,
+            @RestPath String encodedKey,
+            @QueryParam("filter") @DefaultValue("") String filter) {
         var pair = helper.decodedKey(encodedKey);
 
         // Check if we have a cached result already for this report
@@ -126,7 +135,7 @@ public class Reports {
         // and return the job ID with a location header.
         logger.trace("Cache miss. Creating archived reports request");
         ArchivedReportRequest request =
-                new ArchivedReportRequest(UUID.randomUUID().toString(), pair);
+                new ArchivedReportRequest(UUID.randomUUID().toString(), pair, filter);
         response.bodyEndHandler(
                 (e) ->
                         bus.publish(
@@ -137,6 +146,15 @@ public class Reports {
                 .location(
                         UriBuilder.fromUri(String.format("/api/v4/reports/%s", encodedKey)).build())
                 .build();
+    }
+
+    @GET
+    @Path("/api/v4.1/reports_rules")
+    @RolesAllowed("read")
+    public Stream<ReportRule> listReportRules() {
+        return RuleRegistry.getRules().stream()
+                .map(ReportRule::new)
+                .sorted((a, b) -> StringUtils.compare(a.id(), b.id()));
     }
 
     @POST
@@ -236,7 +254,10 @@ public class Reports {
     // or a job ID String along with setting different Status codes.
     // TODO: Is there a cleaner way to accomplish this?
     public Response getActive(
-            HttpServerResponse response, @RestPath long targetId, @RestPath long recordingId)
+            HttpServerResponse response,
+            @RestPath long targetId,
+            @RestPath long recordingId,
+            @QueryParam("filter") @DefaultValue("") String filter)
             throws Exception {
         var target = Target.getTargetById(targetId);
         var recording = target.getRecordingById(recordingId);
@@ -257,13 +278,12 @@ public class Reports {
         // and return the job ID with a location header.
         logger.trace("Cache miss. Creating active reports request");
         ActiveReportRequest request =
-                new ActiveReportRequest(UUID.randomUUID().toString(), recording);
+                new ActiveReportRequest(UUID.randomUUID().toString(), recording, filter);
         response.bodyEndHandler(
                 (e) ->
                         bus.publish(
                                 LongRunningRequestGenerator.ACTIVE_REPORT_REQUEST_ADDRESS,
                                 request));
-        // TODO implement query parameter for evaluation predicate
         return Response.ok(request.id(), MediaType.TEXT_PLAIN)
                 .status(Response.Status.ACCEPTED)
                 .location(
@@ -273,5 +293,19 @@ public class Reports {
                                                 target.id, recordingId))
                                 .build())
                 .build();
+    }
+
+    private record ReportRule(
+            String id, String name, String topic, Map<String, EventAvailability> requiredEvents) {
+        ReportRule {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(name);
+            Objects.requireNonNull(topic);
+            Objects.requireNonNull(requiredEvents);
+        }
+
+        ReportRule(IRule rule) {
+            this(rule.getId(), rule.getName(), rule.getTopic(), rule.getRequiredEvents());
+        }
     }
 }
