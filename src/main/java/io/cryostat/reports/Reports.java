@@ -175,10 +175,13 @@ public class Reports {
             HttpServerResponse resp,
             @RestPath long targetId,
             @QueryParam("clean") @DefaultValue("true") boolean clean) {
+        logger.debugv("POST /api/v4.1/targets/{0}/reports", targetId);
         var target = Target.getTargetById(targetId);
+        logger.debugv("target<{0}>: {1}", target.id, target.jvmId);
         var jobId = UUID.randomUUID().toString();
         resp.bodyEndHandler(
                 (v) -> {
+                    logger.debugv("creating target {0} snapshot", target.jvmId);
                     helper.createSnapshot(
                                     target,
                                     Map.of(
@@ -190,10 +193,17 @@ public class Reports {
                             .with(
                                     recording -> {
                                         var request = new ArchiveRequest(jobId, recording, clean);
+                                        logger.debugv(
+                                                "created target {0} snapshot: {1}. publishing"
+                                                        + " archival request: {2}",
+                                                target.jvmId,
+                                                helper.toExternalForm(recording),
+                                                request);
                                         bus.publish(
                                                 LongRunningRequestGenerator.ARCHIVE_REQUEST_ADDRESS,
                                                 request);
-                                    });
+                                    },
+                                    logger::error);
                 });
         return Response.ok(jobId, MediaType.TEXT_PLAIN)
                 .status(Response.Status.ACCEPTED)
