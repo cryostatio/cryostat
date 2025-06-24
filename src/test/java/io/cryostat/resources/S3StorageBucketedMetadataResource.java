@@ -41,7 +41,7 @@ public class S3StorageBucketedMetadataResource
                     "CRYOSTAT_SECRET_KEY", "secret_key",
                     "CRYOSTAT_BUCKETS",
                             "archivedrecordings,archivedreports,eventtemplates,probes,metadata");
-    private static final Logger logger = Logger.getLogger(S3StorageResource.class);
+    private static final Logger logger = Logger.getLogger(S3StorageBucketedMetadataResource.class);
     private Optional<String> containerNetworkId;
     private GenericContainer<?> container;
 
