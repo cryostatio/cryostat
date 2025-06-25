@@ -50,7 +50,7 @@ upstreamConfig:
   upstreams:
     - id: cryostat
       path: /
-      uri: http://cryostat:CRYOSTAT_PORT
+      uri: http://CRYOSTAT_HOST:CRYOSTAT_PORT
 providers:
   - id: dummy
     name: Unused - Sign In Below
@@ -71,6 +71,12 @@ providers:
                         ALPHA_CONFIG
                                 .replaceAll("AUTHPROXY_HOST", "0.0.0.0")
                                 .replaceAll("AUTHPROXY_PORT", Integer.toString(PORT))
+                                .replaceAll(
+                                        "CRYOSTAT_HOST",
+                                        Optional.ofNullable(
+                                                        System.getProperty(
+                                                                "quarkus.test.network-alias"))
+                                                .orElse("cryostat"))
                                 .replaceAll("CRYOSTAT_PORT", Integer.toString(cryostatPort))),
                 CFG_FILE_PATH);
         waitingFor(Wait.forLogMessage(".*OAuthProxy configured.*", 1));
