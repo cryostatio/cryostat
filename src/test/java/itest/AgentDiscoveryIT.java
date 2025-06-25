@@ -16,6 +16,7 @@
 package itest;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -31,22 +32,26 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.HttpClientTest;
 import junit.framework.AssertionFailedError;
+import org.apache.commons.lang3.StringUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
-
-// import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.condition.EnabledIf;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageResource.class)
-// @EnabledIfEnvironmentVariable(named = "CI_ARCH", matches = "^$")
-// @EnabledIfEnvironmentVariable(named = "CI_ARCH", matches = "^amd64|AMD64$")
+@EnabledIf("enabled")
 public class AgentDiscoveryIT extends HttpClientTest {
 
     static final Logger logger = Logger.getLogger(AgentDiscoveryIT.class);
     static final Duration TIMEOUT = Duration.ofSeconds(60);
+
+    public static boolean enabled() {
+        String arch = Optional.ofNullable(System.getenv("CI_ARCH")).orElse("").trim();
+        return StringUtils.isBlank(arch) || "amd64".equalsIgnoreCase(arch);
+    }
 
     @Test
     void shouldDiscoverTarget() throws InterruptedException, TimeoutException, ExecutionException {
