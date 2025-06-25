@@ -80,7 +80,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
             // create an in-memory recording
             MultiMap form = MultiMap.caseInsensitiveMultiMap();
             form.add("recordingName", TEST_RECORDING_NAME);
-            form.add("duration", "5");
+            form.add("duration", "30");
             form.add("events", "template=ALL");
             webClient
                     .extensions()
@@ -216,7 +216,8 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
             MatcherAssert.assertThat(
                     recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
             MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("STOPPED"));
-            MatcherAssert.assertThat(recordingInfo.getInteger("duration"), Matchers.equalTo(5_000));
+            MatcherAssert.assertThat(
+                    recordingInfo.getInteger("duration"), Matchers.equalTo(30_000));
 
             // verify in-memory and saved recordings can be downloaded successfully and yield
             // non-empty recording binaries containing events, and that
