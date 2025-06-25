@@ -20,6 +20,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.resources.AgentApplicationResource;
+import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -39,6 +40,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(value = S3StorageResource.class)
 // @EnabledIfEnvironmentVariable(named = "CI_ARCH", matches = "^$")
 // @EnabledIfEnvironmentVariable(named = "CI_ARCH", matches = "^amd64|AMD64$")
 public class AgentDiscoveryIT extends HttpClientTest {
