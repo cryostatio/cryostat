@@ -24,6 +24,7 @@ import java.util.Optional;
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
+import io.cryostat.recordings.ArchivedRecordingMetadataService;
 import io.cryostat.util.CRUDService;
 import io.cryostat.util.HttpMimeType;
 
@@ -45,7 +46,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 @ApplicationScoped
 @LookupIfProperty(
         name = ConfigProperties.STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE,
-        stringValue = DiagnosticsHelper.METADATA_STORAGE_MODE_BUCKET)
+        stringValue = ArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKET)
 public class BucketedDiagnosticsMetadataService
         implements CRUDService<String, ThreadDump, ThreadDump> {
 
@@ -66,7 +67,7 @@ public class BucketedDiagnosticsMetadataService
     @Inject Logger logger;
 
     void onStart(@Observes StartupEvent evt) {
-        if (!DiagnosticsHelper.METADATA_STORAGE_MODE_BUCKET.equals(storageMode)) {
+        if (!ArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKET.equals(storageMode)) {
             return;
         }
         buckets.createIfNecessary(bucket);

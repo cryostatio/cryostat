@@ -30,6 +30,7 @@ import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.libcryostat.sys.Clock;
+import io.cryostat.recordings.ArchivedRecordingMetadataService.StorageMode;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -83,10 +84,6 @@ public class DiagnosticsHelper {
     static final String THREAD_DUMP_DELETED = "ThreadDumpDeleted";
     private static final String META_KEY_NAME = "uuid";
     private static final String META_KEY_JVMID = "jvmId";
-
-    public static final String METADATA_STORAGE_MODE_TAGGING = "tagging";
-    public static final String METADATA_STORAGE_MODE_OBJECTMETA = "metadata";
-    public static final String METADATA_STORAGE_MODE_BUCKET = "bucket";
 
     @Inject EventBus bus;
     @Inject TargetConnectionManager targetConnectionManager;
@@ -322,21 +319,5 @@ public class DiagnosticsHelper {
                 .filter(s -> s.name().equalsIgnoreCase(name))
                 .findFirst()
                 .orElseThrow();
-    }
-
-    static enum StorageMode {
-        TAGGING(METADATA_STORAGE_MODE_TAGGING),
-        METADATA(METADATA_STORAGE_MODE_OBJECTMETA),
-        BUCKET(METADATA_STORAGE_MODE_BUCKET),
-        ;
-        private final String key;
-
-        private StorageMode(String key) {
-            this.key = key;
-        }
-
-        public String getKey() {
-            return key;
-        }
     }
 }
