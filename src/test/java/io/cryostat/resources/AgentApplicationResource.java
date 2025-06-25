@@ -105,7 +105,6 @@ public class AgentApplicationResource
         container.start();
 
         return Map.of(
-                "quarkus.test.arg-line", "--network-alias=cryostat",
                 "cryostat.agent.tls.required", "false",
                 "cryostat.http.proxy.host", ALIAS,
                 "cryostat.http.proxy.port", Integer.toString(cryostatPort.get()),
