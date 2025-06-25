@@ -111,9 +111,7 @@ public class AgentApplicationResource
                 "quarkus.http.proxy.proxy-address-forwarding", "true",
                 "quarkus.http.proxy.allow-x-forwarded", "true",
                 "quarkus.http.proxy.enable-forwarded-host", "true",
-                "quarkus.http.proxy.enable-forwarded-prefix", "true",
-                "quarkus.http.access-log.pattern", "long",
-                "quarkus.http.access-log.enabled", "true");
+                "quarkus.http.proxy.enable-forwarded-prefix", "true");
     }
 
     @Override
