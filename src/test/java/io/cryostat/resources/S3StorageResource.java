@@ -29,9 +29,9 @@ import org.testcontainers.utility.DockerImageName;
 public class S3StorageResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
-    private static int S3_PORT = 8333;
-    private static final String IMAGE_NAME = "quay.io/cryostat/cryostat-storage:latest";
-    private static final Map<String, String> envMap =
+    protected static int S3_PORT = 8333;
+    protected static final String IMAGE_NAME = "quay.io/cryostat/cryostat-storage:latest";
+    protected static final Map<String, String> envMap =
             Map.of(
                     "DATA_DIR", "/data",
                     "IP_BIND", "0.0.0.0",
@@ -40,9 +40,9 @@ public class S3StorageResource
                     "CRYOSTAT_ACCESS_KEY", "access_key",
                     "CRYOSTAT_SECRET_KEY", "secret_key",
                     "CRYOSTAT_BUCKETS", "archivedrecordings,archivedreports,eventtemplates,probes");
-    private static final Logger logger = Logger.getLogger(S3StorageResource.class);
-    private Optional<String> containerNetworkId;
-    private GenericContainer<?> container;
+    protected final Logger logger = Logger.getLogger(getClass());
+    protected Optional<String> containerNetworkId;
+    protected GenericContainer<?> container;
 
     @Override
     public Map<String, String> start() {
@@ -57,7 +57,7 @@ public class S3StorageResource
         container.start();
 
         String networkHostPort =
-                "http://" + container.getHost() + ":" + container.getMappedPort(S3_PORT);
+                adjustS3Url(container, container.getHost(), container.getMappedPort(S3_PORT));
 
         Map<String, String> properties = new HashMap<String, String>();
         properties.put("quarkus.s3.aws.region", "us-east-1");
@@ -93,5 +93,9 @@ public class S3StorageResource
     @Override
     public void setIntegrationTestContext(DevServicesContext context) {
         containerNetworkId = context.containerNetworkId();
+    }
+
+    protected String adjustS3Url(GenericContainer<?> container, String host, int port) {
+        return "http://" + container.getHost() + ":" + container.getMappedPort(S3_PORT);
     }
 }
