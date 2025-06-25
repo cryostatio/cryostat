@@ -33,11 +33,11 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
 
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.common.annotation.Identifier;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -73,7 +73,7 @@ public class Diagnostics {
     @Inject LongRunningRequestGenerator generator;
 
     @Inject
-    @Named(Producers.BASE64_URL)
+    @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)

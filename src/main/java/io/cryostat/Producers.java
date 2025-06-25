@@ -20,17 +20,18 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 
 import io.cryostat.core.reports.InterruptibleReportGenerator;
+import io.cryostat.core.util.RuleFilterParser;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 
 import io.quarkus.arc.DefaultBean;
+import io.smallrye.common.annotation.Identifier;
 import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
-import jakarta.inject.Named;
 import org.apache.commons.codec.binary.Base64;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.projectnessie.cel.tools.ScriptHost;
@@ -60,8 +61,7 @@ public class Producers {
 
     @Produces
     @ApplicationScoped
-    @DefaultBean
-    @Named(BASE64_URL)
+    @Identifier(BASE64_URL)
     public static Base64 produceBase64Url() {
         return new Base64(0, null, true);
     }
@@ -75,6 +75,13 @@ public class Producers {
         boolean singleThread = Runtime.getRuntime().availableProcessors() < 2;
         return new InterruptibleReportGenerator(
                 singleThread ? Executors.newSingleThreadExecutor() : ForkJoinPool.commonPool());
+    }
+
+    @Produces
+    @ApplicationScoped
+    @DefaultBean
+    public static RuleFilterParser produceRuleFilterParser() {
+        return new RuleFilterParser();
     }
 
     @Produces

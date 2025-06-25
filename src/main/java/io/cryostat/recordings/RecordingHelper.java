@@ -15,6 +15,7 @@
  */
 package io.cryostat.recordings;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -32,6 +33,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -55,6 +57,7 @@ import org.openjdk.jmc.flightrecorder.configuration.recording.RecordingOptionsBu
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import io.cryostat.StorageBuckets;
 import io.cryostat.core.EventOptionsBuilder;
 import io.cryostat.core.FlightRecorderException;
 import io.cryostat.core.net.JFRConnection;
@@ -80,6 +83,7 @@ import io.cryostat.ws.Notification;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.common.annotation.Identifier;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -88,8 +92,8 @@ import io.vertx.mutiny.ext.web.client.WebClient;
 import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import jakarta.inject.Named;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
@@ -103,6 +107,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.validator.routines.UrlValidator;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
@@ -125,8 +130,11 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectRequest.Builder;
 import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
@@ -152,8 +160,6 @@ public class RecordingHelper {
     private static final int S3_API_PART_LIMIT = 10_000;
     private static final int MIB = 1024 * 1024;
 
-    public static final String JFR_MIME = HttpMimeType.JFR.mime();
-
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
@@ -161,6 +167,7 @@ public class RecordingHelper {
     @Inject S3Client storage;
 
     @Inject WebClient webClient;
+    @Inject StorageBuckets buckets;
     @Inject FileSystem fs;
     @Inject Clock clock;
     @Inject TargetConnectionManager connectionManager;
@@ -170,14 +177,18 @@ public class RecordingHelper {
     @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
     @Inject PresetTemplateService presetTemplateService;
+    @Inject Instance<ArchivedRecordingMetadataService> metadataService;
     @Inject Scheduler scheduler;
 
     @Inject
-    @Named(Producers.BASE64_URL)
+    @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
 
     @Inject EventBus bus;
     @Inject Logger logger;
+
+    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE)
+    String metadataStorageMode;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String archiveBucket;
@@ -196,6 +207,8 @@ public class RecordingHelper {
     private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
 
     void onStart(@Observes StartupEvent evt) {
+        buckets.createIfNecessary(archiveBucket);
+
         if (grafanaDatasourceURLProperty.isEmpty()) {
             grafanaDatasourceURL.completeExceptionally(
                     new HttpException(
@@ -773,7 +786,7 @@ public class RecordingHelper {
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
-        return storage.listObjectsV2(builder.build()).contents().stream().toList();
+        return storage.listObjectsV2(builder.build()).contents();
     }
 
     public List<ArchivedRecording> listArchivedRecordings(String jvmId) {
@@ -827,10 +840,27 @@ public class RecordingHelper {
                     CreateMultipartUploadRequest.builder()
                             .bucket(archiveBucket)
                             .key(key)
-                            .contentType(JFR_MIME)
+                            .contentType(HttpMimeType.JFR.mime())
                             .contentDisposition(
-                                    String.format("attachment; filename=\"%s\"", savename))
-                            .tagging(createActiveRecordingTagging(recording));
+                                    String.format("attachment; filename=\"%s\"", savename));
+            switch (storageMode()) {
+                case TAGGING:
+                    builder = builder.tagging(createActiveRecordingTagging(recording));
+                    break;
+                case METADATA:
+                    builder = builder.metadata(createActiveRecordingMetadata(recording).labels());
+                    break;
+                case BUCKET:
+                    metadataService
+                            .get()
+                            .create(
+                                    recording.target.jvmId,
+                                    filename,
+                                    createActiveRecordingMetadata(recording));
+                    break;
+                default:
+                    throw new IllegalStateException();
+            }
             CreateMultipartUploadRequest request = builder.build();
             multipartId = storage.createMultipartUpload(request).uploadId();
             int read = 0;
@@ -842,8 +872,9 @@ public class RecordingHelper {
                 }
                 accum += read;
                 if (read == -1) {
-                    logger.tracev("Completed upload of {0} chunks ({1} bytes)", i - 1, accum + 1);
-                    logger.tracev("Key: {0}", key);
+                    logger.tracev(
+                            "Key: {0} completed upload of {1} chunks ({2} bytes)",
+                            key, i - 1, accum + 1);
                     break;
                 }
 
@@ -973,16 +1004,37 @@ public class RecordingHelper {
 
     public Optional<Metadata> getArchivedRecordingMetadata(String storageKey) {
         try {
-            return Optional.of(
-                    taggingToMetadata(
-                            storage.getObjectTagging(
-                                            GetObjectTaggingRequest.builder()
-                                                    .bucket(archiveBucket)
-                                                    .key(storageKey)
-                                                    .build())
-                                    .tagSet()));
+            switch (storageMode()) {
+                case TAGGING:
+                    return Optional.of(
+                            taggingToMetadata(
+                                    storage.getObjectTagging(
+                                                    GetObjectTaggingRequest.builder()
+                                                            .bucket(archiveBucket)
+                                                            .key(storageKey)
+                                                            .build())
+                                            .tagSet()));
+                case METADATA:
+                    var resp =
+                            storage.headObject(
+                                    HeadObjectRequest.builder()
+                                            .bucket(archiveBucket)
+                                            .key(storageKey)
+                                            .build());
+                    if (!resp.hasMetadata()) {
+                        return Optional.empty();
+                    }
+                    return Optional.of(new Metadata(resp.metadata()));
+                case BUCKET:
+                    return metadataService.get().read(storageKey);
+                default:
+                    throw new IllegalStateException();
+            }
         } catch (NoSuchKeyException nske) {
             logger.warn(nske);
+            return Optional.empty();
+        } catch (IOException ioe) {
+            logger.error(ioe);
             return Optional.empty();
         }
     }
@@ -991,11 +1043,11 @@ public class RecordingHelper {
         return new String(base64Url.decode(encoded), StandardCharsets.UTF_8);
     }
 
-    public String archivedRecordingKey(String jvmId, String filename) {
+    public static String archivedRecordingKey(String jvmId, String filename) {
         return (jvmId + "/" + filename).strip();
     }
 
-    public String archivedRecordingKey(Pair<String, String> pair) {
+    public static String archivedRecordingKey(Pair<String, String> pair) {
         return archivedRecordingKey(pair.getKey(), pair.getValue());
     }
 
@@ -1039,7 +1091,7 @@ public class RecordingHelper {
         GetObjectRequest getRequest =
                 GetObjectRequest.builder().bucket(archiveBucket).key(key).build();
 
-        return storage.getObject(getRequest);
+        return new BufferedInputStream(storage.getObject(getRequest));
     }
 
     public String downloadUrl(ActiveRecording recording) {
@@ -1090,16 +1142,50 @@ public class RecordingHelper {
         }
     }
 
-    /* Archived Recording Helpers */
-    public void deleteArchivedRecording(String jvmId, String filename) {
-        storage.deleteObject(
-                DeleteObjectRequest.builder()
-                        .bucket(archiveBucket)
-                        .key(archivedRecordingKey(jvmId, filename))
-                        .build());
+    public HeadObjectResponse assertArchivedRecordingExists(String jvmId, String filename) {
+        var key = archivedRecordingKey(jvmId, filename);
+        var resp =
+                storage.headObject(
+                        HeadObjectRequest.builder().bucket(archiveBucket).key(key).build());
+        if (!resp.sdkHttpResponse().isSuccessful()) {
+            throw new HttpException(
+                    resp.sdkHttpResponse().statusCode(),
+                    resp.sdkHttpResponse().statusText().orElse(""));
+        }
+        return resp;
+    }
 
-        var metadata = Metadata.empty(); // TODO
+    /* Archived Recording Helpers */
+    public void deleteArchivedRecording(String jvmId, String filename) throws IOException {
+        assertArchivedRecordingExists(jvmId, filename);
+        var metadata = getArchivedRecordingMetadata(jvmId, filename).orElseGet(Metadata::empty);
         var target = Target.getTargetByJvmId(jvmId);
+
+        var key = archivedRecordingKey(jvmId, filename);
+
+        var resp =
+                storage.deleteObject(
+                        DeleteObjectRequest.builder().bucket(archiveBucket).key(key).build());
+        if (!resp.sdkHttpResponse().isSuccessful()) {
+            throw new HttpException(
+                    resp.sdkHttpResponse().statusCode(),
+                    resp.sdkHttpResponse().statusText().orElse(""));
+        }
+
+        switch (storageMode()) {
+            case TAGGING:
+            // fall-through
+            case METADATA:
+                // no-op - the S3 instance will delete the tagging/metadata associated with the
+                // object automatically
+                break;
+            case BUCKET:
+                metadataService.get().delete(jvmId, filename);
+                break;
+            default:
+                throw new IllegalStateException();
+        }
+
         var event =
                 new ArchivedRecordingEvent(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_DELETED,
@@ -1119,12 +1205,16 @@ public class RecordingHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
-    Tagging createActiveRecordingTagging(ActiveRecording recording) {
+    Metadata createActiveRecordingMetadata(ActiveRecording recording) {
         Map<String, String> labels = new HashMap<>(recording.metadata.labels());
         labels.put("connectUrl", recording.target.connectUrl.toString());
         labels.put("jvmId", recording.target.jvmId);
         Metadata metadata = new Metadata(labels);
-        return createMetadataTagging(metadata);
+        return metadata;
+    }
+
+    Tagging createActiveRecordingTagging(ActiveRecording recording) {
+        return createMetadataTagging(createActiveRecordingMetadata(recording));
     }
 
     // Metadata
@@ -1193,8 +1283,74 @@ public class RecordingHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
+    public static ArchivedRecordingMetadataService.StorageMode storageMode(String name) {
+        return Arrays.asList(ArchivedRecordingMetadataService.StorageMode.values()).stream()
+                .filter(s -> s.name().equalsIgnoreCase(name))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private ArchivedRecordingMetadataService.StorageMode storageMode() {
+        return storageMode(metadataStorageMode);
+    }
+
+    public ArchivedRecording uploadArchivedRecording(
+            String jvmId, FileUpload recording, Metadata metadata) throws IOException {
+        String filename = recording.fileName().strip();
+        if (StringUtils.isBlank(filename)) {
+            throw new BadRequestException();
+        }
+        if (!filename.endsWith(".jfr")) {
+            filename = filename + ".jfr";
+        }
+        Map<String, String> labels = new HashMap<>(metadata.labels());
+        labels.put("jvmId", jvmId);
+        String key = archivedRecordingKey(jvmId, filename);
+        Builder requestBuilder =
+                PutObjectRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(key)
+                        .contentType(HttpMimeType.JFR.mime());
+        switch (storageMode()) {
+            case TAGGING:
+                requestBuilder =
+                        requestBuilder.tagging(createMetadataTagging(new Metadata(labels)));
+                break;
+            case METADATA:
+                requestBuilder = requestBuilder.metadata(labels);
+                break;
+            case BUCKET:
+                metadataService.get().create(jvmId, filename, metadata);
+                break;
+            default:
+                throw new IllegalStateException();
+        }
+        storage.putObject(requestBuilder.build(), RequestBody.fromFile(recording.filePath()));
+
+        var target = Target.getTargetByJvmId(jvmId);
+        ArchivedRecording archivedRecording =
+                new ArchivedRecording(
+                        jvmId,
+                        filename,
+                        downloadUrl(jvmId, filename),
+                        reportUrl(jvmId, filename),
+                        metadata,
+                        recording.size(),
+                        clock.now().getEpochSecond());
+        var event =
+                new ArchivedRecordingEvent(
+                        ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
+                        ArchivedRecordingEvent.Payload.of(
+                                target.map(t -> t.connectUrl).orElse(null), archivedRecording));
+        bus.publish(event.category().category(), event.payload().recording());
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+        return archivedRecording;
+    }
+
     public ArchivedRecording updateArchivedRecordingMetadata(
-            String jvmId, String filename, Map<String, String> updatedLabels) {
+            String jvmId, String filename, Map<String, String> updatedLabels) throws IOException {
         String key = archivedRecordingKey(jvmId, filename);
         Optional<Metadata> existingMetadataOpt = getArchivedRecordingMetadata(key);
 
@@ -1205,17 +1361,31 @@ public class RecordingHelper {
 
         Metadata updatedMetadata = new Metadata(updatedLabels);
 
-        Tagging tagging = createMetadataTagging(updatedMetadata);
-        storage.putObjectTagging(
-                PutObjectTaggingRequest.builder()
-                        .bucket(archiveBucket)
-                        .key(key)
-                        .tagging(tagging)
-                        .build());
+        switch (storageMode()) {
+            case TAGGING:
+                Tagging tagging = createMetadataTagging(updatedMetadata);
+                storage.putObjectTagging(
+                        PutObjectTaggingRequest.builder()
+                                .bucket(archiveBucket)
+                                .key(key)
+                                .tagging(tagging)
+                                .build());
+                break;
+            case METADATA:
+                throw new BadRequestException(
+                        String.format(
+                                "Metadata updates are not supported with server configuration"
+                                        + " %s=%s",
+                                ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE,
+                                metadataStorageMode));
+            case BUCKET:
+                metadataService.get().update(jvmId, filename, updatedMetadata);
+                break;
+            default:
+                throw new IllegalStateException();
+        }
 
-        var response =
-                storage.headObject(
-                        HeadObjectRequest.builder().bucket(archiveBucket).key(key).build());
+        var response = assertArchivedRecordingExists(jvmId, filename);
         long size = response.contentLength();
         Instant lastModified = response.lastModified();
 
@@ -1289,7 +1459,10 @@ public class RecordingHelper {
         MultipartForm form =
                 MultipartForm.create()
                         .binaryFileUpload(
-                                "file", DATASOURCE_FILENAME, recordingPath.toString(), JFR_MIME);
+                                "file",
+                                DATASOURCE_FILENAME,
+                                recordingPath.toString(),
+                                HttpMimeType.JFR.mime());
 
         var asyncRequest =
                 webClient
@@ -1316,7 +1489,7 @@ public class RecordingHelper {
                         });
     }
 
-    Optional<Path> getRecordingCopyPath(
+    private Optional<Path> getRecordingCopyPath(
             JFRConnection connection, Target target, String recordingName) throws Exception {
         return connection.getService().getAvailableRecordings().stream()
                 .filter(recording -> recording.getName().equals(recordingName))

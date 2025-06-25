@@ -15,14 +15,12 @@
  */
 package io.cryostat.reports;
 
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
-import java.util.function.Predicate;
-
-import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
@@ -78,7 +76,6 @@ class StorageCachingReportsService implements ReportsService {
     Duration timeout;
 
     @Inject S3Client storage;
-    @Inject RecordingHelper recordingHelper;
     @Inject ObjectMapper mapper;
 
     @Inject @Delegate @Any ReportsService delegate;
@@ -86,21 +83,20 @@ class StorageCachingReportsService implements ReportsService {
     @Inject Logger logger;
 
     @Override
-    public Uni<Map<String, AnalysisResult>> reportFor(
-            ActiveRecording recording, Predicate<IRule> predicate) {
+    public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording, String filter) {
         String key = ReportsService.key(recording);
         logger.tracev("reportFor {0}", key);
-        return delegate.reportFor(recording, predicate);
+        return delegate.reportFor(recording, filter);
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
-            String jvmId, String filename, Predicate<IRule> predicate) {
+            String jvmId, String filename, String filter) {
         if (!enabled) {
             logger.trace("cache disabled, delegating...");
-            return delegate.reportFor(jvmId, filename, predicate);
+            return delegate.reportFor(jvmId, filename, filter);
         }
-        var key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        var key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         logger.tracev("reportFor {0}", key);
         return checkStorage(key)
                 .onItem()
@@ -109,8 +105,7 @@ class StorageCachingReportsService implements ReportsService {
                             if (found) {
                                 return getStorage(key);
                             } else {
-                                return putStorage(
-                                        key, delegate.reportFor(jvmId, filename, predicate));
+                                return putStorage(key, delegate.reportFor(jvmId, filename, filter));
                             }
                         });
     }
@@ -119,7 +114,11 @@ class StorageCachingReportsService implements ReportsService {
         return Uni.createFrom()
                 .item(
                         () -> {
-                            var req = HeadObjectRequest.builder().bucket(bucket).key(key).build();
+                            var req =
+                                    HeadObjectRequest.builder()
+                                            .bucket(bucket)
+                                            .key(suffixKey(key))
+                                            .build();
                             try {
                                 return storage.headObject(req).sdkHttpResponse().isSuccessful();
                             } catch (NoSuchKeyException nske) {
@@ -138,7 +137,7 @@ class StorageCachingReportsService implements ReportsService {
                                 var req =
                                         PutObjectRequest.builder()
                                                 .bucket(bucket)
-                                                .key(key)
+                                                .key(suffixKey(key))
                                                 .contentType(HttpMimeType.JSON.mime())
                                                 .expires(Instant.now().plus(expiry))
                                                 .build();
@@ -159,8 +158,12 @@ class StorageCachingReportsService implements ReportsService {
         return Uni.createFrom()
                 .item(
                         () -> {
-                            var req = GetObjectRequest.builder().bucket(bucket).key(key).build();
-                            try (var res = storage.getObject(req)) {
+                            var req =
+                                    GetObjectRequest.builder()
+                                            .bucket(bucket)
+                                            .key(suffixKey(key))
+                                            .build();
+                            try (var res = new BufferedInputStream(storage.getObject(req))) {
                                 return mapper.readValue(
                                         res, new TypeReference<Map<String, AnalysisResult>>() {});
                             } catch (IOException ioe) {
@@ -171,12 +174,12 @@ class StorageCachingReportsService implements ReportsService {
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
-        return reportFor(recording, r -> true);
+        return reportFor(recording, null);
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
-        return reportFor(jvmId, filename, r -> true);
+        return reportFor(jvmId, filename, null);
     }
 
     @Override
@@ -187,7 +190,11 @@ class StorageCachingReportsService implements ReportsService {
 
     @Override
     public boolean keyExists(String jvmId, String filename) {
-        String key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        String key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         return enabled && checkStorage(key).await().atMost(timeout);
+    }
+
+    private String suffixKey(String key) {
+        return String.format("%s.report.json", key);
     }
 }

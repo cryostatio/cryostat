@@ -16,19 +16,18 @@
 package io.cryostat.reports;
 
 import java.io.BufferedInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
-import java.util.function.Predicate;
-
-import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
+import io.cryostat.core.util.RuleFilterParser;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 
@@ -75,16 +74,19 @@ class ReportsServiceImpl implements ReportsService {
     @ConfigProperty(name = ConfigProperties.STORAGE_EXT_URL)
     Optional<String> externalStorageUrl;
 
+    @ConfigProperty(name = ConfigProperties.REPORTS_FILTER)
+    Optional<String> configFilter;
+
     @Inject ObjectMapper mapper;
     @Inject RecordingHelper helper;
     @Inject InterruptibleReportGenerator reportGenerator;
+    @Inject RuleFilterParser ruleFilterParser;
     @Inject @RestClient ReportSidecarService sidecar;
     @Inject S3Presigner presigner;
     @Inject Logger logger;
 
     @Override
-    public Uni<Map<String, AnalysisResult>> reportFor(
-            ActiveRecording recording, Predicate<IRule> predicate) {
+    public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording, String filter) {
         InputStream stream;
         try {
             stream = helper.getActiveInputStream(recording, uploadFailedTimeout);
@@ -95,51 +97,76 @@ class ReportsServiceImpl implements ReportsService {
             logger.tracev(
                     "inprocess reportFor active recording {0} {1}",
                     recording.target.jvmId, recording.remoteId);
-            return process(stream, predicate);
+            return process(stream, filter).eventually(safeClose(stream));
         } else {
             logger.tracev(
                     "sidecar reportFor active recording {0} {1}",
                     recording.target.jvmId, recording.remoteId);
-            return sidecar.generate(stream);
+            return fireRequest(stream, filter).eventually(safeClose(stream));
         }
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
-            String jvmId, String filename, Predicate<IRule> predicate) {
-        InputStream stream;
+            String jvmId, String filename, String filter) {
         try {
-            stream = helper.getArchivedRecordingStream(jvmId, filename);
+            if (!useSidecar()) {
+                InputStream stream = helper.getArchivedRecordingStream(jvmId, filename);
+                logger.tracev("inprocess reportFor archived recording {0} {1}", jvmId, filename);
+                return process(stream, filter).eventually(safeClose(stream));
+            } else if (usePresignedSidecar()) {
+                logger.tracev(
+                        "sidecar reportFor presigned archived recording {0} {1}", jvmId, filename);
+                var uri = getPresignedPath(jvmId, filename);
+                return sidecar.generatePresigned(uri.getPath(), uri.getQuery(), filter);
+            } else {
+                InputStream stream = helper.getArchivedRecordingStream(jvmId, filename);
+                logger.tracev("sidecar reportFor archived recording {0} {1}", jvmId, filename);
+                return fireRequest(stream, filter).eventually(safeClose(stream));
+            }
+        } catch (URISyntaxException e) {
+            logger.error(e);
+            throw new InternalServerErrorException(e);
         } catch (Exception e) {
             throw new ReportGenerationException(e);
-        }
-        if (!useSidecar()) {
-            logger.tracev("inprocess reportFor archived recording {0} {1}", jvmId, filename);
-            return process(stream, predicate);
-        } else if (usePresignedSidecar()) {
-            logger.tracev(
-                    "sidecar reportFor presigned archived recording {0} {1}", jvmId, filename);
-            try {
-                var uri = getPresignedPath(jvmId, filename);
-                return sidecar.generatePresigned(uri.getPath(), uri.getQuery(), null);
-            } catch (URISyntaxException e) {
-                logger.error(e);
-                throw new InternalServerErrorException(e);
-            }
-        } else {
-            logger.tracev("sidecar reportFor archived recording {0} {1}", jvmId, filename);
-            return sidecar.generate(stream);
         }
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
-        return reportFor(recording, r -> true);
+        return reportFor(recording, null);
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
-        return reportFor(jvmId, filename, r -> true);
+        return reportFor(jvmId, filename, null);
+    }
+
+    private String getEffectiveFilter(String requested) {
+        // if the request has its own filter, combine it with the config filter by separating them
+        // with a comma
+        return Optional.ofNullable(requested)
+                .flatMap(
+                        s ->
+                                configFilter
+                                        .map(c -> String.format("%s,%s", c, s))
+                                        .or(() -> Optional.of(s)))
+                // if there is no request filter, fall back to the config filter
+                .or(() -> configFilter)
+                // if there is no config filter either, then use the wildcard filter to process all
+                .orElse(RuleFilterParser.ALL_WILDCARD_TOKEN);
+    }
+
+    private Uni<Map<String, AnalysisResult>> process(InputStream stream, String filter) {
+        return Uni.createFrom()
+                .future(
+                        reportGenerator.generateEvalMapInterruptibly(
+                                new BufferedInputStream(stream),
+                                ruleFilterParser.parse(getEffectiveFilter(filter))));
+    }
+
+    private Uni<Map<String, AnalysisResult>> fireRequest(InputStream stream, String filter) {
+        return sidecar.generate(stream, getEffectiveFilter(filter));
     }
 
     @Override
@@ -160,20 +187,12 @@ class ReportsServiceImpl implements ReportsService {
         return useSidecar() && usePresignedTransfer;
     }
 
-    private Uni<Map<String, AnalysisResult>> process(
-            InputStream stream, Predicate<IRule> predicate) {
-        return Uni.createFrom()
-                .future(
-                        reportGenerator.generateEvalMapInterruptibly(
-                                new BufferedInputStream(stream), predicate));
-    }
-
     private URI getPresignedPath(String jvmId, String filename) throws URISyntaxException {
         logger.infov("Handling presigned download request for {0}/{1}", jvmId, filename);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder()
                         .bucket(archiveBucket)
-                        .key(helper.archivedRecordingKey(Pair.of(jvmId, filename)))
+                        .key(RecordingHelper.archivedRecordingKey(Pair.of(jvmId, filename)))
                         .build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()
@@ -181,6 +200,16 @@ class ReportsServiceImpl implements ReportsService {
                         .getObjectRequest(getRequest)
                         .build();
         return URI.create(presigner.presignGetObject(presignRequest).url().toString()).normalize();
+    }
+
+    private Runnable safeClose(InputStream stream) {
+        return () -> {
+            try {
+                stream.close();
+            } catch (IOException e) {
+                logger.warn(e);
+            }
+        };
     }
 
     public static class ReportGenerationException extends RuntimeException {

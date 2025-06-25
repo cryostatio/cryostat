@@ -18,6 +18,10 @@ package io.cryostat;
 /** Java constants corresponding to configuration keys set in application.properties. */
 public class ConfigProperties {
     public static final String STORAGE_METADATA_STORAGE_MODE = "storage.metadata.storage-mode";
+    public static final String STORAGE_METADATA_ARCHIVES_STORAGE_MODE =
+            "storage.metadata.archives.storage-mode";
+    public static final String STORAGE_METADATA_EVENT_TEMPLATES_STORAGE_MODE =
+            "storage.metadata.event-templates.storage-mode";
     public static final String AWS_BUCKET_NAME_ARCHIVES = "storage.buckets.archives.name";
     public static final String AWS_BUCKET_NAME_METADATA = "storage.buckets.metadata.name";
     public static final String AWS_BUCKET_NAME_EVENT_TEMPLATES =
@@ -27,6 +31,10 @@ public class ConfigProperties {
     public static final String AWS_BUCKET_NAME_THREAD_DUMPS = "storage.buckets.thread-dumps.name";
     public static final String AWS_METADATA_PREFIX_THREAD_DUMPS =
             "storage.metadata.prefix.thread-dumps";
+    public static final String AWS_METADATA_PREFIX_RECORDINGS =
+            "storage.metadata.prefix.recordings";
+    public static final String AWS_METADATA_PREFIX_EVENT_TEMPLATES =
+            "storage.metadata.prefix.event-templates";
 
     public static final String CONTAINERS_POLL_PERIOD = "cryostat.discovery.containers.poll-period";
     public static final String CONTAINERS_REQUEST_TIMEOUT =
@@ -38,6 +46,7 @@ public class ConfigProperties {
     public static final String CONNECTIONS_FAILED_TIMEOUT = "cryostat.connections.failed-timeout";
     public static final String CONNECTIONS_UPLOAD_TIMEOUT = "cryostat.connections.upload-timeout";
 
+    public static final String REPORTS_FILTER = "cryostat.services.reports.filter";
     public static final String REPORTS_SIDECAR_URL = "quarkus.rest-client.reports.url";
     public static final String REPORTS_USE_PRESIGNED_TRANSFER =
             "cryostat.services.reports.use-presigned-transfer";

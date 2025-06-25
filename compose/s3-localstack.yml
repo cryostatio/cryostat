@@ -18,7 +18,6 @@ services:
     environment:
       SERVICES: s3
       START_WEB: 1
-      CRYOSTAT_BUCKETS: ${PRECREATE_BUCKETS}
     volumes:
       - localstack_cfg:/etc/localstack/init/ready.d:z
     restart: always

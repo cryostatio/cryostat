@@ -16,9 +16,6 @@
 package io.cryostat.reports;
 
 import java.util.Map;
-import java.util.function.Predicate;
-
-import org.openjdk.jmc.flightrecorder.rules.IRule;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
@@ -67,16 +64,13 @@ class MemoryCachingReportsService implements ReportsService {
 
     @Inject @Delegate @Any ReportsService delegate;
 
-    @Inject RecordingHelper recordingHelper;
-
     @Inject Logger logger;
 
     @Override
-    public Uni<Map<String, AnalysisResult>> reportFor(
-            ActiveRecording recording, Predicate<IRule> predicate) {
+    public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording, String filter) {
         if (!quarkusCache || !memoryCache) {
             logger.trace("cache disabled, delegating...");
-            return delegate.reportFor(recording, predicate);
+            return delegate.reportFor(recording, filter);
         }
         String key = ReportsService.key(recording);
         logger.tracev("reportFor {0}", key);
@@ -84,35 +78,35 @@ class MemoryCachingReportsService implements ReportsService {
                 key,
                 k -> {
                     logger.tracev("reportFor {0} cache miss", k);
-                    return delegate.reportFor(recording);
+                    return delegate.reportFor(recording, filter);
                 });
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(
-            String jvmId, String filename, Predicate<IRule> predicate) {
+            String jvmId, String filename, String filter) {
         if (!quarkusCache || !memoryCache) {
             logger.trace("cache disabled, delegating...");
-            return delegate.reportFor(jvmId, filename, predicate);
+            return delegate.reportFor(jvmId, filename, filter);
         }
-        String key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        String key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         logger.tracev("reportFor {0}", key);
         return archivedCache.getAsync(
                 key,
                 k -> {
                     logger.tracev("reportFor {0} cache miss", k);
-                    return delegate.reportFor(jvmId, filename);
+                    return delegate.reportFor(jvmId, filename, filter);
                 });
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(ActiveRecording recording) {
-        return reportFor(recording, r -> true);
+        return reportFor(recording, null);
     }
 
     @Override
     public Uni<Map<String, AnalysisResult>> reportFor(String jvmId, String filename) {
-        return reportFor(jvmId, filename, r -> true);
+        return reportFor(jvmId, filename, null);
     }
 
     @Override
@@ -125,7 +119,7 @@ class MemoryCachingReportsService implements ReportsService {
 
     @Override
     public boolean keyExists(String jvmId, String filename) {
-        String key = recordingHelper.archivedRecordingKey(jvmId, filename);
+        String key = RecordingHelper.archivedRecordingKey(jvmId, filename);
         return (quarkusCache && memoryCache)
                 && (archivedCache.as(CaffeineCache.class).keySet().contains(key)
                         || delegate.keyExists(jvmId, filename));
