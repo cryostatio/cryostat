@@ -66,7 +66,7 @@ public class AgentDiscoveryIT extends HttpClientTest {
                             obj.getString("connectUrl"),
                             Matchers.equalTo(
                                     String.format(
-                                            "http://%s:%d/",
+                                            "http://%s:%d",
                                             AgentApplicationResource.ALIAS,
                                             AgentApplicationResource.PORT)));
 
