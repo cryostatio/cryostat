@@ -112,7 +112,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                     recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
             MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("RUNNING"));
 
-            Thread.sleep(2_000L); // wait some time to save a portion of the recording
+            Thread.sleep(20_000L); // wait some time to save a portion of the recording
 
             // save a copy of the partial recording dump
             MultiMap saveHeaders = MultiMap.caseInsensitiveMultiMap();
@@ -192,7 +192,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                     Matchers.matchesRegex(
                             TARGET_ALIAS + "_" + TEST_RECORDING_NAME + "_[\\d]{8}T[\\d]{6}Z.jfr"));
             String savedDownloadUrl = recordingInfo.getString("downloadUrl");
-            Thread.sleep(3_000L); // wait for the dump to complete
+            Thread.sleep(15_000L); // wait for the dump to complete
 
             // verify the in-memory recording list has not changed, except recording is now stopped
             CompletableFuture<JsonArray> listRespFuture5 = new CompletableFuture<>();
