@@ -18,10 +18,6 @@ package io.cryostat;
 import static io.restassured.RestAssured.when;
 import static org.hamcrest.CoreMatchers.is;
 
-import io.cryostat.resources.GrafanaResource;
-import io.cryostat.resources.JFRDatasourceResource;
-
-import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -30,8 +26,6 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(GrafanaResource.class)
-@QuarkusTestResource(JFRDatasourceResource.class)
 @TestHTTPEndpoint(Health.class)
 public class HealthTest {
 

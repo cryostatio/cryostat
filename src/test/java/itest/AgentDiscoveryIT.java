@@ -41,7 +41,7 @@ import org.junit.jupiter.api.condition.EnabledIf;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@QuarkusTestResource(value = S3StorageResource.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @EnabledIf("enabled")
 public class AgentDiscoveryIT extends HttpClientTest {
 

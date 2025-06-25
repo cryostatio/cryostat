@@ -44,8 +44,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(GrafanaResource.class)
-@QuarkusTestResource(JFRDatasourceResource.class)
+@QuarkusTestResource(value = GrafanaResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(value = JFRDatasourceResource.class, restrictToAnnotatedClass = true)
 public class UploadRecordingTest extends StandardSelfTest {
 
     // TODO this should be a constant somewhere in the server sources
