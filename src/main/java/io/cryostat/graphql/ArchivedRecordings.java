@@ -29,7 +29,6 @@ import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.recordings.RecordingHelper;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.graphql.Description;
@@ -101,7 +100,6 @@ public class ArchivedRecordings {
                 recording.archivedTime());
     }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class ArchivedRecordingsFilter implements Predicate<ArchivedRecording> {
         public @Nullable String name;
         public @Nullable List<String> names;

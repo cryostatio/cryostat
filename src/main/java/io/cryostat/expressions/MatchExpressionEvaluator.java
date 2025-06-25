@@ -213,7 +213,7 @@ public class MatchExpressionEvaluator {
     @Name("io.cryostat.rules.MatchExpressionEvaluator.MatchExpressionApplies")
     @Label("Match Expression Evaluation")
     @Category("Cryostat")
-    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "URF_UNREAD_FIELD"})
+    @SuppressFBWarnings(value = {"URF_UNREAD_FIELD"})
     public static class MatchExpressionApplies extends Event {
 
         String matchExpression;
@@ -226,10 +226,6 @@ public class MatchExpressionEvaluator {
     @Name("io.cryostat.rules.MatchExpressionEvaluator.ScriptCreation")
     @Label("Match Expression Script Creation")
     @Category("Cryostat")
-    // @SuppressFBWarnings(
-    //         value = "URF_UNREAD_FIELD",
-    //         justification = "The event fields are recorded with JFR instead of accessed
-    // directly")
     public static class ScriptCreation extends Event {}
 
     /**

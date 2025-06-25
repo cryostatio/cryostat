@@ -41,7 +41,6 @@ import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.targets.Target;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -282,7 +281,6 @@ public class ActiveRecordings {
         return out;
     }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class RecordingSettings {
         public @NonNull String name;
         public @NonNull String template;
@@ -314,7 +312,6 @@ public class ActiveRecordings {
         return recordingHelper.updateRecordingMetadata(recording.id, metadataInput.getLabels());
     }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class MetadataLabels {
 
         private Map<String, String> labels;
@@ -334,12 +331,10 @@ public class ActiveRecordings {
         }
     }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class RecordingMetadata {
         public @Nullable Map<String, String> labels = new HashMap<>();
     }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class ActiveRecordingsFilter implements Predicate<ActiveRecording> {
         public @Nullable String name;
         public @Nullable List<String> names;
