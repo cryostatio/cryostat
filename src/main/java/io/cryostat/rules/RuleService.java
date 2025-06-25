@@ -241,7 +241,7 @@ public class RuleService {
         }
     }
 
-    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record RuleRecording(Rule rule, ActiveRecording recording) {
         public RuleRecording {
             Objects.requireNonNull(rule);
@@ -249,7 +249,7 @@ public class RuleService {
         }
     }
 
-    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ActivationAttempt(Rule rule, Target target, AtomicInteger attempts) {
         public ActivationAttempt(Rule rule, Target target) {
             this(rule, target, new AtomicInteger(0));

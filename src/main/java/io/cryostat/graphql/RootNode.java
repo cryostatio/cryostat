@@ -23,7 +23,6 @@ import java.util.function.Predicate;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.graphql.api.Nullable;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
@@ -64,7 +63,6 @@ public class RootNode {
         return result;
     }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class DiscoveryNodeFilter implements Predicate<DiscoveryNode> {
         public @Nullable Long id;
         public @Nullable List<Long> ids;

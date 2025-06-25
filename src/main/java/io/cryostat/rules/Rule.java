@@ -59,11 +59,6 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @EntityListeners(Rule.Listener.class)
 @Table(indexes = {@Index(columnList = "name")})
-@SuppressFBWarnings(
-        value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD",
-        justification =
-                "rule.description is not used directly anywhere, but it is serialized and may be"
-                        + " displayed by clients")
 public class Rule extends PanacheEntity {
     public static final String RULE_ADDRESS = "io.cryostat.rules.Rule";
 

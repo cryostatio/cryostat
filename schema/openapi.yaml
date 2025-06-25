@@ -956,7 +956,9 @@ paths:
         "403":
           description: Not Allowed
       security:
-        - SecurityScheme: []
+        - SecurityScheme:
+            - read
+      summary: List Report Rules
       tags:
         - Reports
   /api/v4.1/targets/{targetId}/reports:
