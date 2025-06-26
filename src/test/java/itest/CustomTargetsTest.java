@@ -155,6 +155,13 @@ public class CustomTargetsTest extends StandardSelfTest {
                             try {
                                 return expectNotification(
                                                 "TargetJvmDiscovery",
+                                                o ->
+                                                        "FOUND"
+                                                                .equals(
+                                                                        o.getJsonObject("message")
+                                                                                .getJsonObject(
+                                                                                        "event")
+                                                                                .getString("kind")),
                                                 REQUEST_TIMEOUT_SECONDS,
                                                 TimeUnit.SECONDS)
                                         .get();
