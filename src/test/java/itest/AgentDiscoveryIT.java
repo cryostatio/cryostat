@@ -32,7 +32,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.HttpClientTest;
 import junit.framework.AssertionFailedError;
-import org.apache.commons.lang3.StringUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jboss.logging.Logger;
@@ -51,7 +50,7 @@ public class AgentDiscoveryIT extends HttpClientTest {
     public static boolean enabled() {
         String arch = Optional.ofNullable(System.getenv("CI_ARCH")).orElse("").trim();
         boolean ci = Boolean.valueOf(System.getenv("CI"));
-        return !ci || (ci && (StringUtils.isBlank(arch) || "amd64".equalsIgnoreCase(arch)));
+        return !ci || (ci && "amd64".equalsIgnoreCase(arch));
     }
 
     @Test
