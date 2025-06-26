@@ -67,7 +67,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 @QuarkusTest
-@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(S3StorageResource.class)
 @TestMethodOrder(OrderAnnotation.class)
 class GraphQLTest extends StandardSelfTest {
 

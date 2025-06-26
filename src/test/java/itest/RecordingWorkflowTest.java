@@ -48,7 +48,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(S3StorageResource.class)
 public class RecordingWorkflowTest extends StandardSelfTest {
 
     private final ExecutorService worker = ForkJoinPool.commonPool();

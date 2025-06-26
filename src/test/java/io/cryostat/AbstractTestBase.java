@@ -26,8 +26,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
-import io.cryostat.resources.GrafanaResource;
-import io.cryostat.resources.JFRDatasourceResource;
 import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -49,9 +47,7 @@ import org.junit.jupiter.api.BeforeEach;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
-@QuarkusTestResource(value = S3StorageResource.class, parallel = true)
-@QuarkusTestResource(value = JFRDatasourceResource.class, parallel = true)
-@QuarkusTestResource(value = GrafanaResource.class, parallel = true)
+@QuarkusTestResource(S3StorageResource.class)
 public abstract class AbstractTestBase {
 
     public static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
