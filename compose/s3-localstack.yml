@@ -8,8 +8,6 @@ services:
       STORAGE_EXT_URL: /storage/
       QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
       QUARKUS_S3_AWS_REGION: us-east-1
-      CRYOSTAT_SERVICES_REPORTS_USE_PRESIGNED_TRANSFER: false
-      STORAGE_PRESIGNED_DOWNLOADS_ENABLED: false
       AWS_ACCESS_KEY_ID: unused
       AWS_SECRET_ACCESS_KEY: unused
   s3:
