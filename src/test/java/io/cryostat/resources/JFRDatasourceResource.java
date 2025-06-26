@@ -51,7 +51,7 @@ public class JFRDatasourceResource
                         + ":"
                         + container.getMappedPort(JFR_DATASOURCE_PORT);
 
-        return Map.of("quarkus.rest-client.jfr-datasource.url", networkHostPort);
+        return Map.of("grafana-datasource.url", networkHostPort);
     }
 
     @Override
