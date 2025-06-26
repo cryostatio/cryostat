@@ -24,6 +24,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Predicate;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -62,6 +63,12 @@ public abstract class HttpClientTest {
     public static CompletableFuture<JsonObject> expectNotification(
             String category, long timeout, TimeUnit unit)
             throws TimeoutException, ExecutionException, InterruptedException {
+        return expectNotification(category, o -> true, timeout, unit);
+    }
+
+    public static CompletableFuture<JsonObject> expectNotification(
+            String category, Predicate<JsonObject> p, long timeout, TimeUnit unit)
+            throws TimeoutException, ExecutionException, InterruptedException {
         logger.debugv(
                 "Waiting for a \"{0}\" message within the next {1} {2} ...",
                 category, timeout, unit.name());
@@ -83,7 +90,7 @@ public abstract class HttpClientTest {
                                         JsonObject resp = m.toJsonObject();
                                         JsonObject meta = resp.getJsonObject("meta");
                                         String c = meta.getString("category");
-                                        if (Objects.equals(c, category)) {
+                                        if (Objects.equals(c, category) && p.test(resp)) {
                                             logger.tracev(
                                                     "Received expected \"{0}\" message", category);
                                             ws.end(unused -> future.complete(resp));
