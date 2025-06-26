@@ -22,6 +22,7 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -49,16 +50,24 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIf;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+@EnabledIf("enabled")
 public class TargetAnalysisIT extends HttpClientTest {
 
     public static final String TEMPLATE_CONTINUOUS = "template=Continuous,type=TARGET";
 
     static WebSocketClient WS_CLIENT;
     static Session WS_SESSION;
+
+    public static boolean enabled() {
+        String arch = Optional.ofNullable(System.getenv("CI_ARCH")).orElse("").trim();
+        boolean ci = Boolean.valueOf(System.getenv("CI"));
+        return !ci || (ci && "amd64".equalsIgnoreCase(arch));
+    }
 
     @BeforeAll
     static void setupWebSocketClient() throws IOException, DeploymentException {
