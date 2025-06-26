@@ -1,7 +1,7 @@
 services:
   cryostat:
     environment:
-      - QUARKUS_REST_CLIENT_JFR_DATASOURCE_URL=http://jfr-datasource:8080
+      - GRAFANA_DATASOURCE_URL=http://jfr-datasource:8080
   jfr-datasource:
     image: ${JFR_DATASOURCE_IMAGE:-quay.io/cryostat/jfr-datasource:latest}
     hostname: jfr-datasource
