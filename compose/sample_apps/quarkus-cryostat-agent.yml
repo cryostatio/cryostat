@@ -12,7 +12,15 @@ services:
         -Djava.util.logging.manager=org.jboss.logmanager.LogManager
         -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=trace
         -javaagent:/deployments/app/cryostat-agent.jar
-      QUARKUS_HTTP_HOST: 0.0.0.0
+        -Dcom.sun.management.jmxremote.autodiscovery=false
+        -Dcom.sun.management.jmxremote
+        -Dcom.sun.management.jmxremote.port=22222
+        -Dcom.sun.management.jmxremote.rmi.port=22222
+        -Djava.rmi.server.hostname=quarkus-cryostat-agent
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
+        -Dcom.sun.management.jmxremote.local.only=false
+      QUAKRUS_HTTP_HOST: 0.0.0.0
       QUARKUS_HTTP_PORT: 10010
       ORG_ACME_CRYOSTATSERVICE_ENABLED: "false"
       CRYOSTAT_AGENT_APP_NAME: quarkus-cryostat-agent
@@ -24,16 +32,15 @@ services:
       CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
       CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
       CRYOSTAT_AGENT_HARVESTER_TEMPLATE: Continuous
-      # CRYOSTAT_AGENT_HARVESTER_PERIOD_MS: 30000
-      # CRYOSTAT_AGENT_HARVESTER_MAX_FILES: 3
-      # CRYOSTAT_AGENT_HARVESTER_MAX_AGE_MS: 60000
-      # CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS: 60000
-      # CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
+      CRYOSTAT_AGENT_HARVESTER_PERIOD_MS: 30000
+      CRYOSTAT_AGENT_HARVESTER_MAX_FILES: 3
+      CRYOSTAT_AGENT_HARVESTER_MAX_AGE_MS: 60000
+      CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_AGE_MS: 60000
+      CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
       CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_PATH: /auth_certs/certificate.pem
       CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_TYPE: X.509
       CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUSTSTORE_CERT[0]_ALIAS: cryostat
       CRYOSTAT_AGENT_API_WRITES_ENABLED: "true"
-      # QUARKUS_LOG_LEVEL: ${CRYOSTAT_LOG_LEVEL:-INFO}
     restart: always
     healthcheck:
       test: curl --fail http://localhost:10010 || exit 1
