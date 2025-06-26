@@ -50,7 +50,8 @@ public class AgentDiscoveryIT extends HttpClientTest {
 
     public static boolean enabled() {
         String arch = Optional.ofNullable(System.getenv("CI_ARCH")).orElse("").trim();
-        return StringUtils.isBlank(arch) || "amd64".equalsIgnoreCase(arch);
+        boolean ci = Boolean.valueOf(System.getenv("CI"));
+        return !ci || (ci && (StringUtils.isBlank(arch) || "amd64".equalsIgnoreCase(arch)));
     }
 
     @Test
