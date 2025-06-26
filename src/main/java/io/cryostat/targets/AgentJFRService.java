@@ -20,7 +20,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
-import java.time.Duration;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -154,12 +153,7 @@ class AgentJFRService implements CryostatFlightRecorderService {
 
     @Override
     public IRecordingDescriptor getSnapshotRecording() throws FlightRecorderException {
-        return client.startSnapshot()
-                .onItem()
-                .delayIt()
-                .by(Duration.ofSeconds(2))
-                .await()
-                .atMost(client.getTimeout());
+        return client.startSnapshot().await().atMost(client.getTimeout());
     }
 
     @Override

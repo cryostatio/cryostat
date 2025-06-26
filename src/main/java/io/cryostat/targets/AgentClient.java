@@ -207,12 +207,13 @@ public class AgentClient {
 
     Uni<IRecordingDescriptor> startSnapshot() {
         try {
-            var request = new StartRecordingRequest("snapshot", "", "", 0, 0, 0);
-            logger.debugv("start snapshot on {0}: {1}", target.jvmId, request);
             return invoke(
                             HttpMethod.POST,
                             "/recordings/",
-                            Buffer.buffer(mapper.writeValueAsBytes(request)),
+                            Buffer.buffer(
+                                    mapper.writeValueAsBytes(
+                                            new StartRecordingRequest(
+                                                    "snapshot", "", "", 0, 0, 0))),
                             BodyCodec.string())
                     .map(
                             Unchecked.function(
@@ -451,7 +452,7 @@ public class AgentClient {
 
     private <T> Uni<HttpResponse<T>> invoke(
             HttpMethod mtd, String path, Buffer payload, BodyCodec<T> codec) {
-        logger.debugv("{0} {1}{2}", mtd, getUri(), path);
+        logger.debugv("{0} {1} {2}", mtd, getUri(), path);
 
         if (tlsEnabled && !getUri().getScheme().equals("https")) {
             throw new IllegalArgumentException(
@@ -483,14 +484,7 @@ public class AgentClient {
         } else {
             uni = req.send();
         }
-        return uni.onItem()
-                .invoke(
-                        r ->
-                                logger.debugv(
-                                        "{0} {1} : {2} {3}{4}",
-                                        r.statusCode(), r.statusMessage(), mtd, getUri(), path))
-                .onFailure()
-                .invoke(logger::warn);
+        return uni;
     }
 
     @ApplicationScoped

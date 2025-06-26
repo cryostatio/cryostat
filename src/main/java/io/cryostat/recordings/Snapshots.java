@@ -44,7 +44,7 @@ public class Snapshots {
     public Uni<RestResponse<LinkedRecordingDescriptor>> createSnapshotUsingTargetId(
             @RestPath long targetId) throws Exception {
         return recordingHelper
-                .createSnapshot(Target.getTargetById(targetId))
+                .createSnapshot(Target.find("id", targetId).singleResult())
                 .onItem()
                 .transform(
                         recording ->
