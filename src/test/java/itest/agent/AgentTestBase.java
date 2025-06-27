@@ -48,8 +48,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.condition.EnabledIf;
 
-@QuarkusTestResource(value = AgentApplicationResource.class)
-@QuarkusTestResource(value = S3StorageResource.class)
+@QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @EnabledIf("enabled")
 public class AgentTestBase extends HttpClientTest {
 
