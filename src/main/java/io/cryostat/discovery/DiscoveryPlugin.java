@@ -24,7 +24,6 @@ import io.cryostat.credentials.Credential;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import io.quarkus.rest.client.reactive.ReactiveClientHeadersFactory;
@@ -190,7 +189,6 @@ public class DiscoveryPlugin extends PanacheEntityBase {
 
             private final Supplier<UsernamePasswordCredentials> credentialSupplier;
 
-            @SuppressFBWarnings("EI_EXPOSE_REP2")
             public DiscoveryPluginAuthorizationHeaderFactory(DiscoveryPlugin plugin) {
                 this(
                         () ->
