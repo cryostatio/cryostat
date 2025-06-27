@@ -20,12 +20,14 @@ import static io.restassured.RestAssured.given;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusIntegrationTest
 @TestMethodOrder(OrderAnnotation.class)
+@EnabledIf("enabled")
 public class AgentWorkflowIT extends AgentTestBase {
 
     static final String RECORDING_NAME = AgentWorkflowIT.class.getSimpleName();
