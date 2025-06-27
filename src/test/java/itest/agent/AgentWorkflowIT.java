@@ -29,7 +29,6 @@ import org.junit.jupiter.api.TestMethodOrder;
 public class AgentWorkflowIT extends AgentTestBase {
 
     static final String RECORDING_NAME = AgentWorkflowIT.class.getSimpleName();
-    static final String CONTINUOUS_TEMPLATE = "template=Continuous,type=TARGET";
 
     @Order(0)
     @Test

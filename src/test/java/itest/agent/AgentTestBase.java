@@ -17,21 +17,34 @@ package itest.agent;
 
 import static io.restassured.RestAssured.given;
 
+import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingDeque;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
 
 import io.cryostat.resources.AgentApplicationResource;
-import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
+import io.vertx.core.json.JsonObject;
 import itest.bases.HttpClientTest;
+import itest.resources.S3StorageResource;
+import jakarta.websocket.ClientEndpoint;
+import jakarta.websocket.ContainerProvider;
+import jakarta.websocket.DeploymentException;
+import jakarta.websocket.OnMessage;
+import jakarta.websocket.Session;
 import junit.framework.AssertionFailedError;
 import org.hamcrest.Matchers;
+import org.jboss.logging.Logger;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.condition.EnabledIf;
 
@@ -42,18 +55,41 @@ public class AgentTestBase extends HttpClientTest {
 
     static final Duration DISCOVERY_PERIOD = Duration.ofSeconds(5);
     static final Duration DISCOVERY_TIMEOUT = Duration.ofSeconds(60);
+    static final String CONTINUOUS_TEMPLATE = "template=Continuous,type=TARGET";
+
+    static WebSocketClient WS_CLIENT;
+    static Session WS_SESSION;
 
     protected Target target;
 
-    public static boolean enabled() {
-        String arch = Optional.ofNullable(System.getenv("CI_ARCH")).orElse("").trim();
-        boolean ci = Boolean.valueOf(System.getenv("CI"));
-        return !ci || (ci && "amd64".equalsIgnoreCase(arch));
+    @BeforeAll
+    static void setupWebSocketClient() throws IOException, DeploymentException {
+        WS_CLIENT = new WebSocketClient();
+        WS_SESSION =
+                ContainerProvider.getWebSocketContainer()
+                        .connectToServer(
+                                WS_CLIENT, URI.create("ws://localhost:8081/api/notifications"));
+    }
+
+    @BeforeEach
+    void clearWebSocketNotifications() {
+        WS_CLIENT.msgQ.clear();
+    }
+
+    @AfterAll
+    static void tearDownWebSocketClient() throws IOException {
+        WS_SESSION.close();
     }
 
     @BeforeEach
     void getTarget() throws InterruptedException, TimeoutException, ExecutionException {
         target = waitForDiscovery();
+    }
+
+    public static boolean enabled() {
+        String arch = Optional.ofNullable(System.getenv("CI_ARCH")).orElse("").trim();
+        boolean ci = Boolean.valueOf(System.getenv("CI"));
+        return !ci || (ci && "amd64".equalsIgnoreCase(arch));
     }
 
     Target waitForDiscovery() throws InterruptedException, TimeoutException, ExecutionException {
@@ -111,6 +147,57 @@ public class AgentTestBase extends HttpClientTest {
                 default:
                     throw new IllegalStateException();
             }
+        }
+    }
+
+    protected JsonObject expectWebSocketNotification(String category)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        return expectWebSocketNotification(category, Duration.ofSeconds(30), v -> true);
+    }
+
+    protected JsonObject expectWebSocketNotification(String category, Duration timeout)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        return expectWebSocketNotification(category, timeout, v -> true);
+    }
+
+    protected JsonObject expectWebSocketNotification(
+            String category, Predicate<JsonObject> predicate)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        return expectWebSocketNotification(category, Duration.ofSeconds(30), predicate);
+    }
+
+    protected JsonObject expectWebSocketNotification(
+            String category, Duration timeout, Predicate<JsonObject> predicate)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        long now = System.nanoTime();
+        long deadline = now + timeout.toNanos();
+        logger.infov(
+                "waiting up to {0} for a WebSocket notification with category={1}",
+                timeout, category);
+        do {
+            now = System.nanoTime();
+            String msg = WS_CLIENT.msgQ.poll(1, TimeUnit.SECONDS);
+            if (msg == null) {
+                continue;
+            }
+            JsonObject obj = new JsonObject(msg);
+            String msgCategory = obj.getJsonObject("meta").getString("category");
+            if (category.equals(msgCategory) && predicate.test(obj)) {
+                return obj;
+            }
+        } while (now < deadline);
+        throw new TimeoutException();
+    }
+
+    @ClientEndpoint
+    static class WebSocketClient {
+        private final LinkedBlockingDeque<String> msgQ = new LinkedBlockingDeque<>();
+        private final Logger logger = Logger.getLogger(getClass());
+
+        @OnMessage
+        void message(String msg) {
+            logger.info(msg);
+            msgQ.add(msg);
         }
     }
 
