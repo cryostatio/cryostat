@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
+@EnabledIf("enabled")
 public class AgentDiscoveryIT extends AgentTestBase {
     @Test
     void shouldDiscoverTarget() throws InterruptedException, TimeoutException, ExecutionException {
