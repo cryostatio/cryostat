@@ -20,10 +20,10 @@ import static io.restassured.RestAssured.given;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.api.condition.EnabledIf;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.condition.EnabledIf;
 
 @QuarkusIntegrationTest
 @TestMethodOrder(OrderAnnotation.class)
