@@ -46,11 +46,9 @@ import org.jboss.logging.Logger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.condition.EnabledIf;
 
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-@EnabledIf("enabled")
 public class AgentTestBase extends HttpClientTest {
 
     static final Duration DISCOVERY_PERIOD = Duration.ofSeconds(5);
