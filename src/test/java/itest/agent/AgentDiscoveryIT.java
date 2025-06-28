@@ -21,6 +21,7 @@ import java.util.concurrent.TimeoutException;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIf;
 
 @QuarkusIntegrationTest
 @EnabledIf("enabled")
