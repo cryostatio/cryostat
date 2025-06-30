@@ -18,6 +18,7 @@ package io.cryostat.targets;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ForkJoinPool;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
@@ -25,7 +26,6 @@ import io.cryostat.libcryostat.JvmIdentifier;
 import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
@@ -71,7 +71,7 @@ public class TargetUpdateJob implements Job {
         if (targets.size() == 1) {
             executor = Runnable::run;
         } else {
-            executor = Infrastructure.getDefaultExecutor();
+            executor = r -> ForkJoinPool.commonPool().submit(r);
         }
         targets.forEach(t -> executor.execute(() -> updateTargetTx(t.id)));
     }
