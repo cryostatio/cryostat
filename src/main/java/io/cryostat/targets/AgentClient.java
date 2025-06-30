@@ -189,32 +189,34 @@ public class AgentClient {
         return agentRestClient
                 .startRecording(req)
                 .map(
-                        Unchecked.function(
-                                resp -> {
-                                    int statusCode = resp.getStatus();
-                                    try (resp;
-                                            var is = (InputStream) resp.getEntity()) {
-                                        if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
-                                            return mapper.readValue(
-                                                            is,
-                                                            JmcSerializableRecordingDescriptor
-                                                                    .class)
-                                                    .toJmcForm();
-                                        } else if (statusCode == 403) {
-                                            logger.errorv(
-                                                    "startRecording for {0} failed: HTTP 403",
-                                                    getUri());
-                                            throw new ForbiddenException(
-                                                    new UnsupportedOperationException(
-                                                            "startRecording"));
-                                        } else {
-                                            logger.errorv(
-                                                    "startRecording for {0} failed: HTTP {1}",
-                                                    getUri(), statusCode);
-                                            throw new AgentApiException(statusCode);
-                                        }
-                                    }
-                                }));
+                        resp -> {
+                            int statusCode = resp.getStatus();
+                            try (resp;
+                                    var is = (InputStream) resp.getEntity()) {
+                                if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                    return mapper.readValue(
+                                                    is, JmcSerializableRecordingDescriptor.class)
+                                            .toJmcForm();
+                                } else if (statusCode == 403) {
+                                    logger.errorv(
+                                            "startRecording for {0} failed: HTTP 403", getUri());
+                                    throw new ForbiddenException(
+                                            new UnsupportedOperationException("startRecording"));
+                                } else {
+                                    logger.errorv(
+                                            "startRecording for {0} failed: HTTP {1}",
+                                            getUri(), statusCode);
+                                    throw new AgentApiException(statusCode);
+                                }
+                            } catch (IOException ioe) {
+                                logger.errorv(
+                                        ioe,
+                                        "startRecording for {0} failed: HTTP {1}",
+                                        getUri(),
+                                        statusCode);
+                                throw new AgentApiException(statusCode);
+                            }
+                        });
     }
 
     Uni<IRecordingDescriptor> startSnapshot() {
