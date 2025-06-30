@@ -21,6 +21,8 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
@@ -177,6 +179,14 @@ public class Reports {
             @QueryParam("clean") @DefaultValue("true") boolean clean) {
         var target = Target.getTargetById(targetId);
         var jobId = UUID.randomUUID().toString();
+        ExecutorService subscriptionPool =
+                Executors.newFixedThreadPool(
+                        1,
+                        r -> {
+                            Thread thread = new Thread(r);
+                            thread.setName("subscription-pool-thread");
+                            return thread;
+                        });
         resp.bodyEndHandler(
                 (v) -> {
                     helper.createSnapshot(
@@ -186,6 +196,7 @@ public class Reports {
                                             "true",
                                             TARGET_ANALYSIS_LABEL_KEY,
                                             TARGET_ANALYSIS_LABEL_VALUE))
+                            .runSubscriptionOn(subscriptionPool)
                             .subscribe()
                             .with(
                                     recording -> {
