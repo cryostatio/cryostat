@@ -151,7 +151,17 @@ class AgentJFRService implements CryostatFlightRecorderService {
 
     @Override
     public IRecordingDescriptor getSnapshotRecording() throws FlightRecorderException {
-        return client.startSnapshot().await().atMost(client.getTimeout());
+        logger.infov("target analysis for {0} getSnapshotRecording invoked", client.getTarget());
+        return client.startSnapshot()
+                .onFailure()
+                .invoke(
+                        t ->
+                                logger.errorv(
+                                        t,
+                                        "target analysis snapshot timeout {0}",
+                                        client.getTarget()))
+                .await()
+                .atMost(client.getTimeout());
     }
 
     @Override

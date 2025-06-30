@@ -487,11 +487,19 @@ public class RecordingHelper {
                 .executeConnectedTaskUni(
                         target,
                         connection -> {
+                            logger.infov(
+                                    "target analysis for target {0} connected, requesting"
+                                            + " snapshot...",
+                                    target);
                             IRecordingDescriptor rec =
                                     connection.getService().getSnapshotRecording();
+                            logger.infov(
+                                    "target analysis for target {0} received snapshot", target);
                             try (InputStream snapshot =
                                     remoteRecordingStreamFactory.openDirect(
                                             connection, target, rec)) {
+                                logger.infov(
+                                        "target analysis for target {0} reading snapshot", target);
                                 if (!snapshotIsReadable(target, snapshot)) {
                                     safeCloseRecording(connection, rec);
                                     throw new SnapshotCreationException(

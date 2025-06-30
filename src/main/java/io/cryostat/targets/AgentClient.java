@@ -186,11 +186,20 @@ public class AgentClient {
     }
 
     Uni<IRecordingDescriptor> startRecording(StartRecordingRequest req) {
+        logger.infov("target analysis startRecording for {0} invoked: {1}", target, req);
         return agentRestClient
                 .startRecording(req)
+                .onFailure()
+                .invoke(
+                        t ->
+                                logger.errorv(
+                                        t, "target analysis startRecording for {0} failed", target))
                 .map(
                         resp -> {
                             int statusCode = resp.getStatus();
+                            logger.infov(
+                                    "target analysis startRecording for {0} received HTTP" + " {1}",
+                                    target, statusCode);
                             try (resp;
                                     var is = (InputStream) resp.getEntity()) {
                                 if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
@@ -220,6 +229,7 @@ public class AgentClient {
     }
 
     Uni<IRecordingDescriptor> startSnapshot() {
+        logger.infov("target analysis startSnapshot for {0} invoked", target);
         return startRecording(new StartRecordingRequest("snapshot", "", "", 0, 0, 0));
     }
 

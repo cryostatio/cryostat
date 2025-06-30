@@ -195,8 +195,12 @@ public class Reports {
                             thread.setName("emitter-pool-thread");
                             return thread;
                         });
+        logger.infov("target analysis for {0} requested", target);
         resp.bodyEndHandler(
                 (v) -> {
+                    logger.infov(
+                            "target analysis for {0} starting, snapshot creation requested",
+                            target);
                     helper.createSnapshot(
                                     target,
                                     Map.of(
@@ -205,11 +209,22 @@ public class Reports {
                                             TARGET_ANALYSIS_LABEL_KEY,
                                             TARGET_ANALYSIS_LABEL_VALUE))
                             .emitOn(emitterPool)
+                            .onItem()
+                            .invoke(
+                                    r ->
+                                            logger.infov(
+                                                    "target analysis for {0} created a snapshot:"
+                                                            + " {1}",
+                                                    target, r))
                             .runSubscriptionOn(subscriptionPool)
                             .subscribe()
                             .with(
                                     recording -> {
                                         var request = new ArchiveRequest(jobId, recording, clean);
+                                        logger.infov(
+                                                "target analysis for {0} requesting archival of {1}"
+                                                        + " : {2}",
+                                                target, recording, request);
                                         bus.publish(
                                                 LongRunningRequestGenerator.ARCHIVE_REQUEST_ADDRESS,
                                                 request);
@@ -240,6 +255,8 @@ public class Reports {
         var target = Target.getTargetById(targetId);
         return reportAggregator
                 .getEntry(target.jvmId)
+                .onItem()
+                .invoke(v -> logger.infov("cached analysis for {0} retrieved", target))
                 .onItem()
                 .transform(
                         e -> {
