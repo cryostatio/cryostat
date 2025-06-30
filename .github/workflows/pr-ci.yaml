@@ -203,6 +203,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+    if: github.repository_owner == 'cryostatio' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/build_test')
     outputs:
       OPENAPI_STATUS: ${{ steps.schema-update.outputs.openapi_status }}
       OPENAPI_DIFF_FILE: ${{ steps.schema-update.outputs.openapi_diff_file }}
