@@ -23,11 +23,9 @@ import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.condition.EnabledIf;
 
 @QuarkusIntegrationTest
 @TestMethodOrder(OrderAnnotation.class)
-@EnabledIf("enabled")
 public class AgentWorkflowIT extends AgentTestBase {
 
     static final String RECORDING_NAME = AgentWorkflowIT.class.getSimpleName();
