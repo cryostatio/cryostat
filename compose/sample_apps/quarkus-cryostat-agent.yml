@@ -12,14 +12,6 @@ services:
         -Djava.util.logging.manager=org.jboss.logmanager.LogManager
         -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=trace
         -javaagent:/deployments/app/cryostat-agent.jar
-        -Dcom.sun.management.jmxremote.autodiscovery=false
-        -Dcom.sun.management.jmxremote
-        -Dcom.sun.management.jmxremote.port=22222
-        -Dcom.sun.management.jmxremote.rmi.port=22222
-        -Djava.rmi.server.hostname=quarkus-cryostat-agent
-        -Dcom.sun.management.jmxremote.authenticate=false
-        -Dcom.sun.management.jmxremote.ssl=false
-        -Dcom.sun.management.jmxremote.local.only=false
       QUAKRUS_HTTP_HOST: 0.0.0.0
       QUARKUS_HTTP_PORT: 10010
       ORG_ACME_CRYOSTATSERVICE_ENABLED: "false"
