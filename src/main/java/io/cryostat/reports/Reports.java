@@ -187,6 +187,14 @@ public class Reports {
                             thread.setName("subscription-pool-thread");
                             return thread;
                         });
+        ExecutorService emitterPool =
+                Executors.newFixedThreadPool(
+                        1,
+                        r -> {
+                            Thread thread = new Thread(r);
+                            thread.setName("emitter-pool-thread");
+                            return thread;
+                        });
         resp.bodyEndHandler(
                 (v) -> {
                     helper.createSnapshot(
@@ -196,6 +204,7 @@ public class Reports {
                                             "true",
                                             TARGET_ANALYSIS_LABEL_KEY,
                                             TARGET_ANALYSIS_LABEL_VALUE))
+                            .emitOn(emitterPool)
                             .runSubscriptionOn(subscriptionPool)
                             .subscribe()
                             .with(
