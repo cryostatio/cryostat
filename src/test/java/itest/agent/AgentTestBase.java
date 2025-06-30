@@ -22,7 +22,6 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
@@ -82,12 +81,6 @@ public class AgentTestBase extends HttpClientTest {
     @BeforeEach
     void getTarget() throws InterruptedException, TimeoutException, ExecutionException {
         target = waitForDiscovery();
-    }
-
-    public static boolean enabled() {
-        String arch = Optional.ofNullable(System.getenv("CI_ARCH")).orElse("").trim();
-        boolean ci = Boolean.valueOf(System.getenv("CI"));
-        return !ci || (ci && "amd64".equalsIgnoreCase(arch));
     }
 
     Target waitForDiscovery() throws InterruptedException, TimeoutException, ExecutionException {

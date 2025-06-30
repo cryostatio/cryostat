@@ -31,10 +31,8 @@ import io.vertx.core.json.JsonObject;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIf;
 
 @QuarkusIntegrationTest
-@EnabledIf("enabled")
 public class AgentTargetAnalysisIT extends AgentTestBase {
 
     @Test
