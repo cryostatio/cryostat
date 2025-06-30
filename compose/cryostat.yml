@@ -18,6 +18,7 @@ services:
     user: "1000"
     environment:
       QUARKUS_LOG_LEVEL: ${CRYOSTAT_LOG_LEVEL:-INFO}
+      QUARKUS_REST_CLIENT_LOGGING_SCOPE: request-response
       QUARKUS_HTTP_ACCESS_LOG_ENABLED: "true"
       QUARKUS_HTTP_ACCESS_LOG_PATTERN: long
       QUARKUS_HTTP_HOST: "cryostat"
