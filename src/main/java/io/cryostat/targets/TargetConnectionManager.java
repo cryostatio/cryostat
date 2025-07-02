@@ -324,7 +324,6 @@ public class TargetConnectionManager {
         } catch (Exception e) {
             evt.setExceptionThrown(true);
             logger.error(e);
-            e.printStackTrace();
             throw e;
         } finally {
             evt.end();

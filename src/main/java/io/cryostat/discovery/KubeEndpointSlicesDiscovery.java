@@ -313,9 +313,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 if (ref == null) {
                     continue;
                 }
-                logger.infov(
-                        "discovered EndpointSlice: {0} {1} port {2}",
-                        slice.getAddressType(), addr, port);
                 switch (slice.getAddressType().toLowerCase()) {
                     case "ipv6":
                         addr = String.format("[%s]", addr);
@@ -741,9 +738,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                 "",
                                 0,
                                 "/jndi/rmi://" + addr + ':' + port.getPort() + "/jmxrmi");
-                logger.infov(
-                        "mapping TargetTuple {0} to Target with addr {1} and JMX URL {2}",
-                        this, addr, jmxUrl);
                 URI connectUrl = URI.create(jmxUrl.toString());
 
                 Target target = new Target();

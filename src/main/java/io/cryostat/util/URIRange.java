@@ -56,21 +56,16 @@ public enum URIRange {
             return predicate.test(address);
         } catch (UnknownHostException uhe) {
             log.errorv(uhe, "Failed to resolve host: {0}", hostname);
-            uhe.printStackTrace();
             return false;
         }
     }
 
     public boolean validate(String hostname) {
-        log.infov("URIRange {0} validating {1}", name(), hostname);
-        new Exception().printStackTrace();
         List<URIRange> ranges =
                 List.of(values()).stream()
                         .filter(r -> r.ordinal() <= this.ordinal())
                         .collect(Collectors.toList());
-        boolean valid = ranges.stream().anyMatch(range -> range.fn.test(hostname));
-        log.infov("URIRange {0} validated {1} = {2}", name(), hostname, valid);
-        return valid;
+        return ranges.stream().anyMatch(range -> range.fn.test(hostname));
     }
 
     public static URIRange fromString(String s) {
