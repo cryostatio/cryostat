@@ -354,7 +354,6 @@ public class TargetConnectionManager {
                 semaphore.get().release();
             }
             logger.error(e);
-            e.printStackTrace();
             throw e;
         } finally {
             evt.end();
