@@ -29,6 +29,7 @@ import io.cryostat.core.net.JFRConnectionToolkit;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.core.UriBuilder;
+import org.apache.commons.validator.routines.InetAddressValidator;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
@@ -36,12 +37,14 @@ public class URIUtil {
 
     @Inject JFRConnectionToolkit toolkit;
 
+    private static final InetAddressValidator validator = InetAddressValidator.getInstance();
+
     @ConfigProperty(name = ConfigProperties.URI_RANGE)
     String uriRange;
 
     public URI getRmiTarget(JMXServiceURL serviceUrl) throws URISyntaxException {
         return UriBuilder.newInstance()
-                .host(toolkit.getHostName(serviceUrl))
+                .host(ipv6Compat(toolkit.getHostName(serviceUrl)))
                 .port(toolkit.getPort(serviceUrl))
                 .build();
     }
@@ -63,7 +66,14 @@ public class URIUtil {
     }
 
     boolean validateJmxServiceURL(JMXServiceURL jmxUrl) {
-        String hostname = ConnectionToolkit.getHostName(jmxUrl);
+        String hostname = ipv6Compat(ConnectionToolkit.getHostName(jmxUrl));
         return URIRange.fromString(uriRange).validate(hostname);
+    }
+
+    private static String ipv6Compat(String s) {
+        if (validator.isValidInet6Address(s) && !s.startsWith("[")) {
+            s = String.format("[%s]", s);
+        }
+        return s;
     }
 }

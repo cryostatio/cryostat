@@ -291,23 +291,40 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             }
             for (Endpoint endpoint : endpoints) {
                 List<String> addresses = endpoint.getAddresses();
-                if (addresses == null) {
+                if (addresses == null || addresses.isEmpty()) {
                     continue;
                 }
-                for (String addr : addresses) {
-                    var ref = endpoint.getTargetRef();
-                    if (ref == null) {
-                        continue;
-                    }
-                    tts.add(
-                            new TargetTuple(
-                                    ref,
-                                    queryForNode(ref.getNamespace(), ref.getName(), ref.getKind())
-                                            .getLeft(),
-                                    addr,
-                                    port,
-                                    endpoint.getConditions()));
+                // the EndpointSlice specification states that all of the
+                // addresses are fungible, ie interchangeable - they will
+                // resolve to the same Pod. So, we only need to worry about the
+                // first one.
+                String addr = addresses.get(0);
+                var ref = endpoint.getTargetRef();
+                if (ref == null) {
+                    continue;
                 }
+                logger.infov(
+                        "discovered EndpointSlice: {0} {1} port {2}",
+                        slice.getAddressType(), addr, port);
+                switch (slice.getAddressType()) {
+                    case "IPv6":
+                        addr = String.format("[%s]", addr);
+                        break;
+                    case "IPv4":
+                    case "FQDN":
+                    // fall-through
+                    default:
+                        // no-op
+                        break;
+                }
+                tts.add(
+                        new TargetTuple(
+                                ref,
+                                queryForNode(ref.getNamespace(), ref.getName(), ref.getKind())
+                                        .getLeft(),
+                                addr,
+                                port,
+                                endpoint.getConditions()));
             }
         }
         return tts;
@@ -425,10 +442,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                                         targetRefMap.get(t.connectUrl),
                                                         EventKind.FOUND)));
             } catch (Exception e) {
-                logger.error(
-                        String.format(
-                                "Failed to syncronize EndpointSlices in namespace %s", namespace),
-                        e);
+                logger.errorv(e, "Failed to syncronize EndpointSlices in namespace {0}", namespace);
             }
         }
     }
@@ -710,6 +724,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                 "",
                                 0,
                                 "/jndi/rmi://" + addr + ':' + port.getPort() + "/jmxrmi");
+                logger.infov(
+                        "mapping TargetTuple {0} to Target with addr {1} and JMX URL {2}",
+                        this, addr, jmxUrl);
                 URI connectUrl = URI.create(jmxUrl.toString());
 
                 Target target = new Target();
