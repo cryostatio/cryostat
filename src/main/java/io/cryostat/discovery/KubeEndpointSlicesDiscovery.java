@@ -37,6 +37,7 @@ import java.util.stream.Stream;
 
 import javax.management.remote.JMXServiceURL;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
@@ -105,6 +106,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.enabled")
     boolean enabled;
+
+    @ConfigProperty(name = ConfigProperties.DISCOVERY_IPV6_ENABLED)
+    boolean ipv6Enabled;
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.port-names")
     Optional<List<String>> jmxPortNames;
@@ -280,6 +284,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
     List<TargetTuple> tuplesFromEndpoints(EndpointSlice slice) {
         List<TargetTuple> tts = new ArrayList<>();
+        if (!ipv6Enabled && "ipv6".equalsIgnoreCase(slice.getAddressType())) {
+            return tts;
+        }
         List<EndpointPort> ports = slice.getPorts();
         if (ports == null) {
             return tts;
@@ -306,8 +313,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 logger.infov(
                         "discovered EndpointSlice: {0} {1} port {2}",
                         slice.getAddressType(), addr, port);
-                switch (slice.getAddressType()) {
-                    case "IPv6":
+                switch (slice.getAddressType().toLowerCase()) {
+                    case "ipv6":
                         addr = String.format("[%s]", addr);
                         break;
                     case "IPv4":
