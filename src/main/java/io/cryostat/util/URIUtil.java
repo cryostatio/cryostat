@@ -66,8 +66,8 @@ public class URIUtil {
     }
 
     boolean validateJmxServiceURL(JMXServiceURL jmxUrl) {
-        String hostname = ipv6Compat(ConnectionToolkit.getHostName(jmxUrl));
-        return URIRange.fromString(uriRange).validate(hostname);
+        return URIRange.fromString(uriRange)
+                .validate(ipv6Compat(ConnectionToolkit.getHostName(jmxUrl)));
     }
 
     private static String ipv6Compat(String s) {

@@ -323,6 +323,8 @@ public class TargetConnectionManager {
                             () -> connections.synchronous().invalidate(connectUrl)));
         } catch (Exception e) {
             evt.setExceptionThrown(true);
+            logger.error(e);
+            e.printStackTrace();
             throw e;
         } finally {
             evt.end();
