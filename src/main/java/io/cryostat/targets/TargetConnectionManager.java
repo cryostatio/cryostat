@@ -20,12 +20,10 @@ import java.net.URI;
 import java.rmi.ConnectIOException;
 import java.time.Duration;
 import java.util.Collections;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Semaphore;
 
@@ -95,7 +93,6 @@ public class TargetConnectionManager {
     private final Logger logger;
 
     private final AsyncLoadingCache<URI, JFRConnection> connections;
-    private final Map<URI, Object> targetLocks;
     private final Optional<Semaphore> semaphore;
 
     private final Duration failedBackoff;
@@ -124,7 +121,6 @@ public class TargetConnectionManager {
         this.failedBackoff = failedBackoff;
         this.failedTimeout = failedTimeout;
 
-        this.targetLocks = new ConcurrentHashMap<>();
         if (maxOpen > 0) {
             this.semaphore = Optional.of(new Semaphore(maxOpen, true));
         } else {
@@ -203,15 +199,7 @@ public class TargetConnectionManager {
                 Uni.createFrom()
                         .completionStage(connections.get(target.connectUrl))
                         .onItem()
-                        .transform(
-                                Unchecked.function(
-                                        conn -> {
-                                            synchronized (
-                                                    targetLocks.computeIfAbsent(
-                                                            target.connectUrl, k -> new Object())) {
-                                                return task.execute(conn);
-                                            }
-                                        })));
+                        .transform(Unchecked.function(task::execute)));
     }
 
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
@@ -292,7 +280,6 @@ public class TargetConnectionManager {
             evt.begin();
             try {
                 connection.close();
-                targetLocks.remove(connectUrl);
             } catch (JFRJMXConnection.ConnectionFailureException e) {
                 evt.setExceptionThrown(true);
             } catch (Exception e) {
