@@ -130,7 +130,7 @@ public class TargetConnectionManager {
 
         Caffeine<URI, JFRConnection> cacheBuilder =
                 Caffeine.newBuilder()
-                        .executor(executor)
+                        .executor(virtualThreadPool)
                         .scheduler(Scheduler.systemScheduler())
                         .removalListener(this::closeConnection);
         if (ttl.isNegative()) {
