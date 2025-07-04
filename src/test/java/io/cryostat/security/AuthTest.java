@@ -34,15 +34,10 @@ public class AuthTest extends AbstractTransactionalTestBase {
     @ParameterizedTest
     @ValueSource(strings = {"user", "foo", "hello there"})
     void testLoginWithForwardedHeader(String user) {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .header("X-Forwarded-User", user)
                 .post("/api/v4/auth")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
@@ -53,14 +48,9 @@ public class AuthTest extends AbstractTransactionalTestBase {
     void testLogoutRedirect() {
         given().redirects()
                 .follow(false)
-                .log()
-                .all()
                 .when()
                 .post("/api/v4/logout")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(308)
                 .header("Location", "http://localhost:8081/oauth2/sign_out");

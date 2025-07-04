@@ -34,45 +34,30 @@ public class ActiveRecordingsDownloadTest extends AbstractTransactionalTestBase 
     void testCreateDownloadAndDelete() {
         int targetId = defineSelfCustomTarget();
         var json =
-                given().log()
-                        .all()
-                        .when()
+                given().when()
                         .basePath("/api/v4/targets/{targetId}/recordings")
                         .pathParams(Map.of("targetId", targetId))
                         .formParam("recordingName", "activeRecordingsTest")
                         .formParam("events", "template=Continuous")
                         .post()
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .extract()
                         .body()
                         .jsonPath();
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParams(Map.of("targetId", targetId))
                 .get(Integer.toString(json.getInt("id")))
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.BINARY);
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .basePath("/api/v4/targets/{targetId}/recordings")
                 .pathParams(Map.of("targetId", targetId))
                 .delete(Integer.toString(json.getInt("remoteId")))
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(204);
     }

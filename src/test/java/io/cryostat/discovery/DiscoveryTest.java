@@ -35,9 +35,7 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetUniverse() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get("/api/v4/discovery")
                 .then()
                 .assertThat()
@@ -64,14 +62,9 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
     @Test
     void getDiscoveryPlugins() {
         List<Map<String, String>> plugins =
-                given().log()
-                        .all()
-                        .when()
+                given().when()
                         .get("/api/v4/discovery_plugins")
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(200)
                         .contentType(ContentType.JSON)

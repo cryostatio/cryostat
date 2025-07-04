@@ -61,14 +61,9 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
         int targetId = defineSelfCustomTarget();
 
         String scrape =
-                given().log()
-                        .all()
-                        .when()
+                given().when()
                         .get()
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(200)
                         .contentType(ContentType.TEXT)
@@ -78,16 +73,11 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                         .asString();
         MatcherAssert.assertThat(scrape, Matchers.is(Matchers.emptyString()));
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .basePath("/api/v4.1/targets/{targetId}/reports")
                 .pathParams("targetId", targetId)
                 .get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(404);
     }
@@ -114,14 +104,9 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
             expectWebSocketNotification("ReportSuccess");
 
             String scrape =
-                    given().log()
-                            .all()
-                            .when()
+                    given().when()
                             .get()
                             .then()
-                            .log()
-                            .all()
-                            .and()
                             .assertThat()
                             .statusCode(200)
                             .contentType(ContentType.TEXT)
@@ -187,14 +172,9 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
             expectWebSocketNotification("ReportSuccess");
 
             String scrape =
-                    given().log()
-                            .all()
-                            .when()
+                    given().when()
                             .get(selfJvmId)
                             .then()
-                            .log()
-                            .all()
-                            .and()
                             .assertThat()
                             .statusCode(200)
                             .contentType(ContentType.TEXT)
@@ -233,16 +213,11 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                                                                                 100.0))));
                             });
 
-            given().log()
-                    .all()
-                    .when()
+            given().when()
                     .basePath("/api/v4.1/targets/{targetId}/reports")
                     .pathParams("targetId", targetId)
                     .get()
                     .then()
-                    .log()
-                    .all()
-                    .and()
                     .assertThat()
                     .statusCode(200)
                     .contentType(ContentType.JSON);
@@ -254,15 +229,6 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
     @Test
     @Order(4)
     void testScrapeSingleNonexistent() {
-        given().log()
-                .all()
-                .when()
-                .get("nonexistent")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(404);
+        given().when().get("nonexistent").then().assertThat().statusCode(404);
     }
 }

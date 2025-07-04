@@ -32,9 +32,7 @@ public class ApiListingTest extends AbstractTestBase {
 
     @Test
     void shouldDefaultToYamlResponse() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get("/api")
                 .then()
                 .assertThat()
@@ -49,7 +47,7 @@ public class ApiListingTest extends AbstractTestBase {
 
         @BeforeEach
         void setup() {
-            resp = given().log().all().accept(ContentType.JSON).when().get("/api").then();
+            resp = given().accept(ContentType.JSON).when().get("/api").then();
         }
 
         @Test
