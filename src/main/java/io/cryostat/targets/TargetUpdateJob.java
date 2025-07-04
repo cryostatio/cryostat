@@ -15,13 +15,10 @@
  */
 package io.cryostat.targets;
 
-import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.Executor;
 
-import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
-import io.cryostat.libcryostat.JvmIdentifier;
 import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -29,7 +26,6 @@ import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
@@ -46,9 +42,6 @@ public class TargetUpdateJob implements Job {
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingHelper recordingHelper;
-
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration connectionTimeout;
 
     @Override
     @Transactional
@@ -84,10 +77,8 @@ public class TargetUpdateJob implements Job {
         try {
             target.jvmId =
                     connectionManager
-                            .executeConnectedTaskUni(target, JFRConnection::getJvmIdentifier)
-                            .map(JvmIdentifier::getHash)
-                            .await()
-                            .atMost(connectionTimeout);
+                            .executeConnectedTask(target, JFRConnection::getJvmIdentifier)
+                            .getHash();
         } catch (Exception e) {
             target.jvmId = null;
             target.persist();
