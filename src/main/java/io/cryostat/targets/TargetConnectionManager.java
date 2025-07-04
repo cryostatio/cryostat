@@ -24,9 +24,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Semaphore;
 
 import javax.management.InstanceNotFoundException;
 import javax.management.remote.JMXServiceURL;
@@ -95,7 +95,6 @@ public class TargetConnectionManager {
 
     private final ExecutorService virtualThreadPool = Executors.newVirtualThreadPerTaskExecutor();
     private final AsyncLoadingCache<URI, JFRConnection> connections;
-    private final Optional<Semaphore> semaphore;
 
     private final Duration failedBackoff;
     private final Duration failedTimeout;
@@ -106,7 +105,6 @@ public class TargetConnectionManager {
             MatchExpressionEvaluator matchExpressionEvaluator,
             CredentialsFinder credentialsFinder,
             AgentConnection.Factory agentConnectionFactory,
-            @ConfigProperty(name = ConfigProperties.CONNECTIONS_MAX_OPEN) int maxOpen,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_TTL) Duration ttl,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_BACKOFF)
                     Duration failedBackoff,
@@ -121,12 +119,6 @@ public class TargetConnectionManager {
         this.agentConnectionFactory = agentConnectionFactory;
         this.failedBackoff = failedBackoff;
         this.failedTimeout = failedTimeout;
-
-        if (maxOpen > 0) {
-            this.semaphore = Optional.of(new Semaphore(maxOpen, true));
-        } else {
-            this.semaphore = Optional.empty();
-        }
 
         Caffeine<URI, JFRConnection> cacheBuilder =
                 Caffeine.newBuilder()
@@ -297,12 +289,6 @@ public class TargetConnectionManager {
             }
         } catch (Exception e) {
             logger.error("Connection eviction failed", e);
-        } finally {
-            if (semaphore.isPresent()) {
-                semaphore.get().release();
-                logger.debugv(
-                        "Semaphore released! Permits: {0}", semaphore.get().availablePermits());
-            }
         }
     }
 
@@ -320,10 +306,6 @@ public class TargetConnectionManager {
         TargetConnectionOpened evt = new TargetConnectionOpened(connectUrl.toString());
         evt.begin();
         try {
-            if (semaphore.isPresent()) {
-                semaphore.get().acquire();
-            }
-
             if (AgentConnection.isAgentConnection(connectUrl)) {
                 return agentConnectionFactory.createConnection(
                         Target.getTargetByConnectUrl(connectUrl));
@@ -341,9 +323,6 @@ public class TargetConnectionManager {
                             () -> connections.synchronous().invalidate(connectUrl)));
         } catch (Exception e) {
             evt.setExceptionThrown(true);
-            if (semaphore.isPresent()) {
-                semaphore.get().release();
-            }
             throw e;
         } finally {
             evt.end();
