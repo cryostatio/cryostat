@@ -81,6 +81,64 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    public void testCreateAndDelete()
+            throws InterruptedException, IOException, DeploymentException, TimeoutException {
+        int id = defineSelfCustomTarget();
+        String jobId =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams(Map.of("targetId", id))
+                        .post("targets/{targetId}/threaddump")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .contentType(ContentType.JSON)
+                        .statusCode(200)
+                        .body("size()", Matchers.equalTo(0))
+                        .extract()
+                        .body()
+                        .asString();
+
+        expectWebSocketNotification(
+                "ThreadDumpSuccess",
+                o -> jobId.equals(o.getJsonObject("message").getString("jobId")));
+
+        String threadDumpId =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams(Map.of("targetId", id))
+                        .get("targets/{targetId}/threaddump")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .contentType(ContentType.JSON)
+                        .statusCode(200)
+                        .body("size()", Matchers.greaterThan(0))
+                        .extract()
+                        .asString()
+                        .replace("[", "")
+                        .replace("]", "");
+
+        given().log()
+                .all()
+                .when()
+                .pathParams(Map.of("targetId", id, "threadDumpId", threadDumpId))
+                .delete("targets/{targetId}/threaddump/{threadDumpId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+    }
+
+    @Test
     public void testListInvalid() {
         given().log()
                 .all()
