@@ -36,15 +36,10 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
     @Test
     void testGetStandard() {
         int targetId = defineSelfCustomTarget();
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParams(Map.of("targetId", targetId))
                 .get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -58,16 +53,11 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
     void testSetGetUnset() {
         int targetId = defineSelfCustomTarget();
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParams(Map.of("targetId", targetId))
                 .formParams(Map.of("maxAge", 1234, "maxSize", 5678, "toDisk", true))
                 .patch()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -76,15 +66,10 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
                 .body("maxSize", Matchers.equalTo(5678))
                 .body("toDisk", Matchers.equalTo(true));
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParams(Map.of("targetId", targetId))
                 .get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -93,16 +78,11 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
                 .body("maxSize", Matchers.equalTo(5678))
                 .body("toDisk", Matchers.equalTo(true));
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParams(Map.of("targetId", targetId))
                 .formParams(Map.of("maxAge", "unset", "maxSize", "unset", "toDisk", "unset"))
                 .patch()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -111,15 +91,10 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
                 .body("maxSize", Matchers.equalTo(0))
                 .body("toDisk", Matchers.equalTo(false));
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParams(Map.of("targetId", targetId))
                 .get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -133,16 +108,11 @@ public class RecordingOptionsTest extends AbstractTransactionalTestBase {
     @ValueSource(strings = {"maxAge", "maxSize", "toDisk"})
     void testSetInvalid(String key) {
         int targetId = defineSelfCustomTarget();
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParams(Map.of("targetId", targetId))
                 .formParams(Map.of(key, "invalid"))
                 .patch()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(400);
     }

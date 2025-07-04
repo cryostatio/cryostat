@@ -63,13 +63,8 @@ public class RulesTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testListEmpty() {
-        given().log()
-                .all()
-                .get()
+        given().get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -79,15 +74,10 @@ public class RulesTest extends AbstractTransactionalTestBase {
     @Test
     @Transactional
     public void testList() {
-        given().log()
-                .all()
-                .body(rule.toString())
+        given().body(rule.toString())
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(201)
@@ -107,13 +97,8 @@ public class RulesTest extends AbstractTransactionalTestBase {
                                                 "labels",
                                                 List.of(Map.of("key", "a", "value", "b")))));
 
-        given().log()
-                .all()
-                .get()
+        given().get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -139,15 +124,10 @@ public class RulesTest extends AbstractTransactionalTestBase {
     public void testUpdateEnabled() {
         var copy = rule.copy();
         copy.put("enabled", false);
-        given().log()
-                .all()
-                .body(copy.toString())
+        given().body(copy.toString())
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(201)
@@ -155,13 +135,8 @@ public class RulesTest extends AbstractTransactionalTestBase {
                         "id", notNullValue(),
                         "name", is(RULE_NAME));
 
-        given().log()
-                .all()
-                .get()
+        given().get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -170,15 +145,10 @@ public class RulesTest extends AbstractTransactionalTestBase {
                         "[0].name", is(RULE_NAME),
                         "[0].enabled", is(false));
 
-        given().log()
-                .all()
-                .body(copy.copy().put("enabled", true).toString())
+        given().body(copy.copy().put("enabled", true).toString())
                 .contentType(ContentType.JSON)
                 .patch(RULE_NAME)
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -189,29 +159,19 @@ public class RulesTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testUpdateEnabledWithClean() {
-        given().log()
-                .all()
-                .body(rule.toString())
+        given().body(rule.toString())
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(201);
 
-        given().log()
-                .all()
-                .queryParam("clean", true)
+        given().queryParam("clean", true)
                 .body(rule.copy().put("enabled", false).toString())
                 .contentType(ContentType.JSON)
                 .patch(RULE_NAME)
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -231,15 +191,10 @@ public class RulesTest extends AbstractTransactionalTestBase {
         copy.put("eventSpecifier", "template=Profiling,type=TARGET");
         copy.put("matchExpression", EXPR_2);
         copy.put("metadata", Map.of("labels", Map.of("foo", "bar")));
-        given().log()
-                .all()
-                .body(copy.toString())
+        given().body(copy.toString())
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(201)
@@ -247,13 +202,8 @@ public class RulesTest extends AbstractTransactionalTestBase {
                         "id", notNullValue(),
                         "name", is(RULE_NAME));
 
-        given().log()
-                .all()
-                .get()
+        given().get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -270,15 +220,10 @@ public class RulesTest extends AbstractTransactionalTestBase {
                                                 "labels",
                                                 List.of(Map.of("key", "foo", "value", "bar")))));
 
-        given().log()
-                .all()
-                .body(copy.copy().put("enabled", true).toString())
+        given().body(copy.copy().put("enabled", true).toString())
                 .contentType(ContentType.JSON)
                 .patch(RULE_NAME)
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -290,15 +235,10 @@ public class RulesTest extends AbstractTransactionalTestBase {
     @Test
     public void testCreateThrowsWhenRuleNameExists() {
         // Created: rule_name
-        given().log()
-                .all()
-                .body(rule.toString())
+        given().body(rule.toString())
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(201);
@@ -313,9 +253,6 @@ public class RulesTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(409);
@@ -323,16 +260,7 @@ public class RulesTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testCreateThrowsWhenBodyNull() {
-        given().log()
-                .all()
-                .contentType(ContentType.JSON)
-                .post()
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(400);
+        given().contentType(ContentType.JSON).post().then().assertThat().statusCode(400);
     }
 
     @ParameterizedTest
@@ -355,43 +283,30 @@ public class RulesTest extends AbstractTransactionalTestBase {
         badRule.put("name", RULE_NAME);
         badRule.put("matchExpression", EXPR_2);
         // MISSING: badRule.put("eventSpecifier", "some_other_event_specifier");
-        given().log()
-                .all()
-                .body(badRule.toString())
+        given().body(badRule.toString())
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(400);
     }
 
     @Test
     public void testDeleteEmpty() {
-        given().log().all().delete(RULE_NAME).then().log().all().and().assertThat().statusCode(404);
+        given().delete(RULE_NAME).then().assertThat().statusCode(404);
     }
 
     @Test
     public void testDelete() {
-        given().log()
-                .all()
-                .body(rule.toString())
+        given().body(rule.toString())
                 .contentType(ContentType.JSON)
                 .post()
                 .then()
-                .log()
-                .all()
+                .assertThat()
                 .statusCode(201);
 
-        given().log()
-                .all()
-                .delete(RULE_NAME)
+        given().delete(RULE_NAME)
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(204)
                 .body(Matchers.emptyOrNullString());
@@ -401,14 +316,9 @@ public class RulesTest extends AbstractTransactionalTestBase {
     public void testDeleteWithClean() {
         given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
 
-        given().log()
-                .all()
-                .queryParam("clean", true)
+        given().queryParam("clean", true)
                 .delete(RULE_NAME)
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(204)
                 .body(Matchers.emptyOrNullString());

@@ -33,9 +33,7 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testListNone() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get("/api/v4/recordings")
                 .then()
                 .assertThat()
@@ -45,9 +43,7 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testListFsNone() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get("/api/beta/fs/recordings")
                 .then()
                 .assertThat()
@@ -57,9 +53,7 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testListFsInvalid() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get("/api/beta/fs/recordings/abcd1234")
                 .then()
                 .assertThat()
@@ -70,20 +64,12 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testDeleteNone() {
-        given().log()
-                .all()
-                .when()
-                .delete("/api/v4/recordings/nothing")
-                .then()
-                .assertThat()
-                .statusCode(404);
+        given().when().delete("/api/v4/recordings/nothing").then().assertThat().statusCode(404);
     }
 
     @Test
     void testDeleteFsInvalid() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .delete("/api/beta/fs/recordings/abcd1234/nothing")
                 .then()
                 .assertThat()
@@ -92,45 +78,21 @@ public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testUploadGrafanaInvalid() {
-        given().log()
-                .all()
-                .when()
-                .post("/api/v4/grafana/abcd1234")
-                .then()
-                .assertThat()
-                .statusCode(400);
+        given().when().post("/api/v4/grafana/abcd1234").then().assertThat().statusCode(400);
     }
 
     @Test
     void testUploadGrafanaNotFound() {
-        given().log()
-                .all()
-                .when()
-                .post("/api/v4/grafana/Zm9vL2Jhcg==")
-                .then()
-                .assertThat()
-                .statusCode(404);
+        given().when().post("/api/v4/grafana/Zm9vL2Jhcg==").then().assertThat().statusCode(404);
     }
 
     @Test
     void testDownloadInvalid() {
-        given().log()
-                .all()
-                .when()
-                .get("/api/v4/download/abcd1234")
-                .then()
-                .assertThat()
-                .statusCode(400);
+        given().when().get("/api/v4/download/abcd1234").then().assertThat().statusCode(400);
     }
 
     @Test
     void testDownloadNotFound() {
-        given().log()
-                .all()
-                .when()
-                .get("/api/v4/download/Zm9vL2Jhcg==")
-                .then()
-                .assertThat()
-                .statusCode(404);
+        given().when().get("/api/v4/download/Zm9vL2Jhcg==").then().assertThat().statusCode(404);
     }
 }

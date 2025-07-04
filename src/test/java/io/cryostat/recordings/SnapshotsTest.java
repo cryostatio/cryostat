@@ -34,15 +34,10 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
     @Test
     void testNoSource() {
         int id = defineSelfCustomTarget();
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParams(Map.of("targetId", id))
                 .post()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(202);
     }
@@ -53,18 +48,13 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
         long startTime = System.currentTimeMillis();
 
         int recordingId =
-                given().log()
-                        .all()
-                        .when()
+                given().when()
                         .basePath("/api/v4/targets/{targetId}/recordings")
                         .pathParams(Map.of("targetId", targetId))
                         .formParam("recordingName", "activeRecordingsTest")
                         .formParam("events", "template=Continuous")
                         .post()
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(201)
                         .body("id", Matchers.greaterThan(0))
@@ -95,15 +85,10 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                         .getInt("remoteId");
 
         int snapshotId =
-                given().log()
-                        .all()
-                        .when()
+                given().when()
                         .pathParams(Map.of("targetId", targetId))
                         .post()
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(200)
                         .body("id", Matchers.greaterThan(0))
@@ -132,16 +117,11 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getInt("remoteId");
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .basePath("/api/v4/targets/{targetId}/recordings")
                 .pathParams(Map.of("targetId", targetId))
                 .get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
@@ -189,29 +169,19 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                 .body("[1].metadata.labels[1].key", Matchers.equalTo("connectUrl"))
                 .body("[1].metadata.labels[1].value", Matchers.equalTo(SELF_JMX_URL));
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .basePath("/api/v4/targets/{targetId}/recordings")
                 .pathParams(Map.of("targetId", targetId))
                 .delete(Integer.toString(recordingId))
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(204);
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .basePath("/api/v4/targets/{targetId}/recordings")
                 .pathParams(Map.of("targetId", targetId))
                 .delete(Integer.toString(snapshotId))
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(204);
     }
