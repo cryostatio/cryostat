@@ -24,7 +24,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
@@ -46,7 +45,6 @@ import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.recordings.RecordingHelper.SnapshotCreationException;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
-import io.cryostat.util.URIUtil;
 
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
@@ -108,14 +106,12 @@ public class TargetConnectionManager {
             MatchExpressionEvaluator matchExpressionEvaluator,
             CredentialsFinder credentialsFinder,
             AgentConnection.Factory agentConnectionFactory,
-            URIUtil uriUtil,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_MAX_OPEN) int maxOpen,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_TTL) Duration ttl,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_BACKOFF)
                     Duration failedBackoff,
             @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
                     Duration failedTimeout,
-            Executor executor,
             Logger logger) {
         FlightRecorder.register(TargetConnectionOpened.class);
         FlightRecorder.register(TargetConnectionClosed.class);
