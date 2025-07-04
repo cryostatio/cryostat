@@ -37,6 +37,7 @@ public class Cryostat {
     public static class Launcher implements QuarkusApplication {
         @Override
         public int run(String... args) throws Exception {
+            System.out.println("hello world");
             CryostatCore.initialize();
             SecurityManagerFactory.setDefaultSecurityManager(
                     new io.cryostat.core.jmc.SecurityManager());
