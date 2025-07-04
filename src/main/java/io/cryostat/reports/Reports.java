@@ -21,6 +21,8 @@ import java.util.Date;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Stream;
 
 import org.openjdk.jmc.flightrecorder.rules.IRule;
@@ -177,8 +179,28 @@ public class Reports {
             @QueryParam("clean") @DefaultValue("true") boolean clean) {
         var target = Target.getTargetById(targetId);
         var jobId = UUID.randomUUID().toString();
+        ExecutorService subscriptionPool =
+                Executors.newFixedThreadPool(
+                        1,
+                        r -> {
+                            Thread thread = new Thread(r);
+                            thread.setName("subscription-pool-thread");
+                            return thread;
+                        });
+        ExecutorService emitterPool =
+                Executors.newFixedThreadPool(
+                        1,
+                        r -> {
+                            Thread thread = new Thread(r);
+                            thread.setName("emitter-pool-thread");
+                            return thread;
+                        });
+        logger.infov("target analysis for {0} requested", target);
         resp.bodyEndHandler(
                 (v) -> {
+                    logger.infov(
+                            "target analysis for {0} starting, snapshot creation requested",
+                            target);
                     helper.createSnapshot(
                                     target,
                                     Map.of(
@@ -186,10 +208,23 @@ public class Reports {
                                             "true",
                                             TARGET_ANALYSIS_LABEL_KEY,
                                             TARGET_ANALYSIS_LABEL_VALUE))
+                            .emitOn(emitterPool)
+                            .onItem()
+                            .invoke(
+                                    r ->
+                                            logger.infov(
+                                                    "target analysis for {0} created a snapshot:"
+                                                            + " {1}",
+                                                    target, r))
+                            .runSubscriptionOn(subscriptionPool)
                             .subscribe()
                             .with(
                                     recording -> {
                                         var request = new ArchiveRequest(jobId, recording, clean);
+                                        logger.infov(
+                                                "target analysis for {0} requesting archival of {1}"
+                                                        + " : {2}",
+                                                target, recording, request);
                                         bus.publish(
                                                 LongRunningRequestGenerator.ARCHIVE_REQUEST_ADDRESS,
                                                 request);
@@ -220,6 +255,8 @@ public class Reports {
         var target = Target.getTargetById(targetId);
         return reportAggregator
                 .getEntry(target.jvmId)
+                .onItem()
+                .invoke(v -> logger.infov("cached analysis for {0} retrieved", target))
                 .onItem()
                 .transform(
                         e -> {

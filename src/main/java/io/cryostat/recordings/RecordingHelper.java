@@ -87,9 +87,6 @@ import io.smallrye.common.annotation.Identifier;
 import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import io.vertx.mutiny.ext.web.client.HttpResponse;
-import io.vertx.mutiny.ext.web.client.WebClient;
-import io.vertx.mutiny.ext.web.multipart.MultipartForm;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Instance;
@@ -98,7 +95,9 @@ import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.ServerErrorException;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jdk.jfr.RecordingState;
 import org.apache.commons.codec.binary.Base64;
@@ -106,7 +105,13 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.apache.commons.validator.routines.UrlValidator;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.rest.client.inject.RegisterRestClient;
+import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.PartFilename;
+import org.jboss.resteasy.reactive.PartType;
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
@@ -166,7 +171,7 @@ public class RecordingHelper {
 
     @Inject S3Client storage;
 
-    @Inject WebClient webClient;
+    @Inject @RestClient DatasourceClient datasourceClient;
     @Inject StorageBuckets buckets;
     @Inject FileSystem fs;
     @Inject Clock clock;
@@ -484,11 +489,19 @@ public class RecordingHelper {
                 .executeConnectedTaskUni(
                         target,
                         connection -> {
+                            logger.infov(
+                                    "target analysis for target {0} connected, requesting"
+                                            + " snapshot...",
+                                    target);
                             IRecordingDescriptor rec =
                                     connection.getService().getSnapshotRecording();
+                            logger.infov(
+                                    "target analysis for target {0} received snapshot", target);
                             try (InputStream snapshot =
                                     remoteRecordingStreamFactory.openDirect(
                                             connection, target, rec)) {
+                                logger.infov(
+                                        "target analysis for target {0} reading snapshot", target);
                                 if (!snapshotIsReadable(target, snapshot)) {
                                     safeCloseRecording(connection, rec);
                                     throw new SnapshotCreationException(
@@ -1458,29 +1471,15 @@ public class RecordingHelper {
 
     private Uni<String> uploadToJFRDatasource(Path recordingPath)
             throws URISyntaxException, InterruptedException, ExecutionException {
-        MultipartForm form =
-                MultipartForm.create()
-                        .binaryFileUpload(
-                                "file",
-                                DATASOURCE_FILENAME,
-                                recordingPath.toString(),
-                                HttpMimeType.JFR.mime());
-
-        var asyncRequest =
-                webClient
-                        .postAbs(
-                                grafanaDatasourceURL
-                                        .get()
-                                        .toURI()
-                                        .resolve("/load")
-                                        .normalize()
-                                        .toString())
-                        .addQueryParam("overwrite", "true")
-                        .timeout(connectionFailedTimeout.toMillis())
-                        .sendMultipartForm(form);
-        return asyncRequest
+        return datasourceClient
+                .upload(recordingPath, true)
                 .onItem()
-                .transform(HttpResponse::bodyAsString)
+                .transform(
+                        r -> {
+                            try (r) {
+                                return r.readEntity(String.class);
+                            }
+                        })
                 .eventually(
                         () -> {
                             try {
@@ -1576,5 +1575,17 @@ public class RecordingHelper {
         public SnapshotCreationException(String message) {
             super(message);
         }
+    }
+
+    @RegisterRestClient(configKey = "jfr-datasource")
+    interface DatasourceClient {
+        @POST
+        @jakarta.ws.rs.Path("/load")
+        Uni<Response> upload(
+                @RestForm
+                        @PartType(MediaType.APPLICATION_OCTET_STREAM)
+                        @PartFilename("cryostat-analysis.jfr")
+                        java.nio.file.Path file,
+                @RestQuery boolean overwrite);
     }
 }
