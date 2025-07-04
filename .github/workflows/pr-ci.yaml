@@ -159,15 +159,10 @@ jobs:
         cd -
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa
-    - name: Ensure podman 4+ and podman-docker installed
-      run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0), podman-docker, qemu-user-static"
-    - name: Start Podman API
-      run: systemctl --user enable --now podman.socket
-    - name: Set DOCKER_HOST environment variable
-      run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
     - name: Build application
       run: |
         ./mvnw -B -U \
+          -Dquarkus.docker.executable-name=docker \
           -Dquarkus.log.level=error \
           -Dquarkus.hibernate-orm.log.sql=false \
           -Dquarkus.http.access-log.enabled=false \
