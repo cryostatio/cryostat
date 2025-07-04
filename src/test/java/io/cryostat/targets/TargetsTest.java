@@ -31,14 +31,9 @@ public class TargetsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testList() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get("/api/v4/targets")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
@@ -47,14 +42,10 @@ public class TargetsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testGetNone() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParams("id", Integer.MAX_VALUE)
                 .get("/api/v4/targets/{id}")
                 .then()
-                .log()
-                .all()
                 .assertThat()
                 .statusCode(404);
     }
@@ -62,14 +53,9 @@ public class TargetsTest extends AbstractTransactionalTestBase {
     @Test
     void testCreateAndList() {
         defineSelfCustomTarget();
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get("/api/v4/targets")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
@@ -79,15 +65,10 @@ public class TargetsTest extends AbstractTransactionalTestBase {
     @Test
     void testCreateAndGet() {
         int id = defineSelfCustomTarget();
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParam("id", id)
                 .get("/api/v4/targets/{id}")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.JSON)

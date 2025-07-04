@@ -32,16 +32,12 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
     @Test
     public void testCreate() {
         int id =
-                given().log()
-                        .all()
-                        .contentType(ContentType.URLENC)
+                given().contentType(ContentType.URLENC)
                         .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
                         .formParam("alias", "CustomDiscoveryTest")
                         .when()
                         .post("/api/v4/targets")
                         .then()
-                        .log()
-                        .all()
                         .assertThat()
                         .statusCode(201)
                         .and()
@@ -65,28 +61,18 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getInt("id");
 
-        given().log()
-                .all()
-                .when()
-                .delete("/api/v4/targets/{id}", id)
-                .then()
-                .assertThat()
-                .statusCode(204);
+        given().when().delete("/api/v4/targets/{id}", id).then().assertThat().statusCode(204);
     }
 
     @Test
     public void testCreateDryRun() {
-        given().log()
-                .all()
-                .contentType(ContentType.URLENC)
+        given().contentType(ContentType.URLENC)
                 .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
                 .formParam("alias", "CustomDiscoveryTest")
                 .queryParam("dryrun", true)
                 .when()
                 .post("/api/v4/targets")
                 .then()
-                .log()
-                .all()
                 .assertThat()
                 .statusCode(202)
                 .and()
@@ -95,16 +81,12 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testCreateInvalid() {
-        given().log()
-                .all()
-                .contentType(ContentType.URLENC)
+        given().contentType(ContentType.URLENC)
                 .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://invalid-host:9999/jmxrmi")
                 .formParam("alias", "CustomDiscoveryTest")
                 .when()
                 .post("/api/v4/targets")
                 .then()
-                .log()
-                .all()
                 .assertThat()
                 .statusCode(500);
     }
@@ -113,13 +95,9 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
     public void testGet() throws InterruptedException {
         int id = createTestTarget();
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get("/api/v4/targets/{id}", id)
                 .then()
-                .log()
-                .all()
                 .assertThat()
                 .statusCode(200)
                 .and()
@@ -134,41 +112,23 @@ public class CustomDiscoveryTest extends AbstractTransactionalTestBase {
                 .body("alias", Matchers.instanceOf(String.class))
                 .body("alias", Matchers.equalTo("CustomDiscoveryTest"));
 
-        given().log()
-                .all()
-                .when()
-                .delete("/api/v4/targets/{id}", id)
-                .then()
-                .assertThat()
-                .statusCode(204);
+        given().when().delete("/api/v4/targets/{id}", id).then().assertThat().statusCode(204);
     }
 
     @Test
     public void testDelete() throws InterruptedException {
         int id = createTestTarget();
 
-        given().log()
-                .all()
-                .when()
-                .delete("/api/v4/targets/{id}", id)
-                .then()
-                .log()
-                .all()
-                .assertThat()
-                .statusCode(204);
+        given().when().delete("/api/v4/targets/{id}", id).then().assertThat().statusCode(204);
     }
 
     private int createTestTarget() {
-        return given().log()
-                .all()
-                .contentType(ContentType.URLENC)
+        return given().contentType(ContentType.URLENC)
                 .formParam("connectUrl", "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi")
                 .formParam("alias", "CustomDiscoveryTest")
                 .when()
                 .post("/api/v4/targets")
                 .then()
-                .log()
-                .all()
                 .extract()
                 .jsonPath()
                 .getInt("id");

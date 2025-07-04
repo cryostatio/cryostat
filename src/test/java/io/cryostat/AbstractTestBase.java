@@ -111,16 +111,12 @@ public abstract class AbstractTestBase {
     protected int defineSelfCustomTarget() {
         var jp =
                 given().basePath("/")
-                        .log()
-                        .all()
                         .contentType(ContentType.URLENC)
                         .formParam("connectUrl", SELF_JMX_URL)
                         .formParam("alias", SELFTEST_ALIAS)
                         .when()
                         .post("/api/v4/targets")
                         .then()
-                        .log()
-                        .all()
                         .extract()
                         .jsonPath();
 
@@ -139,15 +135,13 @@ public abstract class AbstractTestBase {
         if (selfId < 1) {
             throw new IllegalStateException();
         }
-        var spec = given().log().all().when().basePath("");
+        var spec = given().when().basePath("");
         formParams.forEach(spec::formParam);
         var jp =
                 spec.pathParam("targetId", this.selfId)
                         .formParam("recordingName", name)
                         .post("/api/v4/targets/{targetId}/recordings")
                         .then()
-                        .log()
-                        .all()
                         .and()
                         .assertThat()
                         .statusCode(201)
@@ -163,32 +157,22 @@ public abstract class AbstractTestBase {
         if (selfId < 1 || selfRecordingId < 1) {
             throw new IllegalStateException();
         }
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .basePath("")
                 .pathParams("targetId", selfId, "remoteId", selfRecordingId)
                 .delete("/api/v4/targets/{targetId}/recordings/{remoteId}")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(204);
     }
 
     protected JsonPath graphql(String query) {
-        return given().log()
-                .all()
-                .when()
+        return given().when()
                 .basePath("")
                 .contentType(ContentType.JSON)
                 .body(Map.of("query", query))
                 .post("/api/v4/graphql")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
