@@ -15,10 +15,8 @@
  */
 package io.cryostat.targets;
 
-import java.net.MalformedURLException;
 import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.rmi.ConnectIOException;
 import java.time.Duration;
 import java.util.Collections;
@@ -30,7 +28,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
-import java.util.concurrent.ThreadFactory;
 
 import javax.management.InstanceNotFoundException;
 import javax.management.remote.JMXServiceURL;
@@ -53,9 +50,7 @@ import io.cryostat.util.URIUtil;
 
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
 import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
-import com.github.benmanes.caffeine.cache.CacheLoader;
 import com.github.benmanes.caffeine.cache.Caffeine;
-import com.github.benmanes.caffeine.cache.LoadingCache;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import io.quarkus.narayana.jta.QuarkusTransaction;
@@ -100,8 +95,8 @@ public class TargetConnectionManager {
     private final AgentConnection.Factory agentConnectionFactory;
     private final Logger logger;
 
+    private final ExecutorService virtualThreadPool = Executors.newVirtualThreadPerTaskExecutor();
     private final AsyncLoadingCache<URI, JFRConnection> connections;
-    private final LoadingCache<URI, ExecutorService> workers;
     private final Optional<Semaphore> semaphore;
 
     private final Duration failedBackoff;
@@ -154,11 +149,6 @@ public class TargetConnectionManager {
                             + " by the remote end or the network drops");
         }
         this.connections = cacheBuilder.buildAsync(new ConnectionLoader());
-        this.workers =
-                Caffeine.newBuilder()
-                        .scheduler(Scheduler.systemScheduler())
-                        .expireAfterAccess(ttl.multipliedBy(10))
-                        .build(new WorkerLoader(uriUtil));
         this.logger = logger;
     }
 
@@ -210,13 +200,14 @@ public class TargetConnectionManager {
     }
 
     public <T> Uni<T> executeConnectedTaskUni(Target target, ConnectedTask<T> task) {
-        return Uni.createFrom()
-                .completionStage(
-                        connections
-                                .get(target.connectUrl)
-                                .thenApplyAsync(
-                                        Unchecked.function(task::execute),
-                                        workers.get(target.connectUrl)));
+        return executeInternal(
+                Uni.createFrom()
+                        .completionStage(
+                                connections
+                                        .get(target.connectUrl)
+                                        .thenApplyAsync(
+                                                Unchecked.function(task::execute),
+                                                virtualThreadPool)));
     }
 
     public <T> T executeConnectedTask(Target target, ConnectedTask<T> task) {
@@ -393,42 +384,6 @@ public class TargetConnectionManager {
             }
             logger.debugv("Refreshing connection to {0}", key);
             return asyncLoad(key, executor);
-        }
-    }
-
-    private static class WorkerLoader implements CacheLoader<URI, ExecutorService> {
-
-        private final URIUtil util;
-        private final Logger logger = Logger.getLogger(getClass());
-
-        WorkerLoader(URIUtil util) {
-            this.util = util;
-        }
-
-        @Override
-        public ExecutorService load(URI key) throws Exception {
-            return Executors.newThreadPerTaskExecutor(
-                    r -> {
-                        ThreadFactory factory = Thread.ofVirtual().factory();
-                        // ThreadFactory factory = Thread.ofPlatform().factory();
-                        Thread t = factory.newThread(r);
-                        t.setDaemon(true);
-                        String authority;
-                        if (util.isJmxUrl(key)) {
-                            try {
-                                authority =
-                                        util.getRmiTarget((new JMXServiceURL(key.toString())))
-                                                .getAuthority();
-                            } catch (URISyntaxException | MalformedURLException e) {
-                                logger.errorv(e, "Unable to determine URI authority for: {0}", key);
-                                authority = key.toString();
-                            }
-                        } else {
-                            authority = key.getAuthority();
-                        }
-                        t.setName(String.format("tcm-worker-%s", authority));
-                        return t;
-                    });
         }
     }
 
