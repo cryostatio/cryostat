@@ -15,6 +15,10 @@
  */
 package io.cryostat;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.openjdk.jmc.common.security.SecurityManagerFactory;
 
 import io.cryostat.core.CryostatCore;
@@ -22,6 +26,7 @@ import io.cryostat.core.CryostatCore;
 import io.quarkus.runtime.Quarkus;
 import io.quarkus.runtime.QuarkusApplication;
 import io.quarkus.runtime.annotations.QuarkusMain;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 
 /**
  * Main application entrypoint. Perform any required early initialization tasks, then kick off the
@@ -40,6 +45,19 @@ public class Cryostat {
             CryostatCore.initialize();
             SecurityManagerFactory.setDefaultSecurityManager(
                     new io.cryostat.core.jmc.SecurityManager());
+
+            var i = new AtomicInteger(1);
+            ExecutorService emissionPool =
+                    Executors.newFixedThreadPool(
+                            8,
+                            r -> {
+                                Thread thread = new Thread(r);
+                                thread.setName(
+                                        String.format(
+                                                "emission-pool-thread-%d", i.getAndIncrement()));
+                                return thread;
+                            });
+            Infrastructure.setDefaultExecutor(emissionPool);
             Quarkus.waitForExit();
             return 0;
         }
