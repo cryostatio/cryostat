@@ -48,7 +48,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(S3StorageBucketedMetadataResource.class)
+@QuarkusTestResource(
+        value = S3StorageBucketedMetadataResource.class,
+        restrictToAnnotatedClass = true)
 public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
 
     private final ExecutorService worker = ForkJoinPool.commonPool();
@@ -78,7 +80,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
             // create an in-memory recording
             MultiMap form = MultiMap.caseInsensitiveMultiMap();
             form.add("recordingName", TEST_RECORDING_NAME);
-            form.add("duration", "5");
+            form.add("duration", "30");
             form.add("events", "template=ALL");
             webClient
                     .extensions()
@@ -112,7 +114,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
                     recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
             MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("RUNNING"));
 
-            Thread.sleep(2_000L); // wait some time to save a portion of the recording
+            Thread.sleep(15_000L); // wait some time to save a portion of the recording
 
             // save a copy of the partial recording dump
             MultiMap saveHeaders = MultiMap.caseInsensitiveMultiMap();
@@ -192,7 +194,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
                     Matchers.matchesRegex(
                             TARGET_ALIAS + "_" + TEST_RECORDING_NAME + "_[\\d]{8}T[\\d]{6}Z.jfr"));
             String savedDownloadUrl = recordingInfo.getString("downloadUrl");
-            Thread.sleep(3_000L); // wait for the dump to complete
+            Thread.sleep(20_000L); // wait for the dump to complete
 
             // verify the in-memory recording list has not changed, except recording is now stopped
             CompletableFuture<JsonArray> listRespFuture5 = new CompletableFuture<>();
@@ -214,7 +216,8 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
             MatcherAssert.assertThat(
                     recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
             MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("STOPPED"));
-            MatcherAssert.assertThat(recordingInfo.getInteger("duration"), Matchers.equalTo(5_000));
+            MatcherAssert.assertThat(
+                    recordingInfo.getInteger("duration"), Matchers.equalTo(30_000));
 
             // verify in-memory and saved recordings can be downloaded successfully and yield
             // non-empty recording binaries containing events, and that

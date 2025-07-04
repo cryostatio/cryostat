@@ -58,6 +58,7 @@
     <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.5.3</surefire-plugin.version>
     <surefire.rerunFailingTestsCount>0</surefire.rerunFailingTestsCount>
+    <skip.surefire.tests>${skipTests}</skip.surefire.tests>
     <failsafe-plugin.version>3.5.3</failsafe-plugin.version>
     <failsafe.rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</failsafe.rerunFailingTestsCount>
   </properties>
@@ -472,6 +473,7 @@
             <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
             <maven.home>${maven.home}</maven.home>
           </systemPropertyVariables>
+          <skipTests>${skip.surefire.tests}</skipTests>
         </configuration>
       </plugin>
       <plugin>
@@ -491,6 +493,8 @@
                 <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
                 <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                 <maven.home>${maven.home}</maven.home>
+                <quarkus.test.network-alias>cryostat</quarkus.test.network-alias>
+                <quarkus.test.arg-line>--network-alias=${quarkus.test.network-alias}</quarkus.test.arg-line>
               </systemPropertyVariables>
             </configuration>
           </execution>

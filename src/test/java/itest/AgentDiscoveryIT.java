@@ -16,10 +16,12 @@
 package itest;
 
 import java.time.Duration;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.resources.AgentApplicationResource;
+import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -34,16 +36,22 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.condition.EnabledIf;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@EnabledIfEnvironmentVariable(named = "CI_ARCH", matches = "^$")
-@EnabledIfEnvironmentVariable(named = "CI_ARCH", matches = "^amd64|AMD64$")
+@QuarkusTestResource(value = S3StorageResource.class)
+@EnabledIf("enabled")
 public class AgentDiscoveryIT extends HttpClientTest {
 
     static final Logger logger = Logger.getLogger(AgentDiscoveryIT.class);
     static final Duration TIMEOUT = Duration.ofSeconds(60);
+
+    public static boolean enabled() {
+        String arch = Optional.ofNullable(System.getenv("CI_ARCH")).orElse("").trim();
+        boolean ci = Boolean.valueOf(System.getenv("CI"));
+        return !ci || (ci && "amd64".equalsIgnoreCase(arch));
+    }
 
     @Test
     void shouldDiscoverTarget() throws InterruptedException, TimeoutException, ExecutionException {
@@ -63,7 +71,7 @@ public class AgentDiscoveryIT extends HttpClientTest {
                             obj.getString("connectUrl"),
                             Matchers.equalTo(
                                     String.format(
-                                            "http://%s:%d/",
+                                            "http://%s:%d",
                                             AgentApplicationResource.ALIAS,
                                             AgentApplicationResource.PORT)));
 
