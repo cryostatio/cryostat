@@ -97,7 +97,7 @@ public class LongRunningRequestGenerator {
     @ConsumeEvent(value = THREAD_DUMP_ADDRESS, blocking = true)
     @Transactional
     public void onMessage(ThreadDumpRequest request) {
-        logger.trace("Job ID: " + request.id() + " submitted.");
+        logger.tracev("Job ID: {0} submitted.", request.id());
         try {
             var target = Target.getTargetById(request.targetId);
             var dump = diagnosticsHelper.dumpThreads(request.format, target.id);

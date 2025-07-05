@@ -38,6 +38,7 @@ import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -55,7 +56,6 @@ import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
@@ -114,16 +114,15 @@ public class Diagnostics {
     @Blocking
     @Path("targets/{targetId}/threaddump/{threadDumpId}")
     @RolesAllowed("write")
-    public void deleteThreadDump(@RestPath String threadDumpId) {
+    public void deleteThreadDump(@RestPath String threadDumpId, @RestPath long targetId) {
         try {
             log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
-            storage.headObject(
-                    HeadObjectRequest.builder().bucket(bucket).key(threadDumpId).build());
+            helper.deleteThreadDump(threadDumpId, targetId);
         } catch (NoSuchKeyException e) {
             throw new NotFoundException(e);
+        } catch (BadRequestException e) {
+            throw e;
         }
-        storage.deleteObject(
-                DeleteObjectRequest.builder().bucket(bucket).key(threadDumpId).build());
     }
 
     @Path("/threaddump/download/{encodedKey}")
@@ -133,14 +132,11 @@ public class Diagnostics {
     public RestResponse<Object> handleStorageDownload(
             @RestPath String encodedKey, @RestQuery String query) throws URISyntaxException {
         Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
-        var threadDumpId = decodedKey.getValue().strip();
-        log.tracev("Handling download Request for encodedKey: {0}", encodedKey);
+        log.tracev("Handling download Request for key: {0}", decodedKey);
         log.tracev("Handling download Request for query: {0}", query);
-        log.tracev("Decoded key: {0}", decodedKey.toString());
-        log.tracev("UUID: {0}", threadDumpId);
-        log.tracev("Bucket: {0}", bucket);
+        String key = helper.threadDumpKey(decodedKey);
         try {
-            storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(threadDumpId).build())
+            storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
                     .sdkHttpResponse();
         } catch (NoSuchKeyException e) {
             throw new NotFoundException(e);
@@ -157,8 +153,7 @@ public class Diagnostics {
         }
 
         log.tracev("Handling presigned download request for {0}", decodedKey);
-        GetObjectRequest getRequest =
-                GetObjectRequest.builder().bucket(bucket).key(threadDumpId).build();
+        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()
                         .signatureDuration(Duration.ofMinutes(1))

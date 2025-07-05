@@ -18,10 +18,8 @@ package io.cryostat.diagnostic;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -44,19 +42,19 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
+import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
-import software.amazon.awssdk.services.s3.model.Tag;
-import software.amazon.awssdk.services.s3.model.Tagging;
 
 @ApplicationScoped
 public class DiagnosticsHelper {
@@ -82,8 +80,6 @@ public class DiagnosticsHelper {
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     static final String THREAD_DUMP_REQUESTED = "ThreadDumpRequested";
     static final String THREAD_DUMP_DELETED = "ThreadDumpDeleted";
-    private static final String META_KEY_NAME = "uuid";
-    private static final String META_KEY_JVMID = "jvmId";
 
     @Inject EventBus bus;
     @Inject TargetConnectionManager targetConnectionManager;
@@ -112,8 +108,21 @@ public class DiagnosticsHelper {
                 });
     }
 
+    public void deleteThreadDump(String threadDumpID, long targetId)
+            throws BadRequestException, NoSuchKeyException {
+        String jvmId = Target.getTargetById(targetId).jvmId;
+        String key = threadDumpKey(jvmId, threadDumpID);
+        if (Objects.isNull(jvmId)) {
+            log.errorv("TargetId {0} failed to resolve to a jvmId", targetId);
+            throw new BadRequestException();
+        } else {
+            storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
+            storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
+        }
+    }
+
     public List<ThreadDump> getThreadDumps(long targetId) {
-        return listThreadDumps().stream()
+        return listThreadDumps(targetId).stream()
                 .map(
                         item -> {
                             try {
@@ -124,105 +133,35 @@ public class DiagnosticsHelper {
                             }
                         })
                 .filter(Objects::nonNull)
-                .filter(
-                        item -> {
-                            log.tracev("Item jvmID: {0}", item.jvmId());
-                            log.tracev("Item key: {0}", item.uuid());
-                            log.tracev("Item download URL: {0}", item.downloadUrl());
-                            return Objects.equals(
-                                    Target.getTargetById(targetId).jvmId, item.jvmId());
-                        })
                 .toList();
     }
 
     private ThreadDump convertObject(S3Object object) throws Exception {
-        String jvmId;
-        switch (storageMode(storageMode)) {
-            case StorageMode.TAGGING:
-                var req =
-                        GetObjectTaggingRequest.builder().bucket(bucket).key(object.key()).build();
-                var tagging = storage.getObjectTagging(req);
-                var list = tagging.tagSet();
-                if (!tagging.hasTagSet() || list.isEmpty()) {
-                    throw new Exception("No metadata found");
-                }
-                var decodedList = new ArrayList<Pair<String, String>>();
-                list.forEach(
-                        t -> {
-                            var encodedKey = t.key();
-                            var decodedKey =
-                                    new String(base64Url.decode(encodedKey), StandardCharsets.UTF_8)
-                                            .trim();
-                            var encodedValue = t.value();
-                            var decodedValue =
-                                    new String(
-                                                    base64Url.decode(encodedValue),
-                                                    StandardCharsets.UTF_8)
-                                            .trim();
-                            decodedList.add(Pair.of(decodedKey, decodedValue));
-                        });
-                jvmId =
-                        decodedList.stream()
-                                .filter(t -> t.getKey().equals("jvmId"))
-                                .map(Pair::getValue)
-                                .findFirst()
-                                .orElseThrow();
-                // content, jvmid, downloadurl, uuid
-                break;
-            case StorageMode.METADATA:
-                var headReq = HeadObjectRequest.builder().bucket(bucket).key(object.key()).build();
-                var meta = storage.headObject(headReq).metadata();
-                jvmId = Objects.requireNonNull(meta.get(META_KEY_JVMID));
-                break;
-            case StorageMode.BUCKET:
-                var t = metadataService.get().read(object.key()).orElseThrow();
-                jvmId = t.jvmId();
-                break;
-            default:
-                throw new IllegalStateException();
-        }
+        String jvmId = object.key().split("/")[0];
+        String uuid = object.key().split("/")[1];
         return new ThreadDump(
-                jvmId,
-                downloadUrl(jvmId, object.key()),
-                object.key(),
-                object.lastModified().toEpochMilli());
-    }
-
-    public String getThreadDumpContent(String uuid) throws IOException {
-        try (InputStream is = getModel(uuid)) {
-            return new String(is.readAllBytes(), StandardCharsets.UTF_8);
-        }
-    }
-
-    private InputStream getModel(String name) {
-        var req = GetObjectRequest.builder().bucket(bucket).key(name).build();
-        return storage.getObject(req);
+                jvmId, downloadUrl(jvmId, uuid), uuid, object.lastModified().toEpochMilli());
     }
 
     public ThreadDump addThreadDump(String content, String jvmId) {
         String uuid = UUID.randomUUID().toString();
+        log.tracev("Putting Thread dump into storage with key: {0}", threadDumpKey(jvmId, uuid));
         var reqBuilder =
                 PutObjectRequest.builder()
                         .bucket(bucket)
-                        .key(uuid)
+                        .key(threadDumpKey(jvmId, uuid))
                         .contentType(MediaType.TEXT_PLAIN);
         switch (storageMode(storageMode)) {
             case StorageMode.TAGGING:
-                reqBuilder = reqBuilder.tagging(createTagging(jvmId));
-                log.tracev("Putting Thread dump into storage with key: {0}", uuid);
-                log.tracev("jvmID: {0}", jvmId);
-                log.tracev("Bucket: {0}", bucket);
                 break;
             case StorageMode.METADATA:
-                reqBuilder =
-                        reqBuilder.metadata(Map.of(META_KEY_NAME, uuid, META_KEY_JVMID, jvmId));
                 break;
             case StorageMode.BUCKET:
                 try {
                     metadataService
                             .get()
                             .create(
-                                    uuid,
+                                    threadDumpKey(jvmId, uuid),
                                     new ThreadDump(
                                             jvmId,
                                             downloadUrl(jvmId, uuid),
@@ -237,31 +176,6 @@ public class DiagnosticsHelper {
         }
         storage.putObject(reqBuilder.build(), RequestBody.fromString(content));
         return new ThreadDump(jvmId, downloadUrl(jvmId, uuid), uuid, clock.now().getEpochSecond());
-    }
-
-    private Tagging createTagging(String jvmId) {
-        var map = Map.of("jvmId", jvmId);
-        var tags = new ArrayList<Tag>();
-        tags.addAll(
-                map.entrySet().stream()
-                        .map(
-                                e ->
-                                        Tag.builder()
-                                                .key(
-                                                        base64Url.encodeAsString(
-                                                                e.getKey()
-                                                                        .getBytes(
-                                                                                StandardCharsets
-                                                                                        .UTF_8)))
-                                                .value(
-                                                        base64Url.encodeAsString(
-                                                                e.getValue()
-                                                                        .getBytes(
-                                                                                StandardCharsets
-                                                                                        .UTF_8)))
-                                                .build())
-                        .toList());
-        return Tagging.builder().tagSet(tags).build();
     }
 
     public String downloadUrl(String jvmId, String filename) {
@@ -290,7 +204,7 @@ public class DiagnosticsHelper {
 
     public InputStream getThreadDumpStream(String encodedKey) {
         Pair<String, String> decodedKey = decodedKey(encodedKey);
-        var key = decodedKey.getValue().strip();
+        var key = threadDumpKey(decodedKey);
 
         GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
 
@@ -306,12 +220,16 @@ public class DiagnosticsHelper {
         return Pair.of(parts[0], parts[1]);
     }
 
-    public List<S3Object> listThreadDumps() {
-        return storage
-                .listObjectsV2(ListObjectsV2Request.builder().bucket(bucket).build())
-                .contents()
-                .stream()
-                .toList();
+    public List<S3Object> listThreadDumps(long targetId) {
+        var builder = ListObjectsV2Request.builder().bucket(bucket);
+        String jvmId = Target.getTargetById(targetId).jvmId;
+        if (Objects.isNull(jvmId)) {
+            log.errorv("TargetId {0} failed to resolve to a jvmId", targetId);
+        }
+        if (StringUtils.isNotBlank(jvmId)) {
+            builder = builder.prefix(jvmId);
+        }
+        return storage.listObjectsV2(builder.build()).contents();
     }
 
     public static StorageMode storageMode(String name) {
