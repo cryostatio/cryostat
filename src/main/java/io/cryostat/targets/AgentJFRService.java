@@ -16,7 +16,6 @@
 package io.cryostat.targets;
 
 import java.io.BufferedInputStream;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.ParseException;
@@ -52,7 +51,6 @@ import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 
 import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.core.buffer.Buffer;
 import org.jboss.logging.Logger;
 
 /**
@@ -170,9 +168,9 @@ class AgentJFRService implements CryostatFlightRecorderService {
     @Override
     public InputStream openStream(IRecordingDescriptor descriptor, boolean removeOnClose)
             throws FlightRecorderException {
-        Uni<Buffer> u = client.openStream(descriptor.getId());
-        Buffer b = u.await().atMost(client.getTimeout());
-        return new BufferedInputStream(new ByteArrayInputStream(b.getBytes()));
+        Uni<InputStream> u = client.openStream(descriptor.getId());
+        InputStream is = u.await().atMost(client.getTimeout());
+        return new BufferedInputStream(is);
     }
 
     @Override
