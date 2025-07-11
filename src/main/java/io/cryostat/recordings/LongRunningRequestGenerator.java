@@ -22,6 +22,7 @@ import java.util.concurrent.CompletionException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
+import io.cryostat.diagnostic.DiagnosticsHelper;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.reports.ReportsService;
@@ -66,18 +67,24 @@ public class LongRunningRequestGenerator {
     public static final String ARCHIVED_REPORT_COMPLETE_ADDRESS =
             "io.cryostat.recording.LongRunningRequestGenerator.ArchivedReportComplete";
 
+    public static final String HEAP_DUMP_REQUEST_ADDRESS =
+            "io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest";
+
     private static final String ARCHIVE_RECORDING_SUCCESS = "ArchiveRecordingSuccess";
     private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailure";
     private static final String GRAFANA_UPLOAD_SUCCESS = "GrafanaUploadSuccess";
     private static final String GRAFANA_UPLOAD_FAIL = "GrafanaUploadFailure";
     private static final String REPORT_SUCCESS = "ReportSuccess";
     private static final String REPORT_FAILURE = "ReportFailure";
+    private static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
+    private static final String HEAP_DUMP_FAILURE = "HeapDumpFailure";
 
     @Inject Logger logger;
     @Inject private EventBus bus;
     @Inject private RecordingHelper recordingHelper;
     @Inject private ReportsService reportsService;
     @Inject AnalysisReportAggregator analysisReportAggregator;
+    @Inject DiagnosticsHelper diagnosticsHelper;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
@@ -277,6 +284,21 @@ public class LongRunningRequestGenerator {
                         });
     }
 
+    @Transactional
+    public void onMessage(HeapDumpRequest request) {
+        logger.tracev("Job ID: {0} submitted.", request.id());
+        try {
+            var target = Target.getTargetById(request.targetId);
+            diagnosticsHelper.dumpHeap(target.id);
+        } catch (Exception e) {
+            logger.warn("Failed to dump threads");
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(HEAP_DUMP_FAILURE, Map.of("jobId", request.id())));
+            throw new CompletionException(e);
+        }
+    }
+
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ArchiveRequest(String id, ActiveRecording recording, boolean deleteOnCompletion) {
         public ArchiveRequest {
@@ -345,6 +367,12 @@ public class LongRunningRequestGenerator {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(filename);
             Objects.requireNonNull(report);
+        }
+    }
+
+    public record HeapDumpRequest(String id, long targetId) {
+        public HeapDumpRequest {
+            Objects.requireNonNull(id);
         }
     }
 }
