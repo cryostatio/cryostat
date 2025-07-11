@@ -33,13 +33,9 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testListEmpty() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get()
                 .then()
-                .log()
-                .all()
                 .assertThat()
                 .statusCode(200)
                 .and()
@@ -50,22 +46,18 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testGetNone() {
-        given().log().all().when().get("1").then().log().all().assertThat().statusCode(404);
+        given().when().get("1").then().assertThat().statusCode(404);
     }
 
     @Test
     public void testCreate() {
-        given().log()
-                .all()
-                .contentType(ContentType.URLENC)
+        given().contentType(ContentType.URLENC)
                 .formParam("matchExpression", "true")
                 .formParam("username", "user")
                 .formParam("password", "pass")
                 .when()
                 .post()
                 .then()
-                .log()
-                .all()
                 .assertThat()
                 .statusCode(201)
                 .and()
@@ -86,13 +78,9 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
     public void testGet() throws InterruptedException {
         int id = createTestCredential();
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get(Integer.toString(id))
                 .then()
-                .log()
-                .all()
                 .assertThat()
                 .statusCode(200)
                 .and()
@@ -110,13 +98,9 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
     public void testDelete() throws InterruptedException {
         int id = createTestCredential();
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get(Integer.toString(id))
                 .then()
-                .log()
-                .all()
                 .assertThat()
                 .statusCode(200)
                 .and()
@@ -131,17 +115,13 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
     }
 
     private int createTestCredential() {
-        return given().log()
-                .all()
-                .contentType(ContentType.URLENC)
+        return given().contentType(ContentType.URLENC)
                 .formParam("matchExpression", "true")
                 .formParam("username", "user")
                 .formParam("password", "pass")
                 .when()
                 .post()
                 .then()
-                .log()
-                .all()
                 .extract()
                 .jsonPath()
                 .getInt("id");

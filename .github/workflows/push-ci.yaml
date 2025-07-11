@@ -195,7 +195,7 @@ jobs:
         ./mvnw -B -U \
         -Dquarkus.quinoa=false \
         -Dspotless.check.skip \
-        -Dquarkus.log.level=error \
+        -Dquarkus.log.level=off \
         -Dquarkus.hibernate-orm.log.sql=false \
         -Dquarkus.http.access-log.enabled=false \
         compile test

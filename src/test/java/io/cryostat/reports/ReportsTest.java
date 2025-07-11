@@ -47,14 +47,9 @@ public class ReportsTest extends AbstractTransactionalTestBase {
     @Test
     void testGetReportsRules() {
         var json =
-                given().log()
-                        .all()
-                        .when()
+                given().when()
                         .get("/api/v4.1/reports_rules")
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(200)
                         .contentType(ContentType.JSON)
@@ -68,29 +63,15 @@ public class ReportsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetBadArchiveSource() {
-        given().log()
-                .all()
-                .when()
-                .get("/api/v4/reports/nonexistent")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(400);
+        given().when().get("/api/v4/reports/nonexistent").then().assertThat().statusCode(400);
     }
 
     @Test
     void testGetNonexistentTargetSource() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParams("targetId", Integer.MAX_VALUE, "recordingName", "foo")
                 .get("/api/v4/targets/{targetId}/reports/{recordingName}")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(404);
     }
@@ -98,15 +79,10 @@ public class ReportsTest extends AbstractTransactionalTestBase {
     @Test
     void testGetNonexistentRecordingSource() {
         int targetId = defineSelfCustomTarget();
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .pathParams("targetId", targetId, "recordingName", "foo")
                 .get("/api/v4/targets/{targetId}/reports/{recordingName}")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(404);
     }
@@ -120,15 +96,10 @@ public class ReportsTest extends AbstractTransactionalTestBase {
             startSelfRecording("targetAnalysisReportRecording", TEMPLATE_CONTINUOUS);
 
             String archiveJobId =
-                    given().log()
-                            .all()
-                            .when()
+                    given().when()
                             .pathParams("targetId", targetId)
                             .post("/api/v4.1/targets/{targetId}/reports")
                             .then()
-                            .log()
-                            .all()
-                            .and()
                             .assertThat()
                             // 202 Indicates report generation is in progress and sends an
                             // intermediate
@@ -163,15 +134,10 @@ public class ReportsTest extends AbstractTransactionalTestBase {
             cleanupSelfRecording();
 
             if (archivedRecordingName != null) {
-                given().log()
-                        .all()
-                        .when()
+                given().when()
                         .pathParams("connectUrl", SELF_JMX_URL, "filename", archivedRecordingName)
                         .delete("/api/beta/recordings/{connectUrl}/{filename}")
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(204);
             }
@@ -186,15 +152,10 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                     startSelfRecording("activeRecordingsTestReports", TEMPLATE_CONTINUOUS)
                             .getInt("remoteId");
 
-            given().log()
-                    .all()
-                    .when()
+            given().when()
                     .pathParams("targetId", targetId, "remoteId", remoteId)
                     .get("/api/v4/targets/{targetId}/reports/{remoteId}")
                     .then()
-                    .log()
-                    .all()
-                    .and()
                     .assertThat()
                     .statusCode(202)
                     .contentType(ContentType.TEXT)
@@ -222,14 +183,9 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                     startSelfRecording("activeRecordingsTestReportsURL", TEMPLATE_CONTINUOUS);
             String reportUrl = recording.getString("reportUrl");
 
-            given().log()
-                    .all()
-                    .when()
+            given().when()
                     .get(reportUrl)
                     .then()
-                    .log()
-                    .all()
-                    .and()
                     .assertThat()
                     .statusCode(202)
                     .contentType(ContentType.TEXT)
@@ -258,17 +214,12 @@ public class ReportsTest extends AbstractTransactionalTestBase {
             int remoteId = activeRecording.getInt("remoteId");
 
             String archiveJobId =
-                    given().log()
-                            .all()
-                            .when()
+                    given().when()
                             .pathParam("targetId", targetId)
                             .pathParam("remoteId", remoteId)
                             .body("SAVE")
                             .patch("/api/v4/targets/{targetId}/recordings/{remoteId}")
                             .then()
-                            .log()
-                            .all()
-                            .and()
                             .assertThat()
                             .statusCode(200)
                             .and()
@@ -286,14 +237,9 @@ public class ReportsTest extends AbstractTransactionalTestBase {
             String reportUrl = archiveMessage.getJsonObject("message").getString("reportUrl");
 
             String reportJobId =
-                    given().log()
-                            .all()
-                            .when()
+                    given().when()
                             .get(reportUrl)
                             .then()
-                            .log()
-                            .all()
-                            .and()
                             .assertThat()
                             .statusCode(202)
                             .contentType(ContentType.TEXT)
@@ -313,14 +259,9 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                     "ReportSuccess",
                     o -> reportJobId.equals(o.getJsonObject("message").getString("jobId")));
 
-            given().log()
-                    .all()
-                    .when()
+            given().when()
                     .get(reportUrl)
                     .then()
-                    .log()
-                    .all()
-                    .and()
                     .assertThat()
                     .statusCode(200)
                     .contentType(ContentType.JSON)
@@ -330,15 +271,10 @@ public class ReportsTest extends AbstractTransactionalTestBase {
             cleanupSelfRecording();
 
             if (archivedRecordingName != null) {
-                given().log()
-                        .all()
-                        .when()
+                given().when()
                         .pathParams("connectUrl", SELF_JMX_URL, "filename", archivedRecordingName)
                         .delete("/api/beta/recordings/{connectUrl}/{filename}")
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(204);
             }
