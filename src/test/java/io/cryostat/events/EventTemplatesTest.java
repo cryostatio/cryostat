@@ -31,14 +31,9 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testListNone() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
@@ -50,42 +45,19 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testListTargets() {
-        given().log()
-                .all()
-                .when()
-                .get("/TARGET")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(400);
+        given().when().get("/TARGET").then().assertThat().statusCode(400);
     }
 
     @Test
     void testListNonsense() {
-        given().log()
-                .all()
-                .when()
-                .get("/NONSENSE")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(400);
+        given().when().get("/NONSENSE").then().assertThat().statusCode(400);
     }
 
     @Test
     void testListCustoms() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get("/CUSTOM")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
@@ -94,14 +66,9 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testListPresets() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get("/PRESET")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
@@ -110,44 +77,21 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testDeleteInvalid() {
-        given().log()
-                .all()
-                .when()
-                .delete("none")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(404);
+        given().when().delete("none").then().assertThat().statusCode(404);
     }
 
     @Test
     void testDeleteHardcoded() {
-        given().log()
-                .all()
-                .when()
-                .delete("ALL")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(400);
+        given().when().delete("ALL").then().assertThat().statusCode(400);
     }
 
     @Test
     void testCreateInvalid() {
         given().contentType(ContentType.MULTIPART)
                 .multiPart("template", "INVALID")
-                .log()
-                .all()
                 .when()
                 .post()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(400);
     }
@@ -163,14 +107,9 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
 <configuration version="2.0" label="Empty" description="Empty Template" provider="EventTemplatesTest">
 </configuration>
 """)
-                        .log()
-                        .all()
                         .when()
                         .post()
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(201)
                         .contentType(ContentType.JSON)
@@ -178,14 +117,9 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getString("name");
 
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(2))
@@ -196,7 +130,7 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
                 .body("[1].type", Matchers.equalTo("CUSTOM"))
                 .body("[1].provider", Matchers.equalTo("EventTemplatesTest"));
 
-        given().log().all().when().delete(name);
+        given().when().delete(name);
     }
 
     @Test
@@ -218,14 +152,9 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
  </event>
 </configuration>
 """)
-                        .log()
-                        .all()
                         .when()
                         .post()
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(201)
                         .contentType(ContentType.JSON)
@@ -233,6 +162,6 @@ public class EventTemplatesTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getString("name");
 
-        given().log().all().when().delete(name);
+        given().when().delete(name);
     }
 }

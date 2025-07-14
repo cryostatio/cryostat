@@ -36,9 +36,7 @@ public class JMCAgentTemplatesTest extends AbstractTransactionalTestBase {
     void testListNone() {
         MatcherAssert.assertThat(
                 (List<?>)
-                        given().log()
-                                .all()
-                                .when()
+                        given().when()
                                 .get()
                                 .then()
                                 .assertThat()
@@ -52,15 +50,13 @@ public class JMCAgentTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test
     void testDeleteNone() {
-        given().log().all().when().delete("/nothing").then().assertThat().statusCode(404);
+        given().when().delete("/nothing").then().assertThat().statusCode(404);
     }
 
     @Test
     void testCreateAndDelete() {
         var filename = "agentTemplatesProbe1";
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .multiPart("name", filename)
                 .multiPart(
                         "probeTemplate",
@@ -162,7 +158,7 @@ public class JMCAgentTemplatesTest extends AbstractTransactionalTestBase {
                         "events[1].returnValue",
                         Matchers.nullValue());
 
-        given().log().all().when().delete(filename).then().assertThat().statusCode(204);
-        given().log().all().when().delete(filename).then().assertThat().statusCode(404);
+        given().when().delete(filename).then().assertThat().statusCode(204);
+        given().when().delete(filename).then().assertThat().statusCode(404);
     }
 }

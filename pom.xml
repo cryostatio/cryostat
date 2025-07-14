@@ -472,6 +472,7 @@
           <systemPropertyVariables>
             <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
             <maven.home>${maven.home}</maven.home>
+            <junit.jupiter.extensions.autodetection.enabled>true</junit.jupiter.extensions.autodetection.enabled>
           </systemPropertyVariables>
           <skipTests>${skip.surefire.tests}</skipTests>
         </configuration>
@@ -495,6 +496,7 @@
                 <maven.home>${maven.home}</maven.home>
                 <quarkus.test.network-alias>cryostat</quarkus.test.network-alias>
                 <quarkus.test.arg-line>--network-alias=${quarkus.test.network-alias}</quarkus.test.arg-line>
+                <junit.jupiter.extensions.autodetection.enabled>true</junit.jupiter.extensions.autodetection.enabled>
               </systemPropertyVariables>
             </configuration>
           </execution>

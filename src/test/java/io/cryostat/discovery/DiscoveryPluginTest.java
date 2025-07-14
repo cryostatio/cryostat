@@ -47,16 +47,11 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
             var payload = new HashMap<>();
             payload.put("callback", callback);
             payload.put("realm", "test");
-            given().log()
-                    .all()
-                    .when()
+            given().when()
                     .body(payload)
                     .contentType(ContentType.JSON)
                     .post("/api/v4/discovery")
                     .then()
-                    .log()
-                    .all()
-                    .and()
                     .assertThat()
                     .statusCode(400);
         }
@@ -67,32 +62,22 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
             var payload = new HashMap<>();
             payload.put("callback", "http://example.com");
             payload.put("realm", realm);
-            given().log()
-                    .all()
-                    .when()
+            given().when()
                     .body(payload)
                     .contentType(ContentType.JSON)
                     .post("/api/v4/discovery")
                     .then()
-                    .log()
-                    .all()
-                    .and()
                     .assertThat()
                     .statusCode(400);
         }
 
         @Test
         void rejectsPublishForUnregisteredPlugin() {
-            given().log()
-                    .all()
-                    .when()
+            given().when()
                     .body(List.of())
                     .contentType(ContentType.JSON)
                     .post("/api/v4/discovery/abcd1234")
                     .then()
-                    .log()
-                    .all()
-                    .and()
                     .assertThat()
                     .statusCode(404);
         }
@@ -102,9 +87,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
     void workflow() {
         // store credentials
         var credentialId =
-                given().log()
-                        .all()
-                        .when()
+                given().when()
                         .formParams(
                                 Map.of(
                                         "username",
@@ -117,9 +100,6 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .contentType(ContentType.URLENC)
                         .post("/api/v4/credentials")
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(201)
                         .contentType(ContentType.JSON)
@@ -133,16 +113,11 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 String.format(
                         "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
         var registration =
-                given().log()
-                        .all()
-                        .when()
+                given().when()
                         .body(Map.of("realm", realmName, "callback", callback))
                         .contentType(ContentType.JSON)
                         .post("/api/v4/discovery")
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(200)
                         .contentType(ContentType.JSON)
@@ -155,59 +130,42 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 pluginToken, Matchers.is(Matchers.not(Matchers.emptyOrNullString())));
 
         // test what happens if we publish an update that we have no discoverable targets
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .body(List.of())
                 .contentType(ContentType.JSON)
                 .queryParams(Map.of("token", pluginToken))
                 .post(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(204);
 
         // test what happens if we try to publish an invalid node - in this case, one containing no
         // target definition
         var node = new Node(null, NodeType.BaseNodeType.JVM.name(), null);
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .body(List.of(node))
                 .contentType(ContentType.JSON)
                 .queryParams(Map.of("token", pluginToken))
                 .post(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(400);
 
         // test what happens if we publish an acceptable singleton list
         var target = new Target(URI.create("http://localhost:8081"), "test-node");
         node = new Node("test-node", NodeType.BaseNodeType.JVM.name(), target);
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .body(List.of(node))
                 .contentType(ContentType.JSON)
                 .queryParams(Map.of("token", pluginToken))
                 .post(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(204);
 
         // refresh
         var refreshedRegistration =
-                given().log()
-                        .all()
-                        .when()
+                given().when()
                         .body(
                                 Map.of(
                                         "id",
@@ -221,9 +179,6 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                         .contentType(ContentType.JSON)
                         .post("/api/v4/discovery")
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(200)
                         .contentType(ContentType.JSON)
@@ -235,43 +190,28 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         MatcherAssert.assertThat(refreshedPluginToken, Matchers.not(Matchers.equalTo(pluginToken)));
 
         // deregister
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .queryParams(Map.of("token", pluginToken))
                 .delete(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(204);
 
         // double deregister
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .queryParams(Map.of("token", pluginToken))
                 .delete(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(404);
 
         // publish update when not registered
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .body(List.of(node))
                 .contentType(ContentType.JSON)
                 .queryParams(Map.of("token", pluginToken))
                 .post(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(404);
     }

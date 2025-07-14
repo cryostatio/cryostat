@@ -31,14 +31,9 @@ public class TrustStoreTest extends AbstractTransactionalTestBase {
 
     @Test
     void testList() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get()
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.JSON)

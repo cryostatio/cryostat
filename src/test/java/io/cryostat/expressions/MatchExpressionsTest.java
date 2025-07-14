@@ -36,13 +36,9 @@ public class MatchExpressionsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testListNone() {
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get()
                 .then()
-                .log()
-                .all()
                 .assertThat()
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(0));
@@ -50,7 +46,7 @@ public class MatchExpressionsTest extends AbstractTransactionalTestBase {
 
     @Test
     public void testGetNone() {
-        given().log().all().when().get("1").then().log().all().assertThat().statusCode(404);
+        given().when().get("1").then().assertThat().statusCode(404);
     }
 
     @Test
@@ -91,16 +87,11 @@ public class MatchExpressionsTest extends AbstractTransactionalTestBase {
         body.put("matchExpression", expr);
         body.put("targetIds", List.of(id));
         var result =
-                given().log()
-                        .all()
-                        .contentType(ContentType.JSON)
+                given().contentType(ContentType.JSON)
                         .body(body.encodePrettily())
                         .when()
                         .post()
                         .then()
-                        .log()
-                        .all()
-                        .and()
                         .assertThat()
                         .statusCode(status);
 

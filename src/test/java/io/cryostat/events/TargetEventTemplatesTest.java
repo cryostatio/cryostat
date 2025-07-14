@@ -30,14 +30,9 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
     @Test
     void testList() {
         int id = defineSelfCustomTarget();
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get("/api/v4/targets/{id}/event_templates", id)
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.JSON)
@@ -56,18 +51,13 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
     @Test
     void testGetInvalid() {
         int id = defineSelfCustomTarget();
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get(
                         "/api/v4/targets/{id}/event_templates/{templateType}/{templateName}",
                         id,
                         "TARGET",
                         "ALL")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(400);
     }
@@ -75,18 +65,13 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
     @Test
     void testGetNotFound() {
         int id = defineSelfCustomTarget();
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get(
                         "/api/v4/targets/{id}/event_templates/{templateType}/{templateName}",
                         id,
                         "CUSTOM",
                         "None")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(404);
     }
@@ -94,18 +79,13 @@ public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
     @Test
     void testGet() {
         int id = defineSelfCustomTarget();
-        given().log()
-                .all()
-                .when()
+        given().when()
                 .get(
                         "/api/v4/targets/{id}/event_templates/{templateType}/{templateName}",
                         id,
                         "TARGET",
                         "Profiling")
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .contentType(ContentType.XML)

@@ -30,17 +30,12 @@ public class CredentialCheckIT extends StandardSelfTest {
 
     @Test
     void testSelf() {
-        given().log()
-                .all()
-                .contentType(ContentType.URLENC)
+        given().contentType(ContentType.URLENC)
                 .formParam("username", "user")
                 .formParam("password", "pass")
                 .when()
                 .post("/test/{targetId}", getSelfReferenceTargetId())
                 .then()
-                .log()
-                .all()
-                .and()
                 .assertThat()
                 .statusCode(200)
                 .and()
