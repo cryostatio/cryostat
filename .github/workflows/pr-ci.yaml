@@ -164,7 +164,7 @@ jobs:
       run: |
         ./mvnw -B -U \
           -Dquarkus.docker.executable-name=docker \
-          -Dquarkus.log.level=error \
+          -Dquarkus.log.level=off \
           -Dquarkus.hibernate-orm.log.sql=false \
           -Dquarkus.http.access-log.enabled=false \
           clean verify
