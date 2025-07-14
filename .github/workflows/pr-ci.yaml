@@ -15,7 +15,7 @@ env:
 jobs:
   check-before-build:
     runs-on: ubuntu-latest
-    if: github.repository_owner == 'cryostatio' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/build_test')
+    # if: github.repository_owner == 'cryostatio' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/build_test')
 
     permissions:
       pull-requests: write
