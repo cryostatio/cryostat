@@ -24,7 +24,6 @@ import io.cryostat.core.templates.TemplateService;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.TargetConnectionManager;
 
 import io.smallrye.common.annotation.Blocking;
 import jakarta.annotation.security.RolesAllowed;
@@ -54,7 +53,6 @@ public class TargetEventTemplates {
     @Inject TargetTemplateService.Factory targetTemplateServiceFactory;
     @Inject S3TemplateService customTemplateService;
     @Inject PresetTemplateService presetTemplateService;
-    @Inject TargetConnectionManager connectionManager;
     @Inject Logger logger;
 
     @GET
