@@ -33,13 +33,12 @@ import junit.framework.AssertionFailedError;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@EnabledIfEnvironmentVariable(named = "CI_ARCH", matches = "^$")
-@EnabledIfEnvironmentVariable(named = "CI_ARCH", matches = "^amd64|AMD64$")
+@Disabled
 public class AgentDiscoveryIT extends HttpClientTest {
 
     static final Logger logger = Logger.getLogger(AgentDiscoveryIT.class);
