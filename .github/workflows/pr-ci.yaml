@@ -161,6 +161,8 @@ jobs:
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa
     - name: Build application
+      env:
+        PR_CI: true
       run: |
         ./mvnw -B -U \
           -Dquarkus.docker.executable-name=docker \
