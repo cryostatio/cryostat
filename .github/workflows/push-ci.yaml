@@ -208,7 +208,6 @@ jobs:
         arch: [amd64, arm64]
     runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
     env:
-      CI_ARCH: ${{ matrix.arch }}
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
     steps:
     - uses: DamianReeves/write-file-action@v1.3
