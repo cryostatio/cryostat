@@ -242,13 +242,10 @@ jobs:
       with:
         path: containers
         name: cryostat-${{ matrix.arch }}-docker
-    - run: ls -a containers
     - name: Import container tarball
       run: docker image load -i containers/cryostat-${{ matrix.arch }}-docker.tar
     - name: Prepare test harness
       run: ./mvnw -Dquarkus.quinoa=false -Dquarkus.container-image.build=false -Dspotless.check.skip -DskipTests package
-    - run: docker images
-    - run: docker inspect ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Replace artifact metadata
       run: |
         [ -d target ] || mkdir target ; \
