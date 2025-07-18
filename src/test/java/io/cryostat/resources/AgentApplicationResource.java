@@ -105,16 +105,13 @@ public class AgentApplicationResource
         container.start();
 
         return Map.of(
-                "quarkus.test.arg-line", "--network-alias=cryostat",
                 "cryostat.agent.tls.required", "false",
                 "cryostat.http.proxy.host", ALIAS,
                 "cryostat.http.proxy.port", Integer.toString(cryostatPort.get()),
                 "quarkus.http.proxy.proxy-address-forwarding", "true",
                 "quarkus.http.proxy.allow-x-forwarded", "true",
                 "quarkus.http.proxy.enable-forwarded-host", "true",
-                "quarkus.http.proxy.enable-forwarded-prefix", "true",
-                "quarkus.http.access-log.pattern", "long",
-                "quarkus.http.access-log.enabled", "true");
+                "quarkus.http.proxy.enable-forwarded-prefix", "true");
     }
 
     @Override

@@ -15,7 +15,11 @@
  */
 package itest;
 
+import static io.restassured.RestAssured.given;
+
 import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -24,10 +28,7 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.HttpClientTest;
 import junit.framework.AssertionFailedError;
 import org.hamcrest.MatcherAssert;
@@ -38,8 +39,12 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@EnabledIfEnvironmentVariable(named = "CI_ARCH", matches = "^$")
-@EnabledIfEnvironmentVariable(named = "CI_ARCH", matches = "^amd64|AMD64$")
+@EnabledIfEnvironmentVariable(
+        named = "CI",
+        matches = "true",
+        disabledReason =
+                "Runs well in CI under Docker, but not locally under Podman due to testcontainers"
+                        + " 'Broken Pipe' IOException")
 public class AgentDiscoveryIT extends HttpClientTest {
 
     static final Logger logger = Logger.getLogger(AgentDiscoveryIT.class);
@@ -50,12 +55,11 @@ public class AgentDiscoveryIT extends HttpClientTest {
         long last = System.nanoTime();
         long elapsed = 0;
         while (true) {
-            HttpResponse<Buffer> req =
-                    webClient.extensions().get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS);
-            if (HttpStatusCodeIdentifier.isSuccessCode(req.statusCode())) {
-                JsonArray result = req.bodyAsJsonArray();
+            var resp = given().when().get("/api/v4/targets").then().extract();
+            if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
+                List<Map<String, Object>> result = resp.body().jsonPath().getList("$");
                 if (result.size() == 1) {
-                    JsonObject obj = result.getJsonObject(0);
+                    JsonObject obj = new JsonObject(result.get(0));
                     MatcherAssert.assertThat(
                             obj.getString("alias"),
                             Matchers.equalTo(AgentApplicationResource.ALIAS));
@@ -63,7 +67,7 @@ public class AgentDiscoveryIT extends HttpClientTest {
                             obj.getString("connectUrl"),
                             Matchers.equalTo(
                                     String.format(
-                                            "http://%s:%d/",
+                                            "http://%s:%d",
                                             AgentApplicationResource.ALIAS,
                                             AgentApplicationResource.PORT)));
 
