@@ -26,8 +26,9 @@ import io.cryostat.resources.AgentApplicationResource;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.vertx.core.json.JsonObject;
+import itest.bases.HttpClientTest;
 import junit.framework.AssertionFailedError;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -35,12 +36,12 @@ import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
-@QuarkusTest
+@QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @EnabledIfEnvironmentVariable(named = "CI", matches = "true")
-public class AgentDiscoveryTest {
+public class AgentDiscoveryIT extends HttpClientTest {
 
-    static final Logger logger = Logger.getLogger(AgentDiscoveryTest.class);
+    static final Logger logger = Logger.getLogger(AgentDiscoveryIT.class);
     static final Duration TIMEOUT = Duration.ofSeconds(60);
 
     @Test
