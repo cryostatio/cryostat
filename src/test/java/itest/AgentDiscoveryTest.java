@@ -19,7 +19,6 @@ import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -34,38 +33,22 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIf;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @QuarkusTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-// @QuarkusTestResource(value = S3StorageResource.class)
-@EnabledIf("enabled")
+@EnabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class AgentDiscoveryTest {
 
     static final Logger logger = Logger.getLogger(AgentDiscoveryTest.class);
     static final Duration TIMEOUT = Duration.ofSeconds(60);
-
-    public static boolean enabled() {
-        String arch = Optional.ofNullable(System.getenv("CI_ARCH")).orElse("").trim();
-        boolean ci = Boolean.valueOf(System.getenv("CI"));
-        return !ci || (ci && "amd64".equalsIgnoreCase(arch));
-    }
 
     @Test
     void shouldDiscoverTarget() throws InterruptedException, TimeoutException, ExecutionException {
         long last = System.nanoTime();
         long elapsed = 0;
         while (true) {
-            var resp =
-                    given().log()
-                            .all()
-                            .when()
-                            .get("/api/v4/targets")
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .extract();
+            var resp = given().when().get("/api/v4/targets").then().extract();
             if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
                 List<JsonObject> result = resp.body().jsonPath().getList("$");
                 if (result.size() == 1) {
