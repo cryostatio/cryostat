@@ -19,6 +19,7 @@ import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
@@ -51,9 +52,10 @@ public class AgentDiscoveryIT extends HttpClientTest {
         while (true) {
             var resp = given().when().get("/api/v4/targets").then().extract();
             if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
-                List<JsonObject> result = resp.body().jsonPath().getList("$");
+                List<Map<String, Object>> result = resp.body().jsonPath().getList("$");
                 if (result.size() == 1) {
-                    JsonObject obj = result.get(0);
+                    Map<String, Object> rawObj = result.get(0);
+                    JsonObject obj = new JsonObject(rawObj);
                     MatcherAssert.assertThat(
                             obj.getString("alias"),
                             Matchers.equalTo(AgentApplicationResource.ALIAS));
