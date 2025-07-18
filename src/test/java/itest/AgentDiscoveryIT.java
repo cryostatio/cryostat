@@ -40,11 +40,11 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @EnabledIfEnvironmentVariable(
-        named = "CI",
+        named = "PR_CI",
         matches = "true",
         disabledReason =
-                "Runs well in CI under Docker, but not locally under Podman due to testcontainers"
-                        + " 'Broken Pipe' IOException")
+                "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
+                        + " testcontainers 'Broken Pipe' IOException")
 public class AgentDiscoveryIT extends HttpClientTest {
 
     static final Logger logger = Logger.getLogger(AgentDiscoveryIT.class);
