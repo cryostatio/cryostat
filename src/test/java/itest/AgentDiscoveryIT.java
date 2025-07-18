@@ -59,8 +59,7 @@ public class AgentDiscoveryIT extends HttpClientTest {
             if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
                 List<Map<String, Object>> result = resp.body().jsonPath().getList("$");
                 if (result.size() == 1) {
-                    Map<String, Object> rawObj = result.get(0);
-                    JsonObject obj = new JsonObject(rawObj);
+                    JsonObject obj = new JsonObject(result.get(0));
                     MatcherAssert.assertThat(
                             obj.getString("alias"),
                             Matchers.equalTo(AgentApplicationResource.ALIAS));
