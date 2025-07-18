@@ -15,22 +15,20 @@
  */
 package itest;
 
+import static io.restassured.RestAssured.given;
+
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.resources.AgentApplicationResource;
-import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import io.quarkus.test.common.QuarkusTestResource;
-import io.quarkus.test.junit.QuarkusIntegrationTest;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.json.JsonArray;
+import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.HttpResponse;
-import itest.bases.HttpClientTest;
 import junit.framework.AssertionFailedError;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -38,13 +36,13 @@ import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIf;
 
-@QuarkusIntegrationTest
+@QuarkusTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@QuarkusTestResource(value = S3StorageResource.class)
+// @QuarkusTestResource(value = S3StorageResource.class)
 @EnabledIf("enabled")
-public class AgentDiscoveryIT extends HttpClientTest {
+public class AgentDiscoveryTest {
 
-    static final Logger logger = Logger.getLogger(AgentDiscoveryIT.class);
+    static final Logger logger = Logger.getLogger(AgentDiscoveryTest.class);
     static final Duration TIMEOUT = Duration.ofSeconds(60);
 
     public static boolean enabled() {
@@ -58,12 +56,20 @@ public class AgentDiscoveryIT extends HttpClientTest {
         long last = System.nanoTime();
         long elapsed = 0;
         while (true) {
-            HttpResponse<Buffer> req =
-                    webClient.extensions().get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS);
-            if (HttpStatusCodeIdentifier.isSuccessCode(req.statusCode())) {
-                JsonArray result = req.bodyAsJsonArray();
+            var resp =
+                    given().log()
+                            .all()
+                            .when()
+                            .get("/api/v4/targets")
+                            .then()
+                            .log()
+                            .all()
+                            .and()
+                            .extract();
+            if (HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
+                List<JsonObject> result = resp.body().jsonPath().getList("$");
                 if (result.size() == 1) {
-                    JsonObject obj = result.getJsonObject(0);
+                    JsonObject obj = result.get(0);
                     MatcherAssert.assertThat(
                             obj.getString("alias"),
                             Matchers.equalTo(AgentApplicationResource.ALIAS));
