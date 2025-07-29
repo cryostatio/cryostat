@@ -58,7 +58,10 @@ public class ConfigProperties {
 
     public static final String GRAFANA_DASHBOARD_URL = "grafana-dashboard.url";
     public static final String GRAFANA_DASHBOARD_EXT_URL = "grafana-dashboard-ext.url";
-    public static final String GRAFANA_DATASOURCE_URL = "grafana-datasource.url";
+    public static final String GRAFANA_DATASOURCE_URL = "quarkus.rest-client.jfr-datasource.url";
+
+    public static final String AGENT_REST_CLIENT_FOLLOW_ALL_REDIRECTS =
+            "quarkus.rest-client.agents.follow-all-redirects";
 
     public static final String STORAGE_EXT_URL = "storage-ext.url";
     public static final String STORAGE_PRESIGNED_DOWNLOADS_ENABLED =

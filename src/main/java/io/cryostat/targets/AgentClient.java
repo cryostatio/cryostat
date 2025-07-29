@@ -15,14 +15,19 @@
  */
 package io.cryostat.targets;
 
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import org.openjdk.jmc.common.unit.IConstrainedMap;
 import org.openjdk.jmc.common.unit.IConstraint;
@@ -35,37 +40,38 @@ import org.openjdk.jmc.flightrecorder.configuration.events.EventOptionID;
 import org.openjdk.jmc.flightrecorder.configuration.events.IEventTypeID;
 import org.openjdk.jmc.flightrecorder.configuration.events.IEventTypeInfo;
 import org.openjdk.jmc.flightrecorder.configuration.internal.EventTypeIDV2;
+import org.openjdk.jmc.rjmx.common.ConnectionException;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.serialization.JmcSerializableRecordingDescriptor;
-import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin;
+import io.cryostat.discovery.DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory;
 import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
-import io.vertx.core.http.HttpMethod;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.authentication.UsernamePasswordCredentials;
-import io.vertx.mutiny.core.buffer.Buffer;
-import io.vertx.mutiny.ext.web.client.HttpRequest;
-import io.vertx.mutiny.ext.web.client.HttpResponse;
-import io.vertx.mutiny.ext.web.client.WebClient;
-import io.vertx.mutiny.ext.web.codec.BodyCodec;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.ServerErrorException;
+import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.ext.ContextResolver;
 import jdk.jfr.RecordingState;
+import org.apache.commons.io.input.ProxyInputStream;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.client.handlers.RedirectHandler;
 
 /**
  * Client layer for HTTP(S) communications with Cryostat Agent instances. See
@@ -79,19 +85,19 @@ public class AgentClient {
 
     public static final String NULL_CREDENTIALS = "No credentials found for agent";
 
-    @ConfigProperty(name = ConfigProperties.AGENT_TLS_REQUIRED)
-    private boolean tlsEnabled;
-
     private final Target target;
-    private final WebClient webClient;
+    private final AgentRestClient agentRestClient;
     private final Duration httpTimeout;
     private final ObjectMapper mapper;
     private final Logger logger = Logger.getLogger(getClass());
 
     private AgentClient(
-            Target target, WebClient webClient, ObjectMapper mapper, Duration httpTimeout) {
+            Target target,
+            AgentRestClient agentRestClient,
+            ObjectMapper mapper,
+            Duration httpTimeout) {
         this.target = target;
-        this.webClient = webClient;
+        this.agentRestClient = agentRestClient;
         this.mapper = mapper;
         this.httpTimeout = httpTimeout;
     }
@@ -101,7 +107,8 @@ public class AgentClient {
     }
 
     URI getUri() {
-        return getTarget().connectUrl;
+        var uri = getTarget().connectUrl;
+        return uri;
     }
 
     Duration getTimeout() {
@@ -109,15 +116,25 @@ public class AgentClient {
     }
 
     Uni<Boolean> ping() {
-        return invoke(HttpMethod.GET, "/", BodyCodec.none())
-                .map(HttpResponse::statusCode)
+        return agentRestClient
+                .ping()
+                .invoke(Response::close)
+                .map(Response::getStatus)
                 .map(HttpStatusCodeIdentifier::isSuccessCode);
     }
 
     Uni<MBeanMetrics> mbeanMetrics() {
-        return invoke(HttpMethod.GET, "/mbean-metrics/", BodyCodec.string())
-                .map(HttpResponse::body)
-                .map(Unchecked.function(s -> mapper.readValue(s, MBeanMetrics.class)));
+        return agentRestClient
+                .getMbeanMetrics()
+                .map(
+                        r -> {
+                            try (r;
+                                    var is = (InputStream) r.getEntity()) {
+                                return mapper.readValue(is, MBeanMetrics.class);
+                            } catch (IOException e) {
+                                throw new ServerErrorException(Response.Status.BAD_GATEWAY, e);
+                            }
+                        });
     }
 
     <T> Uni<T> invokeMBeanOperation(
@@ -128,15 +145,12 @@ public class AgentClient {
             Class<T> returnType) {
         try {
             var req = new MBeanInvocationRequest(beanName, operation, parameters, signature);
-            return invoke(
-                            HttpMethod.POST,
-                            "/mbean-invoke/",
-                            Buffer.buffer(mapper.writeValueAsBytes(req)),
-                            BodyCodec.buffer())
+            return agentRestClient
+                    .invokeMBeanOperation(new ByteArrayInputStream(mapper.writeValueAsBytes(req)))
                     .map(
                             Unchecked.function(
                                     resp -> {
-                                        int statusCode = resp.statusCode();
+                                        int statusCode = resp.getStatus();
                                         if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
                                             return resp;
                                         } else if (statusCode == 403) {
@@ -155,11 +169,15 @@ public class AgentClient {
                                             throw new AgentApiException(statusCode);
                                         }
                                     }))
-                    .map(HttpResponse::bodyAsBuffer)
                     .map(
-                            buff -> {
-                                // TODO implement conditional handling based on expected returnType
-                                return null;
+                            r -> {
+                                try (r;
+                                // var is = r.getEntity();
+                                ) {
+                                    // TODO implement conditional handling based on expected
+                                    // returnType
+                                    return null;
+                                }
                             });
         } catch (JsonProcessingException e) {
             logger.error("invokeMBeanOperation request failed", e);
@@ -168,20 +186,17 @@ public class AgentClient {
     }
 
     Uni<IRecordingDescriptor> startRecording(StartRecordingRequest req) {
-        try {
-            return invoke(
-                            HttpMethod.POST,
-                            "/recordings/",
-                            Buffer.buffer(mapper.writeValueAsBytes(req)),
-                            BodyCodec.string())
-                    .map(
-                            Unchecked.function(
-                                    resp -> {
-                                        int statusCode = resp.statusCode();
+        return agentRestClient
+                .startRecording(req)
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    int statusCode = resp.getStatus();
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
                                         if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
-                                            String body = resp.body();
                                             return mapper.readValue(
-                                                            body,
+                                                            is,
                                                             JmcSerializableRecordingDescriptor
                                                                     .class)
                                                     .toJmcForm();
@@ -198,46 +213,12 @@ public class AgentClient {
                                                     getUri(), statusCode);
                                             throw new AgentApiException(statusCode);
                                         }
-                                    }));
-        } catch (JsonProcessingException e) {
-            logger.error("startRecording request failed", e);
-            return Uni.createFrom().failure(e);
-        }
+                                    }
+                                }));
     }
 
     Uni<IRecordingDescriptor> startSnapshot() {
-        try {
-            return invoke(
-                            HttpMethod.POST,
-                            "/recordings/",
-                            Buffer.buffer(
-                                    mapper.writeValueAsBytes(
-                                            new StartRecordingRequest(
-                                                    "snapshot", "", "", 0, 0, 0))),
-                            BodyCodec.string())
-                    .map(
-                            Unchecked.function(
-                                    resp -> {
-                                        int statusCode = resp.statusCode();
-                                        if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
-                                            String body = resp.body();
-                                            return mapper.readValue(
-                                                            body,
-                                                            JmcSerializableRecordingDescriptor
-                                                                    .class)
-                                                    .toJmcForm();
-                                        } else if (statusCode == 403) {
-                                            throw new ForbiddenException(
-                                                    new UnsupportedOperationException(
-                                                            "startSnapshot"));
-                                        } else {
-                                            throw new AgentApiException(statusCode);
-                                        }
-                                    }));
-        } catch (JsonProcessingException e) {
-            logger.error(e);
-            return Uni.createFrom().failure(e);
-        }
+        return startRecording(new StartRecordingRequest("snapshot", "", "", 0, 0, 0));
     }
 
     Uni<Void> updateRecordingOptions(long id, IConstrainedMap<String> newSettings) {
@@ -252,39 +233,38 @@ public class AgentClient {
             }
             settings.put(key, value);
         }
-
-        try {
-            return invoke(
-                            HttpMethod.PATCH,
-                            String.format("/recordings/%d", id),
-                            Buffer.buffer(mapper.writeValueAsBytes(settings)),
-                            BodyCodec.none())
-                    .map(
-                            resp -> {
-                                int statusCode = resp.statusCode();
-                                if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
-                                    return null;
-                                } else if (statusCode == 403) {
-                                    throw new ForbiddenException(
-                                            new UnsupportedOperationException(
-                                                    "updateRecordingOptions"));
-                                } else {
-                                    throw new AgentApiException(statusCode);
-                                }
-                            });
-        } catch (JsonProcessingException e) {
-            logger.error(e);
-            return Uni.createFrom().failure(e);
-        }
-    }
-
-    Uni<Buffer> openStream(long id) {
-        return invoke(HttpMethod.GET, "/recordings/" + id, BodyCodec.buffer())
+        return agentRestClient
+                .updateRecordingOptions(id, settings)
+                .invoke(Response::close)
                 .map(
                         resp -> {
-                            int statusCode = resp.statusCode();
+                            int statusCode = resp.getStatus();
                             if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
-                                return resp.body();
+                                return null;
+                            } else if (statusCode == 403) {
+                                throw new ForbiddenException(
+                                        new UnsupportedOperationException(
+                                                "updateRecordingOptions"));
+                            } else {
+                                throw new AgentApiException(statusCode);
+                            }
+                        });
+    }
+
+    Uni<InputStream> openStream(long id) {
+        return agentRestClient
+                .openStream(id)
+                .map(
+                        resp -> {
+                            int statusCode = resp.getStatus();
+                            if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                return new ProxyInputStream((InputStream) resp.getEntity()) {
+                                    @Override
+                                    public void close() throws IOException {
+                                        in.close();
+                                        resp.close();
+                                    }
+                                };
                             } else if (statusCode == 403) {
                                 throw new ForbiddenException(
                                         new UnsupportedOperationException("openStream"));
@@ -334,14 +314,12 @@ public class AgentClient {
     }
 
     Uni<Void> deleteRecording(long id) {
-        return invoke(
-                        HttpMethod.DELETE,
-                        String.format("/recordings/%d", id),
-                        Buffer.buffer(),
-                        BodyCodec.none())
+        return agentRestClient
+                .deleteRecording(id)
+                .invoke(Response::close)
                 .map(
                         resp -> {
-                            int statusCode = resp.statusCode();
+                            int statusCode = resp.getStatus();
                             if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)
                                     || statusCode == 404) {
                                 // if the request succeeded we're OK. We're also OK if the recording
@@ -358,20 +336,20 @@ public class AgentClient {
     }
 
     Uni<List<IRecordingDescriptor>> activeRecordings() {
-        return invoke(HttpMethod.GET, "/recordings/", BodyCodec.string())
-                .map(HttpResponse::body)
+        return agentRestClient
+                .listRecordings()
                 .map(
-                        s -> {
-                            try {
-                                return mapper.readValue(
-                                        s,
-                                        new TypeReference<
-                                                List<JmcSerializableRecordingDescriptor>>() {});
-                            } catch (JsonProcessingException e) {
-                                logger.error(e);
-                                return List.<JmcSerializableRecordingDescriptor>of();
-                            }
-                        })
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return Arrays.asList(
+                                                mapper.readValue(
+                                                        is,
+                                                        JmcSerializableRecordingDescriptor[]
+                                                                .class));
+                                    }
+                                }))
                 .map(
                         arr ->
                                 arr.stream()
@@ -380,20 +358,39 @@ public class AgentClient {
     }
 
     Uni<Collection<? extends IEventTypeInfo>> eventTypes() {
-        return invoke(HttpMethod.GET, "/event-types/", BodyCodec.jsonArray())
-                .map(HttpResponse::body)
-                .map(arr -> arr.stream().map(o -> new AgentEventTypeInfo((JsonObject) o)).toList());
+        return agentRestClient
+                .listEventTypes()
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return Arrays.asList(mapper.readValue(is, Map[].class))
+                                                .stream()
+                                                .map(JsonObject::new)
+                                                .map(AgentEventTypeInfo::new)
+                                                .toList();
+                                    }
+                                }));
     }
 
     Uni<IConstrainedMap<EventOptionID>> eventSettings() {
-        return invoke(HttpMethod.GET, "/event-settings/", BodyCodec.jsonArray())
-                .map(HttpResponse::body)
+        return agentRestClient
+                .listEventSettings()
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return Arrays.asList(mapper.readValue(is, Map[].class));
+                                    }
+                                }))
                 .map(
                         arr -> {
                             return arr.stream()
                                     .map(
                                             o -> {
-                                                JsonObject json = (JsonObject) o;
+                                                JsonObject json = new JsonObject((Map) o);
                                                 String eventName = json.getString("name");
                                                 JsonArray jsonSettings =
                                                         json.getJsonArray("settings");
@@ -441,64 +438,83 @@ public class AgentClient {
     }
 
     Uni<List<String>> eventTemplates() {
-        return invoke(HttpMethod.GET, "/event-templates/", BodyCodec.jsonArray())
-                .map(HttpResponse::body)
-                .map(arr -> arr.stream().map(Object::toString).toList());
-    }
-
-    private <T> Uni<HttpResponse<T>> invoke(HttpMethod mtd, String path, BodyCodec<T> codec) {
-        return invoke(mtd, path, null, codec);
-    }
-
-    private <T> Uni<HttpResponse<T>> invoke(
-            HttpMethod mtd, String path, Buffer payload, BodyCodec<T> codec) {
-        logger.debugv("{0} {1} {2}", mtd, getUri(), path);
-
-        if (tlsEnabled && !getUri().getScheme().equals("https")) {
-            throw new IllegalArgumentException(
-                    String.format(
-                            "Agent is configured with TLS enabled (%s) but the agent URI is not an"
-                                    + " https connection.",
-                            ConfigProperties.AGENT_TLS_REQUIRED));
-        }
-
-        Credential credential =
-                DiscoveryPlugin.<DiscoveryPlugin>find("callback", getUri())
-                        .singleResult()
-                        .credential;
-
-        HttpRequest<T> req =
-                webClient
-                        .request(mtd, getUri().getPort(), getUri().getHost(), path)
-                        .ssl("https".equals(getUri().getScheme()))
-                        .timeout(httpTimeout.toMillis())
-                        .followRedirects(true)
-                        .as(codec)
-                        .authentication(
-                                new UsernamePasswordCredentials(
-                                        credential.username, credential.password));
-
-        Uni<HttpResponse<T>> uni;
-        if (payload != null) {
-            uni = req.sendBuffer(payload);
-        } else {
-            uni = req.send();
-        }
-        return uni;
+        return agentRestClient
+                .listEventTemplates()
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return Arrays.asList(mapper.readValue(is, String[].class));
+                                    }
+                                }));
     }
 
     @ApplicationScoped
     public static class Factory {
 
         @Inject ObjectMapper mapper;
-        @Inject WebClient webClient;
         @Inject Logger logger;
+
+        @ConfigProperty(name = ConfigProperties.AGENT_TLS_REQUIRED)
+        boolean tlsEnabled;
+
+        @ConfigProperty(name = ConfigProperties.AGENT_REST_CLIENT_FOLLOW_ALL_REDIRECTS)
+        boolean followAllRedirects;
 
         @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
         Duration timeout;
 
         public AgentClient create(Target target) {
-            return new AgentClient(target, webClient, mapper, timeout);
+            var uri = target.connectUrl;
+
+            if (tlsEnabled && !uri.getScheme().equals("https")) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "Agent is configured with TLS enabled (%s) but the agent URI is not"
+                                        + " an https connection.",
+                                ConfigProperties.AGENT_TLS_REQUIRED));
+            }
+
+            Supplier<UsernamePasswordCredentials> credentialSupplier =
+                    () ->
+                            QuarkusTransaction.requiringNew()
+                                    .call(
+                                            () -> {
+                                                var credential =
+                                                        DiscoveryPlugin.<DiscoveryPlugin>find(
+                                                                        "callback", uri)
+                                                                .singleResult()
+                                                                .credential;
+                                                if (credential == null) {
+                                                    throw new ConnectionException(NULL_CREDENTIALS);
+                                                }
+                                                return new UsernamePasswordCredentials(
+                                                        credential.username, credential.password);
+                                            });
+            var agentRestClientBuilder =
+                    QuarkusRestClientBuilder.newBuilder()
+                            .baseUri(uri)
+                            .clientHeadersFactory(
+                                    new DiscoveryPluginAuthorizationHeaderFactory(
+                                            credentialSupplier));
+            if (followAllRedirects) {
+                agentRestClientBuilder.register(
+                        new ContextResolver<RedirectHandler>() {
+                            @Override
+                            public RedirectHandler getContext(Class<?> type) {
+                                return response -> {
+                                    if (Response.Status.Family.familyOf(response.getStatus())
+                                            == Response.Status.Family.REDIRECTION) {
+                                        return response.getLocation();
+                                    }
+                                    return null;
+                                };
+                            }
+                        });
+            }
+            return new AgentClient(
+                    target, agentRestClientBuilder.build(AgentRestClient.class), mapper, timeout);
         }
     }
 
