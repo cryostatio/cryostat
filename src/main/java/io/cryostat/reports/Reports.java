@@ -40,6 +40,7 @@ import io.cryostat.targets.Target;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
@@ -186,6 +187,7 @@ public class Reports {
                                             "true",
                                             TARGET_ANALYSIS_LABEL_KEY,
                                             TARGET_ANALYSIS_LABEL_VALUE))
+                            .runSubscriptionOn(Infrastructure.getDefaultExecutor())
                             .subscribe()
                             .with(
                                     recording -> {
