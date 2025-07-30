@@ -361,8 +361,7 @@ public class RecordingHelper {
             RecordingOptions options,
             Map<String, String> rawLabels)
             throws QuantityConversionException {
-        return QuarkusTransaction.joiningExisting()
-                .call(() -> startRecordingImpl(target, replace, template, options, rawLabels));
+        return startRecordingImpl(target, replace, template, options, rawLabels);
     }
 
     private Uni<ActiveRecording> startRecordingImpl(
@@ -377,9 +376,12 @@ public class RecordingHelper {
                 connectionManager.executeConnectedTask(
                         target,
                         conn ->
-                                getDescriptorByName(conn, recordingName)
-                                        .map(this::mapState)
-                                        .orElse(null));
+                                QuarkusTransaction.joiningExisting()
+                                        .call(
+                                                () ->
+                                                        getDescriptorByName(conn, recordingName)
+                                                                .map(this::mapState)
+                                                                .orElse(null)));
         boolean restart = previousState == null || shouldRestartRecording(replace, previousState);
         if (!restart) {
             throw new EntityExistsException("Recording", recordingName);
