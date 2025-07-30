@@ -678,6 +678,18 @@ components:
         - CUSTOM
         - PRESET
       type: string
+    ThreadDump:
+      properties:
+        downloadUrl:
+          type: string
+        jvmId:
+          type: string
+        lastModified:
+          format: int64
+          type: integer
+        uuid:
+          type: string
+      type: object
     UUID:
       format: uuid
       pattern: '[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
@@ -718,6 +730,126 @@ paths:
         - SecurityScheme:
             - write
       summary: Initiate a garbage collection on the specified target
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/targets/{targetId}/threaddump:
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ThreadDump'
+                type: array
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme:
+            - read
+      summary: Get Thread Dumps
+      tags:
+        - Diagnostics
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: format
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
+        required: true
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme:
+            - write
+      summary: Thread Dump
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/targets/{targetId}/threaddump/{threadDumpId}:
+    delete:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: path
+          name: threadDumpId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme:
+            - write
+      summary: Delete Thread Dump
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/threaddump/download/{encodedKey}:
+    get:
+      parameters:
+        - in: path
+          name: encodedKey
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: query
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+        "401":
+          description: Not Authorized
+        "403":
+          description: Not Allowed
+      security:
+        - SecurityScheme:
+            - read
+      summary: Handle Storage Download
       tags:
         - Diagnostics
   /api/beta/fs/recordings:
@@ -956,7 +1088,9 @@ paths:
         "403":
           description: Not Allowed
       security:
-        - SecurityScheme: []
+        - SecurityScheme:
+            - read
+      summary: List Report Rules
       tags:
         - Reports
   /api/v4.1/targets/{targetId}/reports:
