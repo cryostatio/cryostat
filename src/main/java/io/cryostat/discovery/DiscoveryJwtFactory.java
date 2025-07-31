@@ -65,7 +65,7 @@ public class DiscoveryJwtFactory {
 
     public static final String RESOURCE_CLAIM = "resource";
     public static final String REALM_CLAIM = "realm";
-    public static final String PLUGIN_CLAIM = "plugin_addr";
+    public static final String PLUGIN_ADDR_CLAIM = "plugin_addr";
     static final String DISCOVERY_API_PATH = "/api/v4/discovery/";
 
     @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
@@ -143,7 +143,7 @@ public class DiscoveryJwtFactory {
                         .claim(RESOURCE_CLAIM, resource.toASCIIString())
                         .claim(REALM_CLAIM, plugin.realm.name)
                         .claim(
-                                PLUGIN_CLAIM,
+                                PLUGIN_ADDR_CLAIM,
                                 Hex.encodeHexString(digest.digest(requestAddr.getAddress())))
                         .build();
 
@@ -215,11 +215,11 @@ public class DiscoveryJwtFactory {
                         .claim(RESOURCE_CLAIM, resource.toASCIIString())
                         .claim(REALM_CLAIM, plugin.realm.name)
                         .claim(
-                                PLUGIN_CLAIM,
+                                PLUGIN_ADDR_CLAIM,
                                 Hex.encodeHexString(digest.digest(requestAddr.getAddress())))
                         .build();
         Set<String> requiredClaimNames =
-                new HashSet<>(Set.of("iat", "iss", "aud", "sub", REALM_CLAIM, PLUGIN_CLAIM));
+                new HashSet<>(Set.of("iat", "iss", "aud", "sub", REALM_CLAIM, PLUGIN_ADDR_CLAIM));
         if (checkTimeClaims) {
             requiredClaimNames.add("exp");
             requiredClaimNames.add("nbf");
