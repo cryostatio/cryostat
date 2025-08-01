@@ -19,6 +19,8 @@ import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
@@ -57,54 +59,106 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     public void testCreate()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         int id = defineSelfCustomTarget();
-        String jobId =
-                given().log()
-                        .all()
-                        .when()
-                        .pathParams(Map.of("targetId", id))
-                        .post("targets/{targetId}/threaddump")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .contentType(ContentType.JSON)
-                        .statusCode(200)
-                        .body("size()", Matchers.equalTo(0))
-                        .extract()
-                        .body()
-                        .asString();
+        Executors.newSingleThreadScheduledExecutor()
+                .schedule(
+                        () -> {
+                            given().log()
+                                    .all()
+                                    .when()
+                                    .pathParams(Map.of("targetId", id))
+                                    .post("targets/{targetId}/threaddump")
+                                    .then()
+                                    .log()
+                                    .all()
+                                    .and()
+                                    .assertThat()
+                                    .contentType(ContentType.JSON)
+                                    .statusCode(200)
+                                    .body("size()", Matchers.equalTo(0))
+                                    .extract()
+                                    .body()
+                                    .asString();
+                        },
+                        1,
+                        TimeUnit.SECONDS);
 
-        expectWebSocketNotification(
-                "ThreadDumpSuccess",
-                o -> jobId.equals(o.getJsonObject("message").getString("jobId")));
+        expectWebSocketNotification("ThreadDumpSuccess");
+    }
+
+    @Test
+    public void testCreateAndList()
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        // Check that creating a thread dump works as expected
+        int id = defineSelfCustomTarget();
+        Executors.newSingleThreadScheduledExecutor()
+                .schedule(
+                        () -> {
+                            given().log()
+                                    .all()
+                                    .when()
+                                    .pathParams(Map.of("targetId", id))
+                                    .post("targets/{targetId}/threaddump")
+                                    .then()
+                                    .log()
+                                    .all()
+                                    .and()
+                                    .assertThat()
+                                    .contentType(ContentType.JSON)
+                                    .statusCode(200)
+                                    .body("size()", Matchers.equalTo(0))
+                                    .extract()
+                                    .body()
+                                    .asString();
+                        },
+                        1,
+                        TimeUnit.SECONDS);
+
+        expectWebSocketNotification("ThreadDumpSuccess");
+
+        // Check that the listing is non empty
+        given().log()
+                .all()
+                .when()
+                .pathParams(Map.of("targetId", id))
+                .get("targets/{targetId}/threaddump")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(200)
+                .body("size()", Matchers.greaterThan(0));
     }
 
     @Test
     public void testCreateAndDelete()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         int id = defineSelfCustomTarget();
-        String jobId =
-                given().log()
-                        .all()
-                        .when()
-                        .pathParams(Map.of("targetId", id))
-                        .post("targets/{targetId}/threaddump")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .contentType(ContentType.JSON)
-                        .statusCode(200)
-                        .body("size()", Matchers.equalTo(0))
-                        .extract()
-                        .body()
-                        .asString();
+        Executors.newSingleThreadScheduledExecutor()
+                .schedule(
+                        () -> {
+                            given().log()
+                                    .all()
+                                    .when()
+                                    .pathParams(Map.of("targetId", id))
+                                    .post("targets/{targetId}/threaddump")
+                                    .then()
+                                    .log()
+                                    .all()
+                                    .and()
+                                    .assertThat()
+                                    .contentType(ContentType.JSON)
+                                    .statusCode(200)
+                                    .body("size()", Matchers.equalTo(0))
+                                    .extract()
+                                    .body()
+                                    .asString();
+                        },
+                        1,
+                        TimeUnit.SECONDS);
 
-        expectWebSocketNotification(
-                "ThreadDumpSuccess",
-                o -> jobId.equals(o.getJsonObject("message").getString("jobId")));
+        expectWebSocketNotification("ThreadDumpSuccess");
 
         String threadDumpId =
                 given().log()

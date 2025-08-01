@@ -130,10 +130,10 @@ public class Diagnostics {
     @Blocking
     @GET
     public RestResponse<Object> handleStorageDownload(
-            @RestPath String encodedKey, @RestQuery String query) throws URISyntaxException {
+            @RestPath String encodedKey, @RestQuery String filename) throws URISyntaxException {
         Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
         log.tracev("Handling download Request for key: {0}", decodedKey);
-        log.tracev("Handling download Request for query: {0}", query);
+        log.tracev("Handling download Request for query: {0}", filename);
         String key = helper.threadDumpKey(decodedKey);
         try {
             storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
@@ -178,13 +178,14 @@ public class Diagnostics {
         }
         ResponseBuilder<Object> response =
                 ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT);
-        if (StringUtils.isNotBlank(query)) {
+        if (StringUtils.isNotBlank(filename)) {
             response =
                     response.header(
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format(
                                     "attachment; filename=\"%s\"",
-                                    new String(base64Url.decode(query), StandardCharsets.UTF_8)));
+                                    new String(
+                                            base64Url.decode(filename), StandardCharsets.UTF_8)));
         }
         return response.location(uri).build();
     }
