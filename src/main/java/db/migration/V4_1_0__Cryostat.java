@@ -15,7 +15,11 @@
  */
 package db.migration;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.sql.ResultSet;
 import java.sql.Statement;
+import java.util.Objects;
 
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
@@ -37,6 +41,29 @@ public class V4_1_0__Cryostat extends BaseJavaMigration {
 
         exec(context, "create index on Rule (name);");
         exec(context, "alter table Rule add column metadata jsonb default '{\"labels\":{}}';");
+
+        decodeTargetAliases(context);
+    }
+
+    private void decodeTargetAliases(Context context) throws Exception {
+        logger.debug("Decoding Target aliases...");
+        try (Statement select = context.getConnection().createStatement()) {
+            try (ResultSet rows = select.executeQuery("SELECT id,alias FROM Target ORDER BY id")) {
+                while (rows.next()) {
+                    long id = rows.getInt(1);
+                    String alias = rows.getString(2);
+                    String decodedAlias = URLDecoder.decode(alias, StandardCharsets.UTF_8);
+                    if (Objects.equals(alias, decodedAlias)) {
+                        continue;
+                    }
+                    logger.debugv("Target[{0}] alias \"{1}\" -> \"{2}\"", id, alias, decodedAlias);
+                    exec(
+                            context,
+                            String.format(
+                                    "UPDATE Target SET alias='%s' WHERE id=%d", decodedAlias, id));
+                }
+            }
+        }
     }
 
     private void exec(Context context, String sql) throws Exception {
