@@ -10,7 +10,7 @@ services:
     environment:
       JAVA_OPTS_APPEND: >-
         -Djava.util.logging.manager=org.jboss.logmanager.LogManager
-        -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=info
+        -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
         -javaagent:/deployments/app/cryostat-agent.jar
         -Dcom.sun.management.jmxremote.autodiscovery=false
         -Dcom.sun.management.jmxremote
