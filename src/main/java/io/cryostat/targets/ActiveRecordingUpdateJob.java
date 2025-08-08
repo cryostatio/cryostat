@@ -54,7 +54,7 @@ public class ActiveRecordingUpdateJob implements Job {
         }
         recordingHelper.listActiveRecordings(target);
         try {
-            recordingHelper.archiveRecording(recording, null);
+            recordingHelper.archiveRecording(recording);
         } catch (Exception e) {
             logger.warn(e);
         }
