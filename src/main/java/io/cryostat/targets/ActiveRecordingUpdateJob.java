@@ -18,7 +18,6 @@ package io.cryostat.targets;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
@@ -44,19 +43,20 @@ public class ActiveRecordingUpdateJob implements Job {
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
         Long recordingId = (Long) context.getJobDetail().getJobDataMap().get("recordingId");
-        ActiveRecording originalRecording = ActiveRecording.findById(recordingId);
+        ActiveRecording recording = ActiveRecording.findById(recordingId);
         Target target;
         try {
-            target = Target.getTargetById(originalRecording.target.id);
+            target = Target.getTargetById(recording.target.id);
         } catch (PersistenceException e) {
             // the target was lost in the meantime, so we can stop worrying about this update
             logger.debug(e);
             return;
         }
-        QuarkusTransaction.requiringNew()
-                .run(
-                        () -> {
-                            recordingHelper.listActiveRecordings(target);
-                        });
+        recordingHelper.listActiveRecordings(target);
+        try {
+            recordingHelper.archiveRecording(recording, null);
+        } catch (Exception e) {
+            logger.warn(e);
+        }
     }
 }
