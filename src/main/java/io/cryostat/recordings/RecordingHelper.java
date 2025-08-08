@@ -74,6 +74,7 @@ import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
+import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.EntityExistsException;
@@ -207,6 +208,9 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURLProperty;
 
+    @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_AUTOANALYZE)
+    boolean externalRecordingAutoanalyze;
+
     CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
 
     private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
@@ -324,8 +328,12 @@ public class RecordingHelper {
                     continue;
                 }
                 updated |= true;
-                // TODO is there any metadata to attach here?
-                var recording = ActiveRecording.from(target, descriptor, new Metadata(Map.of()));
+                var labels = new HashMap<String, String>();
+                if (externalRecordingAutoanalyze) {
+                    labels.put(AnalysisReportAggregator.AUTOANALYZE_LABEL, Boolean.TRUE.toString());
+                }
+                // TODO is there any other metadata to attach here?
+                var recording = ActiveRecording.from(target, descriptor, new Metadata(labels));
                 recording.external = true;
                 // FIXME this is a hack. Older Cryostat versions enforced that recordings' names
                 // were unique within the target JVM, but this could only be enforced when Cryostat
