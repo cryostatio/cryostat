@@ -15,12 +15,14 @@
  */
 package io.cryostat.targets;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
@@ -39,6 +41,9 @@ public class ActiveRecordingUpdateJob implements Job {
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingHelper recordingHelper;
 
+    @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_ARCHIVE)
+    boolean archive;
+
     @Override
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -52,11 +57,15 @@ public class ActiveRecordingUpdateJob implements Job {
             logger.debug(e);
             return;
         }
+        // TODO retry logic if the expected result is not observed (ie recording is still running
+        // somehow)
         recordingHelper.listActiveRecordings(target);
-        try {
-            recordingHelper.archiveRecording(recording);
-        } catch (Exception e) {
-            logger.warn(e);
+        if (archive) {
+            try {
+                recordingHelper.archiveRecording(recording);
+            } catch (Exception e) {
+                logger.warn(e);
+            }
         }
     }
 }
