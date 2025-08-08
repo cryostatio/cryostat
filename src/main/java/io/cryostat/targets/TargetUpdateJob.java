@@ -29,11 +29,13 @@ import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
+import jdk.jfr.RecordingState;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
+import org.quartz.SchedulerException;
 
 /**
  * Attempt to connect to a remote target JVM to retrieve {@link java.lang.management.RuntimeMXBean}
@@ -46,6 +48,7 @@ public class TargetUpdateJob implements Job {
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingHelper recordingHelper;
+    @Inject TargetUpdateService updateService;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionTimeout;
@@ -95,5 +98,18 @@ public class TargetUpdateJob implements Job {
         }
         target.activeRecordings = recordingHelper.listActiveRecordings(target);
         target.persist();
+
+        target.activeRecordings.stream()
+                .filter(r -> !r.continuous)
+                .filter(r -> !RecordingState.CLOSED.equals(r.state))
+                .filter(r -> !RecordingState.STOPPED.equals(r.state))
+                .forEach(
+                        r -> {
+                            try {
+                                updateService.fireActiveRecordingUpdate(r);
+                            } catch (SchedulerException e) {
+                                logger.error(e);
+                            }
+                        });
     }
 }
