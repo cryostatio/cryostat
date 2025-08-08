@@ -177,9 +177,9 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostUpdate
         public void postUpdate(ActiveRecording activeRecording) {
-            if (activeRecording.external) {
-                return;
-            }
+            // if (activeRecording.external) {
+            //     return;
+            // }
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 bus.publish(
                         ActiveRecordings.RecordingEventCategory.ACTIVE_STOPPED.category(),

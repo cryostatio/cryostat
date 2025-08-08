@@ -23,6 +23,7 @@ import java.util.Map;
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpressionEvaluator;
+import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.targets.Target.TargetDiscovery;
 
 import io.quarkus.runtime.ShutdownEvent;
@@ -36,6 +37,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
+import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.SimpleScheduleBuilder;
@@ -126,13 +128,38 @@ public class TargetUpdateService {
         }
     }
 
-    private void fireTargetUpdate(Target target) throws SchedulerException {
+    void fireTargetUpdate(Target target) throws SchedulerException {
         JobDetail jobDetail = JobBuilder.newJob(TargetUpdateJob.class).build();
         Map<String, Object> data = jobDetail.getJobDataMap();
         data.put("targetId", target.id);
         Trigger trigger =
                 TriggerBuilder.newTrigger()
                         .startAt(Date.from(Instant.now().plusSeconds(1)))
+                        .usingJobData(jobDetail.getJobDataMap())
+                        .build();
+        scheduler.scheduleJob(jobDetail, trigger);
+    }
+
+    void fireActiveRecordingUpdate(ActiveRecording recording) throws SchedulerException {
+        JobKey key =
+                JobKey.jobKey(String.format("%s/%d", recording.target.jvmId, recording.remoteId));
+        if (scheduler.checkExists(key)) {
+            return;
+        }
+        JobDetail jobDetail =
+                JobBuilder.newJob(ActiveRecordingUpdateJob.class).withIdentity(key).build();
+        Map<String, Object> data = jobDetail.getJobDataMap();
+        data.put("recordingId", recording.id);
+        var when =
+                Instant.ofEpochMilli(recording.startTime)
+                        .plusMillis(recording.duration)
+                        // TODO configurable delay period, and retry logic if
+                        // the expected result is not observed (ie recording is
+                        // still running)
+                        .plusSeconds(2);
+        Trigger trigger =
+                TriggerBuilder.newTrigger()
+                        .startAt(Date.from(when))
                         .usingJobData(jobDetail.getJobDataMap())
                         .build();
         scheduler.scheduleJob(jobDetail, trigger);
