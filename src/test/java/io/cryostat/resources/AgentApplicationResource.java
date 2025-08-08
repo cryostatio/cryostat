@@ -22,7 +22,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
-import org.jboss.logging.Logger;
 import org.junit.runner.Description;
 import org.junit.runners.model.Statement;
 import org.testcontainers.containers.GenericContainer;
@@ -60,7 +59,6 @@ public class AgentApplicationResource
                             "public",
                             "CRYOSTAT_AGENT_API_WRITES_ENABLED",
                             "true"));
-    private static final Logger logger = Logger.getLogger(AgentApplicationResource.class);
     private Optional<String> containerNetworkId;
     private AuthProxyContainer authProxy;
     private GenericContainer<?> container;
