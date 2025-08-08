@@ -59,6 +59,9 @@ public class TargetUpdateService {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionTimeout;
 
+    @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_DELAY)
+    Duration externalRecordingDelay;
+
     void onStart(@Observes StartupEvent evt) throws SchedulerException {
         logger.tracev("{0} started", getClass().getName());
 
@@ -153,10 +156,7 @@ public class TargetUpdateService {
         var when =
                 Instant.ofEpochMilli(recording.startTime)
                         .plusMillis(recording.duration)
-                        // TODO configurable delay period, and retry logic if
-                        // the expected result is not observed (ie recording is
-                        // still running)
-                        .plusSeconds(2);
+                        .plus(externalRecordingDelay);
         Trigger trigger =
                 TriggerBuilder.newTrigger()
                         .startAt(Date.from(when))

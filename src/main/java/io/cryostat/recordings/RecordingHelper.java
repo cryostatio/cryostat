@@ -822,8 +822,7 @@ public class RecordingHelper {
         return listArchivedRecordings(target.jvmId);
     }
 
-    public ArchivedRecording archiveRecording(ActiveRecording recording)
-            throws Exception {
+    public ArchivedRecording archiveRecording(ActiveRecording recording) throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
         String transformedAlias =
