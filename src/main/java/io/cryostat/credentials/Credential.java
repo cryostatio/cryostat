@@ -71,16 +71,44 @@ public class Credential extends PanacheEntity {
     public MatchExpression matchExpression;
 
     @ColumnTransformer(
-            read = "pgp_sym_decrypt(username, current_setting('encrypt.key'))",
-            write = "pgp_sym_encrypt(?, current_setting('encrypt.key'))")
+            read =
+                    """
+                    pgp_sym_decrypt(username,
+                        coalesce(
+                            current_setting('encrypt.key', true),
+                            'default_key')
+                        )
+                    """,
+            write =
+                    """
+                    pgp_sym_encrypt(?,
+                        coalesce(
+                            current_setting('encrypt.key', true),
+                            'default_key')
+                        )
+                    """)
     @Column(updatable = false, columnDefinition = "bytea")
     @NotBlank
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     public String username;
 
     @ColumnTransformer(
-            read = "pgp_sym_decrypt(password, current_setting('encrypt.key'))",
-            write = "pgp_sym_encrypt(?, current_setting('encrypt.key'))")
+            read =
+                    """
+                    pgp_sym_decrypt(password,
+                        coalesce(
+                            current_setting('encrypt.key', true),
+                            'default_key')
+                        )
+                    """,
+            write =
+                    """
+                    pgp_sym_encrypt(?,
+                        coalesce(
+                            current_setting('encrypt.key', true),
+                            'default_key')
+                        )
+                    """)
     @Column(updatable = false, columnDefinition = "bytea")
     @NotBlank
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
