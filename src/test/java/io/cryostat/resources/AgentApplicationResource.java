@@ -44,7 +44,7 @@ public class AgentApplicationResource
                             """
                             -javaagent:/deployments/app/cryostat-agent.jar
                             -Djava.util.logging.manager=org.jboss.logmanager.LogManager
-                            -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=trace
+                            -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
                             """,
                             "QUARKUS_HTTP_PORT",
                             "9898",
