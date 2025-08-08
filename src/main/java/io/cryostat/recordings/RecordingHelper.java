@@ -583,7 +583,7 @@ public class RecordingHelper {
                         () -> {
                             out.persist();
                             if (archive) {
-                                archiveRecording(out, null);
+                                archiveRecording(out);
                             }
                             return Uni.createFrom().item(out);
                         });
@@ -822,7 +822,7 @@ public class RecordingHelper {
         return listArchivedRecordings(target.jvmId);
     }
 
-    public ArchivedRecording archiveRecording(ActiveRecording recording, String savename)
+    public ArchivedRecording archiveRecording(ActiveRecording recording)
             throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
@@ -833,9 +833,6 @@ public class RecordingHelper {
         String timestamp = now.truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =
                 String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
-        if (StringUtils.isBlank(savename)) {
-            savename = filename;
-        }
         String key = archivedRecordingKey(recording.target.jvmId, filename);
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
@@ -849,7 +846,7 @@ public class RecordingHelper {
                             .key(key)
                             .contentType(HttpMimeType.JFR.mime())
                             .contentDisposition(
-                                    String.format("attachment; filename=\"%s\"", savename));
+                                    String.format("attachment; filename=\"%s\"", filename));
             switch (storageMode()) {
                 case TAGGING:
                     builder = builder.tagging(createActiveRecordingTagging(recording));
