@@ -74,6 +74,7 @@ import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
+import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.EntityExistsException;
@@ -207,6 +208,9 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURLProperty;
 
+    @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_AUTOANALYZE)
+    boolean externalRecordingAutoanalyze;
+
     CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
 
     private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
@@ -324,8 +328,12 @@ public class RecordingHelper {
                     continue;
                 }
                 updated |= true;
-                // TODO is there any metadata to attach here?
-                var recording = ActiveRecording.from(target, descriptor, new Metadata(Map.of()));
+                var labels = new HashMap<String, String>();
+                if (externalRecordingAutoanalyze) {
+                    labels.put(AnalysisReportAggregator.AUTOANALYZE_LABEL, Boolean.TRUE.toString());
+                }
+                // TODO is there any other metadata to attach here?
+                var recording = ActiveRecording.from(target, descriptor, new Metadata(labels));
                 recording.external = true;
                 // FIXME this is a hack. Older Cryostat versions enforced that recordings' names
                 // were unique within the target JVM, but this could only be enforced when Cryostat
@@ -581,7 +589,7 @@ public class RecordingHelper {
                         () -> {
                             out.persist();
                             if (archive) {
-                                archiveRecording(out, null);
+                                archiveRecording(out);
                             }
                             return Uni.createFrom().item(out);
                         });
@@ -820,8 +828,7 @@ public class RecordingHelper {
         return listArchivedRecordings(target.jvmId);
     }
 
-    public ArchivedRecording archiveRecording(ActiveRecording recording, String savename)
-            throws Exception {
+    public ArchivedRecording archiveRecording(ActiveRecording recording) throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
         String transformedAlias =
@@ -831,9 +838,6 @@ public class RecordingHelper {
         String timestamp = now.truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =
                 String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
-        if (StringUtils.isBlank(savename)) {
-            savename = filename;
-        }
         String key = archivedRecordingKey(recording.target.jvmId, filename);
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
@@ -847,7 +851,7 @@ public class RecordingHelper {
                             .key(key)
                             .contentType(HttpMimeType.JFR.mime())
                             .contentDisposition(
-                                    String.format("attachment; filename=\"%s\"", savename));
+                                    String.format("attachment; filename=\"%s\"", filename));
             switch (storageMode()) {
                 case TAGGING:
                     builder = builder.tagging(createActiveRecordingTagging(recording));
