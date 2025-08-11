@@ -8,3 +8,5 @@ create index on DiscoveryNode (nodeType, name);
 
 create index on Rule (name);
 alter table Rule add column metadata jsonb default '{"labels":{}}';
+
+alter table ActiveRecording add column archiveOnStop boolean default false;
