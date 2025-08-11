@@ -335,6 +335,8 @@ components:
       type: array
     LinkedRecordingDescriptor:
       properties:
+        archiveOnStop:
+          type: boolean
         continuous:
           type: boolean
         downloadUrl:
