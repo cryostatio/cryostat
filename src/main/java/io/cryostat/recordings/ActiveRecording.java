@@ -22,6 +22,7 @@ import java.util.Optional;
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.Target;
@@ -30,6 +31,8 @@ import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -47,6 +50,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jdk.jfr.RecordingState;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
@@ -78,6 +82,7 @@ public class ActiveRecording extends PanacheEntity {
     @NotNull public RecordingState state;
     @PositiveOrZero public long duration;
     @PositiveOrZero public long startTime;
+    public boolean archiveOnStop;
     public boolean continuous;
     public boolean toDisk;
     @PositiveOrZero public long maxSize;
@@ -94,28 +99,20 @@ public class ActiveRecording extends PanacheEntity {
     @NotNull
     public Metadata metadata;
 
-    public static ActiveRecording from(Target target, LinkedRecordingDescriptor descriptor) {
-        Objects.requireNonNull(target);
-        Objects.requireNonNull(descriptor);
-        ActiveRecording recording = new ActiveRecording();
-
-        recording.target = target;
-        recording.remoteId = descriptor.id();
-        recording.name = descriptor.name();
-        recording.state = RecordingState.RUNNING;
-        recording.duration = descriptor.duration();
-        recording.startTime = descriptor.startTime();
-        recording.continuous = descriptor.continuous();
-        recording.toDisk = descriptor.toDisk();
-        recording.maxSize = descriptor.maxSize();
-        recording.maxAge = descriptor.maxAge();
-        recording.metadata = descriptor.metadata();
-
-        return recording;
+    public static ActiveRecording from(
+            Target target, IRecordingDescriptor descriptor, Metadata metadata) {
+        return from(
+                target,
+                descriptor,
+                metadata,
+                RecordingHelper.RecordingOptions.empty(descriptor.getName()));
     }
 
     public static ActiveRecording from(
-            Target target, IRecordingDescriptor descriptor, Metadata metadata) {
+            Target target,
+            IRecordingDescriptor descriptor,
+            Metadata metadata,
+            RecordingHelper.RecordingOptions options) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
         ActiveRecording recording = new ActiveRecording();
@@ -142,6 +139,7 @@ public class ActiveRecording extends PanacheEntity {
         }
         recording.duration = descriptor.getDuration().in(UnitLookup.MILLISECOND).longValue();
         recording.startTime = descriptor.getStartTime().in(UnitLookup.EPOCH_MS).longValue();
+        recording.archiveOnStop = options.archiveOnStop().orElse(false);
         recording.continuous = descriptor.isContinuous();
         recording.toDisk = descriptor.getToDisk();
         recording.maxSize = descriptor.getMaxSize().in(UnitLookup.BYTE).longValue();
@@ -161,6 +159,9 @@ public class ActiveRecording extends PanacheEntity {
         @Inject Logger logger;
         @Inject EventBus bus;
         @Inject RecordingHelper recordingHelper;
+
+        @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_ARCHIVE)
+        boolean archiveExternal;
 
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
@@ -189,6 +190,30 @@ public class ActiveRecording extends PanacheEntity {
                         new ActiveRecordingEvent(
                                 ActiveRecordings.RecordingEventCategory.ACTIVE_STOPPED,
                                 ActiveRecordingEvent.Payload.of(recordingHelper, activeRecording)));
+                if (activeRecording.archiveOnStop
+                        && (!activeRecording.external
+                                || (activeRecording.external && archiveExternal))) {
+                    Infrastructure.getDefaultExecutor()
+                            .execute(
+                                    () ->
+                                            QuarkusTransaction.joiningExisting()
+                                                    .run(
+                                                            () -> {
+                                                                try {
+                                                                    ActiveRecording recording =
+                                                                            ActiveRecording.find(
+                                                                                            "id",
+                                                                                            activeRecording
+                                                                                                    .id)
+                                                                                    .singleResult();
+                                                                    recordingHelper
+                                                                            .archiveRecording(
+                                                                                    recording);
+                                                                } catch (Exception e) {
+                                                                    logger.error(e);
+                                                                }
+                                                            }));
+                }
             }
         }
 

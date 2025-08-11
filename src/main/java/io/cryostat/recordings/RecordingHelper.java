@@ -211,6 +211,9 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_AUTOANALYZE)
     boolean externalRecordingAutoanalyze;
 
+    @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_ARCHIVE)
+    boolean externalRecordingArchive;
+
     CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
 
     private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
@@ -335,6 +338,9 @@ public class RecordingHelper {
                 // TODO is there any other metadata to attach here?
                 var recording = ActiveRecording.from(target, descriptor, new Metadata(labels));
                 recording.external = true;
+                if (externalRecordingArchive && recording.external) {
+                    recording.archiveOnStop = true;
+                }
                 // FIXME this is a hack. Older Cryostat versions enforced that recordings' names
                 // were unique within the target JVM, but this could only be enforced when Cryostat
                 // was originating the recording creation. Recordings already have unique IDs, so
@@ -453,7 +459,7 @@ public class RecordingHelper {
         labels.put("template.type", template.getType().toString());
         Metadata meta = new Metadata(labels);
 
-        ActiveRecording recording = ActiveRecording.from(target, desc, meta);
+        ActiveRecording recording = ActiveRecording.from(target, desc, meta, options);
         recording.persist();
 
         target.activeRecordings.add(recording);
@@ -467,7 +473,6 @@ public class RecordingHelper {
                 if (!scheduler.checkExists(key)) {
                     Map<String, Object> data = jobDetail.getJobDataMap();
                     data.put("recordingId", recording.id);
-                    data.put("archive", options.archiveOnStop().orElse(false));
                     Trigger trigger =
                             TriggerBuilder.newTrigger()
                                     .usingJobData(jobDetail.getJobDataMap())
@@ -567,8 +572,7 @@ public class RecordingHelper {
         }
     }
 
-    public Uni<ActiveRecording> stopRecording(ActiveRecording recording, boolean archive)
-            throws Exception {
+    public Uni<ActiveRecording> stopRecording(ActiveRecording recording) throws Exception {
         var out =
                 connectionManager.executeConnectedTask(
                         recording.target,
@@ -591,15 +595,8 @@ public class RecordingHelper {
                 .call(
                         () -> {
                             out.persist();
-                            if (archive) {
-                                archiveRecording(out);
-                            }
                             return Uni.createFrom().item(out);
                         });
-    }
-
-    public Uni<ActiveRecording> stopRecording(ActiveRecording recording) throws Exception {
-        return stopRecording(recording, false);
     }
 
     public Uni<ActiveRecording> deleteRecording(ActiveRecording recording) {
@@ -632,6 +629,7 @@ public class RecordingHelper {
                 recording.state,
                 recording.duration,
                 recording.startTime,
+                recording.archiveOnStop,
                 recording.continuous,
                 recording.toDisk,
                 recording.maxSize,
@@ -1515,7 +1513,17 @@ public class RecordingHelper {
             Optional<Boolean> archiveOnStop,
             Optional<Long> duration,
             Optional<Long> maxSize,
-            Optional<Long> maxAge) {}
+            Optional<Long> maxAge) {
+        static RecordingOptions empty(String name) {
+            return new RecordingOptions(
+                    name,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+        }
+    }
 
     public enum RecordingReplace {
         ALWAYS,
@@ -1546,8 +1554,7 @@ public class RecordingHelper {
                         ActiveRecording.find("id", (Long) jobDataMap.get("recordingId"))
                                 .singleResultOptional();
                 if (recording.isPresent()) {
-                    recordingHelper.stopRecording(
-                            recording.get(), (Boolean) jobDataMap.get("archive"));
+                    recordingHelper.stopRecording(recording.get());
                 }
             } catch (Exception e) {
                 throw new JobExecutionException(e);
