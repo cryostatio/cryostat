@@ -144,8 +144,7 @@ public class TargetUpdateService {
     }
 
     void fireActiveRecordingUpdate(ActiveRecording recording) throws SchedulerException {
-        JobKey key =
-                JobKey.jobKey(String.format("%s/%d", recording.target.jvmId, recording.remoteId));
+        JobKey key = JobKey.jobKey(recording.target.jvmId, Long.toString(recording.remoteId));
         if (scheduler.checkExists(key)) {
             return;
         }

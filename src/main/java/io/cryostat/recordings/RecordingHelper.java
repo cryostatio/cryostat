@@ -460,25 +460,26 @@ public class RecordingHelper {
         target.persist();
 
         if (!recording.continuous) {
+            JobKey key = JobKey.jobKey(target.jvmId, Long.toString(recording.remoteId));
             JobDetail jobDetail =
-                    JobBuilder.newJob(StopRecordingJob.class)
-                            .withIdentity(recording.name, target.jvmId)
-                            .build();
-            if (!jobs.contains(jobDetail.getKey())) {
-                Map<String, Object> data = jobDetail.getJobDataMap();
-                data.put("recordingId", recording.id);
-                data.put("archive", options.archiveOnStop().orElse(false));
-                Trigger trigger =
-                        TriggerBuilder.newTrigger()
-                                .withIdentity(recording.name, target.jvmId)
-                                .usingJobData(jobDetail.getJobDataMap())
-                                .startAt(new Date(System.currentTimeMillis() + recording.duration))
-                                .build();
-                try {
+                    JobBuilder.newJob(StopRecordingJob.class).withIdentity(key).build();
+            try {
+                if (!scheduler.checkExists(key)) {
+                    Map<String, Object> data = jobDetail.getJobDataMap();
+                    data.put("recordingId", recording.id);
+                    data.put("archive", options.archiveOnStop().orElse(false));
+                    Trigger trigger =
+                            TriggerBuilder.newTrigger()
+                                    .usingJobData(jobDetail.getJobDataMap())
+                                    .startAt(
+                                            new Date(
+                                                    System.currentTimeMillis()
+                                                            + recording.duration))
+                                    .build();
                     scheduler.scheduleJob(jobDetail, trigger);
-                } catch (SchedulerException e) {
-                    logger.warn(e);
                 }
+            } catch (SchedulerException e) {
+                logger.warn(e);
             }
         }
 
