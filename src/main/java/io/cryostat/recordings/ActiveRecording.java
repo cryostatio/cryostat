@@ -85,7 +85,8 @@ public class ActiveRecording extends PanacheEntity {
 
     /**
      * true if the recording was discovered on the Target and must have been created by some
-     * external process (not Cryostat), false if created by Cryostat.
+     * external process (not Cryostat, ex. -XX:StartFlightRecording flag), false if created by
+     * Cryostat.
      */
     @JsonIgnore public boolean external;
 
@@ -164,6 +165,9 @@ public class ActiveRecording extends PanacheEntity {
         @PostPersist
         public void postPersist(ActiveRecording activeRecording) {
             if (activeRecording.external) {
+                // if the recording was started externally, ex. by -XX:StartFlightRecording flag,
+                // then we don't want to emit spurious notifications as if we have initiated this
+                // recording
                 return;
             }
             bus.publish(
@@ -177,9 +181,6 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostUpdate
         public void postUpdate(ActiveRecording activeRecording) {
-            // if (activeRecording.external) {
-            //     return;
-            // }
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 bus.publish(
                         ActiveRecordings.RecordingEventCategory.ACTIVE_STOPPED.category(),
@@ -193,9 +194,6 @@ public class ActiveRecording extends PanacheEntity {
 
         @PostRemove
         public void postRemove(ActiveRecording activeRecording) {
-            if (activeRecording.external) {
-                return;
-            }
             bus.publish(
                     ActiveRecordings.RecordingEventCategory.ACTIVE_DELETED.category(),
                     activeRecording);
