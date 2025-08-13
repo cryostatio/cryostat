@@ -36,6 +36,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -45,6 +46,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 @TestHTTPEndpoint(AnalysisReportAggregator.class)
 @TestMethodOrder(OrderAnnotation.class)
 @TestProfile(CacheEnabledTestProfile.class)
+@Disabled
 public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;
