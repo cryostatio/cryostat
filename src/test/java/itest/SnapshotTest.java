@@ -67,6 +67,7 @@ public class SnapshotTest extends StandardSelfTest {
                 Long remoteId = recording.getLong("remoteId");
                 if (remoteId != null) {
                     deleteRecording(remoteId);
+                    Thread.sleep(100);
                 }
             }
         }
