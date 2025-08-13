@@ -24,11 +24,17 @@ import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 public class ApiListingTest extends AbstractTestBase {
+
+    ValidatableResponse resp;
+
+    @BeforeEach
+    void setup() {
+        resp = given().log().all().accept(ContentType.JSON).when().get("/api").then();
+    }
 
     @Test
     void shouldDefaultToYamlResponse() {
@@ -42,52 +48,41 @@ public class ApiListingTest extends AbstractTestBase {
                 .statusCode(200);
     }
 
-    @Nested
-    class JsonResponses {
+    @Test
+    void shouldBeOk() {
+        resp.statusCode(200);
+    }
 
-        ValidatableResponse resp;
+    @Test
+    void shouldRespondWithJson() {
+        resp.contentType(ContentType.JSON);
+    }
 
-        @BeforeEach
-        void setup() {
-            resp = given().log().all().accept(ContentType.JSON).when().get("/api").then();
-        }
+    @Test
+    void shouldIncludeOpenApiInfo() {
+        resp.body("openapi", Matchers.matchesRegex("^\\d+\\.\\d+\\.\\d+$"));
+    }
 
-        @Test
-        void shouldBeOk() {
-            resp.statusCode(200);
-        }
-
-        @Test
-        void shouldRespondWithJson() {
-            resp.contentType(ContentType.JSON);
-        }
-
-        @Test
-        void shouldIncludeOpenApiInfo() {
-            resp.body("openapi", Matchers.matchesRegex("^\\d+\\.\\d+\\.\\d+$"));
-        }
-
-        @Test
-        void shouldIncludeApplicationInfo() {
-            resp.body("info.title", Matchers.equalTo("Cryostat API (test)"))
-                    .body("info.description", Matchers.equalTo("Cloud-Native JDK Flight Recorder"))
-                    .body("info.contact.name", Matchers.equalTo("Cryostat Community"))
-                    .body("info.contact.url", Matchers.equalTo("https://cryostat.io"))
-                    .body(
-                            "info.contact.email",
-                            Matchers.equalTo("cryostat-development@googlegroups.com"))
-                    .body("info.license.name", Matchers.equalTo("Apache 2.0"))
-                    .body(
-                            "info.license.url",
-                            Matchers.equalTo(
-                                    "https://github.com/cryostatio/cryostat/blob/main/LICENSE"))
-                    .body(
-                            "info.version",
-                            Matchers.matchesRegex(
-                                    Pattern.compile(
-                                            "^\\d+\\.\\d+\\.\\d+(?:-snapshot)?$",
-                                            Pattern.CASE_INSENSITIVE | Pattern.MULTILINE)))
-                    .body("paths", Matchers.not(Matchers.blankOrNullString()));
-        }
+    @Test
+    void shouldIncludeApplicationInfo() {
+        resp.body("info.title", Matchers.equalTo("Cryostat API (test)"))
+                .body("info.description", Matchers.equalTo("Cloud-Native JDK Flight Recorder"))
+                .body("info.contact.name", Matchers.equalTo("Cryostat Community"))
+                .body("info.contact.url", Matchers.equalTo("https://cryostat.io"))
+                .body(
+                        "info.contact.email",
+                        Matchers.equalTo("cryostat-development@googlegroups.com"))
+                .body("info.license.name", Matchers.equalTo("Apache 2.0"))
+                .body(
+                        "info.license.url",
+                        Matchers.equalTo(
+                                "https://github.com/cryostatio/cryostat/blob/main/LICENSE"))
+                .body(
+                        "info.version",
+                        Matchers.matchesRegex(
+                                Pattern.compile(
+                                        "^\\d+\\.\\d+\\.\\d+(?:-snapshot)?$",
+                                        Pattern.CASE_INSENSITIVE | Pattern.MULTILINE)))
+                .body("paths", Matchers.not(Matchers.blankOrNullString()));
     }
 }
