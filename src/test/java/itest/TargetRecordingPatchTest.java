@@ -42,7 +42,7 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
 
     private final ExecutorService worker = ForkJoinPool.commonPool();
 
-    static final String TEST_RECORDING_NAME = "someRecording";
+    static final String TEST_RECORDING_NAME = "patchRecording";
 
     String recordingRequestUrl() {
         return String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId());
