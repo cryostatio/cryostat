@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestProfile(CacheEnabledTestProfile.class)
-@Disabled
+@Disabled("https://github.com/cryostatio/cryostat/pull/1015#issuecomment-3181008423")
 public class GraphQlReportsTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;

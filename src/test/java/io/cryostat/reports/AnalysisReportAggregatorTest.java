@@ -46,7 +46,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 @TestHTTPEndpoint(AnalysisReportAggregator.class)
 @TestMethodOrder(OrderAnnotation.class)
 @TestProfile(CacheEnabledTestProfile.class)
-@Disabled
+@Disabled("https://github.com/cryostatio/cryostat/pull/1015#issuecomment-3181008423")
 public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;
