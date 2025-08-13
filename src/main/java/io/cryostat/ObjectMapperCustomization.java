@@ -17,7 +17,6 @@ package io.cryostat;
 
 import java.io.IOException;
 import java.util.Map;
-import java.util.regex.Pattern;
 
 import io.cryostat.util.SemVer;
 
@@ -39,10 +38,6 @@ import jakarta.inject.Singleton;
 public class ObjectMapperCustomization implements ObjectMapperCustomizer {
 
     @Inject SemVer version;
-
-    static final Pattern VERSION_PATTERN =
-            Pattern.compile(
-                    "^(?<major>0|[1-9]\\d*)\\.(?<minor>0|[1-9]\\d*)\\.(?<patch>0|[1-9]\\d*)(?:-(?<prerelease>(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+(?<buildmeta>[0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$");
 
     @Override
     public void customize(ObjectMapper objectMapper) {
