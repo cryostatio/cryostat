@@ -255,6 +255,7 @@
     <dependency>
       <groupId>com.google.protobuf</groupId>
       <artifactId>protobuf-java</artifactId>
+      <version>${com.google.protobuf-java.version}</version>
     </dependency>
     <dependency>
       <groupId>commons-validator</groupId>
@@ -264,6 +265,7 @@
     <dependency>
       <groupId>com.nimbusds</groupId>
       <artifactId>nimbus-jose-jwt</artifactId>
+      <version>${com.nimbusds.jose.jwt.version}</version>
     </dependency>
     <dependency>
       <groupId>com.google.googlejavaformat</groupId>
