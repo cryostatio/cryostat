@@ -17,6 +17,9 @@ package io.cryostat;
 
 import java.io.IOException;
 import java.util.Map;
+import java.util.regex.Pattern;
+
+import io.cryostat.util.SemVer;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.Version;
@@ -29,17 +32,30 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.fasterxml.jackson.databind.type.MapType;
 import io.quarkus.jackson.ObjectMapperCustomizer;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
 @Singleton
 public class ObjectMapperCustomization implements ObjectMapperCustomizer {
 
+    @Inject SemVer version;
+
+    static final Pattern VERSION_PATTERN =
+            Pattern.compile(
+                    "^(?<major>0|[1-9]\\d*)\\.(?<minor>0|[1-9]\\d*)\\.(?<patch>0|[1-9]\\d*)(?:-(?<prerelease>(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\+(?<buildmeta>[0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$");
+
     @Override
     public void customize(ObjectMapper objectMapper) {
-        // FIXME get this version information from the maven build somehow
         SimpleModule mapModule =
                 new SimpleModule(
-                        "MapSerialization", new Version(3, 0, 0, null, "io.cryostat", "cryostat"));
+                        "MapSerialization",
+                        new Version(
+                                version.major(),
+                                version.minor(),
+                                version.patch(),
+                                version.prerelease(),
+                                "io.cryostat",
+                                "cryostat"));
 
         mapModule.setSerializerModifier(new MapSerializerModifier());
 
