@@ -58,6 +58,7 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
@@ -250,6 +251,9 @@ public class AnalysisReportAggregator {
     }
 
     public Uni<Entry> getEntry(String jvmId) {
+        if (StringUtils.isBlank(jvmId)) {
+            return Uni.createFrom().failure(() -> new NotFoundException());
+        }
         CompletableFuture<Entry> f = cache.as(CaffeineCache.class).getIfPresent(jvmId);
         if (f == null) {
             return Uni.createFrom().failure(() -> new NotFoundException());
