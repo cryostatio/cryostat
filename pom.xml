@@ -44,7 +44,7 @@
     <org.testcontainers.bom.version>1.21.3</org.testcontainers.bom.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-    <quarkus.platform.version>3.25.3</quarkus.platform.version>
+    <quarkus.platform.version>3.26.0.CR1</quarkus.platform.version>
     <quarkus-quinoa.version>2.6.0</quarkus-quinoa.version>
     <org.hibernate.orm.hibernate.jfr.version>7.0.8.Final</org.hibernate.orm.hibernate.jfr.version><!-- TODO is there some way to grab the Hibernate version used by Quarkus to match this version? -->
     <org.codehaus.mojo.build.helper.plugin.version>3.6.1</org.codehaus.mojo.build.helper.plugin.version>
