@@ -29,7 +29,6 @@ public record SemVer(int major, int minor, int patch, String prerelease, String 
         if (!matcher.find()) {
             throw new IllegalArgumentException(s);
         }
-        matcher.find();
         String major = matcher.group("major");
         String minor = matcher.group("minor");
         String patch = matcher.group("patch");
