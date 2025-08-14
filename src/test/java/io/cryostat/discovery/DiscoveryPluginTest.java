@@ -29,7 +29,6 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.NullAndEmptySource;
@@ -38,64 +37,61 @@ import org.junit.jupiter.params.provider.ValueSource;
 @QuarkusTest
 public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
 
-    @Nested
-    class Validations {
-        @ParameterizedTest
-        @NullAndEmptySource
-        @ValueSource(strings = {"invalid uri", "no.protocol.example.com"})
-        void rejectsInvalidCallback(String callback) {
-            var payload = new HashMap<>();
-            payload.put("callback", callback);
-            payload.put("realm", "test");
-            given().log()
-                    .all()
-                    .when()
-                    .body(payload)
-                    .contentType(ContentType.JSON)
-                    .post("/api/v4/discovery")
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(400);
-        }
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"invalid uri", "no.protocol.example.com"})
+    void rejectsInvalidCallback(String callback) {
+        var payload = new HashMap<>();
+        payload.put("callback", callback);
+        payload.put("realm", "test");
+        given().log()
+                .all()
+                .when()
+                .body(payload)
+                .contentType(ContentType.JSON)
+                .post("/api/v4/discovery")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
 
-        @ParameterizedTest
-        @NullAndEmptySource
-        void rejectsInvalidRealmName(String realm) {
-            var payload = new HashMap<>();
-            payload.put("callback", "http://example.com");
-            payload.put("realm", realm);
-            given().log()
-                    .all()
-                    .when()
-                    .body(payload)
-                    .contentType(ContentType.JSON)
-                    .post("/api/v4/discovery")
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(400);
-        }
+    @ParameterizedTest
+    @NullAndEmptySource
+    void rejectsInvalidRealmName(String realm) {
+        var payload = new HashMap<>();
+        payload.put("callback", "http://example.com");
+        payload.put("realm", realm);
+        given().log()
+                .all()
+                .when()
+                .body(payload)
+                .contentType(ContentType.JSON)
+                .post("/api/v4/discovery")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
 
-        @Test
-        void rejectsPublishForUnregisteredPlugin() {
-            given().log()
-                    .all()
-                    .when()
-                    .body(List.of())
-                    .contentType(ContentType.JSON)
-                    .post("/api/v4/discovery/abcd1234")
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(404);
-        }
+    @Test
+    void rejectsPublishForUnregisteredPlugin() {
+        given().log()
+                .all()
+                .when()
+                .body(List.of())
+                .contentType(ContentType.JSON)
+                .post("/api/v4/discovery/abcd1234")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(404);
     }
 
     @Test
