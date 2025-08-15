@@ -23,12 +23,10 @@ import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
-import io.cryostat.CacheEnabledTestProfile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
@@ -36,13 +34,10 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(AnalysisReportAggregator.class)
-@TestProfile(CacheEnabledTestProfile.class)
-@Disabled("https://github.com/cryostatio/cryostat/pull/1015#issuecomment-3181008423")
 public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;
