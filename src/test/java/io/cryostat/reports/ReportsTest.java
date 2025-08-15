@@ -185,8 +185,7 @@ public class ReportsTest extends AbstractTransactionalTestBase {
         int targetId = defineSelfCustomTarget();
         try {
             int remoteId =
-                    startSelfRecording("activeRecordingsTestReports", TEMPLATE_CONTINUOUS)
-                            .getInt("remoteId");
+                    startSelfRecording("reportsTest", TEMPLATE_CONTINUOUS).getInt("remoteId");
 
             given().log()
                     .all()
@@ -220,8 +219,7 @@ public class ReportsTest extends AbstractTransactionalTestBase {
     void testGetReportByUrl() {
         defineSelfCustomTarget();
         try {
-            JsonPath recording =
-                    startSelfRecording("activeRecordingsTestReportsURL", TEMPLATE_CONTINUOUS);
+            JsonPath recording = startSelfRecording("reportsTestByUrl", TEMPLATE_CONTINUOUS);
             String reportUrl = recording.getString("reportUrl");
 
             given().log()

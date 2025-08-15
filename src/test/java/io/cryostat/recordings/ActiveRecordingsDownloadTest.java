@@ -39,7 +39,7 @@ public class ActiveRecordingsDownloadTest extends AbstractTransactionalTestBase 
                         .when()
                         .basePath("/api/v4/targets/{targetId}/recordings")
                         .pathParams(Map.of("targetId", targetId))
-                        .formParam("recordingName", "activeRecordingsTest")
+                        .formParam("recordingName", "activeRecordingsDownloadTest")
                         .formParam("events", "template=Continuous")
                         .post()
                         .then()
