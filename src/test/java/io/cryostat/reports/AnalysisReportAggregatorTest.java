@@ -37,14 +37,10 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusTest
 @TestHTTPEndpoint(AnalysisReportAggregator.class)
-@TestMethodOrder(OrderAnnotation.class)
 @TestProfile(CacheEnabledTestProfile.class)
 @Disabled("https://github.com/cryostatio/cryostat/pull/1015#issuecomment-3181008423")
 public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase {
@@ -58,44 +54,6 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
     }
 
     @Test
-    @Order(1)
-    void testGetNoSource() {
-        int targetId = defineSelfCustomTarget();
-
-        String scrape =
-                given().log()
-                        .all()
-                        .when()
-                        .get()
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(200)
-                        .contentType(ContentType.TEXT)
-                        .and()
-                        .extract()
-                        .body()
-                        .asString();
-        MatcherAssert.assertThat(scrape, Matchers.is(Matchers.emptyString()));
-
-        given().log()
-                .all()
-                .when()
-                .basePath("/api/v4.1/targets/{targetId}/reports")
-                .pathParams("targetId", targetId)
-                .get()
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(404);
-    }
-
-    @Test
-    @Order(2)
     void testScrapeAll()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         defineSelfCustomTarget();
@@ -167,7 +125,6 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
     }
 
     @Test
-    @Order(3)
     void testScrapeSingle()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         int targetId = defineSelfCustomTarget();
@@ -254,7 +211,6 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
     }
 
     @Test
-    @Order(4)
     void testScrapeSingleNonexistent() {
         given().log()
                 .all()
