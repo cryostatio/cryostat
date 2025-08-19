@@ -1466,8 +1466,7 @@ public class RecordingHelper {
 
             Path recordingPath = fs.createTempFile(null, null);
             // the S3 client will create the file at this path, we just need to get a fresh temp
-            // file
-            // path but one that does not yet exist
+            // file path but one that does not yet exist
             fs.deleteIfExists(recordingPath);
 
             storage.getObject(getRequest, recordingPath);
