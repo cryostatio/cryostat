@@ -21,6 +21,7 @@ import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
@@ -59,6 +60,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
+import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
@@ -292,6 +294,8 @@ public class Discovery {
                     | JOSEException
                     | ParseException e) {
                 throw new BadRequestException(e);
+            } catch (NoSuchAlgorithmException e) {
+                throw new InternalServerErrorException(e);
             }
         } else {
             // check if a plugin record with the same callback already exists. If it does,
@@ -362,6 +366,8 @@ public class Discovery {
             token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, location);
         } catch (URISyntaxException | JOSEException | UnknownHostException | SocketException e) {
             throw new BadRequestException(e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new InternalServerErrorException(e);
         }
 
         // TODO implement more generic env map passing by some platform detection
