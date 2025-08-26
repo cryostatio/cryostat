@@ -353,6 +353,7 @@ public class TargetConnectionManager {
             if (semaphore.isPresent()) {
                 semaphore.get().release();
             }
+            logger.error(e);
             throw e;
         } finally {
             evt.end();
