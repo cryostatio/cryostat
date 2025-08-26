@@ -37,7 +37,6 @@ public class ConfigProperties {
     public static final String CONTAINERS_REQUEST_TIMEOUT =
             "cryostat.discovery.containers.request-timeout";
 
-    public static final String CONNECTIONS_MAX_OPEN = "cryostat.connections.max-open";
     public static final String CONNECTIONS_TTL = "cryostat.connections.ttl";
     public static final String CONNECTIONS_FAILED_BACKOFF = "cryostat.connections.failed-backoff";
     public static final String CONNECTIONS_FAILED_TIMEOUT = "cryostat.connections.failed-timeout";
