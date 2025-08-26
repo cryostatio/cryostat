@@ -27,7 +27,7 @@ import io.cryostat.recordings.RecordingHelper;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
-import jakarta.persistence.NoResultException;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -55,16 +55,16 @@ public class TargetUpdateJob implements Job {
     public void execute(JobExecutionContext context) throws JobExecutionException {
         List<Target> targets;
         Long targetId = (Long) context.getJobDetail().getJobDataMap().get("targetId");
-        if (targetId != null) {
-            try {
+        try {
+            if (targetId != null) {
                 targets = List.of(Target.getTargetById(targetId));
-            } catch (NoResultException e) {
-                // target disappeared in the meantime. No big deal.
-                logger.debug(e);
-                return;
+            } else {
+                targets = Target.<Target>find("#Target.unconnected").list();
             }
-        } else {
-            targets = Target.<Target>find("#Target.unconnected").list();
+        } catch (PersistenceException e) {
+            // target disappeared in the meantime. No big deal.
+            logger.debug(e);
+            return;
         }
 
         Executor executor;
@@ -88,6 +88,11 @@ public class TargetUpdateJob implements Job {
                             .map(JvmIdentifier::getHash)
                             .await()
                             .atMost(connectionTimeout);
+        } catch (PersistenceException e) {
+            target.jvmId = null;
+            target.persist();
+            logger.debug(e);
+            return;
         } catch (Exception e) {
             target.jvmId = null;
             target.persist();
