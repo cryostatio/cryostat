@@ -40,7 +40,6 @@ import jakarta.websocket.ContainerProvider;
 import jakarta.websocket.DeploymentException;
 import jakarta.websocket.OnMessage;
 import jakarta.websocket.Session;
-import org.apache.http.client.utils.URLEncodedUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,8 +50,6 @@ import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 public abstract class AbstractTestBase {
 
     public static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
-    public static String SELF_JMX_URL_ENCODED =
-            URLEncodedUtils.formatSegments(SELF_JMX_URL).substring(1);
     public static final String SELFTEST_ALIAS = "selftest";
 
     public static final String TEMPLATE_CONTINUOUS = "template=Continuous";
