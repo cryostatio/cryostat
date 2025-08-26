@@ -15,6 +15,7 @@
  */
 package itest;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -140,7 +141,9 @@ public class UploadRecordingTest extends StandardSelfTest {
                                         ar.result().statusCode(), Matchers.equalTo(200));
                                 MatcherAssert.assertThat(
                                         ar.result().getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                                        Matchers.equalTo(HttpMimeType.PLAINTEXT.mime()));
+                                        Matchers.equalTo(
+                                                HttpMimeType.PLAINTEXT.mime(
+                                                        StandardCharsets.UTF_8)));
                                 getRespFuture.complete(ar.result().bodyAsString());
                             }
                         });
@@ -200,7 +203,8 @@ public class UploadRecordingTest extends StandardSelfTest {
                                         ar.result().statusCode(), Matchers.equalTo(200));
                                 MatcherAssert.assertThat(
                                         ar.result().getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                                        Matchers.equalTo(HttpMimeType.JSON.mime()));
+                                        Matchers.equalTo(
+                                                HttpMimeType.JSON.mime(StandardCharsets.UTF_8)));
                                 queryRespFuture.complete(ar.result().bodyAsJsonArray());
                             }
                         });
