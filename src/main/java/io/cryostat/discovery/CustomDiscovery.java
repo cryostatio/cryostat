@@ -247,7 +247,7 @@ public class CustomDiscovery {
                     discovered them.
                     """)
     public void delete(@RestPath long id) throws URISyntaxException {
-        Target target = Target.find("id", id).singleResult();
+        Target target = Target.getTargetById(id);
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         boolean withinRealm = realm.children.remove(target.discoveryNode);
         if (!withinRealm) {
