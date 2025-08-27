@@ -59,7 +59,6 @@ import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
-import jakarta.persistence.PreRemove;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -411,11 +410,6 @@ public class Target extends PanacheEntity {
         @PostUpdate
         void postUpdate(Target target) {
             notify(EventKind.MODIFIED, target);
-        }
-
-        @PreRemove
-        void preRemove(Target target) {
-            target.jvmId = null;
         }
 
         @PostRemove
