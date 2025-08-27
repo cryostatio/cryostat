@@ -66,6 +66,7 @@ import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SoftDelete;
+import org.hibernate.annotations.SoftDeleteType;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
@@ -86,7 +87,7 @@ import org.jboss.logging.Logger;
 @NamedQueries({
     @NamedQuery(name = "Target.unconnected", query = "from Target where jvmId is null"),
 })
-@SoftDelete
+@SoftDelete(strategy = SoftDeleteType.TIMESTAMP)
 public class Target extends PanacheEntity {
 
     public static final String TARGET_JVM_DISCOVERY = "TargetJvmDiscovery";
@@ -168,8 +169,7 @@ public class Target extends PanacheEntity {
             int updates =
                     Panache.getSession()
                             .createNativeQuery(
-                                    "update target set deleted = false where id = :id",
-                                    Target.class)
+                                    "update target set deleted = null where id = :id", Target.class)
                             .setParameter("id", target.id)
                             .executeUpdate();
             if (updates != 1) {

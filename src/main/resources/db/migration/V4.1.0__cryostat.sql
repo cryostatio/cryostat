@@ -1,7 +1,7 @@
 alter sequence DiscoveryNode_SEQ increment by 50;
 
 alter table Target
-add column deleted boolean default false;
+add column deleted timestamp default null;
 create index on Target (jvmId);
 create index on Target (connectUrl);
 

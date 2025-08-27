@@ -103,7 +103,6 @@ public class CustomDiscovery {
             TargetStub target,
             @RestQuery boolean dryrun,
             @RestQuery boolean storeCredentials) {
-
         if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
             throw new BadRequestException("Duplicate connection URL");
         }
@@ -288,7 +287,10 @@ public class CustomDiscovery {
 
         public static TargetStub from(Target target, Credential credential) {
             return new TargetStub(
-                    target.connectUrl, target.alias, credential.username, credential.password);
+                    target.connectUrl,
+                    target.alias,
+                    credential == null ? null : credential.username,
+                    credential == null ? null : credential.password);
         }
 
         Optional<Credential> getCredential() {
