@@ -29,6 +29,7 @@ import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
@@ -81,6 +82,9 @@ public class TargetUpdateJob implements Job {
     }
 
     private void updateTarget(Target target) {
+        if (StringUtils.isNotBlank(target.jvmId)) {
+            return;
+        }
         try {
             target.jvmId =
                     connectionManager
