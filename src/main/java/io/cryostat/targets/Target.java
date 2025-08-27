@@ -265,7 +265,7 @@ public class Target extends PanacheEntity {
 
     @Override
     public int hashCode() {
-        return Objects.hash(alias, annotations, connectUrl, jvmId, labels);
+        return Objects.hash(connectUrl, alias, annotations, labels);
     }
 
     @Override
@@ -280,10 +280,9 @@ public class Target extends PanacheEntity {
             return false;
         }
         Target other = (Target) obj;
-        return Objects.equals(alias, other.alias)
+        return Objects.equals(connectUrl, other.connectUrl)
+                && Objects.equals(alias, other.alias)
                 && Objects.equals(annotations, other.annotations)
-                && Objects.equals(connectUrl, other.connectUrl)
-                && Objects.equals(jvmId, other.jvmId)
                 && Objects.equals(labels, other.labels);
     }
 
