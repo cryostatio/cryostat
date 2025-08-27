@@ -103,10 +103,9 @@ public class CustomDiscovery {
             TargetStub target,
             @RestQuery boolean dryrun,
             @RestQuery boolean storeCredentials) {
-
-            if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
-                throw new BadRequestException("Duplicate connection URL");
-            }
+        if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
+            throw new BadRequestException("Duplicate connection URL");
+        }
         return doCreate(uriInfo, target, dryrun, storeCredentials);
     }
 
@@ -132,9 +131,9 @@ public class CustomDiscovery {
             @RestForm String password,
             @RestQuery boolean dryrun,
             @RestQuery boolean storeCredentials) {
-            if (Target.find("connectUrl", connectUrl).singleResultOptional().isPresent()) {
-                throw new BadRequestException("Duplicate connection URL");
-            }
+        if (Target.find("connectUrl", connectUrl).singleResultOptional().isPresent()) {
+            throw new BadRequestException("Duplicate connection URL");
+        }
         var target = Target.createOrUndelete(connectUrl);
         target.alias = alias;
 
@@ -280,10 +279,14 @@ public class CustomDiscovery {
         }
 
         public static TargetStub from(Target target, Credential credential) {
-            return new TargetStub(target.connectUrl, target.alias, credential.username, credential.password);
-		}
+            return new TargetStub(
+                    target.connectUrl,
+                    target.alias,
+                    credential == null ? null : credential.username,
+                    credential == null ? null : credential.password);
+        }
 
-		Optional<Credential> getCredential() {
+        Optional<Credential> getCredential() {
             Credential credential = null;
             if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
                 credential = new Credential();
