@@ -166,20 +166,18 @@ public class CustomDiscovery {
 
             try {
                 String jvmId =
-                        target.jvmId =
-                                connectionManager
-                                        .executeDirect(
-                                                target,
-                                                credential,
-                                                conn -> conn.getJvmIdentifier().getHash())
-                                        .await()
-                                        .atMost(timeout);
-
-                if (QuarkusTransaction.joiningExisting()
-                        .call(() -> Target.find("jvmId", jvmId).count() > 0)) {
+                        connectionManager
+                                .executeDirect(
+                                        target,
+                                        credential,
+                                        conn -> conn.getJvmIdentifier().getHash())
+                                .await()
+                                .atMost(timeout);
+                if (Target.find("jvmId", jvmId).count() > 0) {
                     throw new BadRequestException(
                             String.format("Target with JVM ID \"%s\" already discovered", jvmId));
                 }
+                target.jvmId = jvmId;
             } catch (Exception e) {
                 logger.error("Target connection failed", e);
                 String msg =
