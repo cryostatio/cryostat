@@ -158,13 +158,15 @@ public class AgentClient {
                                     }))
                     .map(HttpResponse::bodyAsBuffer)
                     .map(
-                            buff -> {
-                                if (returnType.equals(String.class)) {
-                                    return (T) buff.toString();
-                                }
-                                // TODO implement conditional handling based on expected returnType
-                                return null;
-                            });
+                            Unchecked.function(
+                                    buff -> {
+                                        if (returnType.equals(String.class)) {
+                                            return mapper.readValue(buff.toString(), returnType);
+                                        }
+                                        // TODO implement conditional handling based on expected
+                                        // returnType
+                                        return null;
+                                    }));
         } catch (JsonProcessingException e) {
             logger.error("invokeMBeanOperation request failed", e);
             return Uni.createFrom().failure(e);
