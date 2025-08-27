@@ -15,26 +15,26 @@
  */
 package io.cryostat.targets;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.time.Duration;
+import java.util.List;
+import java.util.concurrent.Executor;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
+import io.cryostat.libcryostat.JvmIdentifier;
 import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
-import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
-import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
-import org.hibernate.ObjectDeletedException;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
-import org.quartz.SchedulerException;
 
 /**
  * Attempt to connect to a remote target JVM to retrieve {@link java.lang.management.RuntimeMXBean}
@@ -42,96 +42,62 @@ import org.quartz.SchedulerException;
  *
  * @see io.cryostat.target.Target
  */
-@DisallowConcurrentExecution
 public class TargetUpdateJob implements Job {
 
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingHelper recordingHelper;
-    @Inject TargetUpdateService updateService;
-    ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionTimeout;
 
     @Override
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        Target target;
-        long targetId = (long) context.getMergedJobDataMap().get("targetId");
+        List<Target> targets;
+        Long targetId = (Long) context.getJobDetail().getJobDataMap().get("targetId");
+        if (targetId != null) {
+            try {
+                targets = List.of(Target.getTargetById(targetId));
+            } catch (NoResultException e) {
+                // target disappeared in the meantime. No big deal.
+                logger.debug(e);
+                return;
+            }
+        } else {
+            targets = Target.<Target>find("#Target.unconnected").list();
+        }
+
+        Executor executor;
+        if (targets.size() == 1) {
+            executor = Runnable::run;
+        } else {
+            executor = Infrastructure.getDefaultExecutor();
+        }
+        targets.forEach(t -> executor.execute(() -> updateTargetTx(t.id)));
+    }
+
+    private void updateTargetTx(long id) {
+        QuarkusTransaction.requiringNew().run(() -> updateTarget(Target.getTargetById(id)));
+    }
+
+    private void updateTarget(Target target) {
+        if (StringUtils.isNotBlank(target.jvmId)) {
+            return;
+        }
         try {
-            target = Target.getTargetById(targetId);
-        } catch (NoResultException | ObjectDeletedException e) {
-            // target disappeared in the meantime. No big deal.
-            logger.debug(e);
-            JobExecutionException ex = new JobExecutionException(e);
-            ex.setRefireImmediately(false);
-            ex.setUnscheduleFiringTrigger(true);
-            throw ex;
-        } catch (PersistenceException e) {
-            JobExecutionException ex = new JobExecutionException(e);
-            ex.setRefireImmediately(false);
-            throw ex;
+            target.jvmId =
+                    connectionManager
+                            .executeConnectedTaskUni(target, JFRConnection::getJvmIdentifier)
+                            .map(JvmIdentifier::getHash)
+                            .await()
+                            .atMost(connectionTimeout);
+        } catch (Exception e) {
+            target.jvmId = null;
+            target.persist();
+            throw e;
         }
-
-        boolean b = true;
-        if (StringUtils.isBlank(target.jvmId)) {
-            b = updateTargetJvmId(target);
-        }
-        if (b) {
-            updateTargetRecordings(target);
-        }
-    }
-
-    private boolean updateTargetJvmId(Target target) {
-        final String jvmId =
-                connectionManager
-                        .executeConnectedTask(
-                                QuarkusTransaction.joiningExisting()
-                                        .call(() -> Target.getTargetById(target.id)),
-                                JFRConnection::getJvmIdentifier)
-                        .getHash();
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () -> {
-                            Target t = Target.getTargetById(target.id);
-                            try {
-                                t.jvmId = jvmId;
-                                logger.debugv(
-                                        "Updated JVM ID for target {0} ({1}) = {2}",
-                                        target.connectUrl, target.alias, t.jvmId);
-                                return true;
-                            } catch (PersistenceException e) {
-                                t.jvmId = null;
-                                t.persist();
-                                logger.warn(e);
-                                return false;
-                            } catch (Exception e) {
-                                t.jvmId = null;
-                                t.persist();
-                                logger.error(e);
-                                throw e;
-                            }
-                        });
-    }
-
-    private void updateTargetRecordings(Target target) {
-        QuarkusTransaction.joiningExisting()
-                .run(
-                        () -> {
-                            Target t = Target.getTargetById(target.id);
-                            t.activeRecordings = recordingHelper.syncActiveRecordings(t);
-                            t.persist();
-
-                            t.activeRecordings.stream()
-                                    .filter(r -> !r.continuous)
-                                    .filter(r -> !RecordingState.CLOSED.equals(r.state))
-                                    .filter(r -> !RecordingState.STOPPED.equals(r.state))
-                                    .forEach(
-                                            r -> {
-                                                try {
-                                                    updateService.fireActiveRecordingUpdate(r);
-                                                } catch (SchedulerException e) {
-                                                    logger.error(e);
-                                                }
-                                            });
-                        });
+        target.activeRecordings = recordingHelper.listActiveRecordings(target);
+        target.persist();
     }
 }
