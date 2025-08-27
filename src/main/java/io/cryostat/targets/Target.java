@@ -218,7 +218,7 @@ public class Target extends PanacheEntity {
         return Panache.getSession()
                 // ignore soft deletion field
                 .createNativeQuery("select * from Target where jvmId = :jvmId", Target.class)
-                .setParameter("jvmId", jvmId.getBytes())
+                .setParameter("jvmId", jvmId)
                 .uniqueResultOptional();
     }
 
