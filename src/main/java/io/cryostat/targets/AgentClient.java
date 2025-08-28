@@ -174,7 +174,8 @@ public class AgentClient {
                             Unchecked.function(
                                     buff -> {
                                         if (returnType.equals(String.class)) {
-                                            return mapper.readValue(buff.toString(), returnType);
+                                            return mapper.readValue(
+                                                    (InputStream) buff.getEntity(), returnType);
                                         }
                                         // TODO implement conditional handling based on expected
                                         // returnType
