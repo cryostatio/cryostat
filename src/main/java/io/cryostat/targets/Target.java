@@ -297,7 +297,7 @@ public class Target extends PanacheEntity {
         ;
     }
 
-    @SuppressFBWarnings(value = {"EI_EXPOSE_REP", "EI_EXPOSE_REP2"})
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record TargetDiscovery(EventKind kind, Target serviceRef, String jvmId) {
         public TargetDiscovery {
             Objects.requireNonNull(kind);

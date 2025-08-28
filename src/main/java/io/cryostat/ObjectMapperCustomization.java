@@ -18,6 +18,8 @@ package io.cryostat;
 import java.io.IOException;
 import java.util.Map;
 
+import io.cryostat.util.SemVer;
+
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.Version;
 import com.fasterxml.jackson.databind.BeanDescription;
@@ -29,17 +31,26 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.databind.ser.BeanSerializerModifier;
 import com.fasterxml.jackson.databind.type.MapType;
 import io.quarkus.jackson.ObjectMapperCustomizer;
+import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 
 @Singleton
 public class ObjectMapperCustomization implements ObjectMapperCustomizer {
 
+    @Inject SemVer version;
+
     @Override
     public void customize(ObjectMapper objectMapper) {
-        // FIXME get this version information from the maven build somehow
         SimpleModule mapModule =
                 new SimpleModule(
-                        "MapSerialization", new Version(3, 0, 0, null, "io.cryostat", "cryostat"));
+                        "MapSerialization",
+                        new Version(
+                                version.major(),
+                                version.minor(),
+                                version.patch(),
+                                version.prerelease(),
+                                "io.cryostat",
+                                "cryostat"));
 
         mapModule.setSerializerModifier(new MapSerializerModifier());
 

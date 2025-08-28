@@ -49,7 +49,7 @@ public class ReportGenerationTest extends StandardSelfTest {
 
     private final ExecutorService worker = ForkJoinPool.commonPool();
 
-    static final String TEST_RECORDING_NAME = "someRecording";
+    static final String TEST_RECORDING_NAME = "reportGeneration";
 
     private String archivedReportRequestURL() {
         return String.format("/api/beta/reports/%s", getSelfReferenceConnectUrlEncoded());

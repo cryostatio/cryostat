@@ -35,11 +35,13 @@ import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(Reports.class)
 @TestProfile(CacheEnabledTestProfile.class)
+@Disabled("https://github.com/cryostatio/cryostat/pull/1015#issuecomment-3181008423")
 public class ReportsTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;

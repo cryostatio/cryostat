@@ -52,7 +52,6 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -103,11 +102,6 @@ public class TargetConnectionManager {
     private final Duration failedTimeout;
 
     @Inject
-    @SuppressFBWarnings(
-            value = "CT_CONSTRUCTOR_THROW",
-            justification =
-                    "Caffeine cache is initialized here, so it will not throw due to"
-                            + " reconfiguration")
     TargetConnectionManager(
             JFRConnectionToolkit jfrConnectionToolkit,
             MatchExpressionEvaluator matchExpressionEvaluator,

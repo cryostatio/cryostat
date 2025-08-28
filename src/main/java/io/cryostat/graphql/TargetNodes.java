@@ -176,7 +176,6 @@ public class TargetNodes {
         return connectionManager.executeConnectedTask(fTarget, JFRConnection::getMBeanMetrics);
     }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class Recordings {
         // @Ignore these two from the GraphQL schema generation because we override the definition
         // in the ArchivedRecordings and ActiveRecordings classes so that we can apply input
@@ -232,7 +231,6 @@ public class TargetNodes {
         }
     }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class ReportAggregateInfo {
         public @NonNull @Description("The number of elements in this collection") long count;
         public @NonNull @Description("The maximum value in this collection") double max;
@@ -258,7 +256,6 @@ public class TargetNodes {
         }
     }
 
-    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class ReportFilter implements Predicate<Map.Entry<String, AnalysisResult>> {
         public @Nullable String id;
         public @Nullable List<String> ids;

@@ -95,6 +95,7 @@ jobs:
     needs: [checkout-branch]
     runs-on: ubuntu-latest
     env:
+      SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
       deps-cache-name: cache-yarn
       build-cache-name: cache-webpack
     name: Build and test
@@ -159,14 +160,16 @@ jobs:
         cd -
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa
-    - name: Ensure podman 4+ and podman-docker installed
-      run: sudo apt update && sudo apt -y satisfy "podman (>= 4.0), podman-docker, qemu-user-static"
-    - name: Start Podman API
-      run: systemctl --user enable --now podman.socket
-    - name: Set DOCKER_HOST environment variable
-      run: echo "DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock" >> "$GITHUB_ENV"
     - name: Build application
-      run: ./mvnw -B -U clean verify
+      env:
+        PR_CI: true
+      run: |
+        ./mvnw -B -U \
+          -Dquarkus.docker.executable-name=docker \
+          -Dquarkus.log.level=error \
+          -Dquarkus.hibernate-orm.log.sql=false \
+          -Dquarkus.http.access-log.enabled=false \
+          clean verify
 
     - name: Add workflow result as comment on PR
       uses: actions/github-script@v7
@@ -195,6 +198,8 @@ jobs:
   update-schemas:
     needs: [checkout-branch]
     runs-on: ubuntu-latest
+    env:
+      SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
     outputs:
       OPENAPI_STATUS: ${{ steps.schema-update.outputs.openapi_status }}
       OPENAPI_DIFF_FILE: ${{ steps.schema-update.outputs.openapi_diff_file }}

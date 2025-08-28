@@ -24,6 +24,7 @@ import io.cryostat.core.util.RuleFilterParser;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.recordings.LongRunningRequestGenerator;
+import io.cryostat.util.SemVer;
 
 import io.quarkus.arc.DefaultBean;
 import io.smallrye.common.annotation.Identifier;
@@ -32,6 +33,7 @@ import io.vertx.mutiny.ext.web.client.WebClient;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.context.RequestScoped;
 import jakarta.enterprise.inject.Produces;
+import jakarta.inject.Singleton;
 import org.apache.commons.codec.binary.Base64;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.projectnessie.cel.tools.ScriptHost;
@@ -44,6 +46,13 @@ import software.amazon.awssdk.utils.StringUtils;
 public class Producers {
 
     public static final String BASE64_URL = "BASE64_URL";
+
+    @Produces
+    @Singleton
+    public static SemVer produceSemVer(
+            @ConfigProperty(name = "quarkus.application.version") String version) {
+        return SemVer.parse(version);
+    }
 
     @Produces
     @ApplicationScoped

@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 public class SnapshotTest extends StandardSelfTest {
 
-    static final String TEST_RECORDING_NAME = "someRecording";
+    static final String TEST_RECORDING_NAME = "snapshotTest";
     static final Pattern SNAPSHOT_NAME_PATTERN = Pattern.compile("^snapshot-[0-9]+$");
     static long REMOTE_ID;
     static long SNAPSHOT_ID;
@@ -67,6 +67,7 @@ public class SnapshotTest extends StandardSelfTest {
                 Long remoteId = recording.getLong("remoteId");
                 if (remoteId != null) {
                     deleteRecording(remoteId);
+                    Thread.sleep(100);
                 }
             }
         }
@@ -108,7 +109,7 @@ public class SnapshotTest extends StandardSelfTest {
     }
 
     @Test
-    void testPostUsingShouldHandleEmptySnapshot() throws Exception {
+    void testPostShouldHandleEmptySnapshot() throws Exception {
         JsonArray preListResp = fetchPreTestRecordings();
         MatcherAssert.assertThat(preListResp, Matchers.equalTo(new JsonArray()));
 
