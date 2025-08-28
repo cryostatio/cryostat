@@ -146,7 +146,8 @@ public class Diagnostics {
             return ResponseBuilder.ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
-                            String.format("attachment; filename=\"%s\"", decodedKey.getValue()))
+                            String.format(
+                                    "attachment; filename=\"%s\"", generateFileName(decodedKey)))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(helper.getThreadDumpStream(encodedKey))
                     .build();
@@ -178,16 +179,28 @@ public class Diagnostics {
         }
         ResponseBuilder<Object> response =
                 ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT);
-        if (StringUtils.isNotBlank(filename)) {
-            response =
-                    response.header(
-                            HttpHeaders.CONTENT_DISPOSITION,
-                            String.format(
-                                    "attachment; filename=\"%s\"",
-                                    new String(
-                                            base64Url.decode(filename), StandardCharsets.UTF_8)));
-        }
+        response =
+                response.header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        String.format(
+                                "attachment; filename=\"%s\"",
+                                filename.isBlank()
+                                        ? generateFileName(decodedKey)
+                                        : new String(
+                                                base64Url.decode(filename),
+                                                StandardCharsets.UTF_8)));
         return response.location(uri).build();
+    }
+
+    private String generateFileName(Pair<String, String> decodedKey) {
+        String jvmId = decodedKey.getLeft();
+        String uuid = decodedKey.getRight();
+        Target t = Target.getTargetByJvmId(jvmId).get();
+        if (Objects.isNull(t)) {
+            log.errorv("jvmId {0} failed to resolve to target. Defaulting to uuid.", jvmId);
+            return uuid;
+        }
+        return t.alias + "_" + uuid + ".thread_dump";
     }
 
     @Path("targets/{targetId}/gc")
