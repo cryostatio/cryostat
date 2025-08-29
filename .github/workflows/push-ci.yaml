@@ -208,7 +208,6 @@ jobs:
         arch: [amd64, arm64]
     runs-on: ${{ matrix.arch == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
     env:
-      CI_ARCH: ${{ matrix.arch }}
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
     steps:
     - uses: DamianReeves/write-file-action@v1.3
@@ -243,13 +242,10 @@ jobs:
       with:
         path: containers
         name: cryostat-${{ matrix.arch }}-docker
-    - run: ls -a containers
     - name: Import container tarball
       run: docker image load -i containers/cryostat-${{ matrix.arch }}-docker.tar
     - name: Prepare test harness
       run: ./mvnw -Dquarkus.quinoa=false -Dquarkus.container-image.build=false -Dspotless.check.skip -DskipTests package
-    - run: docker images
-    - run: docker inspect ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Replace artifact metadata
       run: |
         [ -d target ] || mkdir target ; \
@@ -259,7 +255,13 @@ jobs:
         echo "metadata.pull-required=false" >> target/quarkus-artifact.properties ; \
         echo "type=jar-container" >> target/quarkus-artifact.properties
     - name: Run tests
-      run: ./mvnw -B -U failsafe:integration-test failsafe:verify
+      run: |
+        ./mvnw -B -U \
+          -Dquarkus.docker.executable-name=docker \
+          -Dquarkus.log.level=error \
+          -Dquarkus.hibernate-orm.log.sql=false \
+          -Dquarkus.http.access-log.enabled=false \
+          failsafe:integration-test failsafe:verify
     - name: Dump logs
       if: always()
       run: cat target/quarkus.log

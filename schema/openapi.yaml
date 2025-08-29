@@ -678,6 +678,18 @@ components:
         - CUSTOM
         - PRESET
       type: string
+    ThreadDump:
+      properties:
+        downloadUrl:
+          type: string
+        jvmId:
+          type: string
+        lastModified:
+          format: int64
+          type: integer
+        uuid:
+          type: string
+      type: object
     UUID:
       format: uuid
       pattern: '[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
@@ -710,14 +722,99 @@ paths:
       responses:
         "201":
           description: Created
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Initiate a garbage collection on the specified target
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/targets/{targetId}/threaddump:
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ThreadDump'
+                type: array
+          description: OK
+      summary: Get Thread Dumps
+      tags:
+        - Diagnostics
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: format
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
+        required: true
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+        "400":
+          description: Bad Request
+      summary: Thread Dump
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/targets/{targetId}/threaddump/{threadDumpId}:
+    delete:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: path
+          name: threadDumpId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete Thread Dump
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/threaddump/download/{encodedKey}:
+    get:
+      parameters:
+        - in: path
+          name: encodedKey
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: filename
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+      summary: Handle Storage Download
       tags:
         - Diagnostics
   /api/beta/fs/recordings:
@@ -731,13 +828,6 @@ paths:
                   $ref: '#/components/schemas/ArchivedRecordingDirectory'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List all archived recordings grouped by target
       tags:
         - Archived Recordings
@@ -758,13 +848,6 @@ paths:
                   $ref: '#/components/schemas/ArchivedRecordingDirectory'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List all archived recordings belonging to the specified target
       tags:
         - Archived Recordings
@@ -784,13 +867,6 @@ paths:
       responses:
         "204":
           description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Delete an archived recording by name belonging to the specified target
       tags:
         - Archived Recordings
@@ -811,13 +887,6 @@ paths:
       responses:
         "204":
           description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Delete an archived recording belonging to the specified target
       tags:
         - Archived Recordings
@@ -838,13 +907,6 @@ paths:
                   $ref: '#/components/schemas/ArchivedRecording'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List archived recordings belonging to the specified target
       tags:
         - Archived Recordings
@@ -878,13 +940,6 @@ paths:
           description: Created
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Upload a JFR binary file to archives, associated with a particular target
       tags:
         - Archived Recordings
@@ -902,13 +957,6 @@ paths:
                   type: string
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Retrieve the latest aggregate report data
       tags:
         - Analysis Report Aggregator
@@ -930,13 +978,6 @@ paths:
               schema:
                 type: string
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Retrieve the latest aggregate report data for the specified target
       tags:
         - Analysis Report Aggregator
@@ -951,13 +992,6 @@ paths:
                   $ref: '#/components/schemas/ReportRule'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List Report Rules
       tags:
         - Reports
@@ -983,13 +1017,6 @@ paths:
                   $ref: '#/components/schemas/AnalysisResult'
                 type: object
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Retrieve current automated analysis report for a target
       tags:
         - Reports
@@ -1022,13 +1049,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Perform "target analysis" on the specified target
       tags:
         - Reports
@@ -1054,13 +1074,6 @@ paths:
                 format: binary
                 type: string
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Download a Flight Recording binary file
       tags:
         - Active Recordings Download
@@ -1098,13 +1111,6 @@ paths:
                   $ref: '#/components/schemas/CredentialMatchResult'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List information about all of the available Stored Credentials.
       tags:
         - Credentials
@@ -1136,13 +1142,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Define a new Stored Credential
       tags:
         - Credentials
@@ -1175,13 +1174,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Test if the supplied username/password are valid credentials for the specified target.
       tags:
         - Credentials
@@ -1197,13 +1189,6 @@ paths:
       responses:
         "204":
           description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Delete a Stored Credential
       tags:
         - Credentials
@@ -1226,13 +1211,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/CredentialMatchResult'
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Get information about a Stored Credential
       tags:
         - Credentials
@@ -1245,13 +1223,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/DiscoveryNode'
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Retrieve the entire discovery tree.
       tags:
         - Discovery
@@ -1276,13 +1247,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Register as a new discovery plugin or refresh existing registration
       tags:
         - Discovery
@@ -1324,13 +1288,6 @@ paths:
       responses:
         "204":
           description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Endpoint for discovery plugins to check their own registration status
       tags:
         - Discovery
@@ -1384,13 +1341,6 @@ paths:
                   $ref: '#/components/schemas/DiscoveryPlugin_Flat'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List currently registered discovery plugins
       tags:
         - Discovery
@@ -1412,13 +1362,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/DiscoveryPlugin'
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Retrieve a specific discovery plugin
       tags:
         - Discovery
@@ -1443,13 +1386,6 @@ paths:
             application/json:
               schema: {}
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Get a download URL for an archived recording
       tags:
         - Archived Recordings
@@ -1468,13 +1404,6 @@ paths:
                   $ref: '#/components/schemas/Template'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List server event templates
       tags:
         - Event Templates
@@ -1500,13 +1429,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Upload a custom event template
       tags:
         - Event Templates
@@ -1524,13 +1446,6 @@ paths:
       responses:
         "204":
           description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Delete a custom event template
       tags:
         - Event Templates
@@ -1551,13 +1466,6 @@ paths:
                   $ref: '#/components/schemas/Template'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List server event templates of the given type
       tags:
         - Event Templates
@@ -1584,13 +1492,6 @@ paths:
               schema:
                 type: string
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Get a specific event template
       tags:
         - Event Templates
@@ -1620,13 +1521,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Upload an archived recording to Grafana for online analysis
       tags:
         - Archived Recordings
@@ -1689,13 +1583,6 @@ paths:
                   type: object
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Retrieve a list of all currently defined Match Expressions
       tags:
         - Match Expressions
@@ -1720,13 +1607,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Test a MatchExpression against a list of Targets
       tags:
         - Match Expressions
@@ -1746,13 +1626,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/MatchedExpression'
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Retrieve a single Match Expression
       tags:
         - Match Expressions
@@ -1827,13 +1700,6 @@ paths:
                   $ref: '#/components/schemas/ArchivedRecording'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List all archived recordings
       tags:
         - Archived Recordings
@@ -1865,13 +1731,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Upload a JFR binary file to archives
       tags:
         - Archived Recordings
@@ -1887,13 +1746,6 @@ paths:
       responses:
         "204":
           description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Delete an archived recording by filename
       tags:
         - Archived Recordings
@@ -1927,13 +1779,6 @@ paths:
       responses:
         "200":
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Get an automated analysis report
       tags:
         - Reports
@@ -1948,13 +1793,6 @@ paths:
                   $ref: '#/components/schemas/Rule'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List all Automated Rules
       tags:
         - Rules
@@ -2040,13 +1878,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Create a new Automated Rule
       tags:
         - Rules
@@ -2065,13 +1896,6 @@ paths:
       responses:
         "204":
           description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Delete an Automated Rule by name
       tags:
         - Rules
@@ -2089,13 +1913,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Rule'
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Get an Automated Rule by name
       tags:
         - Rules
@@ -2125,13 +1942,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Rule'
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Update an Automated Rule
       tags:
         - Rules
@@ -2149,13 +1959,6 @@ paths:
                   $ref: '#/components/schemas/Target'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List currently discovered targets
       tags:
         - Targets
@@ -2215,13 +2018,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Create a target definition
       tags:
         - Custom Discovery
@@ -2241,13 +2037,6 @@ paths:
       responses:
         "204":
           description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Delete the specified target
       tags:
         - Custom Discovery
@@ -2268,13 +2057,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/Target'
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Get a target by ID
       tags:
         - Targets
@@ -2300,13 +2082,6 @@ paths:
                   $ref: '#/components/schemas/Template'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Retrieve a list of event templates available on the given target
       tags:
         - Target Event Templates
@@ -2338,13 +2113,6 @@ paths:
               schema:
                 type: string
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Get a specific event template
       tags:
         - Target Event Templates
@@ -2375,13 +2143,6 @@ paths:
                   $ref: '#/components/schemas/SerializableEventTypeInfo'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List JFR event types registered within the given target
       tags:
         - Events
@@ -2461,13 +2222,6 @@ paths:
                 additionalProperties: {}
                 type: object
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Get the current set of options for the specified target
       tags:
         - Recording Options
@@ -2504,13 +2258,6 @@ paths:
                 additionalProperties: {}
                 type: object
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Update the recording options for the specified target
       tags:
         - Recording Options
@@ -2535,13 +2282,6 @@ paths:
                   $ref: '#/components/schemas/LinkedRecordingDescriptor'
                 type: array
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: List active recordings on the specified target
       tags:
         - Active Recordings
@@ -2616,13 +2356,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Start a new recording on the specified target
       tags:
         - Active Recordings
@@ -2647,13 +2380,6 @@ paths:
       responses:
         "204":
           description: No Content
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Delete a recording from the specified target
       tags:
         - Active Recordings
@@ -2684,13 +2410,6 @@ paths:
                 format: binary
                 type: string
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Download a Flight Recording binary file
       tags:
         - Active Recordings
@@ -2724,13 +2443,6 @@ paths:
               schema:
                 type: string
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Update a remote recording on the specified target
       tags:
         - Active Recordings
@@ -2767,13 +2479,6 @@ paths:
           description: OK
         "400":
           description: Bad Request
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Upload a recording for analysis in Grafana dashboard
       tags:
         - Active Recordings
@@ -2811,13 +2516,6 @@ paths:
       responses:
         "200":
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - read
       summary: Get an automated analysis report for a particular recording on the specified target
       tags:
         - Reports
@@ -2837,13 +2535,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/LinkedRecordingDescriptor'
           description: OK
-        "401":
-          description: Not Authorized
-        "403":
-          description: Not Allowed
-      security:
-        - SecurityScheme:
-            - write
       summary: Create a JFR Snapshot on the specified target
       tags:
         - Snapshots

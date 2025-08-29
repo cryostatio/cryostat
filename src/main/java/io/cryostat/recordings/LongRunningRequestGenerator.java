@@ -69,6 +69,8 @@ public class LongRunningRequestGenerator {
 
     public static final String HEAP_DUMP_REQUEST_ADDRESS =
             "io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest";
+    public static final String THREAD_DUMP_ADDRESS =
+            "io.cryostat.recordings.LongRunningRequestGenerator.ThreadDump";
 
     private static final String ARCHIVE_RECORDING_SUCCESS = "ArchiveRecordingSuccess";
     private static final String ARCHIVE_RECORDING_FAIL = "ArchiveRecordingFailure";
@@ -78,13 +80,15 @@ public class LongRunningRequestGenerator {
     private static final String REPORT_FAILURE = "ReportFailure";
     private static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
     private static final String HEAP_DUMP_FAILURE = "HeapDumpFailure";
+    private static final String THREAD_DUMP_SUCCESS = "ThreadDumpSuccess";
+    private static final String THREAD_DUMP_FAILURE = "ThreadDumpFailure";
 
     @Inject Logger logger;
     @Inject private EventBus bus;
     @Inject private RecordingHelper recordingHelper;
     @Inject private ReportsService reportsService;
+    @Inject private DiagnosticsHelper diagnosticsHelper;
     @Inject AnalysisReportAggregator analysisReportAggregator;
-    @Inject DiagnosticsHelper diagnosticsHelper;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
@@ -93,6 +97,33 @@ public class LongRunningRequestGenerator {
     Duration uploadFailedTimeout;
 
     public LongRunningRequestGenerator() {}
+
+    @ConsumeEvent(value = THREAD_DUMP_ADDRESS, blocking = true)
+    @Transactional
+    public void onMessage(ThreadDumpRequest request) {
+        logger.tracev("Job ID: {0} submitted.", request.id());
+        try {
+            var target = Target.getTargetById(request.targetId);
+            var dump = diagnosticsHelper.dumpThreads(request.format, target.id);
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            THREAD_DUMP_SUCCESS,
+                            Map.of(
+                                    "jobId",
+                                    request.id(),
+                                    "targetId",
+                                    dump.jvmId(),
+                                    "downloadUrl",
+                                    dump.downloadUrl())));
+        } catch (Exception e) {
+            logger.warn("Failed to dump threads");
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(THREAD_DUMP_FAILURE, Map.of("jobId", request.id())));
+            throw new CompletionException(e);
+        }
+    }
 
     @ConsumeEvent(value = ARCHIVE_REQUEST_ADDRESS, blocking = true)
     @Transactional
@@ -373,6 +404,15 @@ public class LongRunningRequestGenerator {
     public record HeapDumpRequest(String id, long targetId) {
         public HeapDumpRequest {
             Objects.requireNonNull(id);
+            Objects.requireNonNull(targetId);
+        }
+    }
+
+    public record ThreadDumpRequest(String id, long targetId, String format) {
+        public ThreadDumpRequest {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(targetId);
+            Objects.requireNonNull(format);
         }
     }
 }

@@ -31,6 +31,7 @@ import io.cryostat.Producers;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
+import io.cryostat.recordings.LongRunningRequestGenerator.ThreadDumpRequest;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
@@ -71,7 +72,7 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PresignedGetObjectRequest;
 
-@Path("/api/beta/diagnostics/targets/{targetId}")
+@Path("/api/beta/diagnostics/")
 public class Diagnostics {
 
     @Inject TargetConnectionManager targetConnectionManager;
@@ -84,8 +85,11 @@ public class Diagnostics {
     @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
 
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
+    String threadDumpsBucket;
+
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
-    String bucket;
+    String heapDumpsBucket;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_PRESIGNED_DOWNLOADS_ENABLED)
     boolean presignedDownloadsEnabled;
@@ -96,7 +100,122 @@ public class Diagnostics {
     @Inject EventBus bus;
     @Inject DiagnosticsHelper helper;
 
-    @Path("/gc")
+    @Path("targets/{targetId}/threaddump")
+    @RolesAllowed("write")
+    @POST
+    public String threadDump(
+            HttpServerResponse response, @RestPath long targetId, @RestQuery String format) {
+        log.tracev("Creating new thread dump request for target: {0}", targetId);
+        ThreadDumpRequest request =
+                new ThreadDumpRequest(UUID.randomUUID().toString(), targetId, format);
+        response.endHandler(
+                (e) -> bus.publish(LongRunningRequestGenerator.THREAD_DUMP_ADDRESS, request));
+        return request.id();
+    }
+
+    @Path("targets/{targetId}/threaddump")
+    @RolesAllowed("read")
+    @Blocking
+    @GET
+    public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
+        log.tracev("Fetching thread dumps for target: {0}", targetId);
+        return helper.getThreadDumps(targetId);
+    }
+
+    @DELETE
+    @Blocking
+    @Path("targets/{targetId}/threaddump/{threadDumpId}")
+    @RolesAllowed("write")
+    public void deleteThreadDump(@RestPath String threadDumpId, @RestPath long targetId) {
+        try {
+            log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
+            helper.deleteThreadDump(threadDumpId, targetId);
+        } catch (NoSuchKeyException e) {
+            throw new NotFoundException(e);
+        } catch (BadRequestException e) {
+            throw e;
+        }
+    }
+
+    @Path("/threaddump/download/{encodedKey}")
+    @RolesAllowed("read")
+    @Blocking
+    @GET
+    public RestResponse<Object> handleThreadDumpsStorageDownload(
+            @RestPath String encodedKey, @RestQuery String filename) throws URISyntaxException {
+        Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
+        log.tracev("Handling download Request for key: {0}", decodedKey);
+        log.tracev("Handling download Request for query: {0}", filename);
+        String key = helper.threadDumpKey(decodedKey);
+        try {
+            storage.headObject(HeadObjectRequest.builder().bucket(threadDumpsBucket).key(key).build())
+                    .sdkHttpResponse();
+        } catch (NoSuchKeyException e) {
+            throw new NotFoundException(e);
+        }
+
+        if (!presignedDownloadsEnabled) {
+            return ResponseBuilder.ok()
+                    .header(
+                            HttpHeaders.CONTENT_DISPOSITION,
+                            String.format(
+                                    "attachment; filename=\"%s\"", generateFileName(decodedKey, ".thread_dump")))
+                    .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
+                    .entity(helper.getThreadDumpStream(encodedKey))
+                    .build();
+        }
+
+        log.tracev("Handling presigned download request for {0}", decodedKey);
+        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(threadDumpsBucket).key(key).build();
+        GetObjectPresignRequest presignRequest =
+                GetObjectPresignRequest.builder()
+                        .signatureDuration(Duration.ofMinutes(1))
+                        .getObjectRequest(getRequest)
+                        .build();
+        PresignedGetObjectRequest presignedRequest = presigner.presignGetObject(presignRequest);
+        URI uri = presignedRequest.url().toURI();
+        if (externalStorageUrl.isPresent()) {
+            String extUrl = externalStorageUrl.get();
+            if (StringUtils.isNotBlank(extUrl)) {
+                URI extUri = new URI(extUrl);
+                uri =
+                        new URI(
+                                extUri.getScheme(),
+                                extUri.getAuthority(),
+                                URI.create(String.format("%s/%s", extUri.getPath(), uri.getPath()))
+                                        .normalize()
+                                        .getPath(),
+                                uri.getQuery(),
+                                uri.getFragment());
+            }
+        }
+        ResponseBuilder<Object> response =
+                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT);
+        response =
+                response.header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        String.format(
+                                "attachment; filename=\"%s\"",
+                                filename.isBlank()
+                                        ? generateFileName(decodedKey, ".thread_dump")
+                                        : new String(
+                                                base64Url.decode(filename),
+                                                StandardCharsets.UTF_8)));
+        return response.location(uri).build();
+    }
+
+    private String generateFileName(Pair<String, String> decodedKey, String extension) {
+        String jvmId = decodedKey.getLeft();
+        String uuid = decodedKey.getRight();
+        Target t = Target.getTargetByJvmId(jvmId).get();
+        if (Objects.isNull(t)) {
+            log.errorv("jvmId {0} failed to resolve to target. Defaulting to uuid.", jvmId);
+            return uuid;
+        }
+        return t.alias + "_" + uuid + extension;
+    }
+
+    @Path("targets/{targetId}/gc")
     @RolesAllowed("write")
     @Blocking
     @POST
@@ -178,7 +297,7 @@ public class Diagnostics {
     @RolesAllowed("write")
     public void deleteHeapDump(@RestPath String heapDumpId, @RestPath long targetId) {
         try {
-            log.tracev("Deleting thread dump with ID: {0}", heapDumpId);
+            log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
             helper.deleteHeapDump(heapDumpId, targetId);
         } catch (NoSuchKeyException e) {
             throw new NotFoundException(e);
@@ -191,14 +310,14 @@ public class Diagnostics {
     @RolesAllowed("read")
     @Blocking
     @GET
-    public RestResponse<Object> handleStorageDownload(
-            @RestPath String encodedKey, @RestQuery String query) throws URISyntaxException {
+    public RestResponse<Object> handleHeapDumpsStorageDownload(
+            @RestPath String encodedKey, @RestQuery String filename) throws URISyntaxException {
         Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
         log.tracev("Handling download Request for key: {0}", decodedKey);
-        log.tracev("Handling download Request for query: {0}", query);
-        String key = helper.heapDumpKey(decodedKey);
+        log.tracev("Handling download Request for query: {0}", filename);
+        String key = helper.threadDumpKey(decodedKey);
         try {
-            storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build())
+            storage.headObject(HeadObjectRequest.builder().bucket(heapDumpsBucket).key(key).build())
                     .sdkHttpResponse();
         } catch (NoSuchKeyException e) {
             throw new NotFoundException(e);
@@ -208,14 +327,15 @@ public class Diagnostics {
             return ResponseBuilder.ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
-                            String.format("attachment; filename=\"%s\"", decodedKey.getValue()))
+                            String.format(
+                                    "attachment; filename=\"%s\"", generateFileName(decodedKey, ".hprof")))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
-                    .entity(helper.getHeapDumpStream(encodedKey))
+                    .entity(helper.getThreadDumpStream(encodedKey))
                     .build();
         }
 
         log.tracev("Handling presigned download request for {0}", decodedKey);
-        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
+        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(heapDumpsBucket).key(key).build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()
                         .signatureDuration(Duration.ofMinutes(1))
@@ -240,20 +360,31 @@ public class Diagnostics {
         }
         ResponseBuilder<Object> response =
                 ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT);
-        if (StringUtils.isNotBlank(query)) {
-            response =
-                    response.header(
-                            HttpHeaders.CONTENT_DISPOSITION,
-                            String.format(
-                                    "attachment; filename=\"%s\"",
-                                    new String(base64Url.decode(query), StandardCharsets.UTF_8)));
-        }
+        response =
+                response.header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        String.format(
+                                "attachment; filename=\"%s\"",
+                                filename.isBlank()
+                                        ? generateFileName(decodedKey, ".hprof")
+                                        : new String(
+                                                base64Url.decode(filename),
+                                                StandardCharsets.UTF_8)));
         return response.location(uri).build();
     }
 
     public record HeapDump(String jvmId, String downloadUrl, String uuid, long lastModified) {
 
         public HeapDump {
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(downloadUrl);
+            Objects.requireNonNull(uuid);
+        }
+    }
+
+    public record ThreadDump(String jvmId, String downloadUrl, String uuid, long lastModified) {
+
+        public ThreadDump {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(downloadUrl);
             Objects.requireNonNull(uuid);

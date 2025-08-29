@@ -23,7 +23,7 @@ import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
-import io.cryostat.diagnostic.Diagnostics.HeapDump;
+import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.recordings.ArchivedRecordingMetadataService;
 import io.cryostat.util.CRUDService;
 import io.cryostat.util.HttpMimeType;
@@ -47,8 +47,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 @LookupIfProperty(
         name = ConfigProperties.STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE,
         stringValue = ArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKET)
-public class BucketedDiagnosticsMetadataService
-        implements CRUDService<String, HeapDump, HeapDump> {
+public class BucketedThreadDumpsMetadataService
+        implements CRUDService<String, ThreadDump, ThreadDump> {
 
     @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE)
     String storageMode;
@@ -74,7 +74,7 @@ public class BucketedDiagnosticsMetadataService
     }
 
     @Override
-    public List<HeapDump> list() throws IOException {
+    public List<ThreadDump> list() throws IOException {
         var builder = ListObjectsV2Request.builder().bucket(bucket).prefix(prefix);
         var objs = storage.listObjectsV2(builder.build()).contents();
         return objs.stream()
@@ -96,7 +96,7 @@ public class BucketedDiagnosticsMetadataService
     }
 
     @Override
-    public void create(String k, HeapDump threadDump) throws IOException {
+    public void create(String k, ThreadDump threadDump) throws IOException {
         storage.putObject(
                 PutObjectRequest.builder()
                         .bucket(bucket)
@@ -107,7 +107,7 @@ public class BucketedDiagnosticsMetadataService
     }
 
     @Override
-    public Optional<HeapDump> read(String k) throws IOException {
+    public Optional<ThreadDump> read(String k) throws IOException {
         try (var stream =
                 new BufferedInputStream(
                         storage.getObject(
@@ -115,7 +115,7 @@ public class BucketedDiagnosticsMetadataService
                                         .bucket(bucket)
                                         .key(prefix(k))
                                         .build()))) {
-            return Optional.of(mapper.readValue(stream, HeapDump.class));
+            return Optional.of(mapper.readValue(stream, ThreadDump.class));
         }
     }
 
