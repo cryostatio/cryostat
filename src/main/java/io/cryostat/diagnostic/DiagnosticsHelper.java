@@ -140,7 +140,11 @@ public class DiagnosticsHelper {
         String jvmId = object.key().split("/")[0];
         String uuid = object.key().split("/")[1];
         return new ThreadDump(
-                jvmId, downloadUrl(jvmId, uuid), uuid, object.lastModified().toEpochMilli());
+                jvmId,
+                downloadUrl(jvmId, uuid),
+                uuid,
+                object.lastModified().toEpochMilli(),
+                object.size());
     }
 
     public ThreadDump addThreadDump(String content, String jvmId) {
@@ -166,7 +170,8 @@ public class DiagnosticsHelper {
                                             jvmId,
                                             downloadUrl(jvmId, uuid),
                                             uuid,
-                                            clock.now().getEpochSecond()));
+                                            clock.now().getEpochSecond(),
+                                            content.length()));
                     break;
                 } catch (IOException ioe) {
                     log.warnv("Exception thrown while adding thread dump to storage: {0}", ioe);
@@ -175,7 +180,12 @@ public class DiagnosticsHelper {
                 throw new IllegalStateException();
         }
         storage.putObject(reqBuilder.build(), RequestBody.fromString(content));
-        return new ThreadDump(jvmId, downloadUrl(jvmId, uuid), uuid, clock.now().getEpochSecond());
+        return new ThreadDump(
+                jvmId,
+                downloadUrl(jvmId, uuid),
+                uuid,
+                clock.now().getEpochSecond(),
+                content.length());
     }
 
     public String downloadUrl(String jvmId, String filename) {
