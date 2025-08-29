@@ -23,7 +23,7 @@ import java.util.Optional;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.StorageBuckets;
-import io.cryostat.diagnostic.Diagnostics.ThreadDump;
+import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.recordings.ArchivedRecordingMetadataService;
 import io.cryostat.util.CRUDService;
 import io.cryostat.util.HttpMimeType;
@@ -45,18 +45,17 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @ApplicationScoped
 @LookupIfProperty(
-        name = ConfigProperties.STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE,
+        name = ConfigProperties.STORAGE_METADATA_HEAP_DUMPS_STORAGE_MODE,
         stringValue = ArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKET)
-public class BucketedDiagnosticsMetadataService
-        implements CRUDService<String, ThreadDump, ThreadDump> {
+public class BucketedHeapDumpsMetadataService implements CRUDService<String, HeapDump, HeapDump> {
 
-    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE)
+    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_HEAP_DUMPS_STORAGE_MODE)
     String storageMode;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_METADATA)
     String bucket;
 
-    @ConfigProperty(name = ConfigProperties.AWS_METADATA_PREFIX_THREAD_DUMPS)
+    @ConfigProperty(name = ConfigProperties.AWS_METADATA_PREFIX_HEAP_DUMPS)
     String prefix;
 
     @Inject S3Client storage;
@@ -74,7 +73,7 @@ public class BucketedDiagnosticsMetadataService
     }
 
     @Override
-    public List<ThreadDump> list() throws IOException {
+    public List<HeapDump> list() throws IOException {
         var builder = ListObjectsV2Request.builder().bucket(bucket).prefix(prefix);
         var objs = storage.listObjectsV2(builder.build()).contents();
         return objs.stream()
@@ -96,18 +95,18 @@ public class BucketedDiagnosticsMetadataService
     }
 
     @Override
-    public void create(String k, ThreadDump threadDump) throws IOException {
+    public void create(String k, HeapDump heapDump) throws IOException {
         storage.putObject(
                 PutObjectRequest.builder()
                         .bucket(bucket)
                         .key(prefix(k))
-                        .contentType(HttpMimeType.PLAINTEXT.mime())
+                        .contentType(HttpMimeType.OCTET_STREAM.mime())
                         .build(),
-                RequestBody.fromBytes(mapper.writeValueAsBytes(threadDump)));
+                RequestBody.fromBytes(mapper.writeValueAsBytes(heapDump)));
     }
 
     @Override
-    public Optional<ThreadDump> read(String k) throws IOException {
+    public Optional<HeapDump> read(String k) throws IOException {
         try (var stream =
                 new BufferedInputStream(
                         storage.getObject(
@@ -115,7 +114,7 @@ public class BucketedDiagnosticsMetadataService
                                         .bucket(bucket)
                                         .key(prefix(k))
                                         .build()))) {
-            return Optional.of(mapper.readValue(stream, ThreadDump.class));
+            return Optional.of(mapper.readValue(stream, HeapDump.class));
         }
     }
 
