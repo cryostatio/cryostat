@@ -687,6 +687,9 @@ components:
         lastModified:
           format: int64
           type: integer
+        size:
+          format: int64
+          type: integer
         uuid:
           type: string
       type: object
