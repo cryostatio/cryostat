@@ -114,9 +114,8 @@ public class JDPDiscovery implements Consumer<JvmDiscoveryEvent> {
 
         switch (evt.getEventKind()) {
             case FOUND:
-                Target target = new Target();
+                Target target = Target.createOrUndelete(connectUrl);
                 target.activeRecordings = new ArrayList<>();
-                target.connectUrl = connectUrl;
                 target.alias = evt.getJvmDescriptor().getMainClass();
                 target.annotations =
                         new Annotations(

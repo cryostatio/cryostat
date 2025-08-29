@@ -55,7 +55,7 @@ public class Events {
                     """)
     public List<SerializableEventTypeInfo> listEvents(@RestPath long id, @RestQuery String q)
             throws Exception {
-        return searchEvents(Target.find("id", id).singleResult(), q);
+        return searchEvents(Target.getTargetById(id), q);
     }
 
     private List<SerializableEventTypeInfo> searchEvents(Target target, String q) throws Exception {

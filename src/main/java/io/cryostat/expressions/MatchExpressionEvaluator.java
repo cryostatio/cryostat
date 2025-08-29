@@ -298,7 +298,7 @@ public class MatchExpressionEvaluator {
         }
 
         private String[] getJfrEventTypeIds(SimplifiedTarget st) {
-            Target target = Target.find("id", st.id()).singleResult();
+            var target = Target.getTargetById(st.id());
             try {
                 return connectionManager.executeConnectedTask(
                         target,

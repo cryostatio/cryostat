@@ -87,7 +87,7 @@ public class ActiveRecordings {
                     a new remote connection to the target to update Cryostat's model of available recordings.
                     """)
     public List<LinkedRecordingDescriptor> list(@RestPath long targetId) throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetById(targetId);
         return recordingHelper.listActiveRecordings(target).stream()
                 .map(recordingHelper::toExternalForm)
                 .toList();
@@ -108,7 +108,7 @@ public class ActiveRecordings {
                     """)
     public RestResponse<InputStream> download(@RestPath long targetId, @RestPath long remoteId)
             throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetById(targetId);
         var recording =
                 target.activeRecordings.stream()
                         .filter(r -> r.remoteId == remoteId)
@@ -137,7 +137,7 @@ public class ActiveRecordings {
             @RestPath long remoteId,
             String body)
             throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetById(targetId);
         Optional<ActiveRecording> recording =
                 recordingHelper.listActiveRecordings(target).stream()
                         .filter(rec -> rec.remoteId == remoteId)
@@ -210,7 +210,7 @@ public class ActiveRecordings {
             throw new BadRequestException("\"events\" form parameter must be provided");
         }
 
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetById(targetId);
 
         Pair<String, TemplateType> pair = recordingHelper.parseEventSpecifier(events);
         Template template =
@@ -262,7 +262,7 @@ public class ActiveRecordings {
                     as well as remove the recording and release all resources in the remote target JVM.
                     """)
     public void delete(@RestPath long targetId, @RestPath long remoteId) throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetById(targetId);
         var recording = target.getRecordingById(remoteId);
         if (recording == null) {
             throw new NotFoundException();
