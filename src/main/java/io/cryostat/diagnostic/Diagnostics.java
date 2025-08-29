@@ -310,17 +310,19 @@ public class Diagnostics {
     public RestResponse<Object> handleHeapDumpsStorageDownload(
             @RestPath String encodedKey, @RestQuery String filename) throws URISyntaxException {
         Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
-        log.tracev("Handling download Request for key: {0}", decodedKey);
-        log.tracev("Handling download Request for query: {0}", filename);
-        String key = helper.threadDumpKey(decodedKey);
+        log.warnv("Handling download Request for key: {0}", decodedKey);
+        log.warnv("Handling download Request for query: {0}", filename);
+        String key = helper.heapDumpKey(decodedKey);
         try {
             storage.headObject(HeadObjectRequest.builder().bucket(heapDumpsBucket).key(key).build())
                     .sdkHttpResponse();
         } catch (NoSuchKeyException e) {
+            log.warnv("Failed to find heap dump for key {0}", decodedKey.toString());
             throw new NotFoundException(e);
         }
 
         if (!presignedDownloadsEnabled) {
+            log.warnv("Non presigned download, sending response");
             return ResponseBuilder.ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
@@ -329,11 +331,11 @@ public class Diagnostics {
                                     helper.generateFileName(
                                             decodedKey.getLeft(), decodedKey.getRight(), ".hprof")))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
-                    .entity(helper.getThreadDumpStream(encodedKey))
+                    .entity(helper.getHeapDumpStream(encodedKey))
                     .build();
         }
 
-        log.tracev("Handling presigned download request for {0}", decodedKey);
+        log.warnv("Handling presigned download request for {0}", decodedKey);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder().bucket(heapDumpsBucket).key(key).build();
         GetObjectPresignRequest presignRequest =
