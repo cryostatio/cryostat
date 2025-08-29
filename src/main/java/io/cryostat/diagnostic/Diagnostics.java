@@ -328,8 +328,7 @@ public class Diagnostics {
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format(
                                     "attachment; filename=\"%s\"",
-                                    helper.generateFileName(
-                                            decodedKey.getLeft(), decodedKey.getRight(), ".hprof")))
+                                    filename.isBlank() ? decodedKey.getRight() : filename))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(helper.getHeapDumpStream(encodedKey))
                     .build();
@@ -368,10 +367,7 @@ public class Diagnostics {
                         String.format(
                                 "attachment; filename=\"%s\"",
                                 filename.isBlank()
-                                        ? helper.generateFileName(
-                                                decodedKey.getLeft(),
-                                                decodedKey.getRight(),
-                                                ".hprof")
+                                        ? decodedKey.getLeft()
                                         : new String(
                                                 base64Url.decode(filename),
                                                 StandardCharsets.UTF_8)));
