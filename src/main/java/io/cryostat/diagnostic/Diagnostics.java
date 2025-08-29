@@ -222,8 +222,8 @@ public class Diagnostics {
                                 "java.lang:type=Memory", "gc", null, null, Void.class));
     }
 
-    public record ThreadDump(String jvmId, String downloadUrl, String uuid, long lastModified) {
-
+    public record ThreadDump(
+            String jvmId, String downloadUrl, String uuid, long lastModified, long size) {
         public ThreadDump {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(downloadUrl);
