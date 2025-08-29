@@ -63,7 +63,6 @@ import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
-
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
@@ -148,7 +147,8 @@ public class Diagnostics {
         log.tracev("Handling download Request for query: {0}", filename);
         String key = helper.threadDumpKey(decodedKey);
         try {
-            storage.headObject(HeadObjectRequest.builder().bucket(threadDumpsBucket).key(key).build())
+            storage.headObject(
+                            HeadObjectRequest.builder().bucket(threadDumpsBucket).key(key).build())
                     .sdkHttpResponse();
         } catch (NoSuchKeyException e) {
             throw new NotFoundException(e);
@@ -159,14 +159,19 @@ public class Diagnostics {
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format(
-                                    "attachment; filename=\"%s\"", generateFileName(decodedKey, ".thread_dump")))
+                                    "attachment; filename=\"%s\"",
+                                    helper.generateFileName(
+                                            decodedKey.getLeft(),
+                                            decodedKey.getRight(),
+                                            ".thread_dump")))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(helper.getThreadDumpStream(encodedKey))
                     .build();
         }
 
         log.tracev("Handling presigned download request for {0}", decodedKey);
-        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(threadDumpsBucket).key(key).build();
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder().bucket(threadDumpsBucket).key(key).build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()
                         .signatureDuration(Duration.ofMinutes(1))
@@ -197,22 +202,14 @@ public class Diagnostics {
                         String.format(
                                 "attachment; filename=\"%s\"",
                                 filename.isBlank()
-                                        ? generateFileName(decodedKey, ".thread_dump")
+                                        ? helper.generateFileName(
+                                                decodedKey.getLeft(),
+                                                decodedKey.getRight(),
+                                                ".thread_dump")
                                         : new String(
                                                 base64Url.decode(filename),
                                                 StandardCharsets.UTF_8)));
         return response.location(uri).build();
-    }
-
-    private String generateFileName(Pair<String, String> decodedKey, String extension) {
-        String jvmId = decodedKey.getLeft();
-        String uuid = decodedKey.getRight();
-        Target t = Target.getTargetByJvmId(jvmId).get();
-        if (Objects.isNull(t)) {
-            log.errorv("jvmId {0} failed to resolve to target. Defaulting to uuid.", jvmId);
-            return uuid;
-        }
-        return t.alias + "_" + uuid + extension;
     }
 
     @Path("targets/{targetId}/gc")
@@ -234,19 +231,18 @@ public class Diagnostics {
                                 "java.lang:type=Memory", "gc", null, null, Void.class));
     }
 
-    @Path("/heapdump")
+    @Path("targets/{targetId}/heapdump")
     @RolesAllowed("write")
     @POST
     @Operation(
-        summary = "Initiates a heap dump on the specified target",
-        description = 
-            """
-            Request the remote target to perform a heap dump.                
-            """)
+            summary = "Initiates a heap dump on the specified target",
+            description =
+                    """
+                    Request the remote target to perform a heap dump.
+                    """)
     public String heapDump(HttpServerResponse response, @RestPath long targetId) {
-        log.tracev("Initiating heap dump for target: {0}", targetId);
-        HeapDumpRequest request =
-                new HeapDumpRequest(UUID.randomUUID().toString(), targetId);
+        log.warnv("Initiating heap dump for target: {0}", targetId);
+        HeapDumpRequest request = new HeapDumpRequest(UUID.randomUUID().toString(), targetId);
         response.endHandler(
                 (e) -> bus.publish(LongRunningRequestGenerator.HEAP_DUMP_REQUEST_ADDRESS, request));
         return request.id();
@@ -256,33 +252,34 @@ public class Diagnostics {
     @RolesAllowed("read")
     @Blocking
     @POST
-    public void uploadHeapDump(@RestPath String jvmId,
-        @Parameter(required = true) @RestForm("heapDump") FileUpload heapDump,
-        @Parameter(required = false) @RestForm("labels") JsonObject rawLabels
-        ) {
-        log.tracev("Received heap dump upload request for target: {0}", jvmId);
+    public void uploadHeapDump(
+            @RestPath String jvmId,
+            @Parameter(required = true) @RestForm("heapDump") FileUpload heapDump,
+            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels) {
+        log.warnv("Received heap dump upload request for target: {0}", jvmId);
         jvmId = jvmId.strip();
-                Map<String, String> labels = new HashMap<>();
+        Map<String, String> labels = new HashMap<>();
         if (rawLabels != null) {
             rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
         }
         labels.put("jvmId", jvmId);
         Metadata metadata = new Metadata(labels);
+        log.warnv("Labels: " + labels.toString());
+        log.warnv("Delegating to doUpload");
         doUpload(heapDump, metadata, jvmId);
     }
 
     @Blocking
-    Map<String,Object> doUpload(FileUpload heapDump, Metadata metadata, String jvmId) {
+    Map<String, Object> doUpload(FileUpload heapDump, Metadata metadata, String jvmId) {
+        log.warnv("Delegating to helper.addHeapDump");
         var dump = helper.addHeapDump(jvmId, heapDump, metadata);
-        return Map.of(
-                "name",
-                dump.uuid());
-                // TODO: labels support
-                //"metadata",
-                //dump.metadata().labels());
+        return Map.of("name", dump.uuid());
+        // TODO: labels support
+        // "metadata",
+        // dump.metadata().labels());
     }
 
-    @Path("/heapdump")
+    @Path("targets/{targetId}/heapdump")
     @RolesAllowed("read")
     @Blocking
     @GET
@@ -293,7 +290,7 @@ public class Diagnostics {
 
     @DELETE
     @Blocking
-    @Path("/heapdump/{heapDumpId}")
+    @Path("targets/{targetId}/heapdump/{heapDumpId}")
     @RolesAllowed("write")
     public void deleteHeapDump(@RestPath String heapDumpId, @RestPath long targetId) {
         try {
@@ -328,14 +325,17 @@ public class Diagnostics {
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format(
-                                    "attachment; filename=\"%s\"", generateFileName(decodedKey, ".hprof")))
+                                    "attachment; filename=\"%s\"",
+                                    helper.generateFileName(
+                                            decodedKey.getLeft(), decodedKey.getRight(), ".hprof")))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(helper.getThreadDumpStream(encodedKey))
                     .build();
         }
 
         log.tracev("Handling presigned download request for {0}", decodedKey);
-        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(heapDumpsBucket).key(key).build();
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder().bucket(heapDumpsBucket).key(key).build();
         GetObjectPresignRequest presignRequest =
                 GetObjectPresignRequest.builder()
                         .signatureDuration(Duration.ofMinutes(1))
@@ -366,7 +366,10 @@ public class Diagnostics {
                         String.format(
                                 "attachment; filename=\"%s\"",
                                 filename.isBlank()
-                                        ? generateFileName(decodedKey, ".hprof")
+                                        ? helper.generateFileName(
+                                                decodedKey.getLeft(),
+                                                decodedKey.getRight(),
+                                                ".hprof")
                                         : new String(
                                                 base64Url.decode(filename),
                                                 StandardCharsets.UTF_8)));

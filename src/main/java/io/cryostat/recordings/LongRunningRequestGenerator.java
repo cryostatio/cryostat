@@ -315,12 +315,17 @@ public class LongRunningRequestGenerator {
                         });
     }
 
+    @ConsumeEvent(value = HEAP_DUMP_REQUEST_ADDRESS, blocking = true)
     @Transactional
     public void onMessage(HeapDumpRequest request) {
-        logger.tracev("Job ID: {0} submitted.", request.id());
+        logger.warnv("Job ID: {0} submitted.", request.id());
         try {
             var target = Target.getTargetById(request.targetId);
+            logger.warnv("Delegating to diagnosticsHelper.dumpHeap");
             diagnosticsHelper.dumpHeap(target.id);
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(HEAP_DUMP_SUCCESS, Map.of("jobId", request.id())));
         } catch (Exception e) {
             logger.warn("Failed to dump threads");
             bus.publish(

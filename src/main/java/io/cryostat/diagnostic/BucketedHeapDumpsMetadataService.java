@@ -47,8 +47,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 @LookupIfProperty(
         name = ConfigProperties.STORAGE_METADATA_HEAP_DUMPS_STORAGE_MODE,
         stringValue = ArchivedRecordingMetadataService.METADATA_STORAGE_MODE_BUCKET)
-public class BucketedHeapDumpsMetadataService
-        implements CRUDService<String, HeapDump, HeapDump> {
+public class BucketedHeapDumpsMetadataService implements CRUDService<String, HeapDump, HeapDump> {
 
     @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_HEAP_DUMPS_STORAGE_MODE)
     String storageMode;
