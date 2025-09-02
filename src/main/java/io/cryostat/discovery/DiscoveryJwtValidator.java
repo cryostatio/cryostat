@@ -21,6 +21,7 @@ import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.util.Objects;
 
@@ -95,6 +96,8 @@ public class DiscoveryJwtValidator {
                             validateTimeClaims);
         } catch (BadJWTException e) {
             throw new UnauthorizedException("Provided JWT was invalid", e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
         }
 
         URI requestUri = new URI(req.absoluteURI());

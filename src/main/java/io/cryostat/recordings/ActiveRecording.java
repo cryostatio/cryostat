@@ -25,7 +25,6 @@ import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
@@ -160,7 +159,6 @@ public class ActiveRecording extends PanacheEntity {
 
         @Inject Logger logger;
         @Inject EventBus bus;
-        @Inject TargetConnectionManager connectionManager;
         @Inject RecordingHelper recordingHelper;
 
         @PostPersist

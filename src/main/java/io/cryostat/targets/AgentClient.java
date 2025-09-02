@@ -137,6 +137,7 @@ public class AgentClient {
                         });
     }
 
+    @SuppressWarnings("unchecked")
     <T> Uni<T> invokeMBeanOperation(
             String beanName,
             String operation,
@@ -170,15 +171,16 @@ public class AgentClient {
                                         }
                                     }))
                     .map(
-                            r -> {
-                                try (r;
-                                // var is = r.getEntity();
-                                ) {
-                                    // TODO implement conditional handling based on expected
-                                    // returnType
-                                    return null;
-                                }
-                            });
+                            Unchecked.function(
+                                    buff -> {
+                                        if (returnType.equals(String.class)) {
+                                            return mapper.readValue(
+                                                    (InputStream) buff.getEntity(), returnType);
+                                        }
+                                        // TODO implement conditional handling based on expected
+                                        // returnType
+                                        return null;
+                                    }));
         } catch (JsonProcessingException e) {
             logger.error("invokeMBeanOperation request failed", e);
             return Uni.createFrom().failure(e);

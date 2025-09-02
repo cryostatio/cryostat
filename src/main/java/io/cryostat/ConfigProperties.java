@@ -28,6 +28,9 @@ public class ConfigProperties {
             "storage.buckets.event-templates.name";
     public static final String AWS_BUCKET_NAME_PROBE_TEMPLATES =
             "storage.buckets.probe-templates.name";
+    public static final String AWS_BUCKET_NAME_THREAD_DUMPS = "storage.buckets.thread-dumps.name";
+    public static final String AWS_METADATA_PREFIX_THREAD_DUMPS =
+            "storage.metadata.prefix.thread-dumps";
     public static final String AWS_METADATA_PREFIX_RECORDINGS =
             "storage.metadata.prefix.recordings";
     public static final String AWS_METADATA_PREFIX_EVENT_TEMPLATES =
@@ -37,7 +40,6 @@ public class ConfigProperties {
     public static final String CONTAINERS_REQUEST_TIMEOUT =
             "cryostat.discovery.containers.request-timeout";
 
-    public static final String CONNECTIONS_MAX_OPEN = "cryostat.connections.max-open";
     public static final String CONNECTIONS_TTL = "cryostat.connections.ttl";
     public static final String CONNECTIONS_FAILED_BACKOFF = "cryostat.connections.failed-backoff";
     public static final String CONNECTIONS_FAILED_TIMEOUT = "cryostat.connections.failed-timeout";
@@ -66,6 +68,9 @@ public class ConfigProperties {
     public static final String STORAGE_EXT_URL = "storage-ext.url";
     public static final String STORAGE_PRESIGNED_DOWNLOADS_ENABLED =
             "storage.presigned-downloads.enabled";
+
+    public static final String STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE =
+            "storage.metadata.thread-dumps.storage-mode";
 
     public static final String CUSTOM_TEMPLATES_DIR = "templates-dir";
     public static final String PRESET_TEMPLATES_DIR = "preset-templates-dir";
