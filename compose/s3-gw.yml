@@ -5,6 +5,7 @@ services:
         condition: service_healthy
     environment:
       QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:7480
+      STORAGE_PRESIGNED_TRANSFERS_ENABLED: false
       STORAGE_EXT_URL: /storage/
       QUARKUS_S3_PATH_STYLE_ACCESS: "true" # needed since compose setup does not support DNS subdomain resolution
       QUARKUS_S3_AWS_REGION: us-east-1
