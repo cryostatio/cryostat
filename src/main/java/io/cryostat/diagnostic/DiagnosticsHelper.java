@@ -15,10 +15,8 @@
  */
 package io.cryostat.diagnostic;
 
-import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -28,7 +26,6 @@ import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.libcryostat.sys.Clock;
-import io.cryostat.recordings.ArchivedRecordingMetadataService.StorageMode;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
@@ -37,7 +34,6 @@ import io.smallrye.common.annotation.Identifier;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.MediaType;
@@ -62,9 +58,6 @@ public class DiagnosticsHelper {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
     String bucket;
 
-    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_STORAGE_MODE)
-    String storageMode;
-
     @Inject
     @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
@@ -72,8 +65,6 @@ public class DiagnosticsHelper {
     @Inject S3Client storage;
     @Inject Logger log;
     @Inject Clock clock;
-
-    @Inject Instance<BucketedDiagnosticsMetadataService> metadataService;
 
     private static final String DUMP_THREADS = "threadPrint";
     private static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
@@ -140,7 +131,11 @@ public class DiagnosticsHelper {
         String jvmId = object.key().split("/")[0];
         String uuid = object.key().split("/")[1];
         return new ThreadDump(
-                jvmId, downloadUrl(jvmId, uuid), uuid, object.lastModified().toEpochMilli());
+                jvmId,
+                downloadUrl(jvmId, uuid),
+                uuid,
+                object.lastModified().toEpochMilli(),
+                object.size());
     }
 
     public ThreadDump addThreadDump(String content, String jvmId) {
@@ -151,31 +146,13 @@ public class DiagnosticsHelper {
                         .bucket(bucket)
                         .key(threadDumpKey(jvmId, uuid))
                         .contentType(MediaType.TEXT_PLAIN);
-        switch (storageMode(storageMode)) {
-            case StorageMode.TAGGING:
-                break;
-            case StorageMode.METADATA:
-                break;
-            case StorageMode.BUCKET:
-                try {
-                    metadataService
-                            .get()
-                            .create(
-                                    threadDumpKey(jvmId, uuid),
-                                    new ThreadDump(
-                                            jvmId,
-                                            downloadUrl(jvmId, uuid),
-                                            uuid,
-                                            clock.now().getEpochSecond()));
-                    break;
-                } catch (IOException ioe) {
-                    log.warnv("Exception thrown while adding thread dump to storage: {0}", ioe);
-                }
-            default:
-                throw new IllegalStateException();
-        }
         storage.putObject(reqBuilder.build(), RequestBody.fromString(content));
-        return new ThreadDump(jvmId, downloadUrl(jvmId, uuid), uuid, clock.now().getEpochSecond());
+        return new ThreadDump(
+                jvmId,
+                downloadUrl(jvmId, uuid),
+                uuid,
+                clock.now().getEpochSecond(),
+                content.length());
     }
 
     public String downloadUrl(String jvmId, String filename) {
@@ -230,12 +207,5 @@ public class DiagnosticsHelper {
             builder = builder.prefix(jvmId);
         }
         return storage.listObjectsV2(builder.build()).contents();
-    }
-
-    public static StorageMode storageMode(String name) {
-        return Arrays.asList(StorageMode.values()).stream()
-                .filter(s -> s.name().equalsIgnoreCase(name))
-                .findFirst()
-                .orElseThrow();
     }
 }
