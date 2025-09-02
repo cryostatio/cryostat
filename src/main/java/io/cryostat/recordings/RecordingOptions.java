@@ -61,7 +61,7 @@ public class RecordingOptions {
                     Retrieve a map of the current options for the specified target.
                     """)
     public Map<String, Object> getRecordingOptions(@RestPath long targetId) throws Exception {
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetById(targetId);
         return connectionManager.executeConnectedTask(
                 target,
                 connection -> {
@@ -143,7 +143,7 @@ public class RecordingOptions {
                 }
             }
         }
-        Target target = Target.find("id", targetId).singleResult();
+        Target target = Target.getTargetById(targetId);
         for (var entry : options.entrySet()) {
             RecordingOptionsCustomizer.OptionKey optionKey =
                     RecordingOptionsCustomizer.OptionKey.fromOptionName(entry.getKey()).get();
