@@ -79,7 +79,7 @@ public class DiagnosticsHelper {
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     static final String THREAD_DUMP_REQUESTED = "ThreadDumpRequested";
     static final String THREAD_DUMP_DELETED = "ThreadDumpDeleted";
-    
+
     private static final String DUMP_HEAP = "dumpHeap";
     private static final String HOTSPOT_DIAGNOSTIC_BEAN_NAME =
             "com.sun.management:type=HotSpotDiagnostic";

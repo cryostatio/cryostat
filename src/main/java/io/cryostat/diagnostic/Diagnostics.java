@@ -19,7 +19,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -28,7 +27,6 @@ import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
-import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ThreadDumpRequest;
@@ -258,12 +256,12 @@ public class Diagnostics {
             @Parameter(required = false) @RestForm("labels") JsonObject rawLabels) {
         log.warnv("Received heap dump upload request for target: {0}", jvmId);
         jvmId = jvmId.strip();
-        //Map<String, String> labels = new HashMap<>();
-        //if (rawLabels != null) {
+        // Map<String, String> labels = new HashMap<>();
+        // if (rawLabels != null) {
         //    rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
-        //}
-        //labels.put("jvmId", jvmId);
-        //log.warnv("Labels: " + labels.toString());
+        // }
+        // labels.put("jvmId", jvmId);
+        // log.warnv("Labels: " + labels.toString());
         log.warnv("Delegating to doUpload");
         doUpload(heapDump, jvmId);
     }
@@ -382,7 +380,8 @@ public class Diagnostics {
         }
     }
 
-    public record ThreadDump(String jvmId, String downloadUrl, String uuid, long lastModified, long fileSize) {
+    public record ThreadDump(
+            String jvmId, String downloadUrl, String uuid, long lastModified, long fileSize) {
 
         public ThreadDump {
             Objects.requireNonNull(jvmId);
