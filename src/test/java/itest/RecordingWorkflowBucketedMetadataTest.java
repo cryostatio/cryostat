@@ -277,7 +277,6 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
         } finally {
             // Clean up what we created
             try {
-
                 webClient
                         .extensions()
                         .delete(
