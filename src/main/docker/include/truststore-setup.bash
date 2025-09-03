@@ -18,7 +18,7 @@ keytool -importkeystore \
     -srckeystore /usr/lib/jvm/jre-openjdk/lib/security/cacerts \
     -srcstorepass changeit \
     -destkeystore "$SSL_TRUSTSTORE" \
-    -deststorepass "$SSL_TRUSTSTORE_PASS"
+    -deststorepass "$SSL_TRUSTSTORE_PASS" 2>&1
 
 chmod 664 "${SSL_TRUSTSTORE}"
 chmod 640 "${SSL_TRUSTSTORE_PASS_FILE}"

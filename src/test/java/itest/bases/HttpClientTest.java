@@ -152,6 +152,7 @@ public abstract class HttpClientTest {
 
     private static CompletableFuture<Path> fireDownloadRequest(
             HttpRequest<Buffer> request, String filename, String fileSuffix, MultiMap headers) {
+        logger.infov("Attempting to download file \"{0}\"", filename);
         CompletableFuture<Path> future = new CompletableFuture<>();
         WORKER.submit(
                 () -> {
@@ -172,10 +173,18 @@ public abstract class HttpClientTest {
                                                 resp.headers());
                                         if (!(HttpStatusCodeIdentifier.isSuccessCode(
                                                 resp.statusCode()))) {
+                                            logger.infov(
+                                                    "Failed to downloaded file \"{0}\": HTTP {1}"
+                                                            + " {2}",
+                                                    filename,
+                                                    resp.statusCode(),
+                                                    resp.statusMessage());
                                             future.completeExceptionally(
                                                     new Exception(
                                                             String.format(
-                                                                    "HTTP %d", resp.statusCode())));
+                                                                    "HTTP %d %s",
+                                                                    resp.statusCode(),
+                                                                    resp.statusMessage())));
                                             return;
                                         }
                                         FileSystem fs = Utils.getFileSystem();
@@ -183,6 +192,9 @@ public abstract class HttpClientTest {
                                                 fs.createTempFileBlocking(filename, fileSuffix);
                                         fs.writeFileBlocking(file, ar.result().body());
                                         future.complete(Paths.get(file));
+                                        logger.infov(
+                                                "Successfully downloaded file \"{0}\" to {1}",
+                                                filename, file);
                                     });
                 });
         return future;

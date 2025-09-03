@@ -20,6 +20,7 @@ import java.net.SocketException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.UnknownHostException;
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.time.Duration;
@@ -56,6 +57,7 @@ import com.nimbusds.jwt.proc.BadJWTException;
 import com.nimbusds.jwt.proc.DefaultJWTClaimsVerifier;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.enterprise.context.ApplicationScoped;
+import org.apache.commons.codec.binary.Hex;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
@@ -63,6 +65,7 @@ public class DiscoveryJwtFactory {
 
     public static final String RESOURCE_CLAIM = "resource";
     public static final String REALM_CLAIM = "realm";
+    public static final String PLUGIN_ADDR_CLAIM = "plugin_addr";
     static final String DISCOVERY_API_PATH = "/api/v4/discovery/";
 
     @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
@@ -115,7 +118,12 @@ public class DiscoveryJwtFactory {
 
     public String createDiscoveryPluginJwt(
             DiscoveryPlugin plugin, InetAddress requestAddr, URI resource)
-            throws SocketException, UnknownHostException, URISyntaxException, JOSEException {
+            throws NoSuchAlgorithmException,
+                    SocketException,
+                    UnknownHostException,
+                    URISyntaxException,
+                    JOSEException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
         URI hostUri =
                 new URI(
                         String.format(
@@ -134,6 +142,9 @@ public class DiscoveryJwtFactory {
                         .subject(plugin.id.toString())
                         .claim(RESOURCE_CLAIM, resource.toASCIIString())
                         .claim(REALM_CLAIM, plugin.realm.name)
+                        .claim(
+                                PLUGIN_ADDR_CLAIM,
+                                Hex.encodeHexString(digest.digest(requestAddr.getAddress())))
                         .build();
 
         SignedJWT jwt =
@@ -156,7 +167,8 @@ public class DiscoveryJwtFactory {
 
     public JWT parseDiscoveryPluginJwt(
             DiscoveryPlugin plugin, String rawToken, URI resource, InetAddress requestAddr)
-            throws ParseException,
+            throws NoSuchAlgorithmException,
+                    ParseException,
                     JOSEException,
                     BadJWTException,
                     SocketException,
@@ -171,12 +183,14 @@ public class DiscoveryJwtFactory {
             URI resource,
             InetAddress requestAddr,
             boolean checkTimeClaims)
-            throws ParseException,
+            throws NoSuchAlgorithmException,
+                    ParseException,
                     JOSEException,
                     BadJWTException,
                     SocketException,
                     UnknownHostException,
                     URISyntaxException {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
         JWEObject jwe = JWEObject.parse(rawToken);
         jwe.decrypt(decrypter);
 
@@ -200,9 +214,12 @@ public class DiscoveryJwtFactory {
                         .subject(plugin.id.toString())
                         .claim(RESOURCE_CLAIM, resource.toASCIIString())
                         .claim(REALM_CLAIM, plugin.realm.name)
+                        .claim(
+                                PLUGIN_ADDR_CLAIM,
+                                Hex.encodeHexString(digest.digest(requestAddr.getAddress())))
                         .build();
         Set<String> requiredClaimNames =
-                new HashSet<>(Set.of("iat", "iss", "aud", "sub", REALM_CLAIM));
+                new HashSet<>(Set.of("iat", "iss", "aud", "sub", REALM_CLAIM, PLUGIN_ADDR_CLAIM));
         if (checkTimeClaims) {
             requiredClaimNames.add("exp");
             requiredClaimNames.add("nbf");

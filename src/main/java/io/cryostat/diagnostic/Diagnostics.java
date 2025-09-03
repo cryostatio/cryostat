@@ -258,21 +258,20 @@ public class Diagnostics {
             @Parameter(required = false) @RestForm("labels") JsonObject rawLabels) {
         log.warnv("Received heap dump upload request for target: {0}", jvmId);
         jvmId = jvmId.strip();
-        Map<String, String> labels = new HashMap<>();
-        if (rawLabels != null) {
-            rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
-        }
-        labels.put("jvmId", jvmId);
-        Metadata metadata = new Metadata(labels);
-        log.warnv("Labels: " + labels.toString());
+        //Map<String, String> labels = new HashMap<>();
+        //if (rawLabels != null) {
+        //    rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
+        //}
+        //labels.put("jvmId", jvmId);
+        //log.warnv("Labels: " + labels.toString());
         log.warnv("Delegating to doUpload");
-        doUpload(heapDump, metadata, jvmId);
+        doUpload(heapDump, jvmId);
     }
 
     @Blocking
-    Map<String, Object> doUpload(FileUpload heapDump, Metadata metadata, String jvmId) {
+    Map<String, Object> doUpload(FileUpload heapDump, String jvmId) {
         log.warnv("Delegating to helper.addHeapDump");
-        var dump = helper.addHeapDump(jvmId, heapDump, metadata);
+        var dump = helper.addHeapDump(jvmId, heapDump);
         return Map.of("name", dump.uuid());
         // TODO: labels support
         // "metadata",
@@ -383,7 +382,7 @@ public class Diagnostics {
         }
     }
 
-    public record ThreadDump(String jvmId, String downloadUrl, String uuid, long lastModified) {
+    public record ThreadDump(String jvmId, String downloadUrl, String uuid, long lastModified, long fileSize) {
 
         public ThreadDump {
             Objects.requireNonNull(jvmId);

@@ -250,6 +250,8 @@ public class ActiveRecordingsTest extends AbstractTransactionalTestBase {
                         .log()
                         .all()
                         .and()
+                        .assertThat()
+                        .statusCode(201)
                         .extract()
                         .body()
                         .jsonPath()
