@@ -55,8 +55,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
 
     private final ExecutorService worker = ForkJoinPool.commonPool();
 
-    static final String TEST_RECORDING_NAME = "workflow_itest";
-    static final String TARGET_ALIAS = "selftest";
+    static String TEST_RECORDING_NAME = "bucketedmeta_itest";
     static long TEST_REMOTE_ID;
 
     @Test
@@ -80,7 +79,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
             // create an in-memory recording
             MultiMap form = MultiMap.caseInsensitiveMultiMap();
             form.add("recordingName", TEST_RECORDING_NAME);
-            form.add("duration", "30");
+            form.add("duration", "20");
             form.add("events", "template=ALL");
             webClient
                     .extensions()
@@ -89,6 +88,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
                                     "/api/v4/targets/%d/recordings", getSelfReferenceTargetId()),
                             form,
                             REQUEST_TIMEOUT_SECONDS);
+            Thread.sleep(500);
 
             // verify in-memory recording created
             CompletableFuture<JsonArray> listRespFuture2 = new CompletableFuture<>();
@@ -114,7 +114,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
                     recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
             MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("RUNNING"));
 
-            Thread.sleep(15_000L); // wait some time to save a portion of the recording
+            Thread.sleep(5_000L); // wait some time to save a portion of the recording
 
             // save a copy of the partial recording dump
             MultiMap saveHeaders = MultiMap.caseInsensitiveMultiMap();
@@ -137,7 +137,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
                             () -> {
                                 try {
                                     return expectNotification(
-                                                    "ArchiveRecordingSuccess", 15, TimeUnit.SECONDS)
+                                                    "ArchiveRecordingSuccess", 5, TimeUnit.SECONDS)
                                             .get();
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
@@ -149,6 +149,8 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
             JsonObject archiveNotification = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             archivedRecordingFilenames.add(
                     archiveNotification.getJsonObject("message").getString("recording").toString());
+
+            Thread.sleep(500);
             // check that the in-memory recording list hasn't changed
             CompletableFuture<JsonArray> listRespFuture3 = new CompletableFuture<>();
             webClient
@@ -183,6 +185,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
                                 }
                             });
             listResp = listRespFuture4.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            Thread.sleep(500);
 
             MatcherAssert.assertThat(
                     "list-saved should have size 1 after recording save",
@@ -192,9 +195,12 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
             MatcherAssert.assertThat(
                     recordingInfo.getString("name"),
                     Matchers.matchesRegex(
-                            TARGET_ALIAS + "_" + TEST_RECORDING_NAME + "_[\\d]{8}T[\\d]{6}Z.jfr"));
+                            SELFTEST_ALIAS
+                                    + "_"
+                                    + TEST_RECORDING_NAME
+                                    + "_[\\d]{8}T[\\d]{6}Z.jfr"));
             String savedDownloadUrl = recordingInfo.getString("downloadUrl");
-            Thread.sleep(20_000L); // wait for the dump to complete
+            Thread.sleep(30_000L); // wait for the dump to complete
 
             // verify the in-memory recording list has not changed, except recording is now stopped
             CompletableFuture<JsonArray> listRespFuture5 = new CompletableFuture<>();
@@ -217,7 +223,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
                     recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
             MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("STOPPED"));
             MatcherAssert.assertThat(
-                    recordingInfo.getInteger("duration"), Matchers.equalTo(30_000));
+                    recordingInfo.getInteger("duration"), Matchers.equalTo(20_000));
 
             // verify in-memory and saved recordings can be downloaded successfully and yield
             // non-empty recording binaries containing events, and that
@@ -226,13 +232,16 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
             Path inMemoryDownloadPath =
                     downloadFile(inMemoryDownloadUrl, TEST_RECORDING_NAME, ".jfr")
                             .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            Thread.sleep(100);
 
             Path savedDownloadPath =
                     downloadFile(savedDownloadUrl, TEST_RECORDING_NAME + "_saved", ".jfr")
                             .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            MatcherAssert.assertThat(
-                    inMemoryDownloadPath.toFile().length(), Matchers.greaterThan(0L));
+            Thread.sleep(100);
             MatcherAssert.assertThat(savedDownloadPath.toFile().length(), Matchers.greaterThan(0L));
+            MatcherAssert.assertThat(
+                    inMemoryDownloadPath.toFile().length(),
+                    Matchers.greaterThan(savedDownloadPath.toFile().length()));
 
             List<RecordedEvent> inMemoryEvents = RecordingFile.readAllEvents(inMemoryDownloadPath);
             List<RecordedEvent> savedEvents = RecordingFile.readAllEvents(savedDownloadPath);
@@ -277,6 +286,7 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
         } finally {
             // Clean up what we created
             try {
+
                 webClient
                         .extensions()
                         .delete(
