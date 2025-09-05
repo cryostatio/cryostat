@@ -59,6 +59,9 @@ public abstract class StandardSelfTest extends HttpClientTest {
 
     @AfterAll
     public static void assertPostconditions() throws Exception {
+        // give the server some additional time to ensure individual tests' cleanup has completed,
+        // then make assertions about the cleaned state
+        Thread.sleep(1_000);
         assertNoRecordings();
     }
 
