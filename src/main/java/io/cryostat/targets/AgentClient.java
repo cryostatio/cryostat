@@ -145,6 +145,7 @@ public class AgentClient {
             String[] signature,
             Class<T> returnType) {
         try {
+            logger.warn("invokeMBeanOperation called");
             var req = new MBeanInvocationRequest(beanName, operation, parameters, signature);
             return agentRestClient
                     .invokeMBeanOperation(new ByteArrayInputStream(mapper.writeValueAsBytes(req)))
@@ -153,6 +154,8 @@ public class AgentClient {
                                     resp -> {
                                         int statusCode = resp.getStatus();
                                         if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                            logger.warnv(
+                                                    "Agent operation succeeded: " + statusCode);
                                             return resp;
                                         } else if (statusCode == 403) {
                                             logger.errorv(
@@ -173,12 +176,16 @@ public class AgentClient {
                     .map(
                             Unchecked.function(
                                     buff -> {
+                                        logger.warnv("Did we get here?");
+                                        logger.warnv("Operation: " + req.operation);
                                         if (returnType.equals(String.class)) {
+                                            logger.warnv("Received return type: String");
                                             return mapper.readValue(
                                                     (InputStream) buff.getEntity(), returnType);
                                         }
                                         // TODO implement conditional handling based on expected
                                         // returnType
+                                        logger.warnv("No returnType needed, returning null");
                                         return null;
                                     }));
         } catch (JsonProcessingException e) {
