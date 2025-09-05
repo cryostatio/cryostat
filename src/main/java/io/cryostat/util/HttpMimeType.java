@@ -15,6 +15,7 @@
  */
 package io.cryostat.util;
 
+import java.nio.charset.Charset;
 import java.util.EnumSet;
 
 public enum HttpMimeType {
@@ -37,6 +38,10 @@ public enum HttpMimeType {
 
     public String mime() {
         return mime;
+    }
+
+    public String mime(Charset charset) {
+        return String.format("%s;charset=%s", mime(), charset.name());
     }
 
     public String type() {
