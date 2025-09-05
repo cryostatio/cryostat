@@ -29,7 +29,6 @@ import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -90,22 +89,14 @@ public class DiagnosticsHelper {
                 "Thread Dump request received for Target: {0} with format: {1}", targetId, format);
         Object[] params = new Object[1];
         String[] signature = new String[] {String[].class.getName()};
+        Target target = Target.getTargetById(targetId);
         return targetConnectionManager.executeConnectedTask(
-                Target.getTargetById(targetId),
+                target,
                 conn -> {
-                    return QuarkusTransaction.joiningExisting()
-                            .call(
-                                    () -> {
-                                        String content =
-                                                conn.invokeMBeanOperation(
-                                                        DIAGNOSTIC_BEAN_NAME,
-                                                        format,
-                                                        params,
-                                                        signature,
-                                                        String.class);
-                                        return addThreadDump(
-                                                content, Target.getTargetById(targetId).jvmId);
-                                    });
+                    String content =
+                            conn.invokeMBeanOperation(
+                                    DIAGNOSTIC_BEAN_NAME, format, params, signature, String.class);
+                    return addThreadDump(content, target.jvmId);
                 });
     }
 
