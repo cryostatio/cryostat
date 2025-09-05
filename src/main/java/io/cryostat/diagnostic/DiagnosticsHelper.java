@@ -33,6 +33,7 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -108,17 +109,16 @@ public class DiagnosticsHelper {
                         UUID.randomUUID().toString(),
                         ".hprof");
         params[1] = false;
-        log.warnv("Generated filename: {0}", params[1]);
+        log.warnv("Generated filename: {0}", params[0]);
         // Heap Dump Retrieval is handled by a separate endpoint
         targetConnectionManager.executeConnectedTask(
                 Target.getTargetById(targetId),
-                conn ->
-                        conn.invokeMBeanOperation(
-                                HOTSPOT_DIAGNOSTIC_BEAN_NAME,
-                                DUMP_HEAP,
-                                params,
-                                signature,
-                                String.class));
+                conn -> {
+                    log.warnv("Invoking Mbean Operation");
+                    return conn.invokeMBeanOperation(
+                            HOTSPOT_DIAGNOSTIC_BEAN_NAME, DUMP_HEAP, params, signature, Void.class);
+                });
+        log.warnv("executeConnectedTask finished");
     }
 
     public String generateFileName(String jvmId, String uuid, String extension) {
@@ -164,10 +164,19 @@ public class DiagnosticsHelper {
         return targetConnectionManager.executeConnectedTask(
                 Target.getTargetById(targetId),
                 conn -> {
-                    String content =
-                            conn.invokeMBeanOperation(
-                                    DIAGNOSTIC_BEAN_NAME, format, params, signature, String.class);
-                    return addThreadDump(content, Target.getTargetById(targetId).jvmId);
+                    return QuarkusTransaction.joiningExisting()
+                            .call(
+                                    () -> {
+                                        String content =
+                                                conn.invokeMBeanOperation(
+                                                        DIAGNOSTIC_BEAN_NAME,
+                                                        format,
+                                                        params,
+                                                        signature,
+                                                        String.class);
+                                        return addThreadDump(
+                                                content, Target.getTargetById(targetId).jvmId);
+                                    });
                 });
     }
 
@@ -222,13 +231,14 @@ public class DiagnosticsHelper {
 
     public ThreadDump addThreadDump(String content, String jvmId) {
         String uuid = UUID.randomUUID().toString();
-        log.tracev("Putting Thread dump into storage with key: {0}", threadDumpKey(jvmId, uuid));
+        log.warnv("Putting Thread dump into storage with key: {0}", threadDumpKey(jvmId, uuid));
         var reqBuilder =
                 PutObjectRequest.builder()
                         .bucket(bucket)
                         .key(threadDumpKey(jvmId, uuid))
                         .contentType(MediaType.TEXT_PLAIN);
         storage.putObject(reqBuilder.build(), RequestBody.fromString(content));
+        log.warnv("Storage succeeded, returning");
         return new ThreadDump(
                 jvmId,
                 downloadUrl(jvmId, uuid),

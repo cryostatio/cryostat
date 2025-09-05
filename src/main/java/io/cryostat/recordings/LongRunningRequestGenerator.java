@@ -323,11 +323,12 @@ public class LongRunningRequestGenerator {
             var target = Target.getTargetById(request.targetId);
             logger.warnv("Delegating to diagnosticsHelper.dumpHeap");
             diagnosticsHelper.dumpHeap(target.id);
+            logger.warnv("dumpHeap returned, sending notification");
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(HEAP_DUMP_SUCCESS, Map.of("jobId", request.id())));
         } catch (Exception e) {
-            logger.warn("Failed to dump threads");
+            logger.warn("Failed to dump heap");
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(HEAP_DUMP_FAILURE, Map.of("jobId", request.id())));
