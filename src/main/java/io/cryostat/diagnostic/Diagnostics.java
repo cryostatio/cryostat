@@ -102,6 +102,7 @@ public class Diagnostics {
     @Path("targets/{targetId}/threaddump")
     @RolesAllowed("read")
     @Blocking
+    @Transactional
     @GET
     public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
         log.tracev("Fetching thread dumps for target: {0}", targetId);
