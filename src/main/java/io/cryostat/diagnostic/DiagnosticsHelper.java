@@ -29,6 +29,7 @@ import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -92,10 +93,19 @@ public class DiagnosticsHelper {
         return targetConnectionManager.executeConnectedTask(
                 Target.getTargetById(targetId),
                 conn -> {
-                    String content =
-                            conn.invokeMBeanOperation(
-                                    DIAGNOSTIC_BEAN_NAME, format, params, signature, String.class);
-                    return addThreadDump(content, Target.getTargetById(targetId).jvmId);
+                    return QuarkusTransaction.joiningExisting()
+                            .call(
+                                    () -> {
+                                        String content =
+                                                conn.invokeMBeanOperation(
+                                                        DIAGNOSTIC_BEAN_NAME,
+                                                        format,
+                                                        params,
+                                                        signature,
+                                                        String.class);
+                                        return addThreadDump(
+                                                content, Target.getTargetById(targetId).jvmId);
+                                    });
                 });
     }
 
