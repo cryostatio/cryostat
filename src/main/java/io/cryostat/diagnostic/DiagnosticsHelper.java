@@ -36,10 +36,8 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -49,7 +47,6 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
-import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
@@ -84,7 +81,7 @@ public class DiagnosticsHelper {
 
     public ThreadDump dumpThreads(String format, long targetId) {
         if (!(format.equals(DUMP_THREADS) || format.equals(DUMP_THREADS_TO_FIlE))) {
-            throw new BadRequestException();
+            throw new IllegalArgumentException();
         }
         log.tracev(
                 "Thread Dump request received for Target: {0} with format: {1}", targetId, format);
@@ -110,12 +107,9 @@ public class DiagnosticsHelper {
     }
 
     public void deleteThreadDump(String threadDumpID, long targetId)
-            throws BadRequestException, NoSuchKeyException {
-        String jvmId = Target.getTargetById(targetId).jvmId;
-        String key = threadDumpKey(jvmId, threadDumpID);
-        if (Objects.isNull(jvmId)) {
-            log.errorv("TargetId {0} failed to resolve to a jvmId", targetId);
-            throw new BadRequestException();
+        if (Objects.isNull(target.jvmId)) {
+            log.errorv("TargetId {0} failed to resolve to a jvmId", target.id);
+            throw new IllegalArgumentException();
         } else {
             storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
             storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
@@ -192,9 +186,7 @@ public class DiagnosticsHelper {
     public InputStream getThreadDumpStream(String encodedKey) {
         Pair<String, String> decodedKey = decodedKey(encodedKey);
         var key = threadDumpKey(decodedKey);
-
-        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
-
+        var getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
         return storage.getObject(getRequest);
     }
 
@@ -208,14 +200,11 @@ public class DiagnosticsHelper {
     }
 
     public List<S3Object> listThreadDumps(long targetId) {
-        var builder = ListObjectsV2Request.builder().bucket(bucket);
         String jvmId = Target.getTargetById(targetId).jvmId;
         if (Objects.isNull(jvmId)) {
-            log.errorv("TargetId {0} failed to resolve to a jvmId", targetId);
+            throw new IllegalArgumentException();
         }
-        if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
-        }
-        return storage.listObjectsV2(builder.build()).contents();
+        var req = ListObjectsV2Request.builder().bucket(bucket).prefix(jvmId).build();
+        return storage.listObjectsV2(req).contents();
     }
 }
