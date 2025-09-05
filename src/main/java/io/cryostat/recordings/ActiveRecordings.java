@@ -308,6 +308,7 @@ public class ActiveRecordings {
             RecordingState state,
             long duration,
             long startTime,
+            boolean archiveOnStop,
             boolean continuous,
             boolean toDisk,
             long maxSize,

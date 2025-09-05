@@ -17,6 +17,11 @@ package io.cryostat;
 
 /** Java constants corresponding to configuration keys set in application.properties. */
 public class ConfigProperties {
+    public static final String EXTERNAL_RECORDINGS_DELAY = "cryostat.external-recordings.delay";
+    public static final String EXTERNAL_RECORDINGS_ARCHIVE = "cryostat.external-recordings.archive";
+    public static final String EXTERNAL_RECORDINGS_AUTOANALYZE =
+            "cryostat.external-recordings.autoanalyze";
+
     public static final String STORAGE_METADATA_STORAGE_MODE = "storage.metadata.storage-mode";
     public static final String STORAGE_METADATA_ARCHIVES_STORAGE_MODE =
             "storage.metadata.archives.storage-mode";
