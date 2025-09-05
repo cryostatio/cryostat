@@ -38,6 +38,7 @@ import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -104,16 +105,17 @@ public class Diagnostics {
     @GET
     public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
         log.tracev("Fetching thread dumps for target: {0}", targetId);
-        return helper.getThreadDumps(targetId);
+        return helper.getThreadDumps(Target.getTargetById(targetId));
     }
 
     @DELETE
     @Blocking
+    @Transactional
     @Path("targets/{targetId}/threaddump/{threadDumpId}")
     @RolesAllowed("write")
     public void deleteThreadDump(@RestPath long targetId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
-        helper.deleteThreadDump(threadDumpId, targetId);
+        helper.deleteThreadDump(Target.getTargetById(targetId), threadDumpId);
     }
 
     @Path("/threaddump/download/{encodedKey}")
@@ -193,6 +195,7 @@ public class Diagnostics {
     @Path("targets/{targetId}/gc")
     @RolesAllowed("write")
     @Blocking
+    @Transactional
     @POST
     @Operation(
             summary = "Initiate a garbage collection on the specified target",

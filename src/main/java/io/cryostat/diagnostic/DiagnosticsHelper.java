@@ -79,45 +79,37 @@ public class DiagnosticsHelper {
         buckets.createIfNecessary(bucket);
     }
 
-    public ThreadDump dumpThreads(String format, long targetId) {
+    public ThreadDump dumpThreads(Target target, String format) {
         if (!(format.equals(DUMP_THREADS) || format.equals(DUMP_THREADS_TO_FIlE))) {
             throw new IllegalArgumentException();
         }
         log.tracev(
-                "Thread Dump request received for Target: {0} with format: {1}", targetId, format);
+                "Thread Dump request received for Target: {0} with format: {1}", target.id, format);
         Object[] params = new Object[1];
         String[] signature = new String[] {String[].class.getName()};
         return targetConnectionManager.executeConnectedTask(
-                Target.getTargetById(targetId),
+                target,
                 conn -> {
-                    return QuarkusTransaction.joiningExisting()
-                            .call(
-                                    () -> {
-                                        String content =
-                                                conn.invokeMBeanOperation(
-                                                        DIAGNOSTIC_BEAN_NAME,
-                                                        format,
-                                                        params,
-                                                        signature,
-                                                        String.class);
-                                        return addThreadDump(
-                                                content, Target.getTargetById(targetId).jvmId);
-                                    });
+                    String content =
+                            conn.invokeMBeanOperation(
+                                    DIAGNOSTIC_BEAN_NAME, format, params, signature, String.class);
+                    return addThreadDump(target, content);
                 });
     }
 
-    public void deleteThreadDump(String threadDumpID, long targetId)
+    public void deleteThreadDump(Target target, String threadDumpID) {
         if (Objects.isNull(target.jvmId)) {
             log.errorv("TargetId {0} failed to resolve to a jvmId", target.id);
             throw new IllegalArgumentException();
         } else {
+            String key = threadDumpKey(target.jvmId, threadDumpID);
             storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
             storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
         }
     }
 
-    public List<ThreadDump> getThreadDumps(long targetId) {
-        return listThreadDumps(targetId).stream()
+    public List<ThreadDump> getThreadDumps(Target target) {
+        return listThreadDumps(target).stream()
                 .map(
                         item -> {
                             try {
@@ -142,18 +134,21 @@ public class DiagnosticsHelper {
                 object.size());
     }
 
-    public ThreadDump addThreadDump(String content, String jvmId) {
+    public ThreadDump addThreadDump(Target target, String content) {
         String uuid = UUID.randomUUID().toString();
-        log.tracev("Putting Thread dump into storage with key: {0}", threadDumpKey(jvmId, uuid));
-        var reqBuilder =
+        log.tracev(
+                "Putting Thread dump into storage with key: {0}",
+                threadDumpKey(target.jvmId, uuid));
+        var req =
                 PutObjectRequest.builder()
                         .bucket(bucket)
-                        .key(threadDumpKey(jvmId, uuid))
-                        .contentType(MediaType.TEXT_PLAIN);
-        storage.putObject(reqBuilder.build(), RequestBody.fromString(content));
+                        .key(threadDumpKey(target.jvmId, uuid))
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .build();
+        storage.putObject(req, RequestBody.fromString(content));
         return new ThreadDump(
-                jvmId,
-                downloadUrl(jvmId, uuid),
+                target.jvmId,
+                downloadUrl(target.jvmId, uuid),
                 uuid,
                 clock.now().getEpochSecond(),
                 content.length());
@@ -199,8 +194,8 @@ public class DiagnosticsHelper {
         return Pair.of(parts[0], parts[1]);
     }
 
-    public List<S3Object> listThreadDumps(long targetId) {
-        String jvmId = Target.getTargetById(targetId).jvmId;
+    public List<S3Object> listThreadDumps(Target target) {
+        String jvmId = target.jvmId;
         if (Objects.isNull(jvmId)) {
             throw new IllegalArgumentException();
         }
