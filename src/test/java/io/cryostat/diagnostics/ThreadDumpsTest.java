@@ -18,22 +18,24 @@ package io.cryostat.diagnostics;
 import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.diagnostic.Diagnostics;
+import io.cryostat.resources.S3StorageResource;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@QuarkusTestResource(S3StorageResource.class)
 @TestHTTPEndpoint(Diagnostics.class)
 public class ThreadDumpsTest extends AbstractTransactionalTestBase {
 
@@ -43,7 +45,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id))
+                .pathParam("targetId", id)
                 .get("targets/{targetId}/threaddump")
                 .then()
                 .log()
@@ -56,6 +58,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    // FIXME all thread dump creations within these tests should be wrapped in try/finally and the
+    // created thread dumps should be deleted, to clean slate.
     public void testCreate()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         int id = defineSelfCustomTarget();
@@ -65,7 +69,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                             given().log()
                                     .all()
                                     .when()
-                                    .pathParams(Map.of("targetId", id))
+                                    .pathParam("targetId", id)
                                     .post("targets/{targetId}/threaddump")
                                     .then()
                                     .log()
@@ -81,7 +85,6 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                         },
                         1,
                         TimeUnit.SECONDS);
-
         expectWebSocketNotification("ThreadDumpSuccess");
     }
 
@@ -96,7 +99,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                             given().log()
                                     .all()
                                     .when()
-                                    .pathParams(Map.of("targetId", id))
+                                    .pathParam("targetId", id)
                                     .post("targets/{targetId}/threaddump")
                                     .then()
                                     .log()
@@ -112,14 +115,13 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                         },
                         1,
                         TimeUnit.SECONDS);
-
         expectWebSocketNotification("ThreadDumpSuccess");
 
         // Check that the listing is non empty
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id))
+                .pathParam("targetId", id)
                 .get("targets/{targetId}/threaddump")
                 .then()
                 .log()
@@ -141,7 +143,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                             given().log()
                                     .all()
                                     .when()
-                                    .pathParams(Map.of("targetId", id))
+                                    .pathParam("targetId", id)
                                     .post("targets/{targetId}/threaddump")
                                     .then()
                                     .log()
@@ -164,7 +166,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams(Map.of("targetId", id))
+                        .pathParam("targetId", id)
                         .get("targets/{targetId}/threaddump")
                         .then()
                         .log()
@@ -182,7 +184,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id, "threadDumpId", threadDumpId))
+                .pathParam("targetId", id)
+                .pathParam("threadDumpId", threadDumpId)
                 .delete("targets/{targetId}/threaddump/{threadDumpId}")
                 .then()
                 .log()
@@ -197,7 +200,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", -1))
+                .pathParam("targetId", -1)
                 .get("targets/{targetId}/threaddump")
                 .then()
                 .log()
@@ -209,12 +212,13 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testDeleteInvalid() {
+    public void testDeleteInvalid() {
         int id = defineSelfCustomTarget();
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id, "threadDumpId", "foo"))
+                .pathParam("targetId", id)
+                .pathParam("threadDumpId", "foo")
                 .delete("targets/{targetId}/threaddump/{threadDumpId}")
                 .then()
                 .log()
@@ -225,7 +229,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testDownloadInvalid() {
+    public void testDownloadInvalid() {
         given().log()
                 .all()
                 .when()
@@ -236,7 +240,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testDownloadNotFound() {
+    public void testDownloadNotFound() {
         given().log()
                 .all()
                 .when()
