@@ -18,7 +18,6 @@ package io.cryostat.diagnostics;
 import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -46,7 +45,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id))
+                .pathParam("targetId", id)
                 .get("targets/{targetId}/threaddump")
                 .then()
                 .log()
@@ -68,7 +67,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                             given().log()
                                     .all()
                                     .when()
-                                    .pathParams(Map.of("targetId", id))
+                                    .pathParam("targetId", id)
                                     .post("targets/{targetId}/threaddump")
                                     .then()
                                     .log()
@@ -84,7 +83,6 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                         },
                         1,
                         TimeUnit.SECONDS);
-
         expectWebSocketNotification("ThreadDumpSuccess");
     }
 
@@ -99,7 +97,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                             given().log()
                                     .all()
                                     .when()
-                                    .pathParams(Map.of("targetId", id))
+                                    .pathParam("targetId", id)
                                     .post("targets/{targetId}/threaddump")
                                     .then()
                                     .log()
@@ -115,14 +113,13 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                         },
                         1,
                         TimeUnit.SECONDS);
-
         expectWebSocketNotification("ThreadDumpSuccess");
 
         // Check that the listing is non empty
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id))
+                .pathParam("targetId", id)
                 .get("targets/{targetId}/threaddump")
                 .then()
                 .log()
@@ -144,7 +141,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                             given().log()
                                     .all()
                                     .when()
-                                    .pathParams(Map.of("targetId", id))
+                                    .pathParam("targetId", id)
                                     .post("targets/{targetId}/threaddump")
                                     .then()
                                     .log()
@@ -167,7 +164,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams(Map.of("targetId", id))
+                        .pathParam("targetId", id)
                         .get("targets/{targetId}/threaddump")
                         .then()
                         .log()
@@ -185,7 +182,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id, "threadDumpId", threadDumpId))
+                .pathParam("targetId", id)
+                .pathParam("threadDumpId", threadDumpId)
                 .delete("targets/{targetId}/threaddump/{threadDumpId}")
                 .then()
                 .log()
@@ -200,7 +198,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", -1))
+                .pathParam("targetId", -1)
                 .get("targets/{targetId}/threaddump")
                 .then()
                 .log()
@@ -217,7 +215,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams(Map.of("targetId", id, "threadDumpId", "foo"))
+                .pathParam("targetId", id)
+                .pathParam("threadDumpId", "foo")
                 .delete("targets/{targetId}/threaddump/{threadDumpId}")
                 .then()
                 .log()
