@@ -58,6 +58,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    // FIXME all thread dump creations within these tests should be wrapped in try/finally and the
+    // created thread dumps should be deleted, to clean slate.
     public void testCreate()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         int id = defineSelfCustomTarget();
