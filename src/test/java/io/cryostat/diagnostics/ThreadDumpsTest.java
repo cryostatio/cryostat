@@ -25,7 +25,9 @@ import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.diagnostic.Diagnostics;
+import io.cryostat.resources.S3StorageResource;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -34,6 +36,7 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@QuarkusTestResource(S3StorageResource.class)
 @TestHTTPEndpoint(Diagnostics.class)
 public class ThreadDumpsTest extends AbstractTransactionalTestBase {
 
