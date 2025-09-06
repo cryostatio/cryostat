@@ -63,8 +63,8 @@ public class DiagnosticsHelper {
     @Inject Logger log;
     @Inject Clock clock;
 
-    private static final String DUMP_THREADS = "threadPrint";
-    private static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
+    static final String DUMP_THREADS = "threadPrint";
+    static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     static final String THREAD_DUMP_REQUESTED = "ThreadDumpRequested";
     static final String THREAD_DUMP_DELETED = "ThreadDumpDeleted";
