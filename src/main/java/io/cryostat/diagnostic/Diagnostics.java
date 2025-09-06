@@ -40,9 +40,11 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -90,7 +92,9 @@ public class Diagnostics {
     @RolesAllowed("write")
     @POST
     public String threadDump(
-            HttpServerResponse response, @RestPath long targetId, @RestQuery String format) {
+            HttpServerResponse response,
+            @RestPath long targetId,
+            @QueryParam("format") @DefaultValue(DiagnosticsHelper.DUMP_THREADS) String format) {
         log.tracev("Creating new thread dump request for target: {0}", targetId);
         ThreadDumpRequest request =
                 new ThreadDumpRequest(UUID.randomUUID().toString(), targetId, format);
