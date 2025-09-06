@@ -31,7 +31,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(Diagnostics.class)
@@ -209,7 +209,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testDeleteInvalid() {
+    public void testDeleteInvalid() {
         int id = defineSelfCustomTarget();
         given().log()
                 .all()
@@ -225,7 +225,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testDownloadInvalid() {
+    public void testDownloadInvalid() {
         given().log()
                 .all()
                 .when()
@@ -236,7 +236,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testDownloadNotFound() {
+    public void testDownloadNotFound() {
         given().log()
                 .all()
                 .when()
