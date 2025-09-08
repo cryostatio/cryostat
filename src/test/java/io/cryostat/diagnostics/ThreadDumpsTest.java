@@ -18,6 +18,7 @@ package io.cryostat.diagnostics;
 import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -58,70 +59,106 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    // FIXME all thread dump creations within these tests should be wrapped in try/finally and the
-    // created thread dumps should be deleted, to clean slate.
     public void testCreate()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
-        int id = defineSelfCustomTarget();
-        Executors.newSingleThreadScheduledExecutor()
-                .schedule(
-                        () -> {
-                            given().log()
-                                    .all()
-                                    .when()
-                                    .pathParam("targetId", id)
-                                    .post("targets/{targetId}/threaddump")
-                                    .then()
-                                    .log()
-                                    .all()
-                                    .and()
-                                    .assertThat()
-                                    .contentType(ContentType.JSON)
-                                    .statusCode(200)
-                                    .body("size()", Matchers.equalTo(0))
-                                    .extract()
-                                    .body()
-                                    .asString();
-                        },
-                        1,
-                        TimeUnit.SECONDS);
-        expectWebSocketNotification("ThreadDumpSuccess");
+        final int targetId = defineSelfCustomTarget();
+        final String[] jobId = new String[1];
+        final String[] threadDumpId = new String[1];
+        try {
+            Executors.newSingleThreadScheduledExecutor()
+                    .schedule(
+                            () -> {
+                                var body =
+                                        given().log()
+                                                .all()
+                                                .when()
+                                                .pathParam("targetId", targetId)
+                                                .post("targets/{targetId}/threaddump")
+                                                .then()
+                                                .log()
+                                                .all()
+                                                .and()
+                                                .assertThat()
+                                                .contentType(ContentType.TEXT)
+                                                .statusCode(200)
+                                                .and()
+                                                .extract()
+                                                .body()
+                                                .asString();
+                                jobId[0] = body.strip();
+                            },
+                            1,
+                            TimeUnit.SECONDS);
+            var notification =
+                    expectWebSocketNotification(
+                            "ThreadDumpSuccess",
+                            json ->
+                                    Objects.equals(
+                                            json.getJsonObject("message").getString("jobId"),
+                                            jobId[0]));
+            threadDumpId[0] =
+                    notification.getJsonObject("message").getString("threadDumpId").strip();
+        } finally {
+            given().log()
+                    .all()
+                    .when()
+                    .pathParam("targetId", targetId)
+                    .pathParam("threadDumpId", threadDumpId[0])
+                    .delete("targets/{targetId}/threaddump/{threadDumpId}")
+                    .then()
+                    .log()
+                    .all()
+                    .and()
+                    .assertThat()
+                    .statusCode(204);
+        }
     }
 
     @Test
     public void testCreateAndList()
             throws IOException, DeploymentException, InterruptedException, TimeoutException {
         // Check that creating a thread dump works as expected
-        int id = defineSelfCustomTarget();
+        final int targetId = defineSelfCustomTarget();
+        final String[] jobId = new String[1];
+        final String[] threadDumpId = new String[1];
+
         Executors.newSingleThreadScheduledExecutor()
                 .schedule(
                         () -> {
-                            given().log()
-                                    .all()
-                                    .when()
-                                    .pathParam("targetId", id)
-                                    .post("targets/{targetId}/threaddump")
-                                    .then()
-                                    .log()
-                                    .all()
-                                    .and()
-                                    .assertThat()
-                                    .contentType(ContentType.JSON)
-                                    .statusCode(200)
-                                    .body("size()", Matchers.equalTo(0))
-                                    .extract()
-                                    .body()
-                                    .asString();
+                            var body =
+                                    given().log()
+                                            .all()
+                                            .when()
+                                            .pathParam("targetId", targetId)
+                                            .post("targets/{targetId}/threaddump")
+                                            .then()
+                                            .log()
+                                            .all()
+                                            .and()
+                                            .assertThat()
+                                            .contentType(ContentType.TEXT)
+                                            .statusCode(200)
+                                            .extract()
+                                            .body()
+                                            .asString();
+                            jobId[0] = body.strip();
                         },
                         1,
                         TimeUnit.SECONDS);
-        expectWebSocketNotification("ThreadDumpSuccess");
+        var notification =
+                expectWebSocketNotification(
+                        "ThreadDumpSuccess",
+                        json ->
+                                Objects.equals(
+                                        json.getJsonObject("message").getString("jobId"),
+                                        jobId[0]));
+        threadDumpId[0] = notification.getJsonObject("message").getString("threadDumpId").strip();
 
         // Check that the listing is non empty
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", id)
+                .pathParam("targetId", targetId)
                 .get("targets/{targetId}/threaddump")
                 .then()
                 .log()
@@ -130,7 +167,35 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                 .assertThat()
                 .contentType(ContentType.JSON)
                 .statusCode(200)
-                .body("size()", Matchers.greaterThan(0));
+                .body("size()", Matchers.equalTo(1));
+
+        given().log()
+                .all()
+                .when()
+                .pathParam("targetId", targetId)
+                .pathParam("threadDumpId", threadDumpId[0])
+                .delete("targets/{targetId}/threaddump/{threadDumpId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+
+        // Check that the listing is empty
+        given().log()
+                .all()
+                .when()
+                .pathParam("targetId", targetId)
+                .get("targets/{targetId}/threaddump")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(200)
+                .body("size()", Matchers.equalTo(0));
     }
 
     @Test
@@ -150,9 +215,8 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                                     .all()
                                     .and()
                                     .assertThat()
-                                    .contentType(ContentType.JSON)
+                                    .contentType(ContentType.TEXT)
                                     .statusCode(200)
-                                    .body("size()", Matchers.equalTo(0))
                                     .extract()
                                     .body()
                                     .asString();
@@ -162,7 +226,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
 
         expectWebSocketNotification("ThreadDumpSuccess");
 
-        String threadDumpId =
+        var listResponseJson =
                 given().log()
                         .all()
                         .when()
@@ -175,11 +239,11 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                         .assertThat()
                         .contentType(ContentType.JSON)
                         .statusCode(200)
-                        .body("size()", Matchers.greaterThan(0))
+                        .body("size()", Matchers.equalTo(1))
                         .extract()
-                        .asString()
-                        .replace("[", "")
-                        .replace("]", "");
+                        .jsonPath();
+
+        var threadDumpId = listResponseJson.getString("[0].threadDumpId");
 
         given().log()
                 .all()
@@ -192,7 +256,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(200);
+                .statusCode(204);
     }
 
     @Test
@@ -200,15 +264,14 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParam("targetId", -1)
+                .pathParam("targetId", Integer.MAX_VALUE)
                 .get("targets/{targetId}/threaddump")
                 .then()
                 .log()
                 .all()
                 .and()
                 .assertThat()
-                .contentType(ContentType.JSON)
-                .statusCode(400);
+                .statusCode(404);
     }
 
     @Test
@@ -225,7 +288,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(400);
+                .statusCode(404);
     }
 
     @Test
@@ -233,10 +296,10 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .get("/threaddump/download/abcd1234")
+                .get("/api/beta/diagnostics/threaddump/download/abcd1234")
                 .then()
                 .assertThat()
-                .statusCode(400);
+                .statusCode(404);
     }
 
     @Test
