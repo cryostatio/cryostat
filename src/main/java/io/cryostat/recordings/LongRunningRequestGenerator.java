@@ -109,7 +109,7 @@ public class LongRunningRequestGenerator {
                                     "jobId",
                                     request.id(),
                                     "threadDumpId",
-                                    dump.uuid(),
+                                    dump.threadDumpId(),
                                     "targetId",
                                     dump.jvmId(),
                                     "downloadUrl",

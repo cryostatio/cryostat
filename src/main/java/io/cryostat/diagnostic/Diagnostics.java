@@ -218,11 +218,11 @@ public class Diagnostics {
     }
 
     public record ThreadDump(
-            String jvmId, String downloadUrl, String uuid, long lastModified, long size) {
+            String jvmId, String downloadUrl, String threadDumpId, long lastModified, long size) {
         public ThreadDump {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(downloadUrl);
-            Objects.requireNonNull(uuid);
+            Objects.requireNonNull(threadDumpId);
         }
     }
 }
