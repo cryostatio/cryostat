@@ -108,6 +108,8 @@ public class LongRunningRequestGenerator {
                             Map.of(
                                     "jobId",
                                     request.id(),
+                                    "threadDumpId",
+                                    dump.uuid(),
                                     "targetId",
                                     dump.jvmId(),
                                     "downloadUrl",
