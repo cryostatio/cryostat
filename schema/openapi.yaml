@@ -690,7 +690,7 @@ components:
         size:
           format: int64
           type: integer
-        uuid:
+        threadDumpId:
           type: string
       type: object
     UUID:
@@ -760,6 +760,7 @@ paths:
         - in: query
           name: format
           schema:
+            default: threadPrint
             type: string
       requestBody:
         content:
