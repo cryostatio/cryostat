@@ -108,17 +108,16 @@ public class DiagnosticsHelper {
                         UUID.randomUUID().toString(),
                         ".hprof");
         params[1] = false;
-        log.warnv("Generated filename: {0}", params[1]);
+        log.warnv("Generated filename: {0}", params[0]);
         // Heap Dump Retrieval is handled by a separate endpoint
         targetConnectionManager.executeConnectedTask(
                 Target.getTargetById(targetId),
-                conn ->
-                        conn.invokeMBeanOperation(
-                                HOTSPOT_DIAGNOSTIC_BEAN_NAME,
-                                DUMP_HEAP,
-                                params,
-                                signature,
-                                String.class));
+                conn -> {
+                    log.warnv("Invoking Mbean Operation");
+                    return conn.invokeMBeanOperation(
+                            HOTSPOT_DIAGNOSTIC_BEAN_NAME, DUMP_HEAP, params, signature, Void.class);
+                });
+        log.warnv("executeConnectedTask finished");
     }
 
     public String generateFileName(String jvmId, String uuid, String extension) {
