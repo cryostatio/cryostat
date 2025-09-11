@@ -66,7 +66,7 @@ public class DiagnosticsHelper {
     static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
     static final String DUMP_HEAP = "dumpHeap";
     static final String HEAP_DUMP_REQUESTED = "HeapDumpRequested";
-    static final String HEAP_DUMP_DELETED = "HeapDumpDeleted";
+    static final String HEAP_DUMP_DELETED_NAME = "HeapDumpDeleted";
     static final String HEAP_DUMP_UPLOADED = "HeapDumpUploaded";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     private static final String HOTSPOT_DIAGNOSTIC_BEAN_NAME =
@@ -121,12 +121,19 @@ public class DiagnosticsHelper {
         return t.alias + "_" + uuid + extension;
     }
 
-    public void deleteHeapDump(String heapDumpID, Target target)
+    public void deleteHeapDump(String heapDumpId, Target target)
             throws BadRequestException, NoSuchKeyException {
         String jvmId = target.jvmId;
-        String key = storageKey(jvmId, heapDumpID);
+        String key = storageKey(jvmId, heapDumpId);
         storage.headObject(HeadObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
         storage.deleteObject(DeleteObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
+        var event =
+                new HeapDumpEvent(
+                        EventCategory.HEAP_DUMP_DELETED,
+                        HeapDumpEvent.Payload.of(target, heapDumpId));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
     }
 
     public List<HeapDump> getHeapDumps(Target target) {
@@ -347,9 +354,10 @@ public class DiagnosticsHelper {
     }
 
     public enum EventCategory {
-        // ThreadDumpSuccess ("CREATED") events are emitted by LongRunningRequestGenerator
+        // ThreadDumpSuccess and HeapDumpSuccess ("CREATED") events are emitted by
+        // LongRunningRequestGenerator
         DELETED(THREAD_DUMP_DELETED),
-        ;
+        HEAP_DUMP_DELETED(HEAP_DUMP_DELETED_NAME);
 
         private final String category;
 
@@ -376,6 +384,24 @@ public class DiagnosticsHelper {
 
             public static Payload of(Target target, String threadDumpId) {
                 return new Payload(target.jvmId, threadDumpId);
+            }
+        }
+    }
+
+    public record HeapDumpEvent(EventCategory category, Payload payload) {
+        public HeapDumpEvent {
+            Objects.requireNonNull(category);
+            Objects.requireNonNull(payload);
+        }
+
+        public record Payload(String jvmId, String heapDumpId) {
+            public Payload {
+                Objects.requireNonNull(jvmId);
+                Objects.requireNonNull(heapDumpId);
+            }
+
+            public static Payload of(Target target, String heapDumpId) {
+                return new Payload(target.jvmId, heapDumpId);
             }
         }
     }
