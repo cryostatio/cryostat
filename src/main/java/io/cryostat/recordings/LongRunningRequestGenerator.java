@@ -328,7 +328,9 @@ public class LongRunningRequestGenerator {
             logger.warnv("dumpHeap returned, sending notification");
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(HEAP_DUMP_SUCCESS, Map.of("jobId", request.id())));
+                    new Notification(
+                            HEAP_DUMP_SUCCESS,
+                            Map.of("jobId", request.id(), "targetId", target.jvmId)));
         } catch (Exception e) {
             logger.warn("Failed to dump heap");
             bus.publish(
