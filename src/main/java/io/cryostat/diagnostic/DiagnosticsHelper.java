@@ -212,7 +212,8 @@ public class DiagnosticsHelper {
                 jvmId,
                 heapDumpDownloadUrl(jvmId, uuid),
                 uuid,
-                object.lastModified().toEpochMilli());
+                object.lastModified().toEpochMilli(),
+                object.size());
     }
 
     private ThreadDump convertObject(S3Object object) throws Exception {
@@ -267,7 +268,8 @@ public class DiagnosticsHelper {
                         target.jvmId,
                         heapDumpDownloadUrl(target.jvmId, filename),
                         filename,
-                        clock.now().getEpochSecond());
+                        clock.now().getEpochSecond(),
+                        heapDump.filePath().toFile().length());
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(

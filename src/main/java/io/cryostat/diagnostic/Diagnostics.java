@@ -368,7 +368,8 @@ public class Diagnostics {
         return response.location(uri).build();
     }
 
-    public record HeapDump(String jvmId, String downloadUrl, String uuid, long lastModified) {
+    public record HeapDump(
+            String jvmId, String downloadUrl, String uuid, long lastModified, long size) {
 
         public HeapDump {
             Objects.requireNonNull(jvmId);
