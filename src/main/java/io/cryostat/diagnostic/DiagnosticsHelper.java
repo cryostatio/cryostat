@@ -98,26 +98,19 @@ public class DiagnosticsHelper {
         buckets.createIfNecessary(bucket);
     }
 
-    public void dumpHeap(long targetId) {
-        log.warnv("Heap Dump request received for Target: {0}", targetId);
+    public void dumpHeap(Target target) {
+        log.warnv("Heap Dump request received for Target: {0}", target.id);
         Object[] params = new Object[2];
         String[] signature = new String[] {String.class.getName(), boolean.class.getName()};
-        params[0] =
-                generateFileName(
-                        Target.getTargetById(targetId).jvmId,
-                        UUID.randomUUID().toString(),
-                        ".hprof");
+        params[0] = target.alias;
         params[1] = false;
-        log.warnv("Generated filename: {0}", params[0]);
         // Heap Dump Retrieval is handled by a separate endpoint
         targetConnectionManager.executeConnectedTask(
-                Target.getTargetById(targetId),
+                target,
                 conn -> {
-                    log.warnv("Invoking Mbean Operation");
                     return conn.invokeMBeanOperation(
                             HOTSPOT_DIAGNOSTIC_BEAN_NAME, DUMP_HEAP, params, signature, Void.class);
                 });
-        log.warnv("executeConnectedTask finished");
     }
 
     public String generateFileName(String jvmId, String uuid, String extension) {
@@ -129,16 +122,16 @@ public class DiagnosticsHelper {
         return t.alias + "_" + uuid + extension;
     }
 
-    public void deleteHeapDump(String heapDumpID, long targetId)
+    public void deleteHeapDump(String heapDumpID, Target target)
             throws BadRequestException, NoSuchKeyException {
-        String jvmId = Target.getTargetById(targetId).jvmId;
+        String jvmId = target.jvmId;
         String key = heapDumpKey(jvmId, heapDumpID);
         storage.headObject(HeadObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
         storage.deleteObject(DeleteObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
     }
 
-    public List<HeapDump> getHeapDumps(long targetId) {
-        return listHeapDumps(targetId).stream()
+    public List<HeapDump> getHeapDumps(Target target) {
+        return listHeapDumps(target).stream()
                 .map(
                         item -> {
                             try {
@@ -240,7 +233,7 @@ public class DiagnosticsHelper {
                 content.length());
     }
 
-    public HeapDump addHeapDump(String jvmId, FileUpload heapDump) {
+    public HeapDump addHeapDump(Target target, FileUpload heapDump) {
         String filename = heapDump.fileName().strip();
         if (StringUtils.isBlank(filename)) {
             throw new BadRequestException();
@@ -248,27 +241,26 @@ public class DiagnosticsHelper {
         if (!filename.endsWith(".hprof")) {
             filename = filename + ".hprof";
         }
-        log.warnv("Putting Heap dump into storage with key: {0}", heapDumpKey(jvmId, filename));
+        log.warnv(
+                "Putting Heap dump into storage with key: {0}",
+                heapDumpKey(target.jvmId, filename));
         var reqBuilder =
                 PutObjectRequest.builder()
                         .bucket(heapDumpBucket)
-                        .key(heapDumpKey(jvmId, filename))
-                        // FIXME: Is this correct?
+                        .key(heapDumpKey(target.jvmId, filename))
                         .contentType(MediaType.TEXT_PLAIN);
 
         storage.putObject(reqBuilder.build(), RequestBody.fromFile(heapDump.filePath()));
         var dump =
                 new HeapDump(
-                        jvmId,
-                        heapDumpDownloadUrl(jvmId, filename),
+                        target.jvmId,
+                        heapDumpDownloadUrl(target.jvmId, filename),
                         filename,
                         clock.now().getEpochSecond());
-        var target = Target.getTargetByJvmId(jvmId);
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(
-                        HEAP_DUMP_UPLOADED,
-                        Map.of("targetId", target.get().id, "filename", filename)));
+                        HEAP_DUMP_UPLOADED, Map.of("targetId", target.id, "filename", filename)));
         return dump;
     }
 
@@ -281,9 +273,6 @@ public class DiagnosticsHelper {
         return String.format(
                 "/api/beta/diagnostics/heapdump/download/%s", encodedKey(jvmId, filename));
     }
-
-    /*                                     */
-    /*         */
 
     public String encodedKey(String jvmId, String uuid) {
         Objects.requireNonNull(jvmId);
@@ -350,11 +339,11 @@ public class DiagnosticsHelper {
         return storage.listObjectsV2(req).contents();
     }
 
-    public List<S3Object> listHeapDumps(long targetId) {
+    public List<S3Object> listHeapDumps(Target target) {
         var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket);
-        String jvmId = Target.getTargetById(targetId).jvmId;
+        String jvmId = target.jvmId;
         if (Objects.isNull(jvmId)) {
-            log.errorv("TargetId {0} failed to resolve to a jvmId", targetId);
+            log.errorv("TargetId {0} failed to resolve to a jvmId", target.id);
         }
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);

@@ -266,7 +266,7 @@ public class Diagnostics {
     @Blocking
     Map<String, Object> doUpload(FileUpload heapDump, String jvmId) {
         log.warnv("Delegating to helper.addHeapDump");
-        var dump = helper.addHeapDump(jvmId, heapDump);
+        var dump = helper.addHeapDump(Target.getTargetByJvmId(jvmId).get(), heapDump);
         return Map.of("name", dump.uuid());
         // TODO: labels support
         // "metadata",
@@ -279,7 +279,7 @@ public class Diagnostics {
     @GET
     public List<HeapDump> getHeapDumps(@RestPath long targetId) {
         log.tracev("Fetching heap dumps for target: {0}", targetId);
-        return helper.getHeapDumps(targetId);
+        return helper.getHeapDumps(Target.getTargetById(targetId));
     }
 
     @DELETE
@@ -289,7 +289,7 @@ public class Diagnostics {
     public void deleteHeapDump(@RestPath String heapDumpId, @RestPath long targetId) {
         try {
             log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
-            helper.deleteHeapDump(heapDumpId, targetId);
+            helper.deleteHeapDump(heapDumpId, Target.getTargetById(targetId));
         } catch (NoSuchKeyException e) {
             throw new NotFoundException(e);
         } catch (BadRequestException e) {
