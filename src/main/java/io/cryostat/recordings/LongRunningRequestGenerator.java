@@ -104,7 +104,7 @@ public class LongRunningRequestGenerator {
         logger.tracev("Job ID: {0} submitted.", request.id());
         try {
             var target = Target.getTargetById(request.targetId);
-            var dump = diagnosticsHelper.dumpThreads(request.format, target.id);
+            var dump = diagnosticsHelper.dumpThreads(target, request.format);
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
@@ -112,6 +112,8 @@ public class LongRunningRequestGenerator {
                             Map.of(
                                     "jobId",
                                     request.id(),
+                                    "threadDumpId",
+                                    dump.threadDumpId(),
                                     "targetId",
                                     dump.jvmId(),
                                     "downloadUrl",

@@ -74,8 +74,8 @@ public class DiagnosticsHelper {
     @Inject Logger log;
     @Inject Clock clock;
 
-    private static final String DUMP_THREADS = "threadPrint";
-    private static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
+    static final String DUMP_THREADS = "threadPrint";
+    static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     static final String THREAD_DUMP_REQUESTED = "ThreadDumpRequested";
     static final String THREAD_DUMP_DELETED = "ThreadDumpDeleted";
@@ -153,39 +153,40 @@ public class DiagnosticsHelper {
                 .toList();
     }
 
-    public ThreadDump dumpThreads(String format, long targetId) {
+    public ThreadDump dumpThreads(Target target, String format) {
         if (!(format.equals(DUMP_THREADS) || format.equals(DUMP_THREADS_TO_FIlE))) {
-            throw new BadRequestException();
+            throw new IllegalArgumentException();
         }
         log.tracev(
-                "Thread Dump request received for Target: {0} with format: {1}", targetId, format);
-        Object[] params = new Object[1];
-        String[] signature = new String[] {String[].class.getName()};
+                "Thread Dump request received for Target: {0} with format: {1}", target.id, format);
+        final Object[] params = new Object[1];
+        final String[] signature = new String[] {String[].class.getName()};
         return targetConnectionManager.executeConnectedTask(
-                Target.getTargetById(targetId),
-                conn -> {
-                    String content =
-                            conn.invokeMBeanOperation(
-                                    DIAGNOSTIC_BEAN_NAME, format, params, signature, String.class);
-                    return addThreadDump(content, Target.getTargetById(targetId).jvmId);
-                });
+                target,
+                conn ->
+                        addThreadDump(
+                                target,
+                                conn.invokeMBeanOperation(
+                                        DIAGNOSTIC_BEAN_NAME,
+                                        format,
+                                        params,
+                                        signature,
+                                        String.class)));
     }
 
-    public void deleteThreadDump(String threadDumpID, long targetId)
-            throws BadRequestException, NoSuchKeyException {
-        String jvmId = Target.getTargetById(targetId).jvmId;
-        String key = threadDumpKey(jvmId, threadDumpID);
-        if (Objects.isNull(jvmId)) {
-            log.errorv("TargetId {0} failed to resolve to a jvmId", targetId);
-            throw new BadRequestException();
+    public void deleteThreadDump(Target target, String threadDumpID) {
+        if (Objects.isNull(target.jvmId)) {
+            log.errorv("TargetId {0} failed to resolve to a jvmId", target.id);
+            throw new IllegalArgumentException();
         } else {
+            String key = threadDumpKey(target.jvmId, threadDumpID);
             storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
             storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
         }
     }
 
-    public List<ThreadDump> getThreadDumps(long targetId) {
-        return listThreadDumps(targetId).stream()
+    public List<ThreadDump> getThreadDumps(Target target) {
+        return listThreadDumps(target).stream()
                 .map(
                         item -> {
                             try {
@@ -220,18 +221,21 @@ public class DiagnosticsHelper {
                 object.size());
     }
 
-    public ThreadDump addThreadDump(String content, String jvmId) {
+    public ThreadDump addThreadDump(Target target, String content) {
         String uuid = UUID.randomUUID().toString();
-        log.tracev("Putting Thread dump into storage with key: {0}", threadDumpKey(jvmId, uuid));
-        var reqBuilder =
+        log.tracev(
+                "Putting Thread dump into storage with key: {0}",
+                threadDumpKey(target.jvmId, uuid));
+        var req =
                 PutObjectRequest.builder()
                         .bucket(bucket)
-                        .key(threadDumpKey(jvmId, uuid))
-                        .contentType(MediaType.TEXT_PLAIN);
-        storage.putObject(reqBuilder.build(), RequestBody.fromString(content));
+                        .key(threadDumpKey(target.jvmId, uuid))
+                        .contentType(MediaType.TEXT_PLAIN)
+                        .build();
+        storage.putObject(req, RequestBody.fromString(content));
         return new ThreadDump(
-                jvmId,
-                downloadUrl(jvmId, uuid),
+                target.jvmId,
+                downloadUrl(target.jvmId, uuid),
                 uuid,
                 clock.now().getEpochSecond(),
                 content.length());
@@ -304,7 +308,6 @@ public class DiagnosticsHelper {
     public InputStream getThreadDumpStream(String encodedKey) {
         Pair<String, String> decodedKey = decodedKey(encodedKey);
         var key = threadDumpKey(decodedKey);
-
         GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
         return storage.getObject(getRequest);
     }
@@ -339,16 +342,13 @@ public class DiagnosticsHelper {
         return Pair.of(parts[0], parts[1]);
     }
 
-    public List<S3Object> listThreadDumps(long targetId) {
-        var builder = ListObjectsV2Request.builder().bucket(bucket);
-        String jvmId = Target.getTargetById(targetId).jvmId;
+    public List<S3Object> listThreadDumps(Target target) {
+        String jvmId = target.jvmId;
         if (Objects.isNull(jvmId)) {
-            log.errorv("TargetId {0} failed to resolve to a jvmId", targetId);
+            throw new IllegalArgumentException();
         }
-        if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
-        }
-        return storage.listObjectsV2(builder.build()).contents();
+        var req = ListObjectsV2Request.builder().bucket(bucket).prefix(jvmId).build();
+        return storage.listObjectsV2(req).contents();
     }
 
     public List<S3Object> listHeapDumps(long targetId) {

@@ -41,12 +41,15 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -101,7 +104,9 @@ public class Diagnostics {
     @RolesAllowed("write")
     @POST
     public String threadDump(
-            HttpServerResponse response, @RestPath long targetId, @RestQuery String format) {
+            HttpServerResponse response,
+            @RestPath long targetId,
+            @QueryParam("format") @DefaultValue(DiagnosticsHelper.DUMP_THREADS) String format) {
         log.tracev("Creating new thread dump request for target: {0}", targetId);
         ThreadDumpRequest request =
                 new ThreadDumpRequest(UUID.randomUUID().toString(), targetId, format);
@@ -113,25 +118,21 @@ public class Diagnostics {
     @Path("targets/{targetId}/threaddump")
     @RolesAllowed("read")
     @Blocking
+    @Transactional
     @GET
     public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
         log.tracev("Fetching thread dumps for target: {0}", targetId);
-        return helper.getThreadDumps(targetId);
+        return helper.getThreadDumps(Target.getTargetById(targetId));
     }
 
     @DELETE
     @Blocking
+    @Transactional
     @Path("targets/{targetId}/threaddump/{threadDumpId}")
     @RolesAllowed("write")
-    public void deleteThreadDump(@RestPath String threadDumpId, @RestPath long targetId) {
-        try {
-            log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
-            helper.deleteThreadDump(threadDumpId, targetId);
-        } catch (NoSuchKeyException e) {
-            throw new NotFoundException(e);
-        } catch (BadRequestException e) {
-            throw e;
-        }
+    public void deleteThreadDump(@RestPath long targetId, @RestPath String threadDumpId) {
+        log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
+        helper.deleteThreadDump(Target.getTargetById(targetId), threadDumpId);
     }
 
     @Path("/threaddump/download/{encodedKey}")
@@ -144,13 +145,8 @@ public class Diagnostics {
         log.tracev("Handling download Request for key: {0}", decodedKey);
         log.tracev("Handling download Request for query: {0}", filename);
         String key = helper.threadDumpKey(decodedKey);
-        try {
-            storage.headObject(
-                            HeadObjectRequest.builder().bucket(threadDumpsBucket).key(key).build())
-                    .sdkHttpResponse();
-        } catch (NoSuchKeyException e) {
-            throw new NotFoundException(e);
-        }
+        storage.headObject(HeadObjectRequest.builder().bucket(threadDumpsBucket).key(key).build())
+                .sdkHttpResponse();
 
         if (!presignedDownloadsEnabled) {
             return ResponseBuilder.ok()
@@ -213,6 +209,7 @@ public class Diagnostics {
     @Path("targets/{targetId}/gc")
     @RolesAllowed("write")
     @Blocking
+    @Transactional
     @POST
     @Operation(
             summary = "Initiate a garbage collection on the specified target",
@@ -381,12 +378,11 @@ public class Diagnostics {
     }
 
     public record ThreadDump(
-            String jvmId, String downloadUrl, String uuid, long lastModified, long fileSize) {
-
+            String jvmId, String downloadUrl, String threadDumpId, long lastModified, long size) {
         public ThreadDump {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(downloadUrl);
-            Objects.requireNonNull(uuid);
+            Objects.requireNonNull(threadDumpId);
         }
     }
 }
