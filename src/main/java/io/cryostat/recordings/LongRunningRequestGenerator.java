@@ -323,9 +323,7 @@ public class LongRunningRequestGenerator {
         logger.warnv("Job ID: {0} submitted.", request.id());
         try {
             var target = Target.getTargetById(request.targetId);
-            logger.warnv("Delegating to diagnosticsHelper.dumpHeap");
             diagnosticsHelper.dumpHeap(target);
-            logger.warnv("dumpHeap returned, sending notification");
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(

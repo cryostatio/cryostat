@@ -98,10 +98,11 @@ public class DiagnosticsHelper {
     }
 
     public void dumpHeap(Target target) {
-        log.warnv("Heap Dump request received for Target: {0}", target.id);
+        log.tracev("Heap Dump request received for Target: {0}", target.id);
         Object[] params = new Object[2];
         String[] signature = new String[] {String.class.getName(), boolean.class.getName()};
-        params[0] = target.alias;
+        // The agent will generate the filename on it's side
+        params[0] = "";
         params[1] = false;
         // Heap Dump Retrieval is handled by a separate endpoint
         targetConnectionManager.executeConnectedTask(

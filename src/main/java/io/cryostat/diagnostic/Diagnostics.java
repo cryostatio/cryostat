@@ -237,6 +237,11 @@ public class Diagnostics {
                     """)
     public String heapDump(HttpServerResponse response, @RestPath long targetId) {
         log.warnv("Initiating heap dump for target: {0}", targetId);
+        if (!Target.getTargetById(targetId).isAgent()) {
+            // While we can trigger a heap dump in a JMX target, without the agent
+            // we can't retrieve it. We should fail here.
+            throw new BadRequestException("Target is not an agent connection.");
+        }
         HeapDumpRequest request = new HeapDumpRequest(UUID.randomUUID().toString(), targetId);
         response.endHandler(
                 (e) -> bus.publish(LongRunningRequestGenerator.HEAP_DUMP_REQUEST_ADDRESS, request));
