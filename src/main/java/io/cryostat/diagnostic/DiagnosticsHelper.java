@@ -125,7 +125,7 @@ public class DiagnosticsHelper {
     public void deleteHeapDump(String heapDumpID, Target target)
             throws BadRequestException, NoSuchKeyException {
         String jvmId = target.jvmId;
-        String key = heapDumpKey(jvmId, heapDumpID);
+        String key = storageKey(jvmId, heapDumpID);
         storage.headObject(HeadObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
         storage.deleteObject(DeleteObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
     }
@@ -171,7 +171,7 @@ public class DiagnosticsHelper {
             log.errorv("TargetId {0} failed to resolve to a jvmId", target.id);
             throw new IllegalArgumentException();
         } else {
-            String key = threadDumpKey(target.jvmId, threadDumpID);
+            String key = storageKey(target.jvmId, threadDumpID);
             storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
             storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
         }
@@ -216,12 +216,11 @@ public class DiagnosticsHelper {
     public ThreadDump addThreadDump(Target target, String content) {
         String uuid = UUID.randomUUID().toString();
         log.tracev(
-                "Putting Thread dump into storage with key: {0}",
-                threadDumpKey(target.jvmId, uuid));
+                "Putting Thread dump into storage with key: {0}", storageKey(target.jvmId, uuid));
         var req =
                 PutObjectRequest.builder()
                         .bucket(bucket)
-                        .key(threadDumpKey(target.jvmId, uuid))
+                        .key(storageKey(target.jvmId, uuid))
                         .contentType(MediaType.TEXT_PLAIN)
                         .build();
         storage.putObject(req, RequestBody.fromString(content));
@@ -242,12 +241,11 @@ public class DiagnosticsHelper {
             filename = filename + ".hprof";
         }
         log.warnv(
-                "Putting Heap dump into storage with key: {0}",
-                heapDumpKey(target.jvmId, filename));
+                "Putting Heap dump into storage with key: {0}", storageKey(target.jvmId, filename));
         var reqBuilder =
                 PutObjectRequest.builder()
                         .bucket(heapDumpBucket)
-                        .key(heapDumpKey(target.jvmId, filename))
+                        .key(storageKey(target.jvmId, filename))
                         .contentType(MediaType.TEXT_PLAIN);
 
         storage.putObject(reqBuilder.build(), RequestBody.fromFile(heapDump.filePath()));
@@ -277,16 +275,15 @@ public class DiagnosticsHelper {
     public String encodedKey(String jvmId, String uuid) {
         Objects.requireNonNull(jvmId);
         Objects.requireNonNull(uuid);
-        return base64Url.encodeAsString(
-                (threadDumpKey(jvmId, uuid)).getBytes(StandardCharsets.UTF_8));
+        return base64Url.encodeAsString((storageKey(jvmId, uuid)).getBytes(StandardCharsets.UTF_8));
     }
 
-    public String threadDumpKey(String jvmId, String uuid) {
+    public String storageKey(String jvmId, String uuid) {
         return (jvmId + "/" + uuid).strip();
     }
 
-    public String threadDumpKey(Pair<String, String> pair) {
-        return threadDumpKey(pair.getKey(), pair.getValue());
+    public String storageKey(Pair<String, String> pair) {
+        return storageKey(pair.getKey(), pair.getValue());
     }
 
     public InputStream getThreadDumpStream(String jvmId, String threadDumpID) {
@@ -295,17 +292,9 @@ public class DiagnosticsHelper {
 
     public InputStream getThreadDumpStream(String encodedKey) {
         Pair<String, String> decodedKey = decodedKey(encodedKey);
-        var key = threadDumpKey(decodedKey);
+        var key = storageKey(decodedKey);
         GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
         return storage.getObject(getRequest);
-    }
-
-    public String heapDumpKey(String jvmId, String uuid) {
-        return (jvmId + "/" + uuid).strip();
-    }
-
-    public String heapDumpKey(Pair<String, String> pair) {
-        return heapDumpKey(pair.getKey(), pair.getValue());
     }
 
     public InputStream getHeapDumpStream(String jvmId, String threadDumpID) {
@@ -314,7 +303,7 @@ public class DiagnosticsHelper {
 
     public InputStream getHeapDumpStream(String encodedKey) {
         Pair<String, String> decodedKey = decodedKey(encodedKey);
-        var key = heapDumpKey(decodedKey);
+        var key = storageKey(decodedKey);
 
         GetObjectRequest getRequest =
                 GetObjectRequest.builder().bucket(heapDumpBucket).key(key).build();
@@ -343,7 +332,7 @@ public class DiagnosticsHelper {
         var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket);
         String jvmId = target.jvmId;
         if (Objects.isNull(jvmId)) {
-            log.errorv("TargetId {0} failed to resolve to a jvmId", target.id);
+            throw new IllegalArgumentException();
         }
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);

@@ -144,7 +144,7 @@ public class Diagnostics {
         Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
         log.tracev("Handling download Request for key: {0}", decodedKey);
         log.tracev("Handling download Request for query: {0}", filename);
-        String key = helper.threadDumpKey(decodedKey);
+        String key = helper.storageKey(decodedKey);
         storage.headObject(HeadObjectRequest.builder().bucket(threadDumpsBucket).key(key).build())
                 .sdkHttpResponse();
 
@@ -306,7 +306,7 @@ public class Diagnostics {
         Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
         log.warnv("Handling download Request for key: {0}", decodedKey);
         log.warnv("Handling download Request for query: {0}", filename);
-        String key = helper.heapDumpKey(decodedKey);
+        String key = helper.storageKey(decodedKey);
         try {
             storage.headObject(HeadObjectRequest.builder().bucket(heapDumpsBucket).key(key).build())
                     .sdkHttpResponse();
