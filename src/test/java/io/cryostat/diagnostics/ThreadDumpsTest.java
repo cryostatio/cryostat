@@ -245,18 +245,31 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
 
         var threadDumpId = listResponseJson.getString("[0].threadDumpId");
 
-        given().log()
-                .all()
-                .when()
-                .pathParam("targetId", id)
-                .pathParam("threadDumpId", threadDumpId)
-                .delete("targets/{targetId}/threaddump/{threadDumpId}")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(204);
+        Executors.newSingleThreadScheduledExecutor()
+                .schedule(
+                        () -> {
+                            given().log()
+                                    .all()
+                                    .when()
+                                    .pathParam("targetId", id)
+                                    .pathParam("threadDumpId", threadDumpId)
+                                    .delete("targets/{targetId}/threaddump/{threadDumpId}")
+                                    .then()
+                                    .log()
+                                    .all()
+                                    .and()
+                                    .assertThat()
+                                    .statusCode(204);
+                        },
+                        1,
+                        TimeUnit.SECONDS);
+
+        expectWebSocketNotification(
+                "ThreadDumpDeleted",
+                json ->
+                        Objects.equals(
+                                json.getJsonObject("message").getString("threadDumpId"),
+                                threadDumpId));
     }
 
     @Test
