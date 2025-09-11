@@ -27,7 +27,7 @@ services:
       CRYOSTAT_AGENT_HARVESTER_EXIT_MAX_SIZE_B: 153600 # "$(echo 1024*150 | bc)"
       MINECRAFT_ONLINE_MODE: "false"
       JAVA_OPTS: >-
-        -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=trace
+        -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
         -javaagent:/opt/cryostat/agent.jar
     volumes:
       - ${DIR}/compose/auth_certs:/auth_certs:z
