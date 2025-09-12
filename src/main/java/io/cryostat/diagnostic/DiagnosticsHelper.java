@@ -28,6 +28,8 @@ import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.ws.MessagingServer;
+import io.cryostat.ws.Notification;
 
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
@@ -52,6 +54,12 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 @ApplicationScoped
 public class DiagnosticsHelper {
 
+    static final String THREAD_DUMP_DELETED = "ThreadDumpDeleted";
+    static final String THREAD_DUMP_REQUESTED = "ThreadDumpRequested";
+    static final String DUMP_THREADS = "threadPrint";
+    static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
+    private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
+
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
     String bucket;
 
@@ -62,12 +70,6 @@ public class DiagnosticsHelper {
     @Inject S3Client storage;
     @Inject Logger log;
     @Inject Clock clock;
-
-    static final String DUMP_THREADS = "threadPrint";
-    static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
-    private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
-    static final String THREAD_DUMP_REQUESTED = "ThreadDumpRequested";
-    static final String THREAD_DUMP_DELETED = "ThreadDumpDeleted";
 
     @Inject EventBus bus;
     @Inject TargetConnectionManager targetConnectionManager;
@@ -99,14 +101,21 @@ public class DiagnosticsHelper {
                                         String.class)));
     }
 
-    public void deleteThreadDump(Target target, String threadDumpID) {
+    public void deleteThreadDump(Target target, String threadDumpId) {
         if (Objects.isNull(target.jvmId)) {
             log.errorv("TargetId {0} failed to resolve to a jvmId", target.id);
             throw new IllegalArgumentException();
         } else {
-            String key = threadDumpKey(target.jvmId, threadDumpID);
+            String key = threadDumpKey(target.jvmId, threadDumpId);
             storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
             storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
+            var event =
+                    new ThreadDumpEvent(
+                            EventCategory.DELETED,
+                            ThreadDumpEvent.Payload.of(target, threadDumpId));
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(event.category().category(), event.payload()));
         }
     }
 
@@ -203,5 +212,39 @@ public class DiagnosticsHelper {
         }
         var req = ListObjectsV2Request.builder().bucket(bucket).prefix(jvmId).build();
         return storage.listObjectsV2(req).contents();
+    }
+
+    public enum EventCategory {
+        // ThreadDumpSuccess ("CREATED") events are emitted by LongRunningRequestGenerator
+        DELETED(THREAD_DUMP_DELETED),
+        ;
+
+        private final String category;
+
+        private EventCategory(String category) {
+            this.category = category;
+        }
+
+        public String category() {
+            return category;
+        }
+    }
+
+    public record ThreadDumpEvent(EventCategory category, Payload payload) {
+        public ThreadDumpEvent {
+            Objects.requireNonNull(category);
+            Objects.requireNonNull(payload);
+        }
+
+        public record Payload(String jvmId, String threadDumpId) {
+            public Payload {
+                Objects.requireNonNull(jvmId);
+                Objects.requireNonNull(threadDumpId);
+            }
+
+            public static Payload of(Target target, String threadDumpId) {
+                return new Payload(target.jvmId, threadDumpId);
+            }
+        }
     }
 }
