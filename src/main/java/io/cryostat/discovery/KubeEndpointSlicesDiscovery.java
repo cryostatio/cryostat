@@ -203,7 +203,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                     () -> {
                         try {
                             var namespaces = resyncNamespaces.call();
-                            logger.debugv("Resyncing namespaces: {}", namespaces);
+                            logger.debugv("Resyncing namespaces: {0}", namespaces);
                             notify(NamespaceQueryEvent.from(namespaces));
                         } catch (Exception e) {
                             logger.warn(e);
