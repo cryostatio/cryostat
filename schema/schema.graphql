@@ -71,7 +71,7 @@ type DiscoveryNode {
   children: [DiscoveryNode]
   "Get target nodes that are descendants of this node. That is, get the set of leaf nodes from anywhere below this node's subtree."
   descendantTargets(filter: DiscoveryNodeFilterInput): [DiscoveryNode]
-  id: BigInteger
+  id: String!
   labels(
     "Get entry/entries for a certain key/s"
     key: [String]
@@ -319,8 +319,8 @@ input ArchivedRecordingsFilterInput {
 
 input DiscoveryNodeFilterInput {
   annotations: [String]
-  id: BigInteger
-  ids: [BigInteger]
+  id: String
+  ids: [String]
   labels: [String]
   name: String
   names: [String]
