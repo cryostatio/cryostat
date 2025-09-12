@@ -64,8 +64,8 @@ public class RootNode {
     }
 
     public static class DiscoveryNodeFilter implements Predicate<DiscoveryNode> {
-        public @Nullable Long id;
-        public @Nullable List<Long> ids;
+        public @Nullable String id;
+        public @Nullable List<String> ids;
         public @Nullable List<Long> targetIds;
         public @Nullable String name;
         public @Nullable List<String> names;
@@ -75,8 +75,8 @@ public class RootNode {
 
         @Override
         public boolean test(DiscoveryNode t) {
-            Predicate<DiscoveryNode> matchesId = n -> id == null || id.equals(n.id);
-            Predicate<DiscoveryNode> matchesIds = n -> ids == null || ids.contains(n.id);
+            Predicate<DiscoveryNode> matchesId = n -> id == null || id.equals(n.id.toString());
+            Predicate<DiscoveryNode> matchesIds = n -> ids == null || ids.contains(n.id.toString());
             Predicate<DiscoveryNode> matchesTargetIds =
                     n ->
                             targetIds == null

@@ -31,6 +31,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -579,9 +580,9 @@ class GraphQLTest extends StandardSelfTest {
 
         RootNode rootNode = mock(RootNode.class);
         DiscoveryNode node1 = new DiscoveryNode();
-        node1.id = 1L;
+        node1.id = UUID.randomUUID();
         DiscoveryNode node2 = new DiscoveryNode();
-        node2.id = 2L;
+        node2.id = UUID.randomUUID();
 
         List<DiscoveryNode> mockDescendants = List.of(node1, node2);
         when(rootNode.descendantTargets(any(), any())).thenReturn(mockDescendants);
@@ -602,7 +603,7 @@ class GraphQLTest extends StandardSelfTest {
 
         EnvironmentNodesResponse actual =
                 mapper.readValue(resp.bodyAsString(), EnvironmentNodesResponse.class);
-        Set<Long> observedIds = new HashSet<>();
+        Set<UUID> observedIds = new HashSet<>();
         for (var env : actual.data.environmentNodes) {
             List<DiscoveryNode> descendants = rootNode.descendantTargets(env, null);
             MatcherAssert.assertThat(
