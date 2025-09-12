@@ -62,9 +62,22 @@ type ArchivedRecording {
   size: BigInteger!
 }
 
+type ThreadDump {
+  downloadUrl: String
+  threadDumpId: String
+  jvmId: String
+  lastModified: BigInteger
+  size: BigInteger
+}
+
 type ArchivedRecordings {
   aggregate: RecordingAggregateInfo!
   data: [ArchivedRecording]!
+}
+
+type ThreadDumps {
+  aggregate: ThreadDumpAggregateInfo!
+  data: [ThreadDump]!
 }
 
 type DiscoveryNode {
@@ -173,6 +186,13 @@ type Query {
 }
 
 type RecordingAggregateInfo {
+  "The number of elements in this collection"
+  count: BigInteger!
+  "The sum of sizes of elements in this collection, or 0 if not applicable"
+  size: BigInteger!
+}
+
+type ThreadDumpAggregateInfo {
   "The number of elements in this collection"
   count: BigInteger!
   "The sum of sizes of elements in this collection, or 0 if not applicable"
