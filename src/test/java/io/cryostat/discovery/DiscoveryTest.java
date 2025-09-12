@@ -19,6 +19,7 @@ import static io.restassured.RestAssured.given;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
@@ -27,6 +28,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -35,30 +37,38 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetUniverse() {
-        given().log()
-                .all()
-                .when()
-                .get("/api/v4/discovery")
-                .then()
-                .assertThat()
-                .statusCode(200)
-                .contentType(ContentType.JSON)
-                .body("id", Matchers.equalTo(1))
-                .body("name", Matchers.equalTo("Universe"))
-                .body("nodeType", Matchers.equalTo("Universe"))
-                .body("labels", Matchers.equalTo(List.of()))
-                .body("children.size()", Matchers.equalTo(5))
-                .body("children", Matchers.everyItem(Matchers.hasEntry("nodeType", "Realm")))
-                .body(
-                        "children",
-                        Matchers.hasItems(
-                                Matchers.hasEntry("name", "Custom Targets"),
-                                Matchers.hasEntry("name", "KubernetesApi"),
-                                Matchers.hasEntry("name", "Podman"),
-                                Matchers.hasEntry("name", "Docker"),
-                                Matchers.hasEntry("name", "JDP")))
-                .body("parent", Matchers.nullValue())
-                .body("target", Matchers.nullValue());
+        var id =
+                given().log()
+                        .all()
+                        .when()
+                        .get("/api/v4/discovery")
+                        .then()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .body("name", Matchers.equalTo("Universe"))
+                        .body("nodeType", Matchers.equalTo("Universe"))
+                        .body("labels", Matchers.equalTo(List.of()))
+                        .body("children.size()", Matchers.equalTo(5))
+                        .body(
+                                "children",
+                                Matchers.everyItem(Matchers.hasEntry("nodeType", "Realm")))
+                        .body(
+                                "children",
+                                Matchers.hasItems(
+                                        Matchers.hasEntry("name", "Custom Targets"),
+                                        Matchers.hasEntry("name", "KubernetesApi"),
+                                        Matchers.hasEntry("name", "Podman"),
+                                        Matchers.hasEntry("name", "Docker"),
+                                        Matchers.hasEntry("name", "JDP")))
+                        .body("parent", Matchers.nullValue())
+                        .body("target", Matchers.nullValue())
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getString("id");
+        Assertions.assertDoesNotThrow(() -> UUID.fromString(id));
     }
 
     @Test
