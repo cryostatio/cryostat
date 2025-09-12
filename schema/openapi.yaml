@@ -166,8 +166,7 @@ components:
             $ref: '#/components/schemas/DiscoveryNode'
           type: array
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         labels:
           additionalProperties:
             type: string
@@ -181,6 +180,7 @@ components:
         target:
           $ref: '#/components/schemas/Target'
       required:
+        - id
         - name
         - nodeType
         - labels
@@ -188,8 +188,7 @@ components:
     DiscoveryNode_Flat:
       properties:
         id:
-          format: int64
-          type: integer
+          $ref: '#/components/schemas/UUID'
         labels:
           additionalProperties:
             type: string
@@ -203,6 +202,7 @@ components:
         target:
           $ref: '#/components/schemas/Target_Flat'
       required:
+        - id
         - name
         - nodeType
         - labels
