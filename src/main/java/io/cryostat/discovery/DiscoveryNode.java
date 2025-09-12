@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
 
@@ -31,7 +32,7 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.annotation.JsonView;
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.panache.common.Parameters;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -43,6 +44,8 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
@@ -57,6 +60,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.hibernate.annotations.GenericGenerator;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
@@ -78,9 +82,16 @@ import org.jboss.logging.Logger;
             query = "from DiscoveryNode where nodeType = :nodeType and name = :name")
 })
 @Table(indexes = {@Index(columnList = "nodeType"), @Index(columnList = "nodeType, name")})
-public class DiscoveryNode extends PanacheEntity {
+public class DiscoveryNode extends PanacheEntityBase {
 
     public static final String NODE_TYPE = "nodeType";
+
+    @Id
+    @Column(name = "id")
+    @GeneratedValue(generator = "UUID")
+    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @NotNull
+    public UUID id;
 
     @Column(unique = false, nullable = false, updatable = false)
     @JsonView(Views.Flat.class)
