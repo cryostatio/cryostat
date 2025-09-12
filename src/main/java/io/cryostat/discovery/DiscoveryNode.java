@@ -182,6 +182,11 @@ public class DiscoveryNode extends PanacheEntity {
     }
 
     public static DiscoveryNode target(Target target, NodeType nodeType) {
+        return target(target, nodeType, n -> {});
+    }
+
+    public static DiscoveryNode target(
+            Target target, NodeType nodeType, Consumer<DiscoveryNode> customizer) {
         return byTypeWithName(
                 nodeType,
                 target.connectUrl.toString(),
@@ -189,6 +194,7 @@ public class DiscoveryNode extends PanacheEntity {
                 n -> {
                     n.target = target;
                     n.labels.putAll(target.labels);
+                    customizer.accept(n);
                 });
     }
 

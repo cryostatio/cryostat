@@ -516,7 +516,15 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         KubeDiscoveryNodeType targetType = KubeDiscoveryNodeType.fromKubernetesKind(targetKind);
 
         DiscoveryNode targetNode =
-                DiscoveryNode.target(target, KubeDiscoveryNodeType.ENDPOINT_SLICE);
+                DiscoveryNode.target(
+                        target,
+                        KubeDiscoveryNodeType.ENDPOINT_SLICE,
+                        n -> {
+                            n.labels.putAll(
+                                    Map.of(
+                                            DISCOVERY_NAMESPACE_LABEL_KEY,
+                                            targetRef.getNamespace()));
+                        });
         target.discoveryNode = targetNode;
         target.persist();
 
