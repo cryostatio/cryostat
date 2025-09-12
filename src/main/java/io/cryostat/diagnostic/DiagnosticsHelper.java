@@ -119,6 +119,10 @@ public class DiagnosticsHelper {
         }
     }
 
+    public List<ThreadDump> getThreadDumps(String jvmId) {
+        return getThreadDumps(Target.getTargetByJvmId(jvmId).get());
+    }
+
     public List<ThreadDump> getThreadDumps(Target target) {
         return listThreadDumps(target).stream()
                 .map(
