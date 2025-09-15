@@ -52,7 +52,6 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.quarkus.logging.Log;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import io.smallrye.mutiny.Uni;
@@ -144,11 +143,9 @@ public class AgentClient {
             String operation,
             Object[] parameters,
             String[] signature,
-            Class<T> returnType,
-            String jobId) {
+            Class<T> returnType) {
         try {
-            Log.warnv("Invoking mbean operation for request {0}", jobId);
-            var req = new MBeanInvocationRequest(beanName, operation, parameters, signature, jobId);
+            var req = new MBeanInvocationRequest(beanName, operation, parameters, signature);
             return agentRestClient
                     .invokeMBeanOperation(new ByteArrayInputStream(mapper.writeValueAsBytes(req)))
                     .map(
@@ -658,11 +655,7 @@ public class AgentClient {
     }
 
     static record MBeanInvocationRequest(
-            String beanName,
-            String operation,
-            Object[] parameters,
-            String[] signature,
-            String requestId) {
+            String beanName, String operation, Object[] parameters, String[] signature) {
         MBeanInvocationRequest {
             Objects.requireNonNull(beanName);
             Objects.requireNonNull(operation);

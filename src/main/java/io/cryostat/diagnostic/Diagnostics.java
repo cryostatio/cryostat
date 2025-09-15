@@ -223,7 +223,7 @@ public class Diagnostics {
                 Target.getTargetById(targetId),
                 conn ->
                         conn.invokeMBeanOperation(
-                                "java.lang:type=Memory", "gc", null, null, Void.class, ""));
+                                "java.lang:type=Memory", "gc", null, null, Void.class));
     }
 
     @Path("targets/{targetId}/heapdump")

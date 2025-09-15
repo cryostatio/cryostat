@@ -104,22 +104,18 @@ public class DiagnosticsHelper {
         log.tracev(
                 "Heap Dump request received for Target: {0} with jobId {1}", target.id, requestId);
         openRequests.add(requestId);
-        Object[] params = new Object[2];
+        Object[] params = new Object[3];
         String[] signature = new String[] {String.class.getName(), boolean.class.getName()};
         // The agent will generate the filename on it's side
         params[0] = "";
         params[1] = false;
+        params[2] = requestId;
         // Heap Dump Retrieval is handled by a separate endpoint
         targetConnectionManager.executeConnectedTask(
                 target,
                 conn -> {
                     return conn.invokeMBeanOperation(
-                            HOTSPOT_DIAGNOSTIC_BEAN_NAME,
-                            DUMP_HEAP,
-                            params,
-                            signature,
-                            Void.class,
-                            requestId);
+                            HOTSPOT_DIAGNOSTIC_BEAN_NAME, DUMP_HEAP, params, signature, Void.class);
                 });
     }
 
@@ -180,8 +176,7 @@ public class DiagnosticsHelper {
                                         format,
                                         params,
                                         signature,
-                                        String.class,
-                                        requestId)));
+                                        String.class)));
     }
 
     public void deleteThreadDump(Target target, String threadDumpId) {

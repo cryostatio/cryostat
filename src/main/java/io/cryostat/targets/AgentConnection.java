@@ -123,10 +123,8 @@ class AgentConnection implements JFRConnection {
             String operation,
             Object[] parameters,
             String[] signature,
-            Class<T> returnType,
-            String requestId) {
-        return client.invokeMBeanOperation(
-                        beanName, operation, parameters, signature, returnType, requestId)
+            Class<T> returnType) {
+        return client.invokeMBeanOperation(beanName, operation, parameters, signature, returnType)
                 .await()
                 .atMost(client.getTimeout());
     }
