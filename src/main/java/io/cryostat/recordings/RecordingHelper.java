@@ -94,6 +94,7 @@ import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.ServerErrorException;
@@ -145,6 +146,8 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 /**
  * Utility class for all things relating to Flight Recording operations. This class is used to
@@ -184,6 +187,7 @@ public class RecordingHelper {
     @Inject PresetTemplateService presetTemplateService;
     @Inject Instance<ArchivedRecordingMetadataService> metadataService;
     @Inject Scheduler scheduler;
+    @Inject S3Presigner presigner;
 
     @Inject
     @Identifier(Producers.BASE64_URL)
@@ -206,6 +210,9 @@ public class RecordingHelper {
 
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURLProperty;
+
+    @ConfigProperty(name = ConfigProperties.JFR_DATASOURCE_USE_PRESIGNED_TRANSFER)
+    boolean usePresignedTransfer;
 
     CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
 
@@ -1423,6 +1430,7 @@ public class RecordingHelper {
     }
 
     public Uni<String> uploadToJFRDatasource(long targetEntityId, long remoteId) throws Exception {
+        // copy an active recording and upload this directly to datasource
         Target target = Target.getTargetById(targetEntityId);
         Objects.requireNonNull(target, "Target from targetId not found");
         ActiveRecording recording = target.getRecordingById(remoteId);
@@ -1442,23 +1450,43 @@ public class RecordingHelper {
     }
 
     public Uni<String> uploadToJFRDatasource(Pair<String, String> key) throws Exception {
+        // upload an already-archived recording to datasource
         Objects.requireNonNull(key);
         Objects.requireNonNull(key.getKey());
         Objects.requireNonNull(key.getValue());
-        GetObjectRequest getRequest =
-                GetObjectRequest.builder()
-                        .bucket(archiveBucket)
-                        .key(archivedRecordingKey(key))
-                        .build();
 
-        Path recordingPath = fs.createTempFile(null, null);
-        // the S3 client will create the file at this path, we just need to get a fresh temp file
-        // path but one that does not yet exist
-        fs.deleteIfExists(recordingPath);
+        if (usePresignedTransfer) {
+            return uploadPresignedToJFRDatasource(key.getKey(), key.getValue());
+        } else {
+            GetObjectRequest getRequest =
+                    GetObjectRequest.builder()
+                            .bucket(archiveBucket)
+                            .key(archivedRecordingKey(key))
+                            .build();
 
-        storage.getObject(getRequest, recordingPath);
+            Path recordingPath = fs.createTempFile(null, null);
+            // the S3 client will create the file at this path, we just need to get a fresh temp
+            // file path but one that does not yet exist
+            fs.deleteIfExists(recordingPath);
 
-        return uploadToJFRDatasource(recordingPath);
+            storage.getObject(getRequest, recordingPath);
+
+            return uploadToJFRDatasource(recordingPath);
+        }
+    }
+
+    private Uni<String> uploadPresignedToJFRDatasource(String jvmId, String filename)
+            throws URISyntaxException {
+        var uri = getPresignedPath(jvmId, filename);
+        return datasourceClient
+                .uploadPresigned(uri.getPath(), uri.getQuery())
+                .onItem()
+                .transform(
+                        r -> {
+                            try (r) {
+                                return r.readEntity(String.class);
+                            }
+                        });
     }
 
     private Uni<String> uploadToJFRDatasource(Path recordingPath)
@@ -1502,6 +1530,21 @@ public class RecordingHelper {
                                 throw new BadRequestException(e);
                             }
                         });
+    }
+
+    private URI getPresignedPath(String jvmId, String filename) throws URISyntaxException {
+        logger.infov("Handling presigned download request for {0}/{1}", jvmId, filename);
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(RecordingHelper.archivedRecordingKey(Pair.of(jvmId, filename)))
+                        .build();
+        GetObjectPresignRequest presignRequest =
+                GetObjectPresignRequest.builder()
+                        .signatureDuration(Duration.ofMinutes(1))
+                        .getObjectRequest(getRequest)
+                        .build();
+        return URI.create(presigner.presignGetObject(presignRequest).url().toString()).normalize();
     }
 
     public record RecordingOptions(
@@ -1579,5 +1622,12 @@ public class RecordingHelper {
                         @PartFilename("cryostat-analysis.jfr")
                         java.nio.file.Path file,
                 @RestQuery boolean overwrite);
+
+        @POST
+        @jakarta.ws.rs.Path("/load_presigned")
+        @Consumes(MediaType.MULTIPART_FORM_DATA)
+        Uni<Response> uploadPresigned(
+                @RestForm("path") @PartType(MediaType.TEXT_PLAIN) String path,
+                @RestForm("query") @PartType(MediaType.TEXT_PLAIN) String query);
     }
 }
