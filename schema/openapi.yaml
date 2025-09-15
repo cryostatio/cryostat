@@ -1695,13 +1695,17 @@ paths:
         - Health
   /api/v4/logout:
     post:
+      deprecated: true
       responses:
         "200":
           content:
             application/json:
               schema: {}
           description: OK
-      summary: OAuth2 sign out. Invalidate the current user session
+      summary: |
+        OAuth2 sign out. Invalidate the current user session.
+        Clients should directly visit the /oauth2/sign_out endpoint rather than relying on this endpoint
+        and its redirect response.
       tags:
         - Auth
   /api/v4/matchExpressions:
