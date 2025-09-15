@@ -52,6 +52,7 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.logging.Log;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import io.smallrye.mutiny.Uni;
@@ -143,10 +144,11 @@ public class AgentClient {
             String operation,
             Object[] parameters,
             String[] signature,
-            Class<T> returnType) {
+            Class<T> returnType,
+            String jobId) {
         try {
-            logger.warn("invokeMBeanOperation called");
-            var req = new MBeanInvocationRequest(beanName, operation, parameters, signature);
+            Log.warnv("Invoking mbean operation for request {0}", jobId);
+            var req = new MBeanInvocationRequest(beanName, operation, parameters, signature, jobId);
             return agentRestClient
                     .invokeMBeanOperation(new ByteArrayInputStream(mapper.writeValueAsBytes(req)))
                     .map(
@@ -154,8 +156,6 @@ public class AgentClient {
                                     resp -> {
                                         int statusCode = resp.getStatus();
                                         if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
-                                            logger.warnv(
-                                                    "Agent operation succeeded: " + statusCode);
                                             return resp;
                                         } else if (statusCode == 403) {
                                             logger.errorv(
@@ -176,16 +176,12 @@ public class AgentClient {
                     .map(
                             Unchecked.function(
                                     buff -> {
-                                        logger.warnv("Did we get here?");
-                                        logger.warnv("Operation: " + req.operation);
                                         if (returnType.equals(String.class)) {
-                                            logger.warnv("Received return type: String");
                                             return mapper.readValue(
                                                     (InputStream) buff.getEntity(), returnType);
                                         }
                                         // TODO implement conditional handling based on expected
                                         // returnType
-                                        logger.warnv("No returnType needed, returning null");
                                         return null;
                                     }));
         } catch (JsonProcessingException e) {
@@ -662,7 +658,11 @@ public class AgentClient {
     }
 
     static record MBeanInvocationRequest(
-            String beanName, String operation, Object[] parameters, String[] signature) {
+            String beanName,
+            String operation,
+            Object[] parameters,
+            String[] signature,
+            String requestId) {
         MBeanInvocationRequest {
             Objects.requireNonNull(beanName);
             Objects.requireNonNull(operation);

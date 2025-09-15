@@ -78,7 +78,6 @@ public class LongRunningRequestGenerator {
     private static final String GRAFANA_UPLOAD_FAIL = "GrafanaUploadFailure";
     private static final String REPORT_SUCCESS = "ReportSuccess";
     private static final String REPORT_FAILURE = "ReportFailure";
-    private static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
     private static final String HEAP_DUMP_FAILURE = "HeapDumpFailure";
     private static final String THREAD_DUMP_SUCCESS = "ThreadDumpSuccess";
     private static final String THREAD_DUMP_FAILURE = "ThreadDumpFailure";
@@ -104,7 +103,7 @@ public class LongRunningRequestGenerator {
         logger.tracev("Job ID: {0} submitted.", request.id());
         try {
             var target = Target.getTargetById(request.targetId);
-            var dump = diagnosticsHelper.dumpThreads(target, request.format);
+            var dump = diagnosticsHelper.dumpThreads(target, request.format, request.id());
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
@@ -323,12 +322,7 @@ public class LongRunningRequestGenerator {
         logger.warnv("Job ID: {0} submitted.", request.id());
         try {
             var target = Target.getTargetById(request.targetId);
-            diagnosticsHelper.dumpHeap(target);
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(
-                            HEAP_DUMP_SUCCESS,
-                            Map.of("jobId", request.id(), "targetId", target.jvmId)));
+            diagnosticsHelper.dumpHeap(target, request.id());
         } catch (Exception e) {
             logger.warn("Failed to dump heap");
             bus.publish(

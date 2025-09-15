@@ -223,7 +223,7 @@ public class Diagnostics {
                 Target.getTargetById(targetId),
                 conn ->
                         conn.invokeMBeanOperation(
-                                "java.lang:type=Memory", "gc", null, null, Void.class));
+                                "java.lang:type=Memory", "gc", null, null, Void.class, ""));
     }
 
     @Path("targets/{targetId}/heapdump")
@@ -236,7 +236,7 @@ public class Diagnostics {
                     Request the remote target to perform a heap dump.
                     """)
     public String heapDump(HttpServerResponse response, @RestPath long targetId) {
-        log.warnv("Initiating heap dump for target: {0}", targetId);
+        log.tracev("Initiating heap dump for target: {0}", targetId);
         if (!Target.getTargetById(targetId).isAgent()) {
             // While we can trigger a heap dump in a JMX target, without the agent
             // we can't retrieve it. We should fail here.
@@ -255,8 +255,10 @@ public class Diagnostics {
     public void uploadHeapDump(
             @RestPath String jvmId,
             @Parameter(required = true) @RestForm("heapDump") FileUpload heapDump,
+            @Parameter(required = true) @RestForm("jobId") String jobId,
             @Parameter(required = false) @RestForm("labels") JsonObject rawLabels) {
-        log.warnv("Received heap dump upload request for target: {0}", jvmId);
+        log.tracev(
+                "Received heap dump upload request for target: {0} with job ID {1}", jvmId, jobId);
         jvmId = jvmId.strip();
         // Map<String, String> labels = new HashMap<>();
         // if (rawLabels != null) {
@@ -264,15 +266,13 @@ public class Diagnostics {
         // }
         // labels.put("jvmId", jvmId);
         // log.warnv("Labels: " + labels.toString());
-        log.warnv("Delegating to doUpload");
-        doUpload(heapDump, jvmId);
+        doUpload(heapDump, jvmId, jobId);
     }
 
     @Blocking
-    Map<String, Object> doUpload(FileUpload heapDump, String jvmId) {
-        log.warnv("Delegating to helper.addHeapDump");
-        var dump = helper.addHeapDump(Target.getTargetByJvmId(jvmId).get(), heapDump);
-        return Map.of("name", dump.uuid());
+    Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId) {
+        var dump = helper.addHeapDump(Target.getTargetByJvmId(jvmId).get(), heapDump, jobId);
+        return Map.of("name", dump.heapDumpId());
         // TODO: labels support
         // "metadata",
         // dump.metadata().labels());
@@ -292,14 +292,8 @@ public class Diagnostics {
     @Path("targets/{targetId}/heapdump/{heapDumpId}")
     @RolesAllowed("write")
     public void deleteHeapDump(@RestPath String heapDumpId, @RestPath long targetId) {
-        try {
-            log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
-            helper.deleteHeapDump(heapDumpId, Target.getTargetById(targetId));
-        } catch (NoSuchKeyException e) {
-            throw new NotFoundException(e);
-        } catch (BadRequestException e) {
-            throw e;
-        }
+        log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
+        helper.deleteHeapDump(heapDumpId, Target.getTargetById(targetId));
     }
 
     @Path("/heapdump/download/{encodedKey}")
@@ -309,8 +303,8 @@ public class Diagnostics {
     public RestResponse<Object> handleHeapDumpsStorageDownload(
             @RestPath String encodedKey, @RestQuery String filename) throws URISyntaxException {
         Pair<String, String> decodedKey = helper.decodedKey(encodedKey);
-        log.warnv("Handling download Request for key: {0}", decodedKey);
-        log.warnv("Handling download Request for query: {0}", filename);
+        log.tracev("Handling download Request for key: {0}", decodedKey);
+        log.tracev("Handling download Request for query: {0}", filename);
         String key = helper.storageKey(decodedKey);
         try {
             storage.headObject(HeadObjectRequest.builder().bucket(heapDumpsBucket).key(key).build())
@@ -321,7 +315,7 @@ public class Diagnostics {
         }
 
         if (!presignedDownloadsEnabled) {
-            log.warnv("Non presigned download, sending response");
+            log.tracev("Non presigned download, sending response");
             return ResponseBuilder.ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
@@ -333,7 +327,7 @@ public class Diagnostics {
                     .build();
         }
 
-        log.warnv("Handling presigned download request for {0}", decodedKey);
+        log.tracev("Handling presigned download request for {0}", decodedKey);
         GetObjectRequest getRequest =
                 GetObjectRequest.builder().bucket(heapDumpsBucket).key(key).build();
         GetObjectPresignRequest presignRequest =
@@ -374,12 +368,12 @@ public class Diagnostics {
     }
 
     public record HeapDump(
-            String jvmId, String downloadUrl, String uuid, long lastModified, long size) {
+            String jvmId, String downloadUrl, String heapDumpId, long lastModified, long size) {
 
         public HeapDump {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(downloadUrl);
-            Objects.requireNonNull(uuid);
+            Objects.requireNonNull(heapDumpId);
         }
     }
 
