@@ -18,12 +18,14 @@ package io.cryostat.diagnostic;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
+import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.targets.Target;
@@ -37,17 +39,21 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
+import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 
@@ -58,10 +64,20 @@ public class DiagnosticsHelper {
     static final String THREAD_DUMP_REQUESTED = "ThreadDumpRequested";
     static final String DUMP_THREADS = "threadPrint";
     static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
+    static final String DUMP_HEAP = "dumpHeap";
+    static final String HEAP_DUMP_REQUESTED = "HeapDumpRequested";
+    static final String HEAP_DUMP_DELETED_NAME = "HeapDumpDeleted";
+    static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
+    static final String HEAP_DUMP_UPLOADED = "HeapDumpUploaded";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
+    private static final String HOTSPOT_DIAGNOSTIC_BEAN_NAME =
+            "com.sun.management:type=HotSpotDiagnostic";
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
     String bucket;
+
+    @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
+    String heapDumpBucket;
 
     @Inject
     @Identifier(Producers.BASE64_URL)
@@ -76,11 +92,70 @@ public class DiagnosticsHelper {
     @Inject StorageBuckets buckets;
 
     void onStart(@Observes StartupEvent evt) {
+        log.tracev("Creating heap dump bucket: {0}", heapDumpBucket);
+        buckets.createIfNecessary(heapDumpBucket);
         log.tracev("Creating thread dump bucket: {0}", bucket);
         buckets.createIfNecessary(bucket);
     }
 
-    public ThreadDump dumpThreads(Target target, String format) {
+    public void dumpHeap(Target target, String requestId) {
+        log.tracev(
+                "Heap Dump request received for Target: {0} with jobId {1}", target.id, requestId);
+        Object[] params = new Object[3];
+        String[] signature = new String[] {String.class.getName(), boolean.class.getName()};
+        // The agent will generate the filename on it's side
+        params[0] = "";
+        params[1] = false;
+        params[2] = requestId;
+        // Heap Dump Retrieval is handled by a separate endpoint
+        targetConnectionManager.executeConnectedTask(
+                target,
+                conn -> {
+                    return conn.invokeMBeanOperation(
+                            HOTSPOT_DIAGNOSTIC_BEAN_NAME, DUMP_HEAP, params, signature, Void.class);
+                });
+    }
+
+    public String generateFileName(String jvmId, String uuid, String extension) {
+        Target t = Target.getTargetByJvmId(jvmId).get();
+        if (Objects.isNull(t)) {
+            log.errorv("jvmId {0} failed to resolve to target. Defaulting to uuid.", jvmId);
+            return uuid;
+        }
+        return t.alias + "_" + uuid + extension;
+    }
+
+    public void deleteHeapDump(String heapDumpId, Target target)
+            throws BadRequestException, NoSuchKeyException {
+        String jvmId = target.jvmId;
+        String key = storageKey(jvmId, heapDumpId);
+        storage.headObject(HeadObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
+        storage.deleteObject(DeleteObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
+        var event =
+                new HeapDumpEvent(
+                        EventCategory.HEAP_DUMP_DELETED,
+                        HeapDumpEvent.Payload.of(target, heapDumpId));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+    }
+
+    public List<HeapDump> getHeapDumps(Target target) {
+        return listHeapDumps(target).stream()
+                .map(
+                        item -> {
+                            try {
+                                return convertHeapDump(item);
+                            } catch (Exception e) {
+                                log.error(e);
+                                return null;
+                            }
+                        })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    public ThreadDump dumpThreads(Target target, String format, String requestId) {
         if (!(format.equals(DUMP_THREADS) || format.equals(DUMP_THREADS_TO_FIlE))) {
             throw new IllegalArgumentException();
         }
@@ -106,7 +181,7 @@ public class DiagnosticsHelper {
             log.errorv("TargetId {0} failed to resolve to a jvmId", target.id);
             throw new IllegalArgumentException();
         } else {
-            String key = threadDumpKey(target.jvmId, threadDumpId);
+            String key = storageKey(target.jvmId, threadDumpId);
             storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
             storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
             var event =
@@ -134,6 +209,17 @@ public class DiagnosticsHelper {
                 .toList();
     }
 
+    private HeapDump convertHeapDump(S3Object object) throws Exception {
+        String jvmId = object.key().split("/")[0];
+        String uuid = object.key().split("/")[1];
+        return new HeapDump(
+                jvmId,
+                heapDumpDownloadUrl(jvmId, uuid),
+                uuid,
+                object.lastModified().toEpochMilli(),
+                object.size());
+    }
+
     private ThreadDump convertObject(S3Object object) throws Exception {
         String jvmId = object.key().split("/")[0];
         String uuid = object.key().split("/")[1];
@@ -148,12 +234,11 @@ public class DiagnosticsHelper {
     public ThreadDump addThreadDump(Target target, String content) {
         String uuid = UUID.randomUUID().toString();
         log.tracev(
-                "Putting Thread dump into storage with key: {0}",
-                threadDumpKey(target.jvmId, uuid));
+                "Putting Thread dump into storage with key: {0}", storageKey(target.jvmId, uuid));
         var req =
                 PutObjectRequest.builder()
                         .bucket(bucket)
-                        .key(threadDumpKey(target.jvmId, uuid))
+                        .key(storageKey(target.jvmId, uuid))
                         .contentType(MediaType.TEXT_PLAIN)
                         .build();
         storage.putObject(req, RequestBody.fromString(content));
@@ -165,24 +250,68 @@ public class DiagnosticsHelper {
                 content.length());
     }
 
+    public HeapDump addHeapDump(Target target, FileUpload heapDump, String requestId) {
+        // TODO: Logic to delete the uploaded file after adding to storage
+        // See #1046
+        String filename = heapDump.fileName().strip();
+        if (StringUtils.isBlank(filename)) {
+            throw new BadRequestException();
+        }
+        if (!filename.endsWith(".hprof")) {
+            filename = filename + ".hprof";
+        }
+        log.tracev(
+                "Putting Heap dump into storage with key: {0}", storageKey(target.jvmId, filename));
+        var reqBuilder =
+                PutObjectRequest.builder()
+                        .bucket(heapDumpBucket)
+                        .key(storageKey(target.jvmId, filename))
+                        .contentType(MediaType.TEXT_PLAIN);
+
+        storage.putObject(reqBuilder.build(), RequestBody.fromFile(heapDump.filePath()));
+        var dump =
+                new HeapDump(
+                        target.jvmId,
+                        heapDumpDownloadUrl(target.jvmId, filename),
+                        filename,
+                        clock.now().getEpochSecond(),
+                        heapDump.filePath().toFile().length());
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        HEAP_DUMP_UPLOADED,
+                        Map.of(
+                                "jobId",
+                                requestId,
+                                "targetAlias",
+                                target.alias,
+                                "filename",
+                                filename)));
+        return dump;
+    }
+
     public String downloadUrl(String jvmId, String filename) {
         return String.format(
                 "/api/beta/diagnostics/threaddump/download/%s", encodedKey(jvmId, filename));
     }
 
+    public String heapDumpDownloadUrl(String jvmId, String filename) {
+        return String.format(
+                "/api/beta/diagnostics/heapdump/download/%s", encodedKey(jvmId, filename));
+    }
+
     public String encodedKey(String jvmId, String uuid) {
         Objects.requireNonNull(jvmId);
         Objects.requireNonNull(uuid);
-        return base64Url.encodeAsString(
-                (threadDumpKey(jvmId, uuid)).getBytes(StandardCharsets.UTF_8));
+        return base64Url.encodeAsString((storageKey(jvmId, uuid)).getBytes(StandardCharsets.UTF_8));
     }
 
-    public String threadDumpKey(String jvmId, String uuid) {
+    public String storageKey(String jvmId, String uuid) {
         return (jvmId + "/" + uuid).strip();
     }
 
-    public String threadDumpKey(Pair<String, String> pair) {
-        return threadDumpKey(pair.getKey(), pair.getValue());
+    public String storageKey(Pair<String, String> pair) {
+        return storageKey(pair.getKey(), pair.getValue());
     }
 
     public InputStream getThreadDumpStream(String jvmId, String threadDumpID) {
@@ -191,8 +320,21 @@ public class DiagnosticsHelper {
 
     public InputStream getThreadDumpStream(String encodedKey) {
         Pair<String, String> decodedKey = decodedKey(encodedKey);
-        var key = threadDumpKey(decodedKey);
-        var getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
+        var key = storageKey(decodedKey);
+        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
+        return storage.getObject(getRequest);
+    }
+
+    public InputStream getHeapDumpStream(String jvmId, String threadDumpID) {
+        return getHeapDumpStream(encodedKey(jvmId, threadDumpID));
+    }
+
+    public InputStream getHeapDumpStream(String encodedKey) {
+        Pair<String, String> decodedKey = decodedKey(encodedKey);
+        var key = storageKey(decodedKey);
+
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder().bucket(heapDumpBucket).key(key).build();
         return storage.getObject(getRequest);
     }
 
@@ -214,10 +356,23 @@ public class DiagnosticsHelper {
         return storage.listObjectsV2(req).contents();
     }
 
+    public List<S3Object> listHeapDumps(Target target) {
+        var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket);
+        String jvmId = target.jvmId;
+        if (Objects.isNull(jvmId)) {
+            throw new IllegalArgumentException();
+        }
+        if (StringUtils.isNotBlank(jvmId)) {
+            builder = builder.prefix(jvmId);
+        }
+        return storage.listObjectsV2(builder.build()).contents();
+    }
+
     public enum EventCategory {
-        // ThreadDumpSuccess ("CREATED") events are emitted by LongRunningRequestGenerator
+        // ThreadDumpSuccess and HeapDumpSuccess ("CREATED") events are emitted by
+        // LongRunningRequestGenerator
         DELETED(THREAD_DUMP_DELETED),
-        ;
+        HEAP_DUMP_DELETED(HEAP_DUMP_DELETED_NAME);
 
         private final String category;
 
@@ -244,6 +399,24 @@ public class DiagnosticsHelper {
 
             public static Payload of(Target target, String threadDumpId) {
                 return new Payload(target.jvmId, threadDumpId);
+            }
+        }
+    }
+
+    public record HeapDumpEvent(EventCategory category, Payload payload) {
+        public HeapDumpEvent {
+            Objects.requireNonNull(category);
+            Objects.requireNonNull(payload);
+        }
+
+        public record Payload(String jvmId, String heapDumpId) {
+            public Payload {
+                Objects.requireNonNull(jvmId);
+                Objects.requireNonNull(heapDumpId);
+            }
+
+            public static Payload of(Target target, String heapDumpId) {
+                return new Payload(target.jvmId, heapDumpId);
             }
         }
     }

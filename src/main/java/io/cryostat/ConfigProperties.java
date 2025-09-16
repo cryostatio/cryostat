@@ -28,8 +28,11 @@ public class ConfigProperties {
             "storage.buckets.event-templates.name";
     public static final String AWS_BUCKET_NAME_PROBE_TEMPLATES =
             "storage.buckets.probe-templates.name";
+    public static final String AWS_BUCKET_NAME_HEAP_DUMPS = "storage.buckets.heap-dumps.name";
     public static final String AWS_BUCKET_NAME_THREAD_DUMPS = "storage.buckets.thread-dumps.name";
     public static final String AWS_METADATA_PREFIX_THREAD_DUMPS =
+            "storage.metadata.prefix.thread-dumps";
+    public static final String AWS_METADATA_PREFIX_HEAP_DUMPS =
             "storage.metadata.prefix.thread-dumps";
     public static final String AWS_METADATA_PREFIX_RECORDINGS =
             "storage.metadata.prefix.recordings";
@@ -69,6 +72,8 @@ public class ConfigProperties {
     public static final String STORAGE_PRESIGNED_DOWNLOADS_ENABLED =
             "storage.presigned-downloads.enabled";
 
+    public static final String STORAGE_METADATA_HEAP_DUMPS_STORAGE_MODE =
+            "storage.metadata.heap-dumps.storage-mode";
     public static final String STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE =
             "storage.metadata.thread-dumps.storage-mode";
 
