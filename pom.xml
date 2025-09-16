@@ -51,8 +51,8 @@
     <org.codehaus.mojo.exec.plugin.version>3.5.1</org.codehaus.mojo.exec.plugin.version>
     <assembly-plugin.version>3.7.1</assembly-plugin.version>
 
-    <com.github.spotbugs.version>4.9.4</com.github.spotbugs.version>
-    <com.github.spotbugs.plugin.version>4.9.4.2</com.github.spotbugs.plugin.version>
+    <com.github.spotbugs.version>4.9.5</com.github.spotbugs.version>
+    <com.github.spotbugs.plugin.version>4.9.5.0</com.github.spotbugs.plugin.version>
     <com.diffplug.spotless.maven.plugin.version>2.46.1</com.diffplug.spotless.maven.plugin.version>
     <com.google.java-format.version>1.28.0</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
