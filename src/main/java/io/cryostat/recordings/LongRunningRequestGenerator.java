@@ -329,7 +329,7 @@ public class LongRunningRequestGenerator {
                     MessagingServer.class.getName(),
                     new Notification(
                             HEAP_DUMP_SUCCESS,
-                            Map.of("jobId", request.id(), "targetId", target.alias)));
+                            Map.of("jobId", request.id(), "targetAlias", target.alias)));
         } catch (Exception e) {
             logger.warn("Failed to dump heap");
             bus.publish(

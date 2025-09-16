@@ -283,7 +283,7 @@ public class DiagnosticsHelper {
                         Map.of(
                                 "jobId",
                                 requestId,
-                                "targetId",
+                                "targetAlias",
                                 target.alias,
                                 "filename",
                                 filename)));
