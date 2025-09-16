@@ -319,6 +319,8 @@ components:
       properties:
         downloadUrl:
           type: string
+        heapDumpId:
+          type: string
         jvmId:
           type: string
         lastModified:
@@ -327,8 +329,6 @@ components:
         size:
           format: int64
           type: integer
-        uuid:
-          type: string
       type: object
     HttpServerResponse:
       properties:
@@ -761,6 +761,8 @@ paths:
               properties:
                 heapDump:
                   format: binary
+                  type: string
+                jobId:
                   type: string
                 labels:
                   $ref: '#/components/schemas/JsonObject'
