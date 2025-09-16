@@ -79,6 +79,7 @@ public class LongRunningRequestGenerator {
     private static final String REPORT_SUCCESS = "ReportSuccess";
     private static final String REPORT_FAILURE = "ReportFailure";
     private static final String HEAP_DUMP_FAILURE = "HeapDumpFailure";
+    private static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
     private static final String THREAD_DUMP_SUCCESS = "ThreadDumpSuccess";
     private static final String THREAD_DUMP_FAILURE = "ThreadDumpFailure";
 
@@ -323,6 +324,12 @@ public class LongRunningRequestGenerator {
         try {
             var target = Target.getTargetById(request.targetId);
             diagnosticsHelper.dumpHeap(target, request.id());
+
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            HEAP_DUMP_SUCCESS,
+                            Map.of("jobId", request.id(), "targetId", target.alias)));
         } catch (Exception e) {
             logger.warn("Failed to dump heap");
             bus.publish(

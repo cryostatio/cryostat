@@ -17,7 +17,6 @@ package io.cryostat.diagnostic;
 
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -69,6 +68,7 @@ public class DiagnosticsHelper {
     static final String HEAP_DUMP_REQUESTED = "HeapDumpRequested";
     static final String HEAP_DUMP_DELETED_NAME = "HeapDumpDeleted";
     static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
+    static final String HEAP_DUMP_UPLOADED = "HeapDumpUploaded";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     private static final String HOTSPOT_DIAGNOSTIC_BEAN_NAME =
             "com.sun.management:type=HotSpotDiagnostic";
@@ -78,8 +78,6 @@ public class DiagnosticsHelper {
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
     String heapDumpBucket;
-
-    private List<String> openRequests = new ArrayList<String>();
 
     @Inject
     @Identifier(Producers.BASE64_URL)
@@ -103,7 +101,6 @@ public class DiagnosticsHelper {
     public void dumpHeap(Target target, String requestId) {
         log.tracev(
                 "Heap Dump request received for Target: {0} with jobId {1}", target.id, requestId);
-        openRequests.add(requestId);
         Object[] params = new Object[3];
         String[] signature = new String[] {String.class.getName(), boolean.class.getName()};
         // The agent will generate the filename on it's side
@@ -263,10 +260,6 @@ public class DiagnosticsHelper {
         if (!filename.endsWith(".hprof")) {
             filename = filename + ".hprof";
         }
-        if (!openRequests.contains(requestId)) {
-            log.warnv("Unknown upload request with job ID {0}", requestId);
-            throw new IllegalArgumentException();
-        }
         log.tracev(
                 "Putting Heap dump into storage with key: {0}", storageKey(target.jvmId, filename));
         var reqBuilder =
@@ -286,9 +279,14 @@ public class DiagnosticsHelper {
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(
-                        HEAP_DUMP_SUCCESS,
-                        Map.of("jobId", requestId, "targetId", target.id, "filename", filename)));
-        openRequests.remove(requestId);
+                        HEAP_DUMP_UPLOADED,
+                        Map.of(
+                                "jobId",
+                                requestId,
+                                "targetId",
+                                target.alias,
+                                "filename",
+                                filename)));
         return dump;
     }
 
