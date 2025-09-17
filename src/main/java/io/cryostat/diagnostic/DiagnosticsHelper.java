@@ -140,6 +140,10 @@ public class DiagnosticsHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
+    public List<HeapDump> getHeapDumps(String jvmId) {
+        return getHeapDumps(Target.getTargetByJvmId(jvmId).get());
+    }
+
     public List<HeapDump> getHeapDumps(Target target) {
         return listHeapDumps(target).stream()
                 .map(

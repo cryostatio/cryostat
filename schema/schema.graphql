@@ -70,6 +70,14 @@ type ThreadDump {
   size: BigInteger
 }
 
+type HeapDump {
+  downloadUrl: String
+  heapDumpId: String
+  jvmId: String
+  lastModified: BigInteger
+  size: BigInteger
+}
+
 type ArchivedRecordings {
   aggregate: RecordingAggregateInfo!
   data: [ArchivedRecording]!
@@ -78,6 +86,11 @@ type ArchivedRecordings {
 type ThreadDumps {
   aggregate: ThreadDumpAggregateInfo!
   data: [ThreadDump]!
+}
+
+type HeapDumps {
+  aggregate: HeapDumpAggregateInfo!
+  data: [HeapDump]!
 }
 
 type DiscoveryNode {
@@ -193,6 +206,13 @@ type RecordingAggregateInfo {
 }
 
 type ThreadDumpAggregateInfo {
+  "The number of elements in this collection"
+  count: BigInteger!
+  "The sum of sizes of elements in this collection, or 0 if not applicable"
+  size: BigInteger!
+}
+
+type HeapDumpAggregateInfo {
   "The number of elements in this collection"
   count: BigInteger!
   "The sum of sizes of elements in this collection, or 0 if not applicable"

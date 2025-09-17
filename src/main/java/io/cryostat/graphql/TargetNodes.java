@@ -29,11 +29,13 @@ import org.openjdk.jmc.flightrecorder.rules.Severity;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
+import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.diagnostic.DiagnosticsHelper;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.ActiveRecordings.ActiveRecordingsFilter;
 import io.cryostat.graphql.ArchivedRecordings.ArchivedRecordingsFilter;
+import io.cryostat.graphql.HeapDumpGraphQL.HeapDumpsFilter;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 import io.cryostat.graphql.ThreadDumpGraphQL.ThreadDumpsFilter;
 import io.cryostat.libcryostat.net.MBeanMetrics;
@@ -127,6 +129,20 @@ public class TargetNodes {
             threadDumps.aggregate = ThreadDumpAggregateInfo.fromArchived(threadDumps.data);
         }
         return threadDumps;
+    }
+
+    @Description("Retrieve a list of heap dumps belonging to the target")
+    public HeapDumps heapDumps(@Source Target target, @Nullable HeapDumpsFilter filter) {
+        var fTarget = Target.getTargetById(target.id);
+        var heapDumps = new HeapDumps();
+        if (StringUtils.isNotBlank(fTarget.jvmId)) {
+            heapDumps.data =
+                    diagnosticsHelper.getHeapDumps(fTarget).stream()
+                            .filter(t -> filter == null || filter.test(t))
+                            .toList();
+            heapDumps.aggregate = HeapDumpAggregateInfo.fromArchived(heapDumps.data);
+        }
+        return heapDumps;
     }
 
     @Description(
@@ -239,6 +255,32 @@ public class TargetNodes {
         public static ThreadDumpAggregateInfo fromArchived(List<ThreadDump> threadDumps) {
             return new ThreadDumpAggregateInfo(
                     threadDumps.size(), threadDumps.stream().mapToLong(ThreadDump::size).sum());
+        }
+    }
+
+    public static class HeapDumps {
+        public @NonNull List<HeapDump> data = new ArrayList<>();
+        public @NonNull HeapDumpAggregateInfo aggregate = HeapDumpAggregateInfo.fromArchived(data);
+    }
+
+    public static class HeapDumpAggregateInfo {
+        public @NonNull @Description("The number of elements in this collection") long count;
+        public @NonNull @Description(
+                "The sum of sizes of elements in this collection, or 0 if not applicable") long
+                size;
+
+        public HeapDumpAggregateInfo(long count, long size) {
+            this.count = count;
+            this.size = size;
+        }
+
+        public static HeapDumpAggregateInfo empty() {
+            return new HeapDumpAggregateInfo(0, 0);
+        }
+
+        public static HeapDumpAggregateInfo fromArchived(List<HeapDump> heapDumps) {
+            return new HeapDumpAggregateInfo(
+                    heapDumps.size(), heapDumps.stream().mapToLong(HeapDump::size).sum());
         }
     }
 
