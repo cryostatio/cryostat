@@ -722,13 +722,8 @@ info:
     name: Apache 2.0
     url: https://github.com/cryostatio/cryostat/blob/main/LICENSE
   title: Cryostat API
-<<<<<<< HEAD
   version: 4.1.0-snapshot
 openapi: 3.1.0
-=======
-  version: 4.0.3-snapshot
-openapi: 3.0.3
->>>>>>> 7ba2c65 (fix(sql): set DiscoveryNode sequence increment to 50 (#1057))
 paths:
   /api/beta/diagnostics/heapdump/download/{encodedKey}:
     get:
