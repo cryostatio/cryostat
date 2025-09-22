@@ -86,6 +86,7 @@ public class TargetUpdateJob implements Job {
                             } catch (Exception e) {
                                 t.jvmId = null;
                                 t.persist();
+                                logger.error(e);
                                 throw e;
                             }
                             t.activeRecordings = recordingHelper.listActiveRecordings(t);
