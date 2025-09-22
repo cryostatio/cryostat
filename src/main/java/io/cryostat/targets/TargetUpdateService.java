@@ -57,7 +57,7 @@ public class TargetUpdateService {
 
         JobDetail jobDetail = JobBuilder.newJob(TargetUpdateJob.class).build();
 
-        final int retryInterval = (int) connectionTtl.toSeconds() * 2;
+        final int retryInterval = ((int) connectionTtl.toSeconds()) * 2;
         Trigger trigger =
                 TriggerBuilder.newTrigger()
                         .withSchedule(
