@@ -9,7 +9,7 @@ services:
     environment:
       JAVA_OPTS_APPEND: >-
         -Djava.util.logging.manager=org.jboss.logmanager.LogManager
-        -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=trace
+        -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
         -javaagent:/opt/cryostat/cryostat-agent.jar
       MICRONAUT_SERVER_PORT: 10020
       CRYOSTAT_AGENT_APP_NAME: micronaut-cryostat-agent

@@ -15,13 +15,17 @@
  */
 package itest.bases;
 
+import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Predicate;
@@ -43,7 +47,15 @@ import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.handler.HttpException;
 import itest.util.Utils;
 import itest.util.Utils.TestWebClient;
+import jakarta.websocket.ClientEndpoint;
+import jakarta.websocket.ContainerProvider;
+import jakarta.websocket.DeploymentException;
+import jakarta.websocket.OnMessage;
+import jakarta.websocket.Session;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 
 public abstract class HttpClientTest {
 
@@ -60,15 +72,38 @@ public abstract class HttpClientTest {
                         .setVisibility(PropertyAccessor.ALL, Visibility.ANY);
     }
 
-    public static CompletableFuture<JsonObject> expectNotification(
+    static WebSocketClient WS_CLIENT;
+    static Session WS_SESSION;
+
+    @BeforeAll
+    static void setupWebSocketClient() throws IOException, DeploymentException {
+        WS_CLIENT = new WebSocketClient();
+        WS_SESSION =
+                ContainerProvider.getWebSocketContainer()
+                        .connectToServer(
+                                WS_CLIENT, URI.create("ws://localhost:8081/api/notifications"));
+    }
+
+    @BeforeEach
+    void clearWebSocketNotifications() {
+        WS_CLIENT.msgQ.clear();
+    }
+
+    @AfterAll
+    static void tearDownWebSocketClient() throws IOException {
+        WS_SESSION.close();
+    }
+
+    @Deprecated
+    public CompletableFuture<JsonObject> expectNotification(
             String category, long timeout, TimeUnit unit)
             throws TimeoutException, ExecutionException, InterruptedException {
         return expectNotification(category, o -> true, timeout, unit);
     }
 
-    public static CompletableFuture<JsonObject> expectNotification(
-            String category, Predicate<JsonObject> p, long timeout, TimeUnit unit)
-            throws TimeoutException, ExecutionException, InterruptedException {
+    @Deprecated
+    public CompletableFuture<JsonObject> expectNotification(
+            String category, Predicate<JsonObject> p, long timeout, TimeUnit unit) {
         logger.debugv(
                 "Waiting for a \"{0}\" message within the next {1} {2} ...",
                 category, timeout, unit.name());
@@ -107,8 +142,58 @@ public abstract class HttpClientTest {
                             // use auth
                             .writeTextMessage("");
                 });
-
         return future.orTimeout(timeout, unit).whenComplete((o, t) -> a[0].close());
+    }
+
+    protected JsonObject expectWebSocketNotification(String category)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        return expectWebSocketNotification(category, Duration.ofSeconds(30), v -> true);
+    }
+
+    protected JsonObject expectWebSocketNotification(String category, Duration timeout)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        return expectWebSocketNotification(category, timeout, v -> true);
+    }
+
+    protected JsonObject expectWebSocketNotification(
+            String category, Predicate<JsonObject> predicate)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        return expectWebSocketNotification(category, Duration.ofSeconds(30), predicate);
+    }
+
+    protected JsonObject expectWebSocketNotification(
+            String category, Duration timeout, Predicate<JsonObject> predicate)
+            throws IOException, DeploymentException, InterruptedException, TimeoutException {
+        long now = System.nanoTime();
+        long deadline = now + timeout.toNanos();
+        logger.infov(
+                "waiting up to {0} for a WebSocket notification with category={1}",
+                timeout, category);
+        do {
+            now = System.nanoTime();
+            String msg = WS_CLIENT.msgQ.poll(1, TimeUnit.SECONDS);
+            if (msg == null) {
+                continue;
+            }
+            JsonObject obj = new JsonObject(msg);
+            String msgCategory = obj.getJsonObject("meta").getString("category");
+            if (category.equals(msgCategory) && predicate.test(obj)) {
+                return obj;
+            }
+        } while (now < deadline);
+        throw new TimeoutException();
+    }
+
+    @ClientEndpoint
+    static class WebSocketClient {
+        private final LinkedBlockingDeque<String> msgQ = new LinkedBlockingDeque<>();
+        private final Logger logger = Logger.getLogger(getClass());
+
+        @OnMessage
+        void message(String msg) {
+            logger.info(msg);
+            msgQ.add(msg);
+        }
     }
 
     public static <T> boolean assertRequestStatus(
