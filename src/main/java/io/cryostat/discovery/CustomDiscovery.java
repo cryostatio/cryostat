@@ -28,13 +28,14 @@ import java.util.regex.Pattern;
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpression;
-import io.cryostat.targets.JvmIdException;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -84,7 +85,7 @@ public class CustomDiscovery {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
-    @Transactional(rollbackOn = {JvmIdException.class})
+    @Blocking
     @POST
     @Path("/api/v4/targets")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -106,7 +107,7 @@ public class CustomDiscovery {
         return doCreate(uriInfo, target, dryrun, storeCredentials);
     }
 
-    @Transactional
+    @Blocking
     @POST
     @Path("/api/v4/targets")
     @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
@@ -150,7 +151,7 @@ public class CustomDiscovery {
                                 target.connectUrl));
             }
 
-            if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
+            if (Target.find("connectUrl", target.connectUrl).count() > 0) {
                 throw new BadRequestException("Duplicate connection URL");
             }
 
@@ -186,26 +187,33 @@ public class CustomDiscovery {
                 return ResponseBuilder.accepted(target).build();
             }
 
-            target.persist();
-            credential.ifPresent(c -> c.persist());
+            return QuarkusTransaction.requiringNew()
+                    .call(
+                            () -> {
+                                target.persist();
+                                credential.ifPresent(c -> c.persist());
 
-            target.activeRecordings = new ArrayList<>();
-            target.annotations = new Annotations(null, Map.of("REALM", REALM));
+                                target.activeRecordings = new ArrayList<>();
+                                target.annotations = new Annotations(null, Map.of("REALM", REALM));
 
-            DiscoveryNode node = DiscoveryNode.target(target, NodeType.BaseNodeType.JVM);
-            target.discoveryNode = node;
-            DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
+                                DiscoveryNode node =
+                                        DiscoveryNode.target(target, NodeType.BaseNodeType.JVM);
+                                target.discoveryNode = node;
+                                DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
 
-            realm.children.add(node);
-            node.parent = realm;
-            target.persist();
-            node.persist();
-            realm.persist();
+                                realm.children.add(node);
+                                node.parent = realm;
+                                target.persist();
+                                node.persist();
+                                realm.persist();
 
-            return ResponseBuilder.<Target>created(
-                            uriInfo.getAbsolutePathBuilder().path(Long.toString(target.id)).build())
-                    .entity(target)
-                    .build();
+                                return ResponseBuilder.<Target>created(
+                                                uriInfo.getAbsolutePathBuilder()
+                                                        .path(Long.toString(target.id))
+                                                        .build())
+                                        .entity(target)
+                                        .build();
+                            });
         } catch (Exception e) {
             if (ExceptionUtils.indexOfType(e, ConstraintViolationException.class) >= 0) {
                 logger.warn("Invalid target definition", e);
