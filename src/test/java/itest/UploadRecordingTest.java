@@ -141,9 +141,7 @@ public class UploadRecordingTest extends StandardSelfTest {
                                         ar.result().statusCode(), Matchers.equalTo(200));
                                 MatcherAssert.assertThat(
                                         ar.result().getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                                        Matchers.equalTo(
-                                                HttpMimeType.PLAINTEXT.mime(
-                                                        StandardCharsets.UTF_8)));
+                                        Matchers.equalTo(HttpMimeType.PLAINTEXT.mime()));
                                 getRespFuture.complete(ar.result().bodyAsString());
                             }
                         });
