@@ -137,10 +137,13 @@ public class TargetUpdateService {
         data.put("targetId", target.id);
         Trigger trigger =
                 TriggerBuilder.newTrigger()
+                        .withIdentity(Long.toString(target.id))
                         .startAt(Date.from(Instant.now().plusSeconds(1)))
                         .usingJobData(jobDetail.getJobDataMap())
                         .build();
-        scheduler.scheduleJob(jobDetail, trigger);
+        if (!scheduler.checkExists(trigger.getKey())) {
+            scheduler.scheduleJob(jobDetail, trigger);
+        }
     }
 
     void fireActiveRecordingUpdate(ActiveRecording recording) throws SchedulerException {

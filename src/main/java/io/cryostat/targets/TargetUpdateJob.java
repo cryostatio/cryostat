@@ -63,11 +63,15 @@ public class TargetUpdateJob implements Job {
             targets = Target.<Target>find("#Target.unconnected").list();
         }
         targets.stream()
+                .peek(t -> logger.debugv("JVM ID for {0} = {1}", t.connectUrl, t.jvmId))
+                .sorted((a, b) -> a.alias.compareTo(b.alias))
+                .distinct()
                 .filter(t -> StringUtils.isBlank(t.jvmId))
                 .forEach(t -> Infrastructure.getDefaultExecutor().execute(() -> updateTarget(t)));
     }
 
     private void updateTarget(Target target) {
+        logger.debugv("Updating JVM ID for target {0} ({1})", target.connectUrl, target.alias);
         final String jvmId =
                 connectionManager
                         .executeConnectedTask(target, JFRConnection::getJvmIdentifier)
@@ -78,6 +82,9 @@ public class TargetUpdateJob implements Job {
                             Target t = Target.getTargetById(target.id);
                             try {
                                 t.jvmId = jvmId;
+                                logger.debugv(
+                                        "Updated JVM ID for target {0} ({1}) = {2}",
+                                        target.connectUrl, target.alias, t.jvmId);
                             } catch (PersistenceException e) {
                                 t.jvmId = null;
                                 t.persist();
