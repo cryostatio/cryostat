@@ -75,22 +75,23 @@ public class TargetUpdateJob implements Job {
         QuarkusTransaction.joiningExisting()
                 .run(
                         () -> {
+                            Target t = Target.getTargetById(target.id);
                             try {
-                                target.jvmId = jvmId;
+                                t.jvmId = jvmId;
                             } catch (PersistenceException e) {
-                                target.jvmId = null;
-                                target.persist();
+                                t.jvmId = null;
+                                t.persist();
                                 logger.debug(e);
                                 return;
                             } catch (Exception e) {
-                                target.jvmId = null;
-                                target.persist();
+                                t.jvmId = null;
+                                t.persist();
                                 throw e;
                             }
-                            target.activeRecordings = recordingHelper.listActiveRecordings(target);
-                            target.persist();
+                            t.activeRecordings = recordingHelper.listActiveRecordings(t);
+                            t.persist();
 
-                            target.activeRecordings.stream()
+                            t.activeRecordings.stream()
                                     .filter(r -> !r.continuous)
                                     .filter(r -> !RecordingState.CLOSED.equals(r.state))
                                     .filter(r -> !RecordingState.STOPPED.equals(r.state))
