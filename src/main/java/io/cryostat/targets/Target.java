@@ -17,8 +17,6 @@ package io.cryostat.targets;
 
 import java.net.MalformedURLException;
 import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -306,10 +304,6 @@ public class Target extends PanacheEntity {
         void prePersist(Target target) {
             if (StringUtils.isBlank(target.alias)) {
                 throw new IllegalArgumentException();
-            }
-            var encodedAlias = URLEncoder.encode(target.alias, StandardCharsets.UTF_8);
-            if (!Objects.equals(encodedAlias, target.alias)) {
-                target.alias = encodedAlias;
             }
             try {
                 if (!uriUtil.validateUri(target.connectUrl)) {
