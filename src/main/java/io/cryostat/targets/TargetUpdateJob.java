@@ -81,7 +81,7 @@ public class TargetUpdateJob implements Job {
                             } catch (PersistenceException e) {
                                 t.jvmId = null;
                                 t.persist();
-                                logger.debug(e);
+                                logger.warn(e);
                                 return;
                             } catch (Exception e) {
                                 t.jvmId = null;
