@@ -42,7 +42,9 @@ public class V4_1_0__Cryostat extends BaseJavaMigration {
         exec(context, "create index on Rule (name);");
         exec(context, "alter table Rule add column metadata jsonb default '{\"labels\":{}}';");
 
-        exec(context, "alter table ActiveRecording add column archiveOnStop boolean default false;");
+        exec(
+                context,
+                "alter table ActiveRecording add column archiveOnStop boolean default false;");
 
         decodeTargetAliases(context);
     }
