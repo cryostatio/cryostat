@@ -27,6 +27,7 @@ services:
         -Dcom.sun.management.jmxremote.authenticate=false
         -Dcom.sun.management.jmxremote.ssl=false
         -Dcom.sun.management.jmxremote.local.only=false
+      CRYOSTAT_STORAGE_BASE_URI: http://s3:8333
     healthcheck:
       test: curl --fail http://localhost:8080/ || exit 1
       retries: 3

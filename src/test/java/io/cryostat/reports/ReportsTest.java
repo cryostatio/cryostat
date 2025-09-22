@@ -22,12 +22,10 @@ import java.util.Objects;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
-import io.cryostat.CacheEnabledTestProfile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
 import io.vertx.core.json.JsonObject;
@@ -35,13 +33,10 @@ import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(Reports.class)
-@TestProfile(CacheEnabledTestProfile.class)
-@Disabled("https://github.com/cryostatio/cryostat/pull/1015#issuecomment-3181008423")
 public class ReportsTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;
@@ -185,8 +180,7 @@ public class ReportsTest extends AbstractTransactionalTestBase {
         int targetId = defineSelfCustomTarget();
         try {
             int remoteId =
-                    startSelfRecording("activeRecordingsTestReports", TEMPLATE_CONTINUOUS)
-                            .getInt("remoteId");
+                    startSelfRecording("reportsTest", TEMPLATE_CONTINUOUS).getInt("remoteId");
 
             given().log()
                     .all()
@@ -220,8 +214,7 @@ public class ReportsTest extends AbstractTransactionalTestBase {
     void testGetReportByUrl() {
         defineSelfCustomTarget();
         try {
-            JsonPath recording =
-                    startSelfRecording("activeRecordingsTestReportsURL", TEMPLATE_CONTINUOUS);
+            JsonPath recording = startSelfRecording("reportsTestByUrl", TEMPLATE_CONTINUOUS);
             String reportUrl = recording.getString("reportUrl");
 
             given().log()

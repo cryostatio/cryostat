@@ -67,6 +67,8 @@ public class LongRunningRequestGenerator {
     public static final String ARCHIVED_REPORT_COMPLETE_ADDRESS =
             "io.cryostat.recording.LongRunningRequestGenerator.ArchivedReportComplete";
 
+    public static final String HEAP_DUMP_REQUEST_ADDRESS =
+            "io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest";
     public static final String THREAD_DUMP_ADDRESS =
             "io.cryostat.recordings.LongRunningRequestGenerator.ThreadDump";
 
@@ -76,6 +78,8 @@ public class LongRunningRequestGenerator {
     private static final String GRAFANA_UPLOAD_FAIL = "GrafanaUploadFailure";
     private static final String REPORT_SUCCESS = "ReportSuccess";
     private static final String REPORT_FAILURE = "ReportFailure";
+    private static final String HEAP_DUMP_FAILURE = "HeapDumpFailure";
+    private static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
     private static final String THREAD_DUMP_SUCCESS = "ThreadDumpSuccess";
     private static final String THREAD_DUMP_FAILURE = "ThreadDumpFailure";
 
@@ -100,7 +104,7 @@ public class LongRunningRequestGenerator {
         logger.tracev("Job ID: {0} submitted.", request.id());
         try {
             var target = Target.getTargetById(request.targetId);
-            var dump = diagnosticsHelper.dumpThreads(request.format, target.id);
+            var dump = diagnosticsHelper.dumpThreads(target, request.format, request.id());
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
@@ -108,6 +112,8 @@ public class LongRunningRequestGenerator {
                             Map.of(
                                     "jobId",
                                     request.id(),
+                                    "threadDumpId",
+                                    dump.threadDumpId(),
                                     "targetId",
                                     dump.jvmId(),
                                     "downloadUrl",
@@ -311,6 +317,28 @@ public class LongRunningRequestGenerator {
                         });
     }
 
+    @ConsumeEvent(value = HEAP_DUMP_REQUEST_ADDRESS, blocking = true)
+    @Transactional
+    public void onMessage(HeapDumpRequest request) {
+        logger.warnv("Job ID: {0} submitted.", request.id());
+        try {
+            var target = Target.getTargetById(request.targetId);
+            diagnosticsHelper.dumpHeap(target, request.id());
+
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(
+                            HEAP_DUMP_SUCCESS,
+                            Map.of("jobId", request.id(), "targetAlias", target.alias)));
+        } catch (Exception e) {
+            logger.warn("Failed to dump heap");
+            bus.publish(
+                    MessagingServer.class.getName(),
+                    new Notification(HEAP_DUMP_FAILURE, Map.of("jobId", request.id())));
+            throw new CompletionException(e);
+        }
+    }
+
     @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ArchiveRequest(String id, ActiveRecording recording, boolean deleteOnCompletion) {
         public ArchiveRequest {
@@ -379,6 +407,13 @@ public class LongRunningRequestGenerator {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(filename);
             Objects.requireNonNull(report);
+        }
+    }
+
+    public record HeapDumpRequest(String id, long targetId) {
+        public HeapDumpRequest {
+            Objects.requireNonNull(id);
+            Objects.requireNonNull(targetId);
         }
     }
 

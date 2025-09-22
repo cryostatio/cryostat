@@ -36,7 +36,14 @@ public class Auth {
     @Path("/api/v4/logout")
     @PermitAll
     @Produces(MediaType.APPLICATION_JSON)
-    @Operation(summary = "OAuth2 sign out. Invalidate the current user session")
+    @Operation(
+            summary =
+                    """
+                    OAuth2 sign out. Invalidate the current user session.
+                    Clients should directly visit the /oauth2/sign_out endpoint rather than relying on this endpoint
+                    and its redirect response.
+                    """)
+    @Deprecated(since = "4.1", forRemoval = true)
     public RestResponse<Object> logout(@Context RoutingContext context) {
         return ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
                 .location(URI.create("/oauth2/sign_out"))

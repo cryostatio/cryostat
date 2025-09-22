@@ -315,6 +315,21 @@ components:
         hash:
           type: string
       type: object
+    HeapDump:
+      properties:
+        downloadUrl:
+          type: string
+        heapDumpId:
+          type: string
+        jvmId:
+          type: string
+        lastModified:
+          format: int64
+          type: integer
+        size:
+          format: int64
+          type: integer
+      type: object
     HttpServerResponse:
       properties:
         chunked:
@@ -692,7 +707,7 @@ components:
         size:
           format: int64
           type: integer
-        uuid:
+        threadDumpId:
           type: string
       type: object
     UUID:
@@ -712,6 +727,57 @@ info:
   version: 4.1.0-snapshot
 openapi: 3.1.0
 paths:
+  /api/beta/diagnostics/heapdump/download/{encodedKey}:
+    get:
+      parameters:
+        - in: path
+          name: encodedKey
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: filename
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: {}
+          description: OK
+      summary: Handle Heap Dumps Storage Download
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/heapdump/upload/{jvmId}:
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                heapDump:
+                  format: binary
+                  type: string
+                jobId:
+                  type: string
+                labels:
+                  $ref: '#/components/schemas/JsonObject'
+              type: object
+        required: true
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+      summary: Upload Heap Dump
+      tags:
+        - Diagnostics
   /api/beta/diagnostics/targets/{targetId}/gc:
     post:
       description: |
@@ -728,6 +794,75 @@ paths:
         "201":
           description: Created
       summary: Initiate a garbage collection on the specified target
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/targets/{targetId}/heapdump:
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/HeapDump'
+                type: array
+          description: OK
+      summary: Get Heap Dumps
+      tags:
+        - Diagnostics
+    post:
+      description: |
+        Request the remote target to perform a heap dump.
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HttpServerResponse'
+        required: true
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+        "400":
+          description: Bad Request
+      summary: Initiates a heap dump on the specified target
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/targets/{targetId}/heapdump/{heapDumpId}:
+    delete:
+      parameters:
+        - in: path
+          name: heapDumpId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: Delete Heap Dump
       tags:
         - Diagnostics
   /api/beta/diagnostics/targets/{targetId}/threaddump:
@@ -762,6 +897,7 @@ paths:
         - in: query
           name: format
           schema:
+            default: threadPrint
             type: string
       requestBody:
         content:
@@ -819,7 +955,7 @@ paths:
             application/json:
               schema: {}
           description: OK
-      summary: Handle Storage Download
+      summary: Handle Thread Dumps Storage Download
       tags:
         - Diagnostics
   /api/beta/fs/recordings:
@@ -1563,13 +1699,17 @@ paths:
         - Health
   /api/v4/logout:
     post:
+      deprecated: true
       responses:
         "200":
           content:
             application/json:
               schema: {}
           description: OK
-      summary: OAuth2 sign out. Invalidate the current user session
+      summary: |
+        OAuth2 sign out. Invalidate the current user session.
+        Clients should directly visit the /oauth2/sign_out endpoint rather than relying on this endpoint
+        and its redirect response.
       tags:
         - Auth
   /api/v4/matchExpressions:
