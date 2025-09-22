@@ -77,7 +77,11 @@
 #   accessed directly. (example: "foo.example.com,bar.example.com")
 #
 ###
+<<<<<<< HEAD
 FROM registry.access.redhat.com/ubi9/openjdk-21-runtime:1.23-6.1755674729
+=======
+FROM registry.access.redhat.com/ubi9/openjdk-21-runtime:1.23-6.1758133907
+>>>>>>> 4ae0c48 (build(deps): bump ubi9/openjdk-21-runtime from 1.23-6.1756793420 to 1.23-6.1758133907 in /src/main/docker (#1062))
 
 ENV LANGUAGE='en_US:en'
 
