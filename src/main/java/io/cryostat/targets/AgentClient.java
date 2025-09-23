@@ -480,7 +480,7 @@ public class AgentClient {
 
             Supplier<UsernamePasswordCredentials> credentialSupplier =
                     () ->
-                            QuarkusTransaction.requiringNew()
+                            QuarkusTransaction.joiningExisting()
                                     .call(
                                             () -> {
                                                 var credential =

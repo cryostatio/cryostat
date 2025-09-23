@@ -51,6 +51,7 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
@@ -302,7 +303,8 @@ public class TargetConnectionManager {
         try {
             if (AgentConnection.isAgentConnection(connectUrl)) {
                 return agentConnectionFactory.createConnection(
-                        Target.getTargetByConnectUrl(connectUrl));
+                        QuarkusTransaction.joiningExisting()
+                                .call(() -> Target.getTargetByConnectUrl(connectUrl)));
             }
 
             return jfrConnectionToolkit.connect(
