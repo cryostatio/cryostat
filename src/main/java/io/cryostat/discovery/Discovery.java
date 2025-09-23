@@ -577,7 +577,7 @@ public class Discovery {
                 if (plugin != null) {
                     logger.debugv(
                             e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
-                    plugin.delete();
+                    QuarkusTransaction.joiningExisting().run(plugin::delete);
                 } else {
                     var ex = new JobExecutionException(e);
                     ex.setUnscheduleFiringTrigger(true);
