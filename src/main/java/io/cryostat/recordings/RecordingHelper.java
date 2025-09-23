@@ -92,6 +92,7 @@ import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.NotFoundException;
@@ -1615,19 +1616,12 @@ public class RecordingHelper {
         @Inject Logger logger;
 
         @Override
+        @Transactional
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
             var jobDataMap = ctx.getJobDetail().getJobDataMap();
             try {
                 ActiveRecording recording =
-                        QuarkusTransaction.joiningExisting()
-                                .call(
-                                        () ->
-                                                ActiveRecording.find(
-                                                                "id",
-                                                                (Long)
-                                                                        jobDataMap.get(
-                                                                                "recordingId"))
-                                                        .singleResult());
+                        ActiveRecording.findById((Long) jobDataMap.get("recordingId"));
                 recordingHelper.stopRecording(recording);
             } catch (Exception e) {
                 throw new JobExecutionException(e);
