@@ -189,7 +189,6 @@ public class Discovery {
         }
     }
 
-    @Transactional
     @POST
     @Path("/api/v4/discovery")
     @Produces(MediaType.APPLICATION_JSON)
@@ -275,8 +274,12 @@ public class Discovery {
         if (StringUtils.isNotBlank(pluginId) && StringUtils.isNotBlank(priorToken)) {
             // refresh the JWT for existing registration
             plugin =
-                    DiscoveryPlugin.<DiscoveryPlugin>find("id", UUID.fromString(pluginId))
-                            .singleResult();
+                    QuarkusTransaction.joiningExisting()
+                            .call(
+                                    () ->
+                                            DiscoveryPlugin.<DiscoveryPlugin>find(
+                                                            "id", UUID.fromString(pluginId))
+                                                    .singleResult());
             if (!Objects.equals(plugin.realm.name, realmName)) {
                 throw new ForbiddenException();
             }
@@ -302,37 +305,50 @@ public class Discovery {
             // ping it:
             // if it's still there reject this request as a duplicate, otherwise delete the
             // previous record and accept this new one as a replacement
-            DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
-                    .singleResultOptional()
-                    .ifPresent(
-                            p -> {
-                                try {
-                                    var cb = PluginCallback.create(p);
-                                    cb.ping();
-                                    throw new IllegalArgumentException(
-                                            String.format(
-                                                    "Plugin with callback %s already exists and is"
-                                                            + " still reachable",
-                                                    unauthCallback));
-                                } catch (Exception e) {
-                                    logger.error(e);
-                                    p.delete();
-                                }
-                            });
+            plugin =
+                    QuarkusTransaction.joiningExisting()
+                            .call(
+                                    () -> {
+                                        DiscoveryPlugin.<DiscoveryPlugin>find(
+                                                        "callback", unauthCallback)
+                                                .singleResultOptional()
+                                                .ifPresent(
+                                                        p -> {
+                                                            try {
+                                                                var cb = PluginCallback.create(p);
+                                                                cb.ping();
+                                                                throw new IllegalArgumentException(
+                                                                        String.format(
+                                                                                "Plugin with"
+                                                                                    + " callback %s"
+                                                                                    + " already"
+                                                                                    + " exists and"
+                                                                                    + " is still"
+                                                                                    + " reachable",
+                                                                                unauthCallback));
+                                                            } catch (Exception e) {
+                                                                logger.error(e);
+                                                                p.delete();
+                                                            }
+                                                        });
 
-            // new plugin registration
-            plugin = new DiscoveryPlugin();
-            plugin.callback = callbackUri;
-            plugin.realm =
-                    DiscoveryNode.environment(
-                            requireNonBlank(realmName, "realm"), NodeType.BaseNodeType.REALM);
-            plugin.builtin = false;
+                                        // new plugin registration
+                                        DiscoveryPlugin p = new DiscoveryPlugin();
+                                        p.callback = callbackUri;
+                                        p.realm =
+                                                DiscoveryNode.environment(
+                                                        requireNonBlank(realmName, "realm"),
+                                                        NodeType.BaseNodeType.REALM);
+                                        p.builtin = false;
 
-            var universe = DiscoveryNode.getUniverse();
-            plugin.realm.parent = universe;
-            plugin.persist();
-            universe.children.add(plugin.realm);
-            universe.persist();
+                                        var universe = DiscoveryNode.getUniverse();
+                                        p.realm.parent = universe;
+                                        p.persist();
+                                        universe.children.add(p.realm);
+                                        universe.persist();
+
+                                        return p;
+                                    });
 
             try {
                 location = jwtFactory.getPluginLocation(plugin);
@@ -534,15 +550,19 @@ public class Discovery {
         @Inject Logger logger;
 
         @Override
-        @Transactional
         public void execute(JobExecutionContext context) throws JobExecutionException {
             DiscoveryPlugin plugin = null;
             try {
                 boolean refresh = context.getMergedJobDataMap().getBoolean(REFRESH_MAP_KEY);
                 plugin =
-                        DiscoveryPlugin.find(
-                                        "id", context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY))
-                                .singleResult();
+                        QuarkusTransaction.joiningExisting()
+                                .call(
+                                        () ->
+                                                DiscoveryPlugin.find(
+                                                                "id",
+                                                                context.getMergedJobDataMap()
+                                                                        .get(PLUGIN_ID_MAP_KEY))
+                                                        .singleResult());
                 var cb = PluginCallback.create(plugin);
                 if (refresh) {
                     cb.refresh();

@@ -31,6 +31,7 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -99,11 +100,12 @@ public class LongRunningRequestGenerator {
     public LongRunningRequestGenerator() {}
 
     @ConsumeEvent(value = THREAD_DUMP_ADDRESS, blocking = true)
-    @Transactional
     public void onMessage(ThreadDumpRequest request) {
         logger.tracev("Job ID: {0} submitted.", request.id());
         try {
-            var target = Target.getTargetById(request.targetId);
+            var target =
+                    QuarkusTransaction.joiningExisting()
+                            .call(() -> Target.getTargetById(request.targetId));
             var dump = diagnosticsHelper.dumpThreads(target, request.format, request.id());
             bus.publish(
                     MessagingServer.class.getName(),
@@ -132,8 +134,9 @@ public class LongRunningRequestGenerator {
     public ArchivedRecording onMessage(ArchiveRequest request) {
         logger.trace("Job ID: " + request.id() + " submitted.");
         try {
-            var target = Target.<Target>findById(request.recording.target.id);
-            var recording = target.getRecordingById(request.recording.remoteId);
+            var recording =
+                    Target.<Target>findById(request.recording.target.id)
+                            .getRecordingById(request.recording.remoteId);
             var rec = recordingHelper.archiveRecording(recording);
             logger.trace("Recording archived, firing notification");
             bus.publish(
@@ -318,11 +321,12 @@ public class LongRunningRequestGenerator {
     }
 
     @ConsumeEvent(value = HEAP_DUMP_REQUEST_ADDRESS, blocking = true)
-    @Transactional
     public void onMessage(HeapDumpRequest request) {
         logger.warnv("Job ID: {0} submitted.", request.id());
         try {
-            var target = Target.getTargetById(request.targetId);
+            var target =
+                    QuarkusTransaction.joiningExisting()
+                            .call(() -> Target.getTargetById(request.targetId));
             diagnosticsHelper.dumpHeap(target, request.id());
 
             bus.publish(

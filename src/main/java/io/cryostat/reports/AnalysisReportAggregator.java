@@ -52,7 +52,6 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
@@ -81,7 +80,6 @@ public class AnalysisReportAggregator {
     @Inject RecordingHelper recordingHelper;
 
     @ConsumeEvent(value = ActiveRecordings.ARCHIVED_RECORDING_CREATED, blocking = true)
-    @Transactional
     public void onMessage(ArchivedRecording recording) {
         var autoanalyze = recording.metadata().labels().get(AUTOANALYZE_LABEL);
         if (Boolean.parseBoolean(autoanalyze)) {
@@ -129,7 +127,6 @@ public class AnalysisReportAggregator {
     @ConsumeEvent(
             value = LongRunningRequestGenerator.ACTIVE_REPORT_COMPLETE_ADDRESS,
             blocking = true)
-    @Transactional
     public void onMessage(ActiveReportCompletion evt) {
         var jvmId = evt.recording().target.jvmId;
         getOrCreateEntry(jvmId)
@@ -155,7 +152,6 @@ public class AnalysisReportAggregator {
     @ConsumeEvent(
             value = LongRunningRequestGenerator.ARCHIVED_REPORT_COMPLETE_ADDRESS,
             blocking = true)
-    @Transactional
     public void onMessage(ArchivedReportCompletion evt) {
         var jvmId = evt.jvmId();
         var filename = evt.filename();
@@ -199,7 +195,6 @@ public class AnalysisReportAggregator {
     @GET
     @Produces(MediaType.TEXT_PLAIN)
     @RolesAllowed("read")
-    @Transactional
     @Operation(
             summary = "Retrieve the latest aggregate report data",
             description =
@@ -225,7 +220,6 @@ public class AnalysisReportAggregator {
     @Path("/{jvmId}")
     @Produces(MediaType.TEXT_PLAIN)
     @RolesAllowed("read")
-    @Transactional
     @Operation(
             summary = "Retrieve the latest aggregate report data for the specified target",
             description =

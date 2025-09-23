@@ -92,7 +92,6 @@ import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
-import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.NotFoundException;
@@ -416,8 +415,15 @@ public class RecordingHelper {
         if (!restart) {
             throw new EntityExistsException("Recording", recordingName);
         }
-        getActiveRecording(target, r -> r.name.equals(recordingName))
-                .ifPresent(r -> this.deleteRecording(r).await().atMost(connectionFailedTimeout));
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () ->
+                                getActiveRecording(target, r -> r.name.equals(recordingName))
+                                        .ifPresent(
+                                                r ->
+                                                        this.deleteRecording(r)
+                                                                .await()
+                                                                .atMost(connectionFailedTimeout)));
         var desc =
                 connectionManager.executeConnectedTask(
                         target,
@@ -475,38 +481,49 @@ public class RecordingHelper {
         labels.put("template.type", template.getType().toString());
         Metadata meta = new Metadata(labels);
 
-        ActiveRecording recording = ActiveRecording.from(target, desc, meta, options);
-        recording.persist();
+        return QuarkusTransaction.joiningExisting()
+                .call(
+                        () -> {
+                            Target t = Target.findById(target.id);
+                            ActiveRecording recording =
+                                    ActiveRecording.from(t, desc, meta, options);
+                            recording.persist();
 
-        target.activeRecordings.add(recording);
-        target.persist();
+                            t.activeRecordings.add(recording);
+                            t.persist();
 
-        if (!recording.continuous) {
-            JobKey key = JobKey.jobKey(target.jvmId, Long.toString(recording.remoteId));
-            JobDetail jobDetail =
-                    JobBuilder.newJob(StopRecordingJob.class).withIdentity(key).build();
-            try {
-                if (!scheduler.checkExists(key)) {
-                    Map<String, Object> data = jobDetail.getJobDataMap();
-                    data.put("recordingId", recording.id);
-                    Trigger trigger =
-                            TriggerBuilder.newTrigger()
-                                    .usingJobData(jobDetail.getJobDataMap())
-                                    .startAt(
-                                            new Date(
-                                                    System.currentTimeMillis()
-                                                            + recording.duration))
-                                    .build();
-                    scheduler.scheduleJob(jobDetail, trigger);
-                }
-            } catch (SchedulerException e) {
-                logger.warn(e);
-            }
-        }
+                            if (!recording.continuous) {
+                                JobKey key =
+                                        JobKey.jobKey(t.jvmId, Long.toString(recording.remoteId));
+                                JobDetail jobDetail =
+                                        JobBuilder.newJob(StopRecordingJob.class)
+                                                .withIdentity(key)
+                                                .build();
+                                try {
+                                    if (!scheduler.checkExists(key)) {
+                                        Map<String, Object> data = jobDetail.getJobDataMap();
+                                        data.put("recordingId", recording.id);
+                                        Trigger trigger =
+                                                TriggerBuilder.newTrigger()
+                                                        .usingJobData(jobDetail.getJobDataMap())
+                                                        .startAt(
+                                                                new Date(
+                                                                        System.currentTimeMillis()
+                                                                                + recording
+                                                                                        .duration))
+                                                        .build();
+                                        scheduler.scheduleJob(jobDetail, trigger);
+                                    }
+                                } catch (SchedulerException e) {
+                                    logger.warn(e);
+                                }
+                            }
 
-        logger.debugv("Started recording: {0} {1}", target.connectUrl, target.activeRecordings);
+                            logger.debugv(
+                                    "Started recording: {0} {1}", t.connectUrl, t.activeRecordings);
 
-        return Uni.createFrom().item(recording);
+                            return Uni.createFrom().item(recording);
+                        });
     }
 
     public Uni<ActiveRecording> createSnapshot(Target target) {
@@ -1598,13 +1615,19 @@ public class RecordingHelper {
         @Inject Logger logger;
 
         @Override
-        @Transactional
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
             var jobDataMap = ctx.getJobDetail().getJobDataMap();
             try {
                 ActiveRecording recording =
-                        ActiveRecording.find("id", (Long) jobDataMap.get("recordingId"))
-                                .singleResult();
+                        QuarkusTransaction.joiningExisting()
+                                .call(
+                                        () ->
+                                                ActiveRecording.find(
+                                                                "id",
+                                                                (Long)
+                                                                        jobDataMap.get(
+                                                                                "recordingId"))
+                                                        .singleResult());
                 recordingHelper.stopRecording(recording);
             } catch (Exception e) {
                 throw new JobExecutionException(e);

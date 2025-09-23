@@ -34,6 +34,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.common.annotation.Identifier;
 import io.vertx.core.http.HttpServerResponse;
@@ -41,7 +42,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
@@ -118,21 +118,22 @@ public class Diagnostics {
     @Path("targets/{targetId}/threaddump")
     @RolesAllowed("read")
     @Blocking
-    @Transactional
     @GET
     public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
         log.tracev("Fetching thread dumps for target: {0}", targetId);
-        return helper.getThreadDumps(Target.getTargetById(targetId));
+        return helper.getThreadDumps(
+                QuarkusTransaction.joiningExisting().call(() -> Target.getTargetById(targetId)));
     }
 
     @DELETE
     @Blocking
-    @Transactional
     @Path("targets/{targetId}/threaddump/{threadDumpId}")
     @RolesAllowed("write")
     public void deleteThreadDump(@RestPath long targetId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
-        helper.deleteThreadDump(Target.getTargetById(targetId), threadDumpId);
+        helper.deleteThreadDump(
+                QuarkusTransaction.joiningExisting().call(() -> Target.getTargetById(targetId)),
+                threadDumpId);
     }
 
     @Path("/threaddump/download/{encodedKey}")
@@ -209,7 +210,6 @@ public class Diagnostics {
     @Path("targets/{targetId}/gc")
     @RolesAllowed("write")
     @Blocking
-    @Transactional
     @POST
     @Operation(
             summary = "Initiate a garbage collection on the specified target",
@@ -220,7 +220,7 @@ public class Diagnostics {
                     """)
     public void gc(@RestPath long targetId) {
         targetConnectionManager.executeConnectedTask(
-                Target.getTargetById(targetId),
+                QuarkusTransaction.joiningExisting().call(() -> Target.getTargetById(targetId)),
                 conn ->
                         conn.invokeMBeanOperation(
                                 "java.lang:type=Memory", "gc", null, null, Void.class));
