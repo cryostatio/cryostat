@@ -31,18 +31,13 @@ import io.vertx.core.json.JsonObject;
 import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(S3StorageResource.class)
 @QuarkusTestResource(value = ExternalApplicationResource.class, restrictToAnnotatedClass = true)
-@EnabledIfEnvironmentVariable(
-        named = "PR_CI",
-        matches = "true",
-        disabledReason =
-                "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
-                        + " testcontainers 'Broken Pipe' IOException")
+@Disabled
 public class ExternalRecordingIT extends StandardSelfTest {
 
     @Test

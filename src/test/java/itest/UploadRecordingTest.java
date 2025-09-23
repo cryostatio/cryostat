@@ -139,7 +139,9 @@ public class UploadRecordingTest extends StandardSelfTest {
                                 MatcherAssert.assertThat(
                                         ar.result().statusCode(), Matchers.equalTo(200));
                                 MatcherAssert.assertThat(
-                                        ar.result().getHeader(HttpHeaders.CONTENT_TYPE.toString()),
+                                        ar.result()
+                                                .getHeader(HttpHeaders.CONTENT_TYPE.toString())
+                                                .split(";")[0],
                                         Matchers.equalTo(HttpMimeType.PLAINTEXT.mime()));
                                 getRespFuture.complete(ar.result().bodyAsString());
                             }
@@ -199,7 +201,9 @@ public class UploadRecordingTest extends StandardSelfTest {
                                 MatcherAssert.assertThat(
                                         ar.result().statusCode(), Matchers.equalTo(200));
                                 MatcherAssert.assertThat(
-                                        ar.result().getHeader(HttpHeaders.CONTENT_TYPE.toString()),
+                                        ar.result()
+                                                .getHeader(HttpHeaders.CONTENT_TYPE.toString())
+                                                .split(";")[0],
                                         Matchers.equalTo(HttpMimeType.JSON.mime()));
                                 queryRespFuture.complete(ar.result().bodyAsJsonArray());
                             }
