@@ -153,6 +153,7 @@ public class ActiveRecordings {
     }
 
     @Mutation
+    @Transactional
     @Description(
             "Stop an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
@@ -160,33 +161,21 @@ public class ActiveRecordings {
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings)
             throws Exception {
         var list =
-                QuarkusTransaction.joiningExisting()
-                        .call(
-                                () ->
-                                        DiscoveryNode.<DiscoveryNode>listAll().stream()
-                                                .filter(nodes)
-                                                .flatMap(
-                                                        node ->
-                                                                RootNode.recurseChildren(
-                                                                                node,
-                                                                                n ->
-                                                                                        n.target
-                                                                                                != null)
-                                                                        .stream()
-                                                                        .map(n -> n.target))
-                                                .flatMap(
-                                                        t ->
-                                                                recordingHelper
-                                                                        .listActiveRecordings(t)
-                                                                        .stream()
-                                                                        .filter(
-                                                                                r ->
-                                                                                        recordings
-                                                                                                        == null
-                                                                                                || recordings
-                                                                                                        .test(
-                                                                                                                r)))
-                                                .toList());
+                DiscoveryNode.<DiscoveryNode>listAll().stream()
+                        .filter(nodes)
+                        .flatMap(
+                                node ->
+                                        RootNode.recurseChildren(node, n -> n.target != null)
+                                                .stream()
+                                                .map(n -> n.target))
+                        .flatMap(
+                                t ->
+                                        recordingHelper.listActiveRecordings(t).stream()
+                                                .filter(
+                                                        r ->
+                                                                recordings == null
+                                                                        || recordings.test(r)))
+                        .toList();
         for (var r : list) {
             recordingHelper.stopRecording(r).await().atMost(Duration.ofSeconds(10));
         }
@@ -194,39 +183,28 @@ public class ActiveRecordings {
     }
 
     @Mutation
+    @Transactional
     @Description(
             "Delete an existing Flight Recording matching the given filter, on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
     public List<ActiveRecording> deleteRecording(
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings) {
         var list =
-                QuarkusTransaction.joiningExisting()
-                        .call(
-                                () ->
-                                        DiscoveryNode.<DiscoveryNode>listAll().stream()
-                                                .filter(nodes)
-                                                .flatMap(
-                                                        node ->
-                                                                RootNode.recurseChildren(
-                                                                                node,
-                                                                                n ->
-                                                                                        n.target
-                                                                                                != null)
-                                                                        .stream()
-                                                                        .map(n -> n.target))
-                                                .flatMap(
-                                                        t ->
-                                                                recordingHelper
-                                                                        .listActiveRecordings(t)
-                                                                        .stream()
-                                                                        .filter(
-                                                                                r ->
-                                                                                        recordings
-                                                                                                        == null
-                                                                                                || recordings
-                                                                                                        .test(
-                                                                                                                r)))
-                                                .toList());
+                DiscoveryNode.<DiscoveryNode>listAll().stream()
+                        .filter(nodes)
+                        .flatMap(
+                                node ->
+                                        RootNode.recurseChildren(node, n -> n.target != null)
+                                                .stream()
+                                                .map(n -> n.target))
+                        .flatMap(
+                                t ->
+                                        recordingHelper.listActiveRecordings(t).stream()
+                                                .filter(
+                                                        r ->
+                                                                recordings == null
+                                                                        || recordings.test(r)))
+                        .toList();
         for (var r : list) {
             recordingHelper.deleteRecording(r).await().atMost(Duration.ofSeconds(10));
         }
@@ -234,26 +212,20 @@ public class ActiveRecordings {
     }
 
     @Mutation
+    @Transactional
     @Description(
             "Create a Flight Recorder Snapshot on all Targets under"
                     + " the subtrees of the discovery nodes matching the given filter")
     public List<ActiveRecording> createSnapshot(@NonNull DiscoveryNodeFilter nodes) {
         var targets =
-                QuarkusTransaction.joiningExisting()
-                        .call(
-                                () ->
-                                        DiscoveryNode.<DiscoveryNode>listAll().stream()
-                                                .filter(nodes)
-                                                .flatMap(
-                                                        node ->
-                                                                RootNode.recurseChildren(
-                                                                                node,
-                                                                                n ->
-                                                                                        n.target
-                                                                                                != null)
-                                                                        .stream()
-                                                                        .map(n -> n.target))
-                                                .toList());
+                DiscoveryNode.<DiscoveryNode>listAll().stream()
+                        .filter(nodes)
+                        .flatMap(
+                                node ->
+                                        RootNode.recurseChildren(node, n -> n.target != null)
+                                                .stream()
+                                                .map(n -> n.target))
+                        .toList();
         var snapshots = new ArrayList<ActiveRecording>();
         for (var t : targets) {
             snapshots.add(recordingHelper.createSnapshot(t).await().atMost(timeout));
@@ -284,9 +256,9 @@ public class ActiveRecordings {
     }
 
     @Description("Create a new Flight Recorder Snapshot on the specified Target")
+    @Transactional
     public ActiveRecording doSnapshot(@Source Target target) {
-        var fTarget =
-                QuarkusTransaction.joiningExisting().call(() -> Target.getTargetById(target.id));
+        var fTarget = Target.getTargetById(target.id);
         return recordingHelper.createSnapshot(fTarget).await().atMost(timeout);
     }
 
