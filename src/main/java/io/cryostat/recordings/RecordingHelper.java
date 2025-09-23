@@ -266,21 +266,10 @@ public class RecordingHelper {
     // data we find there. We should have some remote connection callback (JMX listener, WebSocket)
     // to the target and update our database when remote recording events occur, rather than doing a
     // full sync when this method is called.
-    public List<ActiveRecording> listActiveRecordings(Target target) {
-        return QuarkusTransaction.joiningExisting().call(() -> listActiveRecordingsImpl(target));
-    }
-
-    public Optional<ActiveRecording> getActiveRecording(
-            Target target, Predicate<ActiveRecording> fn) {
-        return listActiveRecordings(target).stream().filter(fn).findFirst();
-    }
-
-    public Optional<ActiveRecording> getActiveRecording(Target target, long remoteId) {
-        return getActiveRecording(target, r -> r.remoteId == remoteId);
-    }
-
-    private List<ActiveRecording> listActiveRecordingsImpl(Target target) {
-        target = Target.find("id", target.id).singleResult();
+    public List<ActiveRecording> listActiveRecordings(final Target t) {
+        Target target =
+                QuarkusTransaction.joiningExisting()
+                        .call(() -> Target.find("id", t.id).singleResult());
         try {
             var previousRecordings = target.activeRecordings;
             var previousIds =
@@ -290,79 +279,96 @@ public class RecordingHelper {
             List<IRecordingDescriptor> descriptors =
                     connectionManager.executeConnectedTask(
                             target, conn -> conn.getService().getAvailableRecordings());
-            boolean updated = false;
-            var it = target.activeRecordings.iterator();
-            while (it.hasNext()) {
-                var r = it.next();
-                if (!previousIds.contains(r.remoteId)) {
-                    r.delete();
-                    it.remove();
-                    updated |= true;
-                }
-            }
-            for (var descriptor : descriptors) {
-                if (previousIds.contains(descriptor.getId())) {
-                    var recording = target.getRecordingById(descriptor.getId());
-                    switch (descriptor.getState()) {
-                        case CREATED:
-                            recording.state = RecordingState.DELAYED;
-                            updated |= true;
-                            break;
-                        case RUNNING:
-                            recording.state = RecordingState.RUNNING;
-                            updated |= true;
-                            break;
-                        case STOPPING:
-                            recording.state = RecordingState.RUNNING;
-                            updated |= true;
-                            break;
-                        case STOPPED:
-                            recording.state = RecordingState.STOPPED;
-                            updated |= true;
-                            break;
-                        default:
-                            recording.state = RecordingState.NEW;
-                            updated |= true;
-                            break;
-                    }
-                    if (updated) {
-                        try {
-                            recording.persist();
-                        } catch (PersistenceException e) {
-                            logger.warn(e);
-                        }
-                    }
-                    continue;
-                }
-                updated |= true;
-                var labels = new HashMap<String, String>();
-                if (externalRecordingAutoanalyze) {
-                    labels.put(AnalysisReportAggregator.AUTOANALYZE_LABEL, Boolean.TRUE.toString());
-                }
-                // TODO is there any other metadata to attach here?
-                var recording = ActiveRecording.from(target, descriptor, new Metadata(labels));
-                recording.external = true;
-                if (externalRecordingArchive && recording.external) {
-                    recording.archiveOnStop = true;
-                }
-                // FIXME this is a hack. Older Cryostat versions enforced that recordings' names
-                // were unique within the target JVM, but this could only be enforced when Cryostat
-                // was originating the recording creation. Recordings already have unique IDs, so
-                // enforcing unique names was only for the purpose of providing a tidier UI. We
-                // should remove this assumption/enforcement and allow recordings to have non-unique
-                // names. However, the UI is currently built with this expectation and often uses
-                // recordings' names as unique keys rather than their IDs.
-                while (previousNames.contains(recording.name)) {
-                    recording.name = String.format("%s-%d", recording.name, recording.remoteId);
-                }
-                previousNames.add(recording.name);
-                previousIds.add(recording.remoteId);
-                recording.persist();
-                target.activeRecordings.add(recording);
-            }
-            if (updated) {
-                target.persist();
-            }
+            QuarkusTransaction.joiningExisting()
+                    .run(
+                            () -> {
+                                boolean updated = false;
+                                var it = target.activeRecordings.iterator();
+                                while (it.hasNext()) {
+                                    var r = it.next();
+                                    if (!previousIds.contains(r.remoteId)) {
+                                        r.delete();
+                                        it.remove();
+                                        updated |= true;
+                                    }
+                                }
+                                for (var descriptor : descriptors) {
+                                    if (previousIds.contains(descriptor.getId())) {
+                                        var recording = target.getRecordingById(descriptor.getId());
+                                        switch (descriptor.getState()) {
+                                            case CREATED:
+                                                recording.state = RecordingState.DELAYED;
+                                                updated |= true;
+                                                break;
+                                            case RUNNING:
+                                                recording.state = RecordingState.RUNNING;
+                                                updated |= true;
+                                                break;
+                                            case STOPPING:
+                                                recording.state = RecordingState.RUNNING;
+                                                updated |= true;
+                                                break;
+                                            case STOPPED:
+                                                recording.state = RecordingState.STOPPED;
+                                                updated |= true;
+                                                break;
+                                            default:
+                                                recording.state = RecordingState.NEW;
+                                                updated |= true;
+                                                break;
+                                        }
+                                        if (updated) {
+                                            try {
+                                                recording.persist();
+                                            } catch (PersistenceException e) {
+                                                logger.warn(e);
+                                            }
+                                        }
+                                        continue;
+                                    }
+                                    updated |= true;
+                                    var labels = new HashMap<String, String>();
+                                    if (externalRecordingAutoanalyze) {
+                                        labels.put(
+                                                AnalysisReportAggregator.AUTOANALYZE_LABEL,
+                                                Boolean.TRUE.toString());
+                                    }
+                                    // TODO is there any other metadata to attach here?
+                                    var recording =
+                                            ActiveRecording.from(
+                                                    target, descriptor, new Metadata(labels));
+                                    recording.external = true;
+                                    if (externalRecordingArchive && recording.external) {
+                                        recording.archiveOnStop = true;
+                                    }
+                                    // FIXME this is a hack. Older Cryostat versions enforced that
+                                    // recordings' names
+                                    // were unique within the target JVM, but this could only be
+                                    // enforced when Cryostat
+                                    // was originating the recording creation. Recordings already
+                                    // have unique IDs, so
+                                    // enforcing unique names was only for the purpose of providing
+                                    // a tidier UI. We
+                                    // should remove this assumption/enforcement and allow
+                                    // recordings to have non-unique
+                                    // names. However, the UI is currently built with this
+                                    // expectation and often uses
+                                    // recordings' names as unique keys rather than their IDs.
+                                    while (previousNames.contains(recording.name)) {
+                                        recording.name =
+                                                String.format(
+                                                        "%s-%d",
+                                                        recording.name, recording.remoteId);
+                                    }
+                                    previousNames.add(recording.name);
+                                    previousIds.add(recording.remoteId);
+                                    recording.persist();
+                                    target.activeRecordings.add(recording);
+                                }
+                                if (updated) {
+                                    target.persist();
+                                }
+                            });
         } catch (Exception e) {
             logger.errorv(
                     e,
@@ -370,6 +376,15 @@ public class RecordingHelper {
                     target.connectUrl);
         }
         return target.activeRecordings;
+    }
+
+    public Optional<ActiveRecording> getActiveRecording(
+            Target target, Predicate<ActiveRecording> fn) {
+        return listActiveRecordings(target).stream().filter(fn).findFirst();
+    }
+
+    public Optional<ActiveRecording> getActiveRecording(Target target, long remoteId) {
+        return getActiveRecording(target, r -> r.remoteId == remoteId);
     }
 
     public Uni<ActiveRecording> startRecording(
@@ -394,12 +409,9 @@ public class RecordingHelper {
                 connectionManager.executeConnectedTask(
                         target,
                         conn ->
-                                QuarkusTransaction.joiningExisting()
-                                        .call(
-                                                () ->
-                                                        getDescriptorByName(conn, recordingName)
-                                                                .map(this::mapState)
-                                                                .orElse(null)));
+                                getDescriptorByName(conn, recordingName)
+                                        .map(this::mapState)
+                                        .orElse(null));
         boolean restart = previousState == null || shouldRestartRecording(replace, previousState);
         if (!restart) {
             throw new EntityExistsException("Recording", recordingName);
