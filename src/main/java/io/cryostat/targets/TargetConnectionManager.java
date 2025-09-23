@@ -51,7 +51,6 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.unchecked.Unchecked;
@@ -293,13 +292,8 @@ public class TargetConnectionManager {
     }
 
     JFRConnection connect(URI connectUrl) throws Exception {
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () -> {
-                            var credentials =
-                                    credentialsFinder.getCredentialsForConnectUrl(connectUrl);
-                            return connect(connectUrl, credentials);
-                        });
+        var credentials = credentialsFinder.getCredentialsForConnectUrl(connectUrl);
+        return connect(connectUrl, credentials);
     }
 
     JFRConnection connect(URI connectUrl, Optional<Credential> credentials) throws Exception {
