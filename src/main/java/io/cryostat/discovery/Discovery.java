@@ -43,7 +43,6 @@ import com.fasterxml.jackson.annotation.JsonView;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
@@ -194,7 +193,6 @@ public class Discovery {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
-    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     @Tag(
             name = "Discovery",
             description =
@@ -549,7 +547,6 @@ public class Discovery {
      * pings plugins to ensure they are still alive/reachable and to prompt them to request a fresh
      * token if their token will be expiring soon.
      */
-    @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;
 
