@@ -157,7 +157,6 @@ public class Discovery {
     @GET
     @Path("/api/v4/discovery")
     @RolesAllowed("read")
-    @Transactional
     @Operation(summary = "Retrieve the entire discovery tree.")
     public DiscoveryNode get() {
         return DiscoveryNode.getUniverse();
@@ -515,7 +514,6 @@ public class Discovery {
     @Path("/api/v4/discovery_plugins")
     @RolesAllowed("read")
     @Tag(ref = "Discovery")
-    @Transactional
     @Operation(
             summary = "List currently registered discovery plugins",
             description =
@@ -533,7 +531,6 @@ public class Discovery {
     @Path("/api/v4/discovery_plugins/{id}")
     @RolesAllowed("read")
     @Tag(ref = "Discovery")
-    @Transactional
     @Operation(
             summary = "Retrieve a specific discovery plugin",
             description =
