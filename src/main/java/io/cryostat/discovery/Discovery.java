@@ -558,33 +558,32 @@ public class Discovery {
 
         @Override
         public void execute(JobExecutionContext context) throws JobExecutionException {
-            DiscoveryPlugin plugin = null;
+            PluginCallback cb = null;
             try {
-                boolean refresh = context.getMergedJobDataMap().getBoolean(REFRESH_MAP_KEY);
-                plugin =
+                cb =
                         QuarkusTransaction.joiningExisting()
                                 .call(
                                         () ->
-                                                DiscoveryPlugin.find(
-                                                                "id",
-                                                                context.getMergedJobDataMap()
-                                                                        .get(PLUGIN_ID_MAP_KEY))
-                                                        .singleResult());
-                var cb = PluginCallback.create(plugin);
-                if (refresh) {
+                                                PluginCallback.create(
+                                                        DiscoveryPlugin.find(
+                                                                        "id",
+                                                                        context.getMergedJobDataMap()
+                                                                                .get(
+                                                                                        PLUGIN_ID_MAP_KEY))
+                                                                .singleResult()));
+                if (context.getMergedJobDataMap().getBoolean(REFRESH_MAP_KEY)) {
                     cb.refresh();
-                    logger.debugv(
-                            "Refreshed discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
                 } else {
                     cb.ping();
-                    logger.debugv(
-                            "Retained discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
                 }
             } catch (Exception e) {
-                if (plugin != null) {
-                    logger.debugv(
-                            e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
-                    QuarkusTransaction.joiningExisting().run(plugin::delete);
+                if (cb != null) {
+                    QuarkusTransaction.joiningExisting()
+                            .run(
+                                    () ->
+                                            DiscoveryPlugin.deleteById(
+                                                    context.getMergedJobDataMap()
+                                                            .get(PLUGIN_ID_MAP_KEY)));
                 } else {
                     var ex = new JobExecutionException(e);
                     ex.setUnscheduleFiringTrigger(true);
