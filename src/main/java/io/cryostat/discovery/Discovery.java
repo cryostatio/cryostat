@@ -157,6 +157,7 @@ public class Discovery {
     @GET
     @Path("/api/v4/discovery")
     @RolesAllowed("read")
+    @Transactional
     @Operation(summary = "Retrieve the entire discovery tree.")
     public DiscoveryNode get() {
         return DiscoveryNode.getUniverse();
@@ -166,6 +167,7 @@ public class Discovery {
     @Path("/api/v4/discovery/{id}")
     @RolesAllowed("read")
     @Tag(ref = "Discovery")
+    @Transactional
     @Operation(
             summary = "Endpoint for discovery plugins to check their own registration status",
             description =
@@ -398,12 +400,12 @@ public class Discovery {
                         });
     }
 
-    @Transactional
     @POST
     @Path("/api/v4/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @PermitAll
     @Tag(ref = "Discovery")
+    @Transactional
     @Operation(
             summary = "Publish updated target discovery information",
             description =
@@ -470,11 +472,11 @@ public class Discovery {
         plugin.persist();
     }
 
-    @Transactional
     @DELETE
     @Path("/api/v4/discovery/{id}")
     @PermitAll
     @Tag(ref = "Discovery")
+    @Transactional
     @Operation(
             summary = "Delete the given plugin's registration",
             description =
@@ -513,6 +515,7 @@ public class Discovery {
     @Path("/api/v4/discovery_plugins")
     @RolesAllowed("read")
     @Tag(ref = "Discovery")
+    @Transactional
     @Operation(
             summary = "List currently registered discovery plugins",
             description =
@@ -530,6 +533,7 @@ public class Discovery {
     @Path("/api/v4/discovery_plugins/{id}")
     @RolesAllowed("read")
     @Tag(ref = "Discovery")
+    @Transactional
     @Operation(
             summary = "Retrieve a specific discovery plugin",
             description =
