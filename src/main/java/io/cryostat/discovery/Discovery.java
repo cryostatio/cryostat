@@ -46,6 +46,7 @@ import com.nimbusds.jwt.proc.BadJWTException;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -167,6 +168,7 @@ public class Discovery {
     @RolesAllowed("read")
     @Tag(ref = "Discovery")
     @Transactional
+    @Blocking
     @Operation(
             summary = "Endpoint for discovery plugins to check their own registration status",
             description =
@@ -203,6 +205,7 @@ public class Discovery {
 
                     The reference implementation of a Discovery Plugin is the Cryostat Agent.
                     """)
+    @Blocking
     @Operation(
             summary = "Register as a new discovery plugin or refresh existing registration",
             description =
@@ -405,6 +408,7 @@ public class Discovery {
     @PermitAll
     @Tag(ref = "Discovery")
     @Transactional
+    @Blocking
     @Operation(
             summary = "Publish updated target discovery information",
             description =
@@ -476,6 +480,7 @@ public class Discovery {
     @PermitAll
     @Tag(ref = "Discovery")
     @Transactional
+    @Blocking
     @Operation(
             summary = "Delete the given plugin's registration",
             description =
@@ -514,6 +519,8 @@ public class Discovery {
     @Path("/api/v4/discovery_plugins")
     @RolesAllowed("read")
     @Tag(ref = "Discovery")
+    @Transactional
+    @Blocking
     @Operation(
             summary = "List currently registered discovery plugins",
             description =
@@ -531,6 +538,8 @@ public class Discovery {
     @Path("/api/v4/discovery_plugins/{id}")
     @RolesAllowed("read")
     @Tag(ref = "Discovery")
+    @Transactional
+    @Blocking
     @Operation(
             summary = "Retrieve a specific discovery plugin",
             description =
