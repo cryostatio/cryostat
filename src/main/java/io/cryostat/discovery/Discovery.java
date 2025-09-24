@@ -43,10 +43,10 @@ import com.fasterxml.jackson.annotation.JsonView;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jwt.proc.BadJWTException;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
-import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -167,8 +167,6 @@ public class Discovery {
     @Path("/api/v4/discovery/{id}")
     @RolesAllowed("read")
     @Tag(ref = "Discovery")
-    @Transactional
-    @Blocking
     @Operation(
             summary = "Endpoint for discovery plugins to check their own registration status",
             description =
@@ -191,11 +189,13 @@ public class Discovery {
         }
     }
 
+    @Transactional
     @POST
     @Path("/api/v4/discovery")
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
+    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     @Tag(
             name = "Discovery",
             description =
@@ -205,7 +205,6 @@ public class Discovery {
 
                     The reference implementation of a Discovery Plugin is the Cryostat Agent.
                     """)
-    @Blocking
     @Operation(
             summary = "Register as a new discovery plugin or refresh existing registration",
             description =
@@ -271,144 +270,122 @@ public class Discovery {
                             ConfigProperties.AGENT_TLS_REQUIRED));
         }
 
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () -> {
-                            URI location;
-                            DiscoveryPlugin plugin;
-                            if (StringUtils.isNotBlank(pluginId)
-                                    && StringUtils.isNotBlank(priorToken)) {
-                                // refresh the JWT for existing registration
-                                plugin =
-                                        DiscoveryPlugin.<DiscoveryPlugin>find(
-                                                        "id", UUID.fromString(pluginId))
-                                                .singleResult();
-                                if (!Objects.equals(plugin.realm.name, realmName)) {
-                                    throw new ForbiddenException();
-                                }
-                                if (!Objects.equals(plugin.callback, unauthCallback)) {
-                                    throw new BadRequestException("plugin callback mismatch");
-                                }
+        URI location;
+        DiscoveryPlugin plugin;
+        if (StringUtils.isNotBlank(pluginId) && StringUtils.isNotBlank(priorToken)) {
+            // refresh the JWT for existing registration
+            plugin =
+                    DiscoveryPlugin.<DiscoveryPlugin>find("id", UUID.fromString(pluginId))
+                            .singleResult();
+            if (!Objects.equals(plugin.realm.name, realmName)) {
+                throw new ForbiddenException();
+            }
+            if (!Objects.equals(plugin.callback, unauthCallback)) {
+                throw new BadRequestException("plugin callback mismatch");
+            }
+            try {
+                location = jwtFactory.getPluginLocation(plugin);
+                jwtFactory.parseDiscoveryPluginJwt(
+                        plugin, priorToken, location, remoteAddress, false);
+            } catch (URISyntaxException
+                    | UnknownHostException
+                    | SocketException
+                    | BadJWTException
+                    | JOSEException
+                    | ParseException e) {
+                throw new BadRequestException(e);
+            } catch (NoSuchAlgorithmException e) {
+                throw new InternalServerErrorException(e);
+            }
+        } else {
+            // check if a plugin record with the same callback already exists. If it does,
+            // ping it:
+            // if it's still there reject this request as a duplicate, otherwise delete the
+            // previous record and accept this new one as a replacement
+            DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
+                    .singleResultOptional()
+                    .ifPresent(
+                            p -> {
                                 try {
-                                    location = jwtFactory.getPluginLocation(plugin);
-                                    jwtFactory.parseDiscoveryPluginJwt(
-                                            plugin, priorToken, location, remoteAddress, false);
-                                } catch (URISyntaxException
-                                        | UnknownHostException
-                                        | SocketException
-                                        | BadJWTException
-                                        | JOSEException
-                                        | ParseException e) {
-                                    throw new BadRequestException(e);
-                                } catch (NoSuchAlgorithmException e) {
-                                    throw new InternalServerErrorException(e);
+                                    var cb = PluginCallback.create(p);
+                                    cb.ping();
+                                    throw new IllegalArgumentException(
+                                            String.format(
+                                                    "Plugin with callback %s already exists and is"
+                                                            + " still reachable",
+                                                    unauthCallback));
+                                } catch (Exception e) {
+                                    logger.error(e);
+                                    p.delete();
                                 }
-                            } else {
-                                // check if a plugin record with the same callback already exists.
-                                // If it does,
-                                // ping it:
-                                // if it's still there reject this request as a duplicate, otherwise
-                                // delete the
-                                // previous record and accept this new one as a replacement
-                                DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
-                                        .singleResultOptional()
-                                        .ifPresent(
-                                                p -> {
-                                                    try {
-                                                        var cb = PluginCallback.create(p);
-                                                        cb.ping();
-                                                        throw new IllegalArgumentException(
-                                                                String.format(
-                                                                        "Plugin with callback %s"
-                                                                            + " already exists and"
-                                                                            + " is still reachable",
-                                                                        unauthCallback));
-                                                    } catch (Exception e) {
-                                                        logger.error(e);
-                                                        p.delete();
-                                                    }
-                                                });
+                            });
 
-                                // new plugin registration
-                                plugin = new DiscoveryPlugin();
-                                plugin.callback = callbackUri;
-                                plugin.realm =
-                                        DiscoveryNode.environment(
-                                                requireNonBlank(realmName, "realm"),
-                                                NodeType.BaseNodeType.REALM);
-                                plugin.builtin = false;
+            // new plugin registration
+            plugin = new DiscoveryPlugin();
+            plugin.callback = callbackUri;
+            plugin.realm =
+                    DiscoveryNode.environment(
+                            requireNonBlank(realmName, "realm"), NodeType.BaseNodeType.REALM);
+            plugin.builtin = false;
 
-                                var universe = DiscoveryNode.getUniverse();
-                                plugin.realm.parent = universe;
-                                plugin.persist();
-                                universe.children.add(plugin.realm);
-                                universe.persist();
+            var universe = DiscoveryNode.getUniverse();
+            plugin.realm.parent = universe;
+            plugin.persist();
+            universe.children.add(plugin.realm);
+            universe.persist();
 
-                                try {
-                                    location = jwtFactory.getPluginLocation(plugin);
-                                } catch (URISyntaxException e) {
-                                    throw new BadRequestException(e);
-                                }
+            try {
+                location = jwtFactory.getPluginLocation(plugin);
+            } catch (URISyntaxException e) {
+                throw new BadRequestException(e);
+            }
 
-                                var dataMap = new JobDataMap();
-                                dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
-                                dataMap.put(REFRESH_MAP_KEY, true);
-                                JobDetail jobDetail =
-                                        JobBuilder.newJob(RefreshPluginJob.class)
-                                                .withIdentity(plugin.id.toString(), JOB_PERIODIC)
-                                                .usingJobData(dataMap)
-                                                .build();
-                                var trigger =
-                                        TriggerBuilder.newTrigger()
-                                                .usingJobData(jobDetail.getJobDataMap())
-                                                .startAt(
-                                                        Date.from(
-                                                                Instant.now()
-                                                                        .plus(discoveryPingPeriod)))
-                                                .withSchedule(
-                                                        SimpleScheduleBuilder.simpleSchedule()
-                                                                .repeatForever()
-                                                                .withIntervalInSeconds(
-                                                                        (int)
-                                                                                discoveryPingPeriod
-                                                                                        .toSeconds()))
-                                                .build();
-                                scheduler.scheduleJob(jobDetail, trigger);
-                            }
+            var dataMap = new JobDataMap();
+            dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
+            dataMap.put(REFRESH_MAP_KEY, true);
+            JobDetail jobDetail =
+                    JobBuilder.newJob(RefreshPluginJob.class)
+                            .withIdentity(plugin.id.toString(), JOB_PERIODIC)
+                            .usingJobData(dataMap)
+                            .build();
+            var trigger =
+                    TriggerBuilder.newTrigger()
+                            .usingJobData(jobDetail.getJobDataMap())
+                            .startAt(Date.from(Instant.now().plus(discoveryPingPeriod)))
+                            .withSchedule(
+                                    SimpleScheduleBuilder.simpleSchedule()
+                                            .repeatForever()
+                                            .withIntervalInSeconds(
+                                                    (int) discoveryPingPeriod.toSeconds()))
+                            .build();
+            scheduler.scheduleJob(jobDetail, trigger);
+        }
 
-                            String token;
-                            try {
-                                token =
-                                        jwtFactory.createDiscoveryPluginJwt(
-                                                plugin, remoteAddress, location);
-                            } catch (URISyntaxException
-                                    | JOSEException
-                                    | UnknownHostException
-                                    | SocketException e) {
-                                throw new BadRequestException(e);
-                            } catch (NoSuchAlgorithmException e) {
-                                throw new InternalServerErrorException(e);
-                            }
+        String token;
+        try {
+            token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, location);
+        } catch (URISyntaxException | JOSEException | UnknownHostException | SocketException e) {
+            throw new BadRequestException(e);
+        } catch (NoSuchAlgorithmException e) {
+            throw new InternalServerErrorException(e);
+        }
 
-                            // TODO implement more generic env map passing by some platform
-                            // detection
-                            // strategy or generalized config properties
-                            var envMap = new HashMap<String, String>();
-                            String insightsProxy = System.getenv("INSIGHTS_PROXY");
-                            if (StringUtils.isNotBlank(insightsProxy)) {
-                                envMap.put("INSIGHTS_SVC", insightsProxy);
-                            }
-                            return new PluginRegistration(plugin.id.toString(), token, envMap);
-                        });
+        // TODO implement more generic env map passing by some platform detection
+        // strategy or generalized config properties
+        var envMap = new HashMap<String, String>();
+        String insightsProxy = System.getenv("INSIGHTS_PROXY");
+        if (StringUtils.isNotBlank(insightsProxy)) {
+            envMap.put("INSIGHTS_SVC", insightsProxy);
+        }
+        return new PluginRegistration(plugin.id.toString(), token, envMap);
     }
 
+    @Transactional
     @POST
     @Path("/api/v4/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
     @PermitAll
     @Tag(ref = "Discovery")
-    @Transactional
-    @Blocking
     @Operation(
             summary = "Publish updated target discovery information",
             description =
@@ -475,12 +452,11 @@ public class Discovery {
         plugin.persist();
     }
 
+    @Transactional
     @DELETE
     @Path("/api/v4/discovery/{id}")
     @PermitAll
     @Tag(ref = "Discovery")
-    @Transactional
-    @Blocking
     @Operation(
             summary = "Delete the given plugin's registration",
             description =
@@ -553,37 +529,35 @@ public class Discovery {
      * pings plugins to ensure they are still alive/reachable and to prompt them to request a fresh
      * token if their token will be expiring soon.
      */
+    @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;
 
         @Override
+        @Transactional
         public void execute(JobExecutionContext context) throws JobExecutionException {
-            PluginCallback cb = null;
+            DiscoveryPlugin plugin = null;
             try {
-                cb =
-                        QuarkusTransaction.joiningExisting()
-                                .call(
-                                        () ->
-                                                PluginCallback.create(
-                                                        DiscoveryPlugin.find(
-                                                                        "id",
-                                                                        context.getMergedJobDataMap()
-                                                                                .get(
-                                                                                        PLUGIN_ID_MAP_KEY))
-                                                                .singleResult()));
-                if (context.getMergedJobDataMap().getBoolean(REFRESH_MAP_KEY)) {
+                boolean refresh = context.getMergedJobDataMap().getBoolean(REFRESH_MAP_KEY);
+                plugin =
+                        DiscoveryPlugin.find(
+                                        "id", context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY))
+                                .singleResult();
+                var cb = PluginCallback.create(plugin);
+                if (refresh) {
                     cb.refresh();
+                    logger.debugv(
+                            "Refreshed discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
                 } else {
                     cb.ping();
+                    logger.debugv(
+                            "Retained discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
                 }
             } catch (Exception e) {
-                if (cb != null) {
-                    QuarkusTransaction.joiningExisting()
-                            .run(
-                                    () ->
-                                            DiscoveryPlugin.deleteById(
-                                                    context.getMergedJobDataMap()
-                                                            .get(PLUGIN_ID_MAP_KEY)));
+                if (plugin != null) {
+                    logger.debugv(
+                            e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
+                    plugin.delete();
                 } else {
                     var ex = new JobExecutionException(e);
                     ex.setUnscheduleFiringTrigger(true);
