@@ -519,8 +519,6 @@ public class Discovery {
     @Path("/api/v4/discovery_plugins")
     @RolesAllowed("read")
     @Tag(ref = "Discovery")
-    @Transactional
-    @Blocking
     @Operation(
             summary = "List currently registered discovery plugins",
             description =
@@ -538,8 +536,6 @@ public class Discovery {
     @Path("/api/v4/discovery_plugins/{id}")
     @RolesAllowed("read")
     @Tag(ref = "Discovery")
-    @Transactional
-    @Blocking
     @Operation(
             summary = "Retrieve a specific discovery plugin",
             description =
