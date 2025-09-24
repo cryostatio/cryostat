@@ -46,6 +46,7 @@ import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -164,6 +165,7 @@ public class ActiveRecording extends PanacheEntity {
         boolean archiveExternal;
 
         @PostPersist
+        @Transactional
         public void postPersist(ActiveRecording activeRecording) {
             if (activeRecording.external) {
                 // if the recording was started externally, ex. by -XX:StartFlightRecording flag,
@@ -181,6 +183,7 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         @PostUpdate
+        @Transactional
         public void postUpdate(ActiveRecording activeRecording) {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 bus.publish(
@@ -218,6 +221,7 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         @PostRemove
+        @Transactional
         public void postRemove(ActiveRecording activeRecording) {
             bus.publish(
                     ActiveRecordings.RecordingEventCategory.ACTIVE_DELETED.category(),

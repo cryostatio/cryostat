@@ -375,7 +375,7 @@ public class RecordingHelper {
                             if (updated) {
                                 target.persist();
                             }
-                            return new ArrayList<>(target.activeRecordings);
+                            return target.activeRecordings;
                         });
     }
 

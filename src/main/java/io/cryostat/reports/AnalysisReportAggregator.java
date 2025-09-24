@@ -295,6 +295,9 @@ public class AnalysisReportAggregator {
     }
 
     private Uni<Entry> getOrCreateEntry(String jvmId) {
+        if (StringUtils.isBlank(jvmId)) {
+            return Uni.createFrom().failure(() -> new NotFoundException());
+        }
         return cache.get(
                 jvmId,
                 k -> {
