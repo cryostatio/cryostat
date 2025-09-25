@@ -37,6 +37,7 @@ import io.cryostat.targets.Target;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -147,7 +148,6 @@ public class ActiveRecordings {
     }
 
     @POST
-    @Transactional
     @Blocking
     @RolesAllowed("write")
     public RestResponse<LinkedRecordingDescriptor> create(
@@ -173,7 +173,9 @@ public class ActiveRecordings {
             throw new BadRequestException("\"events\" form parameter must be provided");
         }
 
-        Target target = Target.find("id", targetId).singleResult();
+        Target target =
+                QuarkusTransaction.joiningExisting()
+                        .call(() -> Target.find("id", targetId).singleResult());
 
         Pair<String, TemplateType> pair = recordingHelper.parseEventSpecifier(events);
         Template template =

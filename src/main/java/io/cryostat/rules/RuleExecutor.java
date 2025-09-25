@@ -39,6 +39,7 @@ import io.cryostat.rules.RuleService.ActivationAttempt;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -76,13 +77,19 @@ public class RuleExecutor {
     }
 
     @ConsumeEvent(blocking = true)
-    @Transactional
     Uni<Void> onMessage(ActivationAttempt attempt) {
-        Target attachedTarget = Target.<Target>find("id", attempt.target().id).singleResult();
         var priorRecording =
-                recordingHelper.getActiveRecording(
-                        attachedTarget,
-                        r -> Objects.equals(r.name, attempt.rule().getRecordingName()));
+                QuarkusTransaction.joiningExisting()
+                        .call(
+                                () ->
+                                        recordingHelper.getActiveRecording(
+                                                Target.<Target>find("id", attempt.target().id)
+                                                        .singleResult(),
+                                                r ->
+                                                        Objects.equals(
+                                                                r.name,
+                                                                attempt.rule()
+                                                                        .getRecordingName())));
         if (priorRecording.isPresent()) {
             try {
                 recordingHelper
@@ -101,26 +108,30 @@ public class RuleExecutor {
                 recordingHelper.getPreferredTemplate(
                         attempt.target(), pair.getKey(), pair.getValue());
 
-        try {
-            ActiveRecording recording =
-                    recordingHelper
-                            .startRecording(
-                                    attachedTarget,
-                                    RecordingReplace.STOPPED,
-                                    template,
-                                    createRecordingOptions(attempt.rule()),
-                                    Map.of("rule", attempt.rule().name))
-                            .await()
-                            .atMost(Duration.ofSeconds(10));
-            if (attempt.rule().isArchiver()) {
-                scheduleArchival(attempt.rule(), attachedTarget, recording);
-            }
-        } catch (QuantityConversionException e) {
-            logger.error(e);
-            return Uni.createFrom().failure(e);
-        }
-
-        return Uni.createFrom().nullItem();
+        return QuarkusTransaction.joiningExisting()
+                .call(
+                        () -> {
+                            try {
+                                Target target = Target.findById(attempt.target().id);
+                                ActiveRecording recording =
+                                        recordingHelper
+                                                .startRecording(
+                                                        target,
+                                                        RecordingReplace.STOPPED,
+                                                        template,
+                                                        createRecordingOptions(attempt.rule()),
+                                                        Map.of("rule", attempt.rule().name))
+                                                .await()
+                                                .atMost(Duration.ofSeconds(10));
+                                if (attempt.rule().isArchiver()) {
+                                    scheduleArchival(attempt.rule(), target, recording);
+                                }
+                            } catch (QuantityConversionException e) {
+                                logger.error(e);
+                                return Uni.createFrom().failure(e);
+                            }
+                            return Uni.createFrom().nullItem();
+                        });
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
@@ -147,7 +158,6 @@ public class RuleExecutor {
     }
 
     @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true)
-    @Transactional
     public void handleRuleModification(RuleEvent event) {
         Rule rule = event.rule();
         switch (event.category()) {
