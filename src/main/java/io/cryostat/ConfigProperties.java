@@ -44,6 +44,9 @@ public class ConfigProperties {
     public static final String AWS_METADATA_PREFIX_EVENT_TEMPLATES =
             "storage.metadata.prefix.event-templates";
 
+    public static final String DISCOVERY_IPV6_ENABLED = "cryostat.discovery.ipv6-enabled";
+    public static final String DISCOVERY_IPV4_DNS_TRANSFORM_ENABLED =
+            "cryostat.discovery.kubernetes.ipv4.dns-transform.enabled";
     public static final String CONTAINERS_POLL_PERIOD = "cryostat.discovery.containers.poll-period";
     public static final String CONTAINERS_REQUEST_TIMEOUT =
             "cryostat.discovery.containers.request-timeout";

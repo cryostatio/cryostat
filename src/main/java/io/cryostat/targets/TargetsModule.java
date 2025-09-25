@@ -22,8 +22,7 @@ import io.cryostat.libcryostat.sys.FileSystem;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Singleton;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 @Singleton
 public class TargetsModule {
@@ -31,7 +30,7 @@ public class TargetsModule {
     @Produces
     @DefaultBean
     public JFRConnectionToolkit provideJfrConnectionToolkit() {
-        Logger log = LoggerFactory.getLogger(JFRConnectionToolkit.class);
+        Logger log = Logger.getLogger(JFRConnectionToolkit.class);
         return new JFRConnectionToolkit(log::warn, new FileSystem(), new Environment());
     }
 }
