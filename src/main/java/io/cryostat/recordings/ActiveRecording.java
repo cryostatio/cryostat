@@ -260,8 +260,14 @@ public class ActiveRecording extends PanacheEntity {
                             Optional.ofNullable(connectUrl)
                                     .flatMap(
                                             url ->
-                                                    Target.find("connectUrl", url)
-                                                            .<Target>singleResultOptional())
+                                                    QuarkusTransaction.joiningExisting()
+                                                            .call(
+                                                                    () ->
+                                                                            Target.find(
+                                                                                            "connectUrl",
+                                                                                            url)
+                                                                                    .<Target>
+                                                                                            singleResultOptional()))
                                     .map(t -> t.jvmId)
                                     .orElse(null),
                             recording);
