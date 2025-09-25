@@ -125,9 +125,7 @@ public class CustomDiscovery {
                                 target.connectUrl));
             }
 
-            if (QuarkusTransaction.joiningExisting()
-                            .call(() -> Target.find("connectUrl", target.connectUrl).count())
-                    > 0) {
+            if (Target.find("connectUrl", target.connectUrl).count() > 0) {
                 throw new BadRequestException("Duplicate connection URL");
             }
 
@@ -142,9 +140,7 @@ public class CustomDiscovery {
                                         .await()
                                         .atMost(timeout);
 
-                if (QuarkusTransaction.joiningExisting()
-                                .call(() -> Target.find("jvmId", jvmId).count())
-                        > 0) {
+                if (Target.find("jvmId", jvmId).count() > 0) {
                     throw new BadRequestException(
                             String.format("Target with JVM ID \"%s\" already discovered", jvmId));
                 }
