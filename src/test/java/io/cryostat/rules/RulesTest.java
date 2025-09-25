@@ -335,6 +335,21 @@ public class RulesTest extends AbstractTransactionalTestBase {
                 .statusCode(400);
     }
 
+    @Test
+    public void testCreateThrowsWhenContentTypeIncorrect() {
+        given().log()
+                .all()
+                .body(rule.toString())
+                .contentType(ContentType.TEXT)
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(415);
+    }
+
     @ParameterizedTest
     @ValueSource(ints = {1, 16, 64, 128, 256})
     public void testCreateThrowsWhenNameTooLong(int len) {
