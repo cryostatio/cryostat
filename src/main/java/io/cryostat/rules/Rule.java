@@ -37,6 +37,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
+import jakarta.persistence.PrePersist;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -107,19 +108,13 @@ public class Rule extends PanacheEntity {
     static class Listener {
         @Inject EventBus bus;
 
-<<<<<<< HEAD
-=======
         @PrePersist
         public void prePersist(Rule rule) {
             if (rule.description == null) {
                 rule.description = "";
             }
-            if (rule.metadata == null) {
-                rule.metadata = new Metadata(Map.of());
-            }
         }
 
->>>>>>> ff41701 (fix(rules): set Automated Rule description to empty string if null (#1031))
         @PostPersist
         public void postPersist(Rule rule) {
             notify(new RuleEvent(RuleEventCategory.CREATED, rule));
