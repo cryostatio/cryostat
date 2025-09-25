@@ -27,6 +27,7 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -57,30 +58,45 @@ class ScheduledArchiveJob implements Job {
 
     @Override
     public void execute(JobExecutionContext ctx) throws JobExecutionException {
-        long ruleId = (long) ctx.getJobDetail().getJobDataMap().get("rule");
-        Rule rule = Rule.find("id", ruleId).singleResult();
-        long targetId = (long) ctx.getJobDetail().getJobDataMap().get("target");
-        Target target = Target.find("id", targetId).singleResult();
-        long recordingId = (long) ctx.getJobDetail().getJobDataMap().get("recording");
-        ActiveRecording recording =
-                recordingHelper.getActiveRecording(target, recordingId).orElseThrow();
+        var entry =
+                QuarkusTransaction.joiningExisting()
+                        .call(
+                                () -> {
+                                    long ruleId =
+                                            (long) ctx.getJobDetail().getJobDataMap().get("rule");
+                                    Rule rule = Rule.find("id", ruleId).singleResult();
+                                    long targetId =
+                                            (long) ctx.getJobDetail().getJobDataMap().get("target");
+                                    Target target = Target.find("id", targetId).singleResult();
+                                    long recordingId =
+                                            (long)
+                                                    ctx.getJobDetail()
+                                                            .getJobDataMap()
+                                                            .get("recording");
+                                    ActiveRecording recording =
+                                            recordingHelper
+                                                    .getActiveRecording(target, recordingId)
+                                                    .orElseThrow();
 
-        if (recording == null) {
-            throw new IllegalStateException(
-                    String.format(
-                            "Target %s did not have recording with remote ID %d",
-                            target.connectUrl, recordingId));
-        }
+                                    if (recording == null) {
+                                        throw new IllegalStateException(
+                                                String.format(
+                                                        "Target %s did not have recording with"
+                                                                + " remote ID %d",
+                                                        target.connectUrl, recordingId));
+                                    }
 
-        Queue<String> previousRecordings = new ArrayDeque<>(rule.preservedArchives);
+                                    return new Entry(target, rule, recording);
+                                });
 
-        initPreviousRecordings(target, rule, previousRecordings);
-        while (previousRecordings.size() >= rule.preservedArchives) {
-            pruneArchive(target, previousRecordings, previousRecordings.remove());
+        Queue<String> previousRecordings = new ArrayDeque<>(entry.rule.preservedArchives);
+        initPreviousRecordings(entry.target, entry.rule, previousRecordings);
+        while (previousRecordings.size() >= entry.rule.preservedArchives) {
+            pruneArchive(entry.target, previousRecordings, previousRecordings.remove());
         }
 
         try {
-            previousRecordings.add(recordingHelper.archiveRecording(recording).name());
+            previousRecordings.add(recordingHelper.archiveRecording(entry.recording).name());
         } catch (Exception e) {
             throw new JobExecutionException(e);
         }
@@ -115,4 +131,6 @@ class ScheduledArchiveJob implements Job {
         }
         previousRecordings.remove(filename);
     }
+
+    record Entry(Target target, Rule rule, ActiveRecording recording) {}
 }
