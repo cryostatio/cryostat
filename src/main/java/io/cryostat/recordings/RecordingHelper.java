@@ -1021,10 +1021,10 @@ public class RecordingHelper {
 
     public InputStream getActiveInputStream(long targetId, long remoteId, Duration timeout)
             throws Exception {
-        var target = Target.getTargetById(targetId);
-        var recording = target.getRecordingById(remoteId);
-        var stream = remoteRecordingStreamFactory.open(recording, timeout);
-        return stream;
+        return remoteRecordingStreamFactory.open(
+                QuarkusTransaction.joiningExisting()
+                        .call(() -> Target.getTargetById(targetId).getRecordingById(remoteId)),
+                timeout);
     }
 
     public InputStream getArchivedRecordingStream(String jvmId, String recordingName) {
