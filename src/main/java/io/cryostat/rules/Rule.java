@@ -107,6 +107,19 @@ public class Rule extends PanacheEntity {
     static class Listener {
         @Inject EventBus bus;
 
+<<<<<<< HEAD
+=======
+        @PrePersist
+        public void prePersist(Rule rule) {
+            if (rule.description == null) {
+                rule.description = "";
+            }
+            if (rule.metadata == null) {
+                rule.metadata = new Metadata(Map.of());
+            }
+        }
+
+>>>>>>> ff41701 (fix(rules): set Automated Rule description to empty string if null (#1031))
         @PostPersist
         public void postPersist(Rule rule) {
             notify(new RuleEvent(RuleEventCategory.CREATED, rule));
