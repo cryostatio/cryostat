@@ -560,8 +560,7 @@ public class RecordingHelper {
             throws Exception {
         var out =
                 connectionManager.executeConnectedTask(
-                        QuarkusTransaction.joiningExisting()
-                                .call(() -> Target.findById(recording.target.id)),
+                        recording.target,
                         conn -> {
                             var desc = getDescriptorById(conn, recording.remoteId);
                             if (desc.isEmpty()) {
