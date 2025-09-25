@@ -163,6 +163,7 @@ public class Credentials {
     }
 
     @Blocking
+    @Transactional
     @GET
     @RolesAllowed("read")
     @Path("/{id}")
