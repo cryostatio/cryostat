@@ -45,6 +45,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
@@ -129,6 +130,7 @@ public class RuleService {
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
+    @Transactional
     void onMessage(TargetDiscovery event) {
         switch (event.kind()) {
             case MODIFIED:
@@ -148,6 +150,7 @@ public class RuleService {
     }
 
     @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true)
+    @Transactional
     public void handleRuleModification(RuleEvent event) {
         Rule rule = event.rule();
         switch (event.category()) {
@@ -164,6 +167,7 @@ public class RuleService {
     }
 
     @ConsumeEvent(value = Rule.RULE_ADDRESS + "?clean", blocking = true)
+    @Transactional
     public void handleRuleRecordingCleanup(Rule rule) {
         var targets =
                 evaluator.getMatchedTargets(rule.matchExpression).stream()
