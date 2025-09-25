@@ -33,7 +33,6 @@ import io.cryostat.targets.TargetConnectionManager;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import graphql.schema.DataFetchingEnvironment;
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.graphql.api.Context;
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
@@ -98,10 +97,10 @@ public class TargetNodes {
         return recordings;
     }
 
+    @Transactional
     @Description("Get the active and archived recordings belonging to this target")
     public Recordings recordings(@Source Target target, Context context) {
-        var fTarget =
-                QuarkusTransaction.joiningExisting().call(() -> Target.getTargetById(target.id));
+        var fTarget = Target.getTargetById(target.id);
         var recordings = new Recordings();
         if (StringUtils.isBlank(fTarget.jvmId)) {
             return recordings;

@@ -23,7 +23,6 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.EventKind;
 import io.cryostat.targets.Target.TargetDiscovery;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -57,9 +56,7 @@ public class CredentialsFinder {
                 cache.computeIfAbsent(
                         target,
                         t ->
-                                QuarkusTransaction.joiningExisting()
-                                        .call(() -> Credential.<Credential>listAll())
-                                        .stream()
+                                Credential.<Credential>listAll().stream()
                                         .filter(
                                                 c -> {
                                                     try {
@@ -75,8 +72,8 @@ public class CredentialsFinder {
     }
 
     public Optional<Credential> getCredentialsForConnectUrl(URI connectUrl) {
-        return QuarkusTransaction.joiningExisting()
-                .call(() -> Target.find("connectUrl", connectUrl).<Target>singleResultOptional())
+        return Target.find("connectUrl", connectUrl)
+                .<Target>singleResultOptional()
                 .flatMap(this::getCredentialsForTarget);
     }
 }

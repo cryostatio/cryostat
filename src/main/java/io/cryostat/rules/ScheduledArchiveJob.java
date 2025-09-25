@@ -27,6 +27,7 @@ import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
@@ -46,6 +47,7 @@ class ScheduledArchiveJob implements Job {
     String archiveBucket;
 
     @Override
+    @Transactional
     public void execute(JobExecutionContext ctx) throws JobExecutionException {
         long ruleId = (long) ctx.getJobDetail().getJobDataMap().get("rule");
         Rule rule = Rule.find("id", ruleId).singleResult();

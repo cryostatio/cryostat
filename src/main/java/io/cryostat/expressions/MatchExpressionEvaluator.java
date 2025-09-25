@@ -40,6 +40,7 @@ import io.quarkus.vertx.ConsumeEvent;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.Label;
@@ -84,14 +85,10 @@ public class MatchExpressionEvaluator {
         }
     }
 
+    @Transactional
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
     void onMessage(TargetDiscovery event) {
-        var target =
-                QuarkusTransaction.joiningExisting()
-                        .call(
-                                () ->
-                                        Target.<Target>find("id", event.serviceRef().id)
-                                                .singleResultOptional());
+        var target = Target.<Target>find("id", event.serviceRef().id).singleResultOptional();
         switch (event.kind()) {
             case LOST:
             // fall-through
@@ -178,35 +175,39 @@ public class MatchExpressionEvaluator {
     }
 
     public List<Target> getMatchedTargets(MatchExpression matchExpression) {
-        var targets =
-                QuarkusTransaction.joiningExisting()
-                        .call(() -> Target.<Target>listAll().stream())
-                        .filter(
-                                target -> {
-                                    try {
-                                        return applies(matchExpression, target);
-                                    } catch (ScriptException e) {
-                                        logger.error(
-                                                "Error while processing expression: "
-                                                        + matchExpression,
-                                                e);
-                                        return false;
-                                    }
-                                })
-                        .collect(Collectors.toList());
+        return QuarkusTransaction.joiningExisting()
+                .call(
+                        () -> {
+                            var targets =
+                                    Target.<Target>listAll().stream()
+                                            .filter(
+                                                    target -> {
+                                                        try {
+                                                            return applies(matchExpression, target);
+                                                        } catch (ScriptException e) {
+                                                            logger.error(
+                                                                    "Error while processing"
+                                                                            + " expression: "
+                                                                            + matchExpression,
+                                                                    e);
+                                                            return false;
+                                                        }
+                                                    })
+                                            .collect(Collectors.toList());
 
-        var ids = new HashSet<>();
-        var it = targets.iterator();
-        while (it.hasNext()) {
-            var t = it.next();
-            if (ids.contains(t.jvmId)) {
-                it.remove();
-                continue;
-            }
-            ids.add(t.jvmId);
-        }
+                            var ids = new HashSet<>();
+                            var it = targets.iterator();
+                            while (it.hasNext()) {
+                                var t = it.next();
+                                if (ids.contains(t.jvmId)) {
+                                    it.remove();
+                                    continue;
+                                }
+                                ids.add(t.jvmId);
+                            }
 
-        return targets;
+                            return targets;
+                        });
     }
 
     @Name("io.cryostat.rules.MatchExpressionEvaluator.MatchExpressionApplies")

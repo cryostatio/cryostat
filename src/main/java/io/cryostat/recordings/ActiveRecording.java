@@ -44,7 +44,6 @@ import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
-import jakarta.transaction.Transactional;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -160,7 +159,6 @@ public class ActiveRecording extends PanacheEntity {
         @Inject RecordingHelper recordingHelper;
 
         @PostPersist
-        @Transactional
         public void postPersist(ActiveRecording activeRecording) {
             if (activeRecording.external) {
                 return;
@@ -175,7 +173,6 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         @PostUpdate
-        @Transactional
         public void postUpdate(ActiveRecording activeRecording) {
             if (activeRecording.external) {
                 return;
@@ -192,7 +189,6 @@ public class ActiveRecording extends PanacheEntity {
         }
 
         @PostRemove
-        @Transactional
         public void postRemove(ActiveRecording activeRecording) {
             if (activeRecording.external) {
                 return;

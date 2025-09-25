@@ -42,7 +42,6 @@ import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.targets.Target;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -64,6 +63,7 @@ public class ActiveRecordings {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
+    @Transactional
     @Mutation
     @Description(
             "Start a new Flight Recording on all Targets under the subtrees of the discovery nodes"
@@ -72,21 +72,14 @@ public class ActiveRecordings {
             @NonNull DiscoveryNodeFilter nodes, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
         var list =
-                QuarkusTransaction.joiningExisting()
-                        .call(
-                                () ->
-                                        DiscoveryNode.<DiscoveryNode>listAll().stream()
-                                                .filter(nodes)
-                                                .flatMap(
-                                                        node ->
-                                                                RootNode.recurseChildren(
-                                                                                node,
-                                                                                n ->
-                                                                                        n.target
-                                                                                                != null)
-                                                                        .stream()
-                                                                        .map(n -> n.target))
-                                                .toList());
+                DiscoveryNode.<DiscoveryNode>listAll().stream()
+                        .filter(nodes)
+                        .flatMap(
+                                node ->
+                                        RootNode.recurseChildren(node, n -> n.target != null)
+                                                .stream()
+                                                .map(n -> n.target))
+                        .toList();
         var recordings = new ArrayList<ActiveRecording>();
         for (var t : list) {
             var template =
@@ -111,6 +104,7 @@ public class ActiveRecordings {
         return recordings;
     }
 
+    @Transactional
     @Mutation
     @Description(
             "Archive an existing Flight Recording matching the given filter, on all Targets under"
@@ -119,33 +113,21 @@ public class ActiveRecordings {
             @NonNull DiscoveryNodeFilter nodes, @Nullable ActiveRecordingsFilter recordings)
             throws Exception {
         var list =
-                QuarkusTransaction.joiningExisting()
-                        .call(
-                                () ->
-                                        DiscoveryNode.<DiscoveryNode>listAll().stream()
-                                                .filter(nodes)
-                                                .flatMap(
-                                                        node ->
-                                                                RootNode.recurseChildren(
-                                                                                node,
-                                                                                n ->
-                                                                                        n.target
-                                                                                                != null)
-                                                                        .stream()
-                                                                        .map(n -> n.target))
-                                                .flatMap(
-                                                        t ->
-                                                                recordingHelper
-                                                                        .listActiveRecordings(t)
-                                                                        .stream()
-                                                                        .filter(
-                                                                                r ->
-                                                                                        recordings
-                                                                                                        == null
-                                                                                                || recordings
-                                                                                                        .test(
-                                                                                                                r)))
-                                                .toList());
+                DiscoveryNode.<DiscoveryNode>listAll().stream()
+                        .filter(nodes)
+                        .flatMap(
+                                node ->
+                                        RootNode.recurseChildren(node, n -> n.target != null)
+                                                .stream()
+                                                .map(n -> n.target))
+                        .flatMap(
+                                t ->
+                                        recordingHelper.listActiveRecordings(t).stream()
+                                                .filter(
+                                                        r ->
+                                                                recordings == null
+                                                                        || recordings.test(r)))
+                        .toList();
         var archives = new ArrayList<ArchivedRecording>();
         for (var r : list) {
             archives.add(recordingHelper.archiveRecording(r, null, null));
@@ -234,8 +216,8 @@ public class ActiveRecordings {
         return snapshots;
     }
 
-    @Description("Start a new Flight Recording on the specified Target")
     @Transactional
+    @Description("Start a new Flight Recording on the specified Target")
     public ActiveRecording doStartRecording(
             @Source Target target, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
