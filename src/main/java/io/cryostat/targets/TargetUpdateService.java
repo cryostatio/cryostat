@@ -49,27 +49,23 @@ public class TargetUpdateService {
     @Inject Scheduler scheduler;
     @Inject MatchExpressionEvaluator matchExpressionEvaluator;
 
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration connectionTimeout;
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_TTL)
+    Duration connectionTtl;
 
     void onStart(@Observes StartupEvent evt) throws SchedulerException {
         logger.tracev("{0} started", getClass().getName());
 
         JobDetail jobDetail = JobBuilder.newJob(TargetUpdateJob.class).build();
 
+        final int retryInterval = ((int) connectionTtl.toSeconds()) * 2;
         Trigger trigger =
                 TriggerBuilder.newTrigger()
                         .withSchedule(
                                 SimpleScheduleBuilder.simpleSchedule()
-                                        .withIntervalInSeconds(
-                                                (int) (connectionTimeout.toSeconds() * 2))
+                                        .withIntervalInSeconds(retryInterval)
                                         .repeatForever()
                                         .withMisfireHandlingInstructionNowWithExistingCount())
-                        .startAt(
-                                Date.from(
-                                        Instant.now()
-                                                .plusSeconds(
-                                                        (int) (connectionTimeout.toSeconds() * 2))))
+                        .startAt(Date.from(Instant.now().plusSeconds(retryInterval)))
                         .build();
         scheduler.scheduleJob(jobDetail, trigger);
     }
@@ -127,9 +123,12 @@ public class TargetUpdateService {
         data.put("targetId", target.id);
         Trigger trigger =
                 TriggerBuilder.newTrigger()
+                        .withIdentity(Long.toString(target.id))
                         .startAt(Date.from(Instant.now().plusSeconds(1)))
                         .usingJobData(jobDetail.getJobDataMap())
                         .build();
-        scheduler.scheduleJob(jobDetail, trigger);
+        if (!scheduler.checkExists(trigger.getKey())) {
+            scheduler.scheduleJob(jobDetail, trigger);
+        }
     }
 }

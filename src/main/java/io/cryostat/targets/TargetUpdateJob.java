@@ -20,13 +20,14 @@ import java.util.List;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.net.JFRConnection;
-import io.cryostat.libcryostat.JvmIdentifier;
 import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
@@ -48,37 +49,52 @@ public class TargetUpdateJob implements Job {
         List<Target> targets;
         Long targetId = (Long) context.getJobDetail().getJobDataMap().get("targetId");
         if (targetId != null) {
-            targets = List.of(Target.getTargetById(targetId));
+            try {
+                targets = List.of(Target.getTargetById(targetId));
+            } catch (PersistenceException e) {
+                // target disappeared in the meantime. No big deal.
+                logger.debug(e);
+                return;
+            }
         } else {
             targets = Target.<Target>find("#Target.unconnected").list();
         }
-
-        if (targets.size() == 1) {
-            updateTarget(targets.get(0));
-        } else {
-            targets.forEach(
-                    t -> Infrastructure.getDefaultExecutor().execute(() -> updateTargetTx(t.id)));
-        }
-    }
-
-    private void updateTargetTx(long id) {
-        QuarkusTransaction.requiringNew().run(() -> updateTarget(Target.getTargetById(id)));
+        targets.stream()
+                .peek(t -> logger.debugv("JVM ID for {0} = {1}", t.connectUrl, t.jvmId))
+                .sorted((a, b) -> a.alias.compareTo(b.alias))
+                .distinct()
+                .filter(t -> StringUtils.isBlank(t.jvmId))
+                .forEach(t -> Infrastructure.getDefaultExecutor().execute(() -> updateTarget(t)));
     }
 
     private void updateTarget(Target target) {
-        try {
-            target.jvmId =
-                    connectionManager
-                            .executeConnectedTaskUni(target, JFRConnection::getJvmIdentifier)
-                            .map(JvmIdentifier::getHash)
-                            .await()
-                            .atMost(connectionTimeout);
-        } catch (Exception e) {
-            target.jvmId = null;
-            target.persist();
-            throw e;
-        }
-        target.activeRecordings = recordingHelper.listActiveRecordings(target);
-        target.persist();
+        logger.debugv("Updating JVM ID for target {0} ({1})", target.connectUrl, target.alias);
+        final String jvmId =
+                connectionManager
+                        .executeConnectedTask(target, JFRConnection::getJvmIdentifier)
+                        .getHash();
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () -> {
+                            Target t = Target.getTargetById(target.id);
+                            try {
+                                t.jvmId = jvmId;
+                                logger.debugv(
+                                        "Updated JVM ID for target {0} ({1}) = {2}",
+                                        target.connectUrl, target.alias, t.jvmId);
+                            } catch (PersistenceException e) {
+                                t.jvmId = null;
+                                t.persist();
+                                logger.warn(e);
+                                return;
+                            } catch (Exception e) {
+                                t.jvmId = null;
+                                t.persist();
+                                logger.error(e);
+                                throw e;
+                            }
+                            t.activeRecordings = recordingHelper.listActiveRecordings(t);
+                            t.persist();
+                        });
     }
 }
