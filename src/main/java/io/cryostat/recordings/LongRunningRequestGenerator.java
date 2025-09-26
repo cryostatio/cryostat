@@ -117,7 +117,9 @@ public class LongRunningRequestGenerator {
             logger.warn("Failed to dump threads");
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(THREAD_DUMP_FAILURE, Map.of("jobId", request.id())));
+                    new Notification(
+                            THREAD_DUMP_FAILURE,
+                            Map.of("jobId", request.id(), "targetId", request.targetId)));
             throw new CompletionException(e);
         }
     }
