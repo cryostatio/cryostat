@@ -54,6 +54,7 @@ import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
@@ -553,9 +554,17 @@ public class Discovery {
                     logger.debugv(
                             "Retained discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
                 }
+            } catch (NoResultException e) {
+                logger.warnv(
+                        e,
+                        "Unscheduled job for nonexistent discovery plugin: {0}",
+                        context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY));
+                var ex = new JobExecutionException(e);
+                ex.setUnscheduleFiringTrigger(true);
+                throw ex;
             } catch (Exception e) {
                 if (plugin != null) {
-                    logger.debugv(
+                    logger.warnv(
                             e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
                     plugin.delete();
                 } else {
