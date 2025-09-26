@@ -18,7 +18,6 @@ package io.cryostat.diagnostic;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -161,7 +160,12 @@ public class DiagnosticsHelper {
                         HeapDumpEvent.Payload.of(
                                 target,
                                 new HeapDump(
-                                        jvmId, downloadUrl(jvmId, heapDumpId), heapDumpId, 0, 0, new Metadata(Map.of()))));
+                                        jvmId,
+                                        downloadUrl(jvmId, heapDumpId),
+                                        heapDumpId,
+                                        0,
+                                        0,
+                                        new Metadata(Map.of()))));
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
@@ -256,25 +260,27 @@ public class DiagnosticsHelper {
     private HeapDump convertHeapDump(S3Object object) throws Exception {
         String jvmId = object.key().split("/")[0];
         String uuid = object.key().split("/")[1];
+        Optional<Metadata> metadata = getObjectMetadata(storageKey(jvmId, uuid), heapDumpBucket);
         return new HeapDump(
                 jvmId,
                 heapDumpDownloadUrl(jvmId, uuid),
                 uuid,
                 object.lastModified().toEpochMilli(),
                 object.size(),
-                getObjectMetadata(storageKey(jvmId, uuid), heapDumpBucket).get());
+                Objects.isNull(metadata.get()) ? new Metadata(Map.of()) : metadata.get());
     }
 
     private ThreadDump convertObject(S3Object object) throws Exception {
         String jvmId = object.key().split("/")[0];
         String uuid = object.key().split("/")[1];
+        Optional<Metadata> metadata = getObjectMetadata(storageKey(jvmId, uuid), bucket);
         return new ThreadDump(
                 jvmId,
                 downloadUrl(jvmId, uuid),
                 uuid,
                 object.lastModified().toEpochMilli(),
                 object.size(),
-                getObjectMetadata(storageKey(jvmId, uuid), bucket).get());
+                Objects.isNull(metadata.get()) ? new Metadata(Map.of()) : metadata.get());
     }
 
     public ThreadDump addThreadDump(Target target, String content) {
@@ -411,7 +417,7 @@ public class DiagnosticsHelper {
         return storage.listObjectsV2(builder.build()).contents();
     }
 
-// Labels Handling
+    // Labels Handling
     public Optional<Metadata> getObjectMetadata(String storageKey, String storageBucket) {
         try {
             switch (storageMode()) {
@@ -500,11 +506,10 @@ public class DiagnosticsHelper {
         return new Metadata(labels);
     }
 
-    public HeadObjectResponse assertObjectExists(String jvmId, String filename, String storageBucket) {
+    public HeadObjectResponse assertObjectExists(
+            String jvmId, String filename, String storageBucket) {
         var key = storageKey(jvmId, filename);
-        var resp =
-                storage.headObject(
-                        HeadObjectRequest.builder().bucket(bucket).key(key).build());
+        var resp = storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
         if (!resp.sdkHttpResponse().isSuccessful()) {
             throw new HttpException(
                     resp.sdkHttpResponse().statusCode(),
@@ -513,7 +518,9 @@ public class DiagnosticsHelper {
         return resp;
     }
 
-    public Metadata updateMetadata(String jvmId, String identifier, Map<String, String> metadata, String storageBucket) throws IOException {
+    public Metadata updateMetadata(
+            String jvmId, String identifier, Map<String, String> metadata, String storageBucket)
+            throws IOException {
         String key = storageKey(jvmId, identifier);
         Optional<Metadata> existingMeta = getObjectMetadata(key, storageBucket);
 
@@ -551,14 +558,22 @@ public class DiagnosticsHelper {
         return updatedMetadata;
     }
 
-    public ThreadDump updateThreadDumpMetadata(String jvmId, String threadDumpId, Map<String,String> metadata) throws IOException {
+    public ThreadDump updateThreadDumpMetadata(
+            String jvmId, String threadDumpId, Map<String, String> metadata) throws IOException {
         Metadata updatedMetadata = updateMetadata(jvmId, threadDumpId, metadata, bucket);
 
         var response = assertObjectExists(jvmId, threadDumpId, bucket);
         long size = response.contentLength();
         long lastModified = response.lastModified().toEpochMilli();
 
-        ThreadDump updatedDump = new ThreadDump(jvmId, downloadUrl(jvmId, threadDumpId), threadDumpId, lastModified, size, updatedMetadata);
+        ThreadDump updatedDump =
+                new ThreadDump(
+                        jvmId,
+                        downloadUrl(jvmId, threadDumpId),
+                        threadDumpId,
+                        lastModified,
+                        size,
+                        updatedMetadata);
 
         notifyArchiveMetadataUpdate(jvmId, updatedDump);
 
@@ -569,8 +584,7 @@ public class DiagnosticsHelper {
         var event =
                 new ThreadDumpEvent(
                         DiagnosticsHelper.EventCategory.THREAD_DUMP_METADATA_UPDATED,
-                        new ThreadDumpEvent.Payload(
-                                jvmId, updatedDump, ""));
+                        new ThreadDumpEvent.Payload(jvmId, updatedDump, ""));
         bus.publish(event.category().category(), event.payload().threadDump());
         bus.publish(
                 MessagingServer.class.getName(),

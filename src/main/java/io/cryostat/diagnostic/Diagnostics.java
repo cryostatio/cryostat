@@ -369,21 +369,33 @@ public class Diagnostics {
     }
 
     public record HeapDump(
-            String jvmId, String downloadUrl, String heapDumpId, long lastModified, long size, Metadata metadata) {
+            String jvmId,
+            String downloadUrl,
+            String heapDumpId,
+            long lastModified,
+            long size,
+            Metadata metadata) {
 
         public HeapDump {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(downloadUrl);
             Objects.requireNonNull(heapDumpId);
+            Objects.requireNonNull(metadata);
         }
     }
 
     public record ThreadDump(
-            String jvmId, String downloadUrl, String threadDumpId, long lastModified, long size, Metadata metadata) {
+            String jvmId,
+            String downloadUrl,
+            String threadDumpId,
+            long lastModified,
+            long size,
+            Metadata metadata) {
         public ThreadDump {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(downloadUrl);
             Objects.requireNonNull(threadDumpId);
+            Objects.requireNonNull(metadata);
         }
     }
 }

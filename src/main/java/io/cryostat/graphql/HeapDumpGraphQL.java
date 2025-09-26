@@ -17,15 +17,13 @@ package io.cryostat.graphql;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
 
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
-import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.diagnostic.DiagnosticsHelper;
+import io.cryostat.graphql.ActiveRecordings.MetadataLabels;
 import io.cryostat.graphql.TargetNodes.HeapDumpAggregateInfo;
 import io.cryostat.graphql.TargetNodes.HeapDumps;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
@@ -79,34 +77,22 @@ public class HeapDumpGraphQL {
         return dump;
     }
 
-
     @NonNull
     @Description("Update the metadata for a heap dump")
-    public HeapDump doPutMetadata(@Source HeapDump heapDump, MetadataLabels metadataInput) throws IOException {
-        diagnosticsHelper.updateThreadDumpMetadata(heapDump.jvmId(), heapDump.heapDumpId(), metadataInput.getLabels());
+    public HeapDump doPutMetadata(@Source HeapDump heapDump, MetadataLabels metadataInput)
+            throws IOException {
+        diagnosticsHelper.updateThreadDumpMetadata(
+                heapDump.jvmId(), heapDump.heapDumpId(), metadataInput.getLabels());
 
         String downloadUrl = diagnosticsHelper.downloadUrl(heapDump.jvmId(), heapDump.heapDumpId());
 
-        return new HeapDump(heapDump.jvmId(), downloadUrl, heapDump.heapDumpId(), heapDump.lastModified(), heapDump.size(), new Metadata(metadataInput.getLabels()));
-    }
-
-    public static class MetadataLabels {
-
-        private Map<String, String> labels;
-
-        public MetadataLabels() {}
-
-        public MetadataLabels(Map<String, String> labels) {
-            this.labels = new HashMap<>(labels);
-        }
-
-        public Map<String, String> getLabels() {
-            return new HashMap<>(labels);
-        }
-
-        public void setLabels(Map<String, String> labels) {
-            this.labels = new HashMap<>(labels);
-        }
+        return new HeapDump(
+                heapDump.jvmId(),
+                downloadUrl,
+                heapDump.heapDumpId(),
+                heapDump.lastModified(),
+                heapDump.size(),
+                new Metadata(metadataInput.getLabels()));
     }
 
     public static class HeapDumpsFilter implements Predicate<HeapDump> {
