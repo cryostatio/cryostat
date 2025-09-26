@@ -37,6 +37,7 @@ import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -46,7 +47,6 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
@@ -160,7 +160,6 @@ public class Reports {
 
     @POST
     @Blocking
-    @Transactional
     @Path("/api/v4.1/targets/{targetId}/reports")
     @RolesAllowed("write")
     @Operation(
@@ -176,7 +175,8 @@ public class Reports {
             HttpServerResponse resp,
             @RestPath long targetId,
             @QueryParam("clean") @DefaultValue("true") boolean clean) {
-        var target = Target.getTargetById(targetId);
+        var target =
+                QuarkusTransaction.joiningExisting().call(() -> Target.getTargetById(targetId));
         var jobId = UUID.randomUUID().toString();
         resp.bodyEndHandler(
                 (v) -> {

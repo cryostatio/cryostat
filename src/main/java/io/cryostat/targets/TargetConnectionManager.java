@@ -293,13 +293,8 @@ public class TargetConnectionManager {
     }
 
     JFRConnection connect(URI connectUrl) throws Exception {
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () -> {
-                            var credentials =
-                                    credentialsFinder.getCredentialsForConnectUrl(connectUrl);
-                            return connect(connectUrl, credentials);
-                        });
+        var credentials = credentialsFinder.getCredentialsForConnectUrl(connectUrl);
+        return connect(connectUrl, credentials);
     }
 
     JFRConnection connect(URI connectUrl, Optional<Credential> credentials) throws Exception {
@@ -308,7 +303,8 @@ public class TargetConnectionManager {
         try {
             if (AgentConnection.isAgentConnection(connectUrl)) {
                 return agentConnectionFactory.createConnection(
-                        Target.getTargetByConnectUrl(connectUrl));
+                        QuarkusTransaction.joiningExisting()
+                                .call(() -> Target.getTargetByConnectUrl(connectUrl)));
             }
 
             return jfrConnectionToolkit.connect(
