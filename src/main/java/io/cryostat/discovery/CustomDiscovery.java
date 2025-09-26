@@ -33,7 +33,6 @@ import io.cryostat.targets.Target.Annotations;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -136,7 +135,6 @@ public class CustomDiscovery {
                 storeCredentials);
     }
 
-    @SuppressFBWarnings(value = "DLS_DEAD_LOCAL_STORE")
     RestResponse<Target> doCreate(
             UriInfo uriInfo, TargetStub targetStub, boolean dryrun, boolean storeCredentials) {
         try {
