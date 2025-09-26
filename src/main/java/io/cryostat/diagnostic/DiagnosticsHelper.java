@@ -414,7 +414,7 @@ public class DiagnosticsHelper {
             }
 
             public static Payload of(Target target, ThreadDump dump, String jobId) {
-                return new Payload(target.jvmId, dump, jobId);
+                return new Payload(target.alias, dump, jobId);
             }
         }
     }
