@@ -136,7 +136,6 @@ public class CustomDiscovery {
                 storeCredentials);
     }
 
-    @SuppressFBWarnings(value = "DLS_DEAD_LOCAL_STORE")
     RestResponse<Target> doCreate(
             UriInfo uriInfo, TargetStub targetStub, boolean dryrun, boolean storeCredentials) {
         try {
