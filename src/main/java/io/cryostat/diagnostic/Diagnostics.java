@@ -27,6 +27,7 @@ import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ThreadDumpRequest;
@@ -368,7 +369,7 @@ public class Diagnostics {
     }
 
     public record HeapDump(
-            String jvmId, String downloadUrl, String heapDumpId, long lastModified, long size) {
+            String jvmId, String downloadUrl, String heapDumpId, long lastModified, long size, Metadata metadata) {
 
         public HeapDump {
             Objects.requireNonNull(jvmId);
@@ -378,7 +379,7 @@ public class Diagnostics {
     }
 
     public record ThreadDump(
-            String jvmId, String downloadUrl, String threadDumpId, long lastModified, long size) {
+            String jvmId, String downloadUrl, String threadDumpId, long lastModified, long size, Metadata metadata) {
         public ThreadDump {
             Objects.requireNonNull(jvmId);
             Objects.requireNonNull(downloadUrl);
