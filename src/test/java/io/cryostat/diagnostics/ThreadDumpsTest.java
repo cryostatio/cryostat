@@ -97,7 +97,11 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                                             json.getJsonObject("message").getString("jobId"),
                                             jobId[0]));
             threadDumpId[0] =
-                    notification.getJsonObject("message").getString("threadDumpId").strip();
+                    notification
+                            .getJsonObject("message")
+                            .getJsonObject("threadDump")
+                            .getString("threadDumpId")
+                            .strip();
         } finally {
             given().log()
                     .all()
@@ -152,7 +156,12 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                                 Objects.equals(
                                         json.getJsonObject("message").getString("jobId"),
                                         jobId[0]));
-        threadDumpId[0] = notification.getJsonObject("message").getString("threadDumpId").strip();
+        threadDumpId[0] =
+                notification
+                        .getJsonObject("message")
+                        .getJsonObject("threadDump")
+                        .getString("threadDumpId")
+                        .strip();
 
         // Check that the listing is non empty
         given().log()
@@ -268,7 +277,9 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                 "ThreadDumpDeleted",
                 json ->
                         Objects.equals(
-                                json.getJsonObject("message").getString("threadDumpId"),
+                                json.getJsonObject("message")
+                                        .getJsonObject("threadDump")
+                                        .getString("threadDumpId"),
                                 threadDumpId));
     }
 

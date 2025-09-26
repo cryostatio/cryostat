@@ -63,9 +63,39 @@ type ArchivedRecording {
   size: BigInteger!
 }
 
+type ThreadDump {
+  "Update the metadata associated with a thread dump"
+  doPutMetadata(metadataInput: MetadataLabelsInput): ThreadDump!
+  downloadUrl: String
+  threadDumpId: String
+  jvmId: String
+  lastModified: BigInteger
+  size: BigInteger
+}
+
+type HeapDump {
+  "Update the metadata associated with a heap dump"
+  doPutMetadata(metadataInput: MetadataLabelsInput): HeapDump!
+  downloadUrl: String
+  heapDumpId: String
+  jvmId: String
+  lastModified: BigInteger
+  size: BigInteger
+}
+
 type ArchivedRecordings {
   aggregate: RecordingAggregateInfo!
   data: [ArchivedRecording]!
+}
+
+type ThreadDumps {
+  aggregate: ThreadDumpAggregateInfo!
+  data: [ThreadDump]!
+}
+
+type HeapDumps {
+  aggregate: HeapDumpAggregateInfo!
+  data: [HeapDump]!
 }
 
 type DiscoveryNode {
@@ -174,6 +204,20 @@ type Query {
 }
 
 type RecordingAggregateInfo {
+  "The number of elements in this collection"
+  count: BigInteger!
+  "The sum of sizes of elements in this collection, or 0 if not applicable"
+  size: BigInteger!
+}
+
+type ThreadDumpAggregateInfo {
+  "The number of elements in this collection"
+  count: BigInteger!
+  "The sum of sizes of elements in this collection, or 0 if not applicable"
+  size: BigInteger!
+}
+
+type HeapDumpAggregateInfo {
   "The number of elements in this collection"
   count: BigInteger!
   "The sum of sizes of elements in this collection, or 0 if not applicable"
