@@ -290,18 +290,21 @@ public class RecordingHelper {
             List<IRecordingDescriptor> descriptors =
                     connectionManager.executeConnectedTask(
                             target, conn -> conn.getService().getAvailableRecordings());
+            var currentIds = new HashSet<>(descriptors.stream().map(d -> d.getId()).toList());
+            var intersectionIds = new HashSet<>(previousIds);
+            intersectionIds.retainAll(currentIds);
             boolean updated = false;
             var it = target.activeRecordings.iterator();
             while (it.hasNext()) {
                 var r = it.next();
-                if (!previousIds.contains(r.remoteId)) {
+                if (!intersectionIds.contains(r.remoteId)) {
                     r.delete();
                     it.remove();
                     updated |= true;
                 }
             }
             for (var descriptor : descriptors) {
-                if (previousIds.contains(descriptor.getId())) {
+                if (intersectionIds.contains(descriptor.getId())) {
                     var recording = target.getRecordingById(descriptor.getId());
                     switch (descriptor.getState()) {
                         case CREATED:
@@ -355,8 +358,6 @@ public class RecordingHelper {
                 while (previousNames.contains(recording.name)) {
                     recording.name = String.format("%s-%d", recording.name, recording.remoteId);
                 }
-                previousNames.add(recording.name);
-                previousIds.add(recording.remoteId);
                 recording.persist();
                 target.activeRecordings.add(recording);
             }
