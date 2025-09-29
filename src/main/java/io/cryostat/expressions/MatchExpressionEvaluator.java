@@ -179,7 +179,7 @@ public class MatchExpressionEvaluator {
                 .call(
                         () -> {
                             var targets =
-                                    Target.<Target>listAll().stream()
+                                    Target.<Target>listAll().parallelStream()
                                             .filter(
                                                     target -> {
                                                         try {
