@@ -500,6 +500,9 @@ public class Discovery {
     public void deregister(@Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
             throws SchedulerException {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
+        if (plugin.builtin) {
+            throw new ForbiddenException();
+        }
         try {
             jwtValidator.validateJwt(ctx, plugin, token, false);
         } catch (MalformedURLException
@@ -509,9 +512,6 @@ public class Discovery {
                 | JOSEException
                 | ParseException e) {
             throw new BadRequestException(e);
-        }
-        if (plugin.builtin) {
-            throw new ForbiddenException();
         }
 
         Set<JobKey> jobKeys = new HashSet<>();
