@@ -231,12 +231,14 @@ public class TargetNodes {
                 RecordingAggregateInfo.fromArchived(data);
     }
 
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class ThreadDumps {
         public @NonNull List<ThreadDump> data = new ArrayList<>();
         public @NonNull ThreadDumpAggregateInfo aggregate =
                 ThreadDumpAggregateInfo.fromArchived(data);
     }
 
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class ThreadDumpAggregateInfo {
         public @NonNull @Description("The number of elements in this collection") long count;
         public @NonNull @Description(
@@ -258,11 +260,13 @@ public class TargetNodes {
         }
     }
 
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class HeapDumps {
         public @NonNull List<HeapDump> data = new ArrayList<>();
         public @NonNull HeapDumpAggregateInfo aggregate = HeapDumpAggregateInfo.fromArchived(data);
     }
 
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public static class HeapDumpAggregateInfo {
         public @NonNull @Description("The number of elements in this collection") long count;
         public @NonNull @Description(
