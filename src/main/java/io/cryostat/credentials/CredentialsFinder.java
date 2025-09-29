@@ -60,7 +60,7 @@ public class CredentialsFinder {
                 cache.computeIfAbsent(
                         target,
                         t ->
-                                Credential.<Credential>listAll().stream()
+                                Credential.<Credential>listAll().parallelStream()
                                         .filter(
                                                 c -> {
                                                     try {
