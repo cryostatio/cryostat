@@ -213,7 +213,6 @@ public class Discovery {
     }
 
     @Bulkhead
-    @Transactional
     @Blocking
     @POST
     @Path("/api/v4/discovery")
@@ -325,8 +324,8 @@ public class Discovery {
         } else {
             // check if a plugin record with the same callback already exists. If it does,
             // ping it:
-            // if it's still there reject this request as a duplicate, otherwise delete the
-            // previous record and accept this new one as a replacement
+            // - if it's still there reject this request as a duplicate
+            // - otherwise delete the previous record and accept this new one as a replacement
             DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
                     .singleResultOptional()
                     .ifPresent(
@@ -334,30 +333,39 @@ public class Discovery {
                                 try {
                                     var cb = PluginCallback.create(p);
                                     cb.ping();
-                                    throw new IllegalArgumentException(
+                                    throw new DuplicatePluginException(
                                             String.format(
                                                     "Plugin with callback %s already exists and is"
                                                             + " still reachable",
                                                     unauthCallback));
                                 } catch (Exception e) {
-                                    logger.error(e);
-                                    p.delete();
+                                    if (!(e instanceof DuplicatePluginException)) {
+                                        logger.debug(e);
+                                        p.delete();
+                                    }
                                 }
                             });
 
             // new plugin registration
-            plugin = new DiscoveryPlugin();
-            plugin.callback = callbackUri;
-            plugin.realm =
-                    DiscoveryNode.environment(
-                            requireNonBlank(realmName, "realm"), NodeType.BaseNodeType.REALM);
-            plugin.builtin = false;
+            plugin =
+                    QuarkusTransaction.joiningExisting()
+                            .call(
+                                    () -> {
+                                        DiscoveryPlugin p = new DiscoveryPlugin();
+                                        p.callback = callbackUri;
+                                        p.realm =
+                                                DiscoveryNode.environment(
+                                                        requireNonBlank(realmName, "realm"),
+                                                        NodeType.BaseNodeType.REALM);
+                                        p.builtin = false;
 
-            var universe = DiscoveryNode.getUniverse();
-            plugin.realm.parent = universe;
-            plugin.persist();
-            universe.children.add(plugin.realm);
-            universe.persist();
+                                        var universe = DiscoveryNode.getUniverse();
+                                        p.realm.parent = universe;
+                                        p.persist();
+                                        universe.children.add(p.realm);
+                                        universe.persist();
+                                        return p;
+                                    });
 
             try {
                 location = jwtFactory.getPluginLocation(plugin);
@@ -579,7 +587,7 @@ public class Discovery {
                             "Retained discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
                 }
             } catch (NoResultException e) {
-                logger.warnv(
+                logger.debugv(
                         e,
                         "Unscheduled job for nonexistent discovery plugin: {0}",
                         context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY));
@@ -588,7 +596,7 @@ public class Discovery {
                 throw ex;
             } catch (Exception e) {
                 if (plugin != null) {
-                    logger.warnv(
+                    logger.debugv(
                             e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
                     plugin.delete();
                 } else {
@@ -622,4 +630,11 @@ public class Discovery {
     }
 
     static record PluginRegistration(String id, String token, Map<String, String> env) {}
+
+    static class DuplicatePluginException extends IllegalArgumentException {
+
+        public DuplicatePluginException(String format) {
+            super(format);
+        }
+    }
 }
