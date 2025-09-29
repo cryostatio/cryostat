@@ -72,6 +72,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.Bulkhead;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
@@ -211,7 +212,9 @@ public class Discovery {
         return RestResponse.ok(result.firstResult());
     }
 
+    @Bulkhead
     @Transactional
+    @Blocking
     @POST
     @Path("/api/v4/discovery")
     @Produces(MediaType.APPLICATION_JSON)
