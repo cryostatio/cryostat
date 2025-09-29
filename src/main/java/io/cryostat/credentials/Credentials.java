@@ -33,6 +33,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -150,11 +151,16 @@ public class Credentials {
                     and are therefore candidates for Cryostat to select this Credential.
                     """)
     public List<CredentialMatchResult> list() {
-        return Credential.<Credential>listAll().stream()
+        return QuarkusTransaction.joiningExisting()
+                .call(() -> Credential.<Credential>listAll())
+                .parallelStream()
                 .map(
                         c -> {
                             try {
-                                return safeResult(c, targetMatcher);
+                                return safeResult(
+                                        QuarkusTransaction.joiningExisting()
+                                                .call(() -> Credential.findById(c.id)),
+                                        targetMatcher);
                             } catch (ScriptException e) {
                                 logger.warn(e);
                                 return null;

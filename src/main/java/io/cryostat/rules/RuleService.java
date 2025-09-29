@@ -25,7 +25,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.expressions.MatchExpressionEvaluator;
@@ -178,9 +177,7 @@ public class RuleService {
     @ConsumeEvent(value = Rule.RULE_ADDRESS + "?clean", blocking = true)
     @Transactional
     public void handleRuleRecordingCleanup(Rule rule) {
-        var targets =
-                evaluator.getMatchedTargets(rule.matchExpression).stream()
-                        .collect(Collectors.toList());
+        var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
             recordingHelper
                     .getActiveRecording(
