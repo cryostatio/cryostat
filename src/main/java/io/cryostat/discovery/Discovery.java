@@ -518,6 +518,9 @@ public class Discovery {
         jobKeys.addAll(scheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_PERIODIC)));
         jobKeys.addAll(scheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_STARTUP)));
         for (var key : jobKeys) {
+            if (!Objects.equals(plugin.id.toString(), key.getName())) {
+                continue;
+            }
             scheduler.deleteJob(key);
         }
         plugin.delete();
