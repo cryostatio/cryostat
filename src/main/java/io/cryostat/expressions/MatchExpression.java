@@ -29,6 +29,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -94,7 +95,7 @@ public class MatchExpression extends PanacheEntity {
         }
 
         public MatchedExpression match(MatchExpression expr) throws ScriptException {
-            return match(expr, Target.listAll());
+            return match(expr, QuarkusTransaction.joiningExisting().call(() -> Target.listAll()));
         }
     }
 

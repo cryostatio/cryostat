@@ -191,9 +191,7 @@ public class RuleExecutor {
     @Transactional
     public void handleRuleRecordingCleanup(Rule rule) {
         cancelTasksForRule(rule);
-        var targets =
-                evaluator.getMatchedTargets(rule.matchExpression).stream()
-                        .collect(Collectors.toList());
+        var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
             recordingHelper
                     .getActiveRecording(
