@@ -42,7 +42,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
@@ -74,6 +73,7 @@ import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
+import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.EntityExistsException;
@@ -94,6 +94,7 @@ import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.ServerErrorException;
@@ -145,6 +146,8 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
+import software.amazon.awssdk.services.s3.presigner.S3Presigner;
+import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 /**
  * Utility class for all things relating to Flight Recording operations. This class is used to
@@ -184,6 +187,7 @@ public class RecordingHelper {
     @Inject PresetTemplateService presetTemplateService;
     @Inject Instance<ArchivedRecordingMetadataService> metadataService;
     @Inject Scheduler scheduler;
+    @Inject S3Presigner presigner;
 
     @Inject
     @Identifier(Producers.BASE64_URL)
@@ -207,9 +211,16 @@ public class RecordingHelper {
     @ConfigProperty(name = ConfigProperties.GRAFANA_DATASOURCE_URL)
     Optional<String> grafanaDatasourceURLProperty;
 
-    CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
+    @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_AUTOANALYZE)
+    boolean externalRecordingAutoanalyze;
 
-    private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
+    @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_ARCHIVE)
+    boolean externalRecordingArchive;
+
+    @ConfigProperty(name = ConfigProperties.JFR_DATASOURCE_USE_PRESIGNED_TRANSFER)
+    boolean usePresignedTransfer;
+
+    CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
 
     void onStart(@Observes StartupEvent evt) {
         buckets.createIfNecessary(archiveBucket);
@@ -324,9 +335,16 @@ public class RecordingHelper {
                     continue;
                 }
                 updated |= true;
-                // TODO is there any metadata to attach here?
-                var recording = ActiveRecording.from(target, descriptor, new Metadata(Map.of()));
+                var labels = new HashMap<String, String>();
+                if (externalRecordingAutoanalyze) {
+                    labels.put(AnalysisReportAggregator.AUTOANALYZE_LABEL, Boolean.TRUE.toString());
+                }
+                // TODO is there any other metadata to attach here?
+                var recording = ActiveRecording.from(target, descriptor, new Metadata(labels));
                 recording.external = true;
+                if (externalRecordingArchive && recording.external) {
+                    recording.archiveOnStop = true;
+                }
                 // FIXME this is a hack. Older Cryostat versions enforced that recordings' names
                 // were unique within the target JVM, but this could only be enforced when Cryostat
                 // was originating the recording creation. Recordings already have unique IDs, so
@@ -445,32 +463,32 @@ public class RecordingHelper {
         labels.put("template.type", template.getType().toString());
         Metadata meta = new Metadata(labels);
 
-        ActiveRecording recording = ActiveRecording.from(target, desc, meta);
+        ActiveRecording recording = ActiveRecording.from(target, desc, meta, options);
         recording.persist();
 
         target.activeRecordings.add(recording);
         target.persist();
 
         if (!recording.continuous) {
+            JobKey key = JobKey.jobKey(target.jvmId, Long.toString(recording.remoteId));
             JobDetail jobDetail =
-                    JobBuilder.newJob(StopRecordingJob.class)
-                            .withIdentity(recording.name, target.jvmId)
-                            .build();
-            if (!jobs.contains(jobDetail.getKey())) {
-                Map<String, Object> data = jobDetail.getJobDataMap();
-                data.put("recordingId", recording.id);
-                data.put("archive", options.archiveOnStop().orElse(false));
-                Trigger trigger =
-                        TriggerBuilder.newTrigger()
-                                .withIdentity(recording.name, target.jvmId)
-                                .usingJobData(jobDetail.getJobDataMap())
-                                .startAt(new Date(System.currentTimeMillis() + recording.duration))
-                                .build();
-                try {
+                    JobBuilder.newJob(StopRecordingJob.class).withIdentity(key).build();
+            try {
+                if (!scheduler.checkExists(key)) {
+                    Map<String, Object> data = jobDetail.getJobDataMap();
+                    data.put("recordingId", recording.id);
+                    Trigger trigger =
+                            TriggerBuilder.newTrigger()
+                                    .usingJobData(jobDetail.getJobDataMap())
+                                    .startAt(
+                                            new Date(
+                                                    System.currentTimeMillis()
+                                                            + recording.duration))
+                                    .build();
                     scheduler.scheduleJob(jobDetail, trigger);
-                } catch (SchedulerException e) {
-                    logger.warn(e);
                 }
+            } catch (SchedulerException e) {
+                logger.warn(e);
             }
         }
 
@@ -558,8 +576,7 @@ public class RecordingHelper {
         }
     }
 
-    public Uni<ActiveRecording> stopRecording(ActiveRecording recording, boolean archive)
-            throws Exception {
+    public Uni<ActiveRecording> stopRecording(ActiveRecording recording) throws Exception {
         var out =
                 connectionManager.executeConnectedTask(
                         recording.target,
@@ -582,15 +599,8 @@ public class RecordingHelper {
                 .call(
                         () -> {
                             out.persist();
-                            if (archive) {
-                                archiveRecording(out, null);
-                            }
                             return Uni.createFrom().item(out);
                         });
-    }
-
-    public Uni<ActiveRecording> stopRecording(ActiveRecording recording) throws Exception {
-        return stopRecording(recording, false);
     }
 
     public Uni<ActiveRecording> deleteRecording(ActiveRecording recording) {
@@ -623,6 +633,7 @@ public class RecordingHelper {
                 recording.state,
                 recording.duration,
                 recording.startTime,
+                recording.archiveOnStop,
                 recording.continuous,
                 recording.toDisk,
                 recording.maxSize,
@@ -822,8 +833,7 @@ public class RecordingHelper {
         return listArchivedRecordings(target.jvmId);
     }
 
-    public ArchivedRecording archiveRecording(ActiveRecording recording, String savename)
-            throws Exception {
+    public ArchivedRecording archiveRecording(ActiveRecording recording) throws Exception {
         // AWS object key name guidelines advise characters to avoid (% so we should not pass url
         // encoded characters)
         String transformedAlias =
@@ -833,9 +843,6 @@ public class RecordingHelper {
         String timestamp = now.truncatedTo(ChronoUnit.SECONDS).toString().replaceAll("[-:]+", "");
         String filename =
                 String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
-        if (StringUtils.isBlank(savename)) {
-            savename = filename;
-        }
         String key = archivedRecordingKey(recording.target.jvmId, filename);
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
@@ -849,7 +856,7 @@ public class RecordingHelper {
                             .key(key)
                             .contentType(HttpMimeType.JFR.mime())
                             .contentDisposition(
-                                    String.format("attachment; filename=\"%s\"", savename));
+                                    String.format("attachment; filename=\"%s\"", filename));
             switch (storageMode()) {
                 case TAGGING:
                     builder = builder.tagging(createActiveRecordingTagging(recording));
@@ -1423,6 +1430,7 @@ public class RecordingHelper {
     }
 
     public Uni<String> uploadToJFRDatasource(long targetEntityId, long remoteId) throws Exception {
+        // copy an active recording and upload this directly to datasource
         Target target = Target.getTargetById(targetEntityId);
         Objects.requireNonNull(target, "Target from targetId not found");
         ActiveRecording recording = target.getRecordingById(remoteId);
@@ -1442,23 +1450,43 @@ public class RecordingHelper {
     }
 
     public Uni<String> uploadToJFRDatasource(Pair<String, String> key) throws Exception {
+        // upload an already-archived recording to datasource
         Objects.requireNonNull(key);
         Objects.requireNonNull(key.getKey());
         Objects.requireNonNull(key.getValue());
-        GetObjectRequest getRequest =
-                GetObjectRequest.builder()
-                        .bucket(archiveBucket)
-                        .key(archivedRecordingKey(key))
-                        .build();
 
-        Path recordingPath = fs.createTempFile(null, null);
-        // the S3 client will create the file at this path, we just need to get a fresh temp file
-        // path but one that does not yet exist
-        fs.deleteIfExists(recordingPath);
+        if (usePresignedTransfer) {
+            return uploadPresignedToJFRDatasource(key.getKey(), key.getValue());
+        } else {
+            GetObjectRequest getRequest =
+                    GetObjectRequest.builder()
+                            .bucket(archiveBucket)
+                            .key(archivedRecordingKey(key))
+                            .build();
 
-        storage.getObject(getRequest, recordingPath);
+            Path recordingPath = fs.createTempFile(null, null);
+            // the S3 client will create the file at this path, we just need to get a fresh temp
+            // file path but one that does not yet exist
+            fs.deleteIfExists(recordingPath);
 
-        return uploadToJFRDatasource(recordingPath);
+            storage.getObject(getRequest, recordingPath);
+
+            return uploadToJFRDatasource(recordingPath);
+        }
+    }
+
+    private Uni<String> uploadPresignedToJFRDatasource(String jvmId, String filename)
+            throws URISyntaxException {
+        var uri = getPresignedPath(jvmId, filename);
+        return datasourceClient
+                .uploadPresigned(uri.getPath(), uri.getQuery())
+                .onItem()
+                .transform(
+                        r -> {
+                            try (r) {
+                                return r.readEntity(String.class);
+                            }
+                        });
     }
 
     private Uni<String> uploadToJFRDatasource(Path recordingPath)
@@ -1504,13 +1532,38 @@ public class RecordingHelper {
                         });
     }
 
+    private URI getPresignedPath(String jvmId, String filename) throws URISyntaxException {
+        logger.infov("Handling presigned download request for {0}/{1}", jvmId, filename);
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder()
+                        .bucket(archiveBucket)
+                        .key(RecordingHelper.archivedRecordingKey(Pair.of(jvmId, filename)))
+                        .build();
+        GetObjectPresignRequest presignRequest =
+                GetObjectPresignRequest.builder()
+                        .signatureDuration(Duration.ofMinutes(1))
+                        .getObjectRequest(getRequest)
+                        .build();
+        return URI.create(presigner.presignGetObject(presignRequest).url().toString()).normalize();
+    }
+
     public record RecordingOptions(
             String name,
             Optional<Boolean> toDisk,
             Optional<Boolean> archiveOnStop,
             Optional<Long> duration,
             Optional<Long> maxSize,
-            Optional<Long> maxAge) {}
+            Optional<Long> maxAge) {
+        static RecordingOptions empty(String name) {
+            return new RecordingOptions(
+                    name,
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty(),
+                    Optional.empty());
+        }
+    }
 
     public enum RecordingReplace {
         ALWAYS,
@@ -1537,13 +1590,10 @@ public class RecordingHelper {
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
             var jobDataMap = ctx.getJobDetail().getJobDataMap();
             try {
-                Optional<ActiveRecording> recording =
+                ActiveRecording recording =
                         ActiveRecording.find("id", (Long) jobDataMap.get("recordingId"))
-                                .singleResultOptional();
-                if (recording.isPresent()) {
-                    recordingHelper.stopRecording(
-                            recording.get(), (Boolean) jobDataMap.get("archive"));
-                }
+                                .singleResult();
+                recordingHelper.stopRecording(recording);
             } catch (Exception e) {
                 throw new JobExecutionException(e);
             }
@@ -1579,5 +1629,12 @@ public class RecordingHelper {
                         @PartFilename("cryostat-analysis.jfr")
                         java.nio.file.Path file,
                 @RestQuery boolean overwrite);
+
+        @POST
+        @jakarta.ws.rs.Path("/load_presigned")
+        @Consumes(MediaType.MULTIPART_FORM_DATA)
+        Uni<Response> uploadPresigned(
+                @RestForm("path") @PartType(MediaType.TEXT_PLAIN) String path,
+                @RestForm("query") @PartType(MediaType.TEXT_PLAIN) String query);
     }
 }

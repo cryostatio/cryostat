@@ -17,6 +17,11 @@ package io.cryostat;
 
 /** Java constants corresponding to configuration keys set in application.properties. */
 public class ConfigProperties {
+    public static final String EXTERNAL_RECORDINGS_DELAY = "cryostat.external-recordings.delay";
+    public static final String EXTERNAL_RECORDINGS_ARCHIVE = "cryostat.external-recordings.archive";
+    public static final String EXTERNAL_RECORDINGS_AUTOANALYZE =
+            "cryostat.external-recordings.autoanalyze";
+
     public static final String STORAGE_METADATA_STORAGE_MODE = "storage.metadata.storage-mode";
     public static final String STORAGE_METADATA_ARCHIVES_STORAGE_MODE =
             "storage.metadata.archives.storage-mode";
@@ -39,6 +44,9 @@ public class ConfigProperties {
     public static final String AWS_METADATA_PREFIX_EVENT_TEMPLATES =
             "storage.metadata.prefix.event-templates";
 
+    public static final String DISCOVERY_IPV6_ENABLED = "cryostat.discovery.ipv6-enabled";
+    public static final String DISCOVERY_IPV4_DNS_TRANSFORM_ENABLED =
+            "cryostat.discovery.kubernetes.ipv4.dns-transform.enabled";
     public static final String CONTAINERS_POLL_PERIOD = "cryostat.discovery.containers.poll-period";
     public static final String CONTAINERS_REQUEST_TIMEOUT =
             "cryostat.discovery.containers.request-timeout";
@@ -60,6 +68,8 @@ public class ConfigProperties {
             "cryostat.services.reports.storage-cache.name";
     public static final String ARCHIVED_REPORTS_EXPIRY_DURATION =
             "cryostat.services.reports.storage-cache.expiry-duration";
+    public static final String JFR_DATASOURCE_USE_PRESIGNED_TRANSFER =
+            "cryostat.services.jfr-datasource.use-presigned-transfer";
 
     public static final String GRAFANA_DASHBOARD_URL = "grafana-dashboard.url";
     public static final String GRAFANA_DASHBOARD_EXT_URL = "grafana-dashboard-ext.url";

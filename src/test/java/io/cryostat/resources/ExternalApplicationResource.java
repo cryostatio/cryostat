@@ -29,26 +29,40 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.utility.DockerImageName;
 
-public class AgentApplicationResource
+public class ExternalApplicationResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
     private static final String IMAGE_NAME =
             "quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest";
+    public static final String RECORDING_NAME = "testrecording";
     public static final int PORT = 9977;
+    public static final int JMX_PORT = 9876;
     public static final String ALIAS = "quarkus-cryostat-agent";
     private static final Map<String, String> envMap =
             new HashMap<>(
                     Map.of(
                             "JAVA_OPTS_APPEND",
-                            """
-                            -javaagent:/deployments/app/cryostat-agent.jar
-                            -Djava.util.logging.manager=org.jboss.logmanager.LogManager
-                            -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
-                            """,
+                            String.format(
+                                            """
+                                            -javaagent:/deployments/app/cryostat-agent.jar
+                                            -Djava.util.logging.manager=org.jboss.logmanager.LogManager
+                                            -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
+                                            -XX:StartFlightRecording=filename=/tmp/,name=%s,settings=profile,disk=true,duration=30s
+                                            -Dcom.sun.management.jmxremote
+                                            -Dcom.sun.management.jmxremote.port=%d
+                                            -Dcom.sun.management.jmxremote.rmi.port=%d
+                                            -Djava.rmi.server.hostname=%s
+                                            -Dcom.sun.management.jmxremote.authenticate=false
+                                            -Dcom.sun.management.jmxremote.ssl=false
+                                            -Dcom.sun.management.jmxremote.local.only=false
+                                            """,
+                                            RECORDING_NAME, JMX_PORT, JMX_PORT, ALIAS)
+                                    .replaceAll("\\n", " ")
+                                    .strip(),
                             "QUARKUS_HTTP_PORT",
                             "9898",
                             "CRYOSTAT_AGENT_APP_NAME",
-                            "quarkus-cryostat-agent",
+                            ALIAS,
                             "CRYOSTAT_AGENT_WEBCLIENT_TLS_REQUIRED",
                             "false",
                             "CRYOSTAT_AGENT_WEBSERVER_HOST",
@@ -90,7 +104,7 @@ public class AgentApplicationResource
         container =
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .dependsOn(authProxy)
-                        .withExposedPorts(PORT)
+                        .withExposedPorts(PORT, JMX_PORT)
                         .withEnv(envMap)
                         .withNetworkAliases(ALIAS)
                         .waitingFor(new HostPortWaitStrategy().forPorts(PORT));

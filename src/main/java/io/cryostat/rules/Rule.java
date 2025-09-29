@@ -123,6 +123,9 @@ public class Rule extends PanacheEntity {
 
         @PrePersist
         public void prePersist(Rule rule) {
+            if (rule.description == null) {
+                rule.description = "";
+            }
             if (rule.metadata == null) {
                 rule.metadata = new Metadata(Map.of());
             }
