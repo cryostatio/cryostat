@@ -16,7 +16,6 @@
 package io.cryostat.graphql;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
@@ -52,21 +51,6 @@ public class ThreadDumpGraphQL {
                         .toList();
         r.aggregate = ThreadDumpAggregateInfo.fromArchived(r.data);
         return r;
-    }
-
-    @Description("List and optionally filter thread dumps belonging to a Target")
-    public ThreadDumps archived(@Source ThreadDumps dumps, ThreadDumpsFilter filter) {
-        var out = new TargetNodes.ThreadDumps();
-        out.data = new ArrayList<>();
-        out.aggregate = ThreadDumpAggregateInfo.empty();
-
-        var in = dumps.data;
-        if (in != null) {
-            out.data = in.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
-            out.aggregate = ThreadDumpAggregateInfo.fromArchived(out.data);
-        }
-
-        return out;
     }
 
     @NonNull
