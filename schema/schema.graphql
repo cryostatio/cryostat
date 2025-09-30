@@ -118,7 +118,6 @@ type HeapDumpAggregateInfo {
 
 type HeapDumps {
   aggregate: HeapDumpAggregateInfo!
-  "List and optionally filter heap dumps belonging to a Target"
   data: [HeapDump]!
 }
 
@@ -313,7 +312,6 @@ type ThreadDumpAggregateInfo {
 
 type ThreadDumps {
   aggregate: ThreadDumpAggregateInfo!
-  "List and optionally filter thread dumps belonging to a Target"
   data: [ThreadDump]!
 }
 
