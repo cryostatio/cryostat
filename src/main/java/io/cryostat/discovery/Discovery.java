@@ -202,10 +202,12 @@ public class Discovery {
             summary =
                     "Check if a Credential already exists with an identical MatchExpression"
                             + " script.")
-    public RestResponse<Void> checkCredentialByScript(@RestForm String script) {
-        var exists = Credential.count("matchExpression.script", script) > 0;
-        return RestResponse.status(
-                exists ? RestResponse.Status.NO_CONTENT : RestResponse.Status.NOT_FOUND);
+    public RestResponse<Credential> checkCredentialExists(@RestForm String script) {
+        var result = Credential.find("matchExpression.script", script);
+        if (result.count() == 0) {
+            return RestResponse.notFound();
+        }
+        return RestResponse.ok(result.firstResult());
     }
 
     @Transactional

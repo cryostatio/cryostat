@@ -976,8 +976,12 @@ paths:
               type: object
         required: true
       responses:
-        "201":
-          description: Created
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Credential'
+          description: OK
         "400":
           description: Bad Request
       summary: Check if a Credential already exists with an identical MatchExpression script.
