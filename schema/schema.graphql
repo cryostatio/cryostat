@@ -1,4 +1,5 @@
 type ActiveRecording {
+  archiveOnStop: Boolean!
   continuous: Boolean!
   "Archive the specified Flight Recording"
   doArchive: ArchivedRecording

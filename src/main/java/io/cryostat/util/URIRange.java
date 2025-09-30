@@ -21,8 +21,7 @@ import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.jboss.logging.Logger;
 
 /**
  * Implement URI range validation. The configuration property 'cryostat.target.uri-range' can be
@@ -44,7 +43,7 @@ public enum URIRange {
     DNS_LOCAL(hostname -> hostname.endsWith(".local") || hostname.endsWith(".localhost")),
     PUBLIC(hostname -> true);
 
-    private static final Logger log = LoggerFactory.getLogger(URIRange.class);
+    private static final Logger log = Logger.getLogger(URIRange.class);
     private final Predicate<String> fn;
 
     private URIRange(Predicate<String> fn) {
@@ -56,7 +55,7 @@ public enum URIRange {
             InetAddress address = InetAddress.getByName(hostname);
             return predicate.test(address);
         } catch (UnknownHostException uhe) {
-            log.error("Failed to resolve host", uhe);
+            log.errorv(uhe, "Failed to resolve host: {0}", hostname);
             return false;
         }
     }
