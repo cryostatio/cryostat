@@ -326,6 +326,8 @@ components:
         lastModified:
           format: int64
           type: integer
+        metadata:
+          $ref: '#/components/schemas/Metadata'
         size:
           format: int64
           type: integer
@@ -704,6 +706,8 @@ components:
         lastModified:
           format: int64
           type: integer
+        metadata:
+          $ref: '#/components/schemas/Metadata'
         size:
           format: int64
           type: integer

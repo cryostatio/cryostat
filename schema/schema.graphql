@@ -315,9 +315,12 @@ type Target {
 type ThreadDump {
   "Delete a thread dump"
   doDelete: ThreadDump!
+  "Update the metadata for a thread dump"
+  doPutMetadata(metadataInput: MetadataLabelsInput): ThreadDump!
   downloadUrl: String
   jvmId: String
   lastModified: BigInteger!
+  metadata: Metadata
   size: BigInteger!
   threadDumpId: String
 }
@@ -453,6 +456,7 @@ input ReportFilterInput {
 input ThreadDumpsFilterInput {
   archivedTimeAfterEqual: BigInteger
   archivedTimeBeforeEqual: BigInteger
+  labels: [String]
   name: String
   names: [String]
   sizeBytesGreaterThanEqual: BigInteger
