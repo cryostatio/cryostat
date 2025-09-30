@@ -66,6 +66,8 @@ type ArchivedRecording {
 type ThreadDump {
   "Update the metadata associated with a thread dump"
   doPutMetadata(metadataInput: MetadataLabelsInput): ThreadDump!
+  "Delete a Thread Dump"
+  doDelete: ThreadDump!
   downloadUrl: String
   threadDumpId: String
   jvmId: String
@@ -76,6 +78,8 @@ type ThreadDump {
 type HeapDump {
   "Update the metadata associated with a heap dump"
   doPutMetadata(metadataInput: MetadataLabelsInput): HeapDump!
+  "Delete a Heap Dump"
+  doDelete: HeapDump!
   downloadUrl: String
   heapDumpId: String
   jvmId: String
@@ -119,16 +123,6 @@ type Evaluation {
   summary: String
 }
 
-type HeapDump {
-  "Delete a heap dump"
-  doDelete: HeapDump!
-  downloadUrl: String
-  heapDumpId: String
-  jvmId: String
-  lastModified: BigInteger!
-  size: BigInteger!
-}
-
 type HeapDumpAggregateInfo {
   "The number of elements in this collection"
   count: BigInteger!
@@ -138,9 +132,12 @@ type HeapDumpAggregateInfo {
 
 type HeapDumps {
   aggregate: HeapDumpAggregateInfo!
-  "List and optionally filter heap dumps belonging to a Target"
-  archived(filter: HeapDumpsFilterInput): HeapDumps
   data: [HeapDump]!
+}
+
+type ThreadDumps {
+  aggregate: ThreadDumpAggregateInfo!
+  data: [ThreadDump]!
 }
 
 type MBeanMetrics {

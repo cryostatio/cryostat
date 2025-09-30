@@ -16,7 +16,6 @@
 package io.cryostat.graphql;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Predicate;
@@ -52,21 +51,6 @@ public class HeapDumpGraphQL {
                         .toList();
         r.aggregate = HeapDumpAggregateInfo.fromArchived(r.data);
         return r;
-    }
-
-    @Description("List and optionally filter heap dumps belonging to a Target")
-    public HeapDumps archived(@Source HeapDumps dumps, HeapDumpsFilter filter) {
-        var out = new TargetNodes.HeapDumps();
-        out.data = new ArrayList<>();
-        out.aggregate = HeapDumpAggregateInfo.empty();
-
-        var in = dumps.data;
-        if (in != null) {
-            out.data = in.stream().filter(r -> filter == null ? true : filter.test(r)).toList();
-            out.aggregate = HeapDumpAggregateInfo.fromArchived(out.data);
-        }
-
-        return out;
     }
 
     @NonNull

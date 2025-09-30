@@ -267,7 +267,7 @@ public class DiagnosticsHelper {
                 uuid,
                 object.lastModified().toEpochMilli(),
                 object.size(),
-                Objects.isNull(metadata.get()) ? new Metadata(Map.of()) : metadata.get());
+                metadata.orElse(new Metadata(Map.of())));
     }
 
     private ThreadDump convertObject(S3Object object) throws Exception {
@@ -280,7 +280,7 @@ public class DiagnosticsHelper {
                 uuid,
                 object.lastModified().toEpochMilli(),
                 object.size(),
-                Objects.isNull(metadata.get()) ? new Metadata(Map.of()) : metadata.get());
+                metadata.orElse(new Metadata(Map.of())));
     }
 
     public ThreadDump addThreadDump(Target target, String content) {
@@ -564,9 +564,9 @@ public class DiagnosticsHelper {
 
     public ThreadDump updateThreadDumpMetadata(
             String jvmId, String threadDumpId, Map<String, String> metadata) throws IOException {
+        var response = assertObjectExists(jvmId, threadDumpId, bucket);
         Metadata updatedMetadata = updateMetadata(jvmId, threadDumpId, metadata, bucket);
 
-        var response = assertObjectExists(jvmId, threadDumpId, bucket);
         long size = response.contentLength();
         long lastModified = response.lastModified().toEpochMilli();
 
@@ -592,9 +592,9 @@ public class DiagnosticsHelper {
 
     public HeapDump updateHeapDumpMetadata(
             String jvmId, String heapDumpId, Map<String, String> metadata) throws IOException {
+        var response = assertObjectExists(jvmId, heapDumpId, heapDumpBucket);
         Metadata updatedMetadata = updateMetadata(jvmId, heapDumpId, metadata, heapDumpBucket);
 
-        var response = assertObjectExists(jvmId, heapDumpId, heapDumpBucket);
         long size = response.contentLength();
         long lastModified = response.lastModified().toEpochMilli();
 
