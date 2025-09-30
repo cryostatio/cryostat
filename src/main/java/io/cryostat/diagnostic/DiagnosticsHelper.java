@@ -438,7 +438,10 @@ public class DiagnosticsHelper {
                                             .key(storageKey)
                                             .build());
                     if (!resp.hasMetadata()) {
-                        return Optional.empty();
+                        // Return an empty metadata map to support the case of
+                        // dumps with no existing metadata. Cases of
+                        // missing keys/other errors are distinguished by an empty optional
+                        return Optional.of(new Metadata(Map.of()));
                     }
                     return Optional.of(new Metadata(resp.metadata()));
                 case BUCKET:
@@ -509,7 +512,9 @@ public class DiagnosticsHelper {
     public HeadObjectResponse assertObjectExists(
             String jvmId, String filename, String storageBucket) {
         var key = storageKey(jvmId, filename);
-        var resp = storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
+        var resp =
+                storage.headObject(
+                        HeadObjectRequest.builder().bucket(storageBucket).key(key).build());
         if (!resp.sdkHttpResponse().isSuccessful()) {
             throw new HttpException(
                     resp.sdkHttpResponse().statusCode(),
@@ -525,8 +530,7 @@ public class DiagnosticsHelper {
         Optional<Metadata> existingMeta = getObjectMetadata(key, storageBucket);
 
         if (existingMeta.isEmpty()) {
-            throw new NotFoundException(
-                    "Could not find metadata for archived recording with key: " + key);
+            throw new NotFoundException("Could not find metadata for heap dump with key: " + key);
         }
 
         Metadata updatedMetadata = new Metadata(metadata);
@@ -536,7 +540,7 @@ public class DiagnosticsHelper {
                 Tagging tagging = createMetadataTagging(updatedMetadata);
                 storage.putObjectTagging(
                         PutObjectTaggingRequest.builder()
-                                .bucket(bucket)
+                                .bucket(storageBucket)
                                 .key(key)
                                 .tagging(tagging)
                                 .build());
@@ -575,20 +579,43 @@ public class DiagnosticsHelper {
                         size,
                         updatedMetadata);
 
-        notifyArchiveMetadataUpdate(jvmId, updatedDump);
-
-        return updatedDump;
-    }
-
-    private void notifyArchiveMetadataUpdate(String jvmId, ThreadDump updatedDump) {
         var event =
                 new ThreadDumpEvent(
                         DiagnosticsHelper.EventCategory.THREAD_DUMP_METADATA_UPDATED,
                         new ThreadDumpEvent.Payload(jvmId, updatedDump, ""));
-        bus.publish(event.category().category(), event.payload().threadDump());
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
+
+        return updatedDump;
+    }
+
+    public HeapDump updateHeapDumpMetadata(
+            String jvmId, String heapDumpId, Map<String, String> metadata) throws IOException {
+        Metadata updatedMetadata = updateMetadata(jvmId, heapDumpId, metadata, heapDumpBucket);
+
+        var response = assertObjectExists(jvmId, heapDumpId, heapDumpBucket);
+        long size = response.contentLength();
+        long lastModified = response.lastModified().toEpochMilli();
+
+        HeapDump updatedDump =
+                new HeapDump(
+                        jvmId,
+                        downloadUrl(jvmId, heapDumpId),
+                        heapDumpId,
+                        lastModified,
+                        size,
+                        updatedMetadata);
+
+        var event =
+                new HeapDumpEvent(
+                        DiagnosticsHelper.EventCategory.HEAP_DUMP_METADATA_UPDATED,
+                        new HeapDumpEvent.Payload(jvmId, updatedDump));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+
+        return updatedDump;
     }
 
     public enum EventCategory {

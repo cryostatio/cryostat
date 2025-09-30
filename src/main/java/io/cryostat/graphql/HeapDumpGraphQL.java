@@ -81,7 +81,7 @@ public class HeapDumpGraphQL {
     @Description("Update the metadata for a heap dump")
     public HeapDump doPutMetadata(@Source HeapDump heapDump, MetadataLabels metadataInput)
             throws IOException {
-        diagnosticsHelper.updateThreadDumpMetadata(
+        diagnosticsHelper.updateHeapDumpMetadata(
                 heapDump.jvmId(), heapDump.heapDumpId(), metadataInput.getLabels());
 
         String downloadUrl = diagnosticsHelper.downloadUrl(heapDump.jvmId(), heapDump.heapDumpId());
