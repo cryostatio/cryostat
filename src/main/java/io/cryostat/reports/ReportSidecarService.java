@@ -48,7 +48,6 @@ public interface ReportSidecarService {
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     Uni<Map<String, AnalysisResult>> generatePresigned(
-            @RestForm("path") @PartType(MediaType.TEXT_PLAIN) String path,
-            @RestForm("query") @PartType(MediaType.TEXT_PLAIN) String query,
+            @RestForm("uri") @PartType(MediaType.TEXT_PLAIN) String uri,
             @RestForm("filter") @PartType(MediaType.TEXT_PLAIN) String filter);
 }

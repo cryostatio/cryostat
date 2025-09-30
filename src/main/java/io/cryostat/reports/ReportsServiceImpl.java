@@ -118,7 +118,7 @@ class ReportsServiceImpl implements ReportsService {
                 logger.tracev(
                         "sidecar reportFor presigned archived recording {0} {1}", jvmId, filename);
                 var uri = getPresignedPath(jvmId, filename);
-                return sidecar.generatePresigned(uri.getPath(), uri.getQuery(), filter);
+                return sidecar.generatePresigned(uri.toString(), filter);
             } else {
                 InputStream stream = helper.getArchivedRecordingStream(jvmId, filename);
                 logger.tracev("sidecar reportFor archived recording {0} {1}", jvmId, filename);
