@@ -35,6 +35,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
+import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
@@ -47,6 +48,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
+import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -72,8 +74,10 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
+import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
+import org.jboss.resteasy.reactive.RestResponse;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
@@ -187,6 +191,21 @@ public class Discovery {
                 | ParseException e) {
             throw new BadRequestException(e);
         }
+    }
+
+    @POST
+    @Blocking
+    @RolesAllowed("read")
+    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
+    @Path("/api/beta/discovery/credential_exists")
+    @Operation(
+            summary =
+                    "Check if a Credential already exists with an identical MatchExpression"
+                            + " script.")
+    public RestResponse<Void> checkCredentialByScript(@RestForm String script) {
+        var exists = Credential.count("matchExpression.script", script) > 0;
+        return RestResponse.status(
+                exists ? RestResponse.Status.NO_CONTENT : RestResponse.Status.NOT_FOUND);
     }
 
     @Transactional

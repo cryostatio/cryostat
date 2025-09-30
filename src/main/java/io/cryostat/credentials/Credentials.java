@@ -40,14 +40,12 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
-import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -93,21 +91,6 @@ public class Credentials {
         } catch (IOException e) {
             logger.error(e);
         }
-    }
-
-    @POST
-    @Blocking
-    @RolesAllowed("read")
-    @Consumes({MediaType.MULTIPART_FORM_DATA, MediaType.APPLICATION_FORM_URLENCODED})
-    @Path("/script_exists")
-    @Operation(
-            summary =
-                    "Check if a Credential already exists with an identical MatchExpression"
-                            + " script.")
-    public RestResponse<Void> checkCredentialByScript(@RestForm String script) {
-        var exists = Credential.count("matchExpression.script", script) > 0;
-        return RestResponse.status(
-                exists ? RestResponse.Status.NO_CONTENT : RestResponse.Status.NOT_FOUND);
     }
 
     @POST
