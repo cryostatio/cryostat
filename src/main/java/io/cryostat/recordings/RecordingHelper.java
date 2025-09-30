@@ -1039,7 +1039,7 @@ public class RecordingHelper {
                     if (!resp.hasMetadata()) {
                         return Optional.empty();
                     }
-                    return Optional.of(new Metadata(resp.metadata()));
+                    return Optional.of(new Metadata(new HashMap<>(resp.metadata())));
                 case BUCKET:
                     return metadataService.get().read(storageKey);
                 default:
