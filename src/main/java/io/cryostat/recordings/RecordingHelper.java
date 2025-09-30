@@ -1486,7 +1486,7 @@ public class RecordingHelper {
             throws URISyntaxException {
         var uri = getPresignedPath(jvmId, filename);
         return datasourceClient
-                .uploadPresigned(uri.getPath(), uri.getQuery())
+                .uploadPresigned(uri.toString())
                 .onItem()
                 .transform(
                         r -> {
@@ -1640,8 +1640,6 @@ public class RecordingHelper {
         @POST
         @jakarta.ws.rs.Path("/load_presigned")
         @Consumes(MediaType.MULTIPART_FORM_DATA)
-        Uni<Response> uploadPresigned(
-                @RestForm("path") @PartType(MediaType.TEXT_PLAIN) String path,
-                @RestForm("query") @PartType(MediaType.TEXT_PLAIN) String query);
+        Uni<Response> uploadPresigned(@RestForm("uri") @PartType(MediaType.TEXT_PLAIN) String uri);
     }
 }
