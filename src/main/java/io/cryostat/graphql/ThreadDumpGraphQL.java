@@ -57,7 +57,7 @@ public class ThreadDumpGraphQL {
     }
 
     @NonNull
-    @Description("Delete a Thread Dump")
+    @Description("Delete a thread dump")
     public ThreadDump doDelete(@Source ThreadDump dump) throws IOException {
         diagnosticsHelper.deleteThreadDump(
                 Target.getTargetByJvmId(dump.jvmId()).get(), dump.threadDumpId());

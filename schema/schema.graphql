@@ -123,6 +123,16 @@ type Evaluation {
   summary: String
 }
 
+type HeapDump {
+  "Delete a heap dump"
+  doDelete: HeapDump!
+  downloadUrl: String
+  heapDumpId: String
+  jvmId: String
+  lastModified: BigInteger!
+  size: BigInteger!
+}
+
 type HeapDumpAggregateInfo {
   "The number of elements in this collection"
   count: BigInteger!
@@ -133,11 +143,6 @@ type HeapDumpAggregateInfo {
 type HeapDumps {
   aggregate: HeapDumpAggregateInfo!
   data: [HeapDump]!
-}
-
-type ThreadDumps {
-  aggregate: ThreadDumpAggregateInfo!
-  data: [ThreadDump]!
 }
 
 type MBeanMetrics {
@@ -334,8 +339,6 @@ type ThreadDumpAggregateInfo {
 
 type ThreadDumps {
   aggregate: ThreadDumpAggregateInfo!
-  "List and optionally filter thread dumps belonging to a Target"
-  archived(filter: ThreadDumpsFilterInput): ThreadDumps
   data: [ThreadDump]!
 }
 
