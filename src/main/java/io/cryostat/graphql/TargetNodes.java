@@ -29,10 +29,15 @@ import org.openjdk.jmc.flightrecorder.rules.Severity;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
+import io.cryostat.diagnostic.Diagnostics.HeapDump;
+import io.cryostat.diagnostic.Diagnostics.ThreadDump;
+import io.cryostat.diagnostic.DiagnosticsHelper;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.ActiveRecordings.ActiveRecordingsFilter;
 import io.cryostat.graphql.ArchivedRecordings.ArchivedRecordingsFilter;
+import io.cryostat.graphql.HeapDumpGraphQL.HeapDumpsFilter;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
+import io.cryostat.graphql.ThreadDumpGraphQL.ThreadDumpsFilter;
 import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
@@ -62,6 +67,7 @@ public class TargetNodes {
     @Inject RecordingHelper recordingHelper;
     @Inject TargetConnectionManager connectionManager;
     @Inject AnalysisReportAggregator reportAggregator;
+    @Inject DiagnosticsHelper diagnosticsHelper;
 
     @Query("targetNodes")
     @Description("Get the Target discovery nodes, i.e. the leaf nodes of the discovery tree")
@@ -109,6 +115,34 @@ public class TargetNodes {
             recordings.aggregate = RecordingAggregateInfo.fromArchived(recordings.data);
         }
         return recordings;
+    }
+
+    @Description("Retrieve a list of thread dumps belonging to the target")
+    public ThreadDumps threadDumps(@Source Target target, @Nullable ThreadDumpsFilter filter) {
+        var fTarget = Target.getTargetById(target.id);
+        var threadDumps = new ThreadDumps();
+        if (StringUtils.isNotBlank(fTarget.jvmId)) {
+            threadDumps.data =
+                    diagnosticsHelper.getThreadDumps(fTarget).stream()
+                            .filter(t -> filter == null || filter.test(t))
+                            .toList();
+            threadDumps.aggregate = ThreadDumpAggregateInfo.fromArchived(threadDumps.data);
+        }
+        return threadDumps;
+    }
+
+    @Description("Retrieve a list of heap dumps belonging to the target")
+    public HeapDumps heapDumps(@Source Target target, @Nullable HeapDumpsFilter filter) {
+        var fTarget = Target.getTargetById(target.id);
+        var heapDumps = new HeapDumps();
+        if (StringUtils.isNotBlank(fTarget.jvmId)) {
+            heapDumps.data =
+                    diagnosticsHelper.getHeapDumps(fTarget).stream()
+                            .filter(t -> filter == null || filter.test(t))
+                            .toList();
+            heapDumps.aggregate = HeapDumpAggregateInfo.fromArchived(heapDumps.data);
+        }
+        return heapDumps;
     }
 
     @Description(
@@ -195,6 +229,63 @@ public class TargetNodes {
         public @NonNull List<ArchivedRecording> data = new ArrayList<>();
         public @NonNull RecordingAggregateInfo aggregate =
                 RecordingAggregateInfo.fromArchived(data);
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class ThreadDumps {
+        public @NonNull List<ThreadDump> data = new ArrayList<>();
+        public @NonNull ThreadDumpAggregateInfo aggregate =
+                ThreadDumpAggregateInfo.fromArchived(data);
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class ThreadDumpAggregateInfo {
+        public @NonNull @Description("The number of elements in this collection") long count;
+        public @NonNull @Description(
+                "The sum of sizes of elements in this collection, or 0 if not applicable") long
+                size;
+
+        public ThreadDumpAggregateInfo(long count, long size) {
+            this.count = count;
+            this.size = size;
+        }
+
+        public static ThreadDumpAggregateInfo empty() {
+            return new ThreadDumpAggregateInfo(0, 0);
+        }
+
+        public static ThreadDumpAggregateInfo fromArchived(List<ThreadDump> threadDumps) {
+            return new ThreadDumpAggregateInfo(
+                    threadDumps.size(), threadDumps.stream().mapToLong(ThreadDump::size).sum());
+        }
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class HeapDumps {
+        public @NonNull List<HeapDump> data = new ArrayList<>();
+        public @NonNull HeapDumpAggregateInfo aggregate = HeapDumpAggregateInfo.fromArchived(data);
+    }
+
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
+    public static class HeapDumpAggregateInfo {
+        public @NonNull @Description("The number of elements in this collection") long count;
+        public @NonNull @Description(
+                "The sum of sizes of elements in this collection, or 0 if not applicable") long
+                size;
+
+        public HeapDumpAggregateInfo(long count, long size) {
+            this.count = count;
+            this.size = size;
+        }
+
+        public static HeapDumpAggregateInfo empty() {
+            return new HeapDumpAggregateInfo(0, 0);
+        }
+
+        public static HeapDumpAggregateInfo fromArchived(List<HeapDump> heapDumps) {
+            return new HeapDumpAggregateInfo(
+                    heapDumps.size(), heapDumps.stream().mapToLong(HeapDump::size).sum());
+        }
     }
 
     @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")

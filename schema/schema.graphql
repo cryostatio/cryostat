@@ -99,6 +99,28 @@ type Evaluation {
   summary: String
 }
 
+type HeapDump {
+  "Delete a heap dump"
+  doDelete: HeapDump!
+  downloadUrl: String
+  heapDumpId: String
+  jvmId: String
+  lastModified: BigInteger!
+  size: BigInteger!
+}
+
+type HeapDumpAggregateInfo {
+  "The number of elements in this collection"
+  count: BigInteger!
+  "The sum of sizes of elements in this collection, or 0 if not applicable"
+  size: BigInteger!
+}
+
+type HeapDumps {
+  aggregate: HeapDumpAggregateInfo!
+  data: [HeapDump]!
+}
+
 type MBeanMetrics {
   jvmId: String
   memory: MemoryMetrics
@@ -167,10 +189,14 @@ type Query {
   archivedRecordings(filter: ArchivedRecordingsFilterInput): ArchivedRecordings
   "Get all environment nodes in the discovery tree with optional filtering"
   environmentNodes(filter: DiscoveryNodeFilterInput): [DiscoveryNode]
+  "List archived heap dumps"
+  heapDumps(filter: HeapDumpsFilterInput): HeapDumps
   "Get the root target discovery node"
   rootNode: DiscoveryNode
   "Get the Target discovery nodes, i.e. the leaf nodes of the discovery tree"
   targetNodes(filter: DiscoveryNodeFilterInput): [DiscoveryNode]
+  "List archived thread dumps"
+  threadDumps(filter: ThreadDumpsFilterInput): ThreadDumps
 }
 
 type RecordingAggregateInfo {
@@ -244,6 +270,8 @@ type Target {
   doSnapshot: ActiveRecording
   "Start a new Flight Recording on the specified Target"
   doStartRecording(recording: RecordingSettingsInput!): ActiveRecording
+  "Retrieve a list of heap dumps belonging to the target"
+  heapDumps(filter: HeapDumpsFilterInput): HeapDumps
   id: BigInteger
   jvmId: String
   labels(
@@ -261,6 +289,30 @@ type Target {
   once, and should not be triggered by broad GraphQL selections.
   """
   report(filter: ReportFilterInput): Report
+  "Retrieve a list of thread dumps belonging to the target"
+  threadDumps(filter: ThreadDumpsFilterInput): ThreadDumps
+}
+
+type ThreadDump {
+  "Delete a thread dump"
+  doDelete: ThreadDump!
+  downloadUrl: String
+  jvmId: String
+  lastModified: BigInteger!
+  size: BigInteger!
+  threadDumpId: String
+}
+
+type ThreadDumpAggregateInfo {
+  "The number of elements in this collection"
+  count: BigInteger!
+  "The sum of sizes of elements in this collection, or 0 if not applicable"
+  size: BigInteger!
+}
+
+type ThreadDumps {
+  aggregate: ThreadDumpAggregateInfo!
+  data: [ThreadDump]!
 }
 
 type ThreadMetrics {
@@ -334,6 +386,16 @@ input Entry_String_StringInput {
   value: String
 }
 
+input HeapDumpsFilterInput {
+  archivedTimeAfterEqual: BigInteger
+  archivedTimeBeforeEqual: BigInteger
+  name: String
+  names: [String]
+  sizeBytesGreaterThanEqual: BigInteger
+  sizeBytesLessThanEqual: BigInteger
+  sourceTarget: String
+}
+
 input MetadataLabelsInput {
   labels: [Entry_String_StringInput]
 }
@@ -365,4 +427,14 @@ input ReportFilterInput {
   notTopics: [String]
   topic: String
   topics: [String]
+}
+
+input ThreadDumpsFilterInput {
+  archivedTimeAfterEqual: BigInteger
+  archivedTimeBeforeEqual: BigInteger
+  name: String
+  names: [String]
+  sizeBytesGreaterThanEqual: BigInteger
+  sizeBytesLessThanEqual: BigInteger
+  sourceTarget: String
 }

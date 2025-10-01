@@ -18,7 +18,6 @@ package io.cryostat.diagnostic;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -62,13 +61,14 @@ public class DiagnosticsHelper {
 
     static final String THREAD_DUMP_DELETED = "ThreadDumpDeleted";
     static final String THREAD_DUMP_REQUESTED = "ThreadDumpRequested";
+    static final String THREAD_DUMP_SUCCESS = "ThreadDumpSuccess";
     static final String DUMP_THREADS = "threadPrint";
     static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
     static final String DUMP_HEAP = "dumpHeap";
     static final String HEAP_DUMP_REQUESTED = "HeapDumpRequested";
     static final String HEAP_DUMP_DELETED_NAME = "HeapDumpDeleted";
     static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
-    static final String HEAP_DUMP_UPLOADED = "HeapDumpUploaded";
+    static final String HEAP_DUMP_UPLOADED_NAME = "HeapDumpUploaded";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     private static final String HOTSPOT_DIAGNOSTIC_BEAN_NAME =
             "com.sun.management:type=HotSpotDiagnostic";
@@ -134,10 +134,17 @@ public class DiagnosticsHelper {
         var event =
                 new HeapDumpEvent(
                         EventCategory.HEAP_DUMP_DELETED,
-                        HeapDumpEvent.Payload.of(target, heapDumpId));
+                        HeapDumpEvent.Payload.of(
+                                target,
+                                new HeapDump(
+                                        jvmId, downloadUrl(jvmId, heapDumpId), heapDumpId, 0, 0)));
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
+    }
+
+    public List<HeapDump> getHeapDumps(String jvmId) {
+        return getHeapDumps(Target.getTargetByJvmId(jvmId).get());
     }
 
     public List<HeapDump> getHeapDumps(Target target) {
@@ -187,11 +194,23 @@ public class DiagnosticsHelper {
             var event =
                     new ThreadDumpEvent(
                             EventCategory.DELETED,
-                            ThreadDumpEvent.Payload.of(target, threadDumpId));
+                            ThreadDumpEvent.Payload.of(
+                                    target,
+                                    new ThreadDump(
+                                            target.jvmId,
+                                            downloadUrl(target.jvmId, threadDumpId),
+                                            threadDumpId,
+                                            0,
+                                            0),
+                                    ""));
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(event.category().category(), event.payload()));
         }
+    }
+
+    public List<ThreadDump> getThreadDumps(String jvmId) {
+        return getThreadDumps(Target.getTargetByJvmId(jvmId).get());
     }
 
     public List<ThreadDump> getThreadDumps(Target target) {
@@ -276,17 +295,12 @@ public class DiagnosticsHelper {
                         filename,
                         clock.now().getEpochSecond(),
                         heapDump.filePath().toFile().length());
+        var event =
+                new HeapDumpEvent(
+                        EventCategory.HEAP_DUMP_UPLOADED, HeapDumpEvent.Payload.of(target, dump));
         bus.publish(
                 MessagingServer.class.getName(),
-                new Notification(
-                        HEAP_DUMP_UPLOADED,
-                        Map.of(
-                                "jobId",
-                                requestId,
-                                "targetAlias",
-                                target.alias,
-                                "filename",
-                                filename)));
+                new Notification(event.category().category(), event.payload()));
         return dump;
     }
 
@@ -372,7 +386,9 @@ public class DiagnosticsHelper {
         // ThreadDumpSuccess and HeapDumpSuccess ("CREATED") events are emitted by
         // LongRunningRequestGenerator
         DELETED(THREAD_DUMP_DELETED),
-        HEAP_DUMP_DELETED(HEAP_DUMP_DELETED_NAME);
+        CREATED(THREAD_DUMP_SUCCESS),
+        HEAP_DUMP_DELETED(HEAP_DUMP_DELETED_NAME),
+        HEAP_DUMP_UPLOADED(HEAP_DUMP_UPLOADED_NAME);
 
         private final String category;
 
@@ -391,14 +407,14 @@ public class DiagnosticsHelper {
             Objects.requireNonNull(payload);
         }
 
-        public record Payload(String jvmId, String threadDumpId) {
+        public record Payload(String jvmId, ThreadDump threadDump, String jobId) {
             public Payload {
                 Objects.requireNonNull(jvmId);
-                Objects.requireNonNull(threadDumpId);
+                Objects.requireNonNull(threadDump);
             }
 
-            public static Payload of(Target target, String threadDumpId) {
-                return new Payload(target.jvmId, threadDumpId);
+            public static Payload of(Target target, ThreadDump dump, String jobId) {
+                return new Payload(target.alias, dump, jobId);
             }
         }
     }
@@ -409,14 +425,14 @@ public class DiagnosticsHelper {
             Objects.requireNonNull(payload);
         }
 
-        public record Payload(String jvmId, String heapDumpId) {
+        public record Payload(String jvmId, HeapDump heapDump) {
             public Payload {
                 Objects.requireNonNull(jvmId);
-                Objects.requireNonNull(heapDumpId);
+                Objects.requireNonNull(heapDump);
             }
 
-            public static Payload of(Target target, String heapDumpId) {
-                return new Payload(target.jvmId, heapDumpId);
+            public static Payload of(Target target, HeapDump heapDump) {
+                return new Payload(target.jvmId, heapDump);
             }
         }
     }

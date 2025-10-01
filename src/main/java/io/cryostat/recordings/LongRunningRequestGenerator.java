@@ -23,6 +23,8 @@ import java.util.concurrent.CompletionException;
 import io.cryostat.ConfigProperties;
 import io.cryostat.core.reports.InterruptibleReportGenerator.AnalysisResult;
 import io.cryostat.diagnostic.DiagnosticsHelper;
+import io.cryostat.diagnostic.DiagnosticsHelper.EventCategory;
+import io.cryostat.diagnostic.DiagnosticsHelper.ThreadDumpEvent;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
 import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.reports.ReportsService;
@@ -80,7 +82,6 @@ public class LongRunningRequestGenerator {
     private static final String REPORT_FAILURE = "ReportFailure";
     private static final String HEAP_DUMP_FAILURE = "HeapDumpFailure";
     private static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
-    private static final String THREAD_DUMP_SUCCESS = "ThreadDumpSuccess";
     private static final String THREAD_DUMP_FAILURE = "ThreadDumpFailure";
 
     @Inject Logger logger;
@@ -105,24 +106,20 @@ public class LongRunningRequestGenerator {
         try {
             var target = Target.getTargetById(request.targetId);
             var dump = diagnosticsHelper.dumpThreads(target, request.format, request.id());
+            var event =
+                    new ThreadDumpEvent(
+                            EventCategory.CREATED,
+                            ThreadDumpEvent.Payload.of(target, dump, request.id()));
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(
-                            THREAD_DUMP_SUCCESS,
-                            Map.of(
-                                    "jobId",
-                                    request.id(),
-                                    "threadDumpId",
-                                    dump.threadDumpId(),
-                                    "targetId",
-                                    dump.jvmId(),
-                                    "downloadUrl",
-                                    dump.downloadUrl())));
+                    new Notification(event.category().category(), event.payload()));
         } catch (Exception e) {
             logger.warn("Failed to dump threads");
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(THREAD_DUMP_FAILURE, Map.of("jobId", request.id())));
+                    new Notification(
+                            THREAD_DUMP_FAILURE,
+                            Map.of("jobId", request.id(), "targetId", request.targetId)));
             throw new CompletionException(e);
         }
     }
