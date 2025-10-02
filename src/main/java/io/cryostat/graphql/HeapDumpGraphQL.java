@@ -25,6 +25,7 @@ import io.cryostat.diagnostic.DiagnosticsHelper;
 import io.cryostat.graphql.ActiveRecordings.MetadataLabels;
 import io.cryostat.graphql.TargetNodes.HeapDumpAggregateInfo;
 import io.cryostat.graphql.TargetNodes.HeapDumps;
+import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.Target;
 
@@ -83,6 +84,7 @@ public class HeapDumpGraphQL {
         public @Nullable String name;
         public @Nullable List<String> names;
         public @Nullable String sourceTarget;
+        public @Nullable List<String> labels;
         public @Nullable Long sizeBytesGreaterThanEqual;
         public @Nullable Long sizeBytesLessThanEqual;
         public @Nullable Long archivedTimeAfterEqual;
@@ -108,6 +110,14 @@ public class HeapDumpGraphQL {
                     n ->
                             archivedTimeBeforeEqual == null
                                     || archivedTimeBeforeEqual <= n.lastModified();
+            Predicate<HeapDump> matchesLabels =
+                    n ->
+                            labels == null
+                                    || labels.stream()
+                                            .allMatch(
+                                                    label ->
+                                                            LabelSelectorMatcher.parse(label)
+                                                                    .test(n.metadata().labels()));
 
             return List.of(
                             matchesName,
@@ -116,7 +126,8 @@ public class HeapDumpGraphQL {
                             matchesSizeGte,
                             matchesSizeLte,
                             matchesArchivedTimeGte,
-                            matchesArchivedTimeLte)
+                            matchesArchivedTimeLte,
+                            matchesLabels)
                     .stream()
                     .reduce(x -> true, Predicate::and)
                     .test(t);
