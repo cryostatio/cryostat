@@ -32,7 +32,6 @@ import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.JobBuilder;
@@ -56,8 +55,8 @@ public class TargetUpdateService {
     @Inject Scheduler scheduler;
     @Inject MatchExpressionEvaluator matchExpressionEvaluator;
 
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration connectionTimeout;
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_TTL)
+    Duration connectionTtl;
 
     @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_DELAY)
     Duration externalRecordingDelay;
@@ -67,19 +66,15 @@ public class TargetUpdateService {
 
         JobDetail jobDetail = JobBuilder.newJob(TargetUpdateJob.class).build();
 
+        final int retryInterval = ((int) connectionTtl.toSeconds()) * 2;
         Trigger trigger =
                 TriggerBuilder.newTrigger()
                         .withSchedule(
                                 SimpleScheduleBuilder.simpleSchedule()
-                                        .withIntervalInSeconds(
-                                                (int) (connectionTimeout.toSeconds() * 2))
+                                        .withIntervalInSeconds(retryInterval)
                                         .repeatForever()
                                         .withMisfireHandlingInstructionNowWithExistingCount())
-                        .startAt(
-                                Date.from(
-                                        Instant.now()
-                                                .plusSeconds(
-                                                        (int) (connectionTimeout.toSeconds() * 2))))
+                        .startAt(Date.from(Instant.now().plusSeconds(retryInterval)))
                         .build();
         scheduler.scheduleJob(jobDetail, trigger);
     }
@@ -89,19 +84,16 @@ public class TargetUpdateService {
     }
 
     @ConsumeEvent(value = Credential.CREDENTIALS_STORED, blocking = true)
-    @Transactional
     void onCredentialsStored(Credential credential) {
         updateTargetsForExpression(credential);
     }
 
     @ConsumeEvent(value = Credential.CREDENTIALS_UPDATED, blocking = true)
-    @Transactional
     void onCredentialsUpdated(Credential credential) {
         updateTargetsForExpression(credential);
     }
 
     @ConsumeEvent(value = Credential.CREDENTIALS_DELETED, blocking = true)
-    @Transactional
     void onCredentialsDeleted(Credential credential) {
         updateTargetsForExpression(credential);
     }
@@ -137,14 +129,17 @@ public class TargetUpdateService {
         data.put("targetId", target.id);
         Trigger trigger =
                 TriggerBuilder.newTrigger()
+                        .withIdentity(Long.toString(target.id))
                         .startAt(Date.from(Instant.now().plusSeconds(1)))
                         .usingJobData(jobDetail.getJobDataMap())
                         .build();
-        scheduler.scheduleJob(jobDetail, trigger);
+        if (!scheduler.checkExists(trigger.getKey())) {
+            scheduler.scheduleJob(jobDetail, trigger);
+        }
     }
 
     void fireActiveRecordingUpdate(ActiveRecording recording) throws SchedulerException {
-        JobKey key = JobKey.jobKey(recording.target.jvmId, Long.toString(recording.remoteId));
+        JobKey key = JobKey.jobKey(Long.toString(recording.remoteId), recording.target.jvmId);
         if (scheduler.checkExists(key)) {
             return;
         }

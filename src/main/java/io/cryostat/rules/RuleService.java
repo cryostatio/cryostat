@@ -159,7 +159,6 @@ public class RuleService {
     }
 
     @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true)
-    @Transactional
     public void handleRuleModification(RuleEvent event) {
         Rule rule = event.rule();
         switch (event.category()) {
