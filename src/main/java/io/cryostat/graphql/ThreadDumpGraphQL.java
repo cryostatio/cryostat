@@ -22,8 +22,11 @@ import java.util.function.Predicate;
 
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.diagnostic.DiagnosticsHelper;
+import io.cryostat.graphql.ActiveRecordings.MetadataLabels;
 import io.cryostat.graphql.TargetNodes.ThreadDumpAggregateInfo;
 import io.cryostat.graphql.TargetNodes.ThreadDumps;
+import io.cryostat.graphql.matchers.LabelSelectorMatcher;
+import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.Target;
 
 import io.smallrye.graphql.api.Nullable;
@@ -61,10 +64,30 @@ public class ThreadDumpGraphQL {
         return dump;
     }
 
+    @NonNull
+    @Description("Update the metadata for a thread dump")
+    public ThreadDump doPutMetadata(@Source ThreadDump threadDump, MetadataLabels metadataInput)
+            throws IOException {
+        diagnosticsHelper.updateThreadDumpMetadata(
+                threadDump.jvmId(), threadDump.threadDumpId(), metadataInput.getLabels());
+
+        String downloadUrl =
+                diagnosticsHelper.downloadUrl(threadDump.jvmId(), threadDump.threadDumpId());
+
+        return new ThreadDump(
+                threadDump.jvmId(),
+                downloadUrl,
+                threadDump.threadDumpId(),
+                threadDump.lastModified(),
+                threadDump.size(),
+                new Metadata(metadataInput.getLabels()));
+    }
+
     public static class ThreadDumpsFilter implements Predicate<ThreadDump> {
         public @Nullable String name;
         public @Nullable List<String> names;
         public @Nullable String sourceTarget;
+        public @Nullable List<String> labels;
         public @Nullable Long sizeBytesGreaterThanEqual;
         public @Nullable Long sizeBytesLessThanEqual;
         public @Nullable Long archivedTimeAfterEqual;
@@ -91,6 +114,14 @@ public class ThreadDumpGraphQL {
                     n ->
                             archivedTimeBeforeEqual == null
                                     || archivedTimeBeforeEqual <= n.lastModified();
+            Predicate<ThreadDump> matchesLabels =
+                    n ->
+                            labels == null
+                                    || labels.stream()
+                                            .allMatch(
+                                                    label ->
+                                                            LabelSelectorMatcher.parse(label)
+                                                                    .test(n.metadata().labels()));
 
             return List.of(
                             matchesName,
@@ -99,7 +130,8 @@ public class ThreadDumpGraphQL {
                             matchesSizeGte,
                             matchesSizeLte,
                             matchesArchivedTimeGte,
-                            matchesArchivedTimeLte)
+                            matchesArchivedTimeLte,
+                            matchesLabels)
                     .stream()
                     .reduce(x -> true, Predicate::and)
                     .test(t);

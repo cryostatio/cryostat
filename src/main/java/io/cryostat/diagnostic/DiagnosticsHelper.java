@@ -15,10 +15,16 @@
  */
 package io.cryostat.diagnostic;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
@@ -26,7 +32,9 @@ import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
+import io.cryostat.diagnostic.DiagnosticsMetadataService.StorageMode;
 import io.cryostat.libcryostat.sys.Clock;
+import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
@@ -34,11 +42,14 @@ import io.cryostat.ws.Notification;
 
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
+import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -50,11 +61,16 @@ import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
+import software.amazon.awssdk.services.s3.model.Tag;
+import software.amazon.awssdk.services.s3.model.Tagging;
 
 @ApplicationScoped
 public class DiagnosticsHelper {
@@ -62,6 +78,7 @@ public class DiagnosticsHelper {
     static final String THREAD_DUMP_DELETED = "ThreadDumpDeleted";
     static final String THREAD_DUMP_REQUESTED = "ThreadDumpRequested";
     static final String THREAD_DUMP_SUCCESS = "ThreadDumpSuccess";
+    static final String THREAD_DUMP_METADATA = "ThreadDumpMetadataUpdated";
     static final String DUMP_THREADS = "threadPrint";
     static final String DUMP_THREADS_TO_FIlE = "threadDumpToFile";
     static final String DUMP_HEAP = "dumpHeap";
@@ -69,6 +86,7 @@ public class DiagnosticsHelper {
     static final String HEAP_DUMP_DELETED_NAME = "HeapDumpDeleted";
     static final String HEAP_DUMP_SUCCESS = "HeapDumpSuccess";
     static final String HEAP_DUMP_UPLOADED_NAME = "HeapDumpUploaded";
+    static final String HEAP_DUMP_METADATA = "HeapDumpMetadataUpdated";
     private static final String DIAGNOSTIC_BEAN_NAME = "com.sun.management:type=DiagnosticCommand";
     private static final String HOTSPOT_DIAGNOSTIC_BEAN_NAME =
             "com.sun.management:type=HotSpotDiagnostic";
@@ -79,9 +97,14 @@ public class DiagnosticsHelper {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
     String heapDumpBucket;
 
+    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE)
+    String metadataStorageMode;
+
     @Inject
     @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
+
+    @Inject Instance<DiagnosticsMetadataService> metadataService;
 
     @Inject S3Client storage;
     @Inject Logger log;
@@ -137,7 +160,12 @@ public class DiagnosticsHelper {
                         HeapDumpEvent.Payload.of(
                                 target,
                                 new HeapDump(
-                                        jvmId, downloadUrl(jvmId, heapDumpId), heapDumpId, 0, 0)));
+                                        jvmId,
+                                        downloadUrl(jvmId, heapDumpId),
+                                        heapDumpId,
+                                        0,
+                                        0,
+                                        new Metadata(Map.of()))));
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
@@ -201,7 +229,8 @@ public class DiagnosticsHelper {
                                             downloadUrl(target.jvmId, threadDumpId),
                                             threadDumpId,
                                             0,
-                                            0),
+                                            0,
+                                            new Metadata(Map.of())),
                                     ""));
             bus.publish(
                     MessagingServer.class.getName(),
@@ -231,23 +260,27 @@ public class DiagnosticsHelper {
     private HeapDump convertHeapDump(S3Object object) throws Exception {
         String jvmId = object.key().split("/")[0];
         String uuid = object.key().split("/")[1];
+        Optional<Metadata> metadata = getObjectMetadata(storageKey(jvmId, uuid), heapDumpBucket);
         return new HeapDump(
                 jvmId,
                 heapDumpDownloadUrl(jvmId, uuid),
                 uuid,
                 object.lastModified().toEpochMilli(),
-                object.size());
+                object.size(),
+                metadata.orElse(new Metadata(Map.of())));
     }
 
     private ThreadDump convertObject(S3Object object) throws Exception {
         String jvmId = object.key().split("/")[0];
         String uuid = object.key().split("/")[1];
+        Optional<Metadata> metadata = getObjectMetadata(storageKey(jvmId, uuid), bucket);
         return new ThreadDump(
                 jvmId,
                 downloadUrl(jvmId, uuid),
                 uuid,
                 object.lastModified().toEpochMilli(),
-                object.size());
+                object.size(),
+                metadata.orElse(new Metadata(Map.of())));
     }
 
     public ThreadDump addThreadDump(Target target, String content) {
@@ -266,7 +299,8 @@ public class DiagnosticsHelper {
                 downloadUrl(target.jvmId, uuid),
                 uuid,
                 clock.now().getEpochSecond(),
-                content.length());
+                content.length(),
+                new Metadata(Map.of()));
     }
 
     public HeapDump addHeapDump(Target target, FileUpload heapDump, String requestId) {
@@ -294,7 +328,8 @@ public class DiagnosticsHelper {
                         heapDumpDownloadUrl(target.jvmId, filename),
                         filename,
                         clock.now().getEpochSecond(),
-                        heapDump.filePath().toFile().length());
+                        heapDump.filePath().toFile().length(),
+                        new Metadata(Map.of()));
         var event =
                 new HeapDumpEvent(
                         EventCategory.HEAP_DUMP_UPLOADED, HeapDumpEvent.Payload.of(target, dump));
@@ -320,7 +355,7 @@ public class DiagnosticsHelper {
         return base64Url.encodeAsString((storageKey(jvmId, uuid)).getBytes(StandardCharsets.UTF_8));
     }
 
-    public String storageKey(String jvmId, String uuid) {
+    public static String storageKey(String jvmId, String uuid) {
         return (jvmId + "/" + uuid).strip();
     }
 
@@ -382,13 +417,218 @@ public class DiagnosticsHelper {
         return storage.listObjectsV2(builder.build()).contents();
     }
 
+    // Labels Handling
+    public Optional<Metadata> getObjectMetadata(String storageKey, String storageBucket) {
+        try {
+            switch (storageMode()) {
+                case TAGGING:
+                    return Optional.of(
+                            taggingToMetadata(
+                                    storage.getObjectTagging(
+                                                    GetObjectTaggingRequest.builder()
+                                                            .bucket(storageBucket)
+                                                            .key(storageKey)
+                                                            .build())
+                                            .tagSet()));
+                case METADATA:
+                    var resp =
+                            storage.headObject(
+                                    HeadObjectRequest.builder()
+                                            .bucket(storageBucket)
+                                            .key(storageKey)
+                                            .build());
+                    if (!resp.hasMetadata()) {
+                        // Return an empty metadata map to support the case of
+                        // dumps with no existing metadata. Cases of
+                        // missing keys/other errors are distinguished by an empty optional
+                        return Optional.of(new Metadata(Map.of()));
+                    }
+                    // Resp.metadata returns an immutable map which can break things
+                    // later using computeIfAbsent, wrap it in a copy constructor.
+                    return Optional.of(new Metadata(new HashMap<>(resp.metadata())));
+                case BUCKET:
+                    return metadataService.get().read(storageKey);
+                default:
+                    throw new IllegalStateException();
+            }
+        } catch (NoSuchKeyException nske) {
+            log.warn(nske);
+            return Optional.empty();
+        } catch (IOException ioe) {
+            log.error(ioe);
+            return Optional.empty();
+        }
+    }
+
+    public static StorageMode storageMode(String name) {
+        return Arrays.asList(StorageMode.values()).stream()
+                .filter(s -> s.name().equalsIgnoreCase(name))
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private String decodeBase64(String encoded) {
+        return new String(base64Url.decode(encoded), StandardCharsets.UTF_8);
+    }
+
+    private StorageMode storageMode() {
+        return storageMode(metadataStorageMode);
+    }
+
+    Tagging createMetadataTagging(Metadata metadata) {
+        // TODO attach other metadata than labels somehow. Prefixed keys to create partitioning?
+        var tags = new ArrayList<Tag>();
+        tags.addAll(
+                metadata.labels().entrySet().stream()
+                        .map(
+                                e ->
+                                        Tag.builder()
+                                                .key(
+                                                        base64Url.encodeAsString(
+                                                                e.getKey()
+                                                                        .getBytes(
+                                                                                StandardCharsets
+                                                                                        .UTF_8)))
+                                                .value(
+                                                        base64Url.encodeAsString(
+                                                                e.getValue()
+                                                                        .getBytes(
+                                                                                StandardCharsets
+                                                                                        .UTF_8)))
+                                                .build())
+                        .toList());
+        return Tagging.builder().tagSet(tags).build();
+    }
+
+    private Metadata taggingToMetadata(List<Tag> tagSet) {
+        // TODO parse out other metadata than labels
+        var labels = new HashMap<String, String>();
+        for (var tag : tagSet) {
+            var key = decodeBase64(tag.key());
+            var value = decodeBase64(tag.value());
+            labels.put(key, value);
+        }
+        return new Metadata(labels);
+    }
+
+    public HeadObjectResponse assertObjectExists(
+            String jvmId, String filename, String storageBucket) {
+        var key = storageKey(jvmId, filename);
+        var resp =
+                storage.headObject(
+                        HeadObjectRequest.builder().bucket(storageBucket).key(key).build());
+        if (!resp.sdkHttpResponse().isSuccessful()) {
+            throw new HttpException(
+                    resp.sdkHttpResponse().statusCode(),
+                    resp.sdkHttpResponse().statusText().orElse(""));
+        }
+        return resp;
+    }
+
+    public Metadata updateMetadata(
+            String jvmId, String identifier, Map<String, String> metadata, String storageBucket)
+            throws IOException {
+        String key = storageKey(jvmId, identifier);
+        Optional<Metadata> existingMeta = getObjectMetadata(key, storageBucket);
+
+        if (existingMeta.isEmpty()) {
+            throw new NotFoundException("Could not find metadata for heap dump with key: " + key);
+        }
+
+        Metadata updatedMetadata = new Metadata(metadata);
+
+        switch (storageMode()) {
+            case TAGGING:
+                Tagging tagging = createMetadataTagging(updatedMetadata);
+                storage.putObjectTagging(
+                        PutObjectTaggingRequest.builder()
+                                .bucket(storageBucket)
+                                .key(key)
+                                .tagging(tagging)
+                                .build());
+                break;
+            case METADATA:
+                throw new BadRequestException(
+                        String.format(
+                                "Metadata updates are not supported with server configuration"
+                                        + " %s=%s",
+                                ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE,
+                                metadataStorageMode));
+            case BUCKET:
+                metadataService.get().update(jvmId, identifier, updatedMetadata);
+                break;
+            default:
+                throw new IllegalStateException();
+        }
+
+        return updatedMetadata;
+    }
+
+    public ThreadDump updateThreadDumpMetadata(
+            String jvmId, String threadDumpId, Map<String, String> metadata) throws IOException {
+        var response = assertObjectExists(jvmId, threadDumpId, bucket);
+        Metadata updatedMetadata = updateMetadata(jvmId, threadDumpId, metadata, bucket);
+
+        long size = response.contentLength();
+        long lastModified = response.lastModified().toEpochMilli();
+
+        ThreadDump updatedDump =
+                new ThreadDump(
+                        jvmId,
+                        downloadUrl(jvmId, threadDumpId),
+                        threadDumpId,
+                        lastModified,
+                        size,
+                        updatedMetadata);
+
+        var event =
+                new ThreadDumpEvent(
+                        DiagnosticsHelper.EventCategory.THREAD_DUMP_METADATA_UPDATED,
+                        new ThreadDumpEvent.Payload(jvmId, updatedDump, ""));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+
+        return updatedDump;
+    }
+
+    public HeapDump updateHeapDumpMetadata(
+            String jvmId, String heapDumpId, Map<String, String> metadata) throws IOException {
+        var response = assertObjectExists(jvmId, heapDumpId, heapDumpBucket);
+        Metadata updatedMetadata = updateMetadata(jvmId, heapDumpId, metadata, heapDumpBucket);
+
+        long size = response.contentLength();
+        long lastModified = response.lastModified().toEpochMilli();
+
+        HeapDump updatedDump =
+                new HeapDump(
+                        jvmId,
+                        downloadUrl(jvmId, heapDumpId),
+                        heapDumpId,
+                        lastModified,
+                        size,
+                        updatedMetadata);
+
+        var event =
+                new HeapDumpEvent(
+                        DiagnosticsHelper.EventCategory.HEAP_DUMP_METADATA_UPDATED,
+                        new HeapDumpEvent.Payload(jvmId, updatedDump));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+
+        return updatedDump;
+    }
+
     public enum EventCategory {
         // ThreadDumpSuccess and HeapDumpSuccess ("CREATED") events are emitted by
         // LongRunningRequestGenerator
         DELETED(THREAD_DUMP_DELETED),
         CREATED(THREAD_DUMP_SUCCESS),
         HEAP_DUMP_DELETED(HEAP_DUMP_DELETED_NAME),
-        HEAP_DUMP_UPLOADED(HEAP_DUMP_UPLOADED_NAME);
+        HEAP_DUMP_UPLOADED(HEAP_DUMP_UPLOADED_NAME),
+        THREAD_DUMP_METADATA_UPDATED(THREAD_DUMP_METADATA),
+        HEAP_DUMP_METADATA_UPDATED(HEAP_DUMP_METADATA);
 
         private final String category;
 

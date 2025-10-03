@@ -22,8 +22,11 @@ import java.util.function.Predicate;
 
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.DiagnosticsHelper;
+import io.cryostat.graphql.ActiveRecordings.MetadataLabels;
 import io.cryostat.graphql.TargetNodes.HeapDumpAggregateInfo;
 import io.cryostat.graphql.TargetNodes.HeapDumps;
+import io.cryostat.graphql.matchers.LabelSelectorMatcher;
+import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.Target;
 
 import io.smallrye.graphql.api.Nullable;
@@ -59,10 +62,29 @@ public class HeapDumpGraphQL {
         return dump;
     }
 
+    @NonNull
+    @Description("Update the metadata for a heap dump")
+    public HeapDump doPutMetadata(@Source HeapDump heapDump, MetadataLabels metadataInput)
+            throws IOException {
+        diagnosticsHelper.updateHeapDumpMetadata(
+                heapDump.jvmId(), heapDump.heapDumpId(), metadataInput.getLabels());
+
+        String downloadUrl = diagnosticsHelper.downloadUrl(heapDump.jvmId(), heapDump.heapDumpId());
+
+        return new HeapDump(
+                heapDump.jvmId(),
+                downloadUrl,
+                heapDump.heapDumpId(),
+                heapDump.lastModified(),
+                heapDump.size(),
+                new Metadata(metadataInput.getLabels()));
+    }
+
     public static class HeapDumpsFilter implements Predicate<HeapDump> {
         public @Nullable String name;
         public @Nullable List<String> names;
         public @Nullable String sourceTarget;
+        public @Nullable List<String> labels;
         public @Nullable Long sizeBytesGreaterThanEqual;
         public @Nullable Long sizeBytesLessThanEqual;
         public @Nullable Long archivedTimeAfterEqual;
@@ -88,6 +110,14 @@ public class HeapDumpGraphQL {
                     n ->
                             archivedTimeBeforeEqual == null
                                     || archivedTimeBeforeEqual <= n.lastModified();
+            Predicate<HeapDump> matchesLabels =
+                    n ->
+                            labels == null
+                                    || labels.stream()
+                                            .allMatch(
+                                                    label ->
+                                                            LabelSelectorMatcher.parse(label)
+                                                                    .test(n.metadata().labels()));
 
             return List.of(
                             matchesName,
@@ -96,7 +126,8 @@ public class HeapDumpGraphQL {
                             matchesSizeGte,
                             matchesSizeLte,
                             matchesArchivedTimeGte,
-                            matchesArchivedTimeLte)
+                            matchesArchivedTimeLte,
+                            matchesLabels)
                     .stream()
                     .reduce(x -> true, Predicate::and)
                     .test(t);
