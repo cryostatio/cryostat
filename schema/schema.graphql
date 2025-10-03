@@ -63,30 +63,6 @@ type ArchivedRecording {
   size: BigInteger!
 }
 
-type ThreadDump {
-  "Update the metadata associated with a thread dump"
-  doPutMetadata(metadataInput: MetadataLabelsInput): ThreadDump!
-  "Delete a Thread Dump"
-  doDelete: ThreadDump!
-  downloadUrl: String
-  threadDumpId: String
-  jvmId: String
-  lastModified: BigInteger
-  size: BigInteger
-}
-
-type HeapDump {
-  "Update the metadata associated with a heap dump"
-  doPutMetadata(metadataInput: MetadataLabelsInput): HeapDump!
-  "Delete a Heap Dump"
-  doDelete: HeapDump!
-  downloadUrl: String
-  heapDumpId: String
-  jvmId: String
-  lastModified: BigInteger
-  size: BigInteger
-}
-
 type ArchivedRecordings {
   aggregate: RecordingAggregateInfo!
   data: [ArchivedRecording]!
@@ -126,10 +102,13 @@ type Evaluation {
 type HeapDump {
   "Delete a heap dump"
   doDelete: HeapDump!
+  "Update the metadata for a heap dump"
+  doPutMetadata(metadataInput: MetadataLabelsInput): HeapDump!
   downloadUrl: String
   heapDumpId: String
   jvmId: String
   lastModified: BigInteger!
+  metadata: Metadata
   size: BigInteger!
 }
 
@@ -416,6 +395,7 @@ input Entry_String_StringInput {
 input HeapDumpsFilterInput {
   archivedTimeAfterEqual: BigInteger
   archivedTimeBeforeEqual: BigInteger
+  labels: [String]
   name: String
   names: [String]
   sizeBytesGreaterThanEqual: BigInteger
