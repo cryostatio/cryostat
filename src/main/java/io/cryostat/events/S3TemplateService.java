@@ -23,6 +23,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.ParseException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -249,7 +250,7 @@ public class S3TemplateService implements MutableTemplateService {
                 break;
             case METADATA:
                 var headReq = HeadObjectRequest.builder().bucket(bucket).key(object.key()).build();
-                var meta = storage.headObject(headReq).metadata();
+                var meta = new HashMap<>(storage.headObject(headReq).metadata());
                 label = Objects.requireNonNull(meta.get(META_KEY_NAME));
                 description = Objects.requireNonNull(meta.get(META_KEY_DESCRIPTION));
                 provider = Objects.requireNonNull(meta.get(META_KEY_PROVIDER));

@@ -30,11 +30,7 @@ public class ReportsSidecarResource
     private static final int REPORTS_PORT = 10001;
     private static final String IMAGE_NAME = "quay.io/cryostat/cryostat-reports:latest";
     private static final Map<String, String> envMap =
-            Map.of(
-                    "QUARKUS_HTTP_PORT", String.valueOf(REPORTS_PORT),
-                    // TODO localhost:8333 should be dynamically set to the host and port of the
-                    // S3StorageResource
-                    "CRYOSTAT_STORAGE_BASE_URI", String.format("http://%s:%d", "localhost", 8333));
+            Map.of("QUARKUS_HTTP_PORT", String.valueOf(REPORTS_PORT));
 
     private Optional<String> containerNetworkId;
     private GenericContainer<?> container;
