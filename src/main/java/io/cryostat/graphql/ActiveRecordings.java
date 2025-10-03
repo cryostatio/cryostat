@@ -87,7 +87,7 @@ public class ActiveRecordings {
             var r =
                     recordingHelper
                             .startRecording(
-                                    Target.getTargetById(t.id),
+                                    t,
                                     Optional.ofNullable(recording.replace)
                                             .map(RecordingReplace::valueOf)
                                             .orElse(RecordingReplace.STOPPED),
@@ -220,12 +220,13 @@ public class ActiveRecordings {
     public ActiveRecording doStartRecording(
             @Source Target target, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
+        var fTarget = Target.getTargetById(target.id);
         Template template =
                 recordingHelper.getPreferredTemplate(
-                        target, recording.template, TemplateType.valueOf(recording.templateType));
+                        fTarget, recording.template, TemplateType.valueOf(recording.templateType));
         return recordingHelper
                 .startRecording(
-                        Target.getTargetById(target.id),
+                        fTarget,
                         Optional.ofNullable(recording.replace)
                                 .map(RecordingReplace::valueOf)
                                 .orElse(RecordingReplace.STOPPED),
