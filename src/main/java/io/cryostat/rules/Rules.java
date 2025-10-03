@@ -172,9 +172,12 @@ public class Rules {
             rule.enabled = body.getBoolean("enabled");
         }
         if (body.containsKey("matchExpression")) {
-            MatchExpression expr = new MatchExpression(body.getString("matchExpression"));
-            expr.persist();
-            rule.matchExpression = expr;
+            String bodyExpr = body.getString("matchExpression");
+            if (!Objects.equals(rule.matchExpression.script, bodyExpr)) {
+                MatchExpression expr = new MatchExpression(bodyExpr);
+                expr.persist();
+                rule.matchExpression = expr;
+            }
         }
         if (body.containsKey("description")) {
             rule.description = body.getString("description");

@@ -33,6 +33,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -48,6 +49,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.UriInfo;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.Bulkhead;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
@@ -137,6 +139,7 @@ public class Credentials {
     }
 
     @Blocking
+    @Bulkhead
     @GET
     @RolesAllowed("read")
     @Operation(
@@ -148,11 +151,16 @@ public class Credentials {
                     and are therefore candidates for Cryostat to select this Credential.
                     """)
     public List<CredentialMatchResult> list() {
-        return Credential.<Credential>listAll().stream()
+        return QuarkusTransaction.joiningExisting()
+                .call(() -> Credential.<Credential>listAll())
+                .parallelStream()
                 .map(
                         c -> {
                             try {
-                                return safeResult(c, targetMatcher);
+                                return safeResult(
+                                        QuarkusTransaction.joiningExisting()
+                                                .call(() -> Credential.findById(c.id)),
+                                        targetMatcher);
                             } catch (ScriptException e) {
                                 logger.warn(e);
                                 return null;
@@ -163,6 +171,7 @@ public class Credentials {
     }
 
     @Blocking
+    @Bulkhead
     @GET
     @RolesAllowed("read")
     @Path("/{id}")
