@@ -63,6 +63,7 @@ public class ActiveRecordings {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration timeout;
 
+    @Transactional
     @Mutation
     @Description(
             "Start a new Flight Recording on all Targets under the subtrees of the discovery nodes"
@@ -71,45 +72,33 @@ public class ActiveRecordings {
             @NonNull DiscoveryNodeFilter nodes, @NonNull RecordingSettings recording)
             throws QuantityConversionException {
         var list =
-                QuarkusTransaction.joiningExisting()
-                        .call(
-                                () ->
-                                        DiscoveryNode.<DiscoveryNode>listAll().stream()
-                                                .filter(nodes)
-                                                .flatMap(
-                                                        node ->
-                                                                RootNode.recurseChildren(
-                                                                                node,
-                                                                                n ->
-                                                                                        n.target
-                                                                                                != null)
-                                                                        .stream()
-                                                                        .map(n -> n.target))
-                                                .toList());
+                DiscoveryNode.<DiscoveryNode>listAll().stream()
+                        .filter(nodes)
+                        .flatMap(
+                                node ->
+                                        RootNode.recurseChildren(node, n -> n.target != null)
+                                                .stream()
+                                                .map(n -> n.target))
+                        .toList();
         var recordings = new ArrayList<ActiveRecording>();
         for (var t : list) {
             var template =
                     recordingHelper.getPreferredTemplate(
                             t, recording.template, TemplateType.valueOf(recording.templateType));
             var r =
-                    QuarkusTransaction.joiningExisting()
-                            .call(
-                                    () ->
-                                            recordingHelper
-                                                    .startRecording(
-                                                            Target.getTargetById(t.id),
-                                                            Optional.ofNullable(recording.replace)
-                                                                    .map(RecordingReplace::valueOf)
-                                                                    .orElse(
-                                                                            RecordingReplace
-                                                                                    .STOPPED),
-                                                            template,
-                                                            recording.asOptions(),
-                                                            Optional.ofNullable(recording.metadata)
-                                                                    .map(s -> s.labels)
-                                                                    .orElse(Map.of()))
-                                                    .await()
-                                                    .atMost(Duration.ofSeconds(10)));
+                    recordingHelper
+                            .startRecording(
+                                    Target.getTargetById(t.id),
+                                    Optional.ofNullable(recording.replace)
+                                            .map(RecordingReplace::valueOf)
+                                            .orElse(RecordingReplace.STOPPED),
+                                    template,
+                                    recording.asOptions(),
+                                    Optional.ofNullable(recording.metadata)
+                                            .map(s -> s.labels)
+                                            .orElse(Map.of()))
+                            .await()
+                            .atMost(Duration.ofSeconds(10));
             recordings.add(r);
         }
         return recordings;
