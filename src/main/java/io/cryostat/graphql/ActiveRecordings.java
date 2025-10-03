@@ -41,7 +41,6 @@ import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.targets.Target;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -216,6 +215,7 @@ public class ActiveRecordings {
         return snapshots;
     }
 
+    @Transactional
     @Description("Start a new Flight Recording on the specified Target")
     public ActiveRecording doStartRecording(
             @Source Target target, @NonNull RecordingSettings recording)
@@ -223,22 +223,17 @@ public class ActiveRecordings {
         Template template =
                 recordingHelper.getPreferredTemplate(
                         target, recording.template, TemplateType.valueOf(recording.templateType));
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () ->
-                                recordingHelper
-                                        .startRecording(
-                                                Target.getTargetById(target.id),
-                                                Optional.ofNullable(recording.replace)
-                                                        .map(RecordingReplace::valueOf)
-                                                        .orElse(RecordingReplace.STOPPED),
-                                                template,
-                                                recording.asOptions(),
-                                                Optional.ofNullable(recording.metadata)
-                                                        .map(s -> s.labels)
-                                                        .orElse(Map.of()))
-                                        .await()
-                                        .atMost(timeout));
+        return recordingHelper
+                .startRecording(
+                        Target.getTargetById(target.id),
+                        Optional.ofNullable(recording.replace)
+                                .map(RecordingReplace::valueOf)
+                                .orElse(RecordingReplace.STOPPED),
+                        template,
+                        recording.asOptions(),
+                        Optional.ofNullable(recording.metadata).map(s -> s.labels).orElse(Map.of()))
+                .await()
+                .atMost(timeout);
     }
 
     @Transactional
