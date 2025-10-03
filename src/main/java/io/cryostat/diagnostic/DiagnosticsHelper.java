@@ -443,7 +443,9 @@ public class DiagnosticsHelper {
                         // missing keys/other errors are distinguished by an empty optional
                         return Optional.of(new Metadata(Map.of()));
                     }
-                    return Optional.of(new Metadata(resp.metadata()));
+                    // Resp.metadata returns an immutable map which can break things
+                    // later using computeIfAbsent, wrap it in a copy constructor.
+                    return Optional.of(new Metadata(new HashMap<>(resp.metadata())));
                 case BUCKET:
                     return metadataService.get().read(storageKey);
                 default:
