@@ -54,7 +54,7 @@
     <com.github.spotbugs.version>4.9.6</com.github.spotbugs.version>
     <com.github.spotbugs.plugin.version>4.9.6.0</com.github.spotbugs.plugin.version>
     <com.diffplug.spotless.maven.plugin.version>3.0.0</com.diffplug.spotless.maven.plugin.version>
-    <com.google.java-format.version>1.28.0</com.google.java-format.version>
+    <com.google.java-format.version>1.29.0</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.5.4</surefire-plugin.version>
     <surefire.rerunFailingTestsCount>0</surefire.rerunFailingTestsCount>
