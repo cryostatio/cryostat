@@ -16,6 +16,7 @@
 package io.cryostat.jmcagent;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.List;
 
 import io.cryostat.core.jmcagent.ProbeTemplate;
@@ -88,6 +89,11 @@ public class JMCAgentTemplates {
             throw new BadRequestException("Request must contain a 'probeTemplate' file upload");
         }
         var probeTemplate = service.addTemplate(body.filePath(), name);
+        try {
+            Files.delete(body.filePath());
+        } catch (IOException ioe) {
+            logger.warn(ioe);
+        }
         return ResponseBuilder.<ProbeTemplate>created(
                         uriInfo.getAbsolutePathBuilder().path(probeTemplate.getFileName()).build())
                 .entity(probeTemplate)

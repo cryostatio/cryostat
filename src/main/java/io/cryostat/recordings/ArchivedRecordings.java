@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -264,6 +265,12 @@ public class ArchivedRecordings {
         var archivedRecording = recordingHelper.uploadArchivedRecording(jvmId, recording, metadata);
         logger.trace("Upload complete");
 
+        // Clean up the recording file after uploading
+        try {
+            Files.delete(recording.filePath());
+        } catch (IOException ioe) {
+            logger.warn(ioe);
+        }
         return Map.of(
                 "name",
                 archivedRecording.name(),
