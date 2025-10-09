@@ -44,48 +44,30 @@ function importTrustStores() {
 }
 importTrustStores
 
-if [ -z "$KEYSTORE_PASS" ]; then
-    KEYSTORE_PASS="$(genpass)"
-fi
+SSL_KEYSTORE_PASS="$(cat "${SSL_KEYSTORE_PASS_FILE:-$CONF_DIR/keystore.pass}")"
 function importKeyCert() {
     if [ -n "$TLS_CLIENT_CERT_DIR" ]; then
-        KEYSTORE_PATH="$CONF_DIR/keystore.p12"
-
-        # create a new keystore with a bogus cert, then delete the cert, to produce an empty keystore
-        keytool -genkeypair -v \
-            -alias tmp \
-            -dname "cn=cryostat, o=Cryostat, c=CA" \
-            -storetype PKCS12 \
-            -validity 180 \
-            -keyalg RSA \
-            -storepass "$KEYSTORE_PASS" \
-            -keystore "$KEYSTORE_PATH"
-        keytool -delete -v \
-            -alias tmp \
-            -storepass "$KEYSTORE_PASS" \
-            -keystore "$KEYSTORE_PATH"
-
         find "$TLS_CLIENT_CERT_DIR" -type f -name "*.pem" -o -name "*.p12" -o -name "*.jks" | while IFS= read -r cert; do
-            echo "Importing certificate $cert to $KEYSTORE_PATH"
+            echo "Importing certificate $cert to $SSL_KEYSTORE"
             keytool -importcert -v \
                 -noprompt \
                 -alias "imported-$(basename "$cert")" \
                 -trustcacerts \
-                -keystore "$KEYSTORE_PATH" \
+                -keystore "$SSL_KEYSTORE" \
                 -file "$cert" \
-                -storepass "$KEYSTORE_PASS" 2>&1 || true
+                -storepass "$SSL_KEYSTORE_PASS" 2>&1 || true
         done
     fi
 }
 importKeyCert
 
 function importKeyStore() {
-    if [ -n "$KEYSTORE_PATH" ]; then
-        echo "Using TLS keystore at $KEYSTORE_PATH"
-        FLAGS+=("-Djavax.net.ssl.keyStore=$KEYSTORE_PATH")
+    if [ -f "$SSL_KEYSTORE" ]; then
+        echo "Using TLS keystore at $SSL_KEYSTORE"
+        FLAGS+=("-Djavax.net.ssl.keyStore=$SSL_KEYSTORE")
 
-        if [ -n "$KEYSTORE_PASS" ]; then
-            FLAGS+=("-Djavax.net.ssl.keyStorePassword=$KEYSTORE_PASS")
+        if [ -n "$SSL_KEYSTORE_PASS" ]; then
+            FLAGS+=("-Djavax.net.ssl.keyStorePassword=$SSL_KEYSTORE_PASS")
         fi
     fi
 }
