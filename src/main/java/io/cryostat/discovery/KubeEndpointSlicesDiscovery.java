@@ -210,7 +210,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                     () -> {
                         try {
                             var namespaces = resyncNamespaces.call();
-                            logger.debugv("Resyncing namespaces: {}", namespaces);
+                            logger.debugv("Resyncing namespaces: {0}", namespaces);
                             notify(NamespaceQueryEvent.from(namespaces));
                         } catch (Exception e) {
                             logger.warn(e);
@@ -544,7 +544,15 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         KubeDiscoveryNodeType targetType = KubeDiscoveryNodeType.fromKubernetesKind(targetKind);
 
         DiscoveryNode targetNode =
-                DiscoveryNode.target(target, KubeDiscoveryNodeType.ENDPOINT_SLICE);
+                DiscoveryNode.target(
+                        target,
+                        KubeDiscoveryNodeType.ENDPOINT_SLICE,
+                        n -> {
+                            n.labels.putAll(
+                                    Map.of(
+                                            DISCOVERY_NAMESPACE_LABEL_KEY,
+                                            targetRef.getNamespace()));
+                        });
         target.discoveryNode = targetNode;
         target.persist();
 
