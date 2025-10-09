@@ -16,6 +16,7 @@
 package io.cryostat.events;
 
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -154,6 +155,9 @@ public class EventTemplates {
                     .build();
         } catch (InvalidEventTemplateException | InvalidXmlException e) {
             throw new BadRequestException(e);
+        } finally {
+            // Clean up temporary files
+            Files.delete(body.filePath());
         }
     }
 

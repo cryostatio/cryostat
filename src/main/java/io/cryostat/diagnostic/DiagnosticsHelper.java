@@ -18,6 +18,7 @@ package io.cryostat.diagnostic;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -336,6 +337,13 @@ public class DiagnosticsHelper {
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
+
+        try {
+            // Clean up temporary files
+            Files.delete(heapDump.filePath());
+        } catch (IOException ioe) {
+            log.warn(ioe);
+        }
         return dump;
     }
 

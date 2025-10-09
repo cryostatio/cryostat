@@ -27,6 +27,7 @@ import java.nio.ByteBuffer;
 import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.time.Duration;
@@ -1360,6 +1361,12 @@ public class RecordingHelper {
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
+        // Clean up the recording file after uploading
+        try {
+            Files.delete(recording.filePath());
+        } catch (IOException ioe) {
+            logger.warn(ioe);
+        }
         return archivedRecording;
     }
 
