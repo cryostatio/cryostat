@@ -9,7 +9,6 @@ services:
     volumes:
       - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/user/1000/podman/podman.sock:Z
       - jmxtls_cfg:/truststore:U
-      - auth_proxy_certs:/opt/cryostat.d/tls/proxy:U
       - templates:/opt/cryostat.d/templates.d:U
       - probes:/opt/cryostat.d/probes.d:U
       - credentials:/opt/cryostat.d/credentials.d:U
@@ -18,7 +17,6 @@ services:
     hostname: cryostat
     user: "1000"
     environment:
-      TLS_CLIENT_CERT_DIR: /opt/cryostat.d/tls/proxy
       QUARKUS_LOG_LEVEL: ${CRYOSTAT_LOG_LEVEL:-INFO}
       QUARKUS_REST_CLIENT_LOGGING_SCOPE: request-response
       QUARKUS_HTTP_ACCESS_LOG_ENABLED: "true"
@@ -53,8 +51,6 @@ services:
 
 volumes:
   jmxtls_cfg:
-    external: true
-  auth_proxy_certs:
     external: true
   templates:
     external: true
