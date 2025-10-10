@@ -31,6 +31,13 @@ public class V4_1_0__Cryostat extends BaseJavaMigration {
 
     @Override
     public void migrate(Context context) throws Exception {
+        // pgcrypto has been required since 3.0.0, but pre-4.1.0 we assumed that Cryostat would
+        // connect to a cryostat-db container with this pre-initialized. Since 4.1.0 Cryostat may
+        // connect to an external database which may not have this extension initialized. If it
+        // cannot be initialized then we are going to fail at runtime anyway, so this migration will
+        // fail early.
+        exec(context, "CREATE EXTENSION IF NOT EXISTS pgcrypto;");
+
         exec(context, "alter sequence DiscoveryNode_SEQ increment by 50;");
 
         exec(context, "create index on Target (jvmId);");
