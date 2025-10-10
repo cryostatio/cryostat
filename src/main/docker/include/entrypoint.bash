@@ -1,8 +1,6 @@
 #!/bin/bash
 
 set -e
-DIR="$(dirname "$(realpath "$0")")"
-source "${DIR}/genpass.bash"
 
 FLAGS=()
 if [ -z "$CONF_DIR" ]; then
