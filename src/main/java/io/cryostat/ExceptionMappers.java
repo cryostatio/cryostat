@@ -27,6 +27,7 @@ import io.smallrye.mutiny.TimeoutException;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.eclipse.microprofile.faulttolerance.exceptions.BulkheadException;
 import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -135,5 +136,11 @@ public class ExceptionMappers {
     public RestResponse<Void> mapExecutionException(ExecutionException ex) throws Throwable {
         logger.warn(ex);
         throw ExceptionUtils.getRootCause(ex);
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapBulkheadException(BulkheadException ex) {
+        logger.warn(ex);
+        return RestResponse.status(HttpResponseStatus.TOO_MANY_REQUESTS.code());
     }
 }
