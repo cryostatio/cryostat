@@ -119,8 +119,6 @@ services:
       HTTP_PORT: 8084
       JMX_PORT: 9096
       USE_JDP: "true"
-      USE_AUTH: "false"
-      USE_SSL: "false"
     ports:
       - "8084:8084"
     restart: always
@@ -130,3 +128,50 @@ services:
       retries: 3
       start_period: 30s
       timeout: 5s
+
+  vertx-agent-5:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
+    hostname: vertx-cryostat-agent-5
+    environment:
+      HTTP_PORT: 8085
+      JMX_PORT: 9098
+      USE_JDP: "true"
+      USE_SSL: "true"
+      CLIENT_AUTH: "true"
+    ports:
+      - "8085:8085"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:8085 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+    volumes:
+      - ${DIR}/compose/auth_certs:/auth_certs:z
+
+  vertx-agent-6:
+    depends_on:
+      cryostat:
+        condition: service_healthy
+    image: ${VERTX_FIB_DEMO_IMAGE:-quay.io/redhat-java-monitoring/vertx-cryostat-agent:latest}
+    hostname: vertx-cryostat-agent-6
+    environment:
+      HTTP_PORT: 8086
+      JMX_PORT: 9099
+      USE_JDP: "true"
+      USE_SSL: "true"
+    ports:
+      - "8086:8086"
+    restart: always
+    healthcheck:
+      test: curl --fail http://localhost:8086 || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+    volumes:
+      - ${DIR}/compose/auth_certs:/auth_certs:z

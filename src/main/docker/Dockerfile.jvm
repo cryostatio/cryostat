@@ -97,21 +97,11 @@ ENV JAVA_APP_JAR="/deployments/quarkus-run.jar"
 
 ENTRYPOINT [ "/deployments/app/entrypoint.bash", "/opt/jboss/container/java/run/run-java.sh" ]
 
-# We make distinct layers so if there are application changes the library layers can be re-used
-COPY --chown=185 src/main/docker/include/cryostat.jfc /usr/lib/jvm/jre/lib/jfr/
-COPY --chown=185 src/main/docker/include/template_presets/* /opt/cryostat.d/presets.d/
-COPY --chown=185 src/main/docker/include/rule_presets/* /opt/cryostat.d/rules.d/
-COPY --chown=185 src/main/docker/include/genpass.bash /deployments/app/
-COPY --chown=185 src/main/docker/include/entrypoint.bash /deployments/app/
-COPY --chown=185 src/main/docker/include/truststore-setup.bash /deployments/app/
-COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
-COPY --chown=185 target/quarkus-app/*.jar /deployments/
-COPY --chown=185 target/quarkus-app/app/ /deployments/app/
-COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
-
 ENV CONF_DIR=/opt/cryostat.d
 ENV SSL_TRUSTSTORE=$CONF_DIR/truststore.p12 \
-    SSL_TRUSTSTORE_PASS_FILE=$CONF_DIR/truststore.pass
+    SSL_TRUSTSTORE_PASS_FILE=$CONF_DIR/truststore.pass \
+    SSL_KEYSTORE=$CONF_DIR/keystore.p12 \
+    SSL_KEYSTORE_PASS_FILE=$CONF_DIR/keystore.pass
 
 USER root
 RUN mkdir -p $CONF_DIR \
@@ -119,4 +109,19 @@ RUN mkdir -p $CONF_DIR \
     && chown default:root $CONF_DIR
 USER 185
 
+# We make distinct layers so if there are application changes the library layers can be re-used
+COPY --chown=185 src/main/docker/include/cryostat.jfc /usr/lib/jvm/jre/lib/jfr/
+COPY --chown=185 src/main/docker/include/template_presets/* /opt/cryostat.d/presets.d/
+COPY --chown=185 src/main/docker/include/rule_presets/* /opt/cryostat.d/rules.d/
+COPY --chown=185 src/main/docker/include/genpass.bash /deployments/app/
+COPY --chown=185 src/main/docker/include/entrypoint.bash /deployments/app/
+COPY --chown=185 src/main/docker/include/truststore-setup.bash /deployments/app/
+COPY --chown=185 src/main/docker/include/keystore-setup.bash /deployments/app/
+
 RUN /deployments/app/truststore-setup.bash
+RUN /deployments/app/keystore-setup.bash
+
+COPY --chown=185 target/quarkus-app/lib/ /deployments/lib/
+COPY --chown=185 target/quarkus-app/*.jar /deployments/
+COPY --chown=185 target/quarkus-app/app/ /deployments/app/
+COPY --chown=185 target/quarkus-app/quarkus/ /deployments/quarkus/
