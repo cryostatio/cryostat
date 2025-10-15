@@ -29,8 +29,11 @@ A container-native JVM application which acts as a bridge to other containerized
 * [cryostat-operator](https://github.com/cryostatio/cryostat-operator) : an Operator
   for deploying Cryostat in your OpenShift or Kubernetes cluster.
 
-* [cryostat-helm](https://github.com/cryostatio/cryostat-helm): a Helm Chart for
+* [cryostat-helm](https://github.com/cryostatio/cryostat-helm) : a Helm Chart for
   deploying Cryostat in your OpenShift or Kubernetes cluster
+
+* [cryostat.wiki](https://github.com/cryostatio/cryostat/wiki) : this repository's
+wiki page, containing further configuration samples for ex. Docker Compose
 
 * [cryostat-web](https://github.com/cryostatio/cryostat-web) : the React frontend
   included as a submodule in Cryostat and built into Cryostat's OCI images.
