@@ -242,7 +242,9 @@ createProxyCfgVolume() {
     cfg="$(mktemp)"
     chmod 644 "${cfg}"
     envsubst '$STORAGE_PORT' < "${DIR}/compose/${AUTH_PROXY_ALPHA_CONFIG_FILE}.yml" > "${cfg}"
-    "${container_engine}" cp "${DIR}/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
+    htpasswd="$(mktemp)"
+    htpasswd -ibB "${htpasswd}" "${CRYOSTAT_USER:-user}" "${CRYOSTAT_PASS:-pass}"
+    "${container_engine}" cp "${htpasswd}" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
     "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yml
 }
 
