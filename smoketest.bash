@@ -235,11 +235,112 @@ for file in "${FILES[@]}"; do
     CMD+=(-f "${file}")
 done
 
+createProxyCfgVolume() {
+    "${container_engine}" volume create auth_proxy_cfg
+    "${container_engine}" container create --name proxy_cfg_helper -v auth_proxy_cfg:/tmp registry.access.redhat.com/ubi9/ubi-micro
+    local cfg
+    cfg="$(mktemp)"
+    chmod 644 "${cfg}"
+    envsubst '$STORAGE_PORT' < "${DIR}/compose/${AUTH_PROXY_ALPHA_CONFIG_FILE}.yml" > "${cfg}"
+    "${container_engine}" cp "${DIR}/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
+    "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yml
+}
+
+createProxyCertsVolume() {
+    "${container_engine}" volume create auth_proxy_certs
+    "${container_engine}" container create --name proxy_certs_helper -v auth_proxy_certs:/certs registry.access.redhat.com/ubi9/ubi-micro
+    if [ -f "${DIR}/compose/auth_certs/certificate.pem" ] && [ -f "${DIR}/compose/auth_certs/private.key" ]; then
+        chmod 644 "${DIR}/compose/auth_certs/private.key"
+        "${container_engine}" cp "${DIR}/compose/auth_certs/certificate.pem" proxy_certs_helper:/certs/certificate.pem
+        "${container_engine}" cp "${DIR}/compose/auth_certs/private.key" proxy_certs_helper:/certs/private.key
+    fi
+}
+
+createLocalstackCfgVolume() {
+    "${container_engine}" volume create localstack_cfg
+    "${container_engine}" container create --name localstack_cfg_helper -v localstack_cfg:/tmp registry.access.redhat.com/ubi9/ubi-micro
+    "${container_engine}" cp "${DIR}/compose/localstack_buckets.sh" localstack_cfg_helper:/tmp
+}
+
+createJmxTlsCertVolume() {
+    "${container_engine}" volume create jmxtls_cfg
+    "${container_engine}" container create --name jmxtls_cfg_helper -v jmxtls_cfg:/truststore registry.access.redhat.com/ubi9/ubi-micro
+    if [ -d "${DIR}/truststore" ]; then
+        "${container_engine}" cp "${DIR}/truststore" jmxtls_cfg_helper:/truststore
+    fi
+}
+
+createEventTemplateVolume() {
+    "${container_engine}" volume create templates
+    "${container_engine}" container create --name templates_helper -v templates:/templates registry.access.redhat.com/ubi9/ubi-micro
+    if [ -d "${DIR}/templates" ]; then
+        "${container_engine}" cp "${DIR}/templates" templates_helper:/templates
+    fi
+}
+
+createProbeTemplateVolume() {
+    "${container_engine}" volume create probes
+    "${container_engine}" container create --name probes_helper -v probes:/probes registry.access.redhat.com/ubi9/ubi-micro
+    if [ -d "${DIR}/probes" ]; then
+        "${container_engine}" cp "${DIR}/probes" probes_helper:/probes
+    fi
+}
+
+createCredentialVolume() {
+    "${container_engine}" volume create credentials
+    "${container_engine}" container create --name credentials_helper -v credentials:/credentials registry.access.redhat.com/ubi9/ubi-micro
+    if [ -d "${DIR}/credentials" ]; then
+        "${container_engine}" cp "${DIR}/credentials" credentials_helper:/credentials
+    fi
+}
+
+createVolumes() {
+    if [ "${USE_PROXY}" = "true" ]; then
+        createProxyCfgVolume
+    fi
+    if [ "${USE_PROXY}" = "true" ] && [ "${USE_TLS}" = "true" ]; then
+        sh "${DIR}/compose/auth_certs/generate.sh"
+        createProxyCertsVolume
+    fi
+    if [ "${s3}" = "localstack" ]; then
+        createLocalstackCfgVolume
+    fi
+    createJmxTlsCertVolume
+    createEventTemplateVolume
+    createProbeTemplateVolume
+    createCredentialVolume
+}
+
+cleanupVolumes() {
+    if [ "${USE_PROXY}" = "true" ]; then
+        ${container_engine} rm proxy_cfg_helper || true
+        ${container_engine} rm proxy_certs_helper || true
+        ${container_engine} volume rm auth_proxy_cfg || true
+        ${container_engine} volume rm auth_proxy_certs || true
+    fi
+    if [ "${s3}" = "localstack" ]; then
+        ${container_engine} rm localstack_cfg_helper || true
+        ${container_engine} volume rm localstack_cfg || true
+    fi
+    ${container_engine} rm jmxtls_cfg_helper || true
+    ${container_engine} volume rm jmxtls_cfg || true
+    ${container_engine} rm templates_helper || true
+    ${container_engine} volume rm templates || true
+    ${container_engine} rm probes_helper || true
+    ${container_engine} volume rm probes || true
+    ${container_engine} rm credentials_helper || true
+    ${container_engine} volume rm credentials || true
+}
+
+if [ "${KEEP_VOLUMES}" != "true" ]; then
+    cleanupVolumes 1>&2
+fi
 if [ "${DRY_RUN}" = "true" ]; then
     set +xe
     "${container_engine}" compose \
         "${CMD[@]}" \
         config
+    createVolumes 1>&2
     exit 0
 fi
 
@@ -256,12 +357,6 @@ cleanup() {
     "${container_engine}" compose \
         "${CMD[@]}" \
         down "${downFlags[@]}"
-    if [ "${USE_PROXY}" = "true" ]; then
-        ${container_engine} rm proxy_cfg_helper || true
-        ${container_engine} rm proxy_certs_helper || true
-        ${container_engine} volume rm auth_proxy_cfg || true
-        ${container_engine} volume rm auth_proxy_certs || true
-    fi
     if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
         bash "${DIR}/compose/agent_certs/generate-agent-certs.bash" clean || true
     fi
@@ -269,18 +364,7 @@ cleanup() {
         rm "${DIR}/compose/auth_certs/certificate.pem" || true
         rm "${DIR}/compose/auth_certs/private.key" || true
     fi
-    if [ "${s3}" = "localstack" ]; then
-        ${container_engine} rm localstack_cfg_helper || true
-        ${container_engine} volume rm localstack_cfg || true
-    fi
-    ${container_engine} rm jmxtls_cfg_helper || true
-    ${container_engine} volume rm jmxtls_cfg || true
-    ${container_engine} rm templates_helper || true
-    ${container_engine} volume rm templates || true
-    ${container_engine} rm probes_helper || true
-    ${container_engine} volume rm probes || true
-    ${container_engine} rm credentials_helper || true
-    ${container_engine} volume rm credentials || true
+    cleanupVolumes
     truncate -s 0 "${HOSTSFILE}"
     for i in "${PIDS[@]}"; do
         kill -0 "${i}" && kill "${i}"
@@ -294,78 +378,7 @@ if [ "${SAMPLE_APPS_USE_TLS}" = "true" ]; then
     bash "${DIR}/compose/agent_certs/generate-agent-certs.bash" generate
 fi
 
-createProxyCfgVolume() {
-    "${container_engine}" volume create auth_proxy_cfg
-    "${container_engine}" container create --name proxy_cfg_helper -v auth_proxy_cfg:/tmp registry.access.redhat.com/ubi9/ubi-micro
-    local cfg
-    cfg="$(mktemp)"
-    chmod 644 "${cfg}"
-    envsubst '$STORAGE_PORT' < "${DIR}/compose/${AUTH_PROXY_ALPHA_CONFIG_FILE}.yml" > "${cfg}"
-    "${container_engine}" cp "${DIR}/compose/auth_proxy_htpasswd" proxy_cfg_helper:/tmp/auth_proxy_htpasswd
-    "${container_engine}" cp "${cfg}" proxy_cfg_helper:/tmp/auth_proxy_alpha_config.yml
-}
-if [ "${USE_PROXY}" = "true" ]; then
-    createProxyCfgVolume
-fi
-
-createProxyCertsVolume() {
-    "${container_engine}" volume create auth_proxy_certs
-    "${container_engine}" container create --name proxy_certs_helper -v auth_proxy_certs:/certs registry.access.redhat.com/ubi9/ubi-micro
-    if [ -f "${DIR}/compose/auth_certs/certificate.pem" ] && [ -f "${DIR}/compose/auth_certs/private.key" ]; then
-        chmod 644 "${DIR}/compose/auth_certs/private.key"
-        "${container_engine}" cp "${DIR}/compose/auth_certs/certificate.pem" proxy_certs_helper:/certs/certificate.pem
-        "${container_engine}" cp "${DIR}/compose/auth_certs/private.key" proxy_certs_helper:/certs/private.key
-    fi
-}
-if [ "${USE_PROXY}" = "true" ] && [ "${USE_TLS}" = "true" ]; then
-    sh "${DIR}/compose/auth_certs/generate.sh"
-    createProxyCertsVolume
-fi
-
-createLocalstackCfgVolume() {
-    "${container_engine}" volume create localstack_cfg
-    "${container_engine}" container create --name localstack_cfg_helper -v localstack_cfg:/tmp registry.access.redhat.com/ubi9/ubi-micro
-    "${container_engine}" cp "${DIR}/compose/localstack_buckets.sh" localstack_cfg_helper:/tmp
-}
-if [ "${s3}" = "localstack" ]; then
-    createLocalstackCfgVolume
-fi
-
-createJmxTlsCertVolume() {
-    "${container_engine}" volume create jmxtls_cfg
-    "${container_engine}" container create --name jmxtls_cfg_helper -v jmxtls_cfg:/truststore registry.access.redhat.com/ubi9/ubi-micro
-    if [ -d "${DIR}/truststore" ]; then
-        "${container_engine}" cp "${DIR}/truststore" jmxtls_cfg_helper:/truststore
-    fi
-}
-createJmxTlsCertVolume
-
-createEventTemplateVolume() {
-    "${container_engine}" volume create templates
-    "${container_engine}" container create --name templates_helper -v templates:/templates registry.access.redhat.com/ubi9/ubi-micro
-    if [ -d "${DIR}/templates" ]; then
-        "${container_engine}" cp "${DIR}/templates" templates_helper:/templates
-    fi
-}
-createEventTemplateVolume
-
-createProbeTemplateVolume() {
-    "${container_engine}" volume create probes
-    "${container_engine}" container create --name probes_helper -v probes:/probes registry.access.redhat.com/ubi9/ubi-micro
-    if [ -d "${DIR}/probes" ]; then
-        "${container_engine}" cp "${DIR}/probes" probes_helper:/probes
-    fi
-}
-createProbeTemplateVolume
-
-createCredentialVolume() {
-    "${container_engine}" volume create credentials
-    "${container_engine}" container create --name credentials_helper -v credentials:/credentials registry.access.redhat.com/ubi9/ubi-micro
-    if [ -d "${DIR}/credentials" ]; then
-        "${container_engine}" cp "${DIR}/credentials" credentials_helper:/credentials
-    fi
-}
-createCredentialVolume
+createVolumes
 
 setupUserHosts() {
     # This requires https://github.com/figiel/hosts to work. See README.
