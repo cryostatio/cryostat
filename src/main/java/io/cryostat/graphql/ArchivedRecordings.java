@@ -120,7 +120,7 @@ public class ArchivedRecordings {
                     n ->
                             sourceTarget == null
                                     || Objects.equals(
-                                            r.metadata().labels().get("connectUrl"), sourceTarget);
+                                            r.metadata().labels().get("jvmId"), sourceTarget);
             Predicate<ArchivedRecording> matchesLabels =
                     n ->
                             labels == null
