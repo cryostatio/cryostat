@@ -40,6 +40,7 @@ import io.cryostat.rules.RuleService.ActivationAttempt;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -88,54 +89,61 @@ public class RuleExecutor {
     }
 
     @ConsumeEvent(blocking = true)
-    @Transactional
     Uni<Void> onMessage(ActivationAttempt attempt) {
-        Target attachedTarget = Target.<Target>find("id", attempt.target().id).singleResult();
-        var priorRecording =
-                recordingHelper.getActiveRecording(
-                        attachedTarget,
-                        r -> Objects.equals(r.name, attempt.rule().getRecordingName()));
-        if (priorRecording.isPresent()) {
-            try {
-                recordingHelper
-                        .stopRecording(priorRecording.get())
-                        .await()
-                        .atMost(connectionFailedTimeout);
-            } catch (Exception e) {
-                logger.warn(e);
-                return Uni.createFrom().failure(e);
-            }
-        }
-
         Pair<String, TemplateType> pair =
                 recordingHelper.parseEventSpecifier(attempt.rule().eventSpecifier);
         Template template =
                 recordingHelper.getPreferredTemplate(
                         attempt.target(), pair.getKey(), pair.getValue());
 
-        var labels = new HashMap<>(attempt.rule().metadata.labels());
-        labels.put("rule", attempt.rule().name);
-        try {
-            ActiveRecording recording =
-                    recordingHelper
-                            .startRecording(
-                                    attachedTarget,
-                                    RecordingReplace.STOPPED,
-                                    template,
-                                    createRecordingOptions(attempt.rule()),
-                                    labels)
-                            .await()
-                            .atMost(Duration.ofSeconds(10));
+        return QuarkusTransaction.joiningExisting()
+                .call(
+                        () -> {
+                            Target attachedTarget =
+                                    Target.<Target>find("id", attempt.target().id).singleResult();
+                            var priorRecording =
+                                    recordingHelper.getActiveRecording(
+                                            attachedTarget,
+                                            r ->
+                                                    Objects.equals(
+                                                            r.name,
+                                                            attempt.rule().getRecordingName()));
+                            if (priorRecording.isPresent()) {
+                                try {
+                                    recordingHelper
+                                            .stopRecording(priorRecording.get())
+                                            .await()
+                                            .atMost(connectionFailedTimeout);
+                                } catch (Exception e) {
+                                    logger.warn(e);
+                                    return Uni.createFrom().failure(e);
+                                }
+                            }
 
-            if (attempt.rule().isArchiver()) {
-                scheduleArchival(attempt.rule(), attachedTarget, recording);
-            }
-        } catch (QuantityConversionException e) {
-            logger.error(e);
-            return Uni.createFrom().failure(e);
-        }
+                            var labels = new HashMap<>(attempt.rule().metadata.labels());
+                            labels.put("rule", attempt.rule().name);
+                            try {
+                                ActiveRecording recording =
+                                        recordingHelper
+                                                .startRecording(
+                                                        attachedTarget,
+                                                        RecordingReplace.STOPPED,
+                                                        template,
+                                                        createRecordingOptions(attempt.rule()),
+                                                        labels)
+                                                .await()
+                                                .atMost(Duration.ofSeconds(10));
 
-        return Uni.createFrom().nullItem();
+                                if (attempt.rule().isArchiver()) {
+                                    scheduleArchival(attempt.rule(), attachedTarget, recording);
+                                }
+                            } catch (QuantityConversionException e) {
+                                logger.error(e);
+                                return Uni.createFrom().failure(e);
+                            }
+
+                            return Uni.createFrom().nullItem();
+                        });
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
@@ -183,9 +191,7 @@ public class RuleExecutor {
     @Transactional
     public void handleRuleRecordingCleanup(Rule rule) {
         cancelTasksForRule(rule);
-        var targets =
-                evaluator.getMatchedTargets(rule.matchExpression).stream()
-                        .collect(Collectors.toList());
+        var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
             recordingHelper
                     .getActiveRecording(

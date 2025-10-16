@@ -56,6 +56,7 @@ import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
@@ -71,6 +72,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.Bulkhead;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
@@ -210,7 +212,8 @@ public class Discovery {
         return RestResponse.ok(result.firstResult());
     }
 
-    @Transactional
+    @Bulkhead
+    @Blocking
     @POST
     @Path("/api/v4/discovery")
     @Produces(MediaType.APPLICATION_JSON)
@@ -321,8 +324,8 @@ public class Discovery {
         } else {
             // check if a plugin record with the same callback already exists. If it does,
             // ping it:
-            // if it's still there reject this request as a duplicate, otherwise delete the
-            // previous record and accept this new one as a replacement
+            // - if it's still there reject this request as a duplicate
+            // - otherwise delete the previous record and accept this new one as a replacement
             DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
                     .singleResultOptional()
                     .ifPresent(
@@ -330,30 +333,39 @@ public class Discovery {
                                 try {
                                     var cb = PluginCallback.create(p);
                                     cb.ping();
-                                    throw new IllegalArgumentException(
+                                    throw new DuplicatePluginException(
                                             String.format(
                                                     "Plugin with callback %s already exists and is"
                                                             + " still reachable",
                                                     unauthCallback));
                                 } catch (Exception e) {
-                                    logger.error(e);
-                                    p.delete();
+                                    if (!(e instanceof DuplicatePluginException)) {
+                                        logger.debug(e);
+                                        p.delete();
+                                    }
                                 }
                             });
 
             // new plugin registration
-            plugin = new DiscoveryPlugin();
-            plugin.callback = callbackUri;
-            plugin.realm =
-                    DiscoveryNode.environment(
-                            requireNonBlank(realmName, "realm"), NodeType.BaseNodeType.REALM);
-            plugin.builtin = false;
+            plugin =
+                    QuarkusTransaction.joiningExisting()
+                            .call(
+                                    () -> {
+                                        DiscoveryPlugin p = new DiscoveryPlugin();
+                                        p.callback = callbackUri;
+                                        p.realm =
+                                                DiscoveryNode.environment(
+                                                        requireNonBlank(realmName, "realm"),
+                                                        NodeType.BaseNodeType.REALM);
+                                        p.builtin = false;
 
-            var universe = DiscoveryNode.getUniverse();
-            plugin.realm.parent = universe;
-            plugin.persist();
-            universe.children.add(plugin.realm);
-            universe.persist();
+                                        var universe = DiscoveryNode.getUniverse();
+                                        p.realm.parent = universe;
+                                        p.persist();
+                                        universe.children.add(p.realm);
+                                        universe.persist();
+                                        return p;
+                                    });
 
             try {
                 location = jwtFactory.getPluginLocation(plugin);
@@ -488,6 +500,9 @@ public class Discovery {
     public void deregister(@Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
             throws SchedulerException {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
+        if (plugin.builtin) {
+            throw new ForbiddenException();
+        }
         try {
             jwtValidator.validateJwt(ctx, plugin, token, false);
         } catch (MalformedURLException
@@ -498,14 +513,14 @@ public class Discovery {
                 | ParseException e) {
             throw new BadRequestException(e);
         }
-        if (plugin.builtin) {
-            throw new ForbiddenException();
-        }
 
         Set<JobKey> jobKeys = new HashSet<>();
         jobKeys.addAll(scheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_PERIODIC)));
         jobKeys.addAll(scheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_STARTUP)));
         for (var key : jobKeys) {
+            if (!Objects.equals(plugin.id.toString(), key.getName())) {
+                continue;
+            }
             scheduler.deleteJob(key);
         }
         plugin.delete();
@@ -574,6 +589,14 @@ public class Discovery {
                     logger.debugv(
                             "Retained discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
                 }
+            } catch (NoResultException e) {
+                logger.debugv(
+                        e,
+                        "Unscheduled job for nonexistent discovery plugin: {0}",
+                        context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY));
+                var ex = new JobExecutionException(e);
+                ex.setUnscheduleFiringTrigger(true);
+                throw ex;
             } catch (Exception e) {
                 if (plugin != null) {
                     logger.debugv(
@@ -610,4 +633,11 @@ public class Discovery {
     }
 
     static record PluginRegistration(String id, String token, Map<String, String> env) {}
+
+    static class DuplicatePluginException extends IllegalArgumentException {
+
+        public DuplicatePluginException(String format) {
+            super(format);
+        }
+    }
 }
