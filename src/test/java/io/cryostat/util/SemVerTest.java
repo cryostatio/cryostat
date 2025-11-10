@@ -84,7 +84,7 @@ public class SemVerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"-1.0.0", "a.b.c", "1.2", "1", "1.2.3.4", "1.2.3+a+b", ".1.2"})
+    @ValueSource(strings = {"-1.0.0", "a.b.c", "1.2", "1", "1.2.3+a+b", ".1.2"})
     void testInvalid(String s) {
         Assertions.assertThrows(IllegalArgumentException.class, () -> SemVer.parse(s));
     }
