@@ -40,7 +40,7 @@
     <org.projectnessie.cel.bom.version>0.5.2</org.projectnessie.cel.bom.version>
     <com.google.protobuf-java.version>4.31.1</com.google.protobuf-java.version>
     <com.nimbusds.jose.jwt.version>10.5</com.nimbusds.jose.jwt.version>
-    <org.testcontainers.bom.version>1.21.3</org.testcontainers.bom.version>
+    <org.testcontainers.bom.version>2.0.1</org.testcontainers.bom.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.27.0</quarkus.platform.version>
