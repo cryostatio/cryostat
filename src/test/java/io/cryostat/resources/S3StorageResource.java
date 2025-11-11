@@ -60,6 +60,10 @@ public class S3StorageResource
                 adjustS3Url(container, container.getHost(), container.getMappedPort(S3_PORT));
 
         Map<String, String> properties = new HashMap<String, String>();
+        // FIXME since Quarkus 3.20 / S3 SDK 2.30.36 leaving this enabled results in junk
+        // 'chunk-signature' data being inserted to PutObjectRequests when the object storage
+        // instance is SeaweedFS/cryostat-storage
+        properties.put("quarkus.s3.checksum-validation", "false");
         properties.put("quarkus.s3.aws.region", "us-east-1");
         properties.put("s3.url.override", networkHostPort);
         properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
