@@ -69,7 +69,22 @@ public class SemVerTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"-1.0.0", "a.b.c", "1.2", "1", "1.2.3.4", "1.2.3+a+b", ".1.2"})
+    @CsvSource({
+        "1.2.3.vendor-0001, 1, 2, 3, vendor-0001,",
+        "1.2.3.vendor-0001+patch2, 1, 2, 3, vendor-0001, patch2",
+    })
+    void testVendoredBuild(
+            String s, int major, int minor, int patch, String prerelease, String buildmeta) {
+        SemVer sv = SemVer.parse(s);
+        MatcherAssert.assertThat(sv.major(), Matchers.equalTo(major));
+        MatcherAssert.assertThat(sv.minor(), Matchers.equalTo(minor));
+        MatcherAssert.assertThat(sv.patch(), Matchers.equalTo(patch));
+        MatcherAssert.assertThat(sv.prerelease(), Matchers.equalTo(prerelease));
+        MatcherAssert.assertThat(sv.buildmeta(), Matchers.equalTo(buildmeta));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"-1.0.0", "a.b.c", "1.2", "1", "1.2.3+a+b", ".1.2"})
     void testInvalid(String s) {
         Assertions.assertThrows(IllegalArgumentException.class, () -> SemVer.parse(s));
     }
