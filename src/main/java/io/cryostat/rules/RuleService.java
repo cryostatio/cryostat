@@ -126,11 +126,7 @@ public class RuleService {
                     }
                 });
         QuarkusTransaction.joiningExisting()
-                .run(
-                        () ->
-                                Rule.<Rule>streamAll()
-                                        .filter(r -> r.enabled)
-                                        .forEach(this::applyRuleToMatchingTargets));
+                .run(() -> enabledRules().forEach(this::applyRuleToMatchingTargets));
     }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
