@@ -201,13 +201,11 @@ public class RuleService {
     }
 
     private void resetActivations(Predicate<ActivationAttempt> p) {
-        synchronized (activations) {
-            Iterator<ActivationAttempt> it = activations.iterator();
-            while (it.hasNext()) {
-                ActivationAttempt attempt = it.next();
-                if (p.test(attempt)) {
-                    it.remove();
-                }
+        Iterator<ActivationAttempt> it = activations.iterator();
+        while (it.hasNext()) {
+            ActivationAttempt attempt = it.next();
+            if (p.test(attempt)) {
+                it.remove();
             }
         }
     }
@@ -217,9 +215,7 @@ public class RuleService {
         for (var rule : enabledRules()) {
             try {
                 if (evaluator.applies(rule.matchExpression, target)) {
-                    synchronized (activations) {
-                        activations.add(new ActivationAttempt(rule, target));
-                    }
+                    activations.add(new ActivationAttempt(rule, target));
                 }
             } catch (ScriptException se) {
                 logger.error(se);
@@ -236,10 +232,8 @@ public class RuleService {
         Rule rule = QuarkusTransaction.joiningExisting().call(() -> Rule.findById(r.id));
         resetActivations(rule);
         var targets = evaluator.getMatchedTargets(rule.matchExpression);
-        synchronized (activations) {
-            for (var target : targets) {
-                activations.add(new ActivationAttempt(rule, target));
-            }
+        for (var target : targets) {
+            activations.add(new ActivationAttempt(rule, target));
         }
     }
 
