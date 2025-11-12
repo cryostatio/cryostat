@@ -135,15 +135,15 @@ public class RuleService {
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
+    @Transactional
     void onMessage(TargetDiscovery event) {
         switch (event.kind()) {
             case MODIFIED:
             // fall-through
             case FOUND:
-                if (StringUtils.isBlank(event.serviceRef().jvmId)) {
-                    break;
+                if (event.serviceRef().isConnectable()) {
+                    applyRulesToTarget(event.serviceRef());
                 }
-                applyRulesToTarget(event.serviceRef());
                 break;
             case LOST:
                 resetActivations(event.serviceRef());
