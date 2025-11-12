@@ -25,8 +25,6 @@ import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.stream.Collectors;
 
-import org.openjdk.jmc.common.unit.QuantityConversionException;
-
 import io.cryostat.ConfigProperties;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.libcryostat.templates.Template;
@@ -40,7 +38,6 @@ import io.cryostat.rules.RuleService.ActivationAttempt;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;

@@ -175,39 +175,36 @@ public class MatchExpressionEvaluator {
     }
 
     public List<Target> getMatchedTargets(MatchExpression matchExpression) {
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () -> {
-                            var targets =
-                                    Target.<Target>listAll().parallelStream()
-                                            .filter(
-                                                    target -> {
-                                                        try {
-                                                            return applies(matchExpression, target);
-                                                        } catch (ScriptException e) {
-                                                            logger.error(
-                                                                    "Error while processing"
-                                                                            + " expression: "
-                                                                            + matchExpression,
-                                                                    e);
-                                                            return false;
-                                                        }
-                                                    })
-                                            .collect(Collectors.toList());
+        List<Target> targets =
+                QuarkusTransaction.joiningExisting()
+                        .call(() -> Target.<Target>listAll())
+                        .parallelStream()
+                        .filter(
+                                target -> {
+                                    try {
+                                        return applies(matchExpression, target);
+                                    } catch (ScriptException e) {
+                                        logger.error(
+                                                "Error while processing expression: "
+                                                        + matchExpression,
+                                                e);
+                                        return false;
+                                    }
+                                })
+                        .collect(Collectors.toList());
 
-                            var ids = new HashSet<>();
-                            var it = targets.iterator();
-                            while (it.hasNext()) {
-                                var t = it.next();
-                                if (ids.contains(t.jvmId)) {
-                                    it.remove();
-                                    continue;
-                                }
-                                ids.add(t.jvmId);
-                            }
+        var ids = new HashSet<>();
+        var it = targets.iterator();
+        while (it.hasNext()) {
+            var t = it.next();
+            if (ids.contains(t.jvmId)) {
+                it.remove();
+                continue;
+            }
+            ids.add(t.jvmId);
+        }
 
-                            return targets;
-                        });
+        return targets;
     }
 
     @Name("io.cryostat.rules.MatchExpressionEvaluator.MatchExpressionApplies")

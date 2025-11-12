@@ -27,6 +27,7 @@ import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Multi;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -44,6 +45,7 @@ public class MatchExpressions {
     @POST
     @RolesAllowed("read")
     @Blocking
+    @Transactional
     @Operation(
             summary = "Test a MatchExpression against a list of Targets",
             description =
