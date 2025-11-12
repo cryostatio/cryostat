@@ -246,7 +246,11 @@ public class ActiveRecording extends PanacheEntity {
                 public Payload {
                     Objects.requireNonNull(target);
                     Objects.requireNonNull(recording);
-                    Objects.requireNonNull(jvmId);
+                    // jvmId may still be null if, for example, Cryostat is starting a recording on
+                    // a newly-discovered Target due to an enabled Automated Rule. The event may be
+                    // processed and the recording started before the parallel/concurrent job to
+                    // acquire the JVM ID has been completed.
+                    // Objects.requireNonNull(jvmId);
                 }
 
                 public static Payload of(RecordingHelper helper, ActiveRecording recording) {
