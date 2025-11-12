@@ -41,11 +41,13 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.PATCH;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
@@ -54,7 +56,6 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
-import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
 
@@ -154,7 +155,10 @@ public class Rules {
                     """
                     Update Automated Rule parameters, such as whether the rule is currently active or not.
                     """)
-    public Rule update(@RestPath String name, @RestQuery boolean clean, JsonObject body) {
+    public Rule update(
+            @RestPath String name,
+            @QueryParam("clean") @DefaultValue("false") boolean clean,
+            JsonObject body) {
         Rule rule = Rule.getByName(name);
         if (rule == null) {
             throw new NotFoundException("Rule with name " + name + " not found");
@@ -165,7 +169,7 @@ public class Rules {
         }
 
         // order matters here, we want to clean before we disable
-        if (clean) {
+        if (body.containsKey("enabled") && !body.getBoolean("enabled") && clean) {
             bus.send(Rule.RULE_ADDRESS + "?clean", rule);
         }
         if (body.containsKey("enabled")) {
@@ -261,7 +265,8 @@ public class Rules {
     @RolesAllowed("write")
     @Path("/{name}")
     @Operation(summary = "Delete an Automated Rule by name")
-    public void delete(@RestPath String name, @RestQuery boolean clean) {
+    public void delete(
+            @RestPath String name, @QueryParam("clean") @DefaultValue("false") boolean clean) {
         Rule rule = Rule.getByName(name);
         if (rule == null) {
             throw new NotFoundException("Rule with name " + name + " not found");
