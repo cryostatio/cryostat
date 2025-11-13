@@ -2070,6 +2070,7 @@ paths:
         - in: query
           name: clean
           schema:
+            default: false
             type: boolean
       responses:
         "204":
@@ -2106,6 +2107,7 @@ paths:
         - in: query
           name: clean
           schema:
+            default: false
             type: boolean
       requestBody:
         content:

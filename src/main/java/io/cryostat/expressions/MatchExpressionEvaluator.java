@@ -15,6 +15,7 @@
  */
 package io.cryostat.expressions;
 
+import java.net.URI;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -40,7 +41,6 @@ import io.quarkus.vertx.ConsumeEvent;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.Label;
@@ -85,17 +85,15 @@ public class MatchExpressionEvaluator {
         }
     }
 
-    @Transactional
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
     void onMessage(TargetDiscovery event) {
-        var target = Target.<Target>find("id", event.serviceRef().id).singleResultOptional();
         switch (event.kind()) {
             case LOST:
             // fall-through
             case FOUND:
             // fall-through
             case MODIFIED:
-                target.ifPresent(this::invalidate);
+                invalidate(event.serviceRef());
                 break;
             default:
                 // no-op
@@ -126,6 +124,8 @@ public class MatchExpressionEvaluator {
 
     @CacheResult(cacheName = CACHE_NAME)
     boolean load(String matchExpression, Target target) throws ScriptException {
+        Objects.requireNonNull(matchExpression);
+        Objects.requireNonNull(target);
         Script script = createScript(matchExpression);
         return script.execute(Boolean.class, Map.of("target", SimplifiedTarget.from(target)));
     }
@@ -175,39 +175,36 @@ public class MatchExpressionEvaluator {
     }
 
     public List<Target> getMatchedTargets(MatchExpression matchExpression) {
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () -> {
-                            var targets =
-                                    Target.<Target>listAll().parallelStream()
-                                            .filter(
-                                                    target -> {
-                                                        try {
-                                                            return applies(matchExpression, target);
-                                                        } catch (ScriptException e) {
-                                                            logger.error(
-                                                                    "Error while processing"
-                                                                            + " expression: "
-                                                                            + matchExpression,
-                                                                    e);
-                                                            return false;
-                                                        }
-                                                    })
-                                            .collect(Collectors.toList());
+        List<Target> targets =
+                QuarkusTransaction.joiningExisting()
+                        .call(() -> Target.<Target>listAll())
+                        .parallelStream()
+                        .filter(
+                                target -> {
+                                    try {
+                                        return applies(matchExpression, target);
+                                    } catch (ScriptException e) {
+                                        logger.error(
+                                                "Error while processing expression: "
+                                                        + matchExpression,
+                                                e);
+                                        return false;
+                                    }
+                                })
+                        .collect(Collectors.toList());
 
-                            var ids = new HashSet<>();
-                            var it = targets.iterator();
-                            while (it.hasNext()) {
-                                var t = it.next();
-                                if (ids.contains(t.jvmId)) {
-                                    it.remove();
-                                    continue;
-                                }
-                                ids.add(t.jvmId);
-                            }
+        var ids = new HashSet<>();
+        var it = targets.iterator();
+        while (it.hasNext()) {
+            var t = it.next();
+            if (ids.contains(t.jvmId)) {
+                it.remove();
+                continue;
+            }
+            ids.add(t.jvmId);
+        }
 
-                            return targets;
-                        });
+        return targets;
     }
 
     @Name("io.cryostat.rules.MatchExpressionEvaluator.MatchExpressionApplies")
@@ -215,7 +212,6 @@ public class MatchExpressionEvaluator {
     @Category("Cryostat")
     @SuppressFBWarnings(value = {"URF_UNREAD_FIELD"})
     public static class MatchExpressionApplies extends Event {
-
         String matchExpression;
 
         MatchExpressionApplies(MatchExpression matchExpression) {
@@ -252,6 +248,7 @@ public class MatchExpressionEvaluator {
         }
 
         static SimplifiedTarget from(Target target) {
+            Objects.requireNonNull(target);
             return new SimplifiedTarget(
                     target.id,
                     target.isAgent(),
@@ -298,7 +295,15 @@ public class MatchExpressionEvaluator {
         }
 
         private String[] getJfrEventTypeIds(SimplifiedTarget st) {
-            Target target = Target.find("id", st.id()).singleResult();
+            // "synthetic" target instance which does not need to be persisted, as it will only be
+            // used to establish this connection for the JFR Event Type query
+            Target target = new Target();
+            target.id = st.id;
+            target.jvmId = st.jvmId;
+            target.connectUrl = URI.create(st.connectUrl);
+            target.alias = st.alias;
+            target.annotations = st.annotations;
+            target.labels = st.labels;
             try {
                 return connectionManager.executeConnectedTask(
                         target,
