@@ -18,6 +18,7 @@ package io.cryostat.rules;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -25,6 +26,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.expressions.MatchExpressionEvaluator;
@@ -45,7 +47,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
@@ -87,8 +88,10 @@ public class RuleService {
                             logger.tracev(
                                     "Attempting to activate rule \"{0}\" for target {1} -"
                                             + " attempt #{2}",
-                                    attempt.rule.name, attempt.target.connectUrl, attempt.attempts);
-                            bus.requestAndAwait(RuleExecutor.class.getName(), attempt);
+                                    attempt.ruleId, attempt.targetId, attempt.attempts);
+                            bus.request(RuleExecutor.class.getName(), attempt)
+                                    .await()
+                                    .atMost(connectionFailedTimeout);
                         } catch (InterruptedException ie) {
                             logger.trace(ie);
                             break;
@@ -103,9 +106,9 @@ public class RuleService {
                                     logger.debugv(
                                             "Rule \"{0}\" activation attempt #{1} for target"
                                                     + " {2} failed, rescheduling in {3}{4} ...",
-                                            attempt.rule.name,
+                                            attempt.ruleId,
                                             count - 1,
-                                            attempt.target.connectUrl,
+                                            attempt.targetId,
                                             delay,
                                             unit);
                                     Infrastructure.getDefaultWorkerPool()
@@ -115,10 +118,7 @@ public class RuleService {
                                             "Rule \"{0}\" activation attempt #{1} failed for"
                                                     + " target {2} - limit ({3}) reached! Will not"
                                                     + " retry...",
-                                            attempt.rule.name,
-                                            count,
-                                            attempt.target.connectUrl,
-                                            limit);
+                                            attempt.ruleId, count, attempt.targetId, limit);
                                 }
                             }
                             logger.error(e);
@@ -126,11 +126,7 @@ public class RuleService {
                     }
                 });
         QuarkusTransaction.joiningExisting()
-                .run(
-                        () ->
-                                Rule.<Rule>streamAll()
-                                        .filter(r -> r.enabled)
-                                        .forEach(this::applyRuleToMatchingTargets));
+                .run(() -> enabledRules().forEach(this::applyRuleToMatchingTargets));
     }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
@@ -139,15 +135,15 @@ public class RuleService {
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
+    @Transactional
     void onMessage(TargetDiscovery event) {
         switch (event.kind()) {
             case MODIFIED:
             // fall-through
             case FOUND:
-                if (StringUtils.isBlank(event.serviceRef().jvmId)) {
-                    break;
+                if (event.serviceRef().isConnectable()) {
+                    applyRulesToTarget(event.serviceRef());
                 }
-                applyRulesToTarget(event.serviceRef());
                 break;
             case LOST:
                 resetActivations(event.serviceRef());
@@ -197,20 +193,18 @@ public class RuleService {
     }
 
     private void resetActivations(Rule rule) {
-        Iterator<ActivationAttempt> it = activations.iterator();
-        while (it.hasNext()) {
-            ActivationAttempt attempt = it.next();
-            if (attempt.rule.equals(rule)) {
-                it.remove();
-            }
-        }
+        resetActivations(a -> a.ruleId == rule.id);
     }
 
     private void resetActivations(Target target) {
+        resetActivations(a -> a.targetId == target.id);
+    }
+
+    private void resetActivations(Predicate<ActivationAttempt> p) {
         Iterator<ActivationAttempt> it = activations.iterator();
         while (it.hasNext()) {
             ActivationAttempt attempt = it.next();
-            if (attempt.target.equals(target)) {
+            if (p.test(attempt)) {
                 it.remove();
             }
         }
@@ -218,19 +212,24 @@ public class RuleService {
 
     void applyRulesToTarget(Target target) {
         resetActivations(target);
-        for (var rule : Rule.<Rule>find("enabled", true).list()) {
+        for (var rule : enabledRules()) {
             try {
-                if (!evaluator.applies(rule.matchExpression, target)) {
-                    continue;
+                if (evaluator.applies(rule.matchExpression, target)) {
+                    activations.add(new ActivationAttempt(rule, target));
                 }
-                activations.add(new ActivationAttempt(rule, target));
             } catch (ScriptException se) {
                 logger.error(se);
             }
         }
     }
 
-    void applyRuleToMatchingTargets(Rule rule) {
+    private static List<Rule> enabledRules() {
+        return QuarkusTransaction.joiningExisting()
+                .call(() -> Rule.<Rule>find("enabled", true).list());
+    }
+
+    void applyRuleToMatchingTargets(Rule r) {
+        Rule rule = QuarkusTransaction.joiningExisting().call(() -> Rule.findById(r.id));
         resetActivations(rule);
         var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
@@ -247,14 +246,12 @@ public class RuleService {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record ActivationAttempt(Rule rule, Target target, AtomicInteger attempts) {
+    public record ActivationAttempt(long ruleId, long targetId, AtomicInteger attempts) {
         public ActivationAttempt(Rule rule, Target target) {
-            this(rule, target, new AtomicInteger(0));
+            this(rule.id, target.id, new AtomicInteger(0));
         }
 
         public ActivationAttempt {
-            Objects.requireNonNull(rule);
-            Objects.requireNonNull(target);
             Objects.requireNonNull(attempts);
             if (attempts.get() < 0) {
                 throw new IllegalArgumentException();

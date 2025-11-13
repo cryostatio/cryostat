@@ -138,6 +138,11 @@ public class Target extends PanacheEntity {
         return this.connectUrl.toString();
     }
 
+    @JsonIgnore
+    public boolean isConnectable() {
+        return id != null && id > 0 && StringUtils.isNotBlank(jvmId);
+    }
+
     public static Target getTargetById(long targetId) {
         return Target.find("id", targetId).singleResult();
     }
