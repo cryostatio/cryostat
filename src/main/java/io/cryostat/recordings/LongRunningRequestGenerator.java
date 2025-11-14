@@ -97,8 +97,6 @@ public class LongRunningRequestGenerator {
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_TIMEOUT)
     Duration uploadFailedTimeout;
 
-    public LongRunningRequestGenerator() {}
-
     @ConsumeEvent(value = THREAD_DUMP_ADDRESS, blocking = true)
     @Transactional
     public void onMessage(ThreadDumpRequest request) {

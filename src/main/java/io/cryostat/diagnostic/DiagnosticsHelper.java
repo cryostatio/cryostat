@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -101,6 +102,9 @@ public class DiagnosticsHelper {
     @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE)
     String metadataStorageMode;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_TIMEOUT)
+    Duration uploadFailedTimeout;
+
     @Inject
     @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
@@ -127,17 +131,21 @@ public class DiagnosticsHelper {
                 "Heap Dump request received for Target: {0} with jobId {1}", target.id, requestId);
         Object[] params = new Object[3];
         String[] signature = new String[] {String.class.getName(), boolean.class.getName()};
-        // The agent will generate the filename on it's side
+        // The agent will generate the filename on its side
         params[0] = "";
         params[1] = false;
         params[2] = requestId;
         // Heap Dump Retrieval is handled by a separate endpoint
         targetConnectionManager.executeConnectedTask(
                 target,
-                conn -> {
-                    return conn.invokeMBeanOperation(
-                            HOTSPOT_DIAGNOSTIC_BEAN_NAME, DUMP_HEAP, params, signature, Void.class);
-                });
+                conn ->
+                        conn.invokeMBeanOperation(
+                                HOTSPOT_DIAGNOSTIC_BEAN_NAME,
+                                DUMP_HEAP,
+                                params,
+                                signature,
+                                Void.class),
+                uploadFailedTimeout);
     }
 
     public String generateFileName(String jvmId, String uuid, String extension) {
@@ -209,7 +217,8 @@ public class DiagnosticsHelper {
                                         format,
                                         params,
                                         signature,
-                                        String.class)));
+                                        String.class)),
+                        uploadFailedTimeout);
     }
 
     public void deleteThreadDump(Target target, String threadDumpId) {
