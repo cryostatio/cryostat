@@ -176,20 +176,18 @@ public class RuleExecutor {
         cancelTasksForRule(rule);
         var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
-            recordingHelper
-                    .getActiveRecording(
-                            target, r -> Objects.equals(r.name, rule.getRecordingName()))
-                    .ifPresent(
-                            recording -> {
-                                try {
-                                    recordingHelper
-                                            .stopRecording(recording)
-                                            .await()
-                                            .atMost(connectionFailedTimeout);
-                                } catch (Exception e) {
-                                    logger.warn(e);
-                                }
-                            });
+            try {
+                var opt =
+                        recordingHelper.getActiveRecording(
+                                target, r -> Objects.equals(r.name, rule.getRecordingName()));
+                if (opt.isEmpty()) {
+                    continue;
+                }
+                var recording = opt.get();
+                recordingHelper.stopRecording(recording).await().atMost(connectionFailedTimeout);
+            } catch (Exception e) {
+                logger.warn(e);
+            }
         }
     }
 
