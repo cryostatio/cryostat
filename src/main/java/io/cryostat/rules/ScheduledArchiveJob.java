@@ -72,11 +72,16 @@ class ScheduledArchiveJob implements Job {
                     String path = obj.key().strip();
                     String[] parts = path.split("/");
                     String filename = parts[1];
-                    try {
-                        recordingHelper.deleteArchivedRecording(jvmId, filename);
-                    } catch (IOException e) {
-                        logger.warn(e);
-                    }
+                    QuarkusTransaction.joiningExisting()
+                            .run(
+                                    () -> {
+                                        try {
+                                            recordingHelper.deleteArchivedRecording(
+                                                    jvmId, filename);
+                                        } catch (IOException e) {
+                                            logger.warn(e);
+                                        }
+                                    });
                 }
             }
             QuarkusTransaction.joiningExisting()
