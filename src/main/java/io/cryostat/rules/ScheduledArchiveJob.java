@@ -123,7 +123,7 @@ class ScheduledArchiveJob implements Job {
 
     List<S3Object> previousRecordings(String jvmId, String recordingName) {
         return recordingHelper.listArchivedRecordingObjects(jvmId).stream()
-                .sorted((a, b) -> a.lastModified().compareTo(b.lastModified()))
+                .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
                 .filter(
                         item -> {
                             String path = item.key().strip();
