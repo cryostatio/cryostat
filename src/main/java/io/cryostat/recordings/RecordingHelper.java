@@ -598,9 +598,13 @@ public class RecordingHelper {
                                     QuarkusTransaction.joiningExisting()
                                             .call(
                                                     () -> {
-                                                        recording.state = RecordingState.STOPPED;
-                                                        recording.persist();
-                                                        return recording;
+                                                        ActiveRecording r =
+                                                                ActiveRecording.find(
+                                                                                "id", recording.id)
+                                                                        .singleResult();
+                                                        r.state = RecordingState.STOPPED;
+                                                        r.persist();
+                                                        return r;
                                                     }));
                 });
     }

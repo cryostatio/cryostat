@@ -38,6 +38,7 @@ import io.cryostat.rules.RuleService.ActivationAttempt;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -176,22 +177,33 @@ public class RuleExecutor {
         cancelTasksForRule(rule);
         var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
-            try {
-                var opt =
-                        recordingHelper.getActiveRecording(
-                                target, r -> Objects.equals(r.name, rule.getRecordingName()));
-                if (opt.isEmpty()) {
-                    logger.warnv(
-                            "Target {0} did not have expected Automated Rule recording with name"
-                                    + " {1}",
-                            target.id, rule.getRecordingName());
-                    continue;
-                }
-                var recording = opt.get();
-                recordingHelper.stopRecording(recording).await().atMost(connectionFailedTimeout);
-            } catch (Exception e) {
-                logger.warn(e);
-            }
+            QuarkusTransaction.joiningExisting()
+                    .run(
+                            () -> {
+                                try {
+                                    var opt =
+                                            recordingHelper.getActiveRecording(
+                                                    target,
+                                                    r ->
+                                                            Objects.equals(
+                                                                    r.name,
+                                                                    rule.getRecordingName()));
+                                    if (opt.isEmpty()) {
+                                        logger.warnv(
+                                                "Target {0} did not have expected Automated Rule"
+                                                        + " recording with name {1}",
+                                                target.id, rule.getRecordingName());
+                                        return;
+                                    }
+                                    var recording = opt.get();
+                                    recordingHelper
+                                            .stopRecording(recording)
+                                            .await()
+                                            .atMost(connectionFailedTimeout);
+                                } catch (Exception e) {
+                                    logger.warn(e);
+                                }
+                            });
         }
     }
 
