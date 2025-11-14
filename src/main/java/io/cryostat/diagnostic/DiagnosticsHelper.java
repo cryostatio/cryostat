@@ -218,7 +218,7 @@ public class DiagnosticsHelper {
                                         params,
                                         signature,
                                         String.class)),
-                        uploadFailedTimeout);
+                uploadFailedTimeout);
     }
 
     public void deleteThreadDump(Target target, String threadDumpId) {
