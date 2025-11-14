@@ -80,10 +80,14 @@ class ScheduledArchiveJob implements Job {
         int preservedArchives = (int) ctx.getJobDetail().getJobDataMap().get("preservedArchives");
 
         if (recording == null) {
-            throw new IllegalStateException(
-                    String.format(
-                            "Target %s did not have recording with remote ID %d",
-                            jvmId, recordingId));
+            JobExecutionException ex =
+                    new JobExecutionException(
+                            new IllegalStateException(
+                                    String.format(
+                                            "Target %s did not have recording with remote ID %d",
+                                            jvmId, recordingId)));
+            ex.setUnscheduleFiringTrigger(true);
+            throw ex;
         }
 
         try {
