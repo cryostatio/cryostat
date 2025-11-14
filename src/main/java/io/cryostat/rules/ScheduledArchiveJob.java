@@ -61,34 +61,7 @@ class ScheduledArchiveJob implements Job {
     public void execute(JobExecutionContext ctx) throws JobExecutionException {
         String jvmId = (String) ctx.getJobDetail().getJobDataMap().get("jvmId");
         String recordingName = (String) ctx.getJobDetail().getJobDataMap().get("recordingName");
-        long recordingId = (long) ctx.getJobDetail().getJobDataMap().get("recording");
-        ActiveRecording recording =
-                QuarkusTransaction.joiningExisting()
-                        .call(
-                                () ->
-                                        recordingHelper
-                                                .getActiveRecording(
-                                                        QuarkusTransaction.joiningExisting()
-                                                                .call(
-                                                                        () ->
-                                                                                Target
-                                                                                        .getTargetByJvmId(
-                                                                                                jvmId)
-                                                                                        .orElseThrow()),
-                                                        recordingId)
-                                                .orElseThrow());
         int preservedArchives = (int) ctx.getJobDetail().getJobDataMap().get("preservedArchives");
-
-        if (recording == null) {
-            JobExecutionException ex =
-                    new JobExecutionException(
-                            new IllegalStateException(
-                                    String.format(
-                                            "Target %s did not have recording with remote ID %d",
-                                            jvmId, recordingId)));
-            ex.setUnscheduleFiringTrigger(true);
-            throw ex;
-        }
 
         try {
             List<S3Object> previousRecordings = previousRecordings(jvmId, recordingName);
@@ -106,7 +79,32 @@ class ScheduledArchiveJob implements Job {
                     }
                 }
             }
-            recordingHelper.archiveRecording(recording);
+            QuarkusTransaction.joiningExisting()
+                    .call(
+                            () -> {
+                                long recordingId =
+                                        (long) ctx.getJobDetail().getJobDataMap().get("recording");
+                                ActiveRecording recording =
+                                        recordingHelper
+                                                .getActiveRecording(
+                                                        Target.getTargetByJvmId(jvmId)
+                                                                .orElseThrow(),
+                                                        recordingId)
+                                                .orElseThrow(
+                                                        () -> {
+                                                            JobExecutionException ex =
+                                                                    new JobExecutionException(
+                                                                            String.format(
+                                                                                    """
+                                                                                    Target %s did not have recording with remote ID %d
+                                                                                    """,
+                                                                                    jvmId,
+                                                                                    recordingId));
+                                                            ex.setUnscheduleFiringTrigger(true);
+                                                            return ex;
+                                                        });
+                                return recordingHelper.archiveRecording(recording);
+                            });
         } catch (S3Exception e) {
             JobExecutionException ex = new JobExecutionException(e);
             ex.setRefireImmediately(true);
