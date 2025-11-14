@@ -181,6 +181,10 @@ public class RuleExecutor {
                         recordingHelper.getActiveRecording(
                                 target, r -> Objects.equals(r.name, rule.getRecordingName()));
                 if (opt.isEmpty()) {
+                    logger.warnv(
+                            "Target {0} did not have expected Automated Rule recording with name"
+                                    + " {1}",
+                            target.id, rule.getRecordingName());
                     continue;
                 }
                 var recording = opt.get();
