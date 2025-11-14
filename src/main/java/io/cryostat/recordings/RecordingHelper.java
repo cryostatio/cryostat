@@ -403,7 +403,8 @@ public class RecordingHelper {
                                                                 .orElse(null)));
         boolean restart = previousState == null || shouldRestartRecording(replace, previousState);
         if (!restart) {
-            throw new EntityExistsException("Recording", recordingName);
+            return Uni.createFrom()
+                    .failure(() -> new EntityExistsException("Recording", recordingName));
         }
         getActiveRecording(target, r -> r.name.equals(recordingName))
                 .ifPresent(r -> this.deleteRecording(r).await().atMost(connectionFailedTimeout));
@@ -578,30 +579,34 @@ public class RecordingHelper {
     }
 
     public Uni<ActiveRecording> stopRecording(ActiveRecording recording) throws Exception {
-        var out =
-                connectionManager.executeConnectedTask(
-                        recording.target,
-                        conn -> {
-                            var desc = getDescriptorById(conn, recording.remoteId);
-                            if (desc.isEmpty()) {
-                                throw new NotFoundException();
-                            }
-                            if (!desc.get()
-                                    .getState()
-                                    .equals(
-                                            org.openjdk.jmc.flightrecorder.configuration
-                                                    .IRecordingDescriptor.RecordingState.STOPPED)) {
-                                conn.getService().stop(desc.get());
-                            }
-                            recording.state = RecordingState.STOPPED;
-                            return recording;
-                        });
-        return QuarkusTransaction.joiningExisting()
-                .call(
-                        () -> {
-                            out.persist();
-                            return Uni.createFrom().item(out);
-                        });
+        return connectionManager.executeConnectedTask(
+                recording.target,
+                conn -> {
+                    var desc = getDescriptorById(conn, recording.remoteId);
+                    if (desc.isEmpty()) {
+                        return Uni.createFrom().failure(NotFoundException::new);
+                    }
+                    if (!desc.get()
+                            .getState()
+                            .equals(
+                                    org.openjdk.jmc.flightrecorder.configuration
+                                            .IRecordingDescriptor.RecordingState.STOPPED)) {
+                        conn.getService().stop(desc.get());
+                    }
+                    return Uni.createFrom()
+                            .item(
+                                    QuarkusTransaction.joiningExisting()
+                                            .call(
+                                                    () -> {
+                                                        ActiveRecording r =
+                                                                ActiveRecording.find(
+                                                                                "id", recording.id)
+                                                                        .singleResult();
+                                                        r.state = RecordingState.STOPPED;
+                                                        r.persist();
+                                                        return r;
+                                                    }));
+                });
     }
 
     public Uni<ActiveRecording> deleteRecording(ActiveRecording recording) {
