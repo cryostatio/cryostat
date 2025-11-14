@@ -88,22 +88,21 @@ class ScheduledArchiveJob implements Job {
 
         try {
             List<S3Object> previousRecordings = previousRecordings(jvmId, recordingName);
-            if (preservedArchives >= previousRecordings.size()) {
-                return;
+            if (preservedArchives < previousRecordings.size()) {
+                List<S3Object> toPrune =
+                        previousRecordings.subList(preservedArchives, previousRecordings.size());
+                for (var obj : toPrune) {
+                    String path = obj.key().strip();
+                    String[] parts = path.split("/");
+                    String filename = parts[1];
+                    try {
+                        recordingHelper.deleteArchivedRecording(jvmId, filename);
+                    } catch (IOException e) {
+                        logger.warn(e);
+                    }
+                }
             }
-            List<S3Object> toPrune =
-                    previousRecordings.subList(preservedArchives, previousRecordings.size());
-            toPrune.forEach(
-                    (obj) -> {
-                        String path = obj.key().strip();
-                        String[] parts = path.split("/");
-                        String filename = parts[1];
-                        try {
-                            recordingHelper.deleteArchivedRecording(jvmId, filename);
-                        } catch (IOException e) {
-                            logger.warn(e);
-                        }
-                    });
+            recordingHelper.archiveRecording(recording);
         } catch (S3Exception e) {
             JobExecutionException ex = new JobExecutionException(e);
             ex.setRefireImmediately(true);
