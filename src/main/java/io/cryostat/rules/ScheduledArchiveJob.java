@@ -88,7 +88,7 @@ class ScheduledArchiveJob implements Job {
 
         try {
             List<S3Object> previousRecordings = previousRecordings(jvmId, recordingName);
-            if (preservedArchives < previousRecordings.size()) {
+            if (previousRecordings.size() >= preservedArchives) {
                 List<S3Object> toPrune =
                         previousRecordings.subList(preservedArchives, previousRecordings.size());
                 for (var obj : toPrune) {
