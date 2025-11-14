@@ -16,9 +16,8 @@
 package io.cryostat.rules;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
+import java.util.List;
 import java.util.Objects;
-import java.util.Queue;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -35,6 +34,7 @@ import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
 import software.amazon.awssdk.services.s3.model.S3Exception;
+import software.amazon.awssdk.services.s3.model.S3Object;
 
 /**
  * Perform recording archival by pulling data stream from a target and copying it into a file in S3
@@ -87,14 +87,20 @@ class ScheduledArchiveJob implements Job {
         }
 
         try {
-            Queue<String> previousRecordings = new ArrayDeque<>(preservedArchives);
-
-            initPreviousRecordings(jvmId, recordingName, previousRecordings);
-            while (previousRecordings.size() >= preservedArchives) {
-                pruneArchive(jvmId, previousRecordings, previousRecordings.remove());
-            }
-
-            previousRecordings.add(recordingHelper.archiveRecording(recording).name());
+            List<S3Object> previousRecordings = previousRecordings(jvmId, recordingName);
+            List<S3Object> toPrune =
+                    previousRecordings.subList(preservedArchives, previousRecordings.size());
+            toPrune.forEach(
+                    (obj) -> {
+                        String path = obj.key().strip();
+                        String[] parts = path.split("/");
+                        String filename = parts[1];
+                        try {
+                            recordingHelper.deleteArchivedRecording(jvmId, filename);
+                        } catch (IOException e) {
+                            logger.warn(e);
+                        }
+                    });
         } catch (S3Exception e) {
             JobExecutionException ex = new JobExecutionException(e);
             ex.setRefireImmediately(true);
@@ -104,28 +110,17 @@ class ScheduledArchiveJob implements Job {
         }
     }
 
-    void initPreviousRecordings(
-            String jvmId, String recordingName, Queue<String> previousRecordings) {
-        recordingHelper.listArchivedRecordingObjects(jvmId).stream()
+    List<S3Object> previousRecordings(String jvmId, String recordingName) {
+        return recordingHelper.listArchivedRecordingObjects(jvmId).stream()
                 .sorted((a, b) -> a.lastModified().compareTo(b.lastModified()))
-                .forEach(
+                .filter(
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
                             String filename = parts[1];
                             Matcher m = RECORDING_FILENAME_PATTERN.matcher(filename);
-                            if (m.matches() && Objects.equals(recordingName, m.group(2))) {
-                                previousRecordings.add(filename);
-                            }
-                        });
-    }
-
-    void pruneArchive(String jvmId, Queue<String> previousRecordings, String filename) {
-        try {
-            recordingHelper.deleteArchivedRecording(jvmId, filename);
-        } catch (IOException e) {
-            logger.error(e);
-        }
-        previousRecordings.remove(filename);
+                            return m.matches() && Objects.equals(recordingName, m.group(2));
+                        })
+                .toList();
     }
 }
