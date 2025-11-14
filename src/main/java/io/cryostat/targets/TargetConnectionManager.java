@@ -417,9 +417,7 @@ public class TargetConnectionManager {
         return false;
     }
 
-    /**
-     * Check if the exception happened because the agent reported an explicit failure
-     */
+    /** Check if the exception happened because the agent reported an explicit failure */
     public boolean isAgentFailure(Throwable t) {
         if (!(t instanceof Exception)) {
             return false;
