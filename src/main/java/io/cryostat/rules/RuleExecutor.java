@@ -54,6 +54,7 @@ import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.SimpleScheduleBuilder;
+import org.quartz.SimpleTrigger;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 
@@ -253,7 +254,7 @@ public class RuleExecutor {
                                 SimpleScheduleBuilder.simpleSchedule()
                                         .withIntervalInSeconds(archivalPeriodSeconds)
                                         .repeatForever()
-                                        .withMisfireHandlingInstructionNowWithExistingCount())
+                                        .withMisfireHandlingInstructionNextWithRemainingCount())
                         .startAt(new Date(System.currentTimeMillis() + initialDelay * 1000))
                         .build();
         try {
