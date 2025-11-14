@@ -104,7 +104,8 @@ class ScheduledArchiveJob implements Job {
                                                                             String.format(
                                                                                     """
                                                                                     Target %s did not have recording with remote ID %d
-                                                                                    """,
+                                                                                    """
+                                                                                            .strip(),
                                                                                     jvmId,
                                                                                     recordingId));
                                                             ex.setUnscheduleFiringTrigger(true);
