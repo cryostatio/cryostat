@@ -33,7 +33,7 @@ public class S3StorageBucketedMetadataResource
     private static final String IMAGE_NAME = "quay.io/cryostat/cryostat-storage:latest";
     private static final Map<String, String> envMap =
             Map.of(
-                    "DATA_DIR", "/data",
+                    "DATA_DIR", "/tmp",
                     "IP_BIND", "0.0.0.0",
                     "WEED_V", "4",
                     "REST_ENCRYPTION_ENABLE", "1",
