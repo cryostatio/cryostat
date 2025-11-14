@@ -65,9 +65,11 @@ class ScheduledArchiveJob implements Job {
 
         try {
             List<S3Object> previousRecordings = previousRecordings(jvmId, recordingName);
-            if (previousRecordings.size() >= preservedArchives) {
+            // minus 1 because we will continue to add one more after pruning
+            if (previousRecordings.size() - 1 >= preservedArchives) {
                 List<S3Object> toPrune =
-                        previousRecordings.subList(preservedArchives, previousRecordings.size());
+                        previousRecordings.subList(
+                                preservedArchives - 1, previousRecordings.size());
                 for (var obj : toPrune) {
                     String path = obj.key().strip();
                     String[] parts = path.split("/");
