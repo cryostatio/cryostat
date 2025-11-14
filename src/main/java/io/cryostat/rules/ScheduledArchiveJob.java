@@ -27,13 +27,14 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 
 /**
  * Perform recording archival by pulling data stream from a target and copying it into a file in S3
@@ -57,61 +58,71 @@ class ScheduledArchiveJob implements Job {
     String archiveBucket;
 
     @Override
-    @Transactional
     public void execute(JobExecutionContext ctx) throws JobExecutionException {
-        long ruleId = (long) ctx.getJobDetail().getJobDataMap().get("rule");
-        Rule rule = Rule.find("id", ruleId).singleResult();
-        long targetId = (long) ctx.getJobDetail().getJobDataMap().get("target");
-        Target target = Target.find("id", targetId).singleResult();
+        String jvmId = (String) ctx.getJobDetail().getJobDataMap().get("jvmId");
+        String recordingName = (String) ctx.getJobDetail().getJobDataMap().get("recordingName");
         long recordingId = (long) ctx.getJobDetail().getJobDataMap().get("recording");
         ActiveRecording recording =
-                recordingHelper.getActiveRecording(target, recordingId).orElseThrow();
+                QuarkusTransaction.joiningExisting()
+                        .call(
+                                () ->
+                                        recordingHelper
+                                                .getActiveRecording(
+                                                        QuarkusTransaction.joiningExisting()
+                                                                .call(
+                                                                        () ->
+                                                                                Target
+                                                                                        .getTargetByJvmId(
+                                                                                                jvmId)
+                                                                                        .orElseThrow()),
+                                                        recordingId)
+                                                .orElseThrow());
+        int preservedArchives = (int) ctx.getJobDetail().getJobDataMap().get("preservedArchives");
 
         if (recording == null) {
             throw new IllegalStateException(
                     String.format(
                             "Target %s did not have recording with remote ID %d",
-                            target.connectUrl, recordingId));
-        }
-
-        Queue<String> previousRecordings = new ArrayDeque<>(rule.preservedArchives);
-
-        initPreviousRecordings(target, rule, previousRecordings);
-        while (previousRecordings.size() >= rule.preservedArchives) {
-            pruneArchive(target, previousRecordings, previousRecordings.remove());
+                            jvmId, recordingId));
         }
 
         try {
+            Queue<String> previousRecordings = new ArrayDeque<>(preservedArchives);
+
+            initPreviousRecordings(jvmId, recordingName, previousRecordings);
+            while (previousRecordings.size() >= preservedArchives) {
+                pruneArchive(jvmId, previousRecordings, previousRecordings.remove());
+            }
+
             previousRecordings.add(recordingHelper.archiveRecording(recording).name());
+        } catch (S3Exception e) {
+            JobExecutionException ex = new JobExecutionException(e);
+            ex.setRefireImmediately(true);
+            throw ex;
         } catch (Exception e) {
             throw new JobExecutionException(e);
         }
     }
 
-    void initPreviousRecordings(Target target, Rule rule, Queue<String> previousRecordings) {
-        recordingHelper.listArchivedRecordingObjects().stream()
+    void initPreviousRecordings(
+            String jvmId, String recordingName, Queue<String> previousRecordings) {
+        recordingHelper.listArchivedRecordingObjects(jvmId).stream()
                 .sorted((a, b) -> a.lastModified().compareTo(b.lastModified()))
                 .forEach(
                         item -> {
                             String path = item.key().strip();
                             String[] parts = path.split("/");
-                            String jvmId = parts[0];
-                            if (jvmId.equals(target.jvmId)) {
-                                String filename = parts[1];
-                                Matcher m = RECORDING_FILENAME_PATTERN.matcher(filename);
-                                if (m.matches()) {
-                                    String recordingName = m.group(2);
-                                    if (Objects.equals(recordingName, rule.getRecordingName())) {
-                                        previousRecordings.add(filename);
-                                    }
-                                }
+                            String filename = parts[1];
+                            Matcher m = RECORDING_FILENAME_PATTERN.matcher(filename);
+                            if (m.matches() && Objects.equals(recordingName, m.group(2))) {
+                                previousRecordings.add(filename);
                             }
                         });
     }
 
-    void pruneArchive(Target target, Queue<String> previousRecordings, String filename) {
+    void pruneArchive(String jvmId, Queue<String> previousRecordings, String filename) {
         try {
-            recordingHelper.deleteArchivedRecording(target.jvmId, filename);
+            recordingHelper.deleteArchivedRecording(jvmId, filename);
         } catch (IOException e) {
             logger.error(e);
         }

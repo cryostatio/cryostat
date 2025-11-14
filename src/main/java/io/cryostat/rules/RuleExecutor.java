@@ -54,7 +54,6 @@ import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.SimpleScheduleBuilder;
-import org.quartz.SimpleTrigger;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 
@@ -242,9 +241,10 @@ public class RuleExecutor {
         }
 
         Map<String, Object> data = jobDetail.getJobDataMap();
-        data.put("rule", rule.id);
-        data.put("target", target.id);
+        data.put("jvmId", target.jvmId);
+        data.put("recordingName", rule.getRecordingName());
         data.put("recording", recording.remoteId);
+        data.put("preservedArchives", rule.preservedArchives);
 
         Trigger trigger =
                 TriggerBuilder.newTrigger()
