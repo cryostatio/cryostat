@@ -38,6 +38,7 @@ import io.cryostat.rules.RuleService.ActivationAttempt;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -176,12 +177,25 @@ public class RuleExecutor {
         cancelTasksForRule(rule);
         var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
-            recordingHelper
-                    .getActiveRecording(
-                            target, r -> Objects.equals(r.name, rule.getRecordingName()))
-                    .ifPresent(
-                            recording -> {
+            QuarkusTransaction.joiningExisting()
+                    .run(
+                            () -> {
                                 try {
+                                    var opt =
+                                            recordingHelper.getActiveRecording(
+                                                    target,
+                                                    r ->
+                                                            Objects.equals(
+                                                                    r.name,
+                                                                    rule.getRecordingName()));
+                                    if (opt.isEmpty()) {
+                                        logger.warnv(
+                                                "Target {0} did not have expected Automated Rule"
+                                                        + " recording with name {1}",
+                                                target.id, rule.getRecordingName());
+                                        return;
+                                    }
+                                    var recording = opt.get();
                                     recordingHelper
                                             .stopRecording(recording)
                                             .await()
@@ -241,9 +255,10 @@ public class RuleExecutor {
         }
 
         Map<String, Object> data = jobDetail.getJobDataMap();
-        data.put("rule", rule.id);
-        data.put("target", target.id);
+        data.put("jvmId", target.jvmId);
+        data.put("recordingName", rule.getRecordingName());
         data.put("recording", recording.remoteId);
+        data.put("preservedArchives", rule.preservedArchives);
 
         Trigger trigger =
                 TriggerBuilder.newTrigger()
@@ -253,7 +268,7 @@ public class RuleExecutor {
                                 SimpleScheduleBuilder.simpleSchedule()
                                         .withIntervalInSeconds(archivalPeriodSeconds)
                                         .repeatForever()
-                                        .withMisfireHandlingInstructionNowWithExistingCount())
+                                        .withMisfireHandlingInstructionNextWithRemainingCount())
                         .startAt(new Date(System.currentTimeMillis() + initialDelay * 1000))
                         .build();
         try {
