@@ -58,6 +58,7 @@ import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.ext.web.handler.HttpException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.WebApplicationException;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
 import jdk.jfr.FlightRecorder;
@@ -230,6 +231,8 @@ public class TargetConnectionManager {
                 .onFailure(this::isJmxAuthFailure)
                 .transform(t -> new HttpException(427, t))
                 .onFailure(this::isJmxSslFailure)
+                .transform(t -> new HttpException(502, t))
+                .onFailure(this::isAgentFailure)
                 .transform(t -> new HttpException(502, t))
                 .onFailure(this::isServiceTypeFailure)
                 .transform(t -> new HttpException(504, t))
@@ -412,6 +415,15 @@ public class TargetConnectionManager {
             return ce.getMessage().contains(AgentClient.NULL_CREDENTIALS);
         }
         return false;
+    }
+
+    /** Check if the exception happened because the agent reported an explicit failure */
+    public boolean isAgentFailure(Throwable t) {
+        if (!(t instanceof Exception)) {
+            return false;
+        }
+        Exception e = (Exception) t;
+        return ExceptionUtils.indexOfType(e, WebApplicationException.class) >= 0;
     }
 
     /**
