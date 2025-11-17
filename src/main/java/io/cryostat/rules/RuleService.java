@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -77,19 +78,21 @@ public class RuleService {
             new PriorityBlockingQueue<>(255, Comparator.comparing(t -> t.attempts.get()));
     private final ExecutorService activator = Executors.newSingleThreadExecutor();
 
-    void onStart(@Observes StartupEvent ev) {
+    void onStart(@Observes StartupEvent ev) throws InterruptedException, ExecutionException {
         logger.trace("RuleService started");
-        activator.submit(
-                () -> {
-                    for (Rule rule : enabledRules()) {
-                        try {
-                            QuarkusTransaction.requiringNew()
-                                    .run(() -> applyRuleToMatchingTargets(rule));
-                        } catch (Exception e) {
-                            logger.error(e);
-                        }
-                    }
-                });
+        activator
+                .submit(
+                        () -> {
+                            for (Rule rule : enabledRules()) {
+                                try {
+                                    QuarkusTransaction.requiringNew()
+                                            .run(() -> applyRuleToMatchingTargets(rule));
+                                } catch (Exception e) {
+                                    logger.error(e);
+                                }
+                            }
+                        })
+                .get();
         activator.submit(
                 () -> {
                     while (!activator.isShutdown()) {
@@ -103,6 +106,9 @@ public class RuleService {
                             bus.request(RuleExecutor.class.getName(), attempt)
                                     .await()
                                     .atMost(connectionFailedTimeout);
+                            logger.tracev(
+                                    "Activated rule \"{0}\" for target {1}",
+                                    attempt.ruleId, attempt.targetId);
                         } catch (InterruptedException ie) {
                             logger.trace(ie);
                             break;
