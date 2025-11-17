@@ -85,7 +85,7 @@ public class Credentials {
                                     // data model gets reworked to deduplicate we'll need to add
                                     // application logic here to link it to the existing match
                                     // expression.
-                                    credential.persist();
+                                    credential.persistAndFlush();
                                 } catch (Exception e) {
                                     logger.error("Failed to create credentials from file", e);
                                 }

@@ -89,6 +89,9 @@ public class RuleExecutor {
     @ConsumeEvent(blocking = true)
     @Transactional
     Uni<Void> onMessage(ActivationAttempt attempt) {
+        logger.tracev(
+                "Attempting to activate rule \"{0}\" for target {1} -" + " attempt #{2}",
+                attempt.ruleId(), attempt.targetId(), attempt.attempts());
         try {
             Target target = Target.<Target>find("id", attempt.targetId()).singleResult();
             Rule rule = Rule.<Rule>find("id", attempt.ruleId()).singleResult();

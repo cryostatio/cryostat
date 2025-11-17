@@ -21,6 +21,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -77,8 +78,21 @@ public class RuleService {
             new PriorityBlockingQueue<>(255, Comparator.comparing(t -> t.attempts.get()));
     private final ExecutorService activator = Executors.newSingleThreadExecutor();
 
-    void onStart(@Observes StartupEvent ev) {
+    void onStart(@Observes StartupEvent ev) throws InterruptedException, ExecutionException {
         logger.trace("RuleService started");
+        activator
+                .submit(
+                        () -> {
+                            for (Rule rule : enabledRules()) {
+                                try {
+                                    QuarkusTransaction.requiringNew()
+                                            .run(() -> applyRuleToMatchingTargets(rule));
+                                } catch (Exception e) {
+                                    logger.error(e);
+                                }
+                            }
+                        })
+                .get();
         activator.submit(
                 () -> {
                     while (!activator.isShutdown()) {
@@ -92,6 +106,9 @@ public class RuleService {
                             bus.request(RuleExecutor.class.getName(), attempt)
                                     .await()
                                     .atMost(connectionFailedTimeout);
+                            logger.tracev(
+                                    "Activated rule \"{0}\" for target {1}",
+                                    attempt.ruleId, attempt.targetId);
                         } catch (InterruptedException ie) {
                             logger.trace(ie);
                             break;
@@ -125,8 +142,6 @@ public class RuleService {
                         }
                     }
                 });
-        QuarkusTransaction.joiningExisting()
-                .run(() -> enabledRules().forEach(this::applyRuleToMatchingTargets));
     }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
@@ -137,6 +152,10 @@ public class RuleService {
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
     @Transactional
     void onMessage(TargetDiscovery event) {
+        if (event.serviceRef().id == null) {
+            // target is not persisted yet, skip and wait for an update after it is
+            return;
+        }
         switch (event.kind()) {
             case MODIFIED:
             // fall-through
@@ -156,13 +175,16 @@ public class RuleService {
     @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true)
     @Transactional
     public void handleRuleModification(RuleEvent event) {
-        Rule rule = event.rule();
+        if (event.rule().id == null) {
+            // rule is not persisted yet, skip and wait for an update after it is
+            return;
+        }
         switch (event.category()) {
             case CREATED:
             // fall-through
             case UPDATED:
-                if (rule.enabled) {
-                    applyRuleToMatchingTargets(rule);
+                if (event.rule().enabled) {
+                    applyRuleToMatchingTargets(event.rule());
                 }
                 break;
             default:
@@ -225,15 +247,17 @@ public class RuleService {
 
     private static List<Rule> enabledRules() {
         return QuarkusTransaction.joiningExisting()
-                .call(() -> Rule.<Rule>find("enabled", true).list());
+                .call(() -> Rule.<Rule>find("enabled", true).list())
+                .stream()
+                .filter(r -> r.id != null)
+                .toList();
     }
 
     void applyRuleToMatchingTargets(Rule r) {
-        Rule rule = QuarkusTransaction.joiningExisting().call(() -> Rule.findById(r.id));
-        resetActivations(rule);
-        var targets = evaluator.getMatchedTargets(rule.matchExpression);
+        resetActivations(r);
+        var targets = evaluator.getMatchedTargets(r.matchExpression);
         for (var target : targets) {
-            activations.add(new ActivationAttempt(rule, target));
+            activations.add(new ActivationAttempt(r, target));
         }
     }
 
@@ -253,6 +277,12 @@ public class RuleService {
 
         public ActivationAttempt {
             Objects.requireNonNull(attempts);
+            if (ruleId < 0) {
+                throw new IllegalArgumentException();
+            }
+            if (targetId < 0) {
+                throw new IllegalArgumentException();
+            }
             if (attempts.get() < 0) {
                 throw new IllegalArgumentException();
             }
