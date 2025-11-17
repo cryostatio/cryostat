@@ -37,6 +37,7 @@ import io.cryostat.rules.Rule.RuleEvent;
 import io.cryostat.rules.RuleService.ActivationAttempt;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
+import io.cryostat.util.EntityExistsException;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
@@ -108,18 +109,23 @@ public class RuleExecutor {
             }
             var labels = new HashMap<>(rule.metadata.labels());
             labels.put("rule", rule.name);
-            ActiveRecording recording =
-                    recordingHelper
-                            .startRecording(
-                                    target,
-                                    RecordingReplace.STOPPED,
-                                    template,
-                                    createRecordingOptions(rule),
-                                    labels)
-                            .await()
-                            .atMost(Duration.ofSeconds(10));
-
-            if (rule.isArchiver()) {
+            ActiveRecording recording = null;
+            try {
+                recording =
+                        recordingHelper
+                                .startRecording(
+                                        target,
+                                        RecordingReplace.STOPPED,
+                                        template,
+                                        createRecordingOptions(rule),
+                                        labels)
+                                .await()
+                                .atMost(connectionFailedTimeout);
+            } catch (EntityExistsException eee) {
+                // ignore - the recording already existed and was running, so we don't want to
+                // replace it - but we should continue on to reschedule the periodic archival job
+            }
+            if (recording != null && rule.isArchiver()) {
                 scheduleArchival(rule, target, recording);
             }
         } catch (Exception e) {
