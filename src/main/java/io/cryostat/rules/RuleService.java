@@ -81,6 +81,17 @@ public class RuleService {
         logger.trace("RuleService started");
         activator.submit(
                 () -> {
+                    for (Rule rule : enabledRules()) {
+                        try {
+                            QuarkusTransaction.requiringNew()
+                                    .run(() -> applyRuleToMatchingTargets(rule));
+                        } catch (Exception e) {
+                            logger.error(e);
+                        }
+                    }
+                });
+        activator.submit(
+                () -> {
                     while (!activator.isShutdown()) {
                         ActivationAttempt attempt = null;
                         try {
@@ -125,8 +136,6 @@ public class RuleService {
                         }
                     }
                 });
-        QuarkusTransaction.joiningExisting()
-                .run(() -> enabledRules().forEach(this::applyRuleToMatchingTargets));
     }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
