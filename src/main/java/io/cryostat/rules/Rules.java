@@ -92,7 +92,7 @@ public class Rules {
                                                 declarativeRule.name, path);
                                         return;
                                     }
-                                    declarativeRule.persist();
+                                    declarativeRule.persistAndFlush();
                                 } catch (IOException ioe) {
                                     logger.warn(ioe);
                                 } catch (Exception e) {
