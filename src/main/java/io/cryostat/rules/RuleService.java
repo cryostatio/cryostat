@@ -152,6 +152,10 @@ public class RuleService {
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
     @Transactional
     void onMessage(TargetDiscovery event) {
+        if (event.serviceRef().id == null) {
+            // target is not persisted yet, skip and wait for an update after it is
+            return;
+        }
         switch (event.kind()) {
             case MODIFIED:
             // fall-through
@@ -171,6 +175,10 @@ public class RuleService {
     @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true)
     @Transactional
     public void handleRuleModification(RuleEvent event) {
+        if (event.rule().id == null) {
+            // rule is not persisted yet, skip and wait for an update after it is
+            return;
+        }
         switch (event.category()) {
             case CREATED:
             // fall-through
@@ -239,7 +247,10 @@ public class RuleService {
 
     private static List<Rule> enabledRules() {
         return QuarkusTransaction.joiningExisting()
-                .call(() -> Rule.<Rule>find("enabled", true).list());
+                .call(() -> Rule.<Rule>find("enabled", true).list())
+                .stream()
+                .filter(r -> r.id != null)
+                .toList();
     }
 
     void applyRuleToMatchingTargets(Rule r) {
@@ -266,6 +277,12 @@ public class RuleService {
 
         public ActivationAttempt {
             Objects.requireNonNull(attempts);
+            if (ruleId < 0) {
+                throw new IllegalArgumentException();
+            }
+            if (targetId < 0) {
+                throw new IllegalArgumentException();
+            }
             if (attempts.get() < 0) {
                 throw new IllegalArgumentException();
             }
