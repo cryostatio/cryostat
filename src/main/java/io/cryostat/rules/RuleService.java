@@ -165,13 +165,12 @@ public class RuleService {
     @ConsumeEvent(value = Rule.RULE_ADDRESS, blocking = true)
     @Transactional
     public void handleRuleModification(RuleEvent event) {
-        Rule rule = event.rule();
         switch (event.category()) {
             case CREATED:
             // fall-through
             case UPDATED:
-                if (rule.enabled) {
-                    applyRuleToMatchingTargets(rule);
+                if (event.rule().enabled) {
+                    applyRuleToMatchingTargets(event.rule());
                 }
                 break;
             default:
@@ -238,11 +237,10 @@ public class RuleService {
     }
 
     void applyRuleToMatchingTargets(Rule r) {
-        Rule rule = QuarkusTransaction.joiningExisting().call(() -> Rule.findById(r.id));
-        resetActivations(rule);
-        var targets = evaluator.getMatchedTargets(rule.matchExpression);
+        resetActivations(r);
+        var targets = evaluator.getMatchedTargets(r.matchExpression);
         for (var target : targets) {
-            activations.add(new ActivationAttempt(rule, target));
+            activations.add(new ActivationAttempt(r, target));
         }
     }
 
