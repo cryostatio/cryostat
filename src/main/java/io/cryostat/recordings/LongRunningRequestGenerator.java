@@ -199,6 +199,7 @@ public class LongRunningRequestGenerator {
     }
 
     @ConsumeEvent(value = GRAFANA_ACTIVE_REQUEST_ADDRESS, blocking = true)
+    @Transactional
     public Uni<Void> onMessage(GrafanaActiveUploadRequest request) {
         try {
             logger.trace("Job ID: " + request.id() + " submitted.");
