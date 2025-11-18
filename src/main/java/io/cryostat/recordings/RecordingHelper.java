@@ -1600,19 +1600,6 @@ public class RecordingHelper {
         }
     }
 
-    static class RecordingNotFoundException extends Exception {
-        public RecordingNotFoundException(String targetId, String recordingName) {
-            super(
-                    String.format(
-                            "Recording %s was not found in the target [%s].",
-                            recordingName, targetId));
-        }
-
-        public RecordingNotFoundException(Pair<String, String> key) {
-            this(key.getLeft(), key.getRight());
-        }
-    }
-
     public static class SnapshotCreationException extends Exception {
         public SnapshotCreationException(String message) {
             super(message);
