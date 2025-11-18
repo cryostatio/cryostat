@@ -28,8 +28,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -112,8 +110,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     @Inject Scheduler scheduler;
 
     @Inject EventBus bus;
-
-    ScheduledExecutorService resyncWorker = Executors.newSingleThreadScheduledExecutor();
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.enabled")
     boolean enabled;
@@ -252,7 +248,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
 
         logger.debugv("Shutting down {0} client", REALM);
-        resyncWorker.shutdown();
         safeGetInformers()
                 .forEach(
                         (ns, informer) -> {
