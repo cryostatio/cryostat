@@ -472,7 +472,10 @@ public class RecordingHelper {
         target.persist();
 
         if (!recording.continuous) {
-            JobKey key = JobKey.jobKey(target.jvmId, Long.toString(recording.remoteId));
+            JobKey key =
+                    JobKey.jobKey(
+                            String.format("%s.%d", target.jvmId, recording.remoteId),
+                            "recording.fixed-duration");
             JobDetail jobDetail =
                     JobBuilder.newJob(StopRecordingJob.class).withIdentity(key).build();
             try {
@@ -482,6 +485,7 @@ public class RecordingHelper {
                     Trigger trigger =
                             TriggerBuilder.newTrigger()
                                     .usingJobData(jobDetail.getJobDataMap())
+                                    .withIdentity(key.getName(), key.getGroup())
                                     .startAt(
                                             new Date(
                                                     System.currentTimeMillis()

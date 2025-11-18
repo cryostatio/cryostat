@@ -149,7 +149,7 @@ public class TargetUpdateService {
         data.put("targetId", target.id);
         Trigger trigger =
                 TriggerBuilder.newTrigger()
-                        .withIdentity(Long.toString(target.id))
+                        .withIdentity(Long.toString(target.id), "target-update")
                         .startAt(Date.from(Instant.now().plusSeconds(1)))
                         .usingJobData(jobDetail.getJobDataMap())
                         .build();
@@ -159,7 +159,10 @@ public class TargetUpdateService {
     }
 
     void fireActiveRecordingUpdate(ActiveRecording recording) throws SchedulerException {
-        JobKey key = JobKey.jobKey(recording.target.jvmId, Long.toString(recording.remoteId));
+        JobKey key =
+                JobKey.jobKey(
+                        String.format("%s.%d", recording.target.jvmId, recording.remoteId),
+                        "recording-update");
         if (scheduler.checkExists(key)) {
             return;
         }

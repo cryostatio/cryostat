@@ -98,8 +98,8 @@ public class Discovery {
 
     static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
-    private static final String JOB_PERIODIC = "periodic";
-    private static final String JOB_STARTUP = "startup";
+    private static final String JOB_PERIODIC = "discovery.periodic";
+    private static final String JOB_STARTUP = "discovery.startup";
     private static final String PLUGIN_ID_MAP_KEY = "pluginId";
     private static final String REFRESH_MAP_KEY = "refresh";
 
@@ -140,6 +140,13 @@ public class Discovery {
                                                         TriggerBuilder.newTrigger()
                                                                 .usingJobData(
                                                                         jobDetail.getJobDataMap())
+                                                                .withIdentity(
+                                                                        jobDetail
+                                                                                .getKey()
+                                                                                .getName(),
+                                                                        jobDetail
+                                                                                .getKey()
+                                                                                .getGroup())
                                                                 .startNow()
                                                                 .withSchedule(
                                                                         SimpleScheduleBuilder
@@ -384,6 +391,8 @@ public class Discovery {
             var trigger =
                     TriggerBuilder.newTrigger()
                             .usingJobData(jobDetail.getJobDataMap())
+                            .withIdentity(
+                                    jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
                             .startAt(Date.from(Instant.now().plus(discoveryPingPeriod)))
                             .withSchedule(
                                     SimpleScheduleBuilder.simpleSchedule()
