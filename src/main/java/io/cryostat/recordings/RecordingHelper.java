@@ -1095,10 +1095,14 @@ public class RecordingHelper {
 
     public InputStream getActiveInputStream(long targetId, long remoteId, Duration timeout)
             throws Exception {
-        var target = Target.getTargetById(targetId);
-        var recording = target.getRecordingById(remoteId);
-        var stream = remoteRecordingStreamFactory.open(recording, timeout);
-        return stream;
+        return QuarkusTransaction.joiningExisting()
+                .call(
+                        () -> {
+                            var target = Target.getTargetById(targetId);
+                            var recording = target.getRecordingById(remoteId);
+                            var stream = remoteRecordingStreamFactory.open(recording, timeout);
+                            return stream;
+                        });
     }
 
     public InputStream getArchivedRecordingStream(String jvmId, String recordingName) {
@@ -1449,15 +1453,7 @@ public class RecordingHelper {
         Objects.requireNonNull(recording, "ActiveRecording from remoteId not found");
         Path recordingPath =
                 connectionManager.executeConnectedTask(
-                        target,
-                        connection -> {
-                            return getRecordingCopyPath(connection, target, recording.name)
-                                    .orElseThrow(
-                                            () ->
-                                                    new RecordingNotFoundException(
-                                                            target.targetId(), recording.name));
-                        });
-
+                        target, connection -> getRecordingCopyPath(connection, recording));
         return uploadToJFRDatasource(recordingPath);
     }
 
@@ -1522,26 +1518,18 @@ public class RecordingHelper {
                         });
     }
 
-    private Optional<Path> getRecordingCopyPath(
-            JFRConnection connection, Target target, String recordingName) throws Exception {
-        return connection.getService().getAvailableRecordings().stream()
-                .filter(recording -> recording.getName().equals(recordingName))
-                .findFirst()
-                .map(
-                        descriptor -> {
-                            try {
-                                Path tempFile = fs.createTempFile(null, null);
-                                try (var stream =
-                                        remoteRecordingStreamFactory.openDirect(
-                                                connection, target, descriptor)) {
-                                    fs.copy(stream, tempFile, StandardCopyOption.REPLACE_EXISTING);
-                                }
-                                return tempFile;
-                            } catch (Exception e) {
-                                logger.warn(e);
-                                throw new BadRequestException(e);
-                            }
-                        });
+    private Path getRecordingCopyPath(JFRConnection connection, ActiveRecording recording)
+            throws Exception {
+        try {
+            Path tempFile = fs.createTempFile(null, null);
+            try (var stream = getActiveInputStream(recording, connectionFailedTimeout)) {
+                fs.copy(stream, tempFile, StandardCopyOption.REPLACE_EXISTING);
+            }
+            return tempFile;
+        } catch (Exception e) {
+            logger.warn(e);
+            throw new BadRequestException(e);
+        }
     }
 
     private URI getPresignedPath(String jvmId, String filename) throws URISyntaxException {
@@ -1609,19 +1597,6 @@ public class RecordingHelper {
             } catch (Exception e) {
                 throw new JobExecutionException(e);
             }
-        }
-    }
-
-    static class RecordingNotFoundException extends Exception {
-        public RecordingNotFoundException(String targetId, String recordingName) {
-            super(
-                    String.format(
-                            "Recording %s was not found in the target [%s].",
-                            recordingName, targetId));
-        }
-
-        public RecordingNotFoundException(Pair<String, String> key) {
-            this(key.getLeft(), key.getRight());
         }
     }
 
