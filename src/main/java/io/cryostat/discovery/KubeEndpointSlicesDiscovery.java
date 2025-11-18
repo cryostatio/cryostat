@@ -148,14 +148,14 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                         .v1()
                                         .endpointSlices()
                                         .inAnyNamespace()
-                                        .inform(
-                                                KubeEndpointSlicesDiscovery.this,
-                                                informerResyncPeriod.toMillis())
+                                        .runnableInformer(informerResyncPeriod.toMillis())
+                                        .addEventHandler(KubeEndpointSlicesDiscovery.this)
                                         .exceptionHandler(
                                                 (b, t) -> {
                                                     logger.warn(t);
                                                     return true;
-                                                }));
+                                                })
+                                        .run());
                         logger.debugv(
                                 "Started EndpointSlice SharedInformer for all namespaces with"
                                         + " resync period {0}",
@@ -171,15 +171,17 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                                             .v1()
                                                             .endpointSlices()
                                                             .inNamespace(ns)
-                                                            .inform(
-                                                                    KubeEndpointSlicesDiscovery
-                                                                            .this,
+                                                            .runnableInformer(
                                                                     informerResyncPeriod.toMillis())
+                                                            .addEventHandler(
+                                                                    KubeEndpointSlicesDiscovery
+                                                                            .this)
                                                             .exceptionHandler(
                                                                     (b, t) -> {
                                                                         logger.warn(t);
                                                                         return true;
-                                                                    }));
+                                                                    })
+                                                            .run());
                                             logger.debugv(
                                                     "Started EndpointSlice SharedInformer for"
                                                         + " namespace \"{0}\" with resync period"
