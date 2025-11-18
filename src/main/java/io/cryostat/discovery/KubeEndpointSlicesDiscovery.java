@@ -74,6 +74,7 @@ import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
+import org.quartz.JobKey;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.SimpleScheduleBuilder;
@@ -92,6 +93,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
     private static final String NAMESPACE_QUERY_ADDR = "NS_QUERY_ENDPOINT_SLICE";
     private static final String ENDPOINT_SLICE_DISCOVERY_ADDR = "ENDPOINT_SLICE_DISC";
+    private static final JobKey RESYNC_JOB_KEY =
+            new JobKey("force-resync", "kube-endpoints-discovery");
 
     public static final String REALM = "KubernetesApi";
 
@@ -227,7 +230,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 dataMap.put("namespaces", resyncNamespaces.call());
                 JobDetail jobDetail =
                         JobBuilder.newJob(EndpointsResyncJob.class)
-                                .withIdentity("force-resync", "kube-endpoints-discovery")
+                                .withIdentity(RESYNC_JOB_KEY)
                                 .usingJobData(dataMap)
                                 .build();
                 var trigger =
@@ -245,7 +248,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                                                         .multipliedBy(4)
                                                                         .toSeconds()))
                                 .build();
-                scheduler.scheduleJob(jobDetail, trigger);
+                if (!scheduler.checkExists(RESYNC_JOB_KEY)) {
+                    scheduler.scheduleJob(jobDetail, trigger);
+                }
             } catch (SchedulerException e) {
                 logger.warn("Failed to schedule plugin prune job", e);
             } catch (Exception e) {
@@ -257,6 +262,12 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     void onStop(@Observes ShutdownEvent evt) {
         if (!(enabled() && available())) {
             return;
+        }
+
+        try {
+            scheduler.deleteJob(RESYNC_JOB_KEY);
+        } catch (SchedulerException se) {
+            logger.warn(se);
         }
 
         logger.debugv("Shutting down {0} client", REALM);
