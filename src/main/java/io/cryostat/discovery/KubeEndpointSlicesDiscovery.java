@@ -241,7 +241,10 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                         SimpleScheduleBuilder.simpleSchedule()
                                                 .repeatForever()
                                                 .withIntervalInSeconds(
-                                                        (int) informerResyncPeriod.toSeconds()))
+                                                        (int)
+                                                                informerResyncPeriod
+                                                                        .multipliedBy(4)
+                                                                        .toSeconds()))
                                 .build();
                 scheduler.scheduleJob(jobDetail, trigger);
             } catch (SchedulerException e) {
