@@ -263,14 +263,13 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         if (!(enabled() && available())) {
             return;
         }
+        logger.debugv("Shutting down {0} client", REALM);
 
         try {
             scheduler.deleteJob(RESYNC_JOB_KEY);
         } catch (SchedulerException se) {
             logger.warn(se);
         }
-
-        logger.debugv("Shutting down {0} client", REALM);
         safeGetInformers()
                 .forEach(
                         (ns, informer) -> {
