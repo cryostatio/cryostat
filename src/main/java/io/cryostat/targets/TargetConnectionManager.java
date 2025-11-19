@@ -311,7 +311,8 @@ public class TargetConnectionManager {
         try {
             if (AgentConnection.isAgentConnection(connectUrl)) {
                 return agentConnectionFactory.createConnection(
-                        Target.getTargetByConnectUrl(connectUrl));
+                        QuarkusTransaction.joiningExisting()
+                                .call(() -> Target.getTargetByConnectUrl(connectUrl)));
             }
 
             return jfrConnectionToolkit.connect(
