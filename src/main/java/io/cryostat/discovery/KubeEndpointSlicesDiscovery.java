@@ -28,9 +28,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Callable;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -71,6 +68,17 @@ import org.apache.commons.lang3.concurrent.LazyInitializer;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.quartz.Job;
+import org.quartz.JobBuilder;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
+import org.quartz.JobExecutionContext;
+import org.quartz.JobExecutionException;
+import org.quartz.JobKey;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
+import org.quartz.SimpleScheduleBuilder;
+import org.quartz.TriggerBuilder;
 
 /**
  * Discovery mechanism for Kubernetes and derivatives. Uses a Kubernetes client to communicate with
@@ -85,6 +93,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
     private static final String NAMESPACE_QUERY_ADDR = "NS_QUERY_ENDPOINT_SLICE";
     private static final String ENDPOINT_SLICE_DISCOVERY_ADDR = "ENDPOINT_SLICE_DISC";
+    private static final JobKey RESYNC_JOB_KEY =
+            new JobKey("force-resync", "kube-endpoints-discovery");
 
     public static final String REALM = "KubernetesApi";
 
@@ -100,9 +110,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
     @Inject KubernetesClient client;
 
-    @Inject EventBus bus;
+    @Inject Scheduler scheduler;
 
-    ScheduledExecutorService resyncWorker = Executors.newSingleThreadScheduledExecutor();
+    @Inject EventBus bus;
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.enabled")
     boolean enabled;
@@ -138,9 +148,14 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                         .v1()
                                         .endpointSlices()
                                         .inAnyNamespace()
-                                        .inform(
-                                                KubeEndpointSlicesDiscovery.this,
-                                                informerResyncPeriod.toMillis()));
+                                        .runnableInformer(informerResyncPeriod.toMillis())
+                                        .addEventHandler(KubeEndpointSlicesDiscovery.this)
+                                        .exceptionHandler(
+                                                (b, t) -> {
+                                                    logger.warn(t);
+                                                    return true;
+                                                })
+                                        .run());
                         logger.debugv(
                                 "Started EndpointSlice SharedInformer for all namespaces with"
                                         + " resync period {0}",
@@ -156,11 +171,17 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                                             .v1()
                                                             .endpointSlices()
                                                             .inNamespace(ns)
-                                                            .inform(
+                                                            .runnableInformer(
+                                                                    informerResyncPeriod.toMillis())
+                                                            .addEventHandler(
                                                                     KubeEndpointSlicesDiscovery
-                                                                            .this,
-                                                                    informerResyncPeriod
-                                                                            .toMillis()));
+                                                                            .this)
+                                                            .exceptionHandler(
+                                                                    (b, t) -> {
+                                                                        logger.warn(t);
+                                                                        return true;
+                                                                    })
+                                                            .run());
                                             logger.debugv(
                                                     "Started EndpointSlice SharedInformer for"
                                                         + " namespace \"{0}\" with resync period"
@@ -206,19 +227,37 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                         .filter(ns -> !KubeConfig.ALL_NAMESPACES.equals(ns))
                                         .toList();
             }
-            resyncWorker.scheduleAtFixedRate(
-                    () -> {
-                        try {
-                            var namespaces = resyncNamespaces.call();
-                            logger.debugv("Resyncing namespaces: {0}", namespaces);
-                            notify(NamespaceQueryEvent.from(namespaces));
-                        } catch (Exception e) {
-                            logger.warn(e);
-                        }
-                    },
-                    0,
-                    informerResyncPeriod.toMillis(),
-                    TimeUnit.MILLISECONDS);
+            try {
+                var dataMap = new JobDataMap();
+                dataMap.put("namespaces", resyncNamespaces.call());
+                JobDetail jobDetail =
+                        JobBuilder.newJob(EndpointsResyncJob.class)
+                                .withIdentity(RESYNC_JOB_KEY)
+                                .usingJobData(dataMap)
+                                .build();
+                var trigger =
+                        TriggerBuilder.newTrigger()
+                                .usingJobData(jobDetail.getJobDataMap())
+                                .withIdentity(
+                                        jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
+                                .startNow()
+                                .withSchedule(
+                                        SimpleScheduleBuilder.simpleSchedule()
+                                                .repeatForever()
+                                                .withIntervalInSeconds(
+                                                        (int)
+                                                                informerResyncPeriod
+                                                                        .multipliedBy(4)
+                                                                        .toSeconds()))
+                                .build();
+                if (!scheduler.checkExists(RESYNC_JOB_KEY)) {
+                    scheduler.scheduleJob(jobDetail, trigger);
+                }
+            } catch (SchedulerException e) {
+                logger.warn("Failed to schedule plugin prune job", e);
+            } catch (Exception e) {
+                logger.error(e);
+            }
         }
     }
 
@@ -226,9 +265,13 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         if (!(enabled() && available())) {
             return;
         }
-
         logger.debugv("Shutting down {0} client", REALM);
-        resyncWorker.shutdown();
+
+        try {
+            scheduler.deleteJob(RESYNC_JOB_KEY);
+        } catch (SchedulerException se) {
+            logger.warn(se);
+        }
         safeGetInformers()
                 .forEach(
                         (ns, informer) -> {
@@ -648,6 +691,25 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                             n.labels.putAll(labels);
                         });
         return Pair.of(kubeObj, node);
+    }
+
+    private static class EndpointsResyncJob implements Job {
+        @Inject Logger logger;
+        @Inject EventBus bus;
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public void execute(JobExecutionContext context) throws JobExecutionException {
+            try {
+                Collection<String> namespaces =
+                        (Collection<String>)
+                                context.getJobDetail().getJobDataMap().get("namespaces");
+                logger.debugv("Resyncing namespaces: {0}", namespaces);
+                bus.publish(NAMESPACE_QUERY_ADDR, NamespaceQueryEvent.from(namespaces));
+            } catch (Exception e) {
+                logger.warn(e);
+            }
+        }
     }
 
     @ApplicationScoped
