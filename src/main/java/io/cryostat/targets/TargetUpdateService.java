@@ -68,10 +68,14 @@ public class TargetUpdateService {
     void onStart(@Observes StartupEvent evt) throws SchedulerException {
         logger.tracev("{0} started", getClass().getName());
 
-        JobDetail updateAllJob = JobBuilder.newJob(TargetUpdateJob.class).build();
+        JobKey updateAllKey = new JobKey("update-all", "target-update");
+        JobDetail updateAllJob =
+                JobBuilder.newJob(TargetUpdateJob.class).withIdentity(updateAllKey).build();
         int updateAllInterval = 120;
         Trigger updateAllTrigger =
                 TriggerBuilder.newTrigger()
+                        .withIdentity(
+                                updateAllJob.getKey().getName(), updateAllJob.getKey().getGroup())
                         .withSchedule(
                                 SimpleScheduleBuilder.simpleSchedule()
                                         .withIntervalInSeconds(updateAllInterval)
@@ -81,11 +85,16 @@ public class TargetUpdateService {
                         .build();
         scheduler.scheduleJob(updateAllJob, updateAllTrigger);
 
-        JobDetail updateUnconnectedJob = JobBuilder.newJob(TargetUpdateJob.class).build();
+        JobKey updateUnconnectedKey = new JobKey("update-unconnected", "target-update");
+        JobDetail updateUnconnectedJob =
+                JobBuilder.newJob(TargetUpdateJob.class).withIdentity(updateUnconnectedKey).build();
         updateUnconnectedJob.getJobDataMap().put("unconnected", true);
         int updateUnconnectedInterval = (int) connectionTimeout.plus(connectionTtl).toSeconds();
         Trigger updateUnconnectedTrigger =
                 TriggerBuilder.newTrigger()
+                        .withIdentity(
+                                updateUnconnectedJob.getKey().getName(),
+                                updateUnconnectedJob.getKey().getGroup())
                         .withSchedule(
                                 SimpleScheduleBuilder.simpleSchedule()
                                         .withIntervalInSeconds(updateUnconnectedInterval)
