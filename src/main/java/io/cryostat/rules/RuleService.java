@@ -76,6 +76,7 @@ public class RuleService {
     private final BlockingQueue<ActivationAttempt> activations =
             new PriorityBlockingQueue<>(255, Comparator.comparing(t -> t.attempts.get()));
     private final ExecutorService activator = Executors.newSingleThreadExecutor();
+    private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
 
     void onStart(@Observes StartupEvent ev) {
         logger.trace("RuleService started");
@@ -101,8 +102,7 @@ public class RuleService {
                             break;
                         }
                         final ActivationAttempt fAttempt = attempt;
-                        Infrastructure.getDefaultWorkerPool()
-                                .submit(() -> fireAttemptExecution(fAttempt));
+                        workers.submit(() -> fireAttemptExecution(fAttempt));
                     }
                 });
     }
