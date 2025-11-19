@@ -56,6 +56,9 @@ public class TargetUpdateService {
     @Inject Scheduler scheduler;
     @Inject MatchExpressionEvaluator matchExpressionEvaluator;
 
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+    Duration connectionTimeout;
+
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_TTL)
     Duration connectionTtl;
 
@@ -65,19 +68,32 @@ public class TargetUpdateService {
     void onStart(@Observes StartupEvent evt) throws SchedulerException {
         logger.tracev("{0} started", getClass().getName());
 
-        JobDetail jobDetail = JobBuilder.newJob(TargetUpdateJob.class).build();
-
-        final int retryInterval = ((int) connectionTtl.toSeconds()) * 2;
-        Trigger trigger =
+        JobDetail updateAllJob = JobBuilder.newJob(TargetUpdateJob.class).build();
+        int updateAllInterval = 120;
+        Trigger updateAllTrigger =
                 TriggerBuilder.newTrigger()
                         .withSchedule(
                                 SimpleScheduleBuilder.simpleSchedule()
-                                        .withIntervalInSeconds(retryInterval)
+                                        .withIntervalInSeconds(updateAllInterval)
                                         .repeatForever()
                                         .withMisfireHandlingInstructionNowWithExistingCount())
-                        .startAt(Date.from(Instant.now().plusSeconds(retryInterval)))
+                        .startAt(Date.from(Instant.now().plusSeconds(updateAllInterval)))
                         .build();
-        scheduler.scheduleJob(jobDetail, trigger);
+        scheduler.scheduleJob(updateAllJob, updateAllTrigger);
+
+        JobDetail updateUnconnectedJob = JobBuilder.newJob(TargetUpdateJob.class).build();
+        updateUnconnectedJob.getJobDataMap().put("unconnected", true);
+        int updateUnconnectedInterval = (int) connectionTimeout.plus(connectionTtl).toSeconds();
+        Trigger updateUnconnectedTrigger =
+                TriggerBuilder.newTrigger()
+                        .withSchedule(
+                                SimpleScheduleBuilder.simpleSchedule()
+                                        .withIntervalInSeconds(updateUnconnectedInterval)
+                                        .repeatForever()
+                                        .withMisfireHandlingInstructionNowWithExistingCount())
+                        .startAt(Date.from(Instant.now().plusSeconds(updateAllInterval)))
+                        .build();
+        scheduler.scheduleJob(updateUnconnectedJob, updateUnconnectedTrigger);
     }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
