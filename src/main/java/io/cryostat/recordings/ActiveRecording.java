@@ -18,6 +18,8 @@ package io.cryostat.recordings;
 import java.net.URI;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import org.openjdk.jmc.common.unit.UnitLookup;
 import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
@@ -32,7 +34,6 @@ import io.cryostat.ws.Notification;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -159,6 +160,7 @@ public class ActiveRecording extends PanacheEntity {
         @Inject Logger logger;
         @Inject EventBus bus;
         @Inject RecordingHelper recordingHelper;
+        ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
         @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_ARCHIVE)
         boolean archiveExternal;
@@ -193,27 +195,25 @@ public class ActiveRecording extends PanacheEntity {
                 if (activeRecording.archiveOnStop
                         && (!activeRecording.external
                                 || (activeRecording.external && archiveExternal))) {
-                    Infrastructure.getDefaultExecutor()
-                            .execute(
-                                    () ->
-                                            QuarkusTransaction.joiningExisting()
-                                                    .run(
-                                                            () -> {
-                                                                try {
-                                                                    ActiveRecording recording =
-                                                                            ActiveRecording.find(
-                                                                                            "id",
-                                                                                            activeRecording
-                                                                                                    .id)
-                                                                                    .singleResult();
-                                                                    recordingHelper
-                                                                            .archiveRecording(
-                                                                                    recording);
-                                                                } catch (Exception e) {
-                                                                    logger.error(e);
-                                                                    throw new RuntimeException(e);
-                                                                }
-                                                            }));
+                    executor.submit(
+                            () ->
+                                    QuarkusTransaction.joiningExisting()
+                                            .run(
+                                                    () -> {
+                                                        try {
+                                                            ActiveRecording recording =
+                                                                    ActiveRecording.find(
+                                                                                    "id",
+                                                                                    activeRecording
+                                                                                            .id)
+                                                                            .singleResult();
+                                                            recordingHelper.archiveRecording(
+                                                                    recording);
+                                                        } catch (Exception e) {
+                                                            logger.error(e);
+                                                            throw new RuntimeException(e);
+                                                        }
+                                                    }));
                 }
             }
         }

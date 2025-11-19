@@ -16,12 +16,13 @@
 package io.cryostat.targets;
 
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
@@ -45,6 +46,7 @@ public class TargetUpdateJob implements Job {
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingHelper recordingHelper;
     @Inject TargetUpdateService updateService;
+    ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     @Override
     @Transactional
@@ -68,7 +70,7 @@ public class TargetUpdateJob implements Job {
                 .sorted((a, b) -> a.alias.compareTo(b.alias))
                 .distinct()
                 .filter(t -> StringUtils.isBlank(t.jvmId))
-                .forEach(t -> Infrastructure.getDefaultExecutor().execute(() -> updateTarget(t)));
+                .forEach(t -> executor.submit(() -> updateTarget(t)));
     }
 
     private void updateTarget(Target target) {
