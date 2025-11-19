@@ -52,8 +52,12 @@ public class ActiveRecordingUpdateJob implements Job {
             logger.debug(e);
             return;
         }
+        // FIXME hacky. This opens a remote connection on each call and updates our database with
+        // the data we find there. We should have some remote connection callback (JMX listener,
+        // WebSocket) to the target and update our database when remote recording events occur,
+        // rather than doing a full sync when this method is called.
         // TODO retry logic if the expected result is not observed (ie recording is still running
         // somehow)
-        recordingHelper.listActiveRecordings(target);
+        recordingHelper.syncActiveRecordings(target);
     }
 }

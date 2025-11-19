@@ -219,7 +219,6 @@ public class Discovery {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
-    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     @Tag(
             name = "Discovery",
             description =
@@ -326,7 +325,8 @@ public class Discovery {
             // ping it:
             // - if it's still there reject this request as a duplicate
             // - otherwise delete the previous record and accept this new one as a replacement
-            DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback)
+            QuarkusTransaction.joiningExisting()
+                    .call(() -> DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback))
                     .singleResultOptional()
                     .ifPresent(
                             p -> {
@@ -341,7 +341,7 @@ public class Discovery {
                                 } catch (Exception e) {
                                     if (!(e instanceof DuplicatePluginException)) {
                                         logger.debug(e);
-                                        p.delete();
+                                        QuarkusTransaction.joiningExisting().run(p::delete);
                                     }
                                 }
                             });

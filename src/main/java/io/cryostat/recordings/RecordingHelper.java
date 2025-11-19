@@ -263,12 +263,9 @@ public class RecordingHelper {
         }
     }
 
-    // FIXME hacky. This opens a remote connection on each call and updates our database with the
-    // data we find there. We should have some remote connection callback (JMX listener, WebSocket)
-    // to the target and update our database when remote recording events occur, rather than doing a
-    // full sync when this method is called.
     public List<ActiveRecording> listActiveRecordings(Target target) {
-        return QuarkusTransaction.joiningExisting().call(() -> listActiveRecordingsImpl(target));
+        return QuarkusTransaction.joiningExisting()
+                .call(() -> Target.<Target>find("id", target.id).singleResult().activeRecordings);
     }
 
     public Optional<ActiveRecording> getActiveRecording(
@@ -278,6 +275,10 @@ public class RecordingHelper {
 
     public Optional<ActiveRecording> getActiveRecording(Target target, long remoteId) {
         return getActiveRecording(target, r -> r.remoteId == remoteId);
+    }
+
+    public List<ActiveRecording> syncActiveRecordings(Target target) {
+        return QuarkusTransaction.joiningExisting().call(() -> listActiveRecordingsImpl(target));
     }
 
     private List<ActiveRecording> listActiveRecordingsImpl(Target target) {
@@ -369,6 +370,7 @@ public class RecordingHelper {
                     e,
                     "Failure to synchronize existing target recording state for {0}",
                     target.connectUrl);
+            throw e;
         }
         return target.activeRecordings;
     }

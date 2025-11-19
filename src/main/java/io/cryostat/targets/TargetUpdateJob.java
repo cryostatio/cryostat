@@ -16,12 +16,14 @@
 package io.cryostat.targets;
 
 import java.util.List;
+import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import io.cryostat.core.net.JFRConnection;
 import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
@@ -45,12 +47,17 @@ public class TargetUpdateJob implements Job {
     @Inject TargetConnectionManager connectionManager;
     @Inject RecordingHelper recordingHelper;
     @Inject TargetUpdateService updateService;
+    ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     @Override
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
         List<Target> targets;
         Long targetId = (Long) context.getJobDetail().getJobDataMap().get("targetId");
+        boolean unconnected =
+                Optional.ofNullable(
+                                (Boolean) context.getJobDetail().getJobDataMap().get("unconnected"))
+                        .orElse(false);
         if (targetId != null) {
             try {
                 targets = List.of(Target.getTargetById(targetId));
@@ -59,19 +66,29 @@ public class TargetUpdateJob implements Job {
                 logger.debug(e);
                 return;
             }
-        } else {
+        } else if (unconnected) {
             targets = Target.<Target>find("#Target.unconnected").list();
+        } else {
+            targets = Target.listAll();
         }
 
         targets.stream()
                 .peek(t -> logger.debugv("JVM ID for {0} = {1}", t.connectUrl, t.jvmId))
-                .sorted((a, b) -> a.alias.compareTo(b.alias))
                 .distinct()
-                .filter(t -> StringUtils.isBlank(t.jvmId))
-                .forEach(t -> Infrastructure.getDefaultExecutor().execute(() -> updateTarget(t)));
+                .forEach(t -> executor.submit(() -> updateTarget(t)));
     }
 
     private void updateTarget(Target target) {
+        boolean b = true;
+        if (StringUtils.isBlank(target.jvmId)) {
+            b = updateTargetJvmId(target);
+        }
+        if (b) {
+            updateTargetRecordings(target);
+        }
+    }
+
+    private boolean updateTargetJvmId(Target target) {
         final String jvmId =
                 connectionManager
                         .executeConnectedTask(
@@ -79,8 +96,8 @@ public class TargetUpdateJob implements Job {
                                         .call(() -> Target.getTargetById(target.id)),
                                 JFRConnection::getJvmIdentifier)
                         .getHash();
-        QuarkusTransaction.joiningExisting()
-                .run(
+        return QuarkusTransaction.joiningExisting()
+                .call(
                         () -> {
                             Target t = Target.getTargetById(target.id);
                             try {
@@ -88,18 +105,27 @@ public class TargetUpdateJob implements Job {
                                 logger.debugv(
                                         "Updated JVM ID for target {0} ({1}) = {2}",
                                         target.connectUrl, target.alias, t.jvmId);
+                                return true;
                             } catch (PersistenceException e) {
                                 t.jvmId = null;
                                 t.persist();
                                 logger.warn(e);
-                                return;
+                                return false;
                             } catch (Exception e) {
                                 t.jvmId = null;
                                 t.persist();
                                 logger.error(e);
                                 throw e;
                             }
-                            t.activeRecordings = recordingHelper.listActiveRecordings(t);
+                        });
+    }
+
+    private void updateTargetRecordings(Target target) {
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () -> {
+                            Target t = Target.getTargetById(target.id);
+                            t.activeRecordings = recordingHelper.syncActiveRecordings(t);
                             t.persist();
 
                             t.activeRecordings.stream()
