@@ -219,7 +219,6 @@ public class Discovery {
     @Produces(MediaType.APPLICATION_JSON)
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed("write")
-    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     @Tag(
             name = "Discovery",
             description =
