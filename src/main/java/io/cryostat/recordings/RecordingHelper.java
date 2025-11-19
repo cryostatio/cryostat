@@ -369,6 +369,7 @@ public class RecordingHelper {
                     e,
                     "Failure to synchronize existing target recording state for {0}",
                     target.connectUrl);
+            throw e;
         }
         return target.activeRecordings;
     }

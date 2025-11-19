@@ -211,6 +211,7 @@ public class ActiveRecording extends PanacheEntity {
                                                                                     recording);
                                                                 } catch (Exception e) {
                                                                     logger.error(e);
+                                                                    throw new RuntimeException(e);
                                                                 }
                                                             }));
                 }
