@@ -17,7 +17,6 @@ package io.cryostat.diagnostic;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -201,9 +200,7 @@ public class Diagnostics {
                                                 decodedKey.getLeft(),
                                                 decodedKey.getRight(),
                                                 ".thread_dump")
-                                        : new String(
-                                                base64Url.decode(filename),
-                                                StandardCharsets.UTF_8)));
+                                        : filename));
         return response.location(uri).build();
     }
 
@@ -360,11 +357,7 @@ public class Diagnostics {
                         HttpHeaders.CONTENT_DISPOSITION,
                         String.format(
                                 "attachment; filename=\"%s\"",
-                                filename.isBlank()
-                                        ? decodedKey.getLeft()
-                                        : new String(
-                                                base64Url.decode(filename),
-                                                StandardCharsets.UTF_8)));
+                                filename.isBlank() ? decodedKey.getLeft() : filename));
         return response.location(uri).build();
     }
 
