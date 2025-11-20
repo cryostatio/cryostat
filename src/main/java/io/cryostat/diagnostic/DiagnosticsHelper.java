@@ -301,7 +301,7 @@ public class DiagnosticsHelper {
                 PutObjectRequest.builder()
                         .bucket(bucket)
                         .key(storageKey(target.jvmId, uuid))
-                        .contentType(MediaType.TEXT_PLAIN)
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
                         .build();
         storage.putObject(req, RequestBody.fromString(content));
         return new ThreadDump(
@@ -329,7 +329,7 @@ public class DiagnosticsHelper {
                 PutObjectRequest.builder()
                         .bucket(heapDumpBucket)
                         .key(storageKey(target.jvmId, filename))
-                        .contentType(MediaType.TEXT_PLAIN);
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM);
 
         storage.putObject(reqBuilder.build(), RequestBody.fromFile(heapDump.filePath()));
         var dump =
