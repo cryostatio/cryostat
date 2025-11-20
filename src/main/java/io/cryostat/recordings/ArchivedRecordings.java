@@ -418,13 +418,12 @@ public class ArchivedRecordings {
 
         recordingHelper.assertArchivedRecordingExists(pair.getKey(), pair.getValue());
 
+        String contentName = StringUtils.isNotBlank(filename) ? filename : pair.getValue();
         if (!presignedDownloadsEnabled) {
             return ResponseBuilder.ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
-                            String.format(
-                                    "attachment; filename=\"%s\"",
-                                    StringUtils.isNotBlank(filename) ? filename : pair.getValue()))
+                            String.format("attachment; filename=\"%s\"", contentName))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(recordingHelper.getArchivedRecordingStream(encodedKey))
                     .build();
@@ -458,11 +457,7 @@ public class ArchivedRecordings {
                 ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
                         .header(
                                 HttpHeaders.CONTENT_DISPOSITION,
-                                String.format(
-                                        "attachment; filename=\"%s\"",
-                                        StringUtils.isNotBlank(filename)
-                                                ? filename
-                                                : pair.getValue()));
+                                String.format("attachment; filename=\"%s\"", contentName));
         return response.location(uri).build();
     }
 

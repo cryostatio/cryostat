@@ -140,19 +140,17 @@ public class Diagnostics {
         String key = helper.storageKey(decodedKey);
         storage.headObject(HeadObjectRequest.builder().bucket(threadDumpsBucket).key(key).build())
                 .sdkHttpResponse();
+        String contentName =
+                StringUtils.isNotBlank(filename)
+                        ? filename
+                        : helper.generateFileName(
+                                decodedKey.getLeft(), decodedKey.getRight(), ".thread_dump");
 
         if (!presignedDownloadsEnabled) {
             return ResponseBuilder.ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
-                            String.format(
-                                    "attachment; filename=\"%s\"",
-                                    StringUtils.isNotBlank(filename)
-                                            ? filename
-                                            : helper.generateFileName(
-                                                    decodedKey.getLeft(),
-                                                    decodedKey.getRight(),
-                                                    ".thread_dump")))
+                            String.format("attachment; filename=\"%s\"", contentName))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(helper.getThreadDumpStream(encodedKey))
                     .build();
@@ -187,14 +185,7 @@ public class Diagnostics {
                 ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
                         .header(
                                 HttpHeaders.CONTENT_DISPOSITION,
-                                String.format(
-                                        "attachment; filename=\"%s\"",
-                                        StringUtils.isNotBlank(filename)
-                                                ? filename
-                                                : helper.generateFileName(
-                                                        decodedKey.getLeft(),
-                                                        decodedKey.getRight(),
-                                                        ".thread_dump")));
+                                String.format("attachment; filename=\"%s\"", contentName));
         return response.location(uri).build();
     }
 
@@ -305,17 +296,14 @@ public class Diagnostics {
             log.warnv("Failed to find heap dump for key {0}", decodedKey.toString());
             throw new NotFoundException(e);
         }
+        String contentName = StringUtils.isNotBlank(filename) ? filename : decodedKey.getRight();
 
         if (!presignedDownloadsEnabled) {
             log.tracev("Non presigned download, sending response");
             return ResponseBuilder.ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
-                            String.format(
-                                    "attachment; filename=\"%s\"",
-                                    StringUtils.isNotBlank(filename)
-                                            ? filename
-                                            : decodedKey.getRight()))
+                            String.format("attachment; filename=\"%s\"", contentName))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(helper.getHeapDumpStream(encodedKey))
                     .build();
@@ -350,11 +338,7 @@ public class Diagnostics {
                 ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
                         .header(
                                 HttpHeaders.CONTENT_DISPOSITION,
-                                String.format(
-                                        "attachment; filename=\"%s\"",
-                                        StringUtils.isNotBlank(filename)
-                                                ? filename
-                                                : decodedKey.getLeft()));
+                                String.format("attachment; filename=\"%s\"", contentName));
         return response.location(uri).build();
     }
 
