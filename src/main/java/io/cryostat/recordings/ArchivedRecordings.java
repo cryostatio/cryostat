@@ -18,7 +18,6 @@ package io.cryostat.recordings;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -32,7 +31,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
@@ -42,7 +40,6 @@ import io.cryostat.util.HttpMimeType;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.common.annotation.Blocking;
-import io.smallrye.common.annotation.Identifier;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -54,7 +51,6 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -82,10 +78,6 @@ public class ArchivedRecordings {
     @Inject S3Presigner presigner;
     @Inject RecordingHelper recordingHelper;
     @Inject Logger logger;
-
-    @Inject
-    @Identifier(Producers.BASE64_URL)
-    Base64 base64Url;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_ARCHIVES)
     String bucket;
@@ -466,9 +458,7 @@ public class ArchivedRecordings {
             response =
                     response.header(
                             HttpHeaders.CONTENT_DISPOSITION,
-                            String.format(
-                                    "attachment; filename=\"%s\"",
-                                    new String(base64Url.decode(filename), StandardCharsets.UTF_8)));
+                            String.format("attachment; filename=\"%s\"", filename));
         }
         return response.location(uri).build();
     }
