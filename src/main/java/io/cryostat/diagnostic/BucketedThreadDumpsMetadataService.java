@@ -41,7 +41,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @ApplicationScoped
 @LookupIfProperty(
-        name = ConfigProperties.STORAGE_METADATA_STORAGE_MODE,
+        name = ConfigProperties.STORAGE_METADATA_THREAD_DUMPS_STORAGE_MODE,
         stringValue = ThreadDumpsMetadataService.METADATA_STORAGE_MODE_BUCKET)
 /**
  * Implements diagnostics metadata as standalone objects in a bucket. When the storage mode is set
