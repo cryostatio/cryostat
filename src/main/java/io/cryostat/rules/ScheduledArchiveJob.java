@@ -59,9 +59,9 @@ class ScheduledArchiveJob implements Job {
 
     @Override
     public void execute(JobExecutionContext ctx) throws JobExecutionException {
-        String jvmId = (String) ctx.getJobDetail().getJobDataMap().get("jvmId");
-        String recordingName = (String) ctx.getJobDetail().getJobDataMap().get("recordingName");
-        int preservedArchives = (int) ctx.getJobDetail().getJobDataMap().get("preservedArchives");
+        String jvmId = (String) ctx.getMergedJobDataMap().get("jvmId");
+        String recordingName = (String) ctx.getMergedJobDataMap().get("recordingName");
+        int preservedArchives = (int) ctx.getMergedJobDataMap().get("preservedArchives");
 
         try {
             List<S3Object> previousRecordings = previousRecordings(jvmId, recordingName);
@@ -90,7 +90,7 @@ class ScheduledArchiveJob implements Job {
                     .call(
                             () -> {
                                 long recordingId =
-                                        (long) ctx.getJobDetail().getJobDataMap().get("recording");
+                                        (long) ctx.getMergedJobDataMap().get("recording");
                                 ActiveRecording recording =
                                         recordingHelper
                                                 .getActiveRecording(

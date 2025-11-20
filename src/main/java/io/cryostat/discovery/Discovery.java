@@ -139,8 +139,6 @@ public class Discovery {
                                                                 .build();
                                                 var trigger =
                                                         TriggerBuilder.newTrigger()
-                                                                .usingJobData(
-                                                                        jobDetail.getJobDataMap())
                                                                 .withIdentity(
                                                                         jobDetail
                                                                                 .getKey()
@@ -391,7 +389,6 @@ public class Discovery {
                             .build();
             var trigger =
                     TriggerBuilder.newTrigger()
-                            .usingJobData(jobDetail.getJobDataMap())
                             .withIdentity(
                                     jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
                             .startAt(Date.from(Instant.now().plus(discoveryPingPeriod)))
