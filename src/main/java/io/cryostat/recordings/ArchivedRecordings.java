@@ -420,7 +420,7 @@ public class ArchivedRecordings {
                     header pointing to the location where the client can download the recording JFR binary file.
                     """)
     public RestResponse<Object> handleStorageDownload(
-            @RestPath String encodedKey, @RestQuery String f) throws URISyntaxException {
+            @RestPath String encodedKey, @RestQuery String filename) throws URISyntaxException {
         Pair<String, String> pair = recordingHelper.decodedKey(encodedKey);
         String key = RecordingHelper.archivedRecordingKey(pair);
 
@@ -462,13 +462,13 @@ public class ArchivedRecordings {
         }
         ResponseBuilder<Object> response =
                 ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT);
-        if (StringUtils.isNotBlank(f)) {
+        if (StringUtils.isNotBlank(filename)) {
             response =
                     response.header(
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format(
                                     "attachment; filename=\"%s\"",
-                                    new String(base64Url.decode(f), StandardCharsets.UTF_8)));
+                                    new String(base64Url.decode(filename), StandardCharsets.UTF_8)));
         }
         return response.location(uri).build();
     }
