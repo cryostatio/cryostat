@@ -41,8 +41,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 
 @ApplicationScoped
 @LookupIfProperty(
-        name = ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE,
-        stringValue = DiagnosticsMetadataService.METADATA_STORAGE_MODE_BUCKET)
+        name = ConfigProperties.STORAGE_METADATA_STORAGE_MODE,
+        stringValue = HeapDumpsMetadataService.METADATA_STORAGE_MODE_BUCKET)
 /**
  * Implements diagnostics metadata as standalone objects in a bucket. When the storage mode is set
  * to select this implementation, diagnostics metadata is not stored using the S3 object Tags, but
@@ -50,7 +50,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
  * different S3-like implementations and providers, and also circumvents any limitations on tag
  * count or tag size/length.
  */
-class BucketedDiagnosticsMetadataService implements DiagnosticsMetadataService {
+class BucketedHeapDumpsMetadataService implements HeapDumpsMetadataService {
 
     @Inject StorageBuckets storageBuckets;
     @Inject S3Client storage;
@@ -62,7 +62,7 @@ class BucketedDiagnosticsMetadataService implements DiagnosticsMetadataService {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_METADATA)
     String bucket;
 
-    @ConfigProperty(name = ConfigProperties.AWS_METADATA_PREFIX_RECORDINGS)
+    @ConfigProperty(name = ConfigProperties.AWS_METADATA_PREFIX_HEAP_DUMPS)
     String prefix;
 
     // don't use the application-wide instance. That one serializes maps as key-value pair lists for

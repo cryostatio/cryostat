@@ -34,7 +34,7 @@ import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
-import io.cryostat.diagnostic.DiagnosticsMetadataService.StorageMode;
+import io.cryostat.diagnostic.HeapDumpsMetadataService.StorageMode;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.targets.Target;
@@ -52,7 +52,6 @@ import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.BadRequestException;
-import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
@@ -100,7 +99,7 @@ public class DiagnosticsHelper {
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
     String heapDumpBucket;
 
-    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE)
+    @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_STORAGE_MODE)
     String metadataStorageMode;
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_TIMEOUT)
@@ -110,7 +109,8 @@ public class DiagnosticsHelper {
     @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
 
-    @Inject Instance<DiagnosticsMetadataService> metadataService;
+    @Inject Instance<HeapDumpsMetadataService> heapDumpsMetadataService;
+    @Inject Instance<ThreadDumpsMetadataService> threadDumpsMetadataService;
 
     @Inject S3Client storage;
     @Inject Logger log;
@@ -167,6 +167,23 @@ public class DiagnosticsHelper {
         String key = storageKey(jvmId, heapDumpId);
         storage.headObject(HeadObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
         storage.deleteObject(DeleteObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
+        switch (storageMode()) {
+            case TAGGING:
+            // fall-through
+            case METADATA:
+                // no-op - the S3 instance will delete the tagging/metadata associated with the
+                // object automatically
+                break;
+            case BUCKET:
+                try {
+                    heapDumpsMetadataService.get().delete(jvmId, heapDumpId);
+                } catch (IOException ioe) {
+                    log.warn(ioe);
+                }
+                break;
+            default:
+                throw new IllegalStateException();
+        }
         var event =
                 new HeapDumpEvent(
                         EventCategory.HEAP_DUMP_DELETED,
@@ -233,6 +250,23 @@ public class DiagnosticsHelper {
             String key = storageKey(target.jvmId, threadDumpId);
             storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
             storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
+            switch (storageMode()) {
+                case TAGGING:
+                // fall-through
+                case METADATA:
+                    // no-op - the S3 instance will delete the tagging/metadata associated with the
+                    // object automatically
+                    break;
+                case BUCKET:
+                    try {
+                        threadDumpsMetadataService.get().delete(target.jvmId, threadDumpId);
+                    } catch (IOException ioe) {
+                        log.warn(ioe);
+                    }
+                    break;
+                default:
+                    throw new IllegalStateException();
+            }
             var event =
                     new ThreadDumpEvent(
                             EventCategory.DELETED,
@@ -309,9 +343,29 @@ public class DiagnosticsHelper {
                         .contentDisposition(
                                 String.format(
                                         "attachment; filename=\"%s\"",
-                                        generateFileName(target.jvmId, uuid, ".thread_dump")))
-                        .build();
-        storage.putObject(req, RequestBody.fromString(content));
+                                        generateFileName(target.jvmId, uuid, ".thread_dump")));
+
+        switch (storageMode()) {
+            case TAGGING:
+                req = req.tagging(createMetadataTagging(new Metadata(Map.of())));
+                break;
+            case METADATA:
+                req = req.metadata(Map.of());
+                break;
+            case BUCKET:
+                try {
+                    threadDumpsMetadataService
+                            .get()
+                            .create(target.jvmId, uuid, new Metadata(Map.of()));
+                } catch (IOException ioe) {
+                    log.warn(ioe);
+                }
+                break;
+            default:
+                throw new IllegalStateException();
+        }
+
+        storage.putObject(req.build(), RequestBody.fromString(content));
         return new ThreadDump(
                 target.jvmId,
                 downloadUrl(target.jvmId, uuid),
@@ -337,6 +391,26 @@ public class DiagnosticsHelper {
                         .key(storageKey(target.jvmId, filename))
                         .contentType(MediaType.APPLICATION_OCTET_STREAM)
                         .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
+
+        switch (storageMode()) {
+            case TAGGING:
+                reqBuilder = reqBuilder.tagging(createMetadataTagging(new Metadata(Map.of())));
+                break;
+            case METADATA:
+                reqBuilder = reqBuilder.metadata(Map.of());
+                break;
+            case BUCKET:
+                try {
+                    heapDumpsMetadataService
+                            .get()
+                            .create(target.jvmId, filename, new Metadata(Map.of()));
+                } catch (IOException ioe) {
+                    log.warn(ioe);
+                }
+                break;
+            default:
+                throw new IllegalStateException();
+        }
 
         storage.putObject(reqBuilder.build(), RequestBody.fromFile(heapDump.filePath()));
         var dump =
@@ -471,7 +545,9 @@ public class DiagnosticsHelper {
                     // later using computeIfAbsent, wrap it in a copy constructor.
                     return Optional.of(new Metadata(new HashMap<>(resp.metadata())));
                 case BUCKET:
-                    return metadataService.get().read(storageKey);
+                    return storageBucket.equals(bucket)
+                            ? threadDumpsMetadataService.get().read(storageKey)
+                            : heapDumpsMetadataService.get().read(storageKey);
                 default:
                     throw new IllegalStateException();
             }
@@ -553,11 +629,6 @@ public class DiagnosticsHelper {
             String jvmId, String identifier, Map<String, String> metadata, String storageBucket)
             throws IOException {
         String key = storageKey(jvmId, identifier);
-        Optional<Metadata> existingMeta = getObjectMetadata(key, storageBucket);
-
-        if (existingMeta.isEmpty()) {
-            throw new NotFoundException("Could not find metadata for heap dump with key: " + key);
-        }
 
         Metadata updatedMetadata = new Metadata(metadata);
 
@@ -576,10 +647,14 @@ public class DiagnosticsHelper {
                         String.format(
                                 "Metadata updates are not supported with server configuration"
                                         + " %s=%s",
-                                ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE,
+                                ConfigProperties.STORAGE_METADATA_STORAGE_MODE,
                                 metadataStorageMode));
             case BUCKET:
-                metadataService.get().update(jvmId, identifier, updatedMetadata);
+                if (storageBucket.equals(bucket)) {
+                    threadDumpsMetadataService.get().update(jvmId, identifier, updatedMetadata);
+                } else {
+                    heapDumpsMetadataService.get().update(jvmId, identifier, updatedMetadata);
+                }
                 break;
             default:
                 throw new IllegalStateException();
