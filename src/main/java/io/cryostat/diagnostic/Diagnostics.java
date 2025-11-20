@@ -147,10 +147,12 @@ public class Diagnostics {
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format(
                                     "attachment; filename=\"%s\"",
-                                    helper.generateFileName(
-                                            decodedKey.getLeft(),
-                                            decodedKey.getRight(),
-                                            ".thread_dump")))
+                                    StringUtils.isNotBlank(filename)
+                                            ? filename
+                                            : helper.generateFileName(
+                                                    decodedKey.getLeft(),
+                                                    decodedKey.getRight(),
+                                                    ".thread_dump")))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(helper.getThreadDumpStream(encodedKey))
                     .build();
@@ -182,18 +184,17 @@ public class Diagnostics {
             }
         }
         ResponseBuilder<Object> response =
-                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT);
-        response =
-                response.header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        String.format(
-                                "attachment; filename=\"%s\"",
-                                filename.isBlank()
-                                        ? helper.generateFileName(
-                                                decodedKey.getLeft(),
-                                                decodedKey.getRight(),
-                                                ".thread_dump")
-                                        : filename));
+                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
+                        .header(
+                                HttpHeaders.CONTENT_DISPOSITION,
+                                String.format(
+                                        "attachment; filename=\"%s\"",
+                                        StringUtils.isNotBlank(filename)
+                                                ? filename
+                                                : helper.generateFileName(
+                                                        decodedKey.getLeft(),
+                                                        decodedKey.getRight(),
+                                                        ".thread_dump")));
         return response.location(uri).build();
     }
 
@@ -312,7 +313,9 @@ public class Diagnostics {
                             HttpHeaders.CONTENT_DISPOSITION,
                             String.format(
                                     "attachment; filename=\"%s\"",
-                                    filename.isBlank() ? decodedKey.getRight() : filename))
+                                    StringUtils.isNotBlank(filename)
+                                            ? filename
+                                            : decodedKey.getRight()))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(helper.getHeapDumpStream(encodedKey))
                     .build();
@@ -344,13 +347,14 @@ public class Diagnostics {
             }
         }
         ResponseBuilder<Object> response =
-                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT);
-        response =
-                response.header(
-                        HttpHeaders.CONTENT_DISPOSITION,
-                        String.format(
-                                "attachment; filename=\"%s\"",
-                                filename.isBlank() ? decodedKey.getLeft() : filename));
+                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
+                        .header(
+                                HttpHeaders.CONTENT_DISPOSITION,
+                                String.format(
+                                        "attachment; filename=\"%s\"",
+                                        StringUtils.isNotBlank(filename)
+                                                ? filename
+                                                : decodedKey.getLeft()));
         return response.location(uri).build();
     }
 

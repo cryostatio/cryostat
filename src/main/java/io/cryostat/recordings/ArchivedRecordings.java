@@ -422,7 +422,9 @@ public class ArchivedRecordings {
             return ResponseBuilder.ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
-                            String.format("attachment; filename=\"%s\"", pair.getValue()))
+                            String.format(
+                                    "attachment; filename=\"%s\"",
+                                    StringUtils.isNotBlank(filename) ? filename : pair.getValue()))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(recordingHelper.getArchivedRecordingStream(encodedKey))
                     .build();
@@ -453,13 +455,14 @@ public class ArchivedRecordings {
             }
         }
         ResponseBuilder<Object> response =
-                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT);
-        if (StringUtils.isNotBlank(filename)) {
-            response =
-                    response.header(
-                            HttpHeaders.CONTENT_DISPOSITION,
-                            String.format("attachment; filename=\"%s\"", filename));
-        }
+                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
+                        .header(
+                                HttpHeaders.CONTENT_DISPOSITION,
+                                String.format(
+                                        "attachment; filename=\"%s\"",
+                                        StringUtils.isNotBlank(filename)
+                                                ? filename
+                                                : pair.getValue()));
         return response.location(uri).build();
     }
 
