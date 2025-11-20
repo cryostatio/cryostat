@@ -302,6 +302,10 @@ public class DiagnosticsHelper {
                         .bucket(bucket)
                         .key(storageKey(target.jvmId, uuid))
                         .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .contentDisposition(
+                                String.format(
+                                        "attachment; filename=\"%s\"",
+                                        generateFileName(target.jvmId, uuid, ".thread_dump")))
                         .build();
         storage.putObject(req, RequestBody.fromString(content));
         return new ThreadDump(
@@ -314,8 +318,6 @@ public class DiagnosticsHelper {
     }
 
     public HeapDump addHeapDump(Target target, FileUpload heapDump, String requestId) {
-        // TODO: Logic to delete the uploaded file after adding to storage
-        // See #1046
         String filename = heapDump.fileName().strip();
         if (StringUtils.isBlank(filename)) {
             throw new BadRequestException();
@@ -329,7 +331,8 @@ public class DiagnosticsHelper {
                 PutObjectRequest.builder()
                         .bucket(heapDumpBucket)
                         .key(storageKey(target.jvmId, filename))
-                        .contentType(MediaType.APPLICATION_OCTET_STREAM);
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
 
         storage.putObject(reqBuilder.build(), RequestBody.fromFile(heapDump.filePath()));
         var dump =
