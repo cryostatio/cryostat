@@ -1576,8 +1576,7 @@ public class RecordingHelper {
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
             try {
                 ActiveRecording recording =
-                        ActiveRecording.find(
-                                        "id", (long) ctx.getMergedJobDataMap().get("recordingId"))
+                        ActiveRecording.find("id", ctx.getMergedJobDataMap().get("recordingId"))
                                 .singleResult();
                 recordingHelper.stopRecording(recording).await().atMost(connectionTimeout);
             } catch (Exception e) {
