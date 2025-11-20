@@ -80,6 +80,7 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
@@ -575,6 +576,7 @@ public class Discovery {
      * token if their token will be expiring soon.
      */
     @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
+    @DisallowConcurrentExecution
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;
 
