@@ -42,6 +42,7 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
 import io.vertx.ext.web.handler.HttpException;
@@ -149,7 +150,10 @@ public class DiagnosticsHelper {
     }
 
     public String generateFileName(String jvmId, String uuid, String extension) {
-        Target t = Target.getTargetByJvmId(jvmId).get();
+        Target t =
+                QuarkusTransaction.joiningExisting()
+                        .call(() -> Target.getTargetByJvmId(jvmId))
+                        .get();
         if (Objects.isNull(t)) {
             log.errorv("jvmId {0} failed to resolve to target. Defaulting to uuid.", jvmId);
             return uuid;
