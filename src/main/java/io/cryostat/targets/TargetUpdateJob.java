@@ -30,6 +30,7 @@ import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.jboss.logging.Logger;
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
@@ -41,6 +42,7 @@ import org.quartz.SchedulerException;
  *
  * @see io.cryostat.target.Target
  */
+@DisallowConcurrentExecution
 public class TargetUpdateJob implements Job {
 
     @Inject Logger logger;

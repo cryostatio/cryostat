@@ -68,6 +68,7 @@ import org.apache.commons.lang3.concurrent.LazyInitializer;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
@@ -693,6 +694,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         return Pair.of(kubeObj, node);
     }
 
+    @DisallowConcurrentExecution
     private static class EndpointsResyncJob implements Job {
         @Inject Logger logger;
         @Inject EventBus bus;
