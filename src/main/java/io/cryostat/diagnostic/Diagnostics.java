@@ -25,7 +25,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.Producers;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
@@ -35,7 +34,6 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
 
 import io.smallrye.common.annotation.Blocking;
-import io.smallrye.common.annotation.Identifier;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -51,7 +49,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -80,10 +77,6 @@ public class Diagnostics {
     @Inject S3Presigner presigner;
     @Inject Logger log;
     @Inject LongRunningRequestGenerator generator;
-
-    @Inject
-    @Identifier(Producers.BASE64_URL)
-    Base64 base64Url;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
     String threadDumpsBucket;
