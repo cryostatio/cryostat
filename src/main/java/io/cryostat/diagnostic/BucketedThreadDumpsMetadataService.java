@@ -50,7 +50,7 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
  * different S3-like implementations and providers, and also circumvents any limitations on tag
  * count or tag size/length.
  */
-class BucketedDiagnosticsMetadataService implements ThreadDumpsMetadataService {
+class BucketedThreadDumpsMetadataService implements ThreadDumpsMetadataService {
 
     @Inject StorageBuckets storageBuckets;
     @Inject S3Client storage;
