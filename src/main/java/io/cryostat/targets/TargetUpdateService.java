@@ -18,7 +18,6 @@ package io.cryostat.targets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
-import java.util.Map;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
@@ -65,44 +64,18 @@ public class TargetUpdateService {
     @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_DELAY)
     Duration externalRecordingDelay;
 
-    void onStart(@Observes StartupEvent evt) throws SchedulerException {
+    @Transactional
+    void onStart(@Observes StartupEvent evt) {
         logger.tracev("{0} started", getClass().getName());
-
-        JobKey updateAllKey = new JobKey("update-all", "target-update");
-        JobDetail updateAllJob =
-                JobBuilder.newJob(TargetUpdateJob.class).withIdentity(updateAllKey).build();
-        int updateAllInterval = 120;
-        Trigger updateAllTrigger =
-                TriggerBuilder.newTrigger()
-                        .withIdentity(
-                                updateAllJob.getKey().getName(), updateAllJob.getKey().getGroup())
-                        .withSchedule(
-                                SimpleScheduleBuilder.simpleSchedule()
-                                        .withIntervalInSeconds(updateAllInterval)
-                                        .repeatForever()
-                                        .withMisfireHandlingInstructionNowWithExistingCount())
-                        .startAt(Date.from(Instant.now().plusSeconds(updateAllInterval)))
-                        .build();
-        scheduler.scheduleJob(updateAllJob, updateAllTrigger);
-
-        JobKey updateUnconnectedKey = new JobKey("update-unconnected", "target-update");
-        JobDetail updateUnconnectedJob =
-                JobBuilder.newJob(TargetUpdateJob.class).withIdentity(updateUnconnectedKey).build();
-        updateUnconnectedJob.getJobDataMap().put("unconnected", true);
-        int updateUnconnectedInterval = (int) connectionTimeout.plus(connectionTtl).toSeconds();
-        Trigger updateUnconnectedTrigger =
-                TriggerBuilder.newTrigger()
-                        .withIdentity(
-                                updateUnconnectedJob.getKey().getName(),
-                                updateUnconnectedJob.getKey().getGroup())
-                        .withSchedule(
-                                SimpleScheduleBuilder.simpleSchedule()
-                                        .withIntervalInSeconds(updateUnconnectedInterval)
-                                        .repeatForever()
-                                        .withMisfireHandlingInstructionNowWithExistingCount())
-                        .startAt(Date.from(Instant.now().plusSeconds(updateAllInterval)))
-                        .build();
-        scheduler.scheduleJob(updateUnconnectedJob, updateUnconnectedTrigger);
+        Target.<Target>listAll()
+                .forEach(
+                        t -> {
+                            try {
+                                fireTargetUpdate(t);
+                            } catch (SchedulerException e) {
+                                logger.warn(e);
+                            }
+                        });
     }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
@@ -153,17 +126,28 @@ public class TargetUpdateService {
     }
 
     void fireTargetUpdate(Target target) throws SchedulerException {
-        JobDetail jobDetail = JobBuilder.newJob(TargetUpdateJob.class).build();
-        Map<String, Object> data = jobDetail.getJobDataMap();
-        data.put("targetId", target.id);
+        JobKey key = new JobKey(Long.toString(target.id), "target-update");
+        JobDetail job =
+                JobBuilder.newJob(TargetUpdateJob.class)
+                        .withIdentity(key)
+                        .usingJobData("targetId", target.id)
+                        .build();
         Trigger trigger =
                 TriggerBuilder.newTrigger()
-                        .withIdentity(Long.toString(target.id), "target-update")
+                        .withIdentity(job.getKey().getName(), job.getKey().getGroup())
+                        // TODO make configurable
                         .startAt(Date.from(Instant.now().plusSeconds(1)))
-                        .usingJobData(jobDetail.getJobDataMap())
+                        .withSchedule(
+                                SimpleScheduleBuilder.simpleSchedule()
+                                        // TODO make configurable
+                                        .withIntervalInSeconds(120)
+                                        .repeatForever()
+                                        .withMisfireHandlingInstructionNextWithExistingCount())
                         .build();
+        scheduler.scheduleJob(job, trigger);
+
         if (!scheduler.checkExists(trigger.getKey())) {
-            scheduler.scheduleJob(jobDetail, trigger);
+            scheduler.scheduleJob(job, trigger);
         }
     }
 
@@ -176,18 +160,15 @@ public class TargetUpdateService {
             return;
         }
         JobDetail jobDetail =
-                JobBuilder.newJob(ActiveRecordingUpdateJob.class).withIdentity(key).build();
-        Map<String, Object> data = jobDetail.getJobDataMap();
-        data.put("recordingId", recording.id);
+                JobBuilder.newJob(ActiveRecordingUpdateJob.class)
+                        .withIdentity(key)
+                        .usingJobData("recordingId", recording.id)
+                        .build();
         var when =
                 Instant.ofEpochMilli(recording.startTime)
                         .plusMillis(recording.duration)
                         .plus(externalRecordingDelay);
-        Trigger trigger =
-                TriggerBuilder.newTrigger()
-                        .startAt(Date.from(when))
-                        .usingJobData(jobDetail.getJobDataMap())
-                        .build();
+        Trigger trigger = TriggerBuilder.newTrigger().startAt(Date.from(when)).build();
         scheduler.scheduleJob(jobDetail, trigger);
     }
 }

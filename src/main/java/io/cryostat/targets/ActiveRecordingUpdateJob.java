@@ -44,7 +44,7 @@ public class ActiveRecordingUpdateJob implements Job {
     @Override
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        Long recordingId = (Long) context.getJobDetail().getJobDataMap().get("recordingId");
+        long recordingId = (long) context.getMergedJobDataMap().get("recordingId");
         ActiveRecording recording = ActiveRecording.findById(recordingId);
         Target target;
         try {

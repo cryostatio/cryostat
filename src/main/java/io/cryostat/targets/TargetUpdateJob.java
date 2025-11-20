@@ -15,8 +15,6 @@
  */
 package io.cryostat.targets;
 
-import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -54,33 +52,18 @@ public class TargetUpdateJob implements Job {
     @Override
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        List<Target> targets;
-        Long targetId = (Long) context.getJobDetail().getJobDataMap().get("targetId");
-        boolean unconnected =
-                Optional.ofNullable(
-                                (Boolean) context.getJobDetail().getJobDataMap().get("unconnected"))
-                        .orElse(false);
-        if (targetId != null) {
-            try {
-                targets = List.of(Target.getTargetById(targetId));
-            } catch (PersistenceException e) {
-                // target disappeared in the meantime. No big deal.
-                logger.debug(e);
-                return;
-            }
-        } else if (unconnected) {
-            targets = Target.<Target>find("#Target.unconnected").list();
-        } else {
-            targets = Target.listAll();
+        Target target;
+        long targetId = (long) context.getMergedJobDataMap().get("targetId");
+        try {
+            target = Target.getTargetById(targetId);
+        } catch (PersistenceException e) {
+            // target disappeared in the meantime. No big deal.
+            logger.debug(e);
+            JobExecutionException ex = new JobExecutionException(e);
+            ex.setRefireImmediately(false);
+            throw ex;
         }
 
-        targets.stream()
-                .peek(t -> logger.debugv("JVM ID for {0} = {1}", t.connectUrl, t.jvmId))
-                .distinct()
-                .forEach(t -> executor.submit(() -> updateTarget(t)));
-    }
-
-    private void updateTarget(Target target) {
         boolean b = true;
         if (StringUtils.isBlank(target.jvmId)) {
             b = updateTargetJvmId(target);
