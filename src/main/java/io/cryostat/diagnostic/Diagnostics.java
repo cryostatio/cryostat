@@ -181,12 +181,12 @@ public class Diagnostics {
                                 uri.getFragment());
             }
         }
-        ResponseBuilder<Object> response =
-                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
-                        .header(
-                                HttpHeaders.CONTENT_DISPOSITION,
-                                String.format("attachment; filename=\"%s\"", contentName));
-        return response.location(uri).build();
+        return ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        String.format("attachment; filename=\"%s\"", contentName))
+                .location(uri)
+                .build();
     }
 
     @Path("targets/{targetId}/gc")
@@ -334,12 +334,12 @@ public class Diagnostics {
                                 uri.getFragment());
             }
         }
-        ResponseBuilder<Object> response =
-                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
-                        .header(
-                                HttpHeaders.CONTENT_DISPOSITION,
-                                String.format("attachment; filename=\"%s\"", contentName));
-        return response.location(uri).build();
+        return ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        String.format("attachment; filename=\"%s\"", contentName))
+                .location(uri)
+                .build();
     }
 
     public record HeapDump(
