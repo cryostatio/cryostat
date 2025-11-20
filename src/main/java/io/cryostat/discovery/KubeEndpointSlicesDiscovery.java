@@ -238,7 +238,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                 .build();
                 var trigger =
                         TriggerBuilder.newTrigger()
-                                .usingJobData(jobDetail.getJobDataMap())
                                 .withIdentity(
                                         jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
                                 .startNow()
@@ -704,8 +703,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         public void execute(JobExecutionContext context) throws JobExecutionException {
             try {
                 Collection<String> namespaces =
-                        (Collection<String>)
-                                context.getJobDetail().getJobDataMap().get("namespaces");
+                        (Collection<String>) context.getMergedJobDataMap().get("namespaces");
                 logger.debugv("Resyncing namespaces: {0}", namespaces);
                 bus.publish(NAMESPACE_QUERY_ADDR, NamespaceQueryEvent.from(namespaces));
             } catch (Exception e) {

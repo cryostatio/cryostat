@@ -256,8 +256,11 @@ public class RuleExecutor {
         JobDetail jobDetail =
                 JobBuilder.newJob(ScheduledArchiveJob.class)
                         .withIdentity(
-                                String.format("%s.%s", rule.name, target.jvmId),
-                                "rule.scheduled-archive")
+                                rule.name, String.format("rule.scheduled-archive.%s", target.jvmId))
+                        .usingJobData("jvmId", target.jvmId)
+                        .usingJobData("recordingName", rule.getRecordingName())
+                        .usingJobData("recording", recording.remoteId)
+                        .usingJobData("preservedArchives", rule.preservedArchives)
                         .build();
 
         if (jobs.contains(jobDetail.getKey())) {
@@ -270,16 +273,9 @@ public class RuleExecutor {
             initialDelay = archivalPeriodSeconds;
         }
 
-        Map<String, Object> data = jobDetail.getJobDataMap();
-        data.put("jvmId", target.jvmId);
-        data.put("ruleName", rule.getName());
-        data.put("recording", recording.remoteId);
-        data.put("preservedArchives", rule.preservedArchives);
-
         Trigger trigger =
                 TriggerBuilder.newTrigger()
                         .withIdentity(jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
-                        .usingJobData(jobDetail.getJobDataMap())
                         .withSchedule(
                                 SimpleScheduleBuilder.simpleSchedule()
                                         .withIntervalInSeconds(archivalPeriodSeconds)

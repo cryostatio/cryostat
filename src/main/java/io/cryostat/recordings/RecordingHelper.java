@@ -482,14 +482,12 @@ public class RecordingHelper {
                     JobBuilder.newJob(StopRecordingJob.class)
                             .withIdentity(key)
                             .usingJobData(JobInterruptMonitorPlugin.AUTO_INTERRUPTIBLE, "true")
+                            .usingJobData("recordingId", recording.id)
                             .build();
             try {
                 if (!scheduler.checkExists(key)) {
-                    Map<String, Object> data = jobDetail.getJobDataMap();
-                    data.put("recordingId", recording.id);
                     Trigger trigger =
                             TriggerBuilder.newTrigger()
-                                    .usingJobData(jobDetail.getJobDataMap())
                                     .withIdentity(key.getName(), key.getGroup())
                                     .startAt(
                                             new Date(
@@ -1576,10 +1574,10 @@ public class RecordingHelper {
         @Override
         @Transactional
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
-            var jobDataMap = ctx.getJobDetail().getJobDataMap();
             try {
                 ActiveRecording recording =
-                        ActiveRecording.find("id", (Long) jobDataMap.get("recordingId"))
+                        ActiveRecording.find(
+                                        "id", (long) ctx.getMergedJobDataMap().get("recordingId"))
                                 .singleResult();
                 recordingHelper.stopRecording(recording).await().atMost(connectionTimeout);
             } catch (Exception e) {
