@@ -18,6 +18,9 @@ package io.cryostat.diagnostic;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -92,6 +95,39 @@ public class Diagnostics {
 
     @Inject EventBus bus;
     @Inject DiagnosticsHelper helper;
+
+    @Path("fs/threaddumps")
+    @RolesAllowed("read")
+    @GET
+    public Collection<ArchivedThreadDumpDirectory> listFsThreadDumps() {
+        var map = new HashMap<String, ArchivedThreadDumpDirectory>();
+        helper.listThreadDumpObjects()
+                .forEach(
+                        item -> {
+                            String path = item.key().strip();
+                            String[] parts = path.split("/");
+                            String jvmId = parts[0];
+                            String filename = parts[1];
+
+                            Metadata metadata =
+                                    helper.getThreadDumpMetadata(path).orElseGet(Metadata::empty);
+                            var dir =
+                                    map.computeIfAbsent(
+                                            jvmId,
+                                            id ->
+                                                    new ArchivedThreadDumpDirectory(
+                                                            id, new ArrayList<>()));
+                            dir.threadDumps.add(
+                                    new ThreadDump(
+                                            jvmId,
+                                            helper.downloadUrl(jvmId, filename),
+                                            filename,
+                                            item.lastModified().getEpochSecond(),
+                                            item.size(),
+                                            metadata));
+                        });
+        return map.values();
+    }
 
     @Path("targets/{targetId}/threaddump")
     @RolesAllowed("write")
@@ -207,6 +243,39 @@ public class Diagnostics {
                 conn ->
                         conn.invokeMBeanOperation(
                                 "java.lang:type=Memory", "gc", null, null, Void.class));
+    }
+
+    @Path("fs/heapdumps")
+    @RolesAllowed("read")
+    @GET
+    public Collection<ArchivedHeapDumpDirectory> listFsHeapDumps() {
+        var map = new HashMap<String, ArchivedHeapDumpDirectory>();
+        helper.listThreadDumpObjects()
+                .forEach(
+                        item -> {
+                            String path = item.key().strip();
+                            String[] parts = path.split("/");
+                            String jvmId = parts[0];
+                            String filename = parts[1];
+
+                            Metadata metadata =
+                                    helper.getHeapDumpMetadata(path).orElseGet(Metadata::empty);
+                            var dir =
+                                    map.computeIfAbsent(
+                                            jvmId,
+                                            id ->
+                                                    new ArchivedHeapDumpDirectory(
+                                                            id, new ArrayList<>()));
+                            dir.heapDumps.add(
+                                    new HeapDump(
+                                            jvmId,
+                                            helper.downloadUrl(jvmId, filename),
+                                            filename,
+                                            item.lastModified().getEpochSecond(),
+                                            item.size(),
+                                            metadata));
+                        });
+        return map.values();
     }
 
     @Path("targets/{targetId}/heapdump")
@@ -333,6 +402,13 @@ public class Diagnostics {
                 .build();
     }
 
+    public record ArchivedHeapDumpDirectory(String jvmId, List<HeapDump> heapDumps) {
+        public ArchivedHeapDumpDirectory {
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(heapDumps);
+        }
+    }
+
     public record HeapDump(
             String jvmId,
             String downloadUrl,
@@ -346,6 +422,13 @@ public class Diagnostics {
             Objects.requireNonNull(downloadUrl);
             Objects.requireNonNull(heapDumpId);
             Objects.requireNonNull(metadata);
+        }
+    }
+
+    public record ArchivedThreadDumpDirectory(String jvmId, List<ThreadDump> threadDumps) {
+        public ArchivedThreadDumpDirectory {
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(threadDumps);
         }
     }
 

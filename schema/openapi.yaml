@@ -54,6 +54,15 @@ components:
         reportsConfigured:
           type: boolean
       type: object
+    ArchivedHeapDumpDirectory:
+      properties:
+        heapDumps:
+          items:
+            $ref: '#/components/schemas/HeapDump'
+          type: array
+        jvmId:
+          type: string
+      type: object
     ArchivedRecording:
       properties:
         archivedTime:
@@ -82,6 +91,15 @@ components:
         recordings:
           items:
             $ref: '#/components/schemas/ArchivedRecording'
+          type: array
+      type: object
+    ArchivedThreadDumpDirectory:
+      properties:
+        jvmId:
+          type: string
+        threadDumps:
+          items:
+            $ref: '#/components/schemas/ThreadDump'
           type: array
       type: object
     AuthResponse:
@@ -731,6 +749,34 @@ info:
   version: 4.2.0-snapshot
 openapi: 3.1.0
 paths:
+  /api/beta/diagnostics/fs/heapdumps:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedHeapDumpDirectory'
+                type: array
+          description: OK
+      summary: List Fs Heap Dumps
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/fs/threaddumps:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedThreadDumpDirectory'
+                type: array
+          description: OK
+      summary: List Fs Thread Dumps
+      tags:
+        - Diagnostics
   /api/beta/diagnostics/heapdump/download/{encodedKey}:
     get:
       parameters:
