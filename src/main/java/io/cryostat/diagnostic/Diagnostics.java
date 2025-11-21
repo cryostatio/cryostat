@@ -36,6 +36,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
@@ -402,6 +403,7 @@ public class Diagnostics {
                 .build();
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ArchivedHeapDumpDirectory(String jvmId, List<HeapDump> heapDumps) {
         public ArchivedHeapDumpDirectory {
             Objects.requireNonNull(jvmId);
@@ -425,6 +427,7 @@ public class Diagnostics {
         }
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record ArchivedThreadDumpDirectory(String jvmId, List<ThreadDump> threadDumps) {
         public ArchivedThreadDumpDirectory {
             Objects.requireNonNull(jvmId);
