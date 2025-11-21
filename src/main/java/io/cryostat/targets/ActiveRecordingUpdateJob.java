@@ -22,6 +22,7 @@ import jakarta.inject.Inject;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import org.jboss.logging.Logger;
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
@@ -33,6 +34,7 @@ import org.quartz.JobExecutionException;
  * @see io.cryostat.targets.Target
  * @see io.cryostat.targets.TargetUpdateJob
  */
+@DisallowConcurrentExecution
 public class ActiveRecordingUpdateJob implements Job {
 
     @Inject Logger logger;
@@ -42,7 +44,7 @@ public class ActiveRecordingUpdateJob implements Job {
     @Override
     @Transactional
     public void execute(JobExecutionContext context) throws JobExecutionException {
-        Long recordingId = (Long) context.getJobDetail().getJobDataMap().get("recordingId");
+        long recordingId = (long) context.getMergedJobDataMap().get("recordingId");
         ActiveRecording recording = ActiveRecording.findById(recordingId);
         Target target;
         try {
