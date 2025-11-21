@@ -243,12 +243,6 @@ public class Diagnostics {
         log.tracev(
                 "Received heap dump upload request for target: {0} with job ID {1}", jvmId, jobId);
         jvmId = jvmId.strip();
-        // Map<String, String> labels = new HashMap<>();
-        // if (rawLabels != null) {
-        //    rawLabels.getMap().forEach((k, v) -> labels.put(k, v.toString()));
-        // }
-        // labels.put("jvmId", jvmId);
-        // log.warnv("Labels: " + labels.toString());
         doUpload(heapDump, jvmId, jobId);
     }
 
@@ -256,9 +250,6 @@ public class Diagnostics {
     Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId) {
         var dump = helper.addHeapDump(Target.getTargetByJvmId(jvmId).get(), heapDump, jobId);
         return Map.of("name", dump.heapDumpId());
-        // TODO: labels support
-        // "metadata",
-        // dump.metadata().labels());
     }
 
     @Path("targets/{targetId}/heapdump")
