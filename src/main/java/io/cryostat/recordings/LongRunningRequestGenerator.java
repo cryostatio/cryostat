@@ -108,8 +108,7 @@ public class LongRunningRequestGenerator {
             var dump = diagnosticsHelper.dumpThreads(target, request.format, request.id());
             var event =
                     new ThreadDumpEvent(
-                            EventCategory.CREATED,
-                            ThreadDumpEvent.Payload.of(target, dump, request.id()));
+                            EventCategory.CREATED, ThreadDumpEvent.Payload.of(dump, request.id()));
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(event.category().category(), event.payload()));

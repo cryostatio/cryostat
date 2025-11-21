@@ -94,7 +94,7 @@ public class DiagnosticsHelper {
             "com.sun.management:type=HotSpotDiagnostic";
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
-    String bucket;
+    String threadDumpBucket;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_HEAP_DUMPS)
     String heapDumpBucket;
@@ -123,8 +123,8 @@ public class DiagnosticsHelper {
     void onStart(@Observes StartupEvent evt) {
         log.tracev("Creating heap dump bucket: {0}", heapDumpBucket);
         buckets.createIfNecessary(heapDumpBucket);
-        log.tracev("Creating thread dump bucket: {0}", bucket);
-        buckets.createIfNecessary(bucket);
+        log.tracev("Creating thread dump bucket: {0}", threadDumpBucket);
+        buckets.createIfNecessary(threadDumpBucket);
     }
 
     public void dumpHeap(Target target, String requestId) {
@@ -161,9 +161,8 @@ public class DiagnosticsHelper {
         return t.alias + "_" + uuid + extension;
     }
 
-    public void deleteHeapDump(String heapDumpId, Target target)
+    public void deleteHeapDump(String jvmId, String heapDumpId)
             throws BadRequestException, NoSuchKeyException {
-        String jvmId = target.jvmId;
         String key = storageKey(jvmId, heapDumpId);
         storage.headObject(HeadObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
         storage.deleteObject(DeleteObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
@@ -188,10 +187,10 @@ public class DiagnosticsHelper {
                 new HeapDumpEvent(
                         EventCategory.HEAP_DUMP_DELETED,
                         HeapDumpEvent.Payload.of(
-                                target,
+                                jvmId,
                                 new HeapDump(
                                         jvmId,
-                                        downloadUrl(jvmId, heapDumpId),
+                                        heapDumpDownloadUrl(jvmId, heapDumpId),
                                         heapDumpId,
                                         0,
                                         0,
@@ -201,8 +200,25 @@ public class DiagnosticsHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
+    public List<S3Object> listHeapDumpObjects() {
+        return listHeapDumpObjects(null);
+    }
+
+    public List<S3Object> listHeapDumpObjects(String jvmId) {
+        var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket);
+        if (StringUtils.isNotBlank(jvmId)) {
+            builder = builder.prefix(jvmId);
+        }
+        return storage.listObjectsV2(builder.build()).contents();
+    }
+
     public List<HeapDump> getHeapDumps(String jvmId) {
-        return getHeapDumps(Target.getTargetByJvmId(jvmId).get());
+        return getHeapDumps(
+                jvmId == null
+                        ? null
+                        : QuarkusTransaction.joiningExisting()
+                                .call(() -> Target.getTargetByJvmId(jvmId))
+                                .get());
     }
 
     public List<HeapDump> getHeapDumps(Target target) {
@@ -242,52 +258,59 @@ public class DiagnosticsHelper {
                 uploadFailedTimeout);
     }
 
-    public void deleteThreadDump(Target target, String threadDumpId) {
-        if (Objects.isNull(target.jvmId)) {
-            log.errorv("TargetId {0} failed to resolve to a jvmId", target.id);
-            throw new IllegalArgumentException();
-        } else {
-            String key = storageKey(target.jvmId, threadDumpId);
-            storage.headObject(HeadObjectRequest.builder().bucket(bucket).key(key).build());
-            storage.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
-            switch (storageMode()) {
-                case TAGGING:
-                // fall-through
-                case METADATA:
-                    // no-op - the S3 instance will delete the tagging/metadata associated with the
-                    // object automatically
-                    break;
-                case BUCKET:
-                    try {
-                        threadDumpsMetadataService.get().delete(target.jvmId, threadDumpId);
-                    } catch (IOException ioe) {
-                        log.warn(ioe);
-                    }
-                    break;
-                default:
-                    throw new IllegalStateException();
-            }
-            var event =
-                    new ThreadDumpEvent(
-                            EventCategory.DELETED,
-                            ThreadDumpEvent.Payload.of(
-                                    target,
-                                    new ThreadDump(
-                                            target.jvmId,
-                                            downloadUrl(target.jvmId, threadDumpId),
-                                            threadDumpId,
-                                            0,
-                                            0,
-                                            new Metadata(Map.of())),
-                                    ""));
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(event.category().category(), event.payload()));
+    public void deleteThreadDump(String jvmId, String threadDumpId) {
+        String key = storageKey(jvmId, threadDumpId);
+        storage.headObject(HeadObjectRequest.builder().bucket(threadDumpBucket).key(key).build());
+        storage.deleteObject(
+                DeleteObjectRequest.builder().bucket(threadDumpBucket).key(key).build());
+        switch (storageMode()) {
+            case TAGGING:
+            // fall-through
+            case METADATA:
+                // no-op - the S3 instance will delete the tagging/metadata associated with the
+                // object automatically
+                break;
+            case BUCKET:
+                try {
+                    threadDumpsMetadataService.get().delete(jvmId, threadDumpId);
+                } catch (IOException ioe) {
+                    log.warn(ioe);
+                }
+                break;
+            default:
+                throw new IllegalStateException();
         }
+        var event =
+                new ThreadDumpEvent(
+                        EventCategory.DELETED,
+                        ThreadDumpEvent.Payload.of(
+                                new ThreadDump(
+                                        jvmId,
+                                        threadDumpDownloadUrl(jvmId, threadDumpId),
+                                        threadDumpId,
+                                        0,
+                                        0,
+                                        new Metadata(Map.of())),
+                                ""));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
+    }
+
+    public List<S3Object> listThreadDumpObjects() {
+        return listThreadDumpObjects(null);
+    }
+
+    public List<S3Object> listThreadDumpObjects(String jvmId) {
+        var builder = ListObjectsV2Request.builder().bucket(threadDumpBucket);
+        if (StringUtils.isNotBlank(jvmId)) {
+            builder = builder.prefix(jvmId);
+        }
+        return storage.listObjectsV2(builder.build()).contents();
     }
 
     public List<ThreadDump> getThreadDumps(String jvmId) {
-        return getThreadDumps(Target.getTargetByJvmId(jvmId).get());
+        return getThreadDumps(jvmId == null ? null : Target.getTargetByJvmId(jvmId).get());
     }
 
     public List<ThreadDump> getThreadDumps(Target target) {
@@ -295,7 +318,7 @@ public class DiagnosticsHelper {
                 .map(
                         item -> {
                             try {
-                                return convertObject(item);
+                                return convertThreadDump(item);
                             } catch (Exception e) {
                                 log.error(e);
                                 return null;
@@ -308,25 +331,25 @@ public class DiagnosticsHelper {
     private HeapDump convertHeapDump(S3Object object) throws Exception {
         String jvmId = object.key().split("/")[0];
         String uuid = object.key().split("/")[1];
-        Optional<Metadata> metadata = getObjectMetadata(storageKey(jvmId, uuid), heapDumpBucket);
+        Optional<Metadata> metadata = getHeapDumpMetadata(storageKey(jvmId, uuid));
         return new HeapDump(
                 jvmId,
                 heapDumpDownloadUrl(jvmId, uuid),
                 uuid,
-                object.lastModified().toEpochMilli(),
+                object.lastModified().getEpochSecond(),
                 object.size(),
                 metadata.orElse(new Metadata(Map.of())));
     }
 
-    private ThreadDump convertObject(S3Object object) throws Exception {
+    private ThreadDump convertThreadDump(S3Object object) throws Exception {
         String jvmId = object.key().split("/")[0];
         String uuid = object.key().split("/")[1];
-        Optional<Metadata> metadata = getObjectMetadata(storageKey(jvmId, uuid), bucket);
+        Optional<Metadata> metadata = getThreadDumpMetadata(storageKey(jvmId, uuid));
         return new ThreadDump(
                 jvmId,
-                downloadUrl(jvmId, uuid),
+                threadDumpDownloadUrl(jvmId, uuid),
                 uuid,
-                object.lastModified().toEpochMilli(),
+                object.lastModified().getEpochSecond(),
                 object.size(),
                 metadata.orElse(new Metadata(Map.of())));
     }
@@ -337,7 +360,7 @@ public class DiagnosticsHelper {
                 "Putting Thread dump into storage with key: {0}", storageKey(target.jvmId, uuid));
         var req =
                 PutObjectRequest.builder()
-                        .bucket(bucket)
+                        .bucket(threadDumpBucket)
                         .key(storageKey(target.jvmId, uuid))
                         .contentType(MediaType.APPLICATION_OCTET_STREAM)
                         .contentDisposition(
@@ -368,14 +391,14 @@ public class DiagnosticsHelper {
         storage.putObject(req.build(), RequestBody.fromString(content));
         return new ThreadDump(
                 target.jvmId,
-                downloadUrl(target.jvmId, uuid),
+                threadDumpDownloadUrl(target.jvmId, uuid),
                 uuid,
                 clock.now().getEpochSecond(),
                 content.length(),
                 new Metadata(Map.of()));
     }
 
-    public HeapDump addHeapDump(Target target, FileUpload heapDump, String requestId) {
+    public HeapDump addHeapDump(String jvmId, FileUpload heapDump, String requestId) {
         String filename = heapDump.fileName().strip();
         if (StringUtils.isBlank(filename)) {
             throw new BadRequestException();
@@ -383,12 +406,11 @@ public class DiagnosticsHelper {
         if (!filename.endsWith(".hprof")) {
             filename = filename + ".hprof";
         }
-        log.tracev(
-                "Putting Heap dump into storage with key: {0}", storageKey(target.jvmId, filename));
+        log.tracev("Putting Heap dump into storage with key: {0}", storageKey(jvmId, filename));
         var reqBuilder =
                 PutObjectRequest.builder()
                         .bucket(heapDumpBucket)
-                        .key(storageKey(target.jvmId, filename))
+                        .key(storageKey(jvmId, filename))
                         .contentType(MediaType.APPLICATION_OCTET_STREAM)
                         .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
 
@@ -401,9 +423,7 @@ public class DiagnosticsHelper {
                 break;
             case BUCKET:
                 try {
-                    heapDumpsMetadataService
-                            .get()
-                            .create(target.jvmId, filename, new Metadata(Map.of()));
+                    heapDumpsMetadataService.get().create(jvmId, filename, new Metadata(Map.of()));
                 } catch (IOException ioe) {
                     log.warn(ioe);
                 }
@@ -415,15 +435,15 @@ public class DiagnosticsHelper {
         storage.putObject(reqBuilder.build(), RequestBody.fromFile(heapDump.filePath()));
         var dump =
                 new HeapDump(
-                        target.jvmId,
-                        heapDumpDownloadUrl(target.jvmId, filename),
+                        jvmId,
+                        heapDumpDownloadUrl(jvmId, filename),
                         filename,
                         clock.now().getEpochSecond(),
                         heapDump.filePath().toFile().length(),
                         new Metadata(Map.of()));
         var event =
                 new HeapDumpEvent(
-                        EventCategory.HEAP_DUMP_UPLOADED, HeapDumpEvent.Payload.of(target, dump));
+                        EventCategory.HEAP_DUMP_UPLOADED, HeapDumpEvent.Payload.of(jvmId, dump));
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
@@ -437,7 +457,7 @@ public class DiagnosticsHelper {
         return dump;
     }
 
-    public String downloadUrl(String jvmId, String filename) {
+    public String threadDumpDownloadUrl(String jvmId, String filename) {
         return String.format(
                 "/api/beta/diagnostics/threaddump/download/%s", encodedKey(jvmId, filename));
     }
@@ -468,7 +488,8 @@ public class DiagnosticsHelper {
     public InputStream getThreadDumpStream(String encodedKey) {
         Pair<String, String> decodedKey = decodedKey(encodedKey);
         var key = storageKey(decodedKey);
-        GetObjectRequest getRequest = GetObjectRequest.builder().bucket(bucket).key(key).build();
+        GetObjectRequest getRequest =
+                GetObjectRequest.builder().bucket(threadDumpBucket).key(key).build();
         return storage.getObject(getRequest);
     }
 
@@ -495,24 +516,34 @@ public class DiagnosticsHelper {
     }
 
     public List<S3Object> listThreadDumps(Target target) {
-        String jvmId = target.jvmId;
-        if (Objects.isNull(jvmId)) {
-            throw new IllegalArgumentException();
+        ListObjectsV2Request.Builder builder =
+                ListObjectsV2Request.builder().bucket(threadDumpBucket);
+        if (target != null) {
+            String jvmId = target.jvmId;
+            if (StringUtils.isNotBlank(jvmId)) {
+                builder = builder.prefix(jvmId);
+            }
         }
-        var req = ListObjectsV2Request.builder().bucket(bucket).prefix(jvmId).build();
-        return storage.listObjectsV2(req).contents();
+        return storage.listObjectsV2(builder.build()).contents();
     }
 
     public List<S3Object> listHeapDumps(Target target) {
         var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket);
-        String jvmId = target.jvmId;
-        if (Objects.isNull(jvmId)) {
-            throw new IllegalArgumentException();
-        }
-        if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+        if (target != null) {
+            String jvmId = target.jvmId;
+            if (StringUtils.isNotBlank(jvmId)) {
+                builder = builder.prefix(jvmId);
+            }
         }
         return storage.listObjectsV2(builder.build()).contents();
+    }
+
+    public Optional<Metadata> getThreadDumpMetadata(String storageKey) {
+        return getObjectMetadata(storageKey, threadDumpBucket);
+    }
+
+    public Optional<Metadata> getHeapDumpMetadata(String storageKey) {
+        return getObjectMetadata(storageKey, heapDumpBucket);
     }
 
     // Labels Handling
@@ -545,7 +576,7 @@ public class DiagnosticsHelper {
                     // later using computeIfAbsent, wrap it in a copy constructor.
                     return Optional.of(new Metadata(new HashMap<>(resp.metadata())));
                 case BUCKET:
-                    return storageBucket.equals(bucket)
+                    return storageBucket.equals(threadDumpBucket)
                             ? threadDumpsMetadataService.get().read(storageKey)
                             : heapDumpsMetadataService.get().read(storageKey);
                 default:
@@ -650,7 +681,7 @@ public class DiagnosticsHelper {
                                 ConfigProperties.STORAGE_METADATA_STORAGE_MODE,
                                 metadataStorageMode));
             case BUCKET:
-                if (storageBucket.equals(bucket)) {
+                if (storageBucket.equals(threadDumpBucket)) {
                     threadDumpsMetadataService.get().update(jvmId, identifier, updatedMetadata);
                 } else {
                     heapDumpsMetadataService.get().update(jvmId, identifier, updatedMetadata);
@@ -665,16 +696,16 @@ public class DiagnosticsHelper {
 
     public ThreadDump updateThreadDumpMetadata(
             String jvmId, String threadDumpId, Map<String, String> metadata) throws IOException {
-        var response = assertObjectExists(jvmId, threadDumpId, bucket);
-        Metadata updatedMetadata = updateMetadata(jvmId, threadDumpId, metadata, bucket);
+        var response = assertObjectExists(jvmId, threadDumpId, threadDumpBucket);
+        Metadata updatedMetadata = updateMetadata(jvmId, threadDumpId, metadata, threadDumpBucket);
 
         long size = response.contentLength();
-        long lastModified = response.lastModified().toEpochMilli();
+        long lastModified = response.lastModified().getEpochSecond();
 
         ThreadDump updatedDump =
                 new ThreadDump(
                         jvmId,
-                        downloadUrl(jvmId, threadDumpId),
+                        threadDumpDownloadUrl(jvmId, threadDumpId),
                         threadDumpId,
                         lastModified,
                         size,
@@ -697,12 +728,12 @@ public class DiagnosticsHelper {
         Metadata updatedMetadata = updateMetadata(jvmId, heapDumpId, metadata, heapDumpBucket);
 
         long size = response.contentLength();
-        long lastModified = response.lastModified().toEpochMilli();
+        long lastModified = response.lastModified().getEpochSecond();
 
         HeapDump updatedDump =
                 new HeapDump(
                         jvmId,
-                        downloadUrl(jvmId, heapDumpId),
+                        heapDumpDownloadUrl(jvmId, heapDumpId),
                         heapDumpId,
                         lastModified,
                         size,
@@ -752,8 +783,8 @@ public class DiagnosticsHelper {
                 Objects.requireNonNull(threadDump);
             }
 
-            public static Payload of(Target target, ThreadDump dump, String jobId) {
-                return new Payload(target.alias, dump, jobId);
+            public static Payload of(ThreadDump dump, String jobId) {
+                return new Payload(dump.jvmId(), dump, jobId);
             }
         }
     }
@@ -770,8 +801,8 @@ public class DiagnosticsHelper {
                 Objects.requireNonNull(heapDump);
             }
 
-            public static Payload of(Target target, HeapDump heapDump) {
-                return new Payload(target.jvmId, heapDump);
+            public static Payload of(String jvmId, HeapDump heapDump) {
+                return new Payload(jvmId, heapDump);
             }
         }
     }
