@@ -260,7 +260,7 @@ public class Diagnostics {
     @GET
     public Collection<ArchivedHeapDumpDirectory> listFsHeapDumps() {
         var map = new HashMap<String, ArchivedHeapDumpDirectory>();
-        helper.listThreadDumpObjects()
+        helper.listHeapDumpObjects()
                 .forEach(
                         item -> {
                             String path = item.key().strip();

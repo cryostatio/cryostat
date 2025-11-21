@@ -205,12 +205,12 @@ public class DiagnosticsHelper {
         deleteHeapDump(heapDumpId, target.jvmId);
     }
 
-    public List<S3Object> listThreadDumpObjects() {
-        return listThreadDumpObjects(null);
+    public List<S3Object> listHeapDumpObjects() {
+        return listHeapDumpObjects(null);
     }
 
-    public List<S3Object> listThreadDumpObjects(String jvmId) {
-        var builder = ListObjectsV2Request.builder().bucket(threadDumpBucket);
+    public List<S3Object> listHeapDumpObjects(String jvmId) {
+        var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket);
         if (StringUtils.isNotBlank(jvmId)) {
             builder = builder.prefix(jvmId);
         }
@@ -295,6 +295,18 @@ public class DiagnosticsHelper {
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
+    }
+
+    public List<S3Object> listThreadDumpObjects() {
+        return listThreadDumpObjects(null);
+    }
+
+    public List<S3Object> listThreadDumpObjects(String jvmId) {
+        var builder = ListObjectsV2Request.builder().bucket(threadDumpBucket);
+        if (StringUtils.isNotBlank(jvmId)) {
+            builder = builder.prefix(jvmId);
+        }
+        return storage.listObjectsV2(builder.build()).contents();
     }
 
     public List<ThreadDump> getThreadDumps(String jvmId) {
