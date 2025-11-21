@@ -69,7 +69,6 @@ public class TargetNodes {
     @Inject AnalysisReportAggregator reportAggregator;
     @Inject DiagnosticsHelper diagnosticsHelper;
 
-    @Transactional
     @Query("targetNodes")
     @Description("Get the Target discovery nodes, i.e. the leaf nodes of the discovery tree")
     public List<DiscoveryNode> getTargetNodes(DiscoveryNodeFilter filter) {
@@ -103,7 +102,6 @@ public class TargetNodes {
         return recordings;
     }
 
-    @Transactional
     @Description("Retrieve a list of archived recordings belonging to the target")
     public ArchivedRecordings archivedRecordings(
             @Source Target target, @Nullable ArchivedRecordingsFilter filter) {
@@ -119,7 +117,6 @@ public class TargetNodes {
         return recordings;
     }
 
-    @Transactional
     @Description("Retrieve a list of thread dumps belonging to the target")
     public ThreadDumps threadDumps(@Source Target target, @Nullable ThreadDumpsFilter filter) {
         var fTarget = Target.getTargetById(target.id);
@@ -134,7 +131,6 @@ public class TargetNodes {
         return threadDumps;
     }
 
-    @Transactional
     @Description("Retrieve a list of heap dumps belonging to the target")
     public HeapDumps heapDumps(@Source Target target, @Nullable HeapDumpsFilter filter) {
         var fTarget = Target.getTargetById(target.id);
@@ -149,7 +145,6 @@ public class TargetNodes {
         return heapDumps;
     }
 
-    @Transactional
     @Description(
             """
             Retrieve an automated analysis report from the selected target(s). If there is no report currently
@@ -209,7 +204,6 @@ public class TargetNodes {
         return recordings;
     }
 
-    @Transactional
     @Description("Get live MBean metrics snapshot from the specified Target")
     public MBeanMetrics mbeanMetrics(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
