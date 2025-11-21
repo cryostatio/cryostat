@@ -37,6 +37,7 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
@@ -334,6 +335,7 @@ public class Diagnostics {
     @Path("targets/{targetId}/heapdump")
     @RolesAllowed("read")
     @Blocking
+    @Transactional
     @GET
     public List<HeapDump> getHeapDumps(@RestPath long targetId) {
         log.tracev("Fetching heap dumps for target: {0}", targetId);
@@ -342,12 +344,14 @@ public class Diagnostics {
 
     @DELETE
     @Blocking
-    @Transactional
     @Path("targets/{targetId}/heapdump/{heapDumpId}")
     @RolesAllowed("write")
     public void deleteHeapDump(@RestPath String heapDumpId, @RestPath long targetId) {
         log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
-        helper.deleteHeapDump(heapDumpId, Target.getTargetById(targetId));
+        helper.deleteHeapDump(
+                QuarkusTransaction.joiningExisting()
+                        .call(() -> Target.getTargetById(targetId).jvmId),
+                heapDumpId);
     }
 
     @DELETE

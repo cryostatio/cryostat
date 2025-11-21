@@ -200,11 +200,6 @@ public class DiagnosticsHelper {
                 new Notification(event.category().category(), event.payload()));
     }
 
-    public void deleteHeapDump(String heapDumpId, Target target)
-            throws BadRequestException, NoSuchKeyException {
-        deleteHeapDump(heapDumpId, target.jvmId);
-    }
-
     public List<S3Object> listHeapDumpObjects() {
         return listHeapDumpObjects(null);
     }
@@ -218,7 +213,12 @@ public class DiagnosticsHelper {
     }
 
     public List<HeapDump> getHeapDumps(String jvmId) {
-        return getHeapDumps(jvmId == null ? null : Target.getTargetByJvmId(jvmId).get());
+        return getHeapDumps(
+                jvmId == null
+                        ? null
+                        : QuarkusTransaction.joiningExisting()
+                                .call(() -> Target.getTargetByJvmId(jvmId))
+                                .get());
     }
 
     public List<HeapDump> getHeapDumps(Target target) {

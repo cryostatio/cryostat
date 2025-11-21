@@ -27,7 +27,6 @@ import io.cryostat.graphql.TargetNodes.HeapDumpAggregateInfo;
 import io.cryostat.graphql.TargetNodes.HeapDumps;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
-import io.cryostat.targets.Target;
 
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
@@ -57,8 +56,7 @@ public class HeapDumpGraphQL {
     @NonNull
     @Description("Delete a heap dump")
     public HeapDump doDelete(@Source HeapDump dump) throws IOException {
-        diagnosticsHelper.deleteHeapDump(
-                dump.heapDumpId(), Target.getTargetByJvmId(dump.jvmId()).get());
+        diagnosticsHelper.deleteHeapDump(dump.jvmId(), dump.heapDumpId());
         return dump;
     }
 
