@@ -352,7 +352,7 @@ public class Diagnostics {
 
     @DELETE
     @Blocking
-    @Path("fs/heapddumps/{jvmId}/{heapDumpId}")
+    @Path("fs/heapdumps/{jvmId}/{heapDumpId}")
     @RolesAllowed("write")
     public void deleteHeapDumpByPath(@RestPath String jvmId, @RestPath String heapDumpId) {
         log.tracev("Deleting heap dump with ID: {0}", heapDumpId);

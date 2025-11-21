@@ -749,7 +749,21 @@ info:
   version: 4.2.0-snapshot
 openapi: 3.1.0
 paths:
-  /api/beta/diagnostics/fs/heapddumps/{jvmId}/{heapDumpId}:
+  /api/beta/diagnostics/fs/heapdumps:
+    get:
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ArchivedHeapDumpDirectory'
+                type: array
+          description: OK
+      summary: List Fs Heap Dumps
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/fs/heapdumps/{jvmId}/{heapDumpId}:
     delete:
       parameters:
         - in: path
@@ -766,20 +780,6 @@ paths:
         "204":
           description: No Content
       summary: Delete Heap Dump By Path
-      tags:
-        - Diagnostics
-  /api/beta/diagnostics/fs/heapdumps:
-    get:
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/ArchivedHeapDumpDirectory'
-                type: array
-          description: OK
-      summary: List Fs Heap Dumps
       tags:
         - Diagnostics
   /api/beta/diagnostics/fs/threaddumps:
