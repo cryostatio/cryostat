@@ -218,7 +218,7 @@ public class DiagnosticsHelper {
     }
 
     public List<HeapDump> getHeapDumps(String jvmId) {
-        return getHeapDumps(Target.getTargetByJvmId(jvmId).get());
+        return getHeapDumps(jvmId == null ? null : Target.getTargetByJvmId(jvmId).get());
     }
 
     public List<HeapDump> getHeapDumps(Target target) {
@@ -298,7 +298,7 @@ public class DiagnosticsHelper {
     }
 
     public List<ThreadDump> getThreadDumps(String jvmId) {
-        return getThreadDumps(Target.getTargetByJvmId(jvmId).get());
+        return getThreadDumps(jvmId == null ? null : Target.getTargetByJvmId(jvmId).get());
     }
 
     public List<ThreadDump> getThreadDumps(Target target) {
@@ -504,22 +504,24 @@ public class DiagnosticsHelper {
     }
 
     public List<S3Object> listThreadDumps(Target target) {
-        String jvmId = target.jvmId;
-        if (Objects.isNull(jvmId)) {
-            throw new IllegalArgumentException();
+        ListObjectsV2Request.Builder builder =
+                ListObjectsV2Request.builder().bucket(threadDumpBucket);
+        if (target != null) {
+            String jvmId = target.jvmId;
+            if (StringUtils.isNotBlank(jvmId)) {
+                builder = builder.prefix(jvmId);
+            }
         }
-        var req = ListObjectsV2Request.builder().bucket(threadDumpBucket).prefix(jvmId).build();
-        return storage.listObjectsV2(req).contents();
+        return storage.listObjectsV2(builder.build()).contents();
     }
 
     public List<S3Object> listHeapDumps(Target target) {
         var builder = ListObjectsV2Request.builder().bucket(heapDumpBucket);
-        String jvmId = target.jvmId;
-        if (Objects.isNull(jvmId)) {
-            throw new IllegalArgumentException();
-        }
-        if (StringUtils.isNotBlank(jvmId)) {
-            builder = builder.prefix(jvmId);
+        if (target != null) {
+            String jvmId = target.jvmId;
+            if (StringUtils.isNotBlank(jvmId)) {
+                builder = builder.prefix(jvmId);
+            }
         }
         return storage.listObjectsV2(builder.build()).contents();
     }
