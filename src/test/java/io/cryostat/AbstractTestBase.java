@@ -225,6 +225,7 @@ public abstract class AbstractTestBase {
                     continue;
                 }
                 JsonObject obj = new JsonObject(msg);
+                logger.infov("Received WebSocket message: {0}", obj.encodePrettily());
                 String msgCategory = obj.getJsonObject("meta").getString("category");
                 if (category.equals(msgCategory) && predicate.test(obj)) {
                     return obj;
