@@ -21,7 +21,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.PriorityBlockingQueue;
@@ -78,70 +77,71 @@ public class RuleService {
             new PriorityBlockingQueue<>(255, Comparator.comparing(t -> t.attempts.get()));
     private final ExecutorService activator = Executors.newSingleThreadExecutor();
 
-    void onStart(@Observes StartupEvent ev) throws InterruptedException, ExecutionException {
+    void onStart(@Observes StartupEvent ev) {
         logger.trace("RuleService started");
-        activator
-                .submit(
-                        () -> {
-                            for (Rule rule : enabledRules()) {
-                                try {
-                                    QuarkusTransaction.requiringNew()
-                                            .run(() -> applyRuleToMatchingTargets(rule));
-                                } catch (Exception e) {
-                                    logger.error(e);
-                                }
-                            }
-                        })
-                .get();
+        activator.submit(
+                () -> {
+                    for (Rule rule : enabledRules()) {
+                        try {
+                            QuarkusTransaction.requiringNew()
+                                    .run(() -> applyRuleToMatchingTargets(rule));
+                        } catch (Exception e) {
+                            logger.error(e);
+                        }
+                    }
+                });
         activator.submit(
                 () -> {
                     while (!activator.isShutdown()) {
                         ActivationAttempt attempt = null;
                         try {
                             attempt = activations.take();
-                            logger.tracev(
-                                    "Attempting to activate rule \"{0}\" for target {1} -"
-                                            + " attempt #{2}",
-                                    attempt.ruleId, attempt.targetId, attempt.attempts);
-                            bus.request(RuleExecutor.class.getName(), attempt)
-                                    .await()
-                                    .atMost(connectionFailedTimeout);
-                            logger.tracev(
-                                    "Activated rule \"{0}\" for target {1}",
-                                    attempt.ruleId, attempt.targetId);
                         } catch (InterruptedException ie) {
                             logger.trace(ie);
                             break;
-                        } catch (Exception e) {
-                            if (attempt != null) {
-                                final ActivationAttempt fAttempt = attempt;
-                                int count = attempt.incrementAndGet();
-                                int delay = (int) Math.pow(2, count);
-                                TimeUnit unit = TimeUnit.SECONDS;
-                                int limit = 5;
-                                if (count < limit) {
-                                    logger.debugv(
-                                            "Rule \"{0}\" activation attempt #{1} for target"
-                                                    + " {2} failed, rescheduling in {3}{4} ...",
-                                            attempt.ruleId,
-                                            count - 1,
-                                            attempt.targetId,
-                                            delay,
-                                            unit);
-                                    Infrastructure.getDefaultWorkerPool()
-                                            .schedule(() -> activations.add(fAttempt), delay, unit);
-                                } else {
-                                    logger.errorv(
-                                            "Rule \"{0}\" activation attempt #{1} failed for"
-                                                    + " target {2} - limit ({3}) reached! Will not"
-                                                    + " retry...",
-                                            attempt.ruleId, count, attempt.targetId, limit);
-                                }
-                            }
-                            logger.error(e);
                         }
+                        final ActivationAttempt fAttempt = attempt;
+                        Infrastructure.getDefaultWorkerPool()
+                                .submit(() -> fireAttemptExecution(fAttempt));
                     }
                 });
+    }
+
+    private void fireAttemptExecution(ActivationAttempt fAttempt) {
+        try {
+            logger.tracev(
+                    "Attempting to activate rule \"{0}\" for" + " target {1} - attempt #{2}",
+                    fAttempt.ruleId, fAttempt.targetId, fAttempt.attempts);
+            bus.request(RuleExecutor.class.getName(), fAttempt)
+                    .await()
+                    .atMost(connectionFailedTimeout);
+            logger.tracev(
+                    "Activated rule \"{0}\" for target {1}", fAttempt.ruleId, fAttempt.targetId);
+        } catch (Exception e) {
+            if (fAttempt != null) {
+                int count = fAttempt.incrementAndGet();
+                int delay = (int) Math.pow(2, count);
+                TimeUnit unit = TimeUnit.SECONDS;
+                int limit = 5;
+                if (count < limit) {
+                    logger.debugv(
+                            "Rule \"{0}\" activation attempt"
+                                    + " #{1} for target {2} failed,"
+                                    + " rescheduling in {3}{4} ...",
+                            fAttempt.ruleId, count - 1, fAttempt.targetId, delay, unit);
+                    Infrastructure.getDefaultWorkerPool()
+                            .schedule(() -> activations.add(fAttempt), delay, unit);
+                } else {
+                    logger.errorv(
+                            "Rule \"{0}\" activation attempt"
+                                    + " #{1} failed for target {2}"
+                                    + " - limit ({3}) reached! Will"
+                                    + " not retry...",
+                            fAttempt.ruleId, count, fAttempt.targetId, limit);
+                }
+            }
+            logger.error(e);
+        }
     }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
