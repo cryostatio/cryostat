@@ -336,7 +336,7 @@ public class DiagnosticsHelper {
                 jvmId,
                 heapDumpDownloadUrl(jvmId, uuid),
                 uuid,
-                object.lastModified().toEpochMilli(),
+                object.lastModified().getEpochSecond(),
                 object.size(),
                 metadata.orElse(new Metadata(Map.of())));
     }
@@ -349,7 +349,7 @@ public class DiagnosticsHelper {
                 jvmId,
                 threadDumpDownloadUrl(jvmId, uuid),
                 uuid,
-                object.lastModified().toEpochMilli(),
+                object.lastModified().getEpochSecond(),
                 object.size(),
                 metadata.orElse(new Metadata(Map.of())));
     }
@@ -700,7 +700,7 @@ public class DiagnosticsHelper {
         Metadata updatedMetadata = updateMetadata(jvmId, threadDumpId, metadata, threadDumpBucket);
 
         long size = response.contentLength();
-        long lastModified = response.lastModified().toEpochMilli();
+        long lastModified = response.lastModified().getEpochSecond();
 
         ThreadDump updatedDump =
                 new ThreadDump(
@@ -728,7 +728,7 @@ public class DiagnosticsHelper {
         Metadata updatedMetadata = updateMetadata(jvmId, heapDumpId, metadata, heapDumpBucket);
 
         long size = response.contentLength();
-        long lastModified = response.lastModified().toEpochMilli();
+        long lastModified = response.lastModified().getEpochSecond();
 
         HeapDump updatedDump =
                 new HeapDump(
