@@ -18,6 +18,9 @@ package io.cryostat.diagnostic;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,6 +36,8 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
@@ -93,6 +98,39 @@ public class Diagnostics {
     @Inject EventBus bus;
     @Inject DiagnosticsHelper helper;
 
+    @Path("fs/threaddumps")
+    @RolesAllowed("read")
+    @GET
+    public Collection<ArchivedThreadDumpDirectory> listFsThreadDumps() {
+        var map = new HashMap<String, ArchivedThreadDumpDirectory>();
+        helper.listThreadDumpObjects()
+                .forEach(
+                        item -> {
+                            String path = item.key().strip();
+                            String[] parts = path.split("/");
+                            String jvmId = parts[0];
+                            String filename = parts[1];
+
+                            Metadata metadata =
+                                    helper.getThreadDumpMetadata(path).orElseGet(Metadata::empty);
+                            var dir =
+                                    map.computeIfAbsent(
+                                            jvmId,
+                                            id ->
+                                                    new ArchivedThreadDumpDirectory(
+                                                            id, new ArrayList<>()));
+                            dir.threadDumps.add(
+                                    new ThreadDump(
+                                            jvmId,
+                                            helper.threadDumpDownloadUrl(jvmId, filename),
+                                            filename,
+                                            item.lastModified().getEpochSecond(),
+                                            item.size(),
+                                            metadata));
+                        });
+        return map.values();
+    }
+
     @Path("targets/{targetId}/threaddump")
     @RolesAllowed("write")
     @POST
@@ -125,7 +163,16 @@ public class Diagnostics {
     @RolesAllowed("write")
     public void deleteThreadDump(@RestPath long targetId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
-        helper.deleteThreadDump(Target.getTargetById(targetId), threadDumpId);
+        helper.deleteThreadDump(Target.getTargetById(targetId).jvmId, threadDumpId);
+    }
+
+    @DELETE
+    @Blocking
+    @Path("fs/threaddumps/{jvmId}/{threadDumpId}")
+    @RolesAllowed("write")
+    public void deleteThreadDump(@RestPath String jvmId, @RestPath String threadDumpId) {
+        log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
+        helper.deleteThreadDump(jvmId, threadDumpId);
     }
 
     @Path("/threaddump/download/{encodedKey}")
@@ -209,6 +256,39 @@ public class Diagnostics {
                                 "java.lang:type=Memory", "gc", null, null, Void.class));
     }
 
+    @Path("fs/heapdumps")
+    @RolesAllowed("read")
+    @GET
+    public Collection<ArchivedHeapDumpDirectory> listFsHeapDumps() {
+        var map = new HashMap<String, ArchivedHeapDumpDirectory>();
+        helper.listHeapDumpObjects()
+                .forEach(
+                        item -> {
+                            String path = item.key().strip();
+                            String[] parts = path.split("/");
+                            String jvmId = parts[0];
+                            String filename = parts[1];
+
+                            Metadata metadata =
+                                    helper.getHeapDumpMetadata(path).orElseGet(Metadata::empty);
+                            var dir =
+                                    map.computeIfAbsent(
+                                            jvmId,
+                                            id ->
+                                                    new ArchivedHeapDumpDirectory(
+                                                            id, new ArrayList<>()));
+                            dir.heapDumps.add(
+                                    new HeapDump(
+                                            jvmId,
+                                            helper.heapDumpDownloadUrl(jvmId, filename),
+                                            filename,
+                                            item.lastModified().getEpochSecond(),
+                                            item.size(),
+                                            metadata));
+                        });
+        return map.values();
+    }
+
     @Path("targets/{targetId}/heapdump")
     @RolesAllowed("write")
     @POST
@@ -248,13 +328,14 @@ public class Diagnostics {
 
     @Blocking
     Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId) {
-        var dump = helper.addHeapDump(Target.getTargetByJvmId(jvmId).get(), heapDump, jobId);
+        var dump = helper.addHeapDump(jvmId, heapDump, jobId);
         return Map.of("name", dump.heapDumpId());
     }
 
     @Path("targets/{targetId}/heapdump")
     @RolesAllowed("read")
     @Blocking
+    @Transactional
     @GET
     public List<HeapDump> getHeapDumps(@RestPath long targetId) {
         log.tracev("Fetching heap dumps for target: {0}", targetId);
@@ -267,7 +348,19 @@ public class Diagnostics {
     @RolesAllowed("write")
     public void deleteHeapDump(@RestPath String heapDumpId, @RestPath long targetId) {
         log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
-        helper.deleteHeapDump(heapDumpId, Target.getTargetById(targetId));
+        helper.deleteHeapDump(
+                QuarkusTransaction.joiningExisting()
+                        .call(() -> Target.getTargetById(targetId).jvmId),
+                heapDumpId);
+    }
+
+    @DELETE
+    @Blocking
+    @Path("fs/heapdumps/{jvmId}/{heapDumpId}")
+    @RolesAllowed("write")
+    public void deleteHeapDumpByPath(@RestPath String jvmId, @RestPath String heapDumpId) {
+        log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
+        helper.deleteHeapDump(jvmId, heapDumpId);
     }
 
     @Path("/heapdump/download/{encodedKey}")
@@ -333,6 +426,14 @@ public class Diagnostics {
                 .build();
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
+    public record ArchivedHeapDumpDirectory(String jvmId, List<HeapDump> heapDumps) {
+        public ArchivedHeapDumpDirectory {
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(heapDumps);
+        }
+    }
+
     public record HeapDump(
             String jvmId,
             String downloadUrl,
@@ -346,6 +447,14 @@ public class Diagnostics {
             Objects.requireNonNull(downloadUrl);
             Objects.requireNonNull(heapDumpId);
             Objects.requireNonNull(metadata);
+        }
+    }
+
+    @SuppressFBWarnings("EI_EXPOSE_REP")
+    public record ArchivedThreadDumpDirectory(String jvmId, List<ThreadDump> threadDumps) {
+        public ArchivedThreadDumpDirectory {
+            Objects.requireNonNull(jvmId);
+            Objects.requireNonNull(threadDumps);
         }
     }
 
