@@ -42,6 +42,7 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
 import io.vertx.ext.web.handler.HttpException;
@@ -149,7 +150,10 @@ public class DiagnosticsHelper {
     }
 
     public String generateFileName(String jvmId, String uuid, String extension) {
-        Target t = Target.getTargetByJvmId(jvmId).get();
+        Target t =
+                QuarkusTransaction.joiningExisting()
+                        .call(() -> Target.getTargetByJvmId(jvmId))
+                        .get();
         if (Objects.isNull(t)) {
             log.errorv("jvmId {0} failed to resolve to target. Defaulting to uuid.", jvmId);
             return uuid;
@@ -301,7 +305,11 @@ public class DiagnosticsHelper {
                 PutObjectRequest.builder()
                         .bucket(bucket)
                         .key(storageKey(target.jvmId, uuid))
-                        .contentType(MediaType.TEXT_PLAIN)
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .contentDisposition(
+                                String.format(
+                                        "attachment; filename=\"%s\"",
+                                        generateFileName(target.jvmId, uuid, ".thread_dump")))
                         .build();
         storage.putObject(req, RequestBody.fromString(content));
         return new ThreadDump(
@@ -314,8 +322,6 @@ public class DiagnosticsHelper {
     }
 
     public HeapDump addHeapDump(Target target, FileUpload heapDump, String requestId) {
-        // TODO: Logic to delete the uploaded file after adding to storage
-        // See #1046
         String filename = heapDump.fileName().strip();
         if (StringUtils.isBlank(filename)) {
             throw new BadRequestException();
@@ -329,7 +335,8 @@ public class DiagnosticsHelper {
                 PutObjectRequest.builder()
                         .bucket(heapDumpBucket)
                         .key(storageKey(target.jvmId, filename))
-                        .contentType(MediaType.TEXT_PLAIN);
+                        .contentType(MediaType.APPLICATION_OCTET_STREAM)
+                        .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
 
         storage.putObject(reqBuilder.build(), RequestBody.fromFile(heapDump.filePath()));
         var dump =

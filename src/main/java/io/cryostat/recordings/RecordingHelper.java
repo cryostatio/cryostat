@@ -1336,7 +1336,8 @@ public class RecordingHelper {
                 PutObjectRequest.builder()
                         .bucket(archiveBucket)
                         .key(key)
-                        .contentType(HttpMimeType.JFR.mime());
+                        .contentType(HttpMimeType.JFR.mime())
+                        .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
         switch (storageMode()) {
             case TAGGING:
                 requestBuilder =

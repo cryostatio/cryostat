@@ -17,7 +17,6 @@ package io.cryostat.diagnostic;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -26,7 +25,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
-import io.cryostat.Producers;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
@@ -36,7 +34,6 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.HttpMimeType;
 
 import io.smallrye.common.annotation.Blocking;
-import io.smallrye.common.annotation.Identifier;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -52,7 +49,6 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
-import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -81,10 +77,6 @@ public class Diagnostics {
     @Inject S3Presigner presigner;
     @Inject Logger log;
     @Inject LongRunningRequestGenerator generator;
-
-    @Inject
-    @Identifier(Producers.BASE64_URL)
-    Base64 base64Url;
 
     @ConfigProperty(name = ConfigProperties.AWS_BUCKET_NAME_THREAD_DUMPS)
     String threadDumpsBucket;
@@ -148,17 +140,17 @@ public class Diagnostics {
         String key = helper.storageKey(decodedKey);
         storage.headObject(HeadObjectRequest.builder().bucket(threadDumpsBucket).key(key).build())
                 .sdkHttpResponse();
+        String contentName =
+                StringUtils.isNotBlank(filename)
+                        ? filename
+                        : helper.generateFileName(
+                                decodedKey.getLeft(), decodedKey.getRight(), ".thread_dump");
 
         if (!presignedDownloadsEnabled) {
             return ResponseBuilder.ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
-                            String.format(
-                                    "attachment; filename=\"%s\"",
-                                    helper.generateFileName(
-                                            decodedKey.getLeft(),
-                                            decodedKey.getRight(),
-                                            ".thread_dump")))
+                            String.format("attachment; filename=\"%s\"", contentName))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(helper.getThreadDumpStream(encodedKey))
                     .build();
@@ -189,22 +181,12 @@ public class Diagnostics {
                                 uri.getFragment());
             }
         }
-        ResponseBuilder<Object> response =
-                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT);
-        response =
-                response.header(
+        return ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
+                .header(
                         HttpHeaders.CONTENT_DISPOSITION,
-                        String.format(
-                                "attachment; filename=\"%s\"",
-                                filename.isBlank()
-                                        ? helper.generateFileName(
-                                                decodedKey.getLeft(),
-                                                decodedKey.getRight(),
-                                                ".thread_dump")
-                                        : new String(
-                                                base64Url.decode(filename),
-                                                StandardCharsets.UTF_8)));
-        return response.location(uri).build();
+                        String.format("attachment; filename=\"%s\"", contentName))
+                .location(uri)
+                .build();
     }
 
     @Path("targets/{targetId}/gc")
@@ -314,15 +296,14 @@ public class Diagnostics {
             log.warnv("Failed to find heap dump for key {0}", decodedKey.toString());
             throw new NotFoundException(e);
         }
+        String contentName = StringUtils.isNotBlank(filename) ? filename : decodedKey.getRight();
 
         if (!presignedDownloadsEnabled) {
             log.tracev("Non presigned download, sending response");
             return ResponseBuilder.ok()
                     .header(
                             HttpHeaders.CONTENT_DISPOSITION,
-                            String.format(
-                                    "attachment; filename=\"%s\"",
-                                    filename.isBlank() ? decodedKey.getRight() : filename))
+                            String.format("attachment; filename=\"%s\"", contentName))
                     .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
                     .entity(helper.getHeapDumpStream(encodedKey))
                     .build();
@@ -353,19 +334,12 @@ public class Diagnostics {
                                 uri.getFragment());
             }
         }
-        ResponseBuilder<Object> response =
-                ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT);
-        response =
-                response.header(
+        return ResponseBuilder.create(RestResponse.Status.PERMANENT_REDIRECT)
+                .header(
                         HttpHeaders.CONTENT_DISPOSITION,
-                        String.format(
-                                "attachment; filename=\"%s\"",
-                                filename.isBlank()
-                                        ? decodedKey.getLeft()
-                                        : new String(
-                                                base64Url.decode(filename),
-                                                StandardCharsets.UTF_8)));
-        return response.location(uri).build();
+                        String.format("attachment; filename=\"%s\"", contentName))
+                .location(uri)
+                .build();
     }
 
     public record HeapDump(
