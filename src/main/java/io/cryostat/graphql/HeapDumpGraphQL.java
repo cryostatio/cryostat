@@ -67,7 +67,8 @@ public class HeapDumpGraphQL {
         diagnosticsHelper.updateHeapDumpMetadata(
                 heapDump.jvmId(), heapDump.heapDumpId(), metadataInput.getLabels());
 
-        String downloadUrl = diagnosticsHelper.downloadUrl(heapDump.jvmId(), heapDump.heapDumpId());
+        String downloadUrl =
+                diagnosticsHelper.heapDumpDownloadUrl(heapDump.jvmId(), heapDump.heapDumpId());
 
         return new HeapDump(
                 heapDump.jvmId(),

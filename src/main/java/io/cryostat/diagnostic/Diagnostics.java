@@ -122,7 +122,7 @@ public class Diagnostics {
                             dir.threadDumps.add(
                                     new ThreadDump(
                                             jvmId,
-                                            helper.downloadUrl(jvmId, filename),
+                                            helper.threadDumpDownloadUrl(jvmId, filename),
                                             filename,
                                             item.lastModified().getEpochSecond(),
                                             item.size(),
@@ -280,7 +280,7 @@ public class Diagnostics {
                             dir.heapDumps.add(
                                     new HeapDump(
                                             jvmId,
-                                            helper.downloadUrl(jvmId, filename),
+                                            helper.heapDumpDownloadUrl(jvmId, filename),
                                             filename,
                                             item.lastModified().getEpochSecond(),
                                             item.size(),

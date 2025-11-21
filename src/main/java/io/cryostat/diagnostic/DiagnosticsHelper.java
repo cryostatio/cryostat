@@ -190,7 +190,7 @@ public class DiagnosticsHelper {
                                 jvmId,
                                 new HeapDump(
                                         jvmId,
-                                        downloadUrl(jvmId, heapDumpId),
+                                        heapDumpDownloadUrl(jvmId, heapDumpId),
                                         heapDumpId,
                                         0,
                                         0,
@@ -286,7 +286,7 @@ public class DiagnosticsHelper {
                         ThreadDumpEvent.Payload.of(
                                 new ThreadDump(
                                         jvmId,
-                                        downloadUrl(jvmId, threadDumpId),
+                                        threadDumpDownloadUrl(jvmId, threadDumpId),
                                         threadDumpId,
                                         0,
                                         0,
@@ -318,7 +318,7 @@ public class DiagnosticsHelper {
                 .map(
                         item -> {
                             try {
-                                return convertObject(item);
+                                return convertThreadDump(item);
                             } catch (Exception e) {
                                 log.error(e);
                                 return null;
@@ -341,13 +341,13 @@ public class DiagnosticsHelper {
                 metadata.orElse(new Metadata(Map.of())));
     }
 
-    private ThreadDump convertObject(S3Object object) throws Exception {
+    private ThreadDump convertThreadDump(S3Object object) throws Exception {
         String jvmId = object.key().split("/")[0];
         String uuid = object.key().split("/")[1];
         Optional<Metadata> metadata = getThreadDumpMetadata(storageKey(jvmId, uuid));
         return new ThreadDump(
                 jvmId,
-                downloadUrl(jvmId, uuid),
+                threadDumpDownloadUrl(jvmId, uuid),
                 uuid,
                 object.lastModified().toEpochMilli(),
                 object.size(),
@@ -391,7 +391,7 @@ public class DiagnosticsHelper {
         storage.putObject(req.build(), RequestBody.fromString(content));
         return new ThreadDump(
                 target.jvmId,
-                downloadUrl(target.jvmId, uuid),
+                threadDumpDownloadUrl(target.jvmId, uuid),
                 uuid,
                 clock.now().getEpochSecond(),
                 content.length(),
@@ -457,7 +457,7 @@ public class DiagnosticsHelper {
         return dump;
     }
 
-    public String downloadUrl(String jvmId, String filename) {
+    public String threadDumpDownloadUrl(String jvmId, String filename) {
         return String.format(
                 "/api/beta/diagnostics/threaddump/download/%s", encodedKey(jvmId, filename));
     }
@@ -705,7 +705,7 @@ public class DiagnosticsHelper {
         ThreadDump updatedDump =
                 new ThreadDump(
                         jvmId,
-                        downloadUrl(jvmId, threadDumpId),
+                        threadDumpDownloadUrl(jvmId, threadDumpId),
                         threadDumpId,
                         lastModified,
                         size,
@@ -733,7 +733,7 @@ public class DiagnosticsHelper {
         HeapDump updatedDump =
                 new HeapDump(
                         jvmId,
-                        downloadUrl(jvmId, heapDumpId),
+                        heapDumpDownloadUrl(jvmId, heapDumpId),
                         heapDumpId,
                         lastModified,
                         size,

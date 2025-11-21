@@ -70,7 +70,8 @@ public class ThreadDumpGraphQL {
                 threadDump.jvmId(), threadDump.threadDumpId(), metadataInput.getLabels());
 
         String downloadUrl =
-                diagnosticsHelper.downloadUrl(threadDump.jvmId(), threadDump.threadDumpId());
+                diagnosticsHelper.threadDumpDownloadUrl(
+                        threadDump.jvmId(), threadDump.threadDumpId());
 
         return new ThreadDump(
                 threadDump.jvmId(),
