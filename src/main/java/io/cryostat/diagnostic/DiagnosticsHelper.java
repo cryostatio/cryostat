@@ -386,7 +386,7 @@ public class DiagnosticsHelper {
                 new Metadata(Map.of()));
     }
 
-    public HeapDump addHeapDump(Target target, FileUpload heapDump, String requestId) {
+    public HeapDump addHeapDump(String jvmId, FileUpload heapDump, String requestId) {
         String filename = heapDump.fileName().strip();
         if (StringUtils.isBlank(filename)) {
             throw new BadRequestException();
@@ -394,12 +394,11 @@ public class DiagnosticsHelper {
         if (!filename.endsWith(".hprof")) {
             filename = filename + ".hprof";
         }
-        log.tracev(
-                "Putting Heap dump into storage with key: {0}", storageKey(target.jvmId, filename));
+        log.tracev("Putting Heap dump into storage with key: {0}", storageKey(jvmId, filename));
         var reqBuilder =
                 PutObjectRequest.builder()
                         .bucket(heapDumpBucket)
-                        .key(storageKey(target.jvmId, filename))
+                        .key(storageKey(jvmId, filename))
                         .contentType(MediaType.APPLICATION_OCTET_STREAM)
                         .contentDisposition(String.format("attachment; filename=\"%s\"", filename));
 
@@ -412,9 +411,7 @@ public class DiagnosticsHelper {
                 break;
             case BUCKET:
                 try {
-                    heapDumpsMetadataService
-                            .get()
-                            .create(target.jvmId, filename, new Metadata(Map.of()));
+                    heapDumpsMetadataService.get().create(jvmId, filename, new Metadata(Map.of()));
                 } catch (IOException ioe) {
                     log.warn(ioe);
                 }
@@ -426,15 +423,15 @@ public class DiagnosticsHelper {
         storage.putObject(reqBuilder.build(), RequestBody.fromFile(heapDump.filePath()));
         var dump =
                 new HeapDump(
-                        target.jvmId,
-                        heapDumpDownloadUrl(target.jvmId, filename),
+                        jvmId,
+                        heapDumpDownloadUrl(jvmId, filename),
                         filename,
                         clock.now().getEpochSecond(),
                         heapDump.filePath().toFile().length(),
                         new Metadata(Map.of()));
         var event =
                 new HeapDumpEvent(
-                        EventCategory.HEAP_DUMP_UPLOADED, HeapDumpEvent.Payload.of(target, dump));
+                        EventCategory.HEAP_DUMP_UPLOADED, HeapDumpEvent.Payload.of(jvmId, dump));
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
