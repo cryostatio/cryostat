@@ -749,6 +749,25 @@ info:
   version: 4.2.0-snapshot
 openapi: 3.1.0
 paths:
+  /api/beta/diagnostics/fs/heapddumps/{jvmId}/{heapDumpId}:
+    delete:
+      parameters:
+        - in: path
+          name: heapDumpId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete Heap Dump By Path
+      tags:
+        - Diagnostics
   /api/beta/diagnostics/fs/heapdumps:
     get:
       responses:
@@ -775,6 +794,25 @@ paths:
                 type: array
           description: OK
       summary: List Fs Thread Dumps
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/fs/threaddumps/{jvmId}/{threadDumpId}:
+    delete:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: threadDumpId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete Thread Dump
       tags:
         - Diagnostics
   /api/beta/diagnostics/heapdump/download/{encodedKey}:
