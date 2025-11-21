@@ -165,6 +165,15 @@ public class Diagnostics {
         helper.deleteThreadDump(Target.getTargetById(targetId).jvmId, threadDumpId);
     }
 
+    @DELETE
+    @Blocking
+    @Path("fs/threaddumps/{jvmId}/{threadDumpId}")
+    @RolesAllowed("write")
+    public void deleteThreadDump(@RestPath String jvmId, @RestPath String threadDumpId) {
+        log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
+        helper.deleteThreadDump(jvmId, threadDumpId);
+    }
+
     @Path("/threaddump/download/{encodedKey}")
     @RolesAllowed("read")
     @Blocking
@@ -333,11 +342,21 @@ public class Diagnostics {
 
     @DELETE
     @Blocking
+    @Transactional
     @Path("targets/{targetId}/heapdump/{heapDumpId}")
     @RolesAllowed("write")
     public void deleteHeapDump(@RestPath String heapDumpId, @RestPath long targetId) {
         log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
         helper.deleteHeapDump(heapDumpId, Target.getTargetById(targetId));
+    }
+
+    @DELETE
+    @Blocking
+    @Path("fs/heapddumps/{jvmId}/{heapDumpId}")
+    @RolesAllowed("write")
+    public void deleteHeapDumpByPath(@RestPath String jvmId, @RestPath String heapDumpId) {
+        log.tracev("Deleting heap dump with ID: {0}", heapDumpId);
+        helper.deleteHeapDump(jvmId, heapDumpId);
     }
 
     @Path("/heapdump/download/{encodedKey}")

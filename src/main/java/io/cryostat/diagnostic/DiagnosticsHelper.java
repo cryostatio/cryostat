@@ -161,9 +161,8 @@ public class DiagnosticsHelper {
         return t.alias + "_" + uuid + extension;
     }
 
-    public void deleteHeapDump(String heapDumpId, Target target)
+    public void deleteHeapDump(String jvmId, String heapDumpId)
             throws BadRequestException, NoSuchKeyException {
-        String jvmId = target.jvmId;
         String key = storageKey(jvmId, heapDumpId);
         storage.headObject(HeadObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
         storage.deleteObject(DeleteObjectRequest.builder().bucket(heapDumpBucket).key(key).build());
@@ -188,7 +187,7 @@ public class DiagnosticsHelper {
                 new HeapDumpEvent(
                         EventCategory.HEAP_DUMP_DELETED,
                         HeapDumpEvent.Payload.of(
-                                target,
+                                jvmId,
                                 new HeapDump(
                                         jvmId,
                                         downloadUrl(jvmId, heapDumpId),
@@ -199,6 +198,11 @@ public class DiagnosticsHelper {
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
+    }
+
+    public void deleteHeapDump(String heapDumpId, Target target)
+            throws BadRequestException, NoSuchKeyException {
+        deleteHeapDump(heapDumpId, target.jvmId);
     }
 
     public List<S3Object> listThreadDumpObjects() {
@@ -786,8 +790,8 @@ public class DiagnosticsHelper {
                 Objects.requireNonNull(heapDump);
             }
 
-            public static Payload of(Target target, HeapDump heapDump) {
-                return new Payload(target.jvmId, heapDump);
+            public static Payload of(String jvmId, HeapDump heapDump) {
+                return new Payload(jvmId, heapDump);
             }
         }
     }
