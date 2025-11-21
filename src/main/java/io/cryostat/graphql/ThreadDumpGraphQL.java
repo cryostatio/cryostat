@@ -27,7 +27,6 @@ import io.cryostat.graphql.TargetNodes.ThreadDumpAggregateInfo;
 import io.cryostat.graphql.TargetNodes.ThreadDumps;
 import io.cryostat.graphql.matchers.LabelSelectorMatcher;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
-import io.cryostat.targets.Target;
 
 import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
@@ -59,8 +58,7 @@ public class ThreadDumpGraphQL {
     @NonNull
     @Description("Delete a thread dump")
     public ThreadDump doDelete(@Source ThreadDump dump) throws IOException {
-        diagnosticsHelper.deleteThreadDump(
-                Target.getTargetByJvmId(dump.jvmId()).get(), dump.threadDumpId());
+        diagnosticsHelper.deleteThreadDump(dump.jvmId(), dump.threadDumpId());
         return dump;
     }
 

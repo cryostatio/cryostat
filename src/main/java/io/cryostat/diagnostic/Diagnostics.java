@@ -161,7 +161,7 @@ public class Diagnostics {
     @RolesAllowed("write")
     public void deleteThreadDump(@RestPath long targetId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
-        helper.deleteThreadDump(Target.getTargetById(targetId), threadDumpId);
+        helper.deleteThreadDump(Target.getTargetById(targetId).jvmId, threadDumpId);
     }
 
     @Path("/threaddump/download/{encodedKey}")

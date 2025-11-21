@@ -254,50 +254,43 @@ public class DiagnosticsHelper {
                 uploadFailedTimeout);
     }
 
-    public void deleteThreadDump(Target target, String threadDumpId) {
-        if (Objects.isNull(target.jvmId)) {
-            log.errorv("TargetId {0} failed to resolve to a jvmId", target.id);
-            throw new IllegalArgumentException();
-        } else {
-            String key = storageKey(target.jvmId, threadDumpId);
-            storage.headObject(
-                    HeadObjectRequest.builder().bucket(threadDumpBucket).key(key).build());
-            storage.deleteObject(
-                    DeleteObjectRequest.builder().bucket(threadDumpBucket).key(key).build());
-            switch (storageMode()) {
-                case TAGGING:
-                // fall-through
-                case METADATA:
-                    // no-op - the S3 instance will delete the tagging/metadata associated with the
-                    // object automatically
-                    break;
-                case BUCKET:
-                    try {
-                        threadDumpsMetadataService.get().delete(target.jvmId, threadDumpId);
-                    } catch (IOException ioe) {
-                        log.warn(ioe);
-                    }
-                    break;
-                default:
-                    throw new IllegalStateException();
-            }
-            var event =
-                    new ThreadDumpEvent(
-                            EventCategory.DELETED,
-                            ThreadDumpEvent.Payload.of(
-                                    target,
-                                    new ThreadDump(
-                                            target.jvmId,
-                                            downloadUrl(target.jvmId, threadDumpId),
-                                            threadDumpId,
-                                            0,
-                                            0,
-                                            new Metadata(Map.of())),
-                                    ""));
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(event.category().category(), event.payload()));
+    public void deleteThreadDump(String jvmId, String threadDumpId) {
+        String key = storageKey(jvmId, threadDumpId);
+        storage.headObject(HeadObjectRequest.builder().bucket(threadDumpBucket).key(key).build());
+        storage.deleteObject(
+                DeleteObjectRequest.builder().bucket(threadDumpBucket).key(key).build());
+        switch (storageMode()) {
+            case TAGGING:
+            // fall-through
+            case METADATA:
+                // no-op - the S3 instance will delete the tagging/metadata associated with the
+                // object automatically
+                break;
+            case BUCKET:
+                try {
+                    threadDumpsMetadataService.get().delete(jvmId, threadDumpId);
+                } catch (IOException ioe) {
+                    log.warn(ioe);
+                }
+                break;
+            default:
+                throw new IllegalStateException();
         }
+        var event =
+                new ThreadDumpEvent(
+                        EventCategory.DELETED,
+                        ThreadDumpEvent.Payload.of(
+                                new ThreadDump(
+                                        jvmId,
+                                        downloadUrl(jvmId, threadDumpId),
+                                        threadDumpId,
+                                        0,
+                                        0,
+                                        new Metadata(Map.of())),
+                                ""));
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(event.category().category(), event.payload()));
     }
 
     public List<ThreadDump> getThreadDumps(String jvmId) {
@@ -775,8 +768,8 @@ public class DiagnosticsHelper {
                 Objects.requireNonNull(threadDump);
             }
 
-            public static Payload of(Target target, ThreadDump dump, String jobId) {
-                return new Payload(target.alias, dump, jobId);
+            public static Payload of(ThreadDump dump, String jobId) {
+                return new Payload(dump.jvmId(), dump, jobId);
             }
         }
     }
