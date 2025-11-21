@@ -38,7 +38,7 @@ public class ConfigProperties {
     public static final String AWS_METADATA_PREFIX_THREAD_DUMPS =
             "storage.metadata.prefix.thread-dumps";
     public static final String AWS_METADATA_PREFIX_HEAP_DUMPS =
-            "storage.metadata.prefix.thread-dumps";
+            "storage.metadata.prefix.heap-dumps";
     public static final String AWS_METADATA_PREFIX_RECORDINGS =
             "storage.metadata.prefix.recordings";
     public static final String AWS_METADATA_PREFIX_EVENT_TEMPLATES =
