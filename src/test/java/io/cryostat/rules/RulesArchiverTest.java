@@ -99,8 +99,6 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .statusCode(201);
 
         // stop further background jobs before checking results
-        // this is enough time for 4 copies to be made, but we expect the oldest to get rolled over
-        // so 3 should remain
         worker.schedule(
                 () -> {
                     given().log()
@@ -118,10 +116,13 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                             .statusCode(204)
                             .body(Matchers.emptyOrNullString());
                 },
-                45,
+                // this is enough time for 4-5 copies to be made, but we expect the oldest to get
+                // rolled over so 3 should remain
+                50,
                 TimeUnit.SECONDS);
 
-        expectWebSocketNotification("RuleDeleted", Duration.ofSeconds(60));
+        expectWebSocketNotification("ArchivedRecordingDeleted", Duration.ofSeconds(50));
+        expectWebSocketNotification("RuleDeleted", Duration.ofSeconds(65));
 
         given().log()
                 .all()
