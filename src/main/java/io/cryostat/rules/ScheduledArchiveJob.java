@@ -18,16 +18,17 @@ package io.cryostat.rules;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
@@ -47,10 +48,6 @@ import software.amazon.awssdk.services.s3.model.S3Object;
  */
 class ScheduledArchiveJob implements Job {
 
-    private static final Pattern RECORDING_FILENAME_PATTERN =
-            Pattern.compile(
-                    "([A-Za-z\\d\\.-]*)_([A-Za-z\\d-_]*)_([\\d]*T[\\d]*Z)(\\.[\\d]+)?(\\.jfr)?");
-
     @Inject RecordingHelper recordingHelper;
     @Inject Logger logger;
 
@@ -60,11 +57,11 @@ class ScheduledArchiveJob implements Job {
     @Override
     public void execute(JobExecutionContext ctx) throws JobExecutionException {
         String jvmId = (String) ctx.getJobDetail().getJobDataMap().get("jvmId");
-        String recordingName = (String) ctx.getJobDetail().getJobDataMap().get("recordingName");
+        String ruleName = (String) ctx.getJobDetail().getJobDataMap().get("ruleName");
         int preservedArchives = (int) ctx.getJobDetail().getJobDataMap().get("preservedArchives");
 
         try {
-            List<S3Object> previousRecordings = previousRecordings(jvmId, recordingName);
+            List<S3Object> previousRecordings = previousRecordings(jvmId, ruleName);
             // minus 1 because we will continue to add one more after pruning
             if (previousRecordings.size() >= preservedArchives - 1) {
                 List<S3Object> toPrune =
@@ -123,16 +120,18 @@ class ScheduledArchiveJob implements Job {
     }
 
     List<S3Object> previousRecordings(String jvmId, String recordingName) {
-        return recordingHelper.listArchivedRecordingObjects(jvmId).stream()
+        return recordingHelper.listArchivedRecordingObjects(jvmId).parallelStream()
                 .sorted((a, b) -> b.lastModified().compareTo(a.lastModified()))
+                .map(r -> Pair.of(r, recordingHelper.getArchivedRecordingMetadata(r.key())))
                 .filter(
-                        item -> {
-                            String path = item.key().strip();
-                            String[] parts = path.split("/");
-                            String filename = parts[1];
-                            Matcher m = RECORDING_FILENAME_PATTERN.matcher(filename);
-                            return m.matches() && Objects.equals(recordingName, m.group(2));
-                        })
+                        p ->
+                                p.getRight()
+                                        .map(Metadata::labels)
+                                        .map(l -> l.get(RuleExecutor.RULE_LABEL_KEY))
+                                        .filter(StringUtils::isNotBlank)
+                                        .map(l -> Objects.equals(l, recordingName))
+                                        .orElse(false))
+                .map(Pair::getLeft)
                 .toList();
     }
 }
