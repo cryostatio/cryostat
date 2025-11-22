@@ -42,24 +42,27 @@ import org.mockito.Mockito;
 @TestHTTPEndpoint(Rules.class)
 public class RulesTest extends AbstractTransactionalTestBase {
 
+    static String RULE_NAME = "my_rule";
+
     private static final String EXPR_1 = "true";
     private static final String EXPR_2 = "false";
 
     @InjectSpy(convertScopes = true)
     EventBus bus;
 
-    JsonObject rule;
-
-    {
-        rule = new JsonObject();
-        rule.put("name", RULE_NAME);
-        rule.put("matchExpression", EXPR_1);
-        rule.put("eventSpecifier", "my_event_specifier");
-        rule.put("enabled", true);
-        rule.put("metadata", Map.of("labels", Map.of("a", "b")));
-    }
-
-    static String RULE_NAME = "my_rule";
+    JsonObject rule =
+            new JsonObject(
+                    Map.of(
+                            "name",
+                            RULE_NAME,
+                            "matchExpression",
+                            EXPR_1,
+                            "eventSpecifier",
+                            "my_event_specifier",
+                            "enabled",
+                            true,
+                            "metadata",
+                            Map.of("labels", Map.of("a", "b"))));
 
     @Test
     public void testListEmpty() {
