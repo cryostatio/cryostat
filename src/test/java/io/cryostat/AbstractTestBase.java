@@ -174,6 +174,55 @@ public abstract class AbstractTestBase {
                 .statusCode(204);
     }
 
+    protected void cleanupSelfActiveAndArchivedRecordings() {
+        cleanupActiveAndArchivedRecordingsForTarget(this.selfId);
+    }
+
+    protected void cleanupActiveAndArchivedRecordingsForTarget(int id) {
+        given().body(
+                        Map.of(
+                                "query",
+                                String.format(
+                                        """
+                                        query RulesArchiverTestCleanup {
+                                          targetNodes(filter: { targetIds: [%d] }) {
+                                            descendantTargets {
+                                              target {
+                                                recordings {
+                                                  active {
+                                                    data {
+                                                      doDelete {
+                                                        name
+                                                      }
+                                                    }
+                                                  }
+                                                  archived {
+                                                    data {
+                                                      doDelete {
+                                                        name
+                                                      }
+                                                    }
+                                                  }
+                                                }
+                                              }
+                                            }
+                                          }
+                                        }
+                                        """,
+                                        id)))
+                .contentType(ContentType.JSON)
+                .log()
+                .all()
+                .when()
+                .post("/api/v4/graphql")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+    }
+
     protected JsonPath graphql(String query) {
         return given().log()
                 .all()

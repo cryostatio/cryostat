@@ -138,47 +138,6 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(3));
 
-        given().body(
-                        Map.of(
-                                "query",
-                                String.format(
-                                        """
-                                        query RulesArchiverTestCleanup {
-                                          targetNodes(filter: { targetIds: [%d] }) {
-                                            descendantTargets {
-                                              target {
-                                                recordings {
-                                                  active {
-                                                    data {
-                                                      doDelete {
-                                                        name
-                                                      }
-                                                    }
-                                                  }
-                                                  archived {
-                                                    data {
-                                                      doDelete {
-                                                        name
-                                                      }
-                                                    }
-                                                  }
-                                                }
-                                              }
-                                            }
-                                          }
-                                        }
-                                        """,
-                                        id)))
-                .contentType(ContentType.JSON)
-                .log()
-                .all()
-                .when()
-                .post("/api/v4/graphql")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(200);
+        cleanupSelfActiveAndArchivedRecordings();
     }
 }
