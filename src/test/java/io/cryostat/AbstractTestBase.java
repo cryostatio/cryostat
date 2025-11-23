@@ -179,7 +179,11 @@ public abstract class AbstractTestBase {
     }
 
     protected void cleanupActiveAndArchivedRecordingsForTarget(int id) {
-        given().body(
+        if (id <= 0) {
+            return;
+        }
+        given().basePath("/")
+                .body(
                         Map.of(
                                 "query",
                                 String.format(
