@@ -52,6 +52,33 @@ import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 @QuarkusTestResource(S3StorageResource.class)
 public abstract class AbstractTestBase {
 
+    public static final String CLEANUP_QUERY =
+            """
+            query TestCleanup($targetIds: [ BigInteger! ]) {
+              targetNodes(filter: { targetIds: $targetIds }) {
+                descendantTargets {
+                  target {
+                    recordings {
+                      active {
+                        data {
+                          doDelete {
+                            name
+                          }
+                        }
+                      }
+                      archived {
+                        data {
+                          doDelete {
+                            name
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """;
     public static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
     public static final String SELFTEST_ALIAS = "selftest";
 
@@ -195,37 +222,7 @@ public abstract class AbstractTestBase {
             variables.put("targetIds", null);
         }
         given().basePath("/")
-                .body(
-                        Map.of(
-                                "query",
-                                """
-                                query AbstractTestBaseCleanup($targetIds: [ BigInteger! ]) {
-                                  targetNodes(filter: { targetIds: $targetIds }) {
-                                    descendantTargets {
-                                      target {
-                                        recordings {
-                                          active {
-                                            data {
-                                              doDelete {
-                                                name
-                                              }
-                                            }
-                                          }
-                                          archived {
-                                            data {
-                                              doDelete {
-                                                name
-                                              }
-                                            }
-                                          }
-                                        }
-                                      }
-                                    }
-                                  }
-                                }
-                                """,
-                                "variables",
-                                variables))
+                .body(Map.of("query", CLEANUP_QUERY, "variables", variables))
                 .contentType(ContentType.JSON)
                 .log()
                 .all()

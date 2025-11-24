@@ -26,6 +26,7 @@ import io.cryostat.resources.GrafanaResource;
 import io.cryostat.resources.JFRDatasourceResource;
 import io.cryostat.util.HttpMimeType;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
@@ -36,7 +37,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
 import itest.bases.StandardSelfTest;
-import itest.util.ITestCleanupFailedException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
@@ -78,23 +78,12 @@ public class UploadRecordingTest extends StandardSelfTest {
     }
 
     @AfterAll
-    public static void deleteRecording() throws Exception {
-        try {
-            HttpResponse<Buffer> resp =
-                    webClient
-                            .extensions()
-                            .delete(
-                                    String.format(
-                                            "/api/v4/targets/%d/recordings/%d",
-                                            getSelfReferenceTargetId(), RECORDING_REMOTE_ID),
-                                    REQUEST_TIMEOUT_SECONDS);
-            MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(204));
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            logger.error(
-                    new ITestCleanupFailedException(
-                            String.format("Failed to delete target recording %s", RECORDING_NAME),
-                            e));
-        }
+    public static void cleanup()
+            throws InterruptedException,
+                    TimeoutException,
+                    ExecutionException,
+                    JsonProcessingException {
+        cleanupSelfActiveAndArchivedRecordings();
     }
 
     @Test
