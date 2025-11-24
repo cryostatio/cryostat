@@ -266,7 +266,7 @@ public abstract class StandardSelfTest extends HttpClientTest {
         if (selfCustomTargetExists()) {
             cleanupActiveAndArchivedRecordingsForTarget(getSelfReferenceTargetId());
         } else {
-            cleanupSelfActiveAndArchivedRecordings();
+            cleanupActiveAndArchivedRecordingsForTarget();
         }
     }
 
