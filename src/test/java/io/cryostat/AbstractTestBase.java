@@ -20,6 +20,9 @@ import static io.restassured.RestAssured.given;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
@@ -66,8 +69,8 @@ public abstract class AbstractTestBase {
     @ConfigProperty(name = "test.storage.retry", defaultValue = "5s")
     Duration storageRetry;
 
-    @Inject Logger logger;
     @Inject S3Client storage;
+    @Inject Logger logger;
 
     protected int selfId = -1;
     protected String selfJvmId = "";
@@ -175,45 +178,54 @@ public abstract class AbstractTestBase {
     }
 
     protected void cleanupSelfActiveAndArchivedRecordings() {
-        cleanupActiveAndArchivedRecordingsForTarget(this.selfId);
+        if (selfId > 0) {
+            cleanupActiveAndArchivedRecordingsForTarget(this.selfId);
+        } else {
+            cleanupSelfActiveAndArchivedRecordings();
+        }
     }
 
-    protected void cleanupActiveAndArchivedRecordingsForTarget(int id) {
-        if (id <= 0) {
-            return;
+    protected static void cleanupActiveAndArchivedRecordingsForTarget(int... ids) {
+        cleanupActiveAndArchivedRecordingsForTarget(Arrays.stream(ids).boxed().toList());
+    }
+
+    protected static void cleanupActiveAndArchivedRecordingsForTarget(List<Integer> ids) {
+        var variables = new HashMap<String, Object>();
+        if (ids == null || ids.isEmpty()) {
+            variables.put("targetIds", null);
         }
         given().basePath("/")
                 .body(
                         Map.of(
                                 "query",
-                                String.format(
-                                        """
-                                        query RulesArchiverTestCleanup {
-                                          targetNodes(filter: { targetIds: [%d] }) {
-                                            descendantTargets {
-                                              target {
-                                                recordings {
-                                                  active {
-                                                    data {
-                                                      doDelete {
-                                                        name
-                                                      }
-                                                    }
-                                                  }
-                                                  archived {
-                                                    data {
-                                                      doDelete {
-                                                        name
-                                                      }
-                                                    }
-                                                  }
-                                                }
+                                """
+                                query AbstractTestBaseCleanup($targetIds: [ BigInteger! ]) {
+                                  targetNodes(filter: { targetIds: $targetIds }) {
+                                    descendantTargets {
+                                      target {
+                                        recordings {
+                                          active {
+                                            data {
+                                              doDelete {
+                                                name
+                                              }
+                                            }
+                                          }
+                                          archived {
+                                            data {
+                                              doDelete {
+                                                name
                                               }
                                             }
                                           }
                                         }
-                                        """,
-                                        id)))
+                                      }
+                                    }
+                                  }
+                                }
+                                """,
+                                "variables",
+                                variables))
                 .contentType(ContentType.JSON)
                 .log()
                 .all()
