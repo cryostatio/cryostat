@@ -17,13 +17,16 @@ package itest;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
@@ -34,6 +37,7 @@ import itest.bases.StandardSelfTest;
 import itest.util.ITestCleanupFailedException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -58,6 +62,15 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
 
     String optionsRequestUrl() {
         return String.format("/api/v4/targets/%d/recordingOptions", getSelfReferenceTargetId());
+    }
+
+    @AfterEach
+    void cleanup()
+            throws InterruptedException,
+                    TimeoutException,
+                    ExecutionException,
+                    JsonProcessingException {
+        cleanupSelfActiveAndArchivedRecordings();
     }
 
     @Test
