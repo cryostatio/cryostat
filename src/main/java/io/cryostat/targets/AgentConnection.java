@@ -111,7 +111,14 @@ class AgentConnection implements JFRConnection {
     @Override
     public JvmIdentifier getJvmIdentifier() throws IDException, IOException {
         try {
-            return JvmIdentifier.from(getMBeanMetrics().getRuntime());
+            return JvmIdentifier.from(
+                    invokeMBeanOperation(
+                            "io.cryostat.agent.CryostatAgent:name=agent",
+                            "getId",
+                            null,
+                            null,
+                            String.class),
+                    getMBeanMetrics().getRuntime());
         } catch (IntrospectionException | InstanceNotFoundException | ReflectionException e) {
             throw new IDException(e);
         }
