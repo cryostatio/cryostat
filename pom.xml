@@ -32,7 +32,7 @@
     <build.arch>amd64</build.arch>
 
     <io.cryostat.core.version>4.2.0-SNAPSHOT</io.cryostat.core.version>
-    <org.openjdk.jmc.version>9.1.0</org.openjdk.jmc.version>
+    <org.openjdk.jmc.version>9.1.1</org.openjdk.jmc.version>
 
     <org.apache.commons.io.version>2.16.1</org.apache.commons.io.version>
     <org.apache.commons.collections.version>4.5.0</org.apache.commons.collections.version>
