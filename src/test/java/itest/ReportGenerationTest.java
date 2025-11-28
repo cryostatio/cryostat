@@ -23,10 +23,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpMimeType;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
@@ -36,9 +38,9 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpResponse;
 import io.vertx.ext.web.handler.HttpException;
 import itest.bases.StandardSelfTest;
-import itest.util.ITestCleanupFailedException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -51,6 +53,15 @@ public class ReportGenerationTest extends StandardSelfTest {
 
     static final String TEST_RECORDING_NAME = "reportGeneration";
 
+    @AfterEach
+    void cleanup()
+            throws InterruptedException,
+                    TimeoutException,
+                    ExecutionException,
+                    JsonProcessingException {
+        cleanupSelfActiveAndArchivedRecordings();
+    }
+
     private String archivedReportRequestURL() {
         return String.format("/api/beta/reports/%s", getSelfReferenceConnectUrlEncoded());
     }
@@ -59,88 +70,63 @@ public class ReportGenerationTest extends StandardSelfTest {
         return String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId());
     }
 
-    private String archiveListRequestURL() {
-        return String.format("/api/beta/recordings/%s", getSelfReferenceConnectUrlEncoded());
-    }
-
     @Test
     void testGetActiveReport() throws Exception {
         JsonObject activeRecording = null;
-        try {
-            // Create a recording
-            CompletableFuture<JsonObject> postResponse = new CompletableFuture<>();
-            MultiMap form = MultiMap.caseInsensitiveMultiMap();
-            form.add("recordingName", TEST_RECORDING_NAME);
-            form.add("duration", "5");
-            form.add("events", "template=ALL");
+        // Create a recording
+        CompletableFuture<JsonObject> postResponse = new CompletableFuture<>();
+        MultiMap form = MultiMap.caseInsensitiveMultiMap();
+        form.add("recordingName", TEST_RECORDING_NAME);
+        form.add("duration", "5");
+        form.add("events", "template=ALL");
 
-            webClient
-                    .post(recordingRequestURL())
-                    .sendForm(
-                            form,
-                            ar -> {
-                                if (assertRequestStatus(ar, postResponse)) {
-                                    postResponse.complete(ar.result().bodyAsJsonObject());
-                                }
-                            });
+        webClient
+                .post(recordingRequestURL())
+                .sendForm(
+                        form,
+                        ar -> {
+                            if (assertRequestStatus(ar, postResponse)) {
+                                postResponse.complete(ar.result().bodyAsJsonObject());
+                            }
+                        });
 
-            activeRecording = postResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        activeRecording = postResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-            // Wait some time to get more recording data
-            Thread.sleep(5_000);
+        // Wait some time to get more recording data
+        Thread.sleep(5_000);
 
-            // Get a report for the above recording
-            HttpResponse<Buffer> resp =
-                    webClient
-                            .get(activeRecording.getString("reportUrl"))
-                            .putHeader(HttpHeaders.ACCEPT.toString(), HttpMimeType.JSON.mime())
-                            .send()
-                            .toCompletionStage()
-                            .toCompletableFuture()
-                            .get();
-            MatcherAssert.assertThat(
-                    resp.statusCode(),
-                    Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(400)));
-            MatcherAssert.assertThat(resp, Matchers.notNullValue());
-
-            // Check that report generation concludes
-            CountDownLatch latch = new CountDownLatch(1);
-            Future<JsonObject> f =
-                    worker.submit(
-                            () -> {
-                                try {
-                                    return expectNotification("ReportSuccess", 15, TimeUnit.SECONDS)
-                                            .get();
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                } finally {
-                                    latch.countDown();
-                                }
-                            });
-
-            latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            MatcherAssert.assertThat(
-                    notification.getJsonObject("message"), Matchers.notNullValue());
-        } finally {
-            if (activeRecording != null) {
-                // Clean up recording
-                CompletableFuture<JsonObject> deleteActiveRecResponse = new CompletableFuture<>();
+        // Get a report for the above recording
+        HttpResponse<Buffer> resp =
                 webClient
-                        .delete(
-                                String.format(
-                                        "%s/%d",
-                                        recordingRequestURL(), activeRecording.getLong("remoteId")))
-                        .send(
-                                ar -> {
-                                    if (assertRequestStatus(ar, deleteActiveRecResponse)) {
-                                        deleteActiveRecResponse.complete(
-                                                ar.result().bodyAsJsonObject());
-                                    }
-                                });
-                deleteActiveRecResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            }
-        }
+                        .get(activeRecording.getString("reportUrl"))
+                        .putHeader(HttpHeaders.ACCEPT.toString(), HttpMimeType.JSON.mime())
+                        .send()
+                        .toCompletionStage()
+                        .toCompletableFuture()
+                        .get();
+        MatcherAssert.assertThat(
+                resp.statusCode(),
+                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(400)));
+        MatcherAssert.assertThat(resp, Matchers.notNullValue());
+
+        // Check that report generation concludes
+        CountDownLatch latch = new CountDownLatch(1);
+        Future<JsonObject> f =
+                worker.submit(
+                        () -> {
+                            try {
+                                return expectNotification("ReportSuccess", 15, TimeUnit.SECONDS)
+                                        .get();
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                latch.countDown();
+                            }
+                        });
+
+        latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        MatcherAssert.assertThat(notification.getJsonObject("message"), Matchers.notNullValue());
     }
 
     @Test
@@ -149,190 +135,144 @@ public class ReportGenerationTest extends StandardSelfTest {
         CompletableFuture<String> saveRecordingResp = new CompletableFuture<>();
         String archivedRecordingName = null;
 
-        try {
-            // Create a recording
-            CompletableFuture<JsonObject> postResponse = new CompletableFuture<>();
-            MultiMap form = MultiMap.caseInsensitiveMultiMap();
-            form.add("recordingName", TEST_RECORDING_NAME);
-            form.add("duration", "5");
-            form.add("events", "template=ALL");
+        // Create a recording
+        CompletableFuture<JsonObject> postResponse = new CompletableFuture<>();
+        MultiMap form = MultiMap.caseInsensitiveMultiMap();
+        form.add("recordingName", TEST_RECORDING_NAME);
+        form.add("duration", "5");
+        form.add("events", "template=ALL");
 
-            webClient
-                    .post(recordingRequestURL())
-                    .sendForm(
-                            form,
-                            ar -> {
-                                if (assertRequestStatus(ar, postResponse)) {
-                                    postResponse.complete(ar.result().bodyAsJsonObject());
-                                }
-                            });
+        webClient
+                .post(recordingRequestURL())
+                .sendForm(
+                        form,
+                        ar -> {
+                            if (assertRequestStatus(ar, postResponse)) {
+                                postResponse.complete(ar.result().bodyAsJsonObject());
+                            }
+                        });
 
-            activeRecording = postResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        activeRecording = postResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
-            // Wait some time to get more recording data
-            Thread.sleep(5_000);
+        // Wait some time to get more recording data
+        Thread.sleep(5_000);
 
-            // Check that recording archiving concludes
-            CountDownLatch archiveLatch = new CountDownLatch(1);
-            Future<JsonObject> archiveFuture =
-                    worker.submit(
-                            () -> {
-                                try {
-                                    return expectNotification(
-                                                    "ArchiveRecordingSuccess", 15, TimeUnit.SECONDS)
-                                            .get();
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                } finally {
-                                    archiveLatch.countDown();
-                                }
-                            });
+        // Check that recording archiving concludes
+        CountDownLatch archiveLatch = new CountDownLatch(1);
+        Future<JsonObject> archiveFuture =
+                worker.submit(
+                        () -> {
+                            try {
+                                return expectNotification(
+                                                "ArchiveRecordingSuccess", 15, TimeUnit.SECONDS)
+                                        .get();
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                archiveLatch.countDown();
+                            }
+                        });
 
-            // Save the recording to archive
-            webClient
-                    .patch(
-                            String.format(
-                                    "%s/%d",
-                                    recordingRequestURL(), activeRecording.getLong("remoteId")))
-                    .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "text/plain;charset=UTF-8")
-                    .sendBuffer(
-                            Buffer.buffer("SAVE"),
-                            ar -> {
-                                if (assertRequestStatus(ar, saveRecordingResp)) {
-                                    MatcherAssert.assertThat(
-                                            ar.result().statusCode(),
-                                            Matchers.both(Matchers.greaterThanOrEqualTo(200))
-                                                    .and(Matchers.lessThan(400)));
-                                    MatcherAssert.assertThat(
-                                            ar.result()
-                                                    .getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                                            Matchers.equalTo("text/plain;charset=UTF-8"));
-                                    saveRecordingResp.complete(ar.result().bodyAsString());
-                                }
-                            });
+        // Save the recording to archive
+        webClient
+                .patch(
+                        String.format(
+                                "%s/%d",
+                                recordingRequestURL(), activeRecording.getLong("remoteId")))
+                .putHeader(HttpHeaders.CONTENT_TYPE.toString(), "text/plain;charset=UTF-8")
+                .sendBuffer(
+                        Buffer.buffer("SAVE"),
+                        ar -> {
+                            if (assertRequestStatus(ar, saveRecordingResp)) {
+                                MatcherAssert.assertThat(
+                                        ar.result().statusCode(),
+                                        Matchers.both(Matchers.greaterThanOrEqualTo(200))
+                                                .and(Matchers.lessThan(400)));
+                                MatcherAssert.assertThat(
+                                        ar.result().getHeader(HttpHeaders.CONTENT_TYPE.toString()),
+                                        Matchers.equalTo("text/plain;charset=UTF-8"));
+                                saveRecordingResp.complete(ar.result().bodyAsString());
+                            }
+                        });
 
-            String archiveJobId = saveRecordingResp.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            JsonObject notification = archiveFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            MatcherAssert.assertThat(
-                    notification.getJsonObject("message").getMap(),
-                    Matchers.hasEntry("jobId", archiveJobId));
-            archivedRecordingName = notification.getJsonObject("message").getString("recording");
-            MatcherAssert.assertThat(
-                    archivedRecordingName, Matchers.not(Matchers.blankOrNullString()));
+        String archiveJobId = saveRecordingResp.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        JsonObject notification = archiveFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        MatcherAssert.assertThat(
+                notification.getJsonObject("message").getMap(),
+                Matchers.hasEntry("jobId", archiveJobId));
+        archivedRecordingName = notification.getJsonObject("message").getString("recording");
+        MatcherAssert.assertThat(archivedRecordingName, Matchers.not(Matchers.blankOrNullString()));
 
-            // Request a report for the archived recording
-            CompletableFuture<String> jobIdResponse = new CompletableFuture<>();
-            webClient
-                    .get(activeRecording.getString("reportUrl"))
-                    .putHeader(HttpHeaders.ACCEPT.toString(), HttpMimeType.JSON.mime())
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, jobIdResponse)) {
-                                    MatcherAssert.assertThat(
-                                            ar.result().statusCode(),
-                                            Matchers.both(Matchers.greaterThanOrEqualTo(200))
-                                                    .and(Matchers.lessThan(400)));
-                                    MatcherAssert.assertThat(
-                                            ar.result()
-                                                    .getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                                            Matchers.equalTo("text/plain"));
-                                    jobIdResponse.complete(ar.result().bodyAsString());
-                                }
-                            });
+        // Request a report for the archived recording
+        CompletableFuture<String> jobIdResponse = new CompletableFuture<>();
+        webClient
+                .get(activeRecording.getString("reportUrl"))
+                .putHeader(HttpHeaders.ACCEPT.toString(), HttpMimeType.JSON.mime())
+                .send(
+                        ar -> {
+                            if (assertRequestStatus(ar, jobIdResponse)) {
+                                MatcherAssert.assertThat(
+                                        ar.result().statusCode(),
+                                        Matchers.both(Matchers.greaterThanOrEqualTo(200))
+                                                .and(Matchers.lessThan(400)));
+                                MatcherAssert.assertThat(
+                                        ar.result().getHeader(HttpHeaders.CONTENT_TYPE.toString()),
+                                        Matchers.equalTo("text/plain"));
+                                jobIdResponse.complete(ar.result().bodyAsString());
+                            }
+                        });
 
-            // Check that report generation concludes
-            CountDownLatch reportLatch = new CountDownLatch(1);
-            Future<JsonObject> reportFuture =
-                    worker.submit(
-                            () -> {
-                                try {
-                                    return expectNotification("ReportSuccess", 15, TimeUnit.SECONDS)
-                                            .get();
-                                } catch (Exception e) {
-                                    throw new RuntimeException(e);
-                                } finally {
-                                    reportLatch.countDown();
-                                }
-                            });
+        // Check that report generation concludes
+        CountDownLatch reportLatch = new CountDownLatch(1);
+        Future<JsonObject> reportFuture =
+                worker.submit(
+                        () -> {
+                            try {
+                                return expectNotification("ReportSuccess", 15, TimeUnit.SECONDS)
+                                        .get();
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                reportLatch.countDown();
+                            }
+                        });
 
-            // wait for report generation to complete
-            String reportJobId = jobIdResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            notification = reportFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            MatcherAssert.assertThat(
-                    notification.getJsonObject("message").getMap(),
-                    Matchers.equalTo(
-                            Map.of("jobId", reportJobId, "jvmId", getSelfReferenceJvmId())));
+        // wait for report generation to complete
+        String reportJobId = jobIdResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        notification = reportFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        MatcherAssert.assertThat(
+                notification.getJsonObject("message").getMap(),
+                Matchers.equalTo(Map.of("jobId", reportJobId, "jvmId", getSelfReferenceJvmId())));
 
-            // FIXME caching is not working in the test harness, so after the job completes we still
-            // aren't able to retrieve the report document - we just get issued a new job ID
-            //
-            // Request a report for the archived recording
-            // CompletableFuture<JsonObject> reportResponse = new CompletableFuture<>();
-            // webClient
-            //         .get(activeRecording.getString("reportUrl"))
-            //         .putHeader(HttpHeaders.ACCEPT.toString(), HttpMimeType.JSON.mime())
-            //         .send(
-            //                 ar -> {
-            //                     if (assertRequestStatus(ar, reportResponse)) {
-            //                         MatcherAssert.assertThat(
-            //                                 ar.result().statusCode(),
-            //                                 Matchers.both(Matchers.greaterThanOrEqualTo(200))
-            //                                         .and(Matchers.lessThan(400)));
-            //                         MatcherAssert.assertThat(
-            //                                 ar.result()
-            //
-            // .getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-            //                                 Matchers.equalTo("application/json;charset=UTF-8"));
-            //                         reportResponse.complete(ar.result().bodyAsJsonObject());
-            //                     }
-            //                 });
+        // FIXME caching is not working in the test harness, so after the job completes we still
+        // aren't able to retrieve the report document - we just get issued a new job ID
+        //
+        // Request a report for the archived recording
+        // CompletableFuture<JsonObject> reportResponse = new CompletableFuture<>();
+        // webClient
+        //         .get(activeRecording.getString("reportUrl"))
+        //         .putHeader(HttpHeaders.ACCEPT.toString(), HttpMimeType.JSON.mime())
+        //         .send(
+        //                 ar -> {
+        //                     if (assertRequestStatus(ar, reportResponse)) {
+        //                         MatcherAssert.assertThat(
+        //                                 ar.result().statusCode(),
+        //                                 Matchers.both(Matchers.greaterThanOrEqualTo(200))
+        //                                         .and(Matchers.lessThan(400)));
+        //                         MatcherAssert.assertThat(
+        //                                 ar.result()
+        //
+        // .getHeader(HttpHeaders.CONTENT_TYPE.toString()),
+        //                                 Matchers.equalTo("application/json;charset=UTF-8"));
+        //                         reportResponse.complete(ar.result().bodyAsJsonObject());
+        //                     }
+        //                 });
 
-            // JsonObject jsonResponse = reportResponse.get();
-            // MatcherAssert.assertThat(jsonResponse, Matchers.notNullValue());
-            // MatcherAssert.assertThat(
-            //         jsonResponse.getMap(),
-            //         Matchers.is(Matchers.aMapWithSize(Matchers.greaterThan(0))));
-        } finally {
-            if (activeRecording != null) {
-                // Clean up recording
-                CompletableFuture<JsonObject> deleteActiveRecResponse = new CompletableFuture<>();
-                webClient
-                        .delete(
-                                String.format(
-                                        "%s/%d",
-                                        recordingRequestURL(), activeRecording.getLong("remoteId")))
-                        .send(
-                                ar -> {
-                                    if (assertRequestStatus(ar, deleteActiveRecResponse)) {
-                                        deleteActiveRecResponse.complete(
-                                                ar.result().bodyAsJsonObject());
-                                    }
-                                });
-                deleteActiveRecResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            }
-
-            CompletableFuture<JsonObject> deleteArchivedRecResp = new CompletableFuture<>();
-            webClient
-                    .delete(String.format("%s/%s", archiveListRequestURL(), archivedRecordingName))
-                    .send(
-                            ar -> {
-                                if (assertRequestStatus(ar, deleteArchivedRecResp)) {
-                                    MatcherAssert.assertThat(
-                                            ar.result().statusCode(), Matchers.equalTo(204));
-                                    deleteArchivedRecResp.complete(ar.result().bodyAsJsonObject());
-                                }
-                            });
-            try {
-                deleteArchivedRecResp.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-            } catch (InterruptedException | ExecutionException e) {
-                logger.error(
-                        new ITestCleanupFailedException(
-                                String.format(
-                                        "Failed to delete archived recording %s",
-                                        archivedRecordingName),
-                                e));
-            }
-        }
+        // JsonObject jsonResponse = reportResponse.get();
+        // MatcherAssert.assertThat(jsonResponse, Matchers.notNullValue());
+        // MatcherAssert.assertThat(
+        //         jsonResponse.getMap(),
+        //         Matchers.is(Matchers.aMapWithSize(Matchers.greaterThan(0))));
     }
 
     @Test

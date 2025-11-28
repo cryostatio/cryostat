@@ -16,14 +16,19 @@
 package itest.bases;
 
 import java.net.URI;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.AbstractTestBase;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -56,10 +61,8 @@ public abstract class StandardSelfTest extends HttpClientTest {
     }
 
     @AfterAll
-    public static void assertPostconditions() throws Exception {
-        // give the server some additional time to ensure individual tests' cleanup has completed,
-        // then make assertions about the cleaned state
-        Thread.sleep(1_000);
+    public static void postCleanup() throws Exception {
+        cleanupSelfActiveAndArchivedRecordings();
         assertNoRecordings();
     }
 
@@ -251,5 +254,45 @@ public abstract class StandardSelfTest extends HttpClientTest {
 
     public static String getSelfReferenceConnectUrlEncoded() {
         return URLEncodedUtils.formatSegments(getSelfReferenceConnectUrl()).substring(1);
+    }
+
+    protected static void cleanupSelfActiveAndArchivedRecordings()
+            throws InterruptedException,
+                    TimeoutException,
+                    ExecutionException,
+                    JsonProcessingException {
+        if (selfCustomTargetExists()) {
+            cleanupActiveAndArchivedRecordingsForTarget(getSelfReferenceTargetId());
+        } else {
+            cleanupActiveAndArchivedRecordingsForTarget();
+        }
+    }
+
+    protected static void cleanupActiveAndArchivedRecordingsForTarget(long... ids)
+            throws InterruptedException,
+                    TimeoutException,
+                    ExecutionException,
+                    JsonProcessingException {
+        cleanupActiveAndArchivedRecordingsForTarget(Arrays.stream(ids).boxed().toList());
+    }
+
+    protected static void cleanupActiveAndArchivedRecordingsForTarget(List<Long> ids)
+            throws InterruptedException,
+                    TimeoutException,
+                    ExecutionException,
+                    JsonProcessingException {
+        var variables = new HashMap<String, Object>();
+        if (ids == null || ids.isEmpty()) {
+            variables.put("targetIds", null);
+        }
+        var payload =
+                Buffer.buffer(
+                        mapper.writeValueAsBytes(
+                                Map.of(
+                                        "variables",
+                                        variables,
+                                        "query",
+                                        AbstractTestBase.CLEANUP_QUERY)));
+        webClient.extensions().post("/api/v4/graphql", payload, 30);
     }
 }
