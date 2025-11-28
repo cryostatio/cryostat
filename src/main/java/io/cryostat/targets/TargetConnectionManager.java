@@ -20,6 +20,7 @@ import java.net.URI;
 import java.rmi.ConnectIOException;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +28,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.BiFunction;
 
 import javax.management.InstanceNotFoundException;
 import javax.management.remote.JMXServiceURL;
@@ -51,6 +53,7 @@ import com.github.benmanes.caffeine.cache.AsyncLoadingCache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
+import com.nimbusds.jose.proc.BadJOSEException;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -58,6 +61,8 @@ import io.smallrye.mutiny.unchecked.Unchecked;
 import io.vertx.ext.web.handler.HttpException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.PersistenceException;
+import jakarta.validation.ValidationException;
 import jakarta.ws.rs.WebApplicationException;
 import jdk.jfr.Category;
 import jdk.jfr.Event;
@@ -66,6 +71,8 @@ import jdk.jfr.Label;
 import jdk.jfr.Name;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.faulttolerance.exceptions.BulkheadException;
+import org.hibernate.JDBCException;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
 
@@ -226,6 +233,8 @@ public class TargetConnectionManager {
                 .transform(t -> unwrapNestedException(RuntimeException.class, t))
                 .onFailure()
                 .invoke(logger::warn)
+                .onFailure(this::isUnsupportedOperationException)
+                .transform(t -> new HttpException(400, t))
                 .onFailure(this::isInstanceNotFoundFailure)
                 .transform(t -> new HttpException(400, t))
                 .onFailure(this::isJmxAuthFailure)
@@ -236,10 +245,7 @@ public class TargetConnectionManager {
                 .transform(t -> new HttpException(502, t))
                 .onFailure(this::isServiceTypeFailure)
                 .transform(t -> new HttpException(504, t))
-                .onFailure(
-                        t ->
-                                !(t instanceof HttpException)
-                                        && !(t instanceof SnapshotCreationException))
+                .onFailure(t -> !this.isPropagatedFailure(t))
                 .retry()
                 .withBackOff(failedBackoff)
                 .expireIn(failedTimeout.plusMillis(System.currentTimeMillis()).toMillis())
@@ -371,7 +377,7 @@ public class TargetConnectionManager {
         T execute(JFRConnection connection) throws Exception;
     }
 
-    public Throwable unwrapNestedException(Class<?> klazz, Throwable t) {
+    private Throwable unwrapNestedException(Class<?> klazz, Throwable t) {
         final int maxDepth = 10;
         int depth = 0;
         Throwable cause = t;
@@ -385,13 +391,51 @@ public class TargetConnectionManager {
         return cause;
     }
 
-    public boolean isTargetConnectionFailure(Throwable t) {
+    @SafeVarargs
+    private boolean hasAnyCause(Throwable t, Class<? extends Exception>... causes) {
+        return hasCause(t, false, (a, b) -> a || b, causes);
+    }
+
+    @SafeVarargs
+    private boolean hasAllCauses(Throwable t, Class<? extends Exception>... causes) {
+        return hasCause(t, true, (a, b) -> a && b, causes);
+    }
+
+    @SafeVarargs
+    private boolean hasCause(
+            Throwable t,
+            boolean init,
+            BiFunction<Boolean, Boolean, Boolean> accum,
+            Class<? extends Exception>... causes) {
         if (!(t instanceof Exception)) {
             return false;
         }
-        Exception e = (Exception) t;
-        return ExceptionUtils.indexOfType(e, ConnectionException.class) >= 0
-                || ExceptionUtils.indexOfType(e, FlightRecorderException.class) >= 0;
+        boolean causal = init;
+        for (var c : causes) {
+            causal = accum.apply(causal, ExceptionUtils.indexOfType((Exception) t, c) >= 0);
+        }
+        return causal;
+    }
+
+    public boolean isPropagatedFailure(Throwable t) {
+        return hasAnyCause(
+                t,
+                HttpException.class,
+                WebApplicationException.class,
+                SnapshotCreationException.class,
+                PersistenceException.class,
+                JDBCException.class,
+                ValidationException.class,
+                NoSuchElementException.class,
+                ScriptException.class,
+                IllegalArgumentException.class,
+                IllegalStateException.class,
+                BadJOSEException.class,
+                BulkheadException.class);
+    }
+
+    public boolean isTargetConnectionFailure(Throwable t) {
+        return hasAnyCause(t, ConnectionException.class, FlightRecorderException.class);
     }
 
     /**
@@ -399,14 +443,11 @@ public class TargetConnectionManager {
      * credentials to present.
      */
     public boolean isJmxAuthFailure(Throwable t) {
-        if (!(t instanceof Exception)) {
-            return false;
-        }
-        Exception e = (Exception) t;
-        return ExceptionUtils.indexOfType(e, javax.security.auth.login.FailedLoginException.class)
-                        >= 0
-                || ExceptionUtils.indexOfType(e, SecurityException.class) >= 0
-                || ExceptionUtils.indexOfType(e, SaslException.class) >= 0;
+        return hasAnyCause(
+                t,
+                javax.security.auth.login.FailedLoginException.class,
+                SecurityException.class,
+                SaslException.class);
     }
 
     public boolean isAgentAuthFailure(Throwable t) {
@@ -420,11 +461,7 @@ public class TargetConnectionManager {
 
     /** Check if the exception happened because the agent reported an explicit failure */
     public boolean isAgentFailure(Throwable t) {
-        if (!(t instanceof Exception)) {
-            return false;
-        }
-        Exception e = (Exception) t;
-        return ExceptionUtils.indexOfType(e, WebApplicationException.class) >= 0;
+        return hasAnyCause(t, AgentApiException.class);
     }
 
     /**
@@ -432,31 +469,21 @@ public class TargetConnectionManager {
      * don't trust.
      */
     public boolean isJmxSslFailure(Throwable t) {
-        if (!(t instanceof Exception)) {
-            return false;
-        }
-        Exception e = (Exception) t;
-        return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
-                && !isServiceTypeFailure(e);
+        return hasAnyCause(t, ConnectIOException.class) && !isServiceTypeFailure(t);
     }
 
     /** Check if the exception happened because the port connected to a non-JMX service. */
     public boolean isServiceTypeFailure(Throwable t) {
-        if (!(t instanceof Exception)) {
-            return false;
-        }
-        Exception e = (Exception) t;
-        return ExceptionUtils.indexOfType(e, ConnectIOException.class) >= 0
-                && ExceptionUtils.indexOfType(e, SocketTimeoutException.class) >= 0;
+        return hasAllCauses(t, ConnectIOException.class, SocketTimeoutException.class);
+    }
+
+    public boolean isUnsupportedOperationException(Throwable t) {
+        return hasAnyCause(t, UnsupportedOperationException.class);
     }
 
     /** Check if the exception happened because an MBean was not found */
     public boolean isInstanceNotFoundFailure(Throwable t) {
-        if (!(t instanceof Exception)) {
-            return false;
-        }
-        Exception e = (Exception) t;
-        return ExceptionUtils.indexOfType(e, InstanceNotFoundException.class) >= 0;
+        return hasAnyCause(t, InstanceNotFoundException.class);
     }
 
     @Name("io.cryostat.targets.TargetConnectionManager.TargetConnectionOpened")

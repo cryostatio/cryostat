@@ -26,4 +26,8 @@ public class AgentApiException extends WebApplicationException {
     public AgentApiException(int statusCode) {
         super(String.format("Unexpected HTTP response code %d", statusCode));
     }
+
+    public AgentApiException(int statusCode, Throwable cause) {
+        super(String.format("Unexpected HTTP response code %d", statusCode), cause);
+    }
 }
