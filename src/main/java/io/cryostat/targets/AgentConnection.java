@@ -36,6 +36,7 @@ import io.cryostat.core.templates.RemoteTemplateService;
 import io.cryostat.core.templates.TemplateService;
 import io.cryostat.events.S3TemplateService;
 import io.cryostat.libcryostat.JvmIdentifier;
+import io.cryostat.libcryostat.net.CryostatAgentMXBean;
 import io.cryostat.libcryostat.net.IDException;
 import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.libcryostat.sys.Clock;
@@ -111,7 +112,10 @@ class AgentConnection implements JFRConnection {
     @Override
     public JvmIdentifier getJvmIdentifier() throws IDException, IOException {
         try {
-            return JvmIdentifier.from(getMBeanMetrics().getRuntime());
+            return JvmIdentifier.from(
+                    invokeMBeanOperation(
+                            CryostatAgentMXBean.OBJECT_NAME, "getId", null, null, String.class),
+                    getMBeanMetrics().getRuntime());
         } catch (IntrospectionException | InstanceNotFoundException | ReflectionException e) {
             throw new IDException(e);
         }
