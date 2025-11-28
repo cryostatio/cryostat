@@ -17,9 +17,13 @@ package io.cryostat;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -53,6 +57,9 @@ class Health {
 
     @ConfigProperty(name = "quarkus.application.version")
     String version;
+
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_HEALTH_TIMEOUT)
+    Duration timeout;
 
     @ConfigProperty(name = ConfigProperties.GRAFANA_DASHBOARD_URL)
     Optional<String> dashboardURL;
@@ -110,11 +117,11 @@ class Health {
                 String.format("v%s", version),
                 buildInfo,
                 dashboardURL.isPresent(),
-                dashboardAvailable.join(),
+                safeGet(dashboardAvailable),
                 datasourceURL.isPresent(),
-                datasourceAvailable.join(),
+                safeGet(datasourceAvailable),
                 reportsConfigured,
-                reportsAvailable.join());
+                safeGet(reportsAvailable));
     }
 
     @GET
@@ -193,6 +200,15 @@ class Health {
                             });
         } else {
             future.complete(false);
+        }
+    }
+
+    private boolean safeGet(CompletableFuture<Boolean> future) {
+        try {
+            return future.get(timeout.getSeconds(), TimeUnit.SECONDS);
+        } catch (InterruptedException | TimeoutException | ExecutionException e) {
+            logger.warn(e);
+            return false;
         }
     }
 
