@@ -68,6 +68,7 @@ import org.apache.commons.lang3.concurrent.LazyInitializer;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
@@ -237,7 +238,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                 .build();
                 var trigger =
                         TriggerBuilder.newTrigger()
-                                .usingJobData(jobDetail.getJobDataMap())
                                 .withIdentity(
                                         jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
                                 .startNow()
@@ -693,6 +693,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         return Pair.of(kubeObj, node);
     }
 
+    @DisallowConcurrentExecution
     private static class EndpointsResyncJob implements Job {
         @Inject Logger logger;
         @Inject EventBus bus;
@@ -702,8 +703,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         public void execute(JobExecutionContext context) throws JobExecutionException {
             try {
                 Collection<String> namespaces =
-                        (Collection<String>)
-                                context.getJobDetail().getJobDataMap().get("namespaces");
+                        (Collection<String>) context.getMergedJobDataMap().get("namespaces");
                 logger.debugv("Resyncing namespaces: {0}", namespaces);
                 bus.publish(NAMESPACE_QUERY_ADDR, NamespaceQueryEvent.from(namespaces));
             } catch (Exception e) {

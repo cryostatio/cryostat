@@ -80,6 +80,7 @@ import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
@@ -98,8 +99,8 @@ public class Discovery {
 
     static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
-    private static final String JOB_PERIODIC = "periodic";
-    private static final String JOB_STARTUP = "startup";
+    private static final String JOB_PERIODIC = "discovery.periodic";
+    private static final String JOB_STARTUP = "discovery.startup";
     private static final String PLUGIN_ID_MAP_KEY = "pluginId";
     private static final String REFRESH_MAP_KEY = "refresh";
 
@@ -138,8 +139,13 @@ public class Discovery {
                                                                 .build();
                                                 var trigger =
                                                         TriggerBuilder.newTrigger()
-                                                                .usingJobData(
-                                                                        jobDetail.getJobDataMap())
+                                                                .withIdentity(
+                                                                        jobDetail
+                                                                                .getKey()
+                                                                                .getName(),
+                                                                        jobDetail
+                                                                                .getKey()
+                                                                                .getGroup())
                                                                 .startNow()
                                                                 .withSchedule(
                                                                         SimpleScheduleBuilder
@@ -383,7 +389,8 @@ public class Discovery {
                             .build();
             var trigger =
                     TriggerBuilder.newTrigger()
-                            .usingJobData(jobDetail.getJobDataMap())
+                            .withIdentity(
+                                    jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
                             .startAt(Date.from(Instant.now().plus(discoveryPingPeriod)))
                             .withSchedule(
                                     SimpleScheduleBuilder.simpleSchedule()
@@ -566,6 +573,7 @@ public class Discovery {
      * token if their token will be expiring soon.
      */
     @SuppressFBWarnings("RCN_REDUNDANT_NULLCHECK_OF_NULL_VALUE")
+    @DisallowConcurrentExecution
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;
 
