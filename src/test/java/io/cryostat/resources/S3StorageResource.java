@@ -30,7 +30,7 @@ public class S3StorageResource
         implements QuarkusTestResourceLifecycleManager, DevServicesContext.ContextAware {
 
     protected static int S3_PORT = 8333;
-    protected static final String IMAGE_NAME = "quay.io/cryostat/cryostat-storage:latest";
+    protected static final String IMAGE_NAME = "quay.io/cryostat/cryostat-storage:STORAGE_VERSION";
     protected static final Map<String, String> envMap =
             Map.of(
                     "DATA_DIR", "/tmp",
@@ -46,8 +46,16 @@ public class S3StorageResource
 
     @Override
     public Map<String, String> start() {
+        String storageVersion =
+                Optional.ofNullable(
+                                System.getProperty(
+                                        "cryostat-storage.version",
+                                        System.getenv("CRYOSTAT_STORAGE_VERSION")))
+                        .orElse("latest");
         container =
-                new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
+                new GenericContainer<>(
+                                DockerImageName.parse(
+                                        IMAGE_NAME.replace("STORAGE_VERSION", storageVersion)))
                         .withExposedPorts(S3_PORT)
                         .withEnv(envMap)
                         .withTmpFs(Map.of("/data", "rw"))
