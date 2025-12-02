@@ -229,8 +229,11 @@ public class RuleExecutor {
                     try {
                         quartz.deleteJob(jk);
                     } catch (SchedulerException e) {
-                        logger.error(
-                                "Failed to delete job " + jk.getName() + " for rule " + rule.name);
+                        logger.errorv(
+                                e,
+                                "Failed to delete job {0} for rule {1}",
+                                jk.getName(),
+                                rule.name);
                     } finally {
                         jobs.remove(jk);
                     }
@@ -252,7 +255,9 @@ public class RuleExecutor {
     private void scheduleArchival(Rule rule, Target target, ActiveRecording recording) {
         JobDetail jobDetail =
                 JobBuilder.newJob(ScheduledArchiveJob.class)
-                        .withIdentity(rule.name, target.jvmId)
+                        .withIdentity(
+                                String.format("%s.%s", rule.name, target.jvmId),
+                                "rule.scheduled-archive")
                         .build();
 
         if (jobs.contains(jobDetail.getKey())) {
@@ -273,7 +278,7 @@ public class RuleExecutor {
 
         Trigger trigger =
                 TriggerBuilder.newTrigger()
-                        .withIdentity(rule.name, target.jvmId)
+                        .withIdentity(jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
                         .usingJobData(jobDetail.getJobDataMap())
                         .withSchedule(
                                 SimpleScheduleBuilder.simpleSchedule()
