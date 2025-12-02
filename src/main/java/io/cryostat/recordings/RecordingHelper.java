@@ -28,8 +28,6 @@ import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -1449,15 +1447,19 @@ public class RecordingHelper {
     }
 
     public Uni<String> uploadToJFRDatasource(long targetEntityId, long remoteId) throws Exception {
-        // copy an active recording and upload this directly to datasource
-        Target target = Target.getTargetById(targetEntityId);
-        Objects.requireNonNull(target, "Target from targetId not found");
-        ActiveRecording recording = target.getRecordingById(remoteId);
-        Objects.requireNonNull(recording, "ActiveRecording from remoteId not found");
-        Path recordingPath =
-                connectionManager.executeConnectedTask(
-                        target, connection -> getRecordingCopyPath(connection, recording));
-        return uploadToJFRDatasource(recordingPath);
+        InputStream is =
+                QuarkusTransaction.joiningExisting()
+                        .call(
+                                () -> {
+                                    Target target = Target.getTargetById(targetEntityId);
+                                    Objects.requireNonNull(
+                                            target, "Target from targetId not found");
+                                    ActiveRecording recording = target.getRecordingById(remoteId);
+                                    Objects.requireNonNull(
+                                            recording, "ActiveRecording from remoteId not found");
+                                    return getActiveInputStream(recording, connectionFailedTimeout);
+                                });
+        return uploadToJFRDatasource(is);
     }
 
     public Uni<String> uploadToJFRDatasource(Pair<String, String> key) throws Exception {
@@ -1474,15 +1476,7 @@ public class RecordingHelper {
                             .bucket(archiveBucket)
                             .key(archivedRecordingKey(key))
                             .build();
-
-            Path recordingPath = fs.createTempFile(null, null);
-            // the S3 client will create the file at this path, we just need to get a fresh temp
-            // file path but one that does not yet exist
-            fs.deleteIfExists(recordingPath);
-
-            storage.getObject(getRequest, recordingPath);
-
-            return uploadToJFRDatasource(recordingPath);
+            return uploadToJFRDatasource(storage.getObject(getRequest));
         }
     }
 
@@ -1500,39 +1494,17 @@ public class RecordingHelper {
                         });
     }
 
-    private Uni<String> uploadToJFRDatasource(Path recordingPath)
+    private Uni<String> uploadToJFRDatasource(InputStream is)
             throws URISyntaxException, InterruptedException, ExecutionException {
         return datasourceClient
-                .upload(recordingPath, true)
+                .upload(is, true)
                 .onItem()
                 .transform(
                         r -> {
                             try (r) {
                                 return r.readEntity(String.class);
                             }
-                        })
-                .eventually(
-                        () -> {
-                            try {
-                                fs.deleteIfExists(recordingPath);
-                            } catch (IOException e) {
-                                logger.warn(e);
-                            }
                         });
-    }
-
-    private Path getRecordingCopyPath(JFRConnection connection, ActiveRecording recording)
-            throws Exception {
-        try {
-            Path tempFile = fs.createTempFile(null, null);
-            try (var stream = getActiveInputStream(recording, connectionFailedTimeout)) {
-                fs.copy(stream, tempFile, StandardCopyOption.REPLACE_EXISTING);
-            }
-            return tempFile;
-        } catch (Exception e) {
-            logger.warn(e);
-            throw new BadRequestException(e);
-        }
     }
 
     private URI getPresignedPath(String jvmId, String filename) throws URISyntaxException {
@@ -1617,7 +1589,7 @@ public class RecordingHelper {
                 @RestForm
                         @PartType(MediaType.APPLICATION_OCTET_STREAM)
                         @PartFilename("cryostat-analysis.jfr")
-                        java.nio.file.Path file,
+                        InputStream file,
                 @RestQuery boolean overwrite);
 
         @POST
