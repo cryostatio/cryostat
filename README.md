@@ -167,12 +167,14 @@ generate a compose file that uses `cryostat-reports` for automated analysis repo
 attached to an external S3-compatible object storage instance, run:
 
 ```bash
+CRYOSTAT_USER=myuser \
+CRYOSTAT_PASS=changeit \
 S3_ENDPOINT=https://example.com \
 AWS_ACCESS_KEY_ID=abcd \
 AWS_SECRET_ACCESS_KEY=1234 \
     ./smoketest.bash -n -r -s ext > cryostat-compose.yaml
 ```
-(replace the environment variable values with the actual values for your object storage provider)
+(replace the environment variable values with the authproxy username/password you would like to use and actual values for your object storage provider)
 
 You can then use `cryostat-compose.yaml` to set up or tear down your Cryostat instance. The `smoketest.bash`
 script will take care of generating some local volume tarballs for Cryostat configuration files, and captured data
