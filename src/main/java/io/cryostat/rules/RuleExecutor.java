@@ -73,6 +73,8 @@ import org.quartz.TriggerBuilder;
 @ApplicationScoped
 public class RuleExecutor {
 
+    static final String RULE_LABEL_KEY = "rule";
+
     @Inject Logger logger;
     @Inject RecordingHelper recordingHelper;
     @Inject MatchExpressionEvaluator evaluator;
@@ -111,7 +113,7 @@ public class RuleExecutor {
                         .atMost(connectionFailedTimeout);
             }
             var labels = new HashMap<>(rule.metadata.labels());
-            labels.put("rule", rule.name);
+            labels.put(RULE_LABEL_KEY, rule.name);
             ActiveRecording recording = null;
             try {
                 recording =
@@ -265,7 +267,7 @@ public class RuleExecutor {
 
         Map<String, Object> data = jobDetail.getJobDataMap();
         data.put("jvmId", target.jvmId);
-        data.put("recordingName", rule.getRecordingName());
+        data.put("ruleName", rule.getName());
         data.put("recording", recording.remoteId);
         data.put("preservedArchives", rule.preservedArchives);
 
