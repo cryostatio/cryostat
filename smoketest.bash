@@ -365,7 +365,7 @@ if [ "${DRY_RUN}" = "true" ]; then
         "${CMD[@]}" \
         config
     createVolumes 1>&2
-    cleanupVolumes
+    cleanupVolumes 1>&2
     exit 0
 fi
 
