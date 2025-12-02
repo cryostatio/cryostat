@@ -249,6 +249,7 @@ createProxyCfgVolume() {
     if [ "${DRY_RUN}" = "true" ]; then
         "${container_engine}" volume export auth_proxy_cfg > auth_proxy_cfg.tar.gz
     fi
+    rm "${htpasswd}"
 }
 
 createProxyCertsVolume() {
