@@ -271,7 +271,7 @@ public class RuleExecutor {
                         .withIdentity(
                                 rule.name, String.format("rule.scheduled-archive.%s", target.jvmId))
                         .usingJobData("jvmId", target.jvmId)
-                        .usingJobData("recordingName", rule.getRecordingName())
+                        .usingJobData("ruleName", rule.name)
                         .usingJobData("recording", recording.remoteId)
                         .usingJobData("preservedArchives", rule.preservedArchives)
                         .build();
