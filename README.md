@@ -176,8 +176,8 @@ AWS_SECRET_ACCESS_KEY=1234 \
 ```
 (replace the environment variable values with the authproxy username/password you would like to use and actual values for your object storage provider)
 
-You can then use `cryostat-compose.yaml` to set up or tear down your Cryostat instance. The `smoketest.bash`
-script will take care of generating some local volume tarballs for Cryostat configuration files, and captured data
+You can then use `cryostat-compose.yaml` to set up or tear down your Cryostat instance using ex. `podman compose up -f cryostat-compose.yaml`.
+The `smoketest.bash` script will take care of generating some local volume tarballs for Cryostat configuration files, and captured data
 will be stored in your configured object storage instance. By modifying this compose file, or taking pieces
 from it to add to your other compose manifests, you can add Cryostat in to a compose deployment.
 
@@ -186,6 +186,7 @@ To initialize Cryostat's configuration volumes after running the `smoketest.bash
 ```bash
 for i in *.tar.gz ; do \
     f=$(echo $i | cut -d. -f1); \
+    echo "Creating volume ${f} from ${i}"; \
     podman volume create $f; \
     podman volume import $f $f.tar.gz; \
 done
