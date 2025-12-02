@@ -153,7 +153,9 @@ public class Discovery {
                                                                                 .withRepeatCount(0))
                                                                 .build();
                                                 try {
-                                                    scheduler.scheduleJob(jobDetail, trigger);
+                                                    if (!scheduler.checkExists(trigger.getKey())) {
+                                                        scheduler.scheduleJob(jobDetail, trigger);
+                                                    }
                                                 } catch (SchedulerException e) {
                                                     logger.warn(
                                                             "Failed to schedule plugin prune job",

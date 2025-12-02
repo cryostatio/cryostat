@@ -144,11 +144,10 @@ public class TargetUpdateService {
                                         .repeatForever()
                                         .withMisfireHandlingInstructionNextWithExistingCount())
                         .build();
-        scheduler.scheduleJob(job, trigger);
-
-        if (!scheduler.checkExists(trigger.getKey())) {
-            scheduler.scheduleJob(job, trigger);
+        if (scheduler.checkExists(trigger.getKey())) {
+            return;
         }
+        scheduler.scheduleJob(job, trigger);
     }
 
     void fireActiveRecordingUpdate(ActiveRecording recording) throws SchedulerException {
