@@ -61,8 +61,6 @@ import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.authentication.UsernamePasswordCredentials;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.ws.rs.ForbiddenException;
-import jakarta.ws.rs.ServerErrorException;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.ext.ContextResolver;
 import jdk.jfr.RecordingState;
@@ -132,7 +130,8 @@ public class AgentClient {
                                     var is = (InputStream) r.getEntity()) {
                                 return mapper.readValue(is, MBeanMetrics.class);
                             } catch (IOException e) {
-                                throw new ServerErrorException(Response.Status.BAD_GATEWAY, e);
+                                throw new AgentApiException(
+                                        Response.Status.BAD_GATEWAY.getStatusCode(), e);
                             }
                         });
     }
@@ -159,7 +158,8 @@ public class AgentClient {
                                                     "invokeMBeanOperation {0} ({1}) for {2} failed:"
                                                             + " HTTP 403",
                                                     beanName, operation, getUri());
-                                            throw new ForbiddenException(
+                                            throw new AgentApiException(
+                                                    Response.Status.FORBIDDEN.getStatusCode(),
                                                     new UnsupportedOperationException(
                                                             "startRecording"));
                                         } else {
@@ -206,7 +206,8 @@ public class AgentClient {
                                             logger.errorv(
                                                     "startRecording for {0} failed: HTTP 403",
                                                     getUri());
-                                            throw new ForbiddenException(
+                                            throw new AgentApiException(
+                                                    Response.Status.FORBIDDEN.getStatusCode(),
                                                     new UnsupportedOperationException(
                                                             "startRecording"));
                                         } else {
@@ -244,7 +245,8 @@ public class AgentClient {
                             if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
                                 return null;
                             } else if (statusCode == 403) {
-                                throw new ForbiddenException(
+                                throw new AgentApiException(
+                                        Response.Status.FORBIDDEN.getStatusCode(),
                                         new UnsupportedOperationException(
                                                 "updateRecordingOptions"));
                             } else {
@@ -268,7 +270,8 @@ public class AgentClient {
                                     }
                                 };
                             } else if (statusCode == 403) {
-                                throw new ForbiddenException(
+                                throw new AgentApiException(
+                                        Response.Status.FORBIDDEN.getStatusCode(),
                                         new UnsupportedOperationException("openStream"));
                             } else {
                                 throw new AgentApiException(statusCode);
@@ -294,22 +297,30 @@ public class AgentClient {
 
                     @Override
                     public IConstraint<?> getConstraint(String key) {
-                        throw new UnsupportedOperationException();
+                        throw new AgentApiException(
+                                Response.Status.BAD_REQUEST.getStatusCode(),
+                                new UnsupportedOperationException());
                     }
 
                     @Override
                     public String getPersistableString(String key) {
-                        throw new UnsupportedOperationException();
+                        throw new AgentApiException(
+                                Response.Status.BAD_REQUEST.getStatusCode(),
+                                new UnsupportedOperationException());
                     }
 
                     @Override
                     public IMutableConstrainedMap<String> emptyWithSameConstraints() {
-                        throw new UnsupportedOperationException();
+                        throw new AgentApiException(
+                                Response.Status.BAD_REQUEST.getStatusCode(),
+                                new UnsupportedOperationException());
                     }
 
                     @Override
                     public IMutableConstrainedMap<String> mutableCopy() {
-                        throw new UnsupportedOperationException();
+                        throw new AgentApiException(
+                                Response.Status.BAD_REQUEST.getStatusCode(),
+                                new UnsupportedOperationException());
                     }
                 };
         return updateRecordingOptions(id, map);
@@ -329,7 +340,8 @@ public class AgentClient {
                                 // not a failure
                                 return null;
                             } else if (statusCode == 403) {
-                                throw new ForbiddenException(
+                                throw new AgentApiException(
+                                        Response.Status.FORBIDDEN.getStatusCode(),
                                         new UnsupportedOperationException("deleteRecording"));
                             } else {
                                 throw new AgentApiException(statusCode);
