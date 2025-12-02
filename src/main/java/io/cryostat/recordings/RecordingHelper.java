@@ -113,6 +113,7 @@ import org.jboss.resteasy.reactive.PartType;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
@@ -123,6 +124,7 @@ import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
+import org.quartz.plugins.interrupt.JobInterruptMonitorPlugin;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -477,14 +479,15 @@ public class RecordingHelper {
                             String.format("%s.%d", target.jvmId, recording.remoteId),
                             "recording.fixed-duration");
             JobDetail jobDetail =
-                    JobBuilder.newJob(StopRecordingJob.class).withIdentity(key).build();
+                    JobBuilder.newJob(StopRecordingJob.class)
+                            .withIdentity(key)
+                            .usingJobData(JobInterruptMonitorPlugin.AUTO_INTERRUPTIBLE, "true")
+                            .usingJobData("recordingId", recording.id)
+                            .build();
             try {
                 if (!scheduler.checkExists(key)) {
-                    Map<String, Object> data = jobDetail.getJobDataMap();
-                    data.put("recordingId", recording.id);
                     Trigger trigger =
                             TriggerBuilder.newTrigger()
-                                    .usingJobData(jobDetail.getJobDataMap())
                                     .withIdentity(key.getName(), key.getGroup())
                                     .startAt(
                                             new Date(
@@ -1559,7 +1562,11 @@ public class RecordingHelper {
         }
     }
 
+    @DisallowConcurrentExecution
     static class StopRecordingJob implements Job {
+
+        @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
+        Duration connectionTimeout;
 
         @Inject RecordingHelper recordingHelper;
         @Inject Logger logger;
@@ -1567,12 +1574,11 @@ public class RecordingHelper {
         @Override
         @Transactional
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
-            var jobDataMap = ctx.getJobDetail().getJobDataMap();
             try {
                 ActiveRecording recording =
-                        ActiveRecording.find("id", (Long) jobDataMap.get("recordingId"))
+                        ActiveRecording.find("id", ctx.getMergedJobDataMap().get("recordingId"))
                                 .singleResult();
-                recordingHelper.stopRecording(recording);
+                recordingHelper.stopRecording(recording).await().atMost(connectionTimeout);
             } catch (Exception e) {
                 throw new JobExecutionException(e);
             }

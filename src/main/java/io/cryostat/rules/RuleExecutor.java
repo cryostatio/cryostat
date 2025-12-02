@@ -18,11 +18,12 @@ package io.cryostat.rules;
 import java.time.Duration;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import io.cryostat.ConfigProperties;
@@ -58,6 +59,7 @@ import org.quartz.SchedulerException;
 import org.quartz.SimpleScheduleBuilder;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
+import org.quartz.impl.matchers.GroupMatcher;
 
 /**
  * Handle executing on Automated Rule activations against Targets. Start new Flight Recordings on
@@ -82,8 +84,6 @@ public class RuleExecutor {
 
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
     Duration connectionFailedTimeout;
-
-    private final List<JobKey> jobs = new CopyOnWriteArrayList<>();
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         quartz.shutdown();
@@ -145,17 +145,24 @@ public class RuleExecutor {
     void onMessage(TargetDiscovery event) {
         switch (event.kind()) {
             case LOST:
-                for (var jk : jobs) {
-                    if (Objects.equals(event.serviceRef().jvmId, jk.getGroup())) {
-                        try {
-                            quartz.deleteJob(jk);
-                        } catch (SchedulerException e) {
-                            logger.errorv(
-                                    "Failed to delete job {0} due to loss of target {1}",
-                                    jk.getName(), event.serviceRef().connectUrl);
-                        } finally {
-                            jobs.remove(jk);
-                        }
+                Set<JobKey> jobs = new HashSet<>();
+                try {
+                    jobs.addAll(
+                            quartz.getJobKeys(
+                                    GroupMatcher.groupEndsWith(
+                                            String.format(".%s", event.serviceRef().jvmId))));
+                } catch (SchedulerException e) {
+                    logger.error(e);
+                }
+                Iterator<JobKey> it = jobs.iterator();
+                while (it.hasNext()) {
+                    JobKey key = it.next();
+                    try {
+                        quartz.deleteJob(key);
+                    } catch (SchedulerException e) {
+                        logger.errorv(
+                                "Failed to delete job {0} due to loss of target {1}",
+                                key.getName(), event.serviceRef().connectUrl);
                     }
                 }
                 break;
@@ -224,18 +231,23 @@ public class RuleExecutor {
                     evaluator.getMatchedTargets(rule.matchExpression).stream()
                             .map(t -> t.jvmId)
                             .collect(Collectors.toList());
-            for (var jk : jobs) {
-                if (targets.contains(jk.getGroup())) {
+            for (String s : targets) {
+                Set<JobKey> jobs = new HashSet<>();
+                try {
+                    jobs.addAll(
+                            quartz.getJobKeys(GroupMatcher.groupEndsWith(String.format(".%s", s))));
+                } catch (SchedulerException e) {
+                    logger.error(e);
+                }
+                Iterator<JobKey> it = jobs.iterator();
+                while (it.hasNext()) {
+                    JobKey key = it.next();
                     try {
-                        quartz.deleteJob(jk);
+                        quartz.deleteJob(key);
                     } catch (SchedulerException e) {
                         logger.errorv(
-                                e,
-                                "Failed to delete job {0} for rule {1}",
-                                jk.getName(),
-                                rule.name);
-                    } finally {
-                        jobs.remove(jk);
+                                "Failed to delete job {0} due to loss of target {1}",
+                                key.getName(), s);
                     }
                 }
             }
@@ -252,15 +264,19 @@ public class RuleExecutor {
                 Optional.ofNullable((long) rule.maxAgeSeconds));
     }
 
-    private void scheduleArchival(Rule rule, Target target, ActiveRecording recording) {
+    private void scheduleArchival(Rule rule, Target target, ActiveRecording recording)
+            throws SchedulerException {
         JobDetail jobDetail =
                 JobBuilder.newJob(ScheduledArchiveJob.class)
                         .withIdentity(
-                                String.format("%s.%s", rule.name, target.jvmId),
-                                "rule.scheduled-archive")
+                                rule.name, String.format("rule.scheduled-archive.%s", target.jvmId))
+                        .usingJobData("jvmId", target.jvmId)
+                        .usingJobData("ruleName", rule.name)
+                        .usingJobData("recording", recording.remoteId)
+                        .usingJobData("preservedArchives", rule.preservedArchives)
                         .build();
 
-        if (jobs.contains(jobDetail.getKey())) {
+        if (quartz.checkExists(jobDetail.getKey())) {
             return;
         }
 
@@ -270,16 +286,9 @@ public class RuleExecutor {
             initialDelay = archivalPeriodSeconds;
         }
 
-        Map<String, Object> data = jobDetail.getJobDataMap();
-        data.put("jvmId", target.jvmId);
-        data.put("ruleName", rule.getName());
-        data.put("recording", recording.remoteId);
-        data.put("preservedArchives", rule.preservedArchives);
-
         Trigger trigger =
                 TriggerBuilder.newTrigger()
                         .withIdentity(jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
-                        .usingJobData(jobDetail.getJobDataMap())
                         .withSchedule(
                                 SimpleScheduleBuilder.simpleSchedule()
                                         .withIntervalInSeconds(archivalPeriodSeconds)
@@ -296,6 +305,5 @@ public class RuleExecutor {
                     rule.name,
                     target.alias);
         }
-        jobs.add(jobDetail.getKey());
     }
 }
