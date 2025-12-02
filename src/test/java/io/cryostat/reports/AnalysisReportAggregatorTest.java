@@ -115,7 +115,7 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                                                                                 100.0))));
                             });
         } finally {
-            cleanupSelfRecording();
+            cleanupSelfActiveAndArchivedRecordings();
         }
     }
 
@@ -201,7 +201,7 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                     .statusCode(200)
                     .contentType(ContentType.JSON);
         } finally {
-            cleanupSelfRecording();
+            cleanupSelfActiveAndArchivedRecordings();
         }
     }
 
