@@ -59,7 +59,6 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
 import jakarta.transaction.Transactional.TxType;
 import org.apache.commons.lang3.StringUtils;
@@ -404,24 +403,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
     }
 
-    private boolean isTargetUnderRealm(Target target) throws IllegalStateException {
-        // Check for any targets with the same connectUrl in other realms
-        try {
-            Target persistedTarget = Target.getTargetByConnectUrl(target.connectUrl);
-            String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
-            if (!REALM.equals(realmOfTarget)) {
-                logger.warnv(
-                        "Expected persisted target with serviceURL {0} to be under realm"
-                                + " {1} but found under {2} ",
-                        persistedTarget.connectUrl, REALM, realmOfTarget);
-                throw new IllegalStateException();
-            }
-            return true;
-        } catch (NoResultException e) {
-        }
-        return false;
-    }
-
     @ConsumeEvent(value = NAMESPACE_QUERY_ADDR, blocking = true, ordered = true)
     @Transactional(TxType.REQUIRES_NEW)
     public void handleQueryEvent(NamespaceQueryEvent evt) {
@@ -540,13 +521,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     private void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
-        if (!isTargetUnderRealm(target)) {
-            logger.debugv(
-                    "Target with serviceURL {0} does not exist in discovery tree. Skipped deleting",
-                    target.connectUrl);
-            return;
-        }
-
         // Retrieve the latest snapshot of the target
         // The target received from event message is outdated as it belongs to the previous
         // transaction
@@ -577,12 +551,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     private void buildOwnerChain(DiscoveryNode nsNode, Target target, ObjectReference targetRef) {
-        if (isTargetUnderRealm(target)) {
-            logger.debugv(
-                    "Target with serviceURL {0} already exists in discovery tree. Skipped adding",
-                    target.connectUrl);
-            return;
-        }
         String targetKind = targetRef.getKind();
         KubeDiscoveryNodeType targetType = KubeDiscoveryNodeType.fromKubernetesKind(targetKind);
 
