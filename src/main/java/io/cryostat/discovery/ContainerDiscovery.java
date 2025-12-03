@@ -228,7 +228,8 @@ public abstract class ContainerDiscovery {
                         .withSchedule(
                                 SimpleScheduleBuilder.simpleSchedule()
                                         .repeatForever()
-                                        .withIntervalInSeconds((int) pollPeriod.toSeconds()))
+                                        .withIntervalInSeconds((int) pollPeriod.toSeconds())
+                                        .withMisfireHandlingInstructionNextWithExistingCount())
                         .build();
         if (!scheduler.checkExists(jobKey())) {
             scheduler.scheduleJob(jobDetail, trigger);
