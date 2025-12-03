@@ -61,7 +61,6 @@ import io.vertx.mutiny.ext.web.codec.BodyCodec;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.resource.spi.IllegalStateException;
 import jakarta.transaction.Transactional;
 import jakarta.transaction.Transactional.TxType;
 import org.apache.commons.lang3.StringUtils;
@@ -114,11 +113,7 @@ class PodmanDiscovery extends ContainerDiscovery {
     @ConsumeEvent(blocking = true, ordered = true)
     @Transactional(TxType.REQUIRES_NEW)
     public void handleContainerEvent(ContainerDiscoveryEvent evt) {
-        try {
-            updateDiscoveryTree(evt);
-        } catch (IllegalStateException e) {
-            logger.warn(e);
-        }
+        updateDiscoveryTree(evt);
     }
 
     @Override
@@ -160,11 +155,7 @@ class DockerDiscovery extends ContainerDiscovery {
     @ConsumeEvent(blocking = true, ordered = true)
     @Transactional(TxType.REQUIRES_NEW)
     public void handleContainerEvent(ContainerDiscoveryEvent evt) {
-        try {
-            updateDiscoveryTree(evt);
-        } catch (IllegalStateException e) {
-            logger.warn(e);
-        }
+        updateDiscoveryTree(evt);
     }
 
     @Override
@@ -257,7 +248,7 @@ public abstract class ContainerDiscovery {
         return fs.exists(socketPath) && fs.isReadable(socketPath);
     }
 
-    protected void updateDiscoveryTree(ContainerDiscoveryEvent evt) throws IllegalStateException {
+    protected void updateDiscoveryTree(ContainerDiscoveryEvent evt) {
         EventKind evtKind = evt.eventKind;
         ContainerSpec desc = evt.desc;
         Target target = evt.target;
