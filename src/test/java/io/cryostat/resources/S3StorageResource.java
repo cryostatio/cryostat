@@ -50,7 +50,14 @@ public class S3StorageResource
         // FIXME since Quarkus 3.20 / S3 SDK 2.30.36 leaving this enabled results in junk
         // 'chunk-signature' data being inserted to PutObjectRequests when the object storage
         // instance is SeaweedFS/cryostat-storage
-        properties.put("quarkus.s3.checksum-validation", "false");
+        boolean s3ChecksumValidation =
+                Optional.ofNullable(
+                                System.getProperty(
+                                        "quarkus.s3.checksum-validation",
+                                        System.getenv("QUARKUS_S3_CHECKSUM_VALIDATION")))
+                        .map(Boolean::valueOf)
+                        .orElse(false);
+        properties.put("quarkus.s3.checksum-validation", Boolean.toString(s3ChecksumValidation));
 
         properties.put("quarkus.s3.aws.region", "us-east-1");
         properties.put(
