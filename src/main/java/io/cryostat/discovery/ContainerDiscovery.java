@@ -390,26 +390,91 @@ public abstract class ContainerDiscovery {
             queryContainers();
         }
 
-        private String getRealm() {
-            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_REALM);
+        private void queryContainers() {
+            doContainerListRequest(
+                    current -> {
+                        Infrastructure.getDefaultWorkerPool()
+                                .execute(
+                                        () ->
+                                                QuarkusTransaction.requiringNew()
+                                                        .run(
+                                                                () ->
+                                                                        handleObservedContainers(
+                                                                                current)));
+                    });
         }
 
-        private String getSocket() {
-            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_SOCKET_ADDRESS);
+        private void handleObservedContainers(List<ContainerSpec> current) {
+            Map<URI, ContainerSpec> containerRefMap = new HashMap<>();
+
+            Set<Target> persistedTargets =
+                    Target.findByRealm(getRealm()).stream().collect(Collectors.toSet());
+            Set<Target> observedTargets =
+                    current.stream()
+                            .map(
+                                    (desc) -> {
+                                        Target t = toTarget(desc);
+                                        if (Objects.nonNull(t)) {
+                                            containerRefMap.put(t.connectUrl, desc);
+                                        }
+                                        return t;
+                                    })
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.toSet());
+
+            Target.compare(persistedTargets)
+                    .to(observedTargets)
+                    .added()
+                    .forEach(
+                            (t) ->
+                                    notify(
+                                            ContainerDiscoveryEvent.from(
+                                                    containerRefMap.get(t.connectUrl),
+                                                    t,
+                                                    EventKind.FOUND)));
+
+            Target.compare(persistedTargets)
+                    .to(observedTargets)
+                    .removed()
+                    .forEach((t) -> notify(ContainerDiscoveryEvent.from(null, t, EventKind.LOST)));
         }
 
-        private String getContainersQueryURL() {
-            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_CONTAINERS_QUERY_URL);
-        }
-
-        private String getContainerQueryURL(ContainerSpec spec) {
-            return String.format(
-                    this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_CONTAINER_QUERY_URL),
-                    spec.Id());
-        }
-
-        private String notificationAddress() {
-            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_NOTIFICATION_ADDRESS);
+        private void doContainerListRequest(Consumer<List<ContainerSpec>> successHandler) {
+            URI requestPath = URI.create(getContainersQueryURL());
+            try {
+                webClient
+                        .request(
+                                HttpMethod.GET,
+                                domainSocket(getSocket()),
+                                80,
+                                "localhost",
+                                requestPath.toString())
+                        .addQueryParam(
+                                "filters",
+                                mapper.writeValueAsString(
+                                        Map.of("label", List.of(DISCOVERY_LABEL))))
+                        .timeout(requestTimeout.toMillis())
+                        .as(BodyCodec.string())
+                        .send()
+                        .subscribe()
+                        .with(
+                                item -> {
+                                    try {
+                                        successHandler.accept(
+                                                mapper.readValue(
+                                                        item.body(),
+                                                        new TypeReference<
+                                                                List<ContainerSpec>>() {}));
+                                    } catch (JsonProcessingException e) {
+                                        logger.error("Json processing error", e);
+                                    }
+                                },
+                                failure -> {
+                                    logger.errorv(failure, "{0} API request failed", getRealm());
+                                });
+            } catch (JsonProcessingException e) {
+                logger.error("Json processing error", e);
+            }
         }
 
         // Construct a target representation (non-persistent) of the container spec
@@ -473,58 +538,6 @@ public abstract class ContainerDiscovery {
             return target;
         }
 
-        private void queryContainers() {
-            doContainerListRequest(
-                    current -> {
-                        Infrastructure.getDefaultWorkerPool()
-                                .execute(
-                                        () ->
-                                                QuarkusTransaction.requiringNew()
-                                                        .run(
-                                                                () ->
-                                                                        handleObservedContainers(
-                                                                                current)));
-                    });
-        }
-
-        private void doContainerListRequest(Consumer<List<ContainerSpec>> successHandler) {
-            URI requestPath = URI.create(getContainersQueryURL());
-            try {
-                webClient
-                        .request(
-                                HttpMethod.GET,
-                                domainSocket(getSocket()),
-                                80,
-                                "localhost",
-                                requestPath.toString())
-                        .addQueryParam(
-                                "filters",
-                                mapper.writeValueAsString(
-                                        Map.of("label", List.of(DISCOVERY_LABEL))))
-                        .timeout(requestTimeout.toMillis())
-                        .as(BodyCodec.string())
-                        .send()
-                        .subscribe()
-                        .with(
-                                item -> {
-                                    try {
-                                        successHandler.accept(
-                                                mapper.readValue(
-                                                        item.body(),
-                                                        new TypeReference<
-                                                                List<ContainerSpec>>() {}));
-                                    } catch (JsonProcessingException e) {
-                                        logger.error("Json processing error", e);
-                                    }
-                                },
-                                failure -> {
-                                    logger.errorv(failure, "{0} API request failed", getRealm());
-                                });
-            } catch (JsonProcessingException e) {
-                logger.error("Json processing error", e);
-            }
-        }
-
         private CompletableFuture<ContainerDetails> doContainerInspectRequest(
                 ContainerSpec container) {
             CompletableFuture<ContainerDetails> result = new CompletableFuture<>();
@@ -557,43 +570,30 @@ public abstract class ContainerDiscovery {
             return result;
         }
 
-        private void handleObservedContainers(List<ContainerSpec> current) {
-            Map<URI, ContainerSpec> containerRefMap = new HashMap<>();
-
-            Set<Target> persistedTargets =
-                    Target.findByRealm(getRealm()).stream().collect(Collectors.toSet());
-            Set<Target> observedTargets =
-                    current.stream()
-                            .map(
-                                    (desc) -> {
-                                        Target t = toTarget(desc);
-                                        if (Objects.nonNull(t)) {
-                                            containerRefMap.put(t.connectUrl, desc);
-                                        }
-                                        return t;
-                                    })
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toSet());
-
-            Target.compare(persistedTargets)
-                    .to(observedTargets)
-                    .added()
-                    .forEach(
-                            (t) ->
-                                    notify(
-                                            ContainerDiscoveryEvent.from(
-                                                    containerRefMap.get(t.connectUrl),
-                                                    t,
-                                                    EventKind.FOUND)));
-
-            Target.compare(persistedTargets)
-                    .to(observedTargets)
-                    .removed()
-                    .forEach((t) -> notify(ContainerDiscoveryEvent.from(null, t, EventKind.LOST)));
+        private void notify(ContainerDiscoveryEvent evt) {
+            bus.publish(notificationAddress(), evt);
         }
 
-        protected void notify(ContainerDiscoveryEvent evt) {
-            bus.publish(notificationAddress(), evt);
+        private String getRealm() {
+            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_REALM);
+        }
+
+        private String getSocket() {
+            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_SOCKET_ADDRESS);
+        }
+
+        private String getContainersQueryURL() {
+            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_CONTAINERS_QUERY_URL);
+        }
+
+        private String getContainerQueryURL(ContainerSpec spec) {
+            return String.format(
+                    this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_CONTAINER_QUERY_URL),
+                    spec.Id());
+        }
+
+        private String notificationAddress() {
+            return this.context.getMergedJobDataMap().getString(JOB_DATA_KEY_NOTIFICATION_ADDRESS);
         }
     }
 }
