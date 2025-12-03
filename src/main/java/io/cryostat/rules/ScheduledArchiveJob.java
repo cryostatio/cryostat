@@ -15,7 +15,6 @@
  */
 package io.cryostat.rules;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 
@@ -27,9 +26,11 @@ import io.cryostat.targets.Target;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.hibernate.ObjectDeletedException;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
@@ -72,14 +73,10 @@ class ScheduledArchiveJob implements Job {
                     String[] parts = path.split("/");
                     String filename = parts[1];
                     QuarkusTransaction.joiningExisting()
-                            .run(
+                            .call(
                                     () -> {
-                                        try {
-                                            recordingHelper.deleteArchivedRecording(
-                                                    jvmId, filename);
-                                        } catch (IOException e) {
-                                            logger.warn(e);
-                                        }
+                                        recordingHelper.deleteArchivedRecording(jvmId, filename);
+                                        return null;
                                     });
                 }
             }
@@ -110,12 +107,24 @@ class ScheduledArchiveJob implements Job {
                                                         });
                                 return recordingHelper.archiveRecording(recording);
                             });
+        } catch (NoResultException | ObjectDeletedException e) {
+            // target disappeared in the meantime. No big deal.
+            logger.debug(e);
+            JobExecutionException ex = new JobExecutionException(e);
+            ex.setRefireImmediately(false);
+            ex.setUnscheduleFiringTrigger(true);
+            throw ex;
         } catch (S3Exception e) {
             JobExecutionException ex = new JobExecutionException(e);
             ex.setRefireImmediately(true);
             throw ex;
         } catch (Exception e) {
-            throw new JobExecutionException(e);
+            if (e instanceof JobExecutionException) {
+                throw e;
+            }
+            var jee = new JobExecutionException(e);
+            jee.setRefireImmediately(false);
+            throw jee;
         }
     }
 
