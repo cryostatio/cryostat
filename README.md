@@ -192,7 +192,7 @@ for i in *.tar.gz ; do \
 done
 ```
 
-or check the [Cryostat Wiki](https://github.com/cryostatio/cryostat/wiki/Deploying-Cryostat-in-Docker-Podman-Compose)
+or check the [Cryostat Wiki](https://github.com/cryostatio/cryostat/wiki/Deploying-Cryostat-in-Docker-or-Podman-Compose)
 page for pre-generated initialization volumes with simple configuration defaults.
 
 ### Local Smoketesting
