@@ -61,7 +61,6 @@ import io.vertx.mutiny.ext.web.codec.BodyCodec;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.persistence.NoResultException;
 import jakarta.resource.spi.IllegalStateException;
 import jakarta.transaction.Transactional;
 import jakarta.transaction.Transactional.TxType;
@@ -265,12 +264,6 @@ public abstract class ContainerDiscovery {
         DiscoveryNode realm = DiscoveryNode.getRealm(getRealm()).orElseThrow();
 
         if (evtKind == EventKind.FOUND) {
-            if (isTargetUnderRealm(target.connectUrl)) {
-                logger.infov(
-                        "Target with serviceURL {0} already exists in discovery tree. Skip adding",
-                        target.connectUrl);
-                return;
-            }
             DiscoveryNode node = DiscoveryNode.target(target, NodeType.BaseNodeType.JVM);
             target.discoveryNode = node;
 
@@ -308,13 +301,6 @@ public abstract class ContainerDiscovery {
             node.persist();
             realm.persist();
         } else {
-            if (!isTargetUnderRealm(target.connectUrl)) {
-                logger.infov(
-                        "Target with serviceURL {0} does not exist in discovery tree. Skip"
-                                + " deleting",
-                        target.connectUrl);
-                return;
-            }
             // Retrieve the latest snapshot of the target
             // The target received from event message is outdated as it belongs to the previous
             // transaction
@@ -342,24 +328,6 @@ public abstract class ContainerDiscovery {
             realm.persist();
             target.delete();
         }
-    }
-
-    private boolean isTargetUnderRealm(URI connectUrl) throws IllegalStateException {
-        // Check for any targets with the same connectUrl in other realms
-        try {
-            Target persistedTarget = Target.getTargetByConnectUrl(connectUrl);
-            String realmOfTarget = persistedTarget.annotations.cryostat().get("REALM");
-            if (!getRealm().equals(realmOfTarget)) {
-                logger.warnv(
-                        "Expected persisted target with serviceURL {0} to be under realm"
-                                + " {1} but found under {2} ",
-                        persistedTarget.connectUrl, getRealm(), realmOfTarget);
-                throw new IllegalStateException();
-            }
-            return true;
-        } catch (NoResultException e) {
-        }
-        return false;
     }
 
     protected abstract String getSocket();
