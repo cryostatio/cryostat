@@ -226,6 +226,13 @@ else
     exit 2
 fi
 
+S3_PREFIX="$(openssl rand -hex 8)"
+export S3_PREFIX
+
+function bucketname() {
+    echo "cryostat-${1}-${AWS_ACCESS_KEY_ID}-${S3_REGION}-${S3_PREFIX}" | tr -s '-'
+}
+
 if [ ! "${DRY_RUN}" = "true" ]; then
     set -xe
     CRYOSTAT_JAVA_OPTS=$( cat <<-END
@@ -243,17 +250,17 @@ END
 )
     export CRYOSTAT_JAVA_OPTS
 else
-    CRYOSTAT_STORAGE_BUCKETS_ARCHIVES_NAME="$(openssl rand -hex 16)"
+    CRYOSTAT_STORAGE_BUCKETS_ARCHIVES_NAME="$(bucketname 'archives')"
     export CRYOSTAT_STORAGE_BUCKETS_ARCHIVES_NAME
-    CRYOSTAT_STORAGE_BUCKETS_EVENT_TEMPLATES_NAME="$(openssl rand -hex 16)"
+    CRYOSTAT_STORAGE_BUCKETS_EVENT_TEMPLATES_NAME="$(bucketname 'eventtemplates')"
     export CRYOSTAT_STORAGE_BUCKETS_EVENT_TEMPLATES_NAME
-    CRYOSTAT_STORAGE_BUCKETS_PROBE_TEMPLATES_NAME="$(openssl rand -hex 16)"
+    CRYOSTAT_STORAGE_BUCKETS_PROBE_TEMPLATES_NAME="$(bucketname 'probetemplates')"
     export CRYOSTAT_STORAGE_BUCKETS_PROBE_TEMPLATES_NAME
-    CRYOSTAT_STORAGE_BUCKETS_HEAP_DUMPS_NAME="$(openssl rand -hex 16)"
+    CRYOSTAT_STORAGE_BUCKETS_HEAP_DUMPS_NAME="$(bucketname 'heapdumps')"
     export CRYOSTAT_STORAGE_BUCKETS_HEAP_DUMPS_NAME
-    CRYOSTAT_STORAGE_BUCKETS_THREAD_DUMPS_NAME="$(openssl rand -hex 16)"
+    CRYOSTAT_STORAGE_BUCKETS_THREAD_DUMPS_NAME="$(bucketname 'threaddumps')"
     export CRYOSTAT_STORAGE_BUCKETS_THREAD_DUMPS_NAME
-    CRYOSTAT_STORAGE_BUCKETS_METADATA_NAME="$(openssl rand -hex 16)"
+    CRYOSTAT_STORAGE_BUCKETS_METADATA_NAME="$(bucketname 'metadata')"
     export CRYOSTAT_STORAGE_BUCKETS_METADATA_NAME
 fi
 
