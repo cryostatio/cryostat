@@ -66,6 +66,7 @@ import jakarta.transaction.Transactional.TxType;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
 import org.quartz.JobBuilder;
 import org.quartz.JobDataMap;
@@ -362,6 +363,7 @@ public abstract class ContainerDiscovery {
         }
     }
 
+    @DisallowConcurrentExecution
     private static class ContainersQueryJob implements Job {
 
         @ConfigProperty(name = ConfigProperties.CONTAINERS_REQUEST_TIMEOUT)
