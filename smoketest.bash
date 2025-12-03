@@ -226,11 +226,13 @@ else
     exit 2
 fi
 
-S3_PREFIX="$(openssl rand -hex 8)"
-export S3_PREFIX
+if [ -z "${S3_INSTANCE_ID}" ]; then
+    S3_INSTANCE_ID="$(openssl rand -hex 8)"
+fi
+export S3_INSTANCE_ID
 
 function bucketname() {
-    echo "cryostat-${1}-${AWS_ACCESS_KEY_ID}-${S3_REGION}-${S3_PREFIX}" | tr -s '-'
+    echo "cryostat-${1}-${AWS_ACCESS_KEY_ID}-${S3_REGION}-${S3_INSTANCE_ID}" | tr -s '-'
 }
 
 if [ ! "${DRY_RUN}" = "true" ]; then
