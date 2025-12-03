@@ -163,8 +163,8 @@ The Quarkus Dev UI is not available in this setup.
 ### Docker/Podman Compose
 `smoketest.bash -n` can be used to generate a compose manifest YAML definition for use with `docker-compose`
 or `podman-compose`. Check `smoketest.bash -h` for a listing of available options. For example, to
-generate a compose file that uses `cryostat-reports` for automated analysis report generation, with Cryostat
-attached to an external S3-compatible object storage instance, run:
+generate a compose file (`-n`) that uses `cryostat-reports` for automated analysis report generation (`-r`),
+with Cryostat attached to an external S3-compatible object storage instance (`-s ext`), run:
 
 ```bash
 CRYOSTAT_USER=myuser \
