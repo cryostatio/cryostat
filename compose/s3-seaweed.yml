@@ -14,7 +14,7 @@ services:
       # being inserted to PutObjectRequests when the object storage instance is SeaweedFS/cryostat-storage
       QUARKUS_S3_CHECKSUM_VALIDATION: false
   s3:
-    image: ${STORAGE_IMAGE:-quay.io/cryostat/cryostat-storage:$(CRYOSTAT_VERSION:-latest)}
+    image: ${STORAGE_IMAGE:-quay.io/cryostat/cryostat-storage:${CRYOSTAT_VERSION:-latest}}
     hostname: s3
     environment:
       CRYOSTAT_BUCKETS: ${PRECREATE_BUCKETS}
