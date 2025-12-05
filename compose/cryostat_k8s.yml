@@ -5,7 +5,7 @@ services:
         condition: service_healthy
       s3:
         condition: service_healthy
-    image: ${CRYOSTAT_IMAGE:-quay.io/cryostat/cryostat:latest}
+    image: ${CRYOSTAT_IMAGE:-quay.io/cryostat/cryostat:$(CRYOSTAT_VERSION:-latest)}
     hostname: cryostat
     expose:
       - "9091"

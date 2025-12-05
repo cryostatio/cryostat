@@ -10,7 +10,7 @@ services:
         limits:
           cpus: "2"
           memory: 512m
-    image: ${CRYOSTAT_IMAGE:-quay.io/cryostat/cryostat:latest}
+    image: ${CRYOSTAT_IMAGE:-quay.io/cryostat/cryostat:$(CRYOSTAT_VERSION:-latest)}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:Z
     security_opt:
