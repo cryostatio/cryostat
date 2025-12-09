@@ -5,7 +5,7 @@ services:
         limits:
           cpus: "2"
           memory: 1024m
-    image: ${CRYOSTAT_IMAGE:-quay.io/cryostat/cryostat:latest}
+    image: ${CRYOSTAT_IMAGE:-quay.io/cryostat/cryostat:${CRYOSTAT_VERSION:-latest}}
     volumes:
       - ${XDG_RUNTIME_DIR}/podman/podman.sock:/run/user/1000/podman/podman.sock:Z
       - jmxtls_cfg:/truststore:U
@@ -25,22 +25,17 @@ services:
       QUARKUS_HTTP_PORT: ${CRYOSTAT_HTTP_PORT}
       QUARKUS_HIBERNATE_ORM_LOG_SQL: "true"
       STORAGE_METADATA_STORAGE_MODE: ${CRYOSTAT_STORAGE_MODE:-tagging}
-      STORAGE_BUCKETS_METADATA_NAME: ${CRYOSTAT_METADATA_BUCKET_NAME:-cryostatmeta}
+      STORAGE_BUCKETS_ARCHIVES_NAME: ${CRYOSTAT_STORAGE_BUCKETS_ARCHIVES_NAME:-archives}
+      STORAGE_BUCKETS_EVENT_TEMPLATES_NAME: ${CRYOSTAT_STORAGE_BUCKETS_EVENT_TEMPLATES_NAME:-eventtemplates}
+      STORAGE_BUCKETS_PROBE_TEMPLATES_NAME: ${CRYOSTAT_STORAGE_BUCKETS_PROBE_TEMPLATES_NAME:-probetemplates}
+      STORAGE_BUCKETS_HEAP_DUMPS_NAME: ${CRYOSTAT_STORAGE_BUCKETS_HEAP_DUMPS_NAME:-heapdumps}
+      STORAGE_BUCKETS_THREAD_DUMPS_NAME: ${CRYOSTAT_STORAGE_BUCKETS_THREAD_DUMPS_NAME:-threaddumps}
+      STORAGE_BUCKETS_METADATA_NAME: ${CRYOSTAT_STORAGE_BUCKETS_METADATA_NAME:-cryostatmeta}
       CRYOSTAT_DISCOVERY_JDP_ENABLED: ${CRYOSTAT_DISCOVERY_JDP_ENABLED:-true}
       CRYOSTAT_DISCOVERY_PODMAN_ENABLED: ${CRYOSTAT_DISCOVERY_PODMAN_ENABLED:-true}
       CRYOSTAT_DISCOVERY_DOCKER_ENABLED: ${CRYOSTAT_DISCOVERY_DOCKER_ENABLED:-true}
       CRYOSTAT_AGENT_TLS_REQUIRED: ${ENFORCE_AGENT_TLS:-false}
-      JAVA_OPTS_APPEND: >-
-        -XX:StartFlightRecording=filename=/tmp/,name=onstart,settings=default,disk=true,maxage=5m
-        -XX:StartFlightRecording=filename=/tmp/,name=startup,settings=profile,disk=true,duration=30s
-        -Dcom.sun.management.jmxremote.autodiscovery=true
-        -Dcom.sun.management.jmxremote
-        -Dcom.sun.management.jmxremote.port=9091
-        -Dcom.sun.management.jmxremote.rmi.port=9091
-        -Djava.rmi.server.hostname=127.0.0.1
-        -Dcom.sun.management.jmxremote.authenticate=false
-        -Dcom.sun.management.jmxremote.ssl=false
-        -Dcom.sun.management.jmxremote.local.only=false
+      JAVA_OPTS_APPEND: ${CRYOSTAT_JAVA_OPTS}
     restart: unless-stopped
     healthcheck:
       test: curl --fail http://cryostat:${CRYOSTAT_HTTP_PORT}/health/liveness || exit 1

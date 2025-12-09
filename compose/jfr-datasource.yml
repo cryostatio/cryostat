@@ -3,7 +3,7 @@ services:
     environment:
       - GRAFANA_DATASOURCE_URL=http://jfr-datasource:8080
   jfr-datasource:
-    image: ${JFR_DATASOURCE_IMAGE:-quay.io/cryostat/jfr-datasource:latest}
+    image: ${JFR_DATASOURCE_IMAGE:-quay.io/cryostat/jfr-datasource:${CRYOSTAT_VERSION:-latest}}
     hostname: jfr-datasource
     restart: unless-stopped
     deploy:

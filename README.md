@@ -29,8 +29,11 @@ A container-native JVM application which acts as a bridge to other containerized
 * [cryostat-operator](https://github.com/cryostatio/cryostat-operator) : an Operator
   for deploying Cryostat in your OpenShift or Kubernetes cluster.
 
-* [cryostat-helm](https://github.com/cryostatio/cryostat-helm): a Helm Chart for
+* [cryostat-helm](https://github.com/cryostatio/cryostat-helm) : a Helm Chart for
   deploying Cryostat in your OpenShift or Kubernetes cluster
+
+* [cryostat.wiki](https://github.com/cryostatio/cryostat/wiki) : this repository's
+wiki page, containing further configuration samples for ex. Docker Compose
 
 * [cryostat-web](https://github.com/cryostatio/cryostat-web) : the React frontend
   included as a submodule in Cryostat and built into Cryostat's OCI images.
@@ -156,6 +159,42 @@ This will run Cryostat, required companion services, and test applications in a 
 The Quarkus Dev UI is not available in this setup.
 
 ## RUN
+
+### Docker/Podman Compose
+`smoketest.bash -n` can be used to generate a compose manifest YAML definition for use with `docker-compose`
+or `podman-compose`. Check `smoketest.bash -h` for a listing of available options. For example, to
+generate a compose file (`-n`) that uses `cryostat-reports` for automated analysis report generation (`-r`),
+with Cryostat 4.1.0 attached to an external S3-compatible object storage instance (`-s ext`), run:
+
+```bash
+CRYOSTAT_VERSION=4.1.0 \
+CRYOSTAT_USER=myuser \
+CRYOSTAT_PASS=changeit \
+S3_ENDPOINT=https://example.com \
+AWS_ACCESS_KEY_ID=abcd \
+AWS_SECRET_ACCESS_KEY=1234 \
+    ./smoketest.bash -n -r -s ext > cryostat-compose.yaml
+```
+(replace the environment variable values with the authproxy username/password you would like to use and actual values for your object storage provider)
+
+You can then use `cryostat-compose.yaml` to set up or tear down your Cryostat instance using ex. `podman compose up -f cryostat-compose.yaml`.
+The `smoketest.bash` script will take care of generating some local volume tarballs for Cryostat configuration files, and captured data
+will be stored in your configured object storage instance. By modifying this compose file, or taking pieces
+from it to add to your other compose manifests, you can add Cryostat in to a compose deployment.
+
+To initialize Cryostat's configuration volumes after running the `smoketest.bash -n` script, use the following:
+
+```bash
+for i in *.tar.gz ; do \
+    f=$(echo $i | cut -d. -f1); \
+    echo "Creating volume ${f} from ${i}"; \
+    podman volume create $f; \
+    podman volume import $f $f.tar.gz; \
+done
+```
+
+or check the [Cryostat Wiki](https://github.com/cryostatio/cryostat/wiki/Deploying-Cryostat-in-Docker-or-Podman-Compose)
+page for pre-generated initialization volumes with simple configuration defaults.
 
 ### Local Smoketesting
 
