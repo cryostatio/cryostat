@@ -1580,7 +1580,10 @@ public class RecordingHelper {
                                 .singleResult();
                 recordingHelper.stopRecording(recording).await().atMost(connectionTimeout);
             } catch (Exception e) {
-                throw new JobExecutionException(e);
+                var jee = new JobExecutionException(e);
+                jee.setUnscheduleFiringTrigger(true);
+                jee.setRefireImmediately(false);
+                throw jee;
             }
         }
     }

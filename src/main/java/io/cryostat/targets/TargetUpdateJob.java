@@ -23,10 +23,12 @@ import io.cryostat.recordings.RecordingHelper;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
+import org.hibernate.ObjectDeletedException;
 import org.jboss.logging.Logger;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
@@ -56,9 +58,14 @@ public class TargetUpdateJob implements Job {
         long targetId = (long) context.getMergedJobDataMap().get("targetId");
         try {
             target = Target.getTargetById(targetId);
-        } catch (PersistenceException e) {
+        } catch (NoResultException | ObjectDeletedException e) {
             // target disappeared in the meantime. No big deal.
             logger.debug(e);
+            JobExecutionException ex = new JobExecutionException(e);
+            ex.setRefireImmediately(false);
+            ex.setUnscheduleFiringTrigger(true);
+            throw ex;
+        } catch (PersistenceException e) {
             JobExecutionException ex = new JobExecutionException(e);
             ex.setRefireImmediately(false);
             throw ex;
