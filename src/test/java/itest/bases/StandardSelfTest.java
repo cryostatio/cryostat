@@ -189,7 +189,8 @@ public abstract class StandardSelfTest extends HttpClientTest {
                     "POST /api/v4/targets -> HTTP {0} {1}: [{2}]",
                     resp.statusCode(), resp.statusMessage(), resp.headers());
             if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
-                throw new IllegalStateException(Integer.toString(resp.statusCode()));
+                throw new IllegalStateException(
+                        String.format("HTTP %d:%n\t%s", resp.statusCode(), resp.statusMessage()));
             }
             selfCustomTargetLocation =
                     URI.create(resp.headers().get(HttpHeaders.LOCATION)).getPath();
