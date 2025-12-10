@@ -921,7 +921,7 @@ public class RecordingHelper {
                     throw new IllegalStateException();
             }
             CreateMultipartUploadRequest request = builder.build();
-            multipartId = storage.createMultipartUpload(request).uploadId();
+            multipartId = storageAsync.createMultipartUpload(request).get().uploadId();
             int read = 0;
             // TODO refactor to perform multiple part uploads at a time using some small number of
             // worker threads and multiple reused buffers. The network speed between Cryostat and
@@ -967,12 +967,14 @@ public class RecordingHelper {
             logger.error("Could not upload recording to S3 storage", e);
             try {
                 if (multipartId != null) {
-                    storage.abortMultipartUpload(
-                            AbortMultipartUploadRequest.builder()
-                                    .bucket(archiveBucket)
-                                    .key(key)
-                                    .uploadId(multipartId)
-                                    .build());
+                    storageAsync
+                            .abortMultipartUpload(
+                                    AbortMultipartUploadRequest.builder()
+                                            .bucket(archiveBucket)
+                                            .key(key)
+                                            .uploadId(multipartId)
+                                            .build())
+                            .get();
                 }
             } catch (Exception e2) {
                 logger.error("Could not abort S3 multipart upload", e2);
@@ -980,14 +982,15 @@ public class RecordingHelper {
             throw e;
         }
         try {
-            storage.completeMultipartUpload(
+            storageAsync.completeMultipartUpload(
                     CompleteMultipartUploadRequest.builder()
                             .bucket(archiveBucket)
                             .key(key)
                             .uploadId(multipartId)
                             .multipartUpload(
                                     CompletedMultipartUpload.builder().parts(parts).build())
-                            .build());
+                            .build())
+                            .get();
         } catch (SdkClientException e) {
             // Amazon S3 couldn't be contacted for a response, or the client
             // couldn't parse the response from Amazon S3.
