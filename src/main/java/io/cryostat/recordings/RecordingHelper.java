@@ -967,12 +967,14 @@ public class RecordingHelper {
             logger.error("Could not upload recording to S3 storage", e);
             try {
                 if (multipartId != null) {
-                    storageAsync.abortMultipartUpload(
-                            AbortMultipartUploadRequest.builder()
-                                    .bucket(archiveBucket)
-                                    .key(key)
-                                    .uploadId(multipartId)
-                                    .build());
+                    storageAsync
+                            .abortMultipartUpload(
+                                    AbortMultipartUploadRequest.builder()
+                                            .bucket(archiveBucket)
+                                            .key(key)
+                                            .uploadId(multipartId)
+                                            .build())
+                            .get();
                 }
             } catch (Exception e2) {
                 logger.error("Could not abort S3 multipart upload", e2);
