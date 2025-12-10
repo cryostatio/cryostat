@@ -890,8 +890,7 @@ public class RecordingHelper {
         String multipartId = null;
         List<Pair<Integer, String>> parts = new ArrayList<>();
         long accum = 0;
-        try (var stream = getActiveInputStream(recording, uploadFailedTimeout);
-                var ch = Channels.newChannel(stream)) {
+        try (var ch = Channels.newChannel(getActiveInputStream(recording, uploadFailedTimeout))) {
             ByteBuffer buf = ByteBuffer.allocateDirect(transferBufferSize);
             CreateMultipartUploadRequest.Builder builder =
                     CreateMultipartUploadRequest.builder()
@@ -929,9 +928,10 @@ public class RecordingHelper {
                 }
                 accum += read;
                 if (read == -1) {
+                    accum++;
                     logger.tracev(
                             "Key: {0} completed upload of {1} chunks ({2} bytes)",
-                            key, i - 1, accum + 1);
+                            key, i - 1, accum);
                     break;
                 }
 
