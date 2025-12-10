@@ -926,7 +926,7 @@ public class RecordingHelper {
                                                 .partNumber(i)
                                                 .contentLength(Long.valueOf(read))
                                                 .build(),
-                                        AsyncRequestBody.fromRemainingByteBufferUnsafe(buf))
+                                        AsyncRequestBody.fromByteBufferUnsafe(buf))
                                 .get()
                                 .eTag();
                 parts.add(CompletedPart.builder().partNumber(i).eTag(eTag).build());
