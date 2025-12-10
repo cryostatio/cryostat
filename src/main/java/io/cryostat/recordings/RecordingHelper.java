@@ -958,7 +958,11 @@ public class RecordingHelper {
                                 .eTag();
                 parts.add(CompletedPart.builder().partNumber(i).eTag(eTag).build());
                 buf.clear();
-                // S3 API limit
+                // S3 API limit. This means we've tried to upload an incredibly large stream of data
+                // to storage and have run out of individual part IDs to assign to each uploaded
+                // part. The limit is normally 10_000 and the minimum part size is normally 5MiB, so
+                // even in the smallest configuration case this implies that this single data stream
+                // exceeded 50GiB.
                 if (i == transferPartLimit) {
                     throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
                 }
