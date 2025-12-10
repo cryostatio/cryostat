@@ -26,7 +26,6 @@ import java.util.function.Predicate;
 
 import org.openjdk.jmc.common.unit.QuantityConversionException;
 
-import io.cryostat.ConfigProperties;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.RootNode.DiscoveryNodeFilter;
 import io.cryostat.graphql.TargetNodes.RecordingAggregateInfo;
@@ -45,7 +44,6 @@ import io.smallrye.graphql.api.Nullable;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jdk.jfr.RecordingState;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.graphql.Description;
 import org.eclipse.microprofile.graphql.GraphQLApi;
 import org.eclipse.microprofile.graphql.Mutation;
@@ -58,9 +56,6 @@ public class ActiveRecordings {
 
     @Inject RecordingHelper recordingHelper;
     @Inject Logger logger;
-
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration timeout;
 
     @Transactional
     @Mutation
@@ -210,7 +205,7 @@ public class ActiveRecordings {
                         .toList();
         var snapshots = new ArrayList<ActiveRecording>();
         for (var t : targets) {
-            snapshots.add(recordingHelper.createSnapshot(t).await().atMost(timeout));
+            snapshots.add(recordingHelper.createSnapshot(t).await().indefinitely());
         }
         return snapshots;
     }
@@ -234,28 +229,28 @@ public class ActiveRecordings {
                         recording.asOptions(),
                         Optional.ofNullable(recording.metadata).map(s -> s.labels).orElse(Map.of()))
                 .await()
-                .atMost(timeout);
+                .indefinitely();
     }
 
     @Transactional
     @Description("Create a new Flight Recorder Snapshot on the specified Target")
     public ActiveRecording doSnapshot(@Source Target target) {
         var fTarget = Target.getTargetById(target.id);
-        return recordingHelper.createSnapshot(fTarget).await().atMost(timeout);
+        return recordingHelper.createSnapshot(fTarget).await().indefinitely();
     }
 
     @Transactional
     @Description("Stop the specified Flight Recording")
     public ActiveRecording doStop(@Source ActiveRecording recording) throws Exception {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
-        return recordingHelper.stopRecording(ar).await().atMost(timeout);
+        return recordingHelper.stopRecording(ar).await().indefinitely();
     }
 
     @Transactional
     @Description("Delete the specified Flight Recording")
     public ActiveRecording doDelete(@Source ActiveRecording recording) {
         var ar = ActiveRecording.<ActiveRecording>find("id", recording.id).singleResult();
-        return recordingHelper.deleteRecording(ar).await().atMost(timeout);
+        return recordingHelper.deleteRecording(ar).await().indefinitely();
     }
 
     @Description("Archive the specified Flight Recording")
