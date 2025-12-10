@@ -891,7 +891,7 @@ public class RecordingHelper {
                 String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
         String key = archivedRecordingKey(recording.target.jvmId, filename);
         String multipartId = null;
-        List<Pair<Integer, String>> parts = new ArrayList<>();
+        List<CompletedPart> parts = new ArrayList<>();
         long accum = 0;
         try (var ch = Channels.newChannel(getActiveInputStream(recording, uploadFailedTimeout))) {
             ByteBuffer buf = ByteBuffer.allocate(transferBufferSize);
@@ -956,7 +956,7 @@ public class RecordingHelper {
                                         AsyncRequestBody.fromRemainingByteBufferUnsafe(buf))
                                 .get()
                                 .eTag();
-                parts.add(Pair.of(i, eTag));
+                parts.add(CompletedPart.builder().partNumber(i).eTag(eTag).build());
                 buf.clear();
                 // S3 API limit
                 if (i == transferPartLimit) {
@@ -980,24 +980,15 @@ public class RecordingHelper {
             throw e;
         }
         try {
-            var partList =
-                    parts.stream()
-                            .map(
-                                    part ->
-                                            CompletedPart.builder()
-                                                    .partNumber(part.getLeft())
-                                                    .eTag(part.getRight())
-                                                    .build())
-                            .toList();
-            var upload = CompletedMultipartUpload.builder().parts(partList).build();
-            var completeRequest =
+            storageAsync.completeMultipartUpload(
                     CompleteMultipartUploadRequest.builder()
                             .bucket(archiveBucket)
                             .key(key)
                             .uploadId(multipartId)
-                            .multipartUpload(upload)
-                            .build();
-            storageAsync.completeMultipartUpload(completeRequest).get();
+                            .multipartUpload(
+                                    CompletedMultipartUpload.builder().parts(parts).build())
+                            .build())
+                            .get();
         } catch (SdkClientException e) {
             // Amazon S3 couldn't be contacted for a response, or the client
             // couldn't parse the response from Amazon S3.
