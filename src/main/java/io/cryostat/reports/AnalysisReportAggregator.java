@@ -252,11 +252,11 @@ public class AnalysisReportAggregator {
 
     public Uni<Entry> getEntry(String jvmId) {
         if (StringUtils.isBlank(jvmId)) {
-            return Uni.createFrom().failure(() -> new NotFoundException());
+            return Uni.createFrom().failure(NotFoundException::new);
         }
         CompletableFuture<Entry> f = cache.as(CaffeineCache.class).getIfPresent(jvmId);
         if (f == null) {
-            return Uni.createFrom().failure(() -> new NotFoundException());
+            return Uni.createFrom().failure(NotFoundException::new);
         }
         return Uni.createFrom().future(f);
     }

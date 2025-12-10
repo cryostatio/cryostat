@@ -15,7 +15,6 @@
  */
 package io.cryostat.reports;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
@@ -75,9 +74,6 @@ public class Reports {
     @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_STORAGE_CACHE_NAME)
     String bucket;
 
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration timeout;
-
     @Inject LongRunningRequestGenerator generator;
     @Inject StorageBuckets storageBuckets;
     @Inject RecordingHelper helper;
@@ -125,7 +121,7 @@ public class Reports {
                             reportsService
                                     .reportFor(pair.getKey(), pair.getValue())
                                     .await()
-                                    .atMost(timeout),
+                                    .indefinitely(),
                             MediaType.APPLICATION_JSON)
                     .status(200)
                     .build();
@@ -269,7 +265,7 @@ public class Reports {
         // Check if we've already cached a result for this report, return it if so
         if (reportsService.keyExists(recording)) {
             return Response.ok(
-                            reportsService.reportFor(recording).await().atMost(timeout),
+                            reportsService.reportFor(recording).await().indefinitely(),
                             MediaType.APPLICATION_JSON)
                     .status(Response.Status.OK)
                     .build();
