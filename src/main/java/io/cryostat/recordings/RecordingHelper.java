@@ -982,15 +982,16 @@ public class RecordingHelper {
             throw e;
         }
         try {
-            storageAsync.completeMultipartUpload(
-                    CompleteMultipartUploadRequest.builder()
-                            .bucket(archiveBucket)
-                            .key(key)
-                            .uploadId(multipartId)
-                            .multipartUpload(
-                                    CompletedMultipartUpload.builder().parts(parts).build())
-                            .build())
-                            .get();
+            storageAsync
+                    .completeMultipartUpload(
+                            CompleteMultipartUploadRequest.builder()
+                                    .bucket(archiveBucket)
+                                    .key(key)
+                                    .uploadId(multipartId)
+                                    .multipartUpload(
+                                            CompletedMultipartUpload.builder().parts(parts).build())
+                                    .build())
+                    .get();
         } catch (SdkClientException e) {
             // Amazon S3 couldn't be contacted for a response, or the client
             // couldn't parse the response from Amazon S3.
