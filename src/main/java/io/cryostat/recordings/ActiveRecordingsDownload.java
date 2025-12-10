@@ -16,9 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.InputStream;
-import java.time.Duration;
 
-import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.util.HttpMimeType;
 
@@ -30,7 +28,6 @@ import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.HttpHeaders;
 import org.apache.commons.codec.binary.Base64;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
@@ -46,9 +43,6 @@ public class ActiveRecordingsDownload {
     @Inject
     @Identifier(Producers.BASE64_URL)
     Base64 base64Url;
-
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration connectionFailedTimeout;
 
     @GET
     @Blocking
@@ -69,7 +63,7 @@ public class ActiveRecordingsDownload {
                         HttpHeaders.CONTENT_DISPOSITION,
                         String.format("attachment; filename=\"%s.jfr\"", recording.name))
                 .header(HttpHeaders.CONTENT_TYPE, HttpMimeType.OCTET_STREAM.mime())
-                .entity(recordingHelper.getActiveInputStream(recording, connectionFailedTimeout))
+                .entity(recordingHelper.getActiveInputStream(recording))
                 .build();
     }
 }
