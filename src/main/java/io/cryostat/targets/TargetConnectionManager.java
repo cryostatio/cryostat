@@ -263,7 +263,7 @@ public class TargetConnectionManager {
                 .transform(t -> new HttpException(504, t))
                 .onFailure(t -> !this.isPropagatedFailure(t))
                 .retry()
-                .withBackOff(failedBackoff)
+                .withBackOff(Duration.ofMillis(100), failedBackoff)
                 .expireIn(failedTimeout.toMillis())
                 .onFailure(this::isTargetConnectionFailure)
                 .transform(t -> new HttpException(504, t));
