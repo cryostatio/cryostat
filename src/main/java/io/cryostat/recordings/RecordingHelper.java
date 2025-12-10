@@ -125,8 +125,10 @@ import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 import org.quartz.plugins.interrupt.JobInterruptMonitorPlugin;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
@@ -171,6 +173,7 @@ public class RecordingHelper {
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
     @Inject S3Client storage;
+    @Inject S3AsyncClient storageAsync;
 
     @Inject @RestClient DatasourceClient datasourceClient;
     @Inject StorageBuckets buckets;
@@ -918,8 +921,12 @@ public class RecordingHelper {
                     throw new IllegalStateException();
             }
             CreateMultipartUploadRequest request = builder.build();
-            multipartId = storage.createMultipartUpload(request).uploadId();
+            multipartId = storageAsync.createMultipartUpload(request).get().uploadId();
             int read = 0;
+            // TODO refactor to perform multiple part uploads at a time using some small number of
+            // worker threads and multiple reused buffers. The network speed between Cryostat and
+            // the target should be assumed to be significantly faster than the connection speed
+            // from Cryostat to storage.
             for (int i = 1; i <= transferPartLimit; i++) {
                 read = ch.read(buf);
 
@@ -937,7 +944,8 @@ public class RecordingHelper {
 
                 logger.tracev("Writing chunk {0} of {1} bytes", i, read);
                 String eTag =
-                        storage.uploadPart(
+                        storageAsync
+                                .uploadPart(
                                         UploadPartRequest.builder()
                                                 .bucket(archiveBucket)
                                                 .key(key)
@@ -945,7 +953,8 @@ public class RecordingHelper {
                                                 .partNumber(i)
                                                 .contentLength(Long.valueOf(read))
                                                 .build(),
-                                        RequestBody.fromByteBuffer(buf.slice(0, read)))
+                                        AsyncRequestBody.fromRemainingByteBufferUnsafe(buf))
+                                .get()
                                 .eTag();
                 parts.add(Pair.of(i, eTag));
                 buf.clear();
@@ -958,7 +967,7 @@ public class RecordingHelper {
             logger.error("Could not upload recording to S3 storage", e);
             try {
                 if (multipartId != null) {
-                    storage.abortMultipartUpload(
+                    storageAsync.abortMultipartUpload(
                             AbortMultipartUploadRequest.builder()
                                     .bucket(archiveBucket)
                                     .key(key)
@@ -971,28 +980,24 @@ public class RecordingHelper {
             throw e;
         }
         try {
-            storage.completeMultipartUpload(
+            var partList =
+                    parts.stream()
+                            .map(
+                                    part ->
+                                            CompletedPart.builder()
+                                                    .partNumber(part.getLeft())
+                                                    .eTag(part.getRight())
+                                                    .build())
+                            .toList();
+            var upload = CompletedMultipartUpload.builder().parts(partList).build();
+            var completeRequest =
                     CompleteMultipartUploadRequest.builder()
                             .bucket(archiveBucket)
                             .key(key)
                             .uploadId(multipartId)
-                            .multipartUpload(
-                                    CompletedMultipartUpload.builder()
-                                            .parts(
-                                                    parts.stream()
-                                                            .map(
-                                                                    part ->
-                                                                            CompletedPart.builder()
-                                                                                    .partNumber(
-                                                                                            part
-                                                                                                    .getLeft())
-                                                                                    .eTag(
-                                                                                            part
-                                                                                                    .getRight())
-                                                                                    .build())
-                                                            .toList())
-                                            .build())
-                            .build());
+                            .multipartUpload(upload)
+                            .build();
+            storageAsync.completeMultipartUpload(completeRequest).get();
         } catch (SdkClientException e) {
             // Amazon S3 couldn't be contacted for a response, or the client
             // couldn't parse the response from Amazon S3.
