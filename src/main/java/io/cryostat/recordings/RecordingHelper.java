@@ -166,9 +166,6 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 @ApplicationScoped
 public class RecordingHelper {
 
-    private static final int S3_API_PART_LIMIT = 10_000;
-    private static final int MIB = 1024 * 1024;
-
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
@@ -220,6 +217,12 @@ public class RecordingHelper {
 
     @ConfigProperty(name = ConfigProperties.JFR_DATASOURCE_USE_PRESIGNED_TRANSFER)
     boolean usePresignedTransfer;
+
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_TRANSFER_BUFFER_SIZE)
+    int transferBufferSize;
+
+    @ConfigProperty(name = ConfigProperties.CONNECTIONS_TRANSFER_PART_LIMIT)
+    int transferPartLimit;
 
     CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
 
@@ -889,7 +892,7 @@ public class RecordingHelper {
         long accum = 0;
         try (var stream = getActiveInputStream(recording, uploadFailedTimeout);
                 var ch = Channels.newChannel(stream)) {
-            ByteBuffer buf = ByteBuffer.allocate(20 * MIB);
+            ByteBuffer buf = ByteBuffer.allocate(transferBufferSize);
             CreateMultipartUploadRequest.Builder builder =
                     CreateMultipartUploadRequest.builder()
                             .bucket(archiveBucket)
@@ -918,7 +921,7 @@ public class RecordingHelper {
             CreateMultipartUploadRequest request = builder.build();
             multipartId = storage.createMultipartUpload(request).uploadId();
             int read = 0;
-            for (int i = 1; i <= S3_API_PART_LIMIT; i++) {
+            for (int i = 1; i <= transferPartLimit; i++) {
                 read = ch.read(buf);
 
                 if (read == 0) {
@@ -947,7 +950,7 @@ public class RecordingHelper {
                 parts.add(Pair.of(i, eTag));
                 buf.clear();
                 // S3 API limit
-                if (i == S3_API_PART_LIMIT) {
+                if (i == transferPartLimit) {
                     throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
                 }
             }
