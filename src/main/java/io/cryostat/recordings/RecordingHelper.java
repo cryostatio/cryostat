@@ -894,7 +894,7 @@ public class RecordingHelper {
         List<Pair<Integer, String>> parts = new ArrayList<>();
         long accum = 0;
         try (var ch = Channels.newChannel(getActiveInputStream(recording, uploadFailedTimeout))) {
-            ByteBuffer buf = ByteBuffer.allocateDirect(transferBufferSize);
+            ByteBuffer buf = ByteBuffer.allocate(transferBufferSize);
             CreateMultipartUploadRequest.Builder builder =
                     CreateMultipartUploadRequest.builder()
                             .bucket(archiveBucket)
