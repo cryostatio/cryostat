@@ -76,7 +76,6 @@ import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
 import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 import software.amazon.awssdk.transfer.s3.model.UploadRequest;
-import software.amazon.awssdk.transfer.s3.progress.LoggingTransferListener;
 
 @ApplicationScoped
 public class DiagnosticsHelper {
