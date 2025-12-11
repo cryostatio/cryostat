@@ -24,7 +24,6 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -42,6 +41,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -126,14 +127,8 @@ import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 import org.quartz.plugins.interrupt.JobInterruptMonitorPlugin;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
-import software.amazon.awssdk.core.exception.SdkClientException;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
-import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
-import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
-import software.amazon.awssdk.services.s3.model.CompletedPart;
-import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
@@ -147,7 +142,6 @@ import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
-import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
@@ -176,6 +170,7 @@ public class RecordingHelper {
     @Inject S3Client storage;
     @Inject S3AsyncClient storageAsync;
     @Inject S3TransferManager transferManager;
+    final ExecutorService partUploader = Executors.newVirtualThreadPerTaskExecutor();
 
     @Inject @RestClient DatasourceClient datasourceClient;
     @Inject StorageBuckets buckets;
@@ -222,12 +217,6 @@ public class RecordingHelper {
 
     @ConfigProperty(name = ConfigProperties.JFR_DATASOURCE_USE_PRESIGNED_TRANSFER)
     boolean usePresignedTransfer;
-
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_TRANSFER_BUFFER_SIZE)
-    int transferBufferSize;
-
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_TRANSFER_PART_LIMIT)
-    int transferPartLimit;
 
     CompletableFuture<URL> grafanaDatasourceURL = new CompletableFuture<>();
 
@@ -892,13 +881,9 @@ public class RecordingHelper {
         String filename =
                 String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
         String key = archivedRecordingKey(recording.target.jvmId, filename);
-        String multipartId = null;
-        List<CompletedPart> parts = new ArrayList<>();
-        long accum = 0;
-        try (var ch = Channels.newChannel(getActiveInputStream(recording, uploadFailedTimeout))) {
-            ByteBuffer buf = ByteBuffer.allocate(transferBufferSize);
-            CreateMultipartUploadRequest.Builder builder =
-                    CreateMultipartUploadRequest.builder()
+        try (var stream = getActiveInputStream(recording, uploadFailedTimeout)) {
+            PutObjectRequest.Builder builder =
+                    PutObjectRequest.builder()
                             .bucket(archiveBucket)
                             .key(key)
                             .contentType(HttpMimeType.JFR.mime())
@@ -922,115 +907,26 @@ public class RecordingHelper {
                 default:
                     throw new IllegalStateException();
             }
-            CreateMultipartUploadRequest request = builder.build();
-            multipartId = storageAsync.createMultipartUpload(request).get().uploadId();
-            int read = 0;
-            // TODO refactor to perform multiple part uploads at a time using some small number of
-            // worker threads and multiple reused buffers. The network speed between Cryostat and
-            // the target should be assumed to be significantly faster than the connection speed
-            // from Cryostat to storage.
-            for (int i = 1; i <= transferPartLimit; i++) {
-                read = ch.read(buf);
-
-                if (read == 0) {
-                    read = retryRead(ch, buf);
-                }
-                accum += read;
-                if (read == -1) {
-                    accum++;
-                    logger.tracev(
-                            "Key: {0} completed upload of {1} chunks ({2} bytes)",
-                            key, i - 1, accum);
-                    break;
-                }
-
-                logger.tracev("Writing chunk {0} of {1} bytes", i, read);
-                String eTag =
-                        storageAsync
-                                .uploadPart(
-                                        UploadPartRequest.builder()
-                                                .bucket(archiveBucket)
-                                                .key(key)
-                                                .uploadId(multipartId)
-                                                .partNumber(i)
-                                                .contentLength(Long.valueOf(read))
-                                                .build(),
-                                        AsyncRequestBody.fromByteBufferUnsafe(buf))
-                                .get()
-                                .eTag();
-                parts.add(CompletedPart.builder().partNumber(i).eTag(eTag).build());
-                buf.clear();
-                // S3 API limit. This means we've tried to upload an incredibly large stream of data
-                // to storage and have run out of individual part IDs to assign to each uploaded
-                // part. The limit is normally 10_000 and the minimum part size is normally 5MiB, so
-                // even in the smallest configuration case this implies that this single data stream
-                // exceeded 50GiB.
-                if (i == transferPartLimit) {
-                    throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Could not upload recording to S3 storage", e);
-            try {
-                if (multipartId != null) {
-                    storageAsync
-                            .abortMultipartUpload(
-                                    AbortMultipartUploadRequest.builder()
-                                            .bucket(archiveBucket)
-                                            .key(key)
-                                            .uploadId(multipartId)
-                                            .build())
-                            .get();
-                }
-            } catch (Exception e2) {
-                logger.error("Could not abort S3 multipart upload", e2);
-            }
-            throw e;
-        }
-        try {
             storageAsync
-                    .completeMultipartUpload(
-                            CompleteMultipartUploadRequest.builder()
-                                    .bucket(archiveBucket)
-                                    .key(key)
-                                    .uploadId(multipartId)
-                                    .multipartUpload(
-                                            CompletedMultipartUpload.builder().parts(parts).build())
-                                    .build())
-                    .get();
-        } catch (SdkClientException e) {
-            // Amazon S3 couldn't be contacted for a response, or the client
-            // couldn't parse the response from Amazon S3.
-            throw e;
+                    .putObject(
+                            builder.build(),
+                            AsyncRequestBody.fromInputStream(stream, null, partUploader))
+                    .join();
         }
         ArchivedRecording archivedRecording =
-                new ArchivedRecording(
-                        recording.target.jvmId,
-                        filename,
-                        downloadUrl(recording.target.jvmId, filename),
-                        reportUrl(recording.target.jvmId, filename),
-                        recording.metadata,
-                        accum,
-                        now.getEpochSecond());
-
-        URI connectUrl = recording.target.connectUrl;
+                getArchivedRecordingInfo(recording.target.jvmId, filename).orElseThrow();
 
         var event =
                 new ArchivedRecordingEvent(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
-                        ArchivedRecordingEvent.Payload.of(connectUrl, archivedRecording));
+                        ArchivedRecordingEvent.Payload.of(
+                                recording.target.connectUrl, archivedRecording));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
-        return new ArchivedRecording(
-                recording.target.jvmId,
-                filename,
-                downloadUrl(recording.target.jvmId, filename),
-                reportUrl(recording.target.jvmId, filename),
-                recording.metadata,
-                accum,
-                now.getEpochSecond());
+
+        return archivedRecording;
     }
 
     public Optional<ArchivedRecording> getArchivedRecordingInfo(String jvmId, String filename) {

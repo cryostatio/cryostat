@@ -55,10 +55,6 @@ public class ConfigProperties {
     public static final String CONNECTIONS_FAILED_BACKOFF = "cryostat.connections.failed-backoff";
     public static final String CONNECTIONS_FAILED_TIMEOUT = "cryostat.connections.failed-timeout";
     public static final String CONNECTIONS_UPLOAD_TIMEOUT = "cryostat.connections.upload-timeout";
-    public static final String CONNECTIONS_TRANSFER_BUFFER_SIZE =
-            "cryostat.connections.transfer.buffer-size";
-    public static final String CONNECTIONS_TRANSFER_PART_LIMIT =
-            "cryostat.connections.transfer.part-limit";
 
     public static final String CONNECTIONS_HEALTH_TIMEOUT =
             "cryostat.services.health-check.timeout";
