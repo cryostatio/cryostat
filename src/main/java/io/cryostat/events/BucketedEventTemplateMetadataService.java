@@ -40,12 +40,14 @@ import jakarta.inject.Inject;
 import org.apache.commons.codec.binary.Base64;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.UploadRequest;
 
 @ApplicationScoped
 @LookupIfProperty(
@@ -63,6 +65,7 @@ class BucketedEventTemplateMetadataService implements CRUDService<String, Templa
     String prefix;
 
     @Inject S3Client storage;
+    @Inject S3TransferManager transferManager;
     @Inject StorageBuckets buckets;
 
     @Inject
@@ -104,13 +107,22 @@ class BucketedEventTemplateMetadataService implements CRUDService<String, Templa
 
     @Override
     public void create(String k, Template template) throws IOException {
-        storage.putObject(
+        var builder =
                 PutObjectRequest.builder()
                         .bucket(bucket)
                         .key(prefix(k))
-                        .contentType(HttpMimeType.JFC.mime())
-                        .build(),
-                RequestBody.fromBytes(mapper.writeValueAsBytes(TemplateMeta.from(template))));
+                        .contentType(HttpMimeType.JFC.mime());
+        transferManager
+                .upload(
+                        UploadRequest.builder()
+                                .putObjectRequest(builder.build())
+                                .requestBody(
+                                        AsyncRequestBody.fromBytes(
+                                                mapper.writeValueAsBytes(
+                                                        TemplateMeta.from(template))))
+                                .build())
+                .completionFuture()
+                .join();
     }
 
     @Override
