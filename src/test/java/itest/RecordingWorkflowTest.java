@@ -16,14 +16,15 @@
 package itest;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -58,6 +59,7 @@ public class RecordingWorkflowTest extends StandardSelfTest {
 
     static String TEST_RECORDING_NAME = "workflow_itest";
     static long TEST_REMOTE_ID;
+    final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     @AfterEach
     void cleanup()
@@ -85,18 +87,30 @@ public class RecordingWorkflowTest extends StandardSelfTest {
         Assertions.assertTrue(listResp.isEmpty());
 
         List<String> archivedRecordingFilenames = new ArrayList<>();
-        // create an in-memory recording
-        MultiMap form = MultiMap.caseInsensitiveMultiMap();
-        form.add("recordingName", TEST_RECORDING_NAME);
-        form.add("duration", "20");
-        form.add("events", "template=ALL");
-        webClient
-                .extensions()
-                .post(
-                        String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()),
-                        form,
-                        REQUEST_TIMEOUT_SECONDS);
-        Thread.sleep(500);
+        executor.schedule(
+                () -> {
+                    try {
+                        // create an in-memory recording
+                        MultiMap form = MultiMap.caseInsensitiveMultiMap();
+                        form.add("recordingName", TEST_RECORDING_NAME);
+                        form.add("duration", "20");
+                        form.add("events", "template=ALL");
+                        webClient
+                                .extensions()
+                                .post(
+                                        String.format(
+                                                "/api/v4/targets/%d/recordings",
+                                                getSelfReferenceTargetId()),
+                                        form,
+                                        REQUEST_TIMEOUT_SECONDS);
+                    } catch (InterruptedException | TimeoutException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                },
+                1,
+                TimeUnit.SECONDS);
+        expectWebSocketNotification("ActiveRecordingCreated");
+        Thread.sleep(1000); // allow time for things to settle
 
         // verify in-memory recording created
         CompletableFuture<JsonArray> listRespFuture2 = new CompletableFuture<>();
@@ -122,43 +136,37 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                 recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
         MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("RUNNING"));
 
-        Thread.sleep(5_000L); // wait some time to save a portion of the recording
+        Thread.sleep(4_000L); // wait some time to save a portion of the recording
 
         // save a copy of the partial recording dump
-        MultiMap saveHeaders = MultiMap.caseInsensitiveMultiMap();
-        saveHeaders.add(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.PLAINTEXT.mime());
-        webClient
-                .extensions()
-                .patch(
-                        String.format(
-                                "/api/v4/targets/%d/recordings/%d",
-                                getSelfReferenceTargetId(), TEST_REMOTE_ID),
-                        saveHeaders,
-                        Buffer.buffer("SAVE"),
-                        REQUEST_TIMEOUT_SECONDS)
-                .bodyAsString();
+        executor.schedule(
+                () -> {
+                    try {
+                        MultiMap saveHeaders = MultiMap.caseInsensitiveMultiMap();
+                        saveHeaders.add(
+                                HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.PLAINTEXT.mime());
+                        webClient
+                                .extensions()
+                                .patch(
+                                        String.format(
+                                                "/api/v4/targets/%d/recordings/%d",
+                                                getSelfReferenceTargetId(), TEST_REMOTE_ID),
+                                        saveHeaders,
+                                        Buffer.buffer("SAVE"),
+                                        REQUEST_TIMEOUT_SECONDS)
+                                .bodyAsString();
+                    } catch (InterruptedException | TimeoutException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                },
+                1,
+                TimeUnit.SECONDS);
         // Wait for the archive request to conclude, the server won't block the client
         // while it performs the archive so we need to wait.
-        CountDownLatch archiveLatch = new CountDownLatch(1);
-        Future<JsonObject> future =
-                worker.submit(
-                        () -> {
-                            try {
-                                return expectNotification(
-                                                "ArchiveRecordingSuccess", 5, TimeUnit.SECONDS)
-                                        .get();
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                archiveLatch.countDown();
-                            }
-                        });
-        archiveLatch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        JsonObject archiveNotification = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        JsonObject archiveNotification = expectWebSocketNotification("ArchiveRecordingSuccess");
         archivedRecordingFilenames.add(
                 archiveNotification.getJsonObject("message").getString("recording").toString());
 
-        Thread.sleep(500);
         // check that the in-memory recording list hasn't changed
         CompletableFuture<JsonArray> listRespFuture3 = new CompletableFuture<>();
         webClient
@@ -193,7 +201,6 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                             }
                         });
         listResp = listRespFuture4.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        Thread.sleep(500);
 
         MatcherAssert.assertThat(
                 "list-saved should have size 1 after recording save",
@@ -205,7 +212,10 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                 Matchers.matchesRegex(
                         SELFTEST_ALIAS + "_" + TEST_RECORDING_NAME + "_[\\d]{8}T[\\d]{6}Z.jfr"));
         String savedDownloadUrl = recordingInfo.getString("downloadUrl");
-        Thread.sleep(30_000L); // wait for the dump to complete
+
+        expectWebSocketNotification(
+                "ActiveRecordingStopped", Duration.ofMinutes(1)); // wait for the dump to complete
+        Thread.sleep(1000); // allow time for things to settle
 
         // verify the in-memory recording list has not changed, except recording is now stopped
         CompletableFuture<JsonArray> listRespFuture5 = new CompletableFuture<>();
@@ -234,12 +244,10 @@ public class RecordingWorkflowTest extends StandardSelfTest {
         Path inMemoryDownloadPath =
                 downloadFile(inMemoryDownloadUrl, TEST_RECORDING_NAME, ".jfr")
                         .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        Thread.sleep(100);
 
         Path savedDownloadPath =
                 downloadFile(savedDownloadUrl, TEST_RECORDING_NAME + "_saved", ".jfr")
                         .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        Thread.sleep(100);
         MatcherAssert.assertThat(savedDownloadPath.toFile().length(), Matchers.greaterThan(0L));
         MatcherAssert.assertThat(
                 inMemoryDownloadPath.toFile().length(),
@@ -251,37 +259,33 @@ public class RecordingWorkflowTest extends StandardSelfTest {
         MatcherAssert.assertThat(inMemoryEvents.size(), Matchers.greaterThan(savedEvents.size()));
 
         String reportUrl = recordingInfo.getString("reportUrl");
-
-        HttpResponse<Buffer> reportResponse =
-                webClient
-                        .get(reportUrl)
-                        .send()
-                        .toCompletionStage()
-                        .toCompletableFuture()
-                        .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        MatcherAssert.assertThat(
-                reportResponse.statusCode(),
-                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-        MatcherAssert.assertThat(reportResponse.getHeader("Location"), Matchers.notNullValue());
-        MatcherAssert.assertThat(reportResponse.bodyAsString(), Matchers.notNullValue());
+        executor.schedule(
+                () -> {
+                    try {
+                        HttpResponse<Buffer> reportResponse =
+                                webClient
+                                        .get(reportUrl)
+                                        .send()
+                                        .toCompletionStage()
+                                        .toCompletableFuture()
+                                        .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                        MatcherAssert.assertThat(
+                                reportResponse.statusCode(),
+                                Matchers.both(Matchers.greaterThanOrEqualTo(200))
+                                        .and(Matchers.lessThan(300)));
+                        MatcherAssert.assertThat(
+                                reportResponse.getHeader("Location"), Matchers.notNullValue());
+                        MatcherAssert.assertThat(
+                                reportResponse.bodyAsString(), Matchers.notNullValue());
+                    } catch (InterruptedException | TimeoutException | ExecutionException e) {
+                        throw new RuntimeException(e);
+                    }
+                },
+                1,
+                TimeUnit.SECONDS);
 
         // Check that report generation concludes
-        CountDownLatch latch = new CountDownLatch(1);
-        Future<JsonObject> f =
-                worker.submit(
-                        () -> {
-                            try {
-                                return expectNotification("ReportSuccess", 15, TimeUnit.SECONDS)
-                                        .get();
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                latch.countDown();
-                            }
-                        });
-
-        latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        JsonObject notification = expectWebSocketNotification("ReportSuccess");
         MatcherAssert.assertThat(notification.getJsonObject("message"), Matchers.notNullValue());
     }
 }
