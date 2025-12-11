@@ -15,17 +15,14 @@
  */
 package io.cryostat.targets;
 
-import java.time.Duration;
 import java.util.List;
 
-import io.cryostat.ConfigProperties;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
@@ -36,9 +33,6 @@ public class Targets {
     @Inject MatchExpressionEvaluator matchExpressionEvaluator;
     @Inject TargetConnectionManager connectionManager;
     @Inject Logger logger;
-
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration timeout;
 
     @GET
     @Path("/api/v4/targets")

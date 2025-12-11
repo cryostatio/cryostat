@@ -391,119 +391,149 @@ public class RecordingHelper {
             Template template,
             RecordingOptions options,
             Map<String, String> rawLabels) {
-        String recordingName = options.name();
+        return Uni.createFrom()
+                .item(
+                        () -> {
+                            String recordingName = options.name();
+                            RecordingState previousState =
+                                    connectionManager.executeConnectedTask(
+                                            target,
+                                            conn ->
+                                                    QuarkusTransaction.joiningExisting()
+                                                            .call(
+                                                                    () ->
+                                                                            getDescriptorByName(
+                                                                                            conn,
+                                                                                            recordingName)
+                                                                                    .map(
+                                                                                            this
+                                                                                                    ::mapState)
+                                                                                    .orElse(null)));
+                            boolean restart =
+                                    previousState == null
+                                            || shouldRestartRecording(replace, previousState);
+                            if (!restart) {
+                                throw new EntityExistsException("Recording", recordingName);
+                            }
+                            getActiveRecording(target, r -> r.name.equals(recordingName))
+                                    .ifPresent(r -> this.deleteRecording(r).await().indefinitely());
+                            var desc =
+                                    connectionManager.executeConnectedTask(
+                                            target,
+                                            conn -> {
+                                                RecordingOptionsBuilder optionsBuilder =
+                                                        recordingOptionsBuilderFactory
+                                                                .create(target)
+                                                                .name(recordingName);
+                                                if (options.duration().isPresent()) {
+                                                    optionsBuilder =
+                                                            optionsBuilder.duration(
+                                                                    TimeUnit.SECONDS.toMillis(
+                                                                            options.duration()
+                                                                                    .get()));
+                                                }
+                                                if (options.toDisk().isPresent()) {
+                                                    optionsBuilder =
+                                                            optionsBuilder.toDisk(
+                                                                    options.toDisk().get());
+                                                }
+                                                if (options.maxAge().isPresent()) {
+                                                    optionsBuilder =
+                                                            optionsBuilder.maxAge(
+                                                                    options.maxAge().get());
+                                                }
+                                                if (options.maxSize().isPresent()) {
+                                                    optionsBuilder =
+                                                            optionsBuilder.maxSize(
+                                                                    options.maxSize().get());
+                                                }
+                                                IConstrainedMap<String> recordingOptions =
+                                                        optionsBuilder.build();
 
-        RecordingState previousState =
-                connectionManager.executeConnectedTask(
-                        target,
-                        conn ->
-                                QuarkusTransaction.joiningExisting()
-                                        .call(
-                                                () ->
-                                                        getDescriptorByName(conn, recordingName)
-                                                                .map(this::mapState)
-                                                                .orElse(null)));
-        boolean restart = previousState == null || shouldRestartRecording(replace, previousState);
-        if (!restart) {
-            return Uni.createFrom()
-                    .failure(() -> new EntityExistsException("Recording", recordingName));
-        }
-        getActiveRecording(target, r -> r.name.equals(recordingName))
-                .ifPresent(r -> this.deleteRecording(r).await().atMost(connectionFailedTimeout));
-        var desc =
-                connectionManager.executeConnectedTask(
-                        target,
-                        conn -> {
-                            RecordingOptionsBuilder optionsBuilder =
-                                    recordingOptionsBuilderFactory
-                                            .create(target)
-                                            .name(recordingName);
-                            if (options.duration().isPresent()) {
-                                optionsBuilder =
-                                        optionsBuilder.duration(
-                                                TimeUnit.SECONDS.toMillis(
-                                                        options.duration().get()));
-                            }
-                            if (options.toDisk().isPresent()) {
-                                optionsBuilder = optionsBuilder.toDisk(options.toDisk().get());
-                            }
-                            if (options.maxAge().isPresent()) {
-                                optionsBuilder = optionsBuilder.maxAge(options.maxAge().get());
-                            }
-                            if (options.maxSize().isPresent()) {
-                                optionsBuilder = optionsBuilder.maxSize(options.maxSize().get());
-                            }
-                            IConstrainedMap<String> recordingOptions = optionsBuilder.build();
+                                                switch (template.getType()) {
+                                                    case PRESET:
+                                                        return conn.getService()
+                                                                .start(
+                                                                        recordingOptions,
+                                                                        presetTemplateService
+                                                                                .getXml(
+                                                                                        template
+                                                                                                .getName(),
+                                                                                        TemplateType
+                                                                                                .CUSTOM)
+                                                                                .orElseThrow());
+                                                    case CUSTOM:
+                                                        return conn.getService()
+                                                                .start(
+                                                                        recordingOptions,
+                                                                        customTemplateService
+                                                                                .getXml(
+                                                                                        template
+                                                                                                .getName(),
+                                                                                        TemplateType
+                                                                                                .CUSTOM)
+                                                                                .orElseThrow());
+                                                    case TARGET:
+                                                        return conn.getService()
+                                                                .start(recordingOptions, template);
+                                                    default:
+                                                        throw new IllegalStateException(
+                                                                "Unknown template type: "
+                                                                        + template.getType());
+                                                }
+                                            });
 
-                            switch (template.getType()) {
-                                case PRESET:
-                                    return conn.getService()
-                                            .start(
-                                                    recordingOptions,
-                                                    presetTemplateService
-                                                            .getXml(
-                                                                    template.getName(),
-                                                                    TemplateType.CUSTOM)
-                                                            .orElseThrow());
-                                case CUSTOM:
-                                    return conn.getService()
-                                            .start(
-                                                    recordingOptions,
-                                                    customTemplateService
-                                                            .getXml(
-                                                                    template.getName(),
-                                                                    TemplateType.CUSTOM)
-                                                            .orElseThrow());
-                                case TARGET:
-                                    return conn.getService().start(recordingOptions, template);
-                                default:
-                                    throw new IllegalStateException(
-                                            "Unknown template type: " + template.getType());
+                            Map<String, String> labels = new HashMap<>(rawLabels);
+                            labels.put("template.name", template.getName());
+                            labels.put("template.type", template.getType().toString());
+                            Metadata meta = new Metadata(labels);
+
+                            ActiveRecording recording =
+                                    ActiveRecording.from(target, desc, meta, options);
+                            recording.persist();
+
+                            target.activeRecordings.add(recording);
+                            target.persist();
+
+                            if (!recording.continuous) {
+                                JobKey key =
+                                        JobKey.jobKey(
+                                                String.format(
+                                                        "%s.%d", target.jvmId, recording.remoteId),
+                                                "recording.fixed-duration");
+                                JobDetail jobDetail =
+                                        JobBuilder.newJob(StopRecordingJob.class)
+                                                .withIdentity(key)
+                                                .usingJobData(
+                                                        JobInterruptMonitorPlugin
+                                                                .AUTO_INTERRUPTIBLE,
+                                                        "true")
+                                                .usingJobData("recordingId", recording.id)
+                                                .build();
+                                try {
+                                    if (!scheduler.checkExists(key)) {
+                                        Trigger trigger =
+                                                TriggerBuilder.newTrigger()
+                                                        .withIdentity(key.getName(), key.getGroup())
+                                                        .startAt(
+                                                                new Date(
+                                                                        System.currentTimeMillis()
+                                                                                + recording
+                                                                                        .duration))
+                                                        .build();
+                                        scheduler.scheduleJob(jobDetail, trigger);
+                                    }
+                                } catch (SchedulerException e) {
+                                    logger.warn(e);
+                                }
                             }
+
+                            logger.debugv(
+                                    "Started recording: {0} {1}",
+                                    target.connectUrl, target.activeRecordings);
+
+                            return recording;
                         });
-
-        Map<String, String> labels = new HashMap<>(rawLabels);
-        labels.put("template.name", template.getName());
-        labels.put("template.type", template.getType().toString());
-        Metadata meta = new Metadata(labels);
-
-        ActiveRecording recording = ActiveRecording.from(target, desc, meta, options);
-        recording.persist();
-
-        target.activeRecordings.add(recording);
-        target.persist();
-
-        if (!recording.continuous) {
-            JobKey key =
-                    JobKey.jobKey(
-                            String.format("%s.%d", target.jvmId, recording.remoteId),
-                            "recording.fixed-duration");
-            JobDetail jobDetail =
-                    JobBuilder.newJob(StopRecordingJob.class)
-                            .withIdentity(key)
-                            .usingJobData(JobInterruptMonitorPlugin.AUTO_INTERRUPTIBLE, "true")
-                            .usingJobData("recordingId", recording.id)
-                            .build();
-            try {
-                if (!scheduler.checkExists(key)) {
-                    Trigger trigger =
-                            TriggerBuilder.newTrigger()
-                                    .withIdentity(key.getName(), key.getGroup())
-                                    .startAt(
-                                            new Date(
-                                                    System.currentTimeMillis()
-                                                            + recording.duration))
-                                    .build();
-                    scheduler.scheduleJob(jobDetail, trigger);
-                }
-            } catch (SchedulerException e) {
-                logger.warn(e);
-            }
-        }
-
-        logger.debugv("Started recording: {0} {1}", target.connectUrl, target.activeRecordings);
-
-        return Uni.createFrom().item(recording);
     }
 
     public Uni<ActiveRecording> createSnapshot(Target target) {
@@ -586,12 +616,12 @@ public class RecordingHelper {
     }
 
     public Uni<ActiveRecording> stopRecording(ActiveRecording recording) throws Exception {
-        return connectionManager.executeConnectedTask(
+        return connectionManager.executeConnectedTaskUni(
                 recording.target,
                 conn -> {
                     var desc = getDescriptorById(conn, recording.remoteId);
                     if (desc.isEmpty()) {
-                        return Uni.createFrom().failure(NotFoundException::new);
+                        throw new NotFoundException();
                     }
                     if (!desc.get()
                             .getState()
@@ -600,19 +630,16 @@ public class RecordingHelper {
                                             .IRecordingDescriptor.RecordingState.STOPPED)) {
                         conn.getService().stop(desc.get());
                     }
-                    return Uni.createFrom()
-                            .item(
-                                    QuarkusTransaction.joiningExisting()
-                                            .call(
-                                                    () -> {
-                                                        ActiveRecording r =
-                                                                ActiveRecording.find(
-                                                                                "id", recording.id)
-                                                                        .singleResult();
-                                                        r.state = RecordingState.STOPPED;
-                                                        r.persist();
-                                                        return r;
-                                                    }));
+                    return QuarkusTransaction.joiningExisting()
+                            .call(
+                                    () -> {
+                                        ActiveRecording r =
+                                                ActiveRecording.find("id", recording.id)
+                                                        .singleResult();
+                                        r.state = RecordingState.STOPPED;
+                                        r.persist();
+                                        return r;
+                                    });
                 });
     }
 
@@ -1095,6 +1122,10 @@ public class RecordingHelper {
         return Pair.of(parts[0], parts[1]);
     }
 
+    public InputStream getActiveInputStream(ActiveRecording recording) throws Exception {
+        return getActiveInputStream(recording, connectionFailedTimeout);
+    }
+
     public InputStream getActiveInputStream(ActiveRecording recording, Duration timeout)
             throws Exception {
         return getActiveInputStream(recording.target.id, recording.remoteId, timeout);
@@ -1107,8 +1138,7 @@ public class RecordingHelper {
                         () -> {
                             var target = Target.getTargetById(targetId);
                             var recording = target.getRecordingById(remoteId);
-                            var stream = remoteRecordingStreamFactory.open(recording, timeout);
-                            return stream;
+                            return remoteRecordingStreamFactory.open(recording, timeout);
                         });
     }
 
@@ -1565,9 +1595,6 @@ public class RecordingHelper {
     @DisallowConcurrentExecution
     static class StopRecordingJob implements Job {
 
-        @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-        Duration connectionTimeout;
-
         @Inject RecordingHelper recordingHelper;
         @Inject Logger logger;
 
@@ -1578,7 +1605,7 @@ public class RecordingHelper {
                 ActiveRecording recording =
                         ActiveRecording.find("id", ctx.getMergedJobDataMap().get("recordingId"))
                                 .singleResult();
-                recordingHelper.stopRecording(recording).await().atMost(connectionTimeout);
+                recordingHelper.stopRecording(recording).await().indefinitely();
             } catch (Exception e) {
                 var jee = new JobExecutionException(e);
                 jee.setUnscheduleFiringTrigger(true);
