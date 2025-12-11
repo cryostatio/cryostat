@@ -12,11 +12,20 @@ services:
     # ghcr.io images require authentication to pull, but this is the only up-to-date published source
     image: ${CLOUDSERVER_IMAGE:-ghcr.io/scality/cloudserver:9.2.8}
     hostname: s3
-    expose:
-      - "8000"
     environment:
       ENDPOINT: s3 # set the expected request hostname to 's3'
       LOG_LEVEL: debug
       REMOTE_MANAGEMENT_DISABLE: 1 # disable integration with proprietary cloud management service
+      S3DATAPATH: /cloudserver/data
+      S3METADATAPATH: /cloudserver/metadata
+    volumes:
+      - cloudserver_data:/cloudserver/data
+      - cloudserver_metadata:/cloudserver/metadata
     expose:
       - "8000"
+
+volumes:
+  cloudserver_data:
+    driver: local
+  cloudserver_metadata:
+    driver: local
