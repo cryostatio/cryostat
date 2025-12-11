@@ -10,9 +10,6 @@ services:
       QUARKUS_S3_AWS_REGION: us-east-1
       AWS_ACCESS_KEY_ID: access_key
       AWS_SECRET_ACCESS_KEY: secret_key
-      # FIXME since Quarkus 3.20 / S3 SDK 2.30.36 leaving this enabled results in junk 'chunk-signature' data
-      # being inserted to PutObjectRequests when the object storage instance is SeaweedFS/cryostat-storage
-      QUARKUS_S3_CHECKSUM_VALIDATION: false
   s3:
     image: ${STORAGE_IMAGE:-quay.io/cryostat/cryostat-storage:${CRYOSTAT_VERSION:-latest}}
     hostname: s3
