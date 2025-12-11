@@ -59,7 +59,7 @@ import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
-import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -73,6 +73,10 @@ import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
+import software.amazon.awssdk.transfer.s3.model.UploadRequest;
+import software.amazon.awssdk.transfer.s3.progress.LoggingTransferListener;
 
 @ApplicationScoped
 public class DiagnosticsHelper {
@@ -113,6 +117,7 @@ public class DiagnosticsHelper {
     @Inject Instance<ThreadDumpsMetadataService> threadDumpsMetadataService;
 
     @Inject S3Client storage;
+    @Inject S3TransferManager transferManager;
     @Inject Logger log;
     @Inject Clock clock;
 
@@ -388,7 +393,14 @@ public class DiagnosticsHelper {
                 throw new IllegalStateException();
         }
 
-        storage.putObject(req.build(), RequestBody.fromString(content));
+        transferManager
+                .upload(
+                        UploadRequest.builder()
+                                .putObjectRequest(req.build())
+                                .requestBody(AsyncRequestBody.fromString(content))
+                                .build())
+                .completionFuture()
+                .join();
         return new ThreadDump(
                 target.jvmId,
                 threadDumpDownloadUrl(target.jvmId, uuid),
@@ -407,7 +419,7 @@ public class DiagnosticsHelper {
             filename = filename + ".hprof";
         }
         log.tracev("Putting Heap dump into storage with key: {0}", storageKey(jvmId, filename));
-        var reqBuilder =
+        var req =
                 PutObjectRequest.builder()
                         .bucket(heapDumpBucket)
                         .key(storageKey(jvmId, filename))
@@ -416,10 +428,10 @@ public class DiagnosticsHelper {
 
         switch (storageMode()) {
             case TAGGING:
-                reqBuilder = reqBuilder.tagging(createMetadataTagging(new Metadata(Map.of())));
+                req = req.tagging(createMetadataTagging(new Metadata(Map.of())));
                 break;
             case METADATA:
-                reqBuilder = reqBuilder.metadata(Map.of());
+                req = req.metadata(Map.of());
                 break;
             case BUCKET:
                 try {
@@ -432,7 +444,14 @@ public class DiagnosticsHelper {
                 throw new IllegalStateException();
         }
 
-        storage.putObject(reqBuilder.build(), RequestBody.fromFile(heapDump.filePath()));
+        transferManager
+                .uploadFile(
+                        UploadFileRequest.builder()
+                                .putObjectRequest(req.build())
+                                .source(heapDump.filePath())
+                                .build())
+                .completionFuture()
+                .join();
         var dump =
                 new HeapDump(
                         jvmId,
