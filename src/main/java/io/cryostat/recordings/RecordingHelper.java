@@ -127,7 +127,6 @@ import org.quartz.TriggerBuilder;
 import org.quartz.plugins.interrupt.JobInterruptMonitorPlugin;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.core.exception.SdkClientException;
-import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
@@ -151,6 +150,8 @@ import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 
 /**
  * Utility class for all things relating to Flight Recording operations. This class is used to
@@ -174,6 +175,7 @@ public class RecordingHelper {
 
     @Inject S3Client storage;
     @Inject S3AsyncClient storageAsync;
+    @Inject S3TransferManager transferManager;
 
     @Inject @RestClient DatasourceClient datasourceClient;
     @Inject StorageBuckets buckets;
@@ -1393,7 +1395,14 @@ public class RecordingHelper {
             default:
                 throw new IllegalStateException();
         }
-        storage.putObject(requestBuilder.build(), RequestBody.fromFile(recording.filePath()));
+        transferManager
+                .uploadFile(
+                        UploadFileRequest.builder()
+                                .putObjectRequest(requestBuilder.build())
+                                .source(recording.filePath())
+                                .build())
+                .completionFuture()
+                .join();
 
         var target = Target.getTargetByJvmId(jvmId);
         ArchivedRecording archivedRecording =

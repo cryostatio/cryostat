@@ -214,6 +214,10 @@
       <artifactId>quarkus-amazon-s3</artifactId>
     </dependency>
     <dependency>
+      <groupId>io.quarkiverse.amazonservices</groupId>
+      <artifactId>quarkus-amazon-s3-transfer-manager</artifactId>
+    </dependency>
+    <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-kubernetes-client</artifactId>
     </dependency>

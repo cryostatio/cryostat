@@ -41,12 +41,14 @@ import jakarta.enterprise.inject.Any;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.UploadRequest;
 
 /**
  * Tiered caching layer for automated analysis reports. Uses S3 object storage to cache automated
@@ -73,6 +75,7 @@ class StorageCachingReportsService implements ReportsService {
     Duration expiry;
 
     @Inject S3Client storage;
+    @Inject S3TransferManager transferManager;
     @Inject ObjectMapper mapper;
 
     @Inject @Delegate @Any ReportsService delegate;
@@ -138,7 +141,18 @@ class StorageCachingReportsService implements ReportsService {
                                                 .contentType(HttpMimeType.JSON.mime())
                                                 .expires(Instant.now().plus(expiry))
                                                 .build();
-                                var res = storage.putObject(req, RequestBody.fromString(str));
+                                var res =
+                                        transferManager
+                                                .upload(
+                                                        UploadRequest.builder()
+                                                                .putObjectRequest(req)
+                                                                .requestBody(
+                                                                        AsyncRequestBody.fromString(
+                                                                                str))
+                                                                .build())
+                                                .completionFuture()
+                                                .join()
+                                                .response();
                                 var sc = res.sdkHttpResponse().statusCode();
                                 if (!HttpStatusCodeIdentifier.isSuccessCode(sc)) {
                                     throw new CompletionException(

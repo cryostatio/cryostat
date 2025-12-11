@@ -41,13 +41,15 @@ import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.xml.sax.SAXException;
-import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.ListObjectsV2Request;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.UploadRequest;
 
 /**
  * Implementation for JMC Agent event probe templates stored in S3 object storage.
@@ -64,6 +66,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
 
     @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject S3Client storage;
+    @Inject S3TransferManager transferManager;
     @Inject StorageBuckets storageBuckets;
     @Inject EventBus bus;
     @Inject Logger logger;
@@ -170,7 +173,14 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                             .key(fileName)
                             .contentType(MediaType.APPLICATION_XML);
             var xml = template.serialize();
-            storage.putObject(reqBuilder.build(), RequestBody.fromString(xml));
+            transferManager
+                    .upload(
+                            UploadRequest.builder()
+                                    .putObjectRequest(reqBuilder.build())
+                                    .requestBody(AsyncRequestBody.fromString(xml))
+                                    .build())
+                    .completionFuture()
+                    .join();
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
