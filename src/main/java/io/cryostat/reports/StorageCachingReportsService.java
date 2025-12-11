@@ -33,6 +33,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.annotation.Priority;
 import jakarta.decorator.Decorator;
 import jakarta.decorator.Delegate;
@@ -129,7 +130,8 @@ class StorageCachingReportsService implements ReportsService {
 
     private Uni<Map<String, AnalysisResult>> putStorage(
             String key, Uni<Map<String, AnalysisResult>> payload) {
-        return payload.onItem()
+        return payload.emitOn(Infrastructure.getDefaultExecutor())
+                .onItem()
                 .invoke(
                         map -> {
                             try {

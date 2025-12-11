@@ -45,6 +45,8 @@ import io.cryostat.ws.Notification;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
+import io.smallrye.mutiny.Uni;
+import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -443,14 +445,18 @@ public class DiagnosticsHelper {
                 throw new IllegalStateException();
         }
 
-        transferManager
-                .uploadFile(
-                        UploadFileRequest.builder()
-                                .putObjectRequest(req.build())
-                                .source(heapDump.filePath())
-                                .build())
-                .completionFuture()
-                .join();
+        Uni.createFrom()
+                .completionStage(
+                        transferManager
+                                .uploadFile(
+                                        UploadFileRequest.builder()
+                                                .putObjectRequest(req.build())
+                                                .source(heapDump.filePath())
+                                                .build())
+                                .completionFuture())
+                .runSubscriptionOn(Infrastructure.getDefaultExecutor())
+                .await()
+                .atMost(uploadFailedTimeout);
         var dump =
                 new HeapDump(
                         jvmId,
