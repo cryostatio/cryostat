@@ -232,7 +232,7 @@ fi
 export S3_INSTANCE_ID
 
 function bucketname() {
-    echo "${1}-$(echo "${AWS_ACCESS_KEY_ID}" | head -c 6)-${S3_REGION}-${S3_INSTANCE_ID}" | tr -s '-'
+    echo "${1}-$(echo "${AWS_ACCESS_KEY_ID}" | head -c 6)-${S3_REGION}-${S3_INSTANCE_ID}" | tr -s '-' | head -c "${BUCKET_NAME_MAX_LENGTH:-63}"
 }
 
 if [ ! "${DRY_RUN}" = "true" ]; then
