@@ -38,7 +38,7 @@
     <org.apache.commons.collections.version>4.5.0</org.apache.commons.collections.version>
     <org.apache.commons.validator.version>1.9.0</org.apache.commons.validator.version>
     <org.projectnessie.cel.bom.version>0.5.2</org.projectnessie.cel.bom.version>
-    <com.google.protobuf-java.version>4.31.1</com.google.protobuf-java.version>
+    <com.google.protobuf-java.version>4.33.2</com.google.protobuf-java.version>
     <com.nimbusds.jose.jwt.version>10.6</com.nimbusds.jose.jwt.version>
     <org.testcontainers.bom.version>2.0.3</org.testcontainers.bom.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
