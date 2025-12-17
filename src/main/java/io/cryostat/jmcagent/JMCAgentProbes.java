@@ -21,9 +21,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import javax.management.InstanceNotFoundException;
+
 import io.cryostat.core.jmcagent.Event;
-import io.cryostat.core.jmcagent.JMCAgentJMXHelper;
-import io.cryostat.core.jmcagent.JMCAgentJMXHelper.ProbeDefinitionException;
 import io.cryostat.core.jmcagent.ProbeTemplate;
 import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.targets.Target;
@@ -50,6 +50,11 @@ public class JMCAgentProbes {
 
     private static final String PROBES_REMOVED_CATEGORY = "ProbesRemoved";
     private static final String TEMPLATE_APPLIED_CATEGORY = "ProbeTemplateApplied";
+    private static final String AGENT_OBJECT_NAME =
+            "org.openjdk.jmc.jfr.agent:type=AgentController";
+    private static final String DEFINE_EVENT_PROBES = "defineEventProbes";
+    private static final String RETRIEVE_EVENT_PROBES = "retrieveEventProbes";
+    private static final String[] DEFINE_EVENT_PROBES_SIGNATURE = {String.class.getName()};
 
     @Inject Logger logger;
     @Inject TargetConnectionManager connectionManager;
@@ -72,14 +77,16 @@ public class JMCAgentProbes {
         connectionManager.executeConnectedTask(
                 target,
                 connection -> {
-                    JMCAgentJMXHelper helper = new JMCAgentJMXHelper(connection.getHandle());
-                    if (!helper.isMXBeanRegistered()) {
-                        throw new BadRequestException();
-                    }
                     try {
                         ProbeTemplate template = new ProbeTemplate();
                         String templateContent = service.getTemplateContent(probeTemplateName);
-                        helper.defineEventProbes(templateContent);
+                        Object[] args = {templateContent};
+                        connection.invokeMBeanOperation(
+                                AGENT_OBJECT_NAME,
+                                DEFINE_EVENT_PROBES,
+                                args,
+                                DEFINE_EVENT_PROBES_SIGNATURE,
+                                Void.class);
                         bus.publish(
                                 MessagingServer.class.getName(),
                                 new Notification(
@@ -92,10 +99,18 @@ public class JMCAgentProbes {
                                                 "probeTemplate",
                                                 template.getFileName())));
                         return null;
-                    } catch (ProbeDefinitionException e) {
+                    } catch (InstanceNotFoundException infe) {
+                        throw new BadRequestException(infe);
+                    } catch (Exception e) {
                         // Cleanup the probes if something went wrong, calling defineEventProbes
-                        // with a null argument will remove any active probes.
-                        helper.defineEventProbes(null);
+                        // with a literal null argument will remove any active probes.
+                        Object[] args = {null};
+                        connection.invokeMBeanOperation(
+                                AGENT_OBJECT_NAME,
+                                DEFINE_EVENT_PROBES,
+                                args,
+                                DEFINE_EVENT_PROBES_SIGNATURE,
+                                Void.class);
                         throw new InternalServerErrorException(e);
                     }
                 });
@@ -110,19 +125,23 @@ public class JMCAgentProbes {
         connectionManager.executeConnectedTask(
                 target,
                 connection -> {
-                    JMCAgentJMXHelper helper = new JMCAgentJMXHelper(connection.getHandle());
-                    if (!helper.isMXBeanRegistered()) {
-                        throw new BadRequestException();
-                    }
                     try {
                         // The convention for removing probes in the agent controller mbean is
                         // to call defineEventProbes with a null argument.
-                        helper.defineEventProbes(null);
+                        Object[] args = {null};
+                        connection.invokeMBeanOperation(
+                                AGENT_OBJECT_NAME,
+                                DEFINE_EVENT_PROBES,
+                                args,
+                                DEFINE_EVENT_PROBES_SIGNATURE,
+                                Void.class);
                         bus.publish(
                                 MessagingServer.class.getName(),
                                 new Notification(
                                         PROBES_REMOVED_CATEGORY, Map.of("jvmId", target.jvmId)));
                         return null;
+                    } catch (InstanceNotFoundException infe) {
+                        throw new BadRequestException(infe);
                     } catch (Exception e) {
                         throw new InternalServerErrorException(e);
                     }
@@ -138,13 +157,15 @@ public class JMCAgentProbes {
         return connectionManager.<List<ProbeResponse>>executeConnectedTask(
                 target,
                 connection -> {
-                    JMCAgentJMXHelper helper = new JMCAgentJMXHelper(connection.getHandle());
-                    if (!helper.isMXBeanRegistered()) {
-                        throw new BadRequestException();
-                    }
                     String probes;
                     try {
-                        probes = helper.retrieveEventProbes();
+                        probes =
+                                connection.invokeMBeanOperation(
+                                        AGENT_OBJECT_NAME,
+                                        RETRIEVE_EVENT_PROBES,
+                                        new Object[0],
+                                        new String[0],
+                                        String.class);
                     } catch (Exception e) {
                         logger.error("Failed to retrieve event probes", e);
                         throw new BadRequestException(e);
@@ -164,7 +185,13 @@ public class JMCAgentProbes {
                                 .toList();
                     } catch (Exception e) {
                         // Cleanup the probes if something went wrong
-                        helper.defineEventProbes(null);
+                        Object[] args = {null};
+                        connection.invokeMBeanOperation(
+                                AGENT_OBJECT_NAME,
+                                DEFINE_EVENT_PROBES,
+                                args,
+                                new String[0],
+                                Void.class);
                         logger.error("Error processing probes, cleaning up active probes", e);
                         throw new InternalServerErrorException(e);
                     }
