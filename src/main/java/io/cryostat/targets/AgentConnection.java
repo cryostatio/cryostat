@@ -16,8 +16,10 @@
 package io.cryostat.targets;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
@@ -42,6 +44,8 @@ import io.cryostat.libcryostat.net.IDException;
 import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.libcryostat.triggers.SmartTrigger;
+import io.cryostat.targets.AgentClient.AsyncProfilerStatus;
+import io.cryostat.targets.AgentClient.StartProfileRequest;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -81,6 +85,28 @@ public class AgentConnection implements JFRConnection {
 
     public URI getUri() {
         return client.getUri();
+    }
+
+    public AsyncProfilerStatus asyncProfilerStatus() {
+        return client.asyncProfilerStatus().await().atMost(client.getTimeout());
+    }
+
+    public String dumpAsyncProfile(List<String> events, Duration duration) {
+        return client.dumpAsyncProfile(new StartProfileRequest(events, duration))
+                .await()
+                .atMost(client.getTimeout());
+    }
+
+    public List<String> listAsyncProfiles() {
+        return client.listAsyncProfiles().await().atMost(client.getTimeout());
+    }
+
+    public boolean deleteAsyncProfile(String id) {
+        return client.deleteAsyncProfile(id).await().atMost(client.getTimeout());
+    }
+
+    public InputStream streamAsyncProfile(String id) {
+        return client.streamAsyncProfile(id).await().atMost(client.getTimeout());
     }
 
     @Override
