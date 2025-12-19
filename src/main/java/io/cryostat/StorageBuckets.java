@@ -94,6 +94,7 @@ public class StorageBuckets {
             }
             cf.complete(null);
         } catch (Exception e) {
+            logger.errorv(e, "Failed to create bucket \"{0}\"", bucket);
             q.schedule(
                     () -> buckets.add(bucket),
                     creationRetryPeriod.toMillis(),

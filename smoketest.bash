@@ -227,12 +227,12 @@ else
 fi
 
 if [ -z "${S3_INSTANCE_ID}" ]; then
-    S3_INSTANCE_ID="$(openssl rand -hex 8)"
+    S3_INSTANCE_ID="$(openssl rand -hex 5)"
 fi
 export S3_INSTANCE_ID
 
 function bucketname() {
-    echo "cryostat-${1}-${AWS_ACCESS_KEY_ID}-${S3_REGION}-${S3_INSTANCE_ID}" | tr -s '-'
+    echo "${1}-$(echo "${AWS_ACCESS_KEY_ID}" | head -c 6)-${S3_REGION}-${S3_INSTANCE_ID}" | tr -s '-' | head -c "${BUCKET_NAME_MAX_LENGTH:-63}"
 }
 
 if [ ! "${DRY_RUN}" = "true" ]; then
@@ -254,6 +254,8 @@ END
 else
     CRYOSTAT_STORAGE_BUCKETS_ARCHIVES_NAME="$(bucketname 'archives')"
     export CRYOSTAT_STORAGE_BUCKETS_ARCHIVES_NAME
+    CRYOSTAT_STORAGE_BUCKETS_ARCHIVED_REPORTS_NAME="$(bucketname 'archivedreports')"
+    export CRYOSTAT_STORAGE_BUCKETS_ARCHIVED_REPORTS_NAME
     CRYOSTAT_STORAGE_BUCKETS_EVENT_TEMPLATES_NAME="$(bucketname 'eventtemplates')"
     export CRYOSTAT_STORAGE_BUCKETS_EVENT_TEMPLATES_NAME
     CRYOSTAT_STORAGE_BUCKETS_PROBE_TEMPLATES_NAME="$(bucketname 'probetemplates')"
