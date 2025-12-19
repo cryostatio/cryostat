@@ -1,8 +1,5 @@
 services:
   cryostat:
-    depends_on:
-      s3:
-        condition: service_healthy
     environment:
       QUARKUS_S3_ENDPOINT_OVERRIDE: http://s3:8000
       STORAGE_PRESIGNED_TRANSFERS_ENABLED: false
@@ -12,25 +9,23 @@ services:
       AWS_ACCESS_KEY_ID: accessKey1
       AWS_SECRET_ACCESS_KEY: verySecretKey1
   s3:
-    image: ${CLOUDSERVER_IMAGE:-docker.io/zenko/cloudserver:latest}
+    # ghcr.io images require authentication to pull, but this is the only up-to-date published source
+    image: ${CLOUDSERVER_IMAGE:-ghcr.io/scality/cloudserver:9.2.8}
     hostname: s3
+    environment:
+      ENDPOINT: s3 # set the expected request hostname to 's3'
+      LOG_LEVEL: debug
+      REMOTE_MANAGEMENT_DISABLE: 1 # disable integration with proprietary cloud management service
+      S3DATAPATH: /cloudserver/data
+      S3METADATAPATH: /cloudserver/metadata
+    volumes:
+      - cloudserver_data:/cloudserver/data
+      - cloudserver_metadata:/cloudserver/metadata
     expose:
       - "8000"
-    environment:
-      S3BACKEND: mem
-      ENDPOINT: s3
-      LOG_LEVEL: debug
-      REMOTE_MANAGEMENT_DISABLE: 1
-      SCALITY_ACCESS_KEY_ID: accessKey1
-      SCALITY_SECRET_ACCESS_KEY: verySecretKey1
-    restart: always
-    healthcheck:
-      test:
-        - CMD-SHELL
-        - curl
-        - --fail
-        - http://localhost:8000/_/healthcheck/deep
-      interval: 10s
-      retries: 3
-      start_period: 30s
-      timeout: 5s
+
+volumes:
+  cloudserver_data:
+    driver: local
+  cloudserver_metadata:
+    driver: local
