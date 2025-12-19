@@ -44,6 +44,30 @@ public class S3StorageResource
     protected Optional<String> containerNetworkId;
     protected GenericContainer<?> container;
 
+    public Map<String, String> getProperties(GenericContainer<?> container) {
+        Map<String, String> properties = new HashMap<>();
+        properties.put("quarkus.s3.aws.region", "us-east-1");
+        properties.put(
+                "s3.url.override",
+                adjustS3Url(container, container.getHost(), container.getMappedPort(S3_PORT)));
+        properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
+        properties.put("quarkus.s3.path-style-access", "true");
+        properties.put("quarkus.s3.aws.credentials.type", "static");
+        properties.put("quarkus.s3.aws.credentials.static-provider.access-key-id", "access_key");
+        properties.put(
+                "quarkus.s3.aws.credentials.static-provider.secret-access-key", "secret_key");
+        properties.put(
+                "aws.access-key-id",
+                properties.get("quarkus.s3.aws.credentials.static-provider.access-key-id"));
+        properties.put("aws.accessKeyId", properties.get("aws.access-key-id"));
+        properties.put(
+                "aws.secret-access-key",
+                properties.get("quarkus.s3.aws.credentials.static-provider.secret-access-key"));
+        properties.put("aws.secretAccessKey", properties.get("aws.secret-access-key"));
+
+        return properties;
+    }
+
     @Override
     public Map<String, String> start() {
         String storageVersion =
@@ -64,32 +88,7 @@ public class S3StorageResource
 
         container.start();
 
-        String networkHostPort =
-                adjustS3Url(container, container.getHost(), container.getMappedPort(S3_PORT));
-
-        Map<String, String> properties = new HashMap<String, String>();
-        // FIXME since Quarkus 3.20 / S3 SDK 2.30.36 leaving this enabled results in junk
-        // 'chunk-signature' data being inserted to PutObjectRequests when the object storage
-        // instance is SeaweedFS/cryostat-storage
-        properties.put("quarkus.s3.checksum-validation", "false");
-        properties.put("quarkus.s3.aws.region", "us-east-1");
-        properties.put("s3.url.override", networkHostPort);
-        properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
-        properties.put("quarkus.s3.path-style-access", "true");
-        properties.put("quarkus.s3.aws.credentials.type", "static");
-        properties.put("quarkus.s3.aws.credentials.static-provider.access-key-id", "access_key");
-        properties.put(
-                "quarkus.s3.aws.credentials.static-provider.secret-access-key", "secret_key");
-        properties.put(
-                "aws.access-key-id",
-                properties.get("quarkus.s3.aws.credentials.static-provider.access-key-id"));
-        properties.put("aws.accessKeyId", properties.get("aws.access-key-id"));
-        properties.put(
-                "aws.secret-access-key",
-                properties.get("quarkus.s3.aws.credentials.static-provider.secret-access-key"));
-        properties.put("aws.secretAccessKey", properties.get("aws.secret-access-key"));
-
-        return properties;
+        return getProperties(container);
     }
 
     @Override
