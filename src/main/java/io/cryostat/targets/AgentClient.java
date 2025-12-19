@@ -16,6 +16,7 @@
 package io.cryostat.targets;
 
 import java.io.ByteArrayInputStream;
+import java.io.Closeable;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -51,6 +52,7 @@ import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
@@ -255,20 +257,15 @@ public class AgentClient {
                         });
     }
 
-    Uni<InputStream> openStream(long id) {
+    Uni<InputStream> openFlightRecordingStream(long id) {
         return agentRestClient
                 .openStream(id)
                 .map(
                         resp -> {
                             int statusCode = resp.getStatus();
                             if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
-                                return new ProxyInputStream((InputStream) resp.getEntity()) {
-                                    @Override
-                                    public void close() throws IOException {
-                                        in.close();
-                                        resp.close();
-                                    }
-                                };
+                                return new ResponseCloserInputStream(
+                                        (InputStream) resp.getEntity(), resp::close);
                             } else if (statusCode == 403) {
                                 throw new AgentApiException(
                                         Response.Status.FORBIDDEN.getStatusCode(),
@@ -279,7 +276,7 @@ public class AgentClient {
                         });
     }
 
-    Uni<Void> stopRecording(long id) {
+    Uni<Void> stopFlightRecording(long id) {
         // FIXME this is a terrible hack, the interfaces here should not require only an
         // IConstrainedMap with IOptionDescriptors but allow us to pass other and more simply
         // serializable data to the Agent, such as this recording state entry
@@ -326,7 +323,7 @@ public class AgentClient {
         return updateRecordingOptions(id, map);
     }
 
-    Uni<Void> deleteRecording(long id) {
+    Uni<Void> deleteFlightRecording(long id) {
         return agentRestClient
                 .deleteRecording(id)
                 .invoke(Response::close)
@@ -464,6 +461,94 @@ public class AgentClient {
                                 }));
     }
 
+    Uni<AsyncProfilerStatus> asyncProfilerStatus() {
+        // FIXME async-profiler interaction should happen via MBean invoke
+        return agentRestClient
+                .asyncProfilerStatus()
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return mapper.readValue(is, AsyncProfilerStatus.class);
+                                    }
+                                }));
+    }
+
+    Uni<String> dumpAsyncProfile(StartProfileRequest req) {
+        // FIXME async-profiler interaction should happen via MBean invoke
+        return agentRestClient
+                .dumpAsyncProfiler(req)
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    int statusCode = resp.getStatus();
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                            return mapper.readValue(is, String.class);
+                                        } else if (statusCode == 403) {
+                                            logger.errorv(
+                                                    "dumpAsyncProfile for {0} failed: HTTP 403",
+                                                    getUri());
+                                            throw new AgentApiException(
+                                                    Response.Status.FORBIDDEN.getStatusCode(),
+                                                    new UnsupportedOperationException(
+                                                            "dumpAsyncProfile"));
+                                        } else {
+                                            logger.errorv(
+                                                    "dumpAsyncProfile for {0} failed: HTTP {1}",
+                                                    getUri(), statusCode);
+                                            throw new AgentApiException(statusCode);
+                                        }
+                                    }
+                                }));
+    }
+
+    Uni<List<String>> listAsyncProfiles() {
+        // FIXME async-profiler interaction should happen via MBean invoke
+        return agentRestClient
+                .listAsyncProfiler()
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return mapper.readValue(
+                                                is, new TypeReference<List<String>>() {});
+                                    }
+                                }));
+    }
+
+    Uni<Boolean> deleteAsyncProfile(String id) {
+        // FIXME async-profiler interaction should happen via MBean invoke
+        return agentRestClient
+                .deleteAsyncProfiler(id)
+                .map(
+                        Unchecked.function(
+                                resp -> HttpStatusCodeIdentifier.isSuccessCode(resp.getStatus())));
+    }
+
+    Uni<InputStream> streamAsyncProfile(String id) {
+        // FIXME async-profiler interaction should happen via MBean invoke
+        return agentRestClient
+                .streamAsyncProfile(id)
+                .map(
+                        resp -> {
+                            int statusCode = resp.getStatus();
+                            if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                return new ResponseCloserInputStream(
+                                        (InputStream) resp.getEntity(), resp::close);
+                            } else if (statusCode == 403) {
+                                throw new AgentApiException(
+                                        Response.Status.FORBIDDEN.getStatusCode(),
+                                        new UnsupportedOperationException("openStream"));
+                            } else {
+                                throw new AgentApiException(statusCode);
+                            }
+                        });
+    }
+
     @ApplicationScoped
     public static class Factory {
 
@@ -529,6 +614,22 @@ public class AgentClient {
             }
             return new AgentClient(
                     target, agentRestClientBuilder.build(AgentRestClient.class), mapper, timeout);
+        }
+    }
+
+    private static class ResponseCloserInputStream extends ProxyInputStream {
+
+        private final Closeable closeable;
+
+        public ResponseCloserInputStream(InputStream proxy, Closeable closeable) {
+            super(proxy);
+            this.closeable = closeable;
+        }
+
+        @Override
+        public void close() throws IOException {
+            super.close();
+            closeable.close();
         }
     }
 
@@ -672,5 +773,31 @@ public class AgentClient {
             Objects.requireNonNull(beanName);
             Objects.requireNonNull(operation);
         }
+    }
+
+    public static record StartProfileRequest(List<String> events, long duration) {
+        public StartProfileRequest(List<String> events, Duration duration) {
+            this(events, duration.toSeconds());
+        }
+
+        public StartProfileRequest {
+            Objects.requireNonNull(events);
+            if (events.isEmpty()) {
+                throw new IllegalArgumentException();
+            }
+            if (duration < 1) {
+                throw new IllegalArgumentException();
+            }
+        }
+    }
+
+    public static record AsyncProfilerStatus(
+            ProfilerStatus status, Map<String, List<String>> availableEvents) {}
+
+    public enum ProfilerStatus {
+        STOPPED,
+        RUNNING,
+        UNKNOWN,
+        ;
     }
 }
