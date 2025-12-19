@@ -54,7 +54,7 @@ import org.jboss.logging.Logger;
  *
  * @see io.cryostat.targets.AgentClient
  */
-class AgentConnection implements JFRConnection {
+public class AgentConnection implements JFRConnection {
 
     private final AgentClient client;
     private final TemplateService customTemplateService;
