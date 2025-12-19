@@ -37,6 +37,8 @@ import org.junit.jupiter.params.provider.ValueSource;
 @QuarkusTest
 public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
 
+    private static final String DISCOVERY_HEADER = "Cryostat-Discovery-Authentication";
+
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {"invalid uri", "no.protocol.example.com"})
@@ -156,7 +158,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .when()
                 .body(List.of())
                 .contentType(ContentType.JSON)
-                .queryParams(Map.of("token", pluginToken))
+                .header(DISCOVERY_HEADER, pluginToken)
                 .post(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
                 .log()
@@ -173,7 +175,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .when()
                 .body(List.of(node))
                 .contentType(ContentType.JSON)
-                .queryParams(Map.of("token", pluginToken))
+                .header(DISCOVERY_HEADER, pluginToken)
                 .post(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
                 .log()
@@ -190,7 +192,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .when()
                 .body(List.of(node))
                 .contentType(ContentType.JSON)
-                .queryParams(Map.of("token", pluginToken))
+                .header(DISCOVERY_HEADER, pluginToken)
                 .post(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
                 .log()
@@ -234,7 +236,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .queryParams(Map.of("token", pluginToken))
+                .header(DISCOVERY_HEADER, pluginToken)
                 .delete(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
                 .log()
@@ -247,7 +249,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .queryParams(Map.of("token", pluginToken))
+                .header(DISCOVERY_HEADER, pluginToken)
                 .delete(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
                 .log()
@@ -262,7 +264,7 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .when()
                 .body(List.of(node))
                 .contentType(ContentType.JSON)
-                .queryParams(Map.of("token", pluginToken))
+                .header(DISCOVERY_HEADER, pluginToken)
                 .post(String.format("/api/v4/discovery/%s", pluginId))
                 .then()
                 .log()

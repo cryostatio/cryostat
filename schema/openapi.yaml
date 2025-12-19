@@ -1519,8 +1519,8 @@ paths:
           required: true
           schema:
             $ref: '#/components/schemas/UUID'
-        - in: query
-          name: token
+        - in: header
+          name: Cryostat-Discovery-Authentication
           schema:
             type: string
       responses:
@@ -1539,8 +1539,8 @@ paths:
           required: true
           schema:
             $ref: '#/components/schemas/UUID'
-        - in: query
-          name: token
+        - in: header
+          name: Cryostat-Discovery-Authentication
           schema:
             type: string
       responses:
@@ -1561,8 +1561,8 @@ paths:
           required: true
           schema:
             $ref: '#/components/schemas/UUID'
-        - in: query
-          name: token
+        - in: header
+          name: Cryostat-Discovery-Authentication
           schema:
             type: string
       requestBody:
