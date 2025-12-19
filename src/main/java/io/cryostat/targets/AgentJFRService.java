@@ -92,7 +92,7 @@ class AgentJFRService implements CryostatFlightRecorderService {
 
     @Override
     public void close(IRecordingDescriptor descriptor) throws FlightRecorderException {
-        client.deleteRecording(descriptor.getId()).await().atMost(client.getTimeout());
+        client.deleteFlightRecording(descriptor.getId()).await().atMost(client.getTimeout());
     }
 
     @Override
@@ -166,7 +166,7 @@ class AgentJFRService implements CryostatFlightRecorderService {
     @Override
     public InputStream openStream(IRecordingDescriptor descriptor, boolean removeOnClose)
             throws FlightRecorderException {
-        Uni<InputStream> u = client.openStream(descriptor.getId());
+        Uni<InputStream> u = client.openFlightRecordingStream(descriptor.getId());
         InputStream is = u.await().atMost(client.getTimeout());
         return new BufferedInputStream(is);
     }
@@ -197,7 +197,7 @@ class AgentJFRService implements CryostatFlightRecorderService {
 
     @Override
     public void stop(IRecordingDescriptor descriptor) throws FlightRecorderException {
-        client.stopRecording(descriptor.getId()).await().atMost(client.getTimeout());
+        client.stopFlightRecording(descriptor.getId()).await().atMost(client.getTimeout());
     }
 
     @Override
