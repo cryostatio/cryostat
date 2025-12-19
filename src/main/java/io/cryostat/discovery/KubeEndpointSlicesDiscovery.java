@@ -662,7 +662,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     @DisallowConcurrentExecution
-    private static class EndpointsResyncJob implements Job {
+    static class EndpointsResyncJob implements Job {
         @Inject Logger logger;
         @Inject EventBus bus;
 
