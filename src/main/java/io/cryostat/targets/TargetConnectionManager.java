@@ -19,6 +19,7 @@ import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.rmi.ConnectIOException;
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -402,7 +403,7 @@ public class TargetConnectionManager {
             if (c == null) {
                 break;
             }
-            cause = cause.getCause();
+            cause = c;
         }
         return cause;
     }
