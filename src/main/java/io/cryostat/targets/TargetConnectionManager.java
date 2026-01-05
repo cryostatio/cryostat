@@ -391,6 +391,11 @@ public class TargetConnectionManager {
                 return CompletableFuture.completedFuture(prev);
             }
             logger.debugv("Refreshing connection to {0}", key);
+            try {
+                prev.close();
+            } catch (Exception e) {
+                logger.debug("Failed to close previous connection", e);
+            }
             return asyncLoad(key, executor);
         }
     }
