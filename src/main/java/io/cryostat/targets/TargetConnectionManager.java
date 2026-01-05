@@ -20,11 +20,13 @@ import java.net.URI;
 import java.rmi.ConnectIOException;
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -229,8 +231,21 @@ public class TargetConnectionManager {
     }
 
     private <T> Uni<T> executeInternal(Uni<T> uni) {
-        return uni.onFailure(RuntimeException.class)
-                .transform(t -> unwrapNestedException(RuntimeException.class, t))
+        return uni.onFailure(
+                        t ->
+                                List.of(
+                                                RuntimeException.class,
+                                                CompletionException.class,
+                                                ExecutionException.class)
+                                        .stream()
+                                        .anyMatch(k -> k.isInstance(t)))
+                .transform(
+                        t ->
+                                unwrapNestedException(
+                                        t,
+                                        RuntimeException.class,
+                                        CompletionException.class,
+                                        ExecutionException.class))
                 .onFailure()
                 .invoke(logger::warn)
                 .onFailure(this::isUnsupportedOperationException)
@@ -377,11 +392,12 @@ public class TargetConnectionManager {
         T execute(JFRConnection connection) throws Exception;
     }
 
-    private Throwable unwrapNestedException(Class<?> klazz, Throwable t) {
+    private Throwable unwrapNestedException(Throwable t, Class<?>... klazzes) {
+        List<Class<?>> l = Arrays.asList(klazzes);
         final int maxDepth = 10;
         int depth = 0;
         Throwable cause = t;
-        while (klazz.isInstance(t) && depth++ < maxDepth) {
+        while (l.stream().anyMatch(k -> k.isInstance(t)) && depth++ < maxDepth) {
             var c = cause.getCause();
             if (c == null) {
                 break;
