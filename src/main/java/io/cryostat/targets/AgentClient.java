@@ -764,9 +764,10 @@ public class AgentClient {
         }
     }
 
-    public static record StartProfileRequest(List<String> events, long duration) {
+    public static record StartProfileRequest(
+            String id, long startTime, List<String> events, long duration) {
         public StartProfileRequest(List<String> events, Duration duration) {
-            this(events, duration.toSeconds());
+            this(null, 0, events, duration.toSeconds());
         }
 
         public StartProfileRequest {
@@ -781,7 +782,9 @@ public class AgentClient {
     }
 
     public static record AsyncProfilerStatus(
-            ProfilerStatus status, Map<String, List<String>> availableEvents) {}
+            StartProfileRequest currentProfile,
+            ProfilerStatus status,
+            Map<String, List<String>> availableEvents) {}
 
     public enum ProfilerStatus {
         STOPPED,
