@@ -44,6 +44,7 @@ import io.cryostat.libcryostat.net.IDException;
 import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.libcryostat.triggers.SmartTrigger;
+import io.cryostat.targets.AgentClient.AsyncProfile;
 import io.cryostat.targets.AgentClient.AsyncProfilerStatus;
 import io.cryostat.targets.AgentClient.StartProfileRequest;
 
@@ -97,7 +98,7 @@ public class AgentConnection implements JFRConnection {
                 .atMost(client.getTimeout());
     }
 
-    public List<String> listAsyncProfiles() {
+    public List<AsyncProfile> listAsyncProfiles() {
         return client.listAsyncProfiles().await().atMost(client.getTimeout());
     }
 

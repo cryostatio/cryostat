@@ -22,6 +22,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
+import io.cryostat.targets.AgentClient.AsyncProfile;
 import io.cryostat.targets.AgentClient.AsyncProfilerStatus;
 import io.cryostat.targets.AgentClient.ProfilerStatus;
 import io.cryostat.targets.AgentClient.StartProfileRequest;
@@ -187,7 +188,7 @@ public class AsyncProfiler {
     @Transactional
     @RolesAllowed("read")
     @Operation(summary = "List existing async-profiler profiles on the specified target")
-    public Uni<List<String>> list(@RestPath long targetId) throws Exception {
+    public Uni<List<AsyncProfile>> list(@RestPath long targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
         return executeUni(target, AgentConnection::listAsyncProfiles);
     }
