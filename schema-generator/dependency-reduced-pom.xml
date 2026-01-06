@@ -10,14 +10,14 @@
     <plugins>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>3.14.1</version>
+        <version>3.15.0</version>
         <configuration>
           <release>21</release>
         </configuration>
       </plugin>
       <plugin>
         <artifactId>maven-jar-plugin</artifactId>
-        <version>3.4.2</version>
+        <version>3.5.0</version>
         <configuration>
           <archive>
             <manifest>
@@ -28,7 +28,7 @@
       </plugin>
       <plugin>
         <artifactId>maven-shade-plugin</artifactId>
-        <version>3.6.0</version>
+        <version>3.6.1</version>
         <executions>
           <execution>
             <phase>package</phase>
@@ -103,7 +103,7 @@
   </build>
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
-    <com.diffplug.spotless.maven.plugin.version>3.1.0</com.diffplug.spotless.maven.plugin.version>
+    <com.diffplug.spotless.maven.plugin.version>3.2.1</com.diffplug.spotless.maven.plugin.version>
     <maven.compiler.source>21</maven.compiler.source>
     <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
     <maven.compiler.target>21</maven.compiler.target>
