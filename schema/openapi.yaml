@@ -102,6 +102,30 @@ components:
             $ref: '#/components/schemas/ThreadDump'
           type: array
       type: object
+    AsyncProfile:
+      properties:
+        endtime:
+          format: int64
+          type: integer
+        name:
+          type: string
+        starttime:
+          format: int64
+          type: integer
+      type: object
+    AsyncProfilerStatus:
+      properties:
+        availableEvents:
+          additionalProperties:
+            items:
+              type: string
+            type: array
+          type: object
+        currentProfile:
+          $ref: '#/components/schemas/StartProfileRequest'
+        status:
+          $ref: '#/components/schemas/ProfilerStatus'
+      type: object
     AuthResponse:
       properties:
         username:
@@ -514,6 +538,12 @@ components:
         xml:
           type: string
       type: object
+    ProfilerStatus:
+      enum:
+        - STOPPED
+        - RUNNING
+        - UNKNOWN
+      type: string
     RecordingState:
       enum:
         - NEW
@@ -616,6 +646,21 @@ components:
           type: string
         name:
           type: string
+      type: object
+    StartProfileRequest:
+      properties:
+        duration:
+          format: int64
+          type: integer
+        events:
+          items:
+            type: string
+          type: array
+        id:
+          type: string
+        startTime:
+          format: int64
+          type: integer
       type: object
     Suggestion:
       properties:
@@ -1201,6 +1246,116 @@ paths:
       summary: Upload a JFR binary file to archives, associated with a particular target
       tags:
         - Archived Recordings
+  /api/beta/targets/{targetId}/async-profiler:
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/AsyncProfile'
+                type: array
+          description: OK
+      summary: List existing async-profiler profiles on the specified target
+      tags:
+        - Async Profiler
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartProfileRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            text/plain:
+              schema:
+                type: string
+          description: OK
+        "400":
+          description: Bad Request
+      summary: Create a new async-profiler profile on the specified target
+      tags:
+        - Async Profiler
+  /api/beta/targets/{targetId}/async-profiler/status:
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsyncProfilerStatus'
+          description: OK
+      summary: Get specified target's async-profiler status
+      tags:
+        - Async Profiler
+  /api/beta/targets/{targetId}/async-profiler/{profileId}:
+    delete:
+      parameters:
+        - in: path
+          name: profileId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "204":
+          description: No Content
+      summary: Delete an async-profiler profile from the specified target
+      tags:
+        - Async Profiler
+    get:
+      parameters:
+        - in: path
+          name: profileId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/octet-stream:
+              schema:
+                format: binary
+                type: string
+          description: OK
+      summary: Download an async-profiler binary file in JFR format
+      tags:
+        - Async Profiler
   /api/v4.1/metrics/reports:
     get:
       description: |
