@@ -107,8 +107,11 @@ components:
         endtime:
           format: int64
           type: integer
-        name:
+        id:
           type: string
+        size:
+          format: int64
+          type: integer
         starttime:
           format: int64
           type: integer

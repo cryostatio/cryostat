@@ -781,7 +781,7 @@ public class AgentClient {
         }
     }
 
-    public static record AsyncProfile(String id, long starttime, long endtime) {}
+    public static record AsyncProfile(String id, long starttime, long endtime, long size) {}
 
     public static record AsyncProfilerStatus(
             StartProfileRequest currentProfile,
