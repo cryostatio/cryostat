@@ -462,7 +462,6 @@ public class AgentClient {
     }
 
     Uni<AsyncProfilerStatus> asyncProfilerStatus() {
-        // FIXME async-profiler interaction should happen via MBean invoke
         return agentRestClient
                 .asyncProfilerStatus()
                 .map(
@@ -476,7 +475,6 @@ public class AgentClient {
     }
 
     Uni<String> dumpAsyncProfile(StartProfileRequest req) {
-        // FIXME async-profiler interaction should happen via MBean invoke
         return agentRestClient
                 .dumpAsyncProfiler(req)
                 .map(
@@ -506,7 +504,6 @@ public class AgentClient {
     }
 
     Uni<List<String>> listAsyncProfiles() {
-        // FIXME async-profiler interaction should happen via MBean invoke
         return agentRestClient
                 .listAsyncProfiler()
                 .map(
@@ -521,7 +518,6 @@ public class AgentClient {
     }
 
     Uni<Boolean> deleteAsyncProfile(String id) {
-        // FIXME async-profiler interaction should happen via MBean invoke
         return agentRestClient
                 .deleteAsyncProfiler(id)
                 .map(
@@ -530,7 +526,6 @@ public class AgentClient {
     }
 
     Uni<InputStream> streamAsyncProfile(String id) {
-        // FIXME async-profiler interaction should happen via MBean invoke
         return agentRestClient
                 .streamAsyncProfile(id)
                 .map(
