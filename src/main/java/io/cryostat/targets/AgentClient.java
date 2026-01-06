@@ -504,7 +504,7 @@ public class AgentClient {
                                 }));
     }
 
-    Uni<List<String>> listAsyncProfiles() {
+    Uni<List<AsyncProfile>> listAsyncProfiles() {
         return agentRestClient
                 .listAsyncProfiler()
                 .map(
@@ -513,7 +513,7 @@ public class AgentClient {
                                     try (resp;
                                             var is = (InputStream) resp.getEntity()) {
                                         return mapper.readValue(
-                                                is, new TypeReference<List<String>>() {});
+                                                is, new TypeReference<List<AsyncProfile>>() {});
                                     }
                                 }));
     }
@@ -780,6 +780,8 @@ public class AgentClient {
             }
         }
     }
+
+    public static record AsyncProfile(String id, long starttime, long endtime) {}
 
     public static record AsyncProfilerStatus(
             StartProfileRequest currentProfile,
