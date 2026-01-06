@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configuration version="2.0" label="Quarkus" description="Quarkus-specific REST events" provider="Cryostat">
+<configuration version="2.0" label="Quarkus" description="Quarkus-specific events" provider="Cryostat">
   <event name="quarkus.runtime">
     <setting name="enabled">true</setting>
   </event>
