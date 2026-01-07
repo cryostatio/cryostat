@@ -130,7 +130,7 @@ public class AsyncProfiler {
                                                     Date.from(
                                                             Instant.now()
                                                                     .plus(duration)
-                                                                    .plusSeconds(2)))
+                                                                    .plusSeconds(1)))
                                             // TODO make configurable
                                             .withSchedule(
                                                     SimpleScheduleBuilder.simpleSchedule()
