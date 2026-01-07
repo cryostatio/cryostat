@@ -104,7 +104,7 @@ components:
       type: object
     AsyncProfile:
       properties:
-        endtime:
+        duration:
           format: int64
           type: integer
         id:
@@ -112,7 +112,7 @@ components:
         size:
           format: int64
           type: integer
-        starttime:
+        startTime:
           format: int64
           type: integer
       type: object
