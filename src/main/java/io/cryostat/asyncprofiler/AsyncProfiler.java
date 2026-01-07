@@ -180,7 +180,7 @@ public class AsyncProfiler {
     @Operation(summary = "Get specified target's async-profiler status")
     public Uni<AsyncProfilerStatus> getStatus(@RestPath long targetId) throws Exception {
         Target target = Target.find("id", targetId).singleResult();
-        return executeUni(target, conn -> conn.asyncProfilerStatus());
+        return executeUni(target, AgentConnection::asyncProfilerStatus);
     }
 
     @GET
