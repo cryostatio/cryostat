@@ -35,15 +35,15 @@ public class ReportsSidecarResource
     private Optional<String> containerNetworkId;
     private GenericContainer<?> container;
 
+    @SuppressWarnings("resource")
     @Override
     public Map<String, String> start() {
-        GenericContainer<?> c =
+        this.container =
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .withExposedPorts(REPORTS_PORT)
                         .withEnv(envMap)
                         .waitingFor(Wait.forLogMessage(".*Listening on.*", 1));
-        containerNetworkId.ifPresent(c::withNetworkMode);
-        container = c;
+        containerNetworkId.ifPresent(container::withNetworkMode);
 
         container.start();
 
