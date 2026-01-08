@@ -23,6 +23,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.math.BigInteger;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -223,9 +224,8 @@ class GraphQLTest extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification(
-                                                "ActiveRecordingCreated", 15, TimeUnit.SECONDS)
-                                        .get();
+                                return expectWebSocketNotification(
+                                        "ActiveRecordingCreated", Duration.ofSeconds(15));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
@@ -683,9 +683,8 @@ class GraphQLTest extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification(
-                                                "ActiveRecordingCreated", 15, TimeUnit.SECONDS)
-                                        .get();
+                                return expectWebSocketNotification(
+                                        "ActiveRecordingCreated", Duration.ofSeconds(15));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
@@ -2712,9 +2711,8 @@ class GraphQLTest extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification(
-                                                "ActiveRecordingCreated", 15, TimeUnit.SECONDS)
-                                        .get();
+                                return expectWebSocketNotification(
+                                        "ActiveRecordingCreated", Duration.ofSeconds(15));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
@@ -2807,9 +2805,8 @@ class GraphQLTest extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification(
-                                                "ActiveRecordingCreated", 15, TimeUnit.SECONDS)
-                                        .get();
+                                return expectWebSocketNotification(
+                                        "ActiveRecordingCreated", Duration.ofSeconds(15));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
