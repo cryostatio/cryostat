@@ -70,6 +70,7 @@ public class ExternalRecordingIT extends StandardSelfTest {
             }
         }
         MatcherAssert.assertThat(target, Matchers.notNullValue());
+        assert target != null;
         var targetId = target.getLong("id");
 
         var recordings =

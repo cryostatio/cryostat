@@ -59,6 +59,7 @@ public class CryostatTemplateIT extends StandardSelfTest {
         }
 
         MatcherAssert.assertThat(labelAttr, Matchers.notNullValue());
+        assert labelAttr != null;
 
         String templateName = labelAttr.getExplicitValue();
         MatcherAssert.assertThat(templateName, Matchers.equalTo("Cryostat"));
