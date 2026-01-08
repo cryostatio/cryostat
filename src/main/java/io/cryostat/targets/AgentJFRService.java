@@ -70,7 +70,6 @@ class AgentJFRService implements CryostatFlightRecorderService {
 
     private final AgentClient client;
     private final TemplateService templateService;
-    private final Logger logger = Logger.getLogger(getClass());
 
     AgentJFRService(AgentClient client, TemplateService templateService) {
         this.client = client;
