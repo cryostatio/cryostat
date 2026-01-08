@@ -21,11 +21,7 @@ import java.rmi.ConnectIOException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
-<<<<<<< HEAD
-=======
 import java.util.List;
-import java.util.NoSuchElementException;
->>>>>>> d007a1c (fix(tcm): fix bug where unwrapping runtime exceptions can skip causal levels (#1233))
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -391,12 +387,8 @@ public class TargetConnectionManager {
         T execute(JFRConnection connection) throws Exception;
     }
 
-<<<<<<< HEAD
-    public Throwable unwrapNestedException(Class<?> klazz, Throwable t) {
-=======
     private Throwable unwrapNestedException(Throwable t, Class<?>... klazzes) {
         List<Class<?>> l = Arrays.asList(klazzes);
->>>>>>> d007a1c (fix(tcm): fix bug where unwrapping runtime exceptions can skip causal levels (#1233))
         final int maxDepth = 10;
         int depth = 0;
         Throwable cause = t;
