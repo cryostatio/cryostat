@@ -57,7 +57,6 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
-import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
@@ -155,7 +154,7 @@ public class Reports {
     public Stream<ReportRule> listReportRules() {
         return RuleRegistry.getRules().stream()
                 .map(ReportRule::new)
-                .sorted((a, b) -> StringUtils.compare(a.id(), b.id()));
+                .sorted((a, b) -> a.id().compareTo(b.id()));
     }
 
     @POST

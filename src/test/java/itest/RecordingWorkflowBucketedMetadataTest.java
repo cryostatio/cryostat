@@ -147,9 +147,8 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification(
-                                                "ArchiveRecordingSuccess", 5, TimeUnit.SECONDS)
-                                        .get();
+                                return expectWebSocketNotification(
+                                        "ArchiveRecordingSuccess", Duration.ofSeconds(5));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
