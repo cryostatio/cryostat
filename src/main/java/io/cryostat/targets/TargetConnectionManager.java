@@ -277,19 +277,19 @@ public class TargetConnectionManager {
      * its internal cache that the connection is in fact still active and should not be
      * expired/closed. This will extend the lifetime of the cache entry by another TTL into the
      * future from the time this method is called. This may be done repeatedly as long as the
-     * connection is required to remain active.
+     * connection is required to remain active. Calling this method on a Target which does not
+     * currently have an open connection will cause a new connection to be opened.
      *
-     * @return false if the connection for the specified {@link Target} was already removed from
-     *     cache, true if it is still active and was refreshed
+     * @return false if the connection for the specified {@link Target} could not be refreshed, true
+     *     if it was
      */
     public boolean markConnectionInUse(Target target) {
-        var key = target.connectUrl;
-        var connection = connections.getIfPresent(key);
-        if (connection != null) {
-            connections.synchronous().refresh(key);
+        try {
+            connections.get(target.connectUrl).get();
             return true;
+        } catch (ExecutionException | InterruptedException e) {
+            return false;
         }
-        return false;
     }
 
     private void closeConnection(URI connectUrl, JFRConnection connection, RemovalCause cause) {
