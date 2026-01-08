@@ -40,14 +40,14 @@ public class GrafanaResource
 
     @Override
     public Map<String, String> start() {
-        container =
-                new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
-                        .withExposedPorts(GRAFANA_PORT)
-                        .withEnv(envMap)
-                        .waitingFor(
-                                Wait.forLogMessage(
-                                        ".*inserting datasource from configuration.*", 1));
-        containerNetworkId.ifPresent(container::withNetworkMode);
+        GenericContainer<?> c = new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
+                .withExposedPorts(GRAFANA_PORT)
+                .withEnv(envMap)
+                .waitingFor(
+                        Wait.forLogMessage(
+                                ".*inserting datasource from configuration.*", 1));
+        containerNetworkId.ifPresent(c::withNetworkMode);
+        container = c;
 
         container.start();
 
