@@ -55,8 +55,6 @@ import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class RecordingWorkflowTest extends StandardSelfTest {
 
-    private final ExecutorService worker = ForkJoinPool.commonPool();
-
     static String TEST_RECORDING_NAME = "workflow_itest";
     static long TEST_REMOTE_ID;
     final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
