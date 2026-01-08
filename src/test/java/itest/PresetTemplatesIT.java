@@ -86,8 +86,7 @@ public class PresetTemplatesIT extends StandardSelfTest {
             }
         }
 
-        MatcherAssert.assertThat(labelAttr, Matchers.notNullValue());
-        assert labelAttr != null;
+        Assertions.assertNotNull(labelAttr, "Label attribute is missing");
 
         String name = labelAttr.getExplicitValue();
         MatcherAssert.assertThat(name, Matchers.equalTo(templateName));
