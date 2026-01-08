@@ -16,9 +16,11 @@
 package itest;
 
 import java.net.UnknownHostException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -137,11 +139,9 @@ public class CustomTargetsTest extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification(
-                                                "CredentialsStored",
-                                                REQUEST_TIMEOUT_SECONDS,
-                                                TimeUnit.SECONDS)
-                                        .get();
+                                return expectWebSocketNotification(
+                                        "CredentialsStored",
+                                        Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
@@ -153,18 +153,15 @@ public class CustomTargetsTest extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification(
-                                                "TargetJvmDiscovery",
-                                                o ->
-                                                        "FOUND"
-                                                                .equals(
-                                                                        o.getJsonObject("message")
-                                                                                .getJsonObject(
-                                                                                        "event")
-                                                                                .getString("kind")),
-                                                REQUEST_TIMEOUT_SECONDS,
-                                                TimeUnit.SECONDS)
-                                        .get();
+                                return expectWebSocketNotification(
+                                        "TargetJvmDiscovery",
+                                        Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS),
+                                        o ->
+                                                "FOUND"
+                                                        .equals(
+                                                                o.getJsonObject("message")
+                                                                        .getJsonObject("event")
+                                                                        .getString("kind")));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
@@ -250,10 +247,17 @@ public class CustomTargetsTest extends StandardSelfTest {
         worker.submit(
                 () -> {
                     try {
-                        expectNotification(
-                                        "TargetJvmDiscovery",
-                                        REQUEST_TIMEOUT_SECONDS,
-                                        TimeUnit.SECONDS)
+                        CompletableFuture.supplyAsync(
+                                        () -> {
+                                            try {
+                                                return expectWebSocketNotification(
+                                                        "TargetJvmDiscovery",
+                                                        Duration.ofSeconds(
+                                                                REQUEST_TIMEOUT_SECONDS));
+                                            } catch (Exception e) {
+                                                throw new RuntimeException(e);
+                                            }
+                                        })
                                 .thenAcceptAsync(
                                         notification -> {
                                             JsonObject event =

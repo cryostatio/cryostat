@@ -236,8 +236,8 @@ public class RecordingHelper {
             return;
         }
         try {
-            URL uploadUrl =
-                    new URL(grafanaDatasourceURLProperty.orElseThrow(() -> new HttpException()));
+            String urlString = grafanaDatasourceURLProperty.orElseThrow(() -> new HttpException());
+            URL uploadUrl = URI.create(urlString).toURL();
             boolean isValidUploadUrl =
                     new UrlValidator(UrlValidator.ALLOW_LOCAL_URLS).isValid(uploadUrl.toString());
             if (!isValidUploadUrl) {
@@ -250,8 +250,8 @@ public class RecordingHelper {
                                         grafanaDatasourceURLProperty.get())));
                 return;
             }
-            grafanaDatasourceURL.complete(new URL(grafanaDatasourceURLProperty.get()));
-        } catch (MalformedURLException e) {
+            grafanaDatasourceURL.complete(URI.create(grafanaDatasourceURLProperty.get()).toURL());
+        } catch (MalformedURLException | IllegalArgumentException e) {
             grafanaDatasourceURL.completeExceptionally(
                     new HttpException(
                             Response.Status.BAD_GATEWAY.getStatusCode(),

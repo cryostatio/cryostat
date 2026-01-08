@@ -16,6 +16,7 @@
 package itest;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -273,8 +274,8 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification("ReportSuccess", 15, TimeUnit.SECONDS)
-                                        .get();
+                                return expectWebSocketNotification(
+                                        "ReportSuccess", Duration.ofSeconds(15));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
