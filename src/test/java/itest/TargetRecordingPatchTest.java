@@ -15,6 +15,7 @@
  */
 package itest;
 
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -107,9 +108,8 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification(
-                                                "ArchiveRecordingFailed", 15, TimeUnit.SECONDS)
-                                        .get();
+                                return expectWebSocketNotification(
+                                        "ArchiveRecordingFailed", Duration.ofSeconds(15));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {

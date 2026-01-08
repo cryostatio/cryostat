@@ -76,13 +76,14 @@ public class S3StorageResource
                                         "cryostat-storage.version",
                                         System.getenv("CRYOSTAT_STORAGE_VERSION")))
                         .orElse("latest");
-        GenericContainer<?> c = new GenericContainer<>(
-                        DockerImageName.parse(
-                                IMAGE_NAME.replace("STORAGE_VERSION", storageVersion)))
-                .withExposedPorts(S3_PORT)
-                .withEnv(envMap)
-                .withTmpFs(Map.of("/data", "rw"))
-                .waitingFor(Wait.forListeningPort());
+        GenericContainer<?> c =
+                new GenericContainer<>(
+                                DockerImageName.parse(
+                                        IMAGE_NAME.replace("STORAGE_VERSION", storageVersion)))
+                        .withExposedPorts(S3_PORT)
+                        .withEnv(envMap)
+                        .withTmpFs(Map.of("/data", "rw"))
+                        .waitingFor(Wait.forListeningPort());
         containerNetworkId.ifPresent(c::withNetworkMode);
         container = c;
 

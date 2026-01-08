@@ -51,7 +51,6 @@ import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 
 import io.smallrye.mutiny.Uni;
-import org.jboss.logging.Logger;
 
 /**
  * {@link io.cryostat.core.net.CryostatFlightRecorderService} implementation representing a Cryostat
