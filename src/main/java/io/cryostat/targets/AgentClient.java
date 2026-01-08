@@ -404,7 +404,8 @@ public class AgentClient {
                                     .map(
                                             o -> {
                                                 @SuppressWarnings("unchecked")
-                                                JsonObject json = new JsonObject((Map<String, Object>) o);
+                                                JsonObject json =
+                                                        new JsonObject((Map<String, Object>) o);
                                                 String eventName = json.getString("name");
                                                 JsonArray jsonSettings =
                                                         json.getJsonArray("settings");
