@@ -218,6 +218,7 @@ class AgentJFRService implements CryostatFlightRecorderService {
     }
 
     @Override
+    @SuppressWarnings("rawtypes")
     public IRecordingDescriptor start(IConstrainedMap<String> recordingOptions, String template)
             throws FlightRecorderException,
                     ParseException,
@@ -256,6 +257,7 @@ class AgentJFRService implements CryostatFlightRecorderService {
     }
 
     @Override
+    @SuppressWarnings("rawtypes")
     public IRecordingDescriptor start(IConstrainedMap<String> recordingOptions, Template template)
             throws io.cryostat.core.FlightRecorderException,
                     FlightRecorderException,

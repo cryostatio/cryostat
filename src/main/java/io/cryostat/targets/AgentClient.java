@@ -118,7 +118,7 @@ public class AgentClient {
                 .ping()
                 .invoke(Response::close)
                 .map(Response::getStatus)
-                .map(HttpStatusCodeIdentifier::isSuccessCode);
+                .map(status -> HttpStatusCodeIdentifier.isSuccessCode(status));
     }
 
     Uni<MBeanMetrics> mbeanMetrics() {
@@ -136,7 +136,6 @@ public class AgentClient {
                         });
     }
 
-    @SuppressWarnings("unchecked")
     <T> Uni<T> invokeMBeanOperation(
             String beanName,
             String operation,
@@ -404,7 +403,8 @@ public class AgentClient {
                             return arr.stream()
                                     .map(
                                             o -> {
-                                                JsonObject json = new JsonObject((Map) o);
+                                                @SuppressWarnings("unchecked")
+                                                JsonObject json = new JsonObject((Map<String, Object>) o);
                                                 String eventName = json.getString("name");
                                                 JsonArray jsonSettings =
                                                         json.getJsonArray("settings");
@@ -551,6 +551,7 @@ public class AgentClient {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public String[] getHierarchicalCategory() {
             return ((List<String>)
                             json.getJsonArray("categories").getList().stream()
