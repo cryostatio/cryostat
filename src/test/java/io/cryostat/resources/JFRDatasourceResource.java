@@ -36,12 +36,12 @@ public class JFRDatasourceResource
 
     @Override
     public Map<String, String> start() {
-        container =
-                new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
-                        .withExposedPorts(JFR_DATASOURCE_PORT)
-                        .withEnv(envMap)
-                        .waitingFor(Wait.forLogMessage(".*Listening on:.*", 1));
-        containerNetworkId.ifPresent(container::withNetworkMode);
+        GenericContainer<?> c = new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
+                .withExposedPorts(JFR_DATASOURCE_PORT)
+                .withEnv(envMap)
+                .waitingFor(Wait.forLogMessage(".*Listening on:.*", 1));
+        containerNetworkId.ifPresent(c::withNetworkMode);
+        container = c;
 
         container.start();
 
