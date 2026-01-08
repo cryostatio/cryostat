@@ -77,6 +77,7 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.RestHeader;
 import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
@@ -189,7 +190,9 @@ public class Discovery {
                     registration ID is still known and their current token is still valid.
                     """)
     public void checkRegistration(
-            @Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token) {
+            @Context RoutingContext ctx,
+            @RestPath UUID id,
+            @RestHeader("Cryostat-Discovery-Authentication") String token) {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         try {
             jwtValidator.validateJwt(ctx, plugin, token, true);
@@ -440,7 +443,7 @@ public class Discovery {
     public void publish(
             @Context RoutingContext ctx,
             @RestPath UUID id,
-            @RestQuery String token,
+            @RestHeader("Cryostat-Discovery-Authentication") String token,
             List<DiscoveryNode> body) {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         try {
@@ -506,7 +509,10 @@ public class Discovery {
                     Delete the plugin's registration along with its discovery Realm node and all of its children. This
                     is used when a discovery plugin is shutting down.
                     """)
-    public void deregister(@Context RoutingContext ctx, @RestPath UUID id, @RestQuery String token)
+    public void deregister(
+            @Context RoutingContext ctx,
+            @RestPath UUID id,
+            @RestHeader("Cryostat-Discovery-Authentication") String token)
             throws SchedulerException {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         if (plugin.builtin) {
