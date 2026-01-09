@@ -46,6 +46,7 @@ import io.cryostat.resources.S3StorageResource;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
@@ -698,11 +699,36 @@ class GraphQLTest extends StandardSelfTest {
                 webClient
                         .extensions()
                         .post("/api/v4/graphql", query.toBuffer(), REQUEST_TIMEOUT_SECONDS);
+        String responseBody = resp.bodyAsString();
         MatcherAssert.assertThat(
+                "GraphQL mutation should return 2xx status code",
                 resp.statusCode(),
-                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
-        CreateRecordingMutationResponse actual =
-                mapper.readValue(resp.bodyAsString(), CreateRecordingMutationResponse.class);
+                Matchers.allOf(Matchers.greaterThanOrEqualTo(200), Matchers.lessThan(300)));
+
+        CreateRecordingMutationResponse actual;
+        try {
+            actual = mapper.readValue(responseBody, CreateRecordingMutationResponse.class);
+        } catch (JsonProcessingException e) {
+            throw new AssertionError(
+                    "Failed to parse CreateRecordingMutationResponse from: " + responseBody, e);
+        }
+
+        // Assert the mutation response contains the expected recording
+        MatcherAssert.assertThat(
+                "Response should contain data", actual.getData(), Matchers.notNullValue());
+        MatcherAssert.assertThat(
+                "Response should contain recordings list",
+                actual.getData().getRecordings(),
+                Matchers.notNullValue());
+        MatcherAssert.assertThat(
+                "Response should contain at least one recording",
+                actual.getData().getRecordings().size(),
+                Matchers.greaterThan(0));
+        MatcherAssert.assertThat(
+                "Recording name should match",
+                actual.getData().getRecordings().get(0).name,
+                Matchers.equalTo(recordingName2));
+
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         JsonObject test2 = notification.getJsonObject("message").getJsonObject("recording");
