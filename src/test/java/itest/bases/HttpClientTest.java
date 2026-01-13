@@ -126,6 +126,8 @@ public abstract class HttpClientTest {
             if (category.equals(msgCategory) && predicate.test(obj)) {
                 return obj;
             }
+            Thread.sleep(500);
+            WS_CLIENT.msgQ.put(msg);
         } while (now < deadline);
         throw new TimeoutException();
     }
