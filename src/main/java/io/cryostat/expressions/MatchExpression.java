@@ -34,6 +34,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.Cacheable;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -56,6 +57,7 @@ import org.projectnessie.cel.tools.ScriptException;
  */
 @Entity
 @EntityListeners(MatchExpression.Listener.class)
+@Cacheable
 public class MatchExpression extends PanacheEntity {
     public static final String EXPRESSION_ADDRESS = "io.cryostat.expressions.MatchExpression";
 
