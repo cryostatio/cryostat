@@ -41,6 +41,8 @@ import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.Id;
+import jakarta.persistence.NamedQueries;
+import jakarta.persistence.NamedQuery;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.transaction.Transactional;
@@ -67,6 +69,13 @@ import org.jboss.logging.Logger;
 @Entity
 @EntityListeners(DiscoveryPlugin.Listener.class)
 @Cacheable
+@NamedQueries({
+    @NamedQuery(
+            name = "DiscoveryPlugin.getBuiltinRealmIds",
+            query =
+                    "SELECT p.realm.id FROM DiscoveryPlugin p WHERE p.builtin = true AND p.realm IS"
+                            + " NOT NULL")
+})
 public class DiscoveryPlugin extends PanacheEntityBase {
 
     @Id
