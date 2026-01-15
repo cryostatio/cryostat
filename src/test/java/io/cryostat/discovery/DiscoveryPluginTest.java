@@ -380,6 +380,204 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .statusCode(204);
     }
 
+    @Test
+    void testPublishHierarchicalNodeList() {
+        // store credentials
+        var credentialId =
+                given().log()
+                        .all()
+                        .when()
+                        .formParams(
+                                Map.of(
+                                        "username",
+                                        "user",
+                                        "password",
+                                        "pass",
+                                        "matchExpression",
+                                        "target.connectUrl =="
+                                                + " 'http://localhost:8081/health/liveness'"))
+                        .contentType(ContentType.URLENC)
+                        .post("/api/v4/credentials")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath()
+                        .getLong("id");
+
+        // register
+        var realmName = "hierarchical_test_realm";
+        var callback =
+                String.format(
+                        "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
+        var registration =
+                given().log()
+                        .all()
+                        .when()
+                        .body(Map.of("realm", realmName, "callback", callback))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4/discovery")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        var pluginId = registration.getString("id");
+        var pluginToken = registration.getString("token");
+
+        // publish a hierarchical Kubernetes structure:
+        // Namespace -> Deployment -> ReplicaSet -> Pod -> Agent
+        // (using AGENT type for HTTP URLs)
+        var agent1 = new Target(URI.create("http://localhost:8081"), "agent-1");
+        var agent2 = new Target(URI.create("http://localhost:8082"), "agent-2");
+
+        var agentNode1 = new Node("agent-1", NodeType.BaseNodeType.AGENT.name(), agent1);
+        var agentNode2 = new Node("agent-2", NodeType.BaseNodeType.AGENT.name(), agent2);
+
+        // Pod level - contains Agent nodes
+        var pod1 = new Node("pod-1", "Pod", null, List.of(agentNode1));
+        var pod2 = new Node("pod-2", "Pod", null, List.of(agentNode2));
+
+        // ReplicaSet level - contains Pod nodes
+        var replicaSet1 = new Node("replicaset-1", "ReplicaSet", null, List.of(pod1, pod2));
+
+        // Deployment level - contains ReplicaSet nodes
+        var deployment1 = new Node("deployment-1", "Deployment", null, List.of(replicaSet1));
+
+        // Namespace level - contains Deployment nodes
+        var namespace1 = new Node("namespace-1", "Namespace", null, List.of(deployment1));
+
+        given().log()
+                .all()
+                .when()
+                .body(List.of(namespace1))
+                .contentType(ContentType.JSON)
+                .header(DISCOVERY_HEADER, pluginToken)
+                .post(String.format("/api/v4/discovery/%s", pluginId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+
+        // verify the plugin has the expected hierarchical structure
+        var plugin =
+                given().log()
+                        .all()
+                        .when()
+                        .get(String.format("/api/v4/discovery_plugins/%s", pluginId))
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+
+        // Verify the entire hierarchy structure matches what was published
+        // Level 1: Realm should have 1 Namespace child
+        var realmChildren = plugin.getList("realm.children");
+        MatcherAssert.assertThat(realmChildren, Matchers.hasSize(1));
+        MatcherAssert.assertThat(
+                plugin.getString("realm.children[0].name"), Matchers.equalTo("namespace-1"));
+        MatcherAssert.assertThat(
+                plugin.getString("realm.children[0].nodeType"), Matchers.equalTo("Namespace"));
+
+        // Level 2: Namespace should have 1 Deployment child
+        var namespaceChildren = plugin.getList("realm.children[0].children");
+        MatcherAssert.assertThat(namespaceChildren, Matchers.hasSize(1));
+        MatcherAssert.assertThat(
+                plugin.getString("realm.children[0].children[0].name"),
+                Matchers.equalTo("deployment-1"));
+        MatcherAssert.assertThat(
+                plugin.getString("realm.children[0].children[0].nodeType"),
+                Matchers.equalTo("Deployment"));
+
+        // Level 3: Deployment should have 1 ReplicaSet child
+        var deploymentChildren = plugin.getList("realm.children[0].children[0].children");
+        MatcherAssert.assertThat(deploymentChildren, Matchers.hasSize(1));
+        MatcherAssert.assertThat(
+                plugin.getString("realm.children[0].children[0].children[0].name"),
+                Matchers.equalTo("replicaset-1"));
+        MatcherAssert.assertThat(
+                plugin.getString("realm.children[0].children[0].children[0].nodeType"),
+                Matchers.equalTo("ReplicaSet"));
+
+        // Level 4: ReplicaSet should have 2 Pod children
+        var replicaSetChildren =
+                plugin.getList("realm.children[0].children[0].children[0].children");
+        MatcherAssert.assertThat(replicaSetChildren, Matchers.hasSize(2));
+
+        // Verify both pods exist (order may vary)
+        var podNames =
+                List.of(
+                        plugin.getString(
+                                "realm.children[0].children[0].children[0].children[0].name"),
+                        plugin.getString(
+                                "realm.children[0].children[0].children[0].children[1].name"));
+        MatcherAssert.assertThat(podNames, Matchers.containsInAnyOrder("pod-1", "pod-2"));
+
+        // Level 5: Each Pod should have 1 Agent child (target node)
+        var pod1Children =
+                plugin.getList("realm.children[0].children[0].children[0].children[0].children");
+        MatcherAssert.assertThat(pod1Children, Matchers.hasSize(1));
+        MatcherAssert.assertThat(
+                plugin.getString(
+                        "realm.children[0].children[0].children[0].children[0].children[0].nodeType"),
+                Matchers.equalTo("AGENT"));
+        MatcherAssert.assertThat(
+                plugin.get(
+                        "realm.children[0].children[0].children[0].children[0].children[0].target"),
+                Matchers.notNullValue());
+
+        var pod2Children =
+                plugin.getList("realm.children[0].children[0].children[0].children[1].children");
+        MatcherAssert.assertThat(pod2Children, Matchers.hasSize(1));
+        MatcherAssert.assertThat(
+                plugin.getString(
+                        "realm.children[0].children[0].children[0].children[1].children[0].nodeType"),
+                Matchers.equalTo("AGENT"));
+        MatcherAssert.assertThat(
+                plugin.get(
+                        "realm.children[0].children[0].children[0].children[1].children[0].target"),
+                Matchers.notNullValue());
+
+        // Verify the agent targets have correct URLs
+        var agentUrls =
+                List.of(
+                        plugin.getString(
+                                "realm.children[0].children[0].children[0].children[0].children[0].target.connectUrl"),
+                        plugin.getString(
+                                "realm.children[0].children[0].children[0].children[1].children[0].target.connectUrl"));
+        MatcherAssert.assertThat(
+                agentUrls,
+                Matchers.containsInAnyOrder("http://localhost:8081", "http://localhost:8082"));
+
+        // cleanup
+        given().log()
+                .all()
+                .when()
+                .header(DISCOVERY_HEADER, pluginToken)
+                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
     record Node(String name, String nodeType, Target target, List<?> children) {
         Node(String name, String nodeType, Target target) {
             this(name, nodeType, target, null);
