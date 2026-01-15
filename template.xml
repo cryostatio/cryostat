@@ -1,0 +1,20 @@
+<jfragent>
+    <config>
+        <classprefix>__JFREvent</classprefix>
+        <allowtostring>false</allowtostring>
+        <allowconverter>false</allowconverter>
+    </config>
+    <events>
+        <event id="io.cryostat.test">
+            <label>Quarkus Test Event</label>
+            <class>java.lang.Runnable</class>
+            <stacktrace>true</stacktrace>
+            <rethrow>true</rethrow>
+            <location>WRAP</location>
+            <method>
+                <name>run</name>
+                <descriptor>()V</descriptor>
+            </method>
+        </event>
+    </events>
+</jfragent>
