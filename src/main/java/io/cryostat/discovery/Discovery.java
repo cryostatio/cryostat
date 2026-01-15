@@ -39,6 +39,7 @@ import java.util.UUID;
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
+import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
@@ -101,6 +102,8 @@ import org.quartz.impl.matchers.GroupMatcher;
 
 @Path("")
 public class Discovery {
+
+    private static final String SYNTHETIC_REALM_NAME = "Cryostat Discovery";
 
     static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
@@ -606,6 +609,13 @@ public class Discovery {
         mergedRoot.labels = new HashMap<>(universe.labels);
         mergedRoot.children = new ArrayList<>();
 
+        var syntheticRealm = new DiscoveryNode();
+        syntheticRealm.name = SYNTHETIC_REALM_NAME;
+        syntheticRealm.nodeType = BaseNodeType.REALM.getKind();
+        syntheticRealm.labels = new HashMap<>();
+        syntheticRealm.children = new ArrayList<>();
+        mergedRoot.children.add(syntheticRealm);
+
         var mergedNodes = new HashMap<String, DiscoveryNode>();
 
         var builtinRealmIds =
@@ -636,7 +646,7 @@ public class Discovery {
                     if (mergedNode == null) {
                         mergedNode = copyNode(sourceNode);
                         mergedNodes.put(key, mergedNode);
-                        mergedRoot.children.add(mergedNode);
+                        syntheticRealm.children.add(mergedNode);
                     } else {
                         if (fromBuiltin) {
                             mergeNodeProperties(mergedNode, sourceNode);

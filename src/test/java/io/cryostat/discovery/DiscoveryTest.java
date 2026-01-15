@@ -25,13 +25,21 @@ import io.cryostat.AbstractTransactionalTestBase;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import io.restassured.response.ValidatableResponse;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(Discovery.class)
 public class DiscoveryTest extends AbstractTransactionalTestBase {
+
+    @BeforeEach
+    void setup() {
+        // Ensure self-reference target is defined
+        defineSelfCustomTarget();
+    }
 
     @Test
     void testGetUniverse() {
@@ -59,6 +67,37 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
                                 Matchers.hasEntry("name", "JDP")))
                 .body("parent", Matchers.nullValue())
                 .body("target", Matchers.nullValue());
+    }
+
+    @Test
+    void testGetUniverseWithMergedRealms() {
+        ValidatableResponse response =
+                given().log()
+                        .all()
+                        .queryParam("mergeRealms", true)
+                        .when()
+                        .get("/api/v4/discovery")
+                        .then()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .body("id", Matchers.nullValue())
+                        .body("name", Matchers.equalTo("Universe"))
+                        .body("nodeType", Matchers.equalTo("Universe"))
+                        .body("labels", Matchers.equalTo(List.of()))
+                        .body("children.size()", Matchers.equalTo(1))
+                        .body("children[0].name", Matchers.equalTo("Cryostat Discovery"))
+                        .body("children[0].nodeType", Matchers.equalTo("Realm"))
+                        .body("children[0].labels", Matchers.equalTo(List.of()))
+                        .body("children[0].children.size()", Matchers.greaterThan(0))
+                        .body("parent", Matchers.nullValue())
+                        .body("target", Matchers.nullValue());
+
+        // Verify that the self-reference target appears in the merged tree
+        // The target should be nested under the synthetic realm's children
+        response.body(
+                "children[0].children.target.flatten().findAll { it != null }.connectUrl",
+                Matchers.hasItem(SELF_JMX_URL));
     }
 
     @Test
