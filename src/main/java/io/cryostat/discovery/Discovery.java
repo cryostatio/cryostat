@@ -26,6 +26,7 @@ import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,12 +63,14 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriBuilder;
@@ -175,8 +178,12 @@ public class Discovery {
     @Path("/api/v4/discovery")
     @RolesAllowed("read")
     @Operation(summary = "Retrieve the entire discovery tree.")
-    public DiscoveryNode get() {
-        return DiscoveryNode.getUniverse();
+    public DiscoveryNode get(
+            @QueryParam("mergeRealms") @DefaultValue("false") boolean mergeRealms) {
+        if (!mergeRealms) {
+            return DiscoveryNode.getUniverse();
+        }
+        return mergeRealms();
     }
 
     @GET
@@ -589,6 +596,114 @@ public class Discovery {
                     """)
     public DiscoveryPlugin getPlugin(@RestPath UUID id) {
         return DiscoveryPlugin.find("id", id).singleResult();
+    }
+
+    private DiscoveryNode mergeRealms() {
+        var universe = DiscoveryNode.getUniverse();
+        var mergedRoot = new DiscoveryNode();
+        mergedRoot.name = universe.name;
+        mergedRoot.nodeType = universe.nodeType;
+        mergedRoot.labels = new HashMap<>(universe.labels);
+        mergedRoot.children = new ArrayList<>();
+
+        var mergedNodes = new HashMap<String, DiscoveryNode>();
+
+        var builtinRealmIds =
+                new HashSet<Long>(
+                        DiscoveryPlugin.find("#DiscoveryPlugin.getBuiltinRealmIds")
+                                .project(Long.class)
+                                .list());
+
+        for (var realm : universe.children) {
+            boolean isBuiltin = builtinRealmIds.contains(realm.id);
+
+            var stack = new ArrayDeque<NodeContext>();
+            for (var child : realm.children) {
+                stack.push(new NodeContext(child, null, isBuiltin));
+            }
+
+            while (!stack.isEmpty()) {
+                var ctx = stack.pop();
+                var sourceNode = ctx.node;
+                var mergedParent = ctx.parent;
+                var fromBuiltin = ctx.fromBuiltin;
+
+                String key = sourceNode.nodeType + ":" + sourceNode.name;
+
+                DiscoveryNode mergedNode;
+                if (mergedParent == null) {
+                    mergedNode = mergedNodes.get(key);
+                    if (mergedNode == null) {
+                        mergedNode = copyNode(sourceNode);
+                        mergedNodes.put(key, mergedNode);
+                        mergedRoot.children.add(mergedNode);
+                    } else {
+                        if (fromBuiltin) {
+                            mergeNodeProperties(mergedNode, sourceNode);
+                        }
+                    }
+                } else {
+                    mergedNode =
+                            mergedParent.children.stream()
+                                    .filter(
+                                            n ->
+                                                    n.nodeType.equals(sourceNode.nodeType)
+                                                            && n.name.equals(sourceNode.name))
+                                    .findFirst()
+                                    .orElse(null);
+
+                    if (mergedNode == null) {
+                        mergedNode = copyNode(sourceNode);
+                        mergedParent.children.add(mergedNode);
+                    } else {
+                        if (fromBuiltin) {
+                            mergeNodeProperties(mergedNode, sourceNode);
+                        }
+                    }
+                }
+
+                if (sourceNode.children != null && !sourceNode.children.isEmpty()) {
+                    for (var child : sourceNode.children) {
+                        stack.push(new NodeContext(child, mergedNode, fromBuiltin));
+                    }
+                }
+            }
+        }
+
+        return mergedRoot;
+    }
+
+    private DiscoveryNode copyNode(DiscoveryNode source) {
+        var copy = new DiscoveryNode();
+        copy.name = source.name;
+        copy.nodeType = source.nodeType;
+        copy.labels = new HashMap<>(source.labels);
+        copy.children = new ArrayList<>();
+        copy.target = source.target;
+        return copy;
+    }
+
+    private void mergeNodeProperties(DiscoveryNode target, DiscoveryNode source) {
+        // Merge labels - source (from builtin) takes priority
+        if (source.labels != null) {
+            target.labels.putAll(source.labels);
+        }
+        // If source has a target, use it
+        if (source.target != null) {
+            target.target = source.target;
+        }
+    }
+
+    private static class NodeContext {
+        final DiscoveryNode node;
+        final DiscoveryNode parent;
+        final boolean fromBuiltin;
+
+        NodeContext(DiscoveryNode node, DiscoveryNode parent, boolean fromBuiltin) {
+            this.node = node;
+            this.parent = parent;
+            this.fromBuiltin = fromBuiltin;
+        }
     }
 
     /**
