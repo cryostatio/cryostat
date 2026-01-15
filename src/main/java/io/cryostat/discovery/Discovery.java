@@ -25,6 +25,7 @@ import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -458,42 +459,58 @@ public class Discovery {
         }
         plugin.realm.children.clear();
         plugin.realm.children.addAll(body);
-        for (var b : body) {
-            if (b.target != null) {
+
+        ArrayDeque<DiscoveryNode> nodeStack = new ArrayDeque<>();
+        for (var node : body) {
+            node.parent = plugin.realm;
+            nodeStack.push(node);
+        }
+
+        while (!nodeStack.isEmpty()) {
+            var currentNode = nodeStack.pop();
+
+            if (currentNode.target != null) {
                 try {
-                    if (!uriUtil.validateUri(b.target.connectUrl)) {
+                    if (!uriUtil.validateUri(currentNode.target.connectUrl)) {
                         throw new BadRequestException(
                                 String.format(
                                         "Connect URL of \"%s\" is unacceptable with the"
                                                 + " current URI range settings",
-                                        b.target.connectUrl));
+                                        currentNode.target.connectUrl));
                     }
                 } catch (MalformedURLException e) {
                     throw new BadRequestException(e);
                 }
-                if (!uriUtil.isJmxUrl(b.target.connectUrl)) {
-                    if (agentTlsRequired && !b.target.connectUrl.getScheme().equals("https")) {
+                if (!uriUtil.isJmxUrl(currentNode.target.connectUrl)) {
+                    if (agentTlsRequired
+                            && !currentNode.target.connectUrl.getScheme().equals("https")) {
                         throw new BadRequestException(
                                 String.format(
                                         "TLS for agent connections is required by (%s)",
                                         ConfigProperties.AGENT_TLS_REQUIRED));
                     }
-                    if (!b.target.connectUrl.getScheme().equals("https")
-                            && !b.target.connectUrl.getScheme().equals("http")) {
+                    if (!currentNode.target.connectUrl.getScheme().equals("https")
+                            && !currentNode.target.connectUrl.getScheme().equals("http")) {
                         throw new BadRequestException(
                                 String.format(
                                         "Target connect URL is neither JMX nor HTTP(S): (%s)",
-                                        b.target.connectUrl.toString()));
+                                        currentNode.target.connectUrl.toString()));
                     }
                 }
-                // Continue since we've verified the connect URL is either JMX or HTTPS with
-                // TLS verification enabled, or HTTP with TLS verification disabled.
-                b.target.discoveryNode = b;
-                b.target.discoveryNode.parent = plugin.realm;
-                b.parent = plugin.realm;
+                currentNode.target.discoveryNode = currentNode;
+                currentNode.target.discoveryNode.parent = currentNode.parent;
             }
-            b.persist();
+
+            if (currentNode.children != null && !currentNode.children.isEmpty()) {
+                for (var child : currentNode.children) {
+                    child.parent = currentNode;
+                    nodeStack.push(child);
+                }
+            }
+
+            currentNode.persist();
         }
+
         plugin.persist();
     }
 
