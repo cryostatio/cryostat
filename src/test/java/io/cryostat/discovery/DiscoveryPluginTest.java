@@ -273,7 +273,118 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
                 .statusCode(404);
     }
 
-    record Node(String name, String nodeType, Target target) {}
+    @Test
+    void testPublishFlatNodeList() {
+        // store credentials
+        var credentialId =
+                given().log()
+                        .all()
+                        .when()
+                        .formParams(
+                                Map.of(
+                                        "username",
+                                        "user",
+                                        "password",
+                                        "pass",
+                                        "matchExpression",
+                                        "target.connectUrl =="
+                                                + " 'http://localhost:8081/health/liveness'"))
+                        .contentType(ContentType.URLENC)
+                        .post("/api/v4/credentials")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath()
+                        .getLong("id");
+
+        // register
+        var realmName = "flat_test_realm";
+        var callback =
+                String.format(
+                        "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
+        var registration =
+                given().log()
+                        .all()
+                        .when()
+                        .body(Map.of("realm", realmName, "callback", callback))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4/discovery")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        var pluginId = registration.getString("id");
+        var pluginToken = registration.getString("token");
+
+        var target1 = new Target(URI.create("http://localhost:8081"), "flat-node-1");
+        var target2 = new Target(URI.create("http://localhost:8082"), "flat-node-2");
+        var target3 = new Target(URI.create("http://localhost:8083"), "flat-node-3");
+        var node1 = new Node("flat-node-1", NodeType.BaseNodeType.AGENT.name(), target1);
+        var node2 = new Node("flat-node-2", NodeType.BaseNodeType.AGENT.name(), target2);
+        var node3 = new Node("flat-node-3", NodeType.BaseNodeType.AGENT.name(), target3);
+
+        given().log()
+                .all()
+                .when()
+                .body(List.of(node1, node2, node3))
+                .contentType(ContentType.JSON)
+                .header(DISCOVERY_HEADER, pluginToken)
+                .post(String.format("/api/v4/discovery/%s", pluginId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+
+        // verify the plugin has the expected children
+        var plugin =
+                given().log()
+                        .all()
+                        .when()
+                        .get(String.format("/api/v4/discovery_plugins/%s", pluginId))
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+
+        var children = plugin.getList("realm.children");
+        MatcherAssert.assertThat(children, Matchers.hasSize(3));
+
+        // cleanup
+        given().log()
+                .all()
+                .when()
+                .header(DISCOVERY_HEADER, pluginToken)
+                .delete(String.format("/api/v4/discovery/%s", pluginId))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    record Node(String name, String nodeType, Target target, List<?> children) {
+        Node(String name, String nodeType, Target target) {
+            this(name, nodeType, target, null);
+        }
+    }
 
     record Target(URI connectUrl, String alias) {}
 }
