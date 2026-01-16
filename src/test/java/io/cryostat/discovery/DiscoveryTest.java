@@ -81,15 +81,17 @@ public class DiscoveryTest extends AbstractTransactionalTestBase {
                         .assertThat()
                         .statusCode(200)
                         .contentType(ContentType.JSON)
-                        .body("id", Matchers.nullValue())
+                        .body("id", Matchers.equalTo(1))
                         .body("name", Matchers.equalTo("Universe"))
                         .body("nodeType", Matchers.equalTo("Universe"))
                         .body("labels", Matchers.equalTo(List.of()))
                         .body("children.size()", Matchers.equalTo(1))
+                        .body("children[0].id", Matchers.notNullValue())
                         .body("children[0].name", Matchers.equalTo("Cryostat Discovery"))
                         .body("children[0].nodeType", Matchers.equalTo("Realm"))
                         .body("children[0].labels", Matchers.equalTo(List.of()))
                         .body("children[0].children.size()", Matchers.greaterThan(0))
+                        .body("children[0].children[0].id", Matchers.notNullValue())
                         .body("parent", Matchers.nullValue())
                         .body("target", Matchers.nullValue());
 

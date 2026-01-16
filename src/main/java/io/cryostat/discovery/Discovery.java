@@ -604,12 +604,14 @@ public class Discovery {
     private DiscoveryNode mergeRealms() {
         var universe = DiscoveryNode.getUniverse();
         var mergedRoot = new DiscoveryNode();
+        mergedRoot.id = universe.id;
         mergedRoot.name = universe.name;
         mergedRoot.nodeType = universe.nodeType;
         mergedRoot.labels = new HashMap<>(universe.labels);
         mergedRoot.children = new ArrayList<>();
 
         var syntheticRealm = new DiscoveryNode();
+        syntheticRealm.id = Long.MAX_VALUE;
         syntheticRealm.name = SYNTHETIC_REALM_NAME;
         syntheticRealm.nodeType = BaseNodeType.REALM.getKind();
         syntheticRealm.labels = new HashMap<>();
@@ -685,6 +687,7 @@ public class Discovery {
 
     private DiscoveryNode copyNode(DiscoveryNode source) {
         var copy = new DiscoveryNode();
+        copy.id = source.id;
         copy.name = source.name;
         copy.nodeType = source.nodeType;
         copy.labels = new HashMap<>(source.labels);
@@ -694,13 +697,14 @@ public class Discovery {
     }
 
     private void mergeNodeProperties(DiscoveryNode target, DiscoveryNode source) {
-        // Merge labels - source (from builtin) takes priority
         if (source.labels != null) {
             target.labels.putAll(source.labels);
         }
-        // If source has a target, use it
         if (source.target != null) {
             target.target = source.target;
+        }
+        if (source.id != null) {
+            target.id = source.id;
         }
     }
 
