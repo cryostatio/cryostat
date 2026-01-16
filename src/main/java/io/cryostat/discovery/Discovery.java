@@ -480,33 +480,7 @@ public class Discovery {
             var currentNode = nodeStack.pop();
 
             if (currentNode.target != null) {
-                try {
-                    if (!uriUtil.validateUri(currentNode.target.connectUrl)) {
-                        throw new BadRequestException(
-                                String.format(
-                                        "Connect URL of \"%s\" is unacceptable with the"
-                                                + " current URI range settings",
-                                        currentNode.target.connectUrl));
-                    }
-                } catch (MalformedURLException e) {
-                    throw new BadRequestException(e);
-                }
-                if (!uriUtil.isJmxUrl(currentNode.target.connectUrl)) {
-                    if (agentTlsRequired
-                            && !currentNode.target.connectUrl.getScheme().equals("https")) {
-                        throw new BadRequestException(
-                                String.format(
-                                        "TLS for agent connections is required by (%s)",
-                                        ConfigProperties.AGENT_TLS_REQUIRED));
-                    }
-                    if (!currentNode.target.connectUrl.getScheme().equals("https")
-                            && !currentNode.target.connectUrl.getScheme().equals("http")) {
-                        throw new BadRequestException(
-                                String.format(
-                                        "Target connect URL is neither JMX nor HTTP(S): (%s)",
-                                        currentNode.target.connectUrl.toString()));
-                    }
-                }
+                validatePublishedNode(currentNode);
                 currentNode.target.discoveryNode = currentNode;
                 currentNode.target.discoveryNode.parent = currentNode.parent;
             }
@@ -522,6 +496,35 @@ public class Discovery {
         }
 
         plugin.persist();
+    }
+
+    private void validatePublishedNode(DiscoveryNode currentNode) {
+        try {
+            if (!uriUtil.validateUri(currentNode.target.connectUrl)) {
+                throw new BadRequestException(
+                        String.format(
+                                "Connect URL of \"%s\" is unacceptable with the"
+                                        + " current URI range settings",
+                                currentNode.target.connectUrl));
+            }
+        } catch (MalformedURLException e) {
+            throw new BadRequestException(e);
+        }
+        if (!uriUtil.isJmxUrl(currentNode.target.connectUrl)) {
+            if (agentTlsRequired && !currentNode.target.connectUrl.getScheme().equals("https")) {
+                throw new BadRequestException(
+                        String.format(
+                                "TLS for agent connections is required by (%s)",
+                                ConfigProperties.AGENT_TLS_REQUIRED));
+            }
+            if (!currentNode.target.connectUrl.getScheme().equals("https")
+                    && !currentNode.target.connectUrl.getScheme().equals("http")) {
+                throw new BadRequestException(
+                        String.format(
+                                "Target connect URL is neither JMX nor HTTP(S): (%s)",
+                                currentNode.target.connectUrl.toString()));
+            }
+        }
     }
 
     @Transactional
@@ -602,15 +605,15 @@ public class Discovery {
     }
 
     private DiscoveryNode mergeRealms() {
-        var universe = DiscoveryNode.getUniverse();
-        var mergedRoot = new DiscoveryNode();
+        DiscoveryNode universe = DiscoveryNode.getUniverse();
+        DiscoveryNode mergedRoot = new DiscoveryNode();
         mergedRoot.id = universe.id;
         mergedRoot.name = universe.name;
         mergedRoot.nodeType = universe.nodeType;
         mergedRoot.labels = new HashMap<>(universe.labels);
         mergedRoot.children = new ArrayList<>();
 
-        var syntheticRealm = new DiscoveryNode();
+        DiscoveryNode syntheticRealm = new DiscoveryNode();
         syntheticRealm.id = Long.MAX_VALUE;
         syntheticRealm.name = SYNTHETIC_REALM_NAME;
         syntheticRealm.nodeType = BaseNodeType.REALM.getKind();
@@ -621,17 +624,14 @@ public class Discovery {
         var mergedNodes = new HashMap<String, DiscoveryNode>();
 
         var builtinRealmIds =
-                new HashSet<Long>(
-                        DiscoveryPlugin.find("#DiscoveryPlugin.getBuiltinRealmIds")
-                                .project(Long.class)
-                                .list());
+                DiscoveryPlugin.find("#DiscoveryPlugin.getBuiltinRealmIds")
+                        .project(Long.class)
+                        .list();
 
         for (var realm : universe.children) {
-            boolean isBuiltin = builtinRealmIds.contains(realm.id);
-
             var stack = new ArrayDeque<NodeContext>();
             for (var child : realm.children) {
-                stack.push(new NodeContext(child, null, isBuiltin));
+                stack.push(new NodeContext(child, null, builtinRealmIds.contains(realm.id)));
             }
 
             while (!stack.isEmpty()) {
@@ -708,17 +708,8 @@ public class Discovery {
         }
     }
 
-    private static class NodeContext {
-        final DiscoveryNode node;
-        final DiscoveryNode parent;
-        final boolean fromBuiltin;
-
-        NodeContext(DiscoveryNode node, DiscoveryNode parent, boolean fromBuiltin) {
-            this.node = node;
-            this.parent = parent;
-            this.fromBuiltin = fromBuiltin;
-        }
-    }
+    private static record NodeContext(
+            DiscoveryNode node, DiscoveryNode parent, boolean fromBuiltin) {}
 
     /**
      * Check that discovery plugins are still alive/reachable and prompt them to regenerate expiring
