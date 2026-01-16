@@ -76,6 +76,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.faulttolerance.Bulkhead;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -621,7 +622,7 @@ public class Discovery {
         syntheticRealm.children = new ArrayList<>();
         mergedRoot.children.add(syntheticRealm);
 
-        var mergedNodes = new HashMap<String, DiscoveryNode>();
+        var mergedNodes = new HashMap<Pair<String, String>, DiscoveryNode>();
 
         var builtinRealmIds =
                 DiscoveryPlugin.find("#DiscoveryPlugin.getBuiltinRealmIds")
@@ -640,7 +641,7 @@ public class Discovery {
                 var mergedParent = ctx.parent;
                 var fromBuiltin = ctx.fromBuiltin;
 
-                String key = sourceNode.nodeType + ":" + sourceNode.name;
+                Pair<String, String> key = Pair.of(sourceNode.nodeType, sourceNode.name);
 
                 DiscoveryNode mergedNode;
                 if (mergedParent == null) {
