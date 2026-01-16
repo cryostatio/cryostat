@@ -18,6 +18,7 @@ package io.cryostat.targets;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
+import java.util.List;
 import java.util.Set;
 
 import javax.management.InstanceNotFoundException;
@@ -40,6 +41,7 @@ import io.cryostat.libcryostat.net.CryostatAgentMXBean;
 import io.cryostat.libcryostat.net.IDException;
 import io.cryostat.libcryostat.net.MBeanMetrics;
 import io.cryostat.libcryostat.sys.Clock;
+import io.cryostat.libcryostat.triggers.SmartTrigger;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -131,6 +133,21 @@ class AgentConnection implements JFRConnection {
         return client.invokeMBeanOperation(beanName, operation, parameters, signature, returnType)
                 .await()
                 .atMost(client.getTimeout());
+    }
+
+    @Override
+    public List<SmartTrigger> listSmartTriggers() {
+        return client.listTriggers().await().atMost(client.getTimeout());
+    }
+
+    @Override
+    public void addSmartTriggers(String definition) {
+        client.addSmartTriggers(definition).await().atMost(client.getTimeout());
+    }
+
+    @Override
+    public void removeSmartTriggers(String definition) {
+        client.removeSmartTriggers(definition).await().atMost(client.getTimeout());
     }
 
     @Override
