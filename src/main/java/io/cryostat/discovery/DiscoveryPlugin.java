@@ -68,9 +68,7 @@ import org.jboss.logging.Logger;
 @NamedQueries({
     @NamedQuery(
             name = "DiscoveryPlugin.getBuiltinRealmIds",
-            query =
-                    "SELECT p.realm.id FROM DiscoveryPlugin p WHERE p.builtin = true AND p.realm IS"
-                            + " NOT NULL")
+            query = "SELECT p.realm.id FROM DiscoveryPlugin p WHERE p.builtin = true")
 })
 public class DiscoveryPlugin extends PanacheEntityBase {
 
