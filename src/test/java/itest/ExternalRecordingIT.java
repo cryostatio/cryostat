@@ -31,6 +31,7 @@ import io.vertx.core.json.JsonObject;
 import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -69,7 +70,7 @@ public class ExternalRecordingIT extends StandardSelfTest {
                 target = obj;
             }
         }
-        MatcherAssert.assertThat(target, Matchers.notNullValue());
+        Assertions.assertNotNull(target, "Target should not be null");
         var targetId = target.getLong("id");
 
         var recordings =

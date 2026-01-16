@@ -58,7 +58,6 @@ class AgentConnection implements JFRConnection {
 
     private final AgentClient client;
     private final TemplateService customTemplateService;
-    private final Logger logger = Logger.getLogger(getClass());
 
     AgentConnection(AgentClient client, TemplateService customTemplateService) {
         this.client = client;

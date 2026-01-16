@@ -21,9 +21,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -54,8 +52,6 @@ import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 @QuarkusTestResource(S3StorageResource.class)
 @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class RecordingWorkflowTest extends StandardSelfTest {
-
-    private final ExecutorService worker = ForkJoinPool.commonPool();
 
     static String TEST_RECORDING_NAME = "workflow_itest";
     static long TEST_REMOTE_ID;
