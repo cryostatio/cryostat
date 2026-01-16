@@ -78,8 +78,12 @@ public class JMCAgentProbes {
                 target,
                 connection -> {
                     try {
-                        ProbeTemplate template = new ProbeTemplate();
                         String templateContent = service.getTemplateContent(probeTemplateName);
+                        ProbeTemplate template = new ProbeTemplate();
+                        template.setFileName(probeTemplateName);
+                        template.deserialize(
+                                new ByteArrayInputStream(
+                                        templateContent.getBytes(StandardCharsets.UTF_8)));
                         Object[] args = {templateContent};
                         connection.invokeMBeanOperation(
                                 AGENT_OBJECT_NAME,
@@ -95,9 +99,9 @@ public class JMCAgentProbes {
                                                 "jvmId",
                                                 target.jvmId,
                                                 "events",
-                                                template.getEvents(),
+                                                Arrays.asList(template.getEvents()),
                                                 "probeTemplate",
-                                                template.getFileName())));
+                                                probeTemplateName)));
                         return null;
                     } catch (InstanceNotFoundException infe) {
                         throw new BadRequestException(infe);
@@ -138,7 +142,12 @@ public class JMCAgentProbes {
                         bus.publish(
                                 MessagingServer.class.getName(),
                                 new Notification(
-                                        PROBES_REMOVED_CATEGORY, Map.of("jvmId", target.jvmId)));
+                                        PROBES_REMOVED_CATEGORY,
+                                        Map.of(
+                                                "jvmId",
+                                                target.jvmId,
+                                                "target",
+                                                target.connectUrl.toString())));
                         return null;
                     } catch (InstanceNotFoundException infe) {
                         throw new BadRequestException(infe);
