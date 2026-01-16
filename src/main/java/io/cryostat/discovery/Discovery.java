@@ -499,35 +499,6 @@ public class Discovery {
         plugin.persist();
     }
 
-    private void validatePublishedNode(DiscoveryNode currentNode) {
-        try {
-            if (!uriUtil.validateUri(currentNode.target.connectUrl)) {
-                throw new BadRequestException(
-                        String.format(
-                                "Connect URL of \"%s\" is unacceptable with the"
-                                        + " current URI range settings",
-                                currentNode.target.connectUrl));
-            }
-        } catch (MalformedURLException e) {
-            throw new BadRequestException(e);
-        }
-        if (!uriUtil.isJmxUrl(currentNode.target.connectUrl)) {
-            if (agentTlsRequired && !currentNode.target.connectUrl.getScheme().equals("https")) {
-                throw new BadRequestException(
-                        String.format(
-                                "TLS for agent connections is required by (%s)",
-                                ConfigProperties.AGENT_TLS_REQUIRED));
-            }
-            if (!currentNode.target.connectUrl.getScheme().equals("https")
-                    && !currentNode.target.connectUrl.getScheme().equals("http")) {
-                throw new BadRequestException(
-                        String.format(
-                                "Target connect URL is neither JMX nor HTTP(S): (%s)",
-                                currentNode.target.connectUrl.toString()));
-            }
-        }
-    }
-
     @Transactional
     @DELETE
     @Path("/api/v4/discovery/{id}")
@@ -605,6 +576,35 @@ public class Discovery {
         return DiscoveryPlugin.find("id", id).singleResult();
     }
 
+    private void validatePublishedNode(DiscoveryNode currentNode) {
+        try {
+            if (!uriUtil.validateUri(currentNode.target.connectUrl)) {
+                throw new BadRequestException(
+                        String.format(
+                                "Connect URL of \"%s\" is unacceptable with the"
+                                        + " current URI range settings",
+                                currentNode.target.connectUrl));
+            }
+        } catch (MalformedURLException e) {
+            throw new BadRequestException(e);
+        }
+        if (!uriUtil.isJmxUrl(currentNode.target.connectUrl)) {
+            if (agentTlsRequired && !currentNode.target.connectUrl.getScheme().equals("https")) {
+                throw new BadRequestException(
+                        String.format(
+                                "TLS for agent connections is required by (%s)",
+                                ConfigProperties.AGENT_TLS_REQUIRED));
+            }
+            if (!currentNode.target.connectUrl.getScheme().equals("https")
+                    && !currentNode.target.connectUrl.getScheme().equals("http")) {
+                throw new BadRequestException(
+                        String.format(
+                                "Target connect URL is neither JMX nor HTTP(S): (%s)",
+                                currentNode.target.connectUrl.toString()));
+            }
+        }
+    }
+
     private DiscoveryNode mergeRealms() {
         DiscoveryNode universe = DiscoveryNode.getUniverse();
         DiscoveryNode mergedRoot = new DiscoveryNode();
@@ -669,6 +669,8 @@ public class Discovery {
                         mergedNode = copyNode(sourceNode);
                         mergedParent.children.add(mergedNode);
                     } else {
+                        // if we have collisions, prefer the node which came from a builtin plugin
+                        // and merge properties from discovery plugins in
                         if (fromBuiltin) {
                             mergeNodeProperties(mergedNode, sourceNode);
                         }
@@ -698,14 +700,14 @@ public class Discovery {
     }
 
     private void mergeNodeProperties(DiscoveryNode target, DiscoveryNode source) {
+        if (source.id != null) {
+            target.id = source.id;
+        }
         if (source.labels != null) {
             target.labels.putAll(source.labels);
         }
         if (source.target != null) {
             target.target = source.target;
-        }
-        if (source.id != null) {
-            target.id = source.id;
         }
     }
 
