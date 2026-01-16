@@ -47,6 +47,7 @@ import io.cryostat.core.serialization.JmcSerializableRecordingDescriptor;
 import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory;
 import io.cryostat.libcryostat.net.MBeanMetrics;
+import io.cryostat.libcryostat.triggers.SmartTrigger;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -132,6 +133,50 @@ public class AgentClient {
                             } catch (IOException e) {
                                 throw new AgentApiException(
                                         Response.Status.BAD_GATEWAY.getStatusCode(), e);
+                            }
+                        });
+    }
+
+    Uni<List<SmartTrigger>> listTriggers() {
+        return agentRestClient
+                .listTriggers()
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return Arrays.asList(
+                                                mapper.readValue(is, SmartTrigger[].class));
+                                    }
+                                }));
+    }
+
+    Uni<Void> addSmartTriggers(String definitions) {
+        return agentRestClient
+                .addTriggers(definitions)
+                .invoke(Response::close)
+                .map(
+                        resp -> {
+                            int statusCode = resp.getStatus();
+                            if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                return null;
+                            } else {
+                                throw new AgentApiException(statusCode);
+                            }
+                        });
+    }
+
+    Uni<Void> removeSmartTriggers(String definitions) {
+        return agentRestClient
+                .removeTriggers(definitions)
+                .invoke(Response::close)
+                .map(
+                        resp -> {
+                            int statusCode = resp.getStatus();
+                            if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                return null;
+                            } else {
+                                throw new AgentApiException(statusCode);
                             }
                         });
     }
