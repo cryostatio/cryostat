@@ -316,7 +316,7 @@ public class Discovery {
                             ConfigProperties.AGENT_TLS_REQUIRED));
         }
 
-        URI location;
+        List<URI> locations;
         DiscoveryPlugin plugin;
         if (StringUtils.isNotBlank(pluginId) && StringUtils.isNotBlank(priorToken)) {
             // refresh the JWT for existing registration
@@ -330,9 +330,9 @@ public class Discovery {
                 throw new BadRequestException("plugin callback mismatch");
             }
             try {
-                location = jwtFactory.getPluginLocation(plugin);
+                locations = jwtFactory.getPluginLocations(plugin);
                 jwtFactory.parseDiscoveryPluginJwt(
-                        plugin, priorToken, location, remoteAddress, false);
+                        plugin, priorToken, locations, remoteAddress, false);
             } catch (URISyntaxException
                     | UnknownHostException
                     | SocketException
@@ -391,7 +391,7 @@ public class Discovery {
                                     });
 
             try {
-                location = jwtFactory.getPluginLocation(plugin);
+                locations = jwtFactory.getPluginLocations(plugin);
             } catch (URISyntaxException e) {
                 throw new BadRequestException(e);
             }
@@ -420,7 +420,7 @@ public class Discovery {
 
         String token;
         try {
-            token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, location);
+            token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, locations);
         } catch (URISyntaxException | JOSEException | UnknownHostException | SocketException e) {
             throw new BadRequestException(e);
         } catch (NoSuchAlgorithmException e) {
@@ -457,6 +457,30 @@ public class Discovery {
             @RestPath UUID id,
             @RestHeader("Cryostat-Discovery-Authentication") String token,
             List<DiscoveryNode> body) {
+        publishWithContext(ctx, id, token, new DiscoveryPublication(body, DiscoveryFillAlgorithm.NONE, Map.of()));
+    }
+
+
+    @Transactional
+    @POST
+    @Path("/api/v4.2/discovery/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @PermitAll
+    @Tag(ref = "Discovery")
+    @Operation(
+            summary = "Publish updated target discovery information",
+            description =
+                    """
+                    Using its plugin ID and current token, a discovery plugin uses this endpoint to publish a JSON
+                    request body containing a list of discovery nodes. The discovery plugin itself is a Realm node in
+                    the overall discovery tree, so the published list of nodes here will replace the plugin Realm
+                    node's list of children.
+                    """)
+    public void publishWithContext(
+            @Context RoutingContext ctx,
+            @RestPath UUID id,
+            @RestHeader("Cryostat-Discovery-Authentication") String token,
+            DiscoveryPublication body) {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         try {
             jwtValidator.validateJwt(ctx, plugin, token, true);
@@ -468,11 +492,15 @@ public class Discovery {
                 | ParseException e) {
             throw new BadRequestException(e);
         }
+
+        // TODO apply fill algorithm
+        List<DiscoveryNode> nodes = new ArrayList<>(body.nodes);
+
         plugin.realm.children.clear();
-        plugin.realm.children.addAll(body);
+        plugin.realm.children.addAll(nodes);
 
         ArrayDeque<DiscoveryNode> nodeStack = new ArrayDeque<>();
-        for (var node : body) {
+        for (var node : nodes) {
             node.parent = plugin.realm;
             nodeStack.push(node);
         }
@@ -785,6 +813,34 @@ public class Discovery {
     }
 
     static record PluginRegistration(String id, String token, Map<String, String> env) {}
+
+    static record DiscoveryPublication(List<DiscoveryNode> nodes, DiscoveryFillAlgorithm fillAlgorithm, Map<String, String> context) {}
+
+    enum DiscoveryFillAlgorithm {
+        NONE("none"),
+        KUBERNETES("kubernetes"),
+        ;
+
+        private final String key;
+
+        DiscoveryFillAlgorithm(String key) {
+            this.key = key;
+        }
+
+        String getKey() {
+            return key;
+        }
+
+        static DiscoveryFillAlgorithm fromString(String s) {
+            for (var a : values()) {
+                if (a.getKey().equalsIgnoreCase(s)) {
+                    return a;
+                }
+            }
+            return NONE;
+        }
+
+    }
 
     static class DuplicatePluginException extends IllegalArgumentException {
 
