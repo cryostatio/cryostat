@@ -457,9 +457,12 @@ public class Discovery {
             @RestPath UUID id,
             @RestHeader("Cryostat-Discovery-Authentication") String token,
             List<DiscoveryNode> body) {
-        publishWithContext(ctx, id, token, new DiscoveryPublication(body, DiscoveryFillAlgorithm.NONE, Map.of()));
+        publishWithContext(
+                ctx,
+                id,
+                token,
+                new DiscoveryPublication(body, DiscoveryFillAlgorithm.NONE, Map.of()));
     }
-
 
     @Transactional
     @POST
@@ -814,7 +817,10 @@ public class Discovery {
 
     static record PluginRegistration(String id, String token, Map<String, String> env) {}
 
-    static record DiscoveryPublication(List<DiscoveryNode> nodes, DiscoveryFillAlgorithm fillAlgorithm, Map<String, String> context) {}
+    static record DiscoveryPublication(
+            List<DiscoveryNode> nodes,
+            DiscoveryFillAlgorithm fillAlgorithm,
+            Map<String, String> context) {}
 
     enum DiscoveryFillAlgorithm {
         NONE("none"),
@@ -839,7 +845,6 @@ public class Discovery {
             }
             return NONE;
         }
-
     }
 
     static class DuplicatePluginException extends IllegalArgumentException {
