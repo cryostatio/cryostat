@@ -790,7 +790,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
     }
 
-    private class TargetTuple {
+    class TargetTuple {
         ObjectReference objRef;
         HasMetadata obj;
         String addr;
