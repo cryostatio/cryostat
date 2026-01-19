@@ -98,8 +98,6 @@ public class JMCAgentProbes {
                                         Map.of(
                                                 "jvmId",
                                                 target.jvmId,
-                                                "events",
-                                                Arrays.asList(template.getEvents()),
                                                 "probeTemplate",
                                                 probeTemplateName)));
                         return null;
