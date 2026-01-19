@@ -605,6 +605,7 @@ public class Discovery {
         }
     }
 
+    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     private DiscoveryNode mergeRealms() {
         DiscoveryNode universe = DiscoveryNode.getUniverse();
         DiscoveryNode mergedRoot = new DiscoveryNode();
@@ -645,15 +646,10 @@ public class Discovery {
 
                 DiscoveryNode mergedNode;
                 if (mergedParent == null) {
-                    mergedNode = mergedNodes.get(key);
-                    if (mergedNode == null) {
-                        mergedNode = copyNode(sourceNode);
-                        mergedNodes.put(key, mergedNode);
-                        syntheticRealm.children.add(mergedNode);
-                    } else {
-                        if (fromBuiltin) {
-                            mergeNodeProperties(mergedNode, sourceNode);
-                        }
+                    mergedNode = mergedNodes.computeIfAbsent(key, k -> copyNode(sourceNode));
+                    syntheticRealm.children.add(mergedNode);
+                    if (fromBuiltin) {
+                        mergeNodeProperties(mergedNode, sourceNode);
                     }
                 } else {
                     mergedNode =
@@ -663,17 +659,17 @@ public class Discovery {
                                                     n.nodeType.equals(sourceNode.nodeType)
                                                             && n.name.equals(sourceNode.name))
                                     .findFirst()
-                                    .orElse(null);
+                                    .orElseGet(
+                                            () -> {
+                                                var node = copyNode(sourceNode);
+                                                mergedParent.children.add(node);
+                                                return node;
+                                            });
 
-                    if (mergedNode == null) {
-                        mergedNode = copyNode(sourceNode);
-                        mergedParent.children.add(mergedNode);
-                    } else {
-                        // if we have collisions, prefer the node which came from a builtin plugin
-                        // and merge properties from discovery plugins in
-                        if (fromBuiltin) {
-                            mergeNodeProperties(mergedNode, sourceNode);
-                        }
+                    // if we have collisions, prefer the node which came from a builtin plugin
+                    // and merge properties from discovery plugins in
+                    if (fromBuiltin) {
+                        mergeNodeProperties(mergedNode, sourceNode);
                     }
                 }
 
