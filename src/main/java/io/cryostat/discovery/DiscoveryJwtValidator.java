@@ -23,6 +23,8 @@ import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 
 import com.nimbusds.jose.JOSEException;
@@ -91,7 +93,7 @@ public class DiscoveryJwtValidator {
                     jwtFactory.parseDiscoveryPluginJwt(
                             plugin,
                             token,
-                            jwtFactory.getPluginLocation(plugin),
+                            jwtFactory.getPluginLocations(plugin),
                             addr,
                             validateTimeClaims);
         } catch (BadJWTException e) {
@@ -105,18 +107,27 @@ public class DiscoveryJwtValidator {
                 new URI(hostUri.getScheme(), hostUri.getAuthority(), null, null, null)
                         .resolve(requestUri.getRawPath());
         URI relativeRequestUri = new URI(requestUri.getRawPath());
-        URI resourceClaim;
+        List<URI> resourceClaims = new ArrayList<>();
         try {
-            resourceClaim =
-                    new URI(
-                            parsed.getJWTClaimsSet()
-                                    .getStringClaim(DiscoveryJwtFactory.RESOURCE_CLAIM));
+            for (var s :
+                    parsed.getJWTClaimsSet()
+                            .getStringClaim(DiscoveryJwtFactory.RESOURCE_CLAIM)
+                            .split(",")) {
+                resourceClaims.add(new URI(s));
+            }
         } catch (URISyntaxException use) {
             throw new UnauthorizedException("JWT resource claim was invalid", use);
         }
         boolean matchesAbsoluteRequestUri =
-                resourceClaim.isAbsolute() && Objects.equals(fullRequestUri, resourceClaim);
-        boolean matchesRelativeRequestUri = Objects.equals(relativeRequestUri, resourceClaim);
+                resourceClaims.stream()
+                        .anyMatch(
+                                resourceClaim ->
+                                        resourceClaim.isAbsolute()
+                                                && Objects.equals(fullRequestUri, resourceClaim));
+        boolean matchesRelativeRequestUri =
+                resourceClaims.stream()
+                        .anyMatch(
+                                resourceClaim -> Objects.equals(relativeRequestUri, resourceClaim));
         if (!matchesAbsoluteRequestUri && !matchesRelativeRequestUri) {
             throw new UnauthorizedException(
                     "Token resource claim does not match requested resource");
