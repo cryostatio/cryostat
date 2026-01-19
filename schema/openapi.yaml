@@ -177,6 +177,11 @@ components:
         grafanaDatasourceUrl:
           type: string
       type: object
+    DiscoveryFillAlgorithm:
+      enum:
+        - NONE
+        - KUBERNETES
+      type: string
     DiscoveryNode:
       properties:
         children:
@@ -256,6 +261,19 @@ components:
       required:
         - id
         - realm
+      type: object
+    DiscoveryPublication:
+      properties:
+        context:
+          additionalProperties:
+            type: string
+          type: object
+        fillAlgorithm:
+          $ref: '#/components/schemas/DiscoveryFillAlgorithm'
+        nodes:
+          items:
+            $ref: '#/components/schemas/DiscoveryNode'
+          type: array
       type: object
     Evaluation:
       properties:
@@ -1310,6 +1328,37 @@ paths:
       summary: Perform "target analysis" on the specified target
       tags:
         - Reports
+  /api/v4.2/discovery/{id}:
+    post:
+      description: |
+        Using its plugin ID and current token, a discovery plugin uses this endpoint to publish a JSON
+        request body containing a list of discovery nodes. The discovery plugin itself is a Realm node in
+        the overall discovery tree, so the published list of nodes here will replace the plugin Realm
+        node's list of children.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - in: header
+          name: Cryostat-Discovery-Authentication
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscoveryPublication'
+        required: true
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+      summary: Publish updated target discovery information
+      tags:
+        - Discovery
   /api/v4/activedownload/{id}:
     get:
       description: |

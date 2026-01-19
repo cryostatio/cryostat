@@ -25,6 +25,8 @@ import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -66,7 +68,8 @@ public class DiscoveryJwtFactory {
     public static final String RESOURCE_CLAIM = "resource";
     public static final String REALM_CLAIM = "realm";
     public static final String PLUGIN_ADDR_CLAIM = "plugin_addr";
-    static final String DISCOVERY_API_PATH = "/api/v4/discovery/";
+    static final String DISCOVERY_V4_API_PATH = "/api/v4/discovery/";
+    static final String DISCOVERY_V4_2_API_PATH = "/api/v4.2/discovery/";
 
     @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
     Duration discoveryPingPeriod;
@@ -117,7 +120,7 @@ public class DiscoveryJwtFactory {
     }
 
     public String createDiscoveryPluginJwt(
-            DiscoveryPlugin plugin, InetAddress requestAddr, URI resource)
+            DiscoveryPlugin plugin, InetAddress requestAddr, Collection<URI> resources)
             throws NoSuchAlgorithmException,
                     SocketException,
                     UnknownHostException,
@@ -140,7 +143,7 @@ public class DiscoveryJwtFactory {
                         .notBeforeTime(now)
                         .expirationTime(expiry)
                         .subject(plugin.id.toString())
-                        .claim(RESOURCE_CLAIM, resource.toASCIIString())
+                        .claim(RESOURCE_CLAIM, resourceListToClaim(resources))
                         .claim(REALM_CLAIM, plugin.realm.name)
                         .claim(
                                 PLUGIN_ADDR_CLAIM,
@@ -165,8 +168,15 @@ public class DiscoveryJwtFactory {
         return jwe.serialize();
     }
 
+    private String resourceListToClaim(Collection<URI> resources) {
+        return String.join(",", resources.stream().map(URI::toASCIIString).toList());
+    }
+
     public JWT parseDiscoveryPluginJwt(
-            DiscoveryPlugin plugin, String rawToken, URI resource, InetAddress requestAddr)
+            DiscoveryPlugin plugin,
+            String rawToken,
+            Collection<URI> resources,
+            InetAddress requestAddr)
             throws NoSuchAlgorithmException,
                     ParseException,
                     JOSEException,
@@ -174,13 +184,13 @@ public class DiscoveryJwtFactory {
                     SocketException,
                     UnknownHostException,
                     URISyntaxException {
-        return parseDiscoveryPluginJwt(plugin, rawToken, resource, requestAddr, true);
+        return parseDiscoveryPluginJwt(plugin, rawToken, resources, requestAddr, true);
     }
 
     public JWT parseDiscoveryPluginJwt(
             DiscoveryPlugin plugin,
             String rawToken,
-            URI resource,
+            Collection<URI> resources,
             InetAddress requestAddr,
             boolean checkTimeClaims)
             throws NoSuchAlgorithmException,
@@ -212,7 +222,7 @@ public class DiscoveryJwtFactory {
                         .issuer(issuer)
                         .audience(List.of(issuer, requestAddr.getHostAddress()))
                         .subject(plugin.id.toString())
-                        .claim(RESOURCE_CLAIM, resource.toASCIIString())
+                        .claim(RESOURCE_CLAIM, resourceListToClaim(resources))
                         .claim(REALM_CLAIM, plugin.realm.name)
                         .claim(
                                 PLUGIN_ADDR_CLAIM,
@@ -234,15 +244,20 @@ public class DiscoveryJwtFactory {
         return jwt;
     }
 
-    public URI getPluginLocation(DiscoveryPlugin plugin) throws URISyntaxException {
-        URI hostUri =
-                new URI(
-                                String.format(
-                                        "%s://%s:%d/",
-                                        tlsEnabled ? "https" : "http", httpHost, httpPort))
-                        .resolve(httpPath)
-                        .resolve(DISCOVERY_API_PATH)
-                        .normalize();
-        return hostUri.resolve(plugin.id.toString()).normalize();
+    public List<URI> getPluginLocations(DiscoveryPlugin plugin) throws URISyntaxException {
+        List<URI> locations = new ArrayList<>();
+        for (var p : List.of(DISCOVERY_V4_API_PATH, DISCOVERY_V4_2_API_PATH)) {
+            URI location =
+                    new URI(
+                                    String.format(
+                                            "%s://%s:%d/",
+                                            tlsEnabled ? "https" : "http", httpHost, httpPort))
+                            .resolve(httpPath)
+                            .resolve(p)
+                            .normalize();
+            locations.add(location);
+            locations.add(location.resolve(plugin.id.toString()).normalize());
+        }
+        return locations;
     }
 }
