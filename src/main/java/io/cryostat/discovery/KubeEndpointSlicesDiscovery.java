@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Stack;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -512,6 +513,40 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         realm.persist();
     }
 
+    /**
+     * Builds the ownership hierarchy for a given DiscoveryNode by chasing owner references up the
+     * chain. This method does NOT persist any nodes - it only constructs the hierarchical
+     * relationships in memory.
+     *
+     * @param node The starting node to build the ownership hierarchy from
+     * @return The root node of the ownership chain (the topmost owner)
+     */
+    public DiscoveryNode buildOwnershipHierarchy(DiscoveryNode node) {
+        Pair<HasMetadata, DiscoveryNode> current = Pair.of(null, node);
+
+        // Chase the owner chain upward
+        while (true) {
+            Pair<HasMetadata, DiscoveryNode> owner = getOwnerNode(current);
+            if (owner == null) {
+                break;
+            }
+
+            DiscoveryNode ownerNode = owner.getRight();
+            DiscoveryNode childNode = current.getRight();
+
+            // Build parent-child relationships without persisting
+            if (!ownerNode.children.contains(childNode)) {
+                ownerNode.children.add(childNode);
+            }
+            childNode.parent = ownerNode;
+
+            current = owner;
+        }
+
+        // Return the root of the ownership chain
+        return current.getRight();
+    }
+
     private void notify(NamespaceQueryEvent evt) {
         bus.publish(NAMESPACE_QUERY_ADDR, evt);
     }
@@ -565,7 +600,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                             targetRef.getNamespace()));
                         });
         target.discoveryNode = targetNode;
-        target.persist();
+
+        DiscoveryNode rootNode;
 
         if (targetType == KubeDiscoveryNodeType.POD) {
             // if the Endpoint points to a Pod, chase the owner chain up as far as possible, then
@@ -575,41 +611,49 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                     queryForNode(
                             targetRef.getNamespace(), targetRef.getName(), targetRef.getKind());
 
-            pod.getRight().children.add(targetNode);
-            targetNode.parent = pod.getRight();
-            pod.getRight().persist();
+            DiscoveryNode podNode = pod.getRight();
+            podNode.children.add(targetNode);
+            targetNode.parent = podNode;
 
-            Pair<HasMetadata, DiscoveryNode> child = pod;
-            while (true) {
-                Pair<HasMetadata, DiscoveryNode> owner = getOwnerNode(child);
-                if (owner == null) {
-                    break;
-                }
+            // Build the entire ownership hierarchy without persisting
+            rootNode = buildOwnershipHierarchy(podNode);
 
-                DiscoveryNode ownerNode = owner.getRight();
-                DiscoveryNode childNode = child.getRight();
-
-                if (!ownerNode.children.contains(childNode)) {
-                    ownerNode.children.add(childNode);
-                }
-                childNode.parent = ownerNode;
-
-                ownerNode.persist();
-                childNode.persist();
-
-                child = owner;
-            }
-
-            nsNode.children.add(child.getRight());
-            child.getRight().parent = nsNode;
+            // Connect the root to the namespace
+            nsNode.children.add(rootNode);
+            rootNode.parent = nsNode;
         } else {
             // if the Endpoint points to something else(?) than a Pod, just add the target straight
             // to the Namespace
             nsNode.children.add(targetNode);
             targetNode.parent = nsNode;
-            targetNode.persist();
+            rootNode = targetNode;
         }
 
+        // Use Stack-based iterative approach to persist all nodes at once
+        // This ensures we persist from leaf to root
+        Stack<DiscoveryNode> stack = new Stack<>();
+        Set<DiscoveryNode> visited = new HashSet<>();
+
+        // Start from the target node and traverse up to collect all nodes
+        DiscoveryNode current = targetNode;
+        while (current != null && current != nsNode) {
+            if (!visited.contains(current)) {
+                stack.push(current);
+                visited.add(current);
+            }
+            current = current.parent;
+        }
+
+        // Persist target first (it has the associated Target entity)
+        target.persist();
+
+        // Persist all nodes in the chain from top to bottom
+        while (!stack.isEmpty()) {
+            DiscoveryNode node = stack.pop();
+            node.persist();
+        }
+
+        // Finally persist the namespace node
         nsNode.persist();
     }
 
