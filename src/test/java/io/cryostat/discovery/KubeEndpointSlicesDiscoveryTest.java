@@ -48,9 +48,18 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
+import io.quarkus.test.junit.TestProfile;
 
 @QuarkusTest
+@TestProfile(KubeEndpointSlicesDiscoveryTest.TestProfile.class)
 class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
+
+    public static class TestProfile implements io.quarkus.test.junit.QuarkusTestProfile {
+        @Override
+        public Map<String, String> getConfigOverrides() {
+            return Map.of("cryostat.discovery.kubernetes.port-names", "jfr-jmx,other-port");
+        }
+    }
 
     @InjectMock
     @MockitoConfig(convertScopes = true)
@@ -63,29 +72,29 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     @Inject KubeEndpointSlicesDiscovery discovery;
 
     @Test
-    void testTuplesFromEndpointsReturnsEmptyListForIPv6WhenDisabled() {
+    void testGetTargetTuplesFromReturnsEmptyListForIPv6WhenDisabled() {
         discovery.ipv6Enabled = false;
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv6");
 
-        List<?> result = discovery.tuplesFromEndpoints(slice);
+        List<?> result = discovery.getTargetTuplesFrom(slice);
 
         assertTrue(result.isEmpty());
     }
 
     @Test
-    void testTuplesFromEndpointsReturnsEmptyListWhenPortsAreNull() {
+    void testGetTargetTuplesFromReturnsEmptyListWhenPortsAreNull() {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
         when(slice.getPorts()).thenReturn(null);
 
-        List<?> result = discovery.tuplesFromEndpoints(slice);
+        List<?> result = discovery.getTargetTuplesFrom(slice);
 
         assertTrue(result.isEmpty());
     }
 
     @Test
-    void testTuplesFromEndpointsReturnsEmptyListWhenEndpointsAreNull() {
+    void testGetTargetTuplesFromReturnsEmptyListWhenEndpointsAreNull() {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
         EndpointPort port = mock(EndpointPort.class);
@@ -94,13 +103,13 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(slice.getPorts()).thenReturn(List.of(port));
         when(slice.getEndpoints()).thenReturn(null);
 
-        List<?> result = discovery.tuplesFromEndpoints(slice);
+        List<?> result = discovery.getTargetTuplesFrom(slice);
 
         assertTrue(result.isEmpty());
     }
 
     @Test
-    void testTuplesFromEndpointsSkipsEndpointsWithoutTargetRef() {
+    void testGetTargetTuplesFromSkipsEndpointsWithoutTargetRef() {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
 
@@ -115,13 +124,13 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
         when(slice.getEndpoints()).thenReturn(List.of(endpoint));
 
-        List<?> result = discovery.tuplesFromEndpoints(slice);
+        List<?> result = discovery.getTargetTuplesFrom(slice);
 
         assertTrue(result.isEmpty());
     }
 
     @Test
-    void testTuplesFromEndpointsSkipsEndpointsWithEmptyAddresses() {
+    void testGetTargetTuplesFromSkipsEndpointsWithEmptyAddresses() {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
 
@@ -141,19 +150,14 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
         when(slice.getEndpoints()).thenReturn(List.of(endpoint));
 
-        List<?> result = discovery.tuplesFromEndpoints(slice);
+        List<?> result = discovery.getTargetTuplesFrom(slice);
 
         assertTrue(result.isEmpty());
     }
 
     @Test
     @Transactional
-    void testTuplesFromEndpointsReturnsValidTargetTuplesWithSingleEndpoint() {
-        // This test verifies that tuplesFromEndpoints correctly processes a single endpoint
-        // with a compatible JMX port and returns a list containing one TargetTuple.
-        // The TargetTuple should contain the endpoint's address, port, target reference,
-        // and conditions.
-
+    void testGetTargetTuplesFromReturnsValidTargetTuplesWithSingleEndpoint() {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
 
@@ -194,7 +198,7 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(podResource.get()).thenReturn(pod);
 
         // Execute
-        var result = discovery.tuplesFromEndpoints(slice);
+        var result = discovery.getTargetTuplesFrom(slice);
 
         // Assertions
         assertNotNull(result);
@@ -206,11 +210,7 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     @Transactional
-    void testTuplesFromEndpointsWithMultipleEndpointsAndPorts() {
-        // This test verifies that tuplesFromEndpoints correctly handles multiple endpoints
-        // and multiple ports, creating a TargetTuple for each combination.
-        // With 2 endpoints and 2 ports, we expect 4 tuples total.
-
+    void testGetTargetTuplesFromWithMultipleEndpointsAndPorts() {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
 
@@ -272,7 +272,7 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(podResource2.get()).thenReturn(pod2);
 
         // Execute
-        var result = discovery.tuplesFromEndpoints(slice);
+        var result = discovery.getTargetTuplesFrom(slice);
 
         // Assertions - should have 2 endpoints * 2 ports = 4 tuples
         assertNotNull(result);
@@ -490,5 +490,160 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         assertEquals(
                 "Namespace",
                 KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType.NAMESPACE.toString());
+    }
+
+    @Test
+    @Transactional
+    void testGetOwnershipLineageWithStringParametersForPod() {
+        Pod pod = mock(Pod.class);
+        ObjectMeta podMeta = mock(ObjectMeta.class);
+        when(podMeta.getOwnerReferences()).thenReturn(List.of());
+        when(podMeta.getNamespace()).thenReturn("test-namespace");
+        when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
+        when(pod.getMetadata()).thenReturn(podMeta);
+
+        MixedOperation podOp = mock(MixedOperation.class);
+        NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+        PodResource podResource = mock(PodResource.class);
+        when(client.pods()).thenReturn(podOp);
+        when(podOp.inNamespace("test-namespace")).thenReturn(nsOp);
+        when(nsOp.withName("test-pod")).thenReturn(podResource);
+        when(podResource.get()).thenReturn(pod);
+
+        DiscoveryNode result = discovery.getOwnershipLineage("test-namespace", "test-pod", "Pod");
+
+        assertNotNull(result);
+        assertEquals("test-pod", result.name);
+        assertEquals("Pod", result.nodeType);
+        assertEquals(
+                "test-namespace",
+                result.labels.get(KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY));
+        assertNull(result.parent);
+    }
+
+    @Test
+    @Transactional
+    void testGetOwnershipLineageWithStringParametersForPodWithReplicaSetOwner() {
+        Pod pod = mock(Pod.class);
+        ObjectMeta podMeta = mock(ObjectMeta.class);
+        OwnerReference rsOwner = mock(OwnerReference.class);
+        when(rsOwner.getKind()).thenReturn("ReplicaSet");
+        when(rsOwner.getName()).thenReturn("test-rs");
+        when(podMeta.getOwnerReferences()).thenReturn(List.of(rsOwner));
+        when(podMeta.getNamespace()).thenReturn("test-namespace");
+        when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
+        when(pod.getMetadata()).thenReturn(podMeta);
+
+        ReplicaSet rs = mock(ReplicaSet.class);
+        ObjectMeta rsMeta = mock(ObjectMeta.class);
+        when(rsMeta.getOwnerReferences()).thenReturn(List.of());
+        when(rsMeta.getNamespace()).thenReturn("test-namespace");
+        when(rsMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
+        when(rs.getMetadata()).thenReturn(rsMeta);
+
+        MixedOperation podOp = mock(MixedOperation.class);
+        NonNamespaceOperation podNsOp = mock(NonNamespaceOperation.class);
+        PodResource podResource = mock(PodResource.class);
+        when(client.pods()).thenReturn(podOp);
+        when(podOp.inNamespace("test-namespace")).thenReturn(podNsOp);
+        when(podNsOp.withName("test-pod")).thenReturn(podResource);
+        when(podResource.get()).thenReturn(pod);
+
+        AppsAPIGroupDSL appsApi = mock(AppsAPIGroupDSL.class);
+        MixedOperation rsOp = mock(MixedOperation.class);
+        NonNamespaceOperation rsNsOp = mock(NonNamespaceOperation.class);
+        RollableScalableResource rsResource = mock(RollableScalableResource.class);
+        when(client.apps()).thenReturn(appsApi);
+        when(appsApi.replicaSets()).thenReturn(rsOp);
+        when(rsOp.inNamespace("test-namespace")).thenReturn(rsNsOp);
+        when(rsNsOp.withName("test-rs")).thenReturn(rsResource);
+        when(rsResource.get()).thenReturn(rs);
+
+        DiscoveryNode root = discovery.getOwnershipLineage("test-namespace", "test-pod", "Pod");
+
+        assertNotNull(root);
+        assertEquals("test-rs", root.name);
+        assertEquals("ReplicaSet", root.nodeType);
+        assertNotNull(root.children);
+        assertEquals(1, root.children.size());
+        DiscoveryNode podNode = root.children.get(0);
+        assertEquals("test-pod", podNode.name);
+        assertEquals("Pod", podNode.nodeType);
+        assertEquals(root, podNode.parent);
+    }
+
+    @Test
+    @Transactional
+    void testGetOwnershipLineageWithStringParametersForEndpointSlice() {
+        EndpointSlice slice = mock(EndpointSlice.class);
+        ObjectMeta sliceMeta = mock(ObjectMeta.class);
+        when(sliceMeta.getOwnerReferences()).thenReturn(List.of());
+        when(sliceMeta.getNamespace()).thenReturn("test-namespace");
+        when(sliceMeta.getLabels()).thenReturn(Map.of());
+        when(slice.getMetadata()).thenReturn(sliceMeta);
+
+        io.fabric8.kubernetes.client.dsl.DiscoveryAPIGroupDSL discoveryApi =
+                mock(io.fabric8.kubernetes.client.dsl.DiscoveryAPIGroupDSL.class);
+        io.fabric8.kubernetes.client.dsl.V1DiscoveryAPIGroupDSL v1Api =
+                mock(io.fabric8.kubernetes.client.dsl.V1DiscoveryAPIGroupDSL.class);
+        MixedOperation sliceOp = mock(MixedOperation.class);
+        NonNamespaceOperation sliceNsOp = mock(NonNamespaceOperation.class);
+        io.fabric8.kubernetes.client.dsl.Resource sliceResource =
+                mock(io.fabric8.kubernetes.client.dsl.Resource.class);
+
+        when(client.discovery()).thenReturn(discoveryApi);
+        when(discoveryApi.v1()).thenReturn(v1Api);
+        when(v1Api.endpointSlices()).thenReturn(sliceOp);
+        when(sliceOp.inNamespace("test-namespace")).thenReturn(sliceNsOp);
+        when(sliceNsOp.withName("test-slice")).thenReturn(sliceResource);
+        when(sliceResource.get()).thenReturn(slice);
+
+        DiscoveryNode result =
+                discovery.getOwnershipLineage("test-namespace", "test-slice", "EndpointSlice");
+
+        assertNotNull(result);
+        assertEquals("test-slice", result.name);
+        assertEquals("EndpointSlice", result.nodeType);
+        assertEquals(
+                "test-namespace",
+                result.labels.get(KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY));
+        assertNull(result.parent);
+    }
+
+    @Test
+    void testGetOwnershipLineageWithStringParametersForUnknownNodeType() {
+        DiscoveryNode result =
+                discovery.getOwnershipLineage("test-namespace", "test-node", "UnknownType");
+
+        assertNotNull(result);
+        assertEquals("test-node", result.name);
+        assertEquals("UnknownType", result.nodeType);
+        assertEquals(
+                "test-namespace",
+                result.labels.get(KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY));
+        assertNull(result.parent);
+    }
+
+    @Test
+    @Transactional
+    void testGetOwnershipLineageWithStringParametersForNonExistentResource() {
+        MixedOperation podOp = mock(MixedOperation.class);
+        NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+        PodResource podResource = mock(PodResource.class);
+        when(client.pods()).thenReturn(podOp);
+        when(podOp.inNamespace("test-namespace")).thenReturn(nsOp);
+        when(nsOp.withName("non-existent-pod")).thenReturn(podResource);
+        when(podResource.get()).thenReturn(null);
+
+        DiscoveryNode result =
+                discovery.getOwnershipLineage("test-namespace", "non-existent-pod", "Pod");
+
+        assertNotNull(result);
+        assertEquals("non-existent-pod", result.name);
+        assertEquals("Pod", result.nodeType);
+        assertEquals(
+                "test-namespace",
+                result.labels.get(KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY));
+        assertNull(result.parent);
     }
 }

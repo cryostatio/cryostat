@@ -323,12 +323,62 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         notify(NamespaceQueryEvent.from(endpoints.getMetadata().getNamespace()));
     }
 
+    private Map<String, SharedIndexInformer<EndpointSlice>> safeGetInformers() {
+        try {
+            return nsInformers.get();
+        } catch (ConcurrentException e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    @ConsumeEvent(value = NAMESPACE_QUERY_ADDR, blocking = true, ordered = true)
+    @Transactional(TxType.REQUIRES_NEW)
+    public void handleQueryEvent(NamespaceQueryEvent evt) {
+        for (var namespace : evt.namespaces) {
+            try {
+                Set<Target> persistedTargets = queryPersistedTargets(namespace);
+
+                Map<Target, TargetWithHierarchy> observedTargetsWithHierarchy =
+                        buildInMemoryTreeForNamespace(namespace);
+
+                Set<Target> observedTargets = observedTargetsWithHierarchy.keySet();
+
+                Target.compare(persistedTargets)
+                        .to(observedTargets)
+                        .removed()
+                        .forEach(
+                                (t) ->
+                                        notify(
+                                                EndpointDiscoveryEvent.from(
+                                                        namespace, t, null, EventKind.LOST)));
+
+                Target.compare(persistedTargets)
+                        .to(observedTargets)
+                        .added()
+                        .forEach(
+                                (t) -> {
+                                    TargetWithHierarchy hierarchy =
+                                            observedTargetsWithHierarchy.get(t);
+                                    notify(
+                                            EndpointDiscoveryEvent.from(
+                                                    namespace,
+                                                    t,
+                                                    hierarchy.objRef,
+                                                    EventKind.FOUND));
+                                });
+            } catch (Exception e) {
+                logger.errorv(
+                        e, "Failed to synchronize EndpointSlices in namespace {0}", namespace);
+            }
+        }
+    }
+
     private boolean isCompatiblePort(EndpointPort port) {
         return jmxPortNames.orElse(EMPTY_PORT_NAMES).contains(port.getName())
                 || jmxPortNumbers.orElse(EMPTY_PORT_NUMBERS).contains(port.getPort());
     }
 
-    List<TargetTuple> tuplesFromEndpoints(EndpointSlice slice) {
+    List<TargetTuple> getTargetTuplesFrom(EndpointSlice slice) {
         List<TargetTuple> tts = new ArrayList<>();
         if (!ipv6Enabled && "ipv6".equalsIgnoreCase(slice.getAddressType())) {
             return tts;
@@ -374,116 +424,186 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                         // no-op
                         break;
                 }
-                tts.add(
+                TargetTuple tuple =
                         new TargetTuple(
                                 ref,
                                 queryForNode(ref.getNamespace(), ref.getName(), ref.getKind())
                                         .getLeft(),
                                 addr,
                                 port,
-                                endpoint.getConditions()));
+                                endpoint.getConditions());
+                if (Objects.nonNull(tuple) && isCompatiblePort(tuple.port)) {
+                    tts.add(tuple);
+                }
             }
         }
         return tts;
     }
 
-    private List<TargetTuple> getTargetTuplesFrom(EndpointSlice slice) {
-        return tuplesFromEndpoints(slice).stream()
-                .filter(
-                        (ref) -> {
-                            return Objects.nonNull(ref) && isCompatiblePort(ref.port);
-                        })
-                .collect(Collectors.toList());
-    }
+    /**
+     * Query persisted targets from the database for a given namespace.
+     *
+     * @param namespace The Kubernetes namespace
+     * @return Set of persisted Target entities
+     */
+    private Set<Target> queryPersistedTargets(String namespace) {
+        List<DiscoveryNode> targetNodes =
+                DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT_SLICE).stream()
+                        .filter(
+                                (n) ->
+                                        namespace.equals(
+                                                n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY)))
+                        .collect(Collectors.toList());
 
-    private Map<String, SharedIndexInformer<EndpointSlice>> safeGetInformers() {
-        try {
-            return nsInformers.get();
-        } catch (ConcurrentException e) {
-            throw new IllegalStateException(e);
+        Set<Target> persistedTargets = new HashSet<>();
+        for (DiscoveryNode node : targetNodes) {
+            persistedTargets.add(node.target);
         }
+        return persistedTargets;
     }
 
-    @ConsumeEvent(value = NAMESPACE_QUERY_ADDR, blocking = true, ordered = true)
-    @Transactional(TxType.REQUIRES_NEW)
-    public void handleQueryEvent(NamespaceQueryEvent evt) {
-        Map<URI, ObjectReference> targetRefMap = new HashMap<>();
+    /**
+     * Build in-memory discovery tree for all targets in a namespace. This method does NOT persist
+     * anything to the database - it only queries Kubernetes API and builds the tree structure in
+     * memory.
+     *
+     * @param namespace The Kubernetes namespace
+     * @return Map of Target to TargetWithHierarchy containing the full ownership chain
+     */
+    private Map<Target, TargetWithHierarchy> buildInMemoryTreeForNamespace(String namespace) {
+        Map<Target, TargetWithHierarchy> result = new HashMap<>();
 
-        for (var namespace : evt.namespaces) {
-            try {
-                List<DiscoveryNode> targetNodes =
-                        DiscoveryNode.findAllByNodeType(KubeDiscoveryNodeType.ENDPOINT_SLICE)
-                                .stream()
-                                .filter(
-                                        (n) ->
-                                                namespace.equals(
-                                                        n.labels.get(
-                                                                DISCOVERY_NAMESPACE_LABEL_KEY)))
-                                .collect(Collectors.toList());
+        Stream<EndpointSlice> endpoints;
+        if (kubeConfig.watchAllNamespaces()) {
+            endpoints =
+                    safeGetInformers().get(KubeConfig.ALL_NAMESPACES).getStore().list().stream()
+                            .filter(
+                                    ep ->
+                                            Objects.equals(
+                                                    ep.getMetadata().getNamespace(), namespace));
+        } else {
+            endpoints = safeGetInformers().get(namespace).getStore().list().stream();
+        }
 
-                Set<Target> persistedTargets = new HashSet<>();
-                for (DiscoveryNode node : targetNodes) {
-                    persistedTargets.add(node.target);
-                }
+        endpoints
+                .map(this::getTargetTuplesFrom)
+                .flatMap(List::stream)
+                .filter((tuple) -> Objects.nonNull(tuple.objRef))
+                .forEach(
+                        (tuple) -> {
+                            Target t = tuple.toTarget();
+                            if (t != null) {
+                                DiscoveryNode hierarchyRoot = buildOwnershipLineageForTarget(tuple);
+                                result.put(t, new TargetWithHierarchy(tuple.objRef, hierarchyRoot));
+                            }
+                        });
 
-                Stream<EndpointSlice> endpoints;
-                if (kubeConfig.watchAllNamespaces()) {
-                    endpoints =
-                            safeGetInformers()
-                                    .get(KubeConfig.ALL_NAMESPACES)
-                                    .getStore()
-                                    .list()
-                                    .stream()
-                                    .filter(
-                                            ep ->
-                                                    Objects.equals(
-                                                            ep.getMetadata().getNamespace(),
-                                                            namespace));
-                } else {
-                    endpoints = safeGetInformers().get(namespace).getStore().list().stream();
-                }
-                Set<Target> observedTargets =
-                        endpoints
-                                .map(this::getTargetTuplesFrom)
-                                .flatMap(List::stream)
-                                .filter((tuple) -> Objects.nonNull(tuple.objRef))
-                                .map(
-                                        (tuple) -> {
-                                            Target t = tuple.toTarget();
-                                            if (t != null) {
-                                                targetRefMap.put(t.connectUrl, tuple.objRef);
-                                            }
-                                            return t;
-                                        })
-                                .filter(Objects::nonNull)
-                                .collect(Collectors.toSet());
+        return result;
+    }
 
-                // Prune deleted targets
-                Target.compare(persistedTargets)
-                        .to(observedTargets)
-                        .removed()
-                        .forEach(
-                                (t) ->
-                                        notify(
-                                                EndpointDiscoveryEvent.from(
-                                                        namespace, t, null, EventKind.LOST)));
+    /**
+     * Builds the complete ownership lineage for a target, from the leaf node (EndpointSlice)
+     * through Pod, ReplicaSet, Deployment, up to the Namespace. This method constructs the entire
+     * tree in memory without any database access.
+     *
+     * @param tuple The TargetTuple containing target information and Kubernetes references
+     * @return The root DiscoveryNode of the ownership hierarchy (typically a Namespace or the
+     *     highest owner)
+     */
+    private DiscoveryNode buildOwnershipLineageForTarget(TargetTuple tuple) {
+        String targetKind = tuple.objRef.getKind();
+        KubeDiscoveryNodeType targetType = KubeDiscoveryNodeType.fromKubernetesKind(targetKind);
 
-                // Add new targets
-                Target.compare(persistedTargets)
-                        .to(observedTargets)
-                        .added()
-                        .forEach(
-                                (t) ->
-                                        notify(
-                                                EndpointDiscoveryEvent.from(
-                                                        namespace,
-                                                        t,
-                                                        targetRefMap.get(t.connectUrl),
-                                                        EventKind.FOUND)));
-            } catch (Exception e) {
-                logger.errorv(e, "Failed to syncronize EndpointSlices in namespace {0}", namespace);
+        DiscoveryNode targetNode = createInMemoryTargetNode(tuple);
+
+        if (targetType == KubeDiscoveryNodeType.POD) {
+            Pair<HasMetadata, DiscoveryNode> pod =
+                    queryForNodeInMemory(
+                            tuple.objRef.getNamespace(),
+                            tuple.objRef.getName(),
+                            tuple.objRef.getKind());
+
+            if (pod != null) {
+                DiscoveryNode podNode = pod.getRight();
+                podNode.children.add(targetNode);
+                targetNode.parent = podNode;
+
+                DiscoveryNode rootNode = buildOwnershipHierarchy(pod.getLeft(), podNode);
+                return rootNode;
             }
         }
+
+        return targetNode;
+    }
+
+    /**
+     * Creates an in-memory DiscoveryNode for a target without database access.
+     *
+     * @param tuple The TargetTuple containing target information
+     * @return In-memory DiscoveryNode representing the target
+     */
+    private DiscoveryNode createInMemoryTargetNode(TargetTuple tuple) {
+        DiscoveryNode targetNode = new DiscoveryNode();
+        targetNode.name = tuple.objRef.getName();
+        targetNode.nodeType = KubeDiscoveryNodeType.ENDPOINT_SLICE.getKind();
+        targetNode.labels = new HashMap<>();
+        targetNode.labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, tuple.objRef.getNamespace());
+        targetNode.children = new ArrayList<>();
+        return targetNode;
+    }
+
+    /**
+     * Builds the complete ownership hierarchy for a given leaf node by querying the Kubernetes API.
+     * This method accepts an orphaned leaf node (with no parent references) and augments it by
+     * building the full ownership chain in memory without any database access. The leaf node is
+     * modified in place to have its parent references set, and the root node of the hierarchy is
+     * returned.
+     *
+     * <p>For example, given a Pod node, this will query Kubernetes to find its ReplicaSet owner,
+     * then the Deployment owner of that ReplicaSet, etc., building the complete chain: Pod ->
+     * ReplicaSet -> Deployment -> (root).
+     *
+     * @param leafNode The orphaned leaf DiscoveryNode (e.g., representing a Pod) to augment with
+     *     ownership hierarchy
+     * @return The root DiscoveryNode of the ownership hierarchy (the ultimate parent)
+     */
+    public DiscoveryNode getOwnershipLineage(String namespace, DiscoveryNode leafNode) {
+        KubeDiscoveryNodeType nodeType =
+                KubeDiscoveryNodeType.fromKubernetesKind(leafNode.nodeType);
+        if (nodeType == null) {
+            return leafNode;
+        }
+
+        HasMetadata kubeObj =
+                nodeType.getQueryFunction().apply(client).apply(namespace).apply(leafNode.name);
+
+        if (kubeObj == null) {
+            return leafNode;
+        }
+
+        return buildOwnershipHierarchy(kubeObj, leafNode);
+    }
+
+    /**
+     * Builds the complete ownership hierarchy for a given node identified by namespace, name, and
+     * type. This is an overloaded convenience method that constructs a DiscoveryNode from the
+     * provided parameters and delegates to {@link #getOwnershipLineage(String, DiscoveryNode)}.
+     *
+     * @param namespace The Kubernetes namespace containing the resource
+     * @param nodeName The name of the Kubernetes resource (e.g., Pod name, EndpointSlice name)
+     * @param nodeType The Kubernetes resource type (e.g., "Pod", "EndpointSlice", "Deployment")
+     * @return The root DiscoveryNode of the ownership hierarchy, or a standalone node if no
+     *     ownership chain exists
+     */
+    public DiscoveryNode getOwnershipLineage(String namespace, String nodeName, String nodeType) {
+        DiscoveryNode leafNode = new DiscoveryNode();
+        leafNode.name = nodeName;
+        leafNode.nodeType = nodeType;
+        leafNode.labels = new HashMap<>();
+        leafNode.labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
+        leafNode.children = new ArrayList<>();
+
+        return getOwnershipLineage(namespace, leafNode);
     }
 
     @ConsumeEvent(value = ENDPOINT_SLICE_DISCOVERY_ADDR, blocking = true, ordered = true)
@@ -498,7 +618,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                         namespace, KubeDiscoveryNodeType.NAMESPACE));
 
         if (evt.eventKind == EventKind.FOUND) {
-            buildOwnerChain(nsNode, evt.target, evt.objRef);
+            // Stage 1: Build in-memory tree (already done in handleQueryEvent)
+            // Stage 2: Persist the tree to database
+            persistOwnerChain(nsNode, evt.target, evt.objRef);
         } else {
             pruneOwnerChain(nsNode, evt.target);
         }
@@ -522,7 +644,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
      * @param node The DiscoveryNode representing the Kubernetes object
      * @return The root node of the ownership chain (the topmost owner)
      */
-    public DiscoveryNode buildOwnershipHierarchy(HasMetadata kubeObj, DiscoveryNode node) {
+    DiscoveryNode buildOwnershipHierarchy(HasMetadata kubeObj, DiscoveryNode node) {
         Pair<HasMetadata, DiscoveryNode> current = Pair.of(kubeObj, node);
 
         // Chase the owner chain upward
@@ -586,7 +708,15 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         target.delete();
     }
 
-    private void buildOwnerChain(DiscoveryNode nsNode, Target target, ObjectReference targetRef) {
+    /**
+     * Persists the ownership chain to the database. This is Stage 2 of the two-stage process. The
+     * in-memory tree should already be built before calling this method.
+     *
+     * @param nsNode The namespace node
+     * @param target The target to persist
+     * @param targetRef The Kubernetes object reference for the target
+     */
+    private void persistOwnerChain(DiscoveryNode nsNode, Target target, ObjectReference targetRef) {
         String targetKind = targetRef.getKind();
         KubeDiscoveryNodeType targetType = KubeDiscoveryNodeType.fromKubernetesKind(targetKind);
 
@@ -846,6 +976,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             return new EndpointDiscoveryEvent(namespace, target, objRef, eventKind);
         }
     }
+
+    private static record TargetWithHierarchy(
+            ObjectReference objRef, DiscoveryNode hierarchyRoot) {}
 
     class TargetTuple {
         ObjectReference objRef;
