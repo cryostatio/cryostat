@@ -16,7 +16,6 @@
 package io.cryostat.discovery;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import java.util.HashMap;
@@ -29,12 +28,16 @@ import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectReference;
 import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.PodList;
 import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.DeploymentList;
 import io.fabric8.kubernetes.api.model.apps.ReplicaSet;
+import io.fabric8.kubernetes.api.model.apps.ReplicaSetList;
 import io.fabric8.kubernetes.api.model.discovery.v1.Endpoint;
 import io.fabric8.kubernetes.api.model.discovery.v1.EndpointConditions;
 import io.fabric8.kubernetes.api.model.discovery.v1.EndpointPort;
 import io.fabric8.kubernetes.api.model.discovery.v1.EndpointSlice;
+import io.fabric8.kubernetes.api.model.discovery.v1.EndpointSliceList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
@@ -147,6 +150,7 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    @SuppressWarnings("unchecked") // Mockito mock() requires unchecked cast for generic types
     void testGetTargetTuplesFromReturnsValidTargetTuplesWithSingleEndpoint() {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
@@ -178,8 +182,8 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
         when(pod.getMetadata()).thenReturn(podMeta);
 
-        MixedOperation podOp = mock(MixedOperation.class);
-        NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+        MixedOperation<Pod, PodList, PodResource> podOp = mock(MixedOperation.class);
+        NonNamespaceOperation<Pod, PodList, PodResource> nsOp = mock(NonNamespaceOperation.class);
         PodResource podResource = mock(PodResource.class);
         when(client.pods()).thenReturn(podOp);
         when(podOp.inNamespace("test-namespace")).thenReturn(nsOp);
@@ -196,6 +200,7 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    @SuppressWarnings("unchecked") // Mockito mock() requires unchecked cast for generic types
     void testGetTargetTuplesFromWithMultipleEndpointsAndPorts() {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
@@ -242,8 +247,8 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(meta2.getLabels()).thenReturn(new HashMap<>());
         when(pod2.getMetadata()).thenReturn(meta2);
 
-        MixedOperation podOp = mock(MixedOperation.class);
-        NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+        MixedOperation<Pod, PodList, PodResource> podOp = mock(MixedOperation.class);
+        NonNamespaceOperation<Pod, PodList, PodResource> nsOp = mock(NonNamespaceOperation.class);
         PodResource podResource1 = mock(PodResource.class);
         PodResource podResource2 = mock(PodResource.class);
 
@@ -284,6 +289,7 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    @SuppressWarnings("unchecked") // Mockito mock() requires unchecked cast for generic types
     void testBuildOwnershipHierarchyWithPodToReplicaSet() {
         Pod pod = mock(Pod.class);
         ObjectMeta podMeta = mock(ObjectMeta.class);
@@ -303,9 +309,11 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(rs.getMetadata()).thenReturn(rsMeta);
 
         AppsAPIGroupDSL appsApi = mock(AppsAPIGroupDSL.class);
-        MixedOperation rsOp = mock(MixedOperation.class);
-        NonNamespaceOperation rsNsOp = mock(NonNamespaceOperation.class);
-        RollableScalableResource rsResource = mock(RollableScalableResource.class);
+        MixedOperation<ReplicaSet, ReplicaSetList, RollableScalableResource<ReplicaSet>> rsOp =
+                mock(MixedOperation.class);
+        NonNamespaceOperation<ReplicaSet, ReplicaSetList, RollableScalableResource<ReplicaSet>>
+                rsNsOp = mock(NonNamespaceOperation.class);
+        RollableScalableResource<ReplicaSet> rsResource = mock(RollableScalableResource.class);
 
         when(client.apps()).thenReturn(appsApi);
         when(appsApi.replicaSets()).thenReturn(rsOp);
@@ -330,6 +338,7 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    @SuppressWarnings("unchecked") // Mockito mock() requires unchecked cast for generic types
     void testBuildOwnershipHierarchyWithFullChain() {
         Pod pod = mock(Pod.class);
         ObjectMeta podMeta = mock(ObjectMeta.class);
@@ -360,13 +369,17 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
         AppsAPIGroupDSL appsApi = mock(AppsAPIGroupDSL.class);
 
-        MixedOperation rsOp = mock(MixedOperation.class);
-        NonNamespaceOperation rsNsOp = mock(NonNamespaceOperation.class);
-        RollableScalableResource rsResource = mock(RollableScalableResource.class);
+        MixedOperation<ReplicaSet, ReplicaSetList, RollableScalableResource<ReplicaSet>> rsOp =
+                mock(MixedOperation.class);
+        NonNamespaceOperation<ReplicaSet, ReplicaSetList, RollableScalableResource<ReplicaSet>>
+                rsNsOp = mock(NonNamespaceOperation.class);
+        RollableScalableResource<ReplicaSet> rsResource = mock(RollableScalableResource.class);
 
-        MixedOperation deployOp = mock(MixedOperation.class);
-        NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
-        RollableScalableResource deployResource = mock(RollableScalableResource.class);
+        MixedOperation<Deployment, DeploymentList, RollableScalableResource<Deployment>> deployOp =
+                mock(MixedOperation.class);
+        NonNamespaceOperation<Deployment, DeploymentList, RollableScalableResource<Deployment>>
+                deployNsOp = mock(NonNamespaceOperation.class);
+        RollableScalableResource<Deployment> deployResource = mock(RollableScalableResource.class);
 
         when(client.apps()).thenReturn(appsApi);
         when(appsApi.replicaSets()).thenReturn(rsOp);
@@ -444,6 +457,7 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    @SuppressWarnings("unchecked") // Mockito mock() requires unchecked cast for generic types
     void testGetOwnershipLineageWithStringParametersForPod() {
         Pod pod = mock(Pod.class);
         ObjectMeta podMeta = mock(ObjectMeta.class);
@@ -452,8 +466,8 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
         when(pod.getMetadata()).thenReturn(podMeta);
 
-        MixedOperation podOp = mock(MixedOperation.class);
-        NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+        MixedOperation<Pod, PodList, PodResource> podOp = mock(MixedOperation.class);
+        NonNamespaceOperation<Pod, PodList, PodResource> nsOp = mock(NonNamespaceOperation.class);
         PodResource podResource = mock(PodResource.class);
         when(client.pods()).thenReturn(podOp);
         when(podOp.inNamespace("test-namespace")).thenReturn(nsOp);
@@ -472,6 +486,7 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    @SuppressWarnings("unchecked") // Mockito mock() requires unchecked cast for generic types
     void testGetOwnershipLineageWithStringParametersForPodWithReplicaSetOwner() {
         Pod pod = mock(Pod.class);
         ObjectMeta podMeta = mock(ObjectMeta.class);
@@ -490,8 +505,9 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(rsMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
         when(rs.getMetadata()).thenReturn(rsMeta);
 
-        MixedOperation podOp = mock(MixedOperation.class);
-        NonNamespaceOperation podNsOp = mock(NonNamespaceOperation.class);
+        MixedOperation<Pod, PodList, PodResource> podOp = mock(MixedOperation.class);
+        NonNamespaceOperation<Pod, PodList, PodResource> podNsOp =
+                mock(NonNamespaceOperation.class);
         PodResource podResource = mock(PodResource.class);
         when(client.pods()).thenReturn(podOp);
         when(podOp.inNamespace("test-namespace")).thenReturn(podNsOp);
@@ -499,9 +515,11 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(podResource.get()).thenReturn(pod);
 
         AppsAPIGroupDSL appsApi = mock(AppsAPIGroupDSL.class);
-        MixedOperation rsOp = mock(MixedOperation.class);
-        NonNamespaceOperation rsNsOp = mock(NonNamespaceOperation.class);
-        RollableScalableResource rsResource = mock(RollableScalableResource.class);
+        MixedOperation<ReplicaSet, ReplicaSetList, RollableScalableResource<ReplicaSet>> rsOp =
+                mock(MixedOperation.class);
+        NonNamespaceOperation<ReplicaSet, ReplicaSetList, RollableScalableResource<ReplicaSet>>
+                rsNsOp = mock(NonNamespaceOperation.class);
+        RollableScalableResource<ReplicaSet> rsResource = mock(RollableScalableResource.class);
         when(client.apps()).thenReturn(appsApi);
         when(appsApi.replicaSets()).thenReturn(rsOp);
         when(rsOp.inNamespace("test-namespace")).thenReturn(rsNsOp);
@@ -522,6 +540,7 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    @SuppressWarnings("unchecked") // Mockito mock() requires unchecked cast for generic types
     void testGetOwnershipLineageWithStringParametersForEndpointSlice() {
         EndpointSlice slice = mock(EndpointSlice.class);
         ObjectMeta sliceMeta = mock(ObjectMeta.class);
@@ -534,9 +553,17 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
                 mock(io.fabric8.kubernetes.client.dsl.DiscoveryAPIGroupDSL.class);
         io.fabric8.kubernetes.client.dsl.V1DiscoveryAPIGroupDSL v1Api =
                 mock(io.fabric8.kubernetes.client.dsl.V1DiscoveryAPIGroupDSL.class);
-        MixedOperation sliceOp = mock(MixedOperation.class);
-        NonNamespaceOperation sliceNsOp = mock(NonNamespaceOperation.class);
-        io.fabric8.kubernetes.client.dsl.Resource sliceResource =
+        MixedOperation<
+                        EndpointSlice,
+                        EndpointSliceList,
+                        io.fabric8.kubernetes.client.dsl.Resource<EndpointSlice>>
+                sliceOp = mock(MixedOperation.class);
+        NonNamespaceOperation<
+                        EndpointSlice,
+                        EndpointSliceList,
+                        io.fabric8.kubernetes.client.dsl.Resource<EndpointSlice>>
+                sliceNsOp = mock(NonNamespaceOperation.class);
+        io.fabric8.kubernetes.client.dsl.Resource<EndpointSlice> sliceResource =
                 mock(io.fabric8.kubernetes.client.dsl.Resource.class);
 
         when(client.discovery()).thenReturn(discoveryApi);
@@ -573,9 +600,10 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    @SuppressWarnings("unchecked") // Mockito mock() requires unchecked cast for generic types
     void testGetOwnershipLineageWithStringParametersForNonExistentResource() {
-        MixedOperation podOp = mock(MixedOperation.class);
-        NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
+        MixedOperation<Pod, PodList, PodResource> podOp = mock(MixedOperation.class);
+        NonNamespaceOperation<Pod, PodList, PodResource> nsOp = mock(NonNamespaceOperation.class);
         PodResource podResource = mock(PodResource.class);
         when(client.pods()).thenReturn(podOp);
         when(podOp.inNamespace("test-namespace")).thenReturn(nsOp);
