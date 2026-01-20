@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Stack;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -331,6 +330,11 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
     }
 
+    private boolean isCompatiblePort(EndpointPort port) {
+        return jmxPortNames.orElse(EMPTY_PORT_NAMES).contains(port.getName())
+                || jmxPortNumbers.orElse(EMPTY_PORT_NUMBERS).contains(port.getPort());
+    }
+
     @ConsumeEvent(value = NAMESPACE_QUERY_ADDR, blocking = true, ordered = true)
     @Transactional(TxType.REQUIRES_NEW)
     public void handleQueryEvent(NamespaceQueryEvent evt) {
@@ -373,71 +377,122 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
     }
 
-    private boolean isCompatiblePort(EndpointPort port) {
-        return jmxPortNames.orElse(EMPTY_PORT_NAMES).contains(port.getName())
-                || jmxPortNumbers.orElse(EMPTY_PORT_NUMBERS).contains(port.getPort());
+    @ConsumeEvent(value = ENDPOINT_SLICE_DISCOVERY_ADDR, blocking = true, ordered = true)
+    @Transactional(TxType.REQUIRED)
+    public void handleEndpointEvent(EndpointDiscoveryEvent evt) {
+        String namespace = evt.namespace;
+        DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
+        DiscoveryNode nsNode =
+                DiscoveryNode.getChild(realm, n -> n.name.equals(namespace))
+                        .orElse(
+                                DiscoveryNode.environment(
+                                        namespace, KubeDiscoveryNodeType.NAMESPACE));
+
+        if (evt.eventKind == EventKind.FOUND) {
+            persistOwnerChain(nsNode, evt.target, evt.objRef);
+        } else {
+            pruneOwnerChain(nsNode, evt.target);
+        }
+
+        if (!nsNode.hasChildren()) {
+            realm.children.remove(nsNode);
+            nsNode.parent = null;
+        } else if (!realm.children.contains(nsNode)) {
+            realm.children.add(nsNode);
+            nsNode.parent = realm;
+        }
+        realm.persist();
+    }
+
+    private void notify(NamespaceQueryEvent evt) {
+        bus.publish(NAMESPACE_QUERY_ADDR, evt);
+    }
+
+    private void notify(EndpointDiscoveryEvent evt) {
+        bus.publish(ENDPOINT_SLICE_DISCOVERY_ADDR, evt);
     }
 
     List<TargetTuple> getTargetTuplesFrom(EndpointSlice slice) {
         List<TargetTuple> tts = new ArrayList<>();
+
         if (!ipv6Enabled && "ipv6".equalsIgnoreCase(slice.getAddressType())) {
             return tts;
         }
+
         List<EndpointPort> ports = slice.getPorts();
         if (ports == null) {
             return tts;
         }
+
+        String addressType = slice.getAddressType();
+        String addressTypeLower = addressType.toLowerCase();
+        List<Endpoint> endpoints = slice.getEndpoints();
+
+        if (endpoints == null) {
+            return tts;
+        }
+
+        Map<String, HasMetadata> nodeCache = new HashMap<>();
+
         for (EndpointPort port : ports) {
-            List<Endpoint> endpoints = slice.getEndpoints();
-            if (endpoints == null) {
-                continue;
-            }
             for (Endpoint endpoint : endpoints) {
-                List<String> addresses = endpoint.getAddresses();
-                if (addresses == null || addresses.isEmpty()) {
-                    continue;
-                }
-                // the EndpointSlice specification states that all of the
-                // addresses are fungible, ie interchangeable - they will
-                // resolve to the same Pod. So, we only need to worry about the
-                // first one.
-                String addr = addresses.get(0);
-                var ref = endpoint.getTargetRef();
-                if (ref == null) {
-                    continue;
-                }
-                switch (slice.getAddressType().toLowerCase()) {
-                    case "ipv6":
-                        addr = String.format("[%s]", addr);
-                        break;
-                    case "ipv4":
-                        if (ipv4TransformEnabled) {
-                            addr =
-                                    String.format(
-                                            "%s.%s.pod",
-                                            addr.replaceAll("\\.", "-"), ref.getNamespace());
-                        }
-                        break;
-                    case "fqdn":
-                    // fall-through
-                    default:
-                        // no-op
-                        break;
-                }
-                TargetTuple tuple =
-                        new TargetTuple(
-                                ref,
-                                queryForNode(ref.getNamespace(), ref.getName(), ref.getKind())
-                                        .getLeft(),
-                                addr,
-                                port,
-                                endpoint.getConditions());
-                if (Objects.nonNull(tuple) && isCompatiblePort(tuple.port)) {
+                TargetTuple tuple = createTargetTuple(endpoint, port, addressTypeLower, nodeCache);
+                if (tuple != null && isCompatiblePort(tuple.port)) {
                     tts.add(tuple);
                 }
             }
         }
+
         return tts;
+    }
+
+    private TargetTuple createTargetTuple(
+            Endpoint endpoint,
+            EndpointPort port,
+            String addressTypeLower,
+            Map<String, HasMetadata> nodeCache) {
+
+        List<String> addresses = endpoint.getAddresses();
+        if (addresses == null || addresses.isEmpty()) {
+            return null;
+        }
+
+        ObjectReference ref = endpoint.getTargetRef();
+        if (ref == null) {
+            return null;
+        }
+
+        // the EndpointSlice specification states that all of the
+        // addresses are fungible, ie interchangeable - they will
+        // resolve to the same Pod. So, we only need to worry about the
+        // first one.
+        String addr = addresses.get(0);
+        String transformedAddr = transformAddress(addr, addressTypeLower, ref);
+
+        String cacheKey = ref.getNamespace() + "/" + ref.getName() + "/" + ref.getKind();
+        HasMetadata obj =
+                nodeCache.computeIfAbsent(
+                        cacheKey,
+                        k ->
+                                queryForNode(ref.getNamespace(), ref.getName(), ref.getKind())
+                                        .getLeft());
+
+        return new TargetTuple(ref, obj, transformedAddr, port, endpoint.getConditions());
+    }
+
+    private String transformAddress(String addr, String addressType, ObjectReference ref) {
+        switch (addressType) {
+            case "ipv6":
+                return String.format("[%s]", addr);
+            case "ipv4":
+                if (ipv4TransformEnabled) {
+                    return String.format(
+                            "%s.%s.pod", addr.replaceAll("\\.", "-"), ref.getNamespace());
+                }
+                return addr;
+            default:
+                return addr;
+        }
     }
 
     /**
@@ -574,6 +629,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             return leafNode;
         }
 
+        leafNode.labels.putIfAbsent(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
         HasMetadata kubeObj =
                 nodeType.getQueryFunction().apply(client).apply(namespace).apply(leafNode.name);
 
@@ -606,35 +662,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         return getOwnershipLineage(namespace, leafNode);
     }
 
-    @ConsumeEvent(value = ENDPOINT_SLICE_DISCOVERY_ADDR, blocking = true, ordered = true)
-    @Transactional(TxType.REQUIRED)
-    public void handleEndpointEvent(EndpointDiscoveryEvent evt) {
-        String namespace = evt.namespace;
-        DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
-        DiscoveryNode nsNode =
-                DiscoveryNode.getChild(realm, n -> n.name.equals(namespace))
-                        .orElse(
-                                DiscoveryNode.environment(
-                                        namespace, KubeDiscoveryNodeType.NAMESPACE));
-
-        if (evt.eventKind == EventKind.FOUND) {
-            // Stage 1: Build in-memory tree (already done in handleQueryEvent)
-            // Stage 2: Persist the tree to database
-            persistOwnerChain(nsNode, evt.target, evt.objRef);
-        } else {
-            pruneOwnerChain(nsNode, evt.target);
-        }
-
-        if (!nsNode.hasChildren()) {
-            realm.children.remove(nsNode);
-            nsNode.parent = null;
-        } else if (!realm.children.contains(nsNode)) {
-            realm.children.add(nsNode);
-            nsNode.parent = realm;
-        }
-        realm.persist();
-    }
-
     /**
      * Builds the ownership hierarchy for a given Kubernetes object by chasing owner references up
      * the chain. This method does NOT persist any nodes or access the database - it only constructs
@@ -647,7 +674,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     DiscoveryNode buildOwnershipHierarchy(HasMetadata kubeObj, DiscoveryNode node) {
         Pair<HasMetadata, DiscoveryNode> current = Pair.of(kubeObj, node);
 
-        // Chase the owner chain upward
         while (true) {
             Pair<HasMetadata, DiscoveryNode> owner = getOwnerNodeInMemory(current);
             if (owner == null) {
@@ -657,7 +683,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             DiscoveryNode ownerNode = owner.getRight();
             DiscoveryNode childNode = current.getRight();
 
-            // Build parent-child relationships without persisting
             if (!ownerNode.children.contains(childNode)) {
                 ownerNode.children.add(childNode);
             }
@@ -666,22 +691,10 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             current = owner;
         }
 
-        // Return the root of the ownership chain
         return current.getRight();
     }
 
-    private void notify(NamespaceQueryEvent evt) {
-        bus.publish(NAMESPACE_QUERY_ADDR, evt);
-    }
-
-    private void notify(EndpointDiscoveryEvent evt) {
-        bus.publish(ENDPOINT_SLICE_DISCOVERY_ADDR, evt);
-    }
-
     private void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
-        // Retrieve the latest snapshot of the target
-        // The target received from event message is outdated as it belongs to the previous
-        // transaction
         target = Target.getTargetByConnectUrl(target.connectUrl);
 
         DiscoveryNode child = target.discoveryNode;
@@ -717,76 +730,70 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
      * @param targetRef The Kubernetes object reference for the target
      */
     private void persistOwnerChain(DiscoveryNode nsNode, Target target, ObjectReference targetRef) {
-        String targetKind = targetRef.getKind();
-        KubeDiscoveryNodeType targetType = KubeDiscoveryNodeType.fromKubernetesKind(targetKind);
-
-        DiscoveryNode targetNode =
-                DiscoveryNode.target(
-                        target,
-                        KubeDiscoveryNodeType.ENDPOINT_SLICE,
-                        n -> {
-                            n.labels.putAll(
-                                    Map.of(
-                                            DISCOVERY_NAMESPACE_LABEL_KEY,
-                                            targetRef.getNamespace()));
-                        });
+        DiscoveryNode targetNode = createTargetNode(target, targetRef);
         target.discoveryNode = targetNode;
 
-        DiscoveryNode rootNode;
+        buildOwnershipHierarchy(targetRef, targetNode, nsNode);
+        persistNodeChain(nsNode, target, targetNode);
+    }
 
-        if (targetType == KubeDiscoveryNodeType.POD) {
-            // if the Endpoint points to a Pod, chase the owner chain up as far as possible, then
-            // add that to the Namespace
+    private DiscoveryNode createTargetNode(Target target, ObjectReference targetRef) {
+        return DiscoveryNode.target(
+                target,
+                KubeDiscoveryNodeType.ENDPOINT_SLICE,
+                n ->
+                        n.labels.putAll(
+                                Map.of(DISCOVERY_NAMESPACE_LABEL_KEY, targetRef.getNamespace())));
+    }
 
-            Pair<HasMetadata, DiscoveryNode> pod =
-                    queryForNode(
-                            targetRef.getNamespace(), targetRef.getName(), targetRef.getKind());
+    private DiscoveryNode buildOwnershipHierarchy(
+            ObjectReference targetRef, DiscoveryNode targetNode, DiscoveryNode nsNode) {
+        KubeDiscoveryNodeType targetType =
+                KubeDiscoveryNodeType.fromKubernetesKind(targetRef.getKind());
 
-            DiscoveryNode podNode = pod.getRight();
-            podNode.children.add(targetNode);
-            targetNode.parent = podNode;
-
-            // Build the entire ownership hierarchy without persisting
-            // Pass the Pod HasMetadata object so hierarchy can be built without database access
-            rootNode = buildOwnershipHierarchy(pod.getLeft(), podNode);
-
-            // Connect the root to the namespace
-            nsNode.children.add(rootNode);
-            rootNode.parent = nsNode;
-        } else {
-            // if the Endpoint points to something else(?) than a Pod, just add the target straight
-            // to the Namespace
+        if (targetType != KubeDiscoveryNodeType.POD) {
             nsNode.children.add(targetNode);
             targetNode.parent = nsNode;
-            rootNode = targetNode;
+            return targetNode;
         }
 
-        // Use Stack-based iterative approach to persist all nodes at once
-        // This ensures we persist from leaf to root
-        Stack<DiscoveryNode> stack = new Stack<>();
-        Set<DiscoveryNode> visited = new HashSet<>();
+        Pair<HasMetadata, DiscoveryNode> pod =
+                queryForNode(targetRef.getNamespace(), targetRef.getName(), targetRef.getKind());
 
-        // Start from the target node and traverse up to collect all nodes
-        DiscoveryNode current = targetNode;
-        while (current != null && current != nsNode) {
-            if (!visited.contains(current)) {
-                stack.push(current);
-                visited.add(current);
-            }
+        DiscoveryNode podNode = pod.getRight();
+        podNode.children.add(targetNode);
+        targetNode.parent = podNode;
+
+        DiscoveryNode rootNode = buildOwnershipHierarchy(pod.getLeft(), podNode);
+
+        nsNode.children.add(rootNode);
+        rootNode.parent = nsNode;
+
+        return rootNode;
+    }
+
+    private void persistNodeChain(DiscoveryNode nsNode, Target target, DiscoveryNode targetNode) {
+        List<DiscoveryNode> nodeChain = collectNodeChain(targetNode, nsNode);
+
+        target.persist();
+
+        for (int i = nodeChain.size() - 1; i >= 0; i--) {
+            nodeChain.get(i).persist();
+        }
+
+        nsNode.persist();
+    }
+
+    private List<DiscoveryNode> collectNodeChain(DiscoveryNode startNode, DiscoveryNode endNode) {
+        List<DiscoveryNode> chain = new ArrayList<>();
+        DiscoveryNode current = startNode;
+
+        while (current != null && current != endNode) {
+            chain.add(current);
             current = current.parent;
         }
 
-        // Persist target first (it has the associated Target entity)
-        target.persist();
-
-        // Persist all nodes in the chain from top to bottom
-        while (!stack.isEmpty()) {
-            DiscoveryNode node = stack.pop();
-            node.persist();
-        }
-
-        // Finally persist the namespace node
-        nsNode.persist();
+        return chain;
     }
 
     /**
@@ -837,18 +844,15 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         HasMetadata kubeObj =
                 nodeType.getQueryFunction().apply(client).apply(namespace).apply(name);
 
-        // Create in-memory DiscoveryNode without database access
         DiscoveryNode node = new DiscoveryNode();
         node.name = name;
         node.nodeType = nodeType.getKind();
         node.labels = new HashMap<>();
 
-        // Create mutable copy of labels
         Map<String, String> labels = new HashMap<>();
         if (kubeObj != null && kubeObj.getMetadata().getLabels() != null) {
             labels.putAll(kubeObj.getMetadata().getLabels());
         }
-        // Add namespace to label to retrieve node later
         labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
         node.labels.putAll(labels);
 
