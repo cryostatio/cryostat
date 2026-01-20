@@ -127,6 +127,7 @@ public class Discovery {
     @Inject DiscoveryJwtValidator jwtValidator;
     @Inject Scheduler scheduler;
     @Inject URIUtil uriUtil;
+    @Inject KubeEndpointSlicesDiscovery k8sDiscovery;
 
     void onStart(@Observes StartupEvent evt) {
         QuarkusTransaction.requiringNew()
@@ -496,8 +497,19 @@ public class Discovery {
             throw new BadRequestException(e);
         }
 
-        // TODO apply fill algorithm
-        List<DiscoveryNode> nodes = new ArrayList<>(body.nodes);
+        List<DiscoveryNode> nodes = new ArrayList<>();
+        switch (body.fillAlgorithm) {
+            case KUBERNETES:
+                String namespace = body.context().get("namespace");
+                String nodeType = body.context().get("nodeType");
+                String name = body.context().get("name");
+                DiscoveryNode wrapper = k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
+                wrapper.children.addAll(body.nodes);
+                nodes.add(wrapper);
+            default:
+                nodes.addAll(body.nodes);
+                break;
+        }
 
         plugin.realm.children.clear();
         plugin.realm.children.addAll(nodes);
