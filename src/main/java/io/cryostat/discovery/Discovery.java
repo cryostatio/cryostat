@@ -40,6 +40,7 @@ import java.util.UUID;
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
+import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
@@ -499,7 +500,15 @@ public class Discovery {
             throw new BadRequestException(e);
         }
 
-        List<DiscoveryNode> nodes = new ArrayList<>();
+        for (var n : body.nodes) {
+            validatePublishedNode(n);
+        }
+
+        plugin.realm.children.clear();
+
+        for (var n : body.nodes) {
+            n.target.discoveryNode = n;
+        }
         body.fillAlgorithm.ifPresent(
                 algo -> {
                     Map<String, String> pubCtx = body.context.orElse(Map.of());
@@ -511,45 +520,50 @@ public class Discovery {
                             if (namespace == null || nodeType == null || name == null) {
                                 throw new BadRequestException();
                             }
-                            DiscoveryNode wrapper =
+                            DiscoveryNode lineage =
                                     k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
-                            wrapper.children.addAll(body.nodes);
-                            nodes.add(wrapper);
+                            DiscoveryNode innermost = innermostNode(lineage);
+                            innermost.children.addAll(body.nodes);
+                            body.nodes.forEach(
+                                    n -> {
+                                        n.parent = innermost;
+                                        n.persist();
+                                    });
+
+                            DiscoveryNode nsNode = new DiscoveryNode();
+                            nsNode.name = namespace;
+                            nsNode.nodeType = KubeDiscoveryNodeType.NAMESPACE.getKind();
+                            nsNode.labels = new HashMap<>();
+                            nsNode.children = new ArrayList<>();
+                            nsNode.target = null;
+                            nsNode.parent = plugin.realm;
+
+                            nsNode.children.add(lineage);
+                            lineage.parent = nsNode;
+
+                            DiscoveryNode current = innermost;
+                            while (true) {
+                                current.persist();
+                                current = current.parent;
+                                if (current == null) {
+                                    break;
+                                }
+                            }
+
+                            nsNode.persist();
+                            plugin.realm.children.add(nsNode);
                             break;
                         default:
-                            nodes.addAll(body.nodes);
+                            plugin.realm.children.addAll(body.nodes);
+                            for (var n : body.nodes) {
+                                n.parent = plugin.realm;
+                                n.persist();
+                            }
                             break;
                     }
                 });
 
-        plugin.realm.children.clear();
-        plugin.realm.children.addAll(nodes);
-
-        ArrayDeque<DiscoveryNode> nodeStack = new ArrayDeque<>();
-        for (var node : nodes) {
-            node.parent = plugin.realm;
-            nodeStack.push(node);
-        }
-
-        while (!nodeStack.isEmpty()) {
-            var currentNode = nodeStack.pop();
-
-            if (currentNode.target != null) {
-                validatePublishedNode(currentNode);
-                currentNode.target.discoveryNode = currentNode;
-                currentNode.target.discoveryNode.parent = currentNode.parent;
-            }
-
-            if (currentNode.children != null && !currentNode.children.isEmpty()) {
-                for (var child : currentNode.children) {
-                    child.parent = currentNode;
-                    nodeStack.push(child);
-                }
-            }
-
-            currentNode.persist();
-        }
-
+        plugin.realm.persist();
         plugin.persist();
     }
 
@@ -631,6 +645,9 @@ public class Discovery {
     }
 
     private void validatePublishedNode(DiscoveryNode currentNode) {
+        if (currentNode.target == null) {
+            throw new BadRequestException("Published nodes must have embedded targets");
+        }
         try {
             if (!uriUtil.validateUri(currentNode.target.connectUrl)) {
                 throw new BadRequestException(
@@ -736,6 +753,18 @@ public class Discovery {
         }
 
         return mergedRoot;
+    }
+
+    /**
+     * Get the innermost node of a hierarchical lineage. This assumes that the ancestor node passed
+     * in is the root of a tree where each node has either 0 or 1 children.
+     */
+    private DiscoveryNode innermostNode(DiscoveryNode ancestor) {
+        DiscoveryNode node = ancestor;
+        while (node.hasChildren()) {
+            node = node.children.get(0);
+        }
+        return node;
     }
 
     private DiscoveryNode copyNode(DiscoveryNode source) {
