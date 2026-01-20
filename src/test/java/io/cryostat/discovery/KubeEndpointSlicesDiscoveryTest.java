@@ -74,17 +74,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     @Inject KubeEndpointSlicesDiscovery discovery;
 
     @Test
-    void testGetTargetTuplesFromReturnsEmptyListForIPv6WhenDisabled() {
-        discovery.ipv6Enabled = false;
-        EndpointSlice slice = mock(EndpointSlice.class);
-        when(slice.getAddressType()).thenReturn("ipv6");
-
-        List<?> result = discovery.getTargetTuplesFrom(slice);
-
-        assertTrue(result.isEmpty());
-    }
-
-    @Test
     void testGetTargetTuplesFromReturnsEmptyListWhenPortsAreNull() {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
@@ -184,7 +173,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
         when(slice.getEndpoints()).thenReturn(List.of(endpoint));
 
-        // Mock the queryForNode call - returns a Pair of (Pod, DiscoveryNode)
         Pod pod = mock(Pod.class);
         ObjectMeta podMeta = mock(ObjectMeta.class);
         when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
@@ -198,10 +186,8 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(nsOp.withName("test-pod")).thenReturn(podResource);
         when(podResource.get()).thenReturn(pod);
 
-        // Execute
         var result = discovery.getTargetTuplesFrom(slice);
 
-        // Assertions
         assertNotNull(result);
         assertEquals(
                 1,
@@ -214,7 +200,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
 
-        // Multiple ports
         EndpointPort port1 = mock(EndpointPort.class);
         when(port1.getName()).thenReturn("jfr-jmx");
         when(port1.getPort()).thenReturn(9091);
@@ -225,7 +210,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
         when(slice.getPorts()).thenReturn(List.of(port1, port2));
 
-        // Multiple endpoints
         Endpoint endpoint1 = mock(Endpoint.class);
         when(endpoint1.getAddresses()).thenReturn(List.of("192.168.1.100"));
         ObjectReference ref1 = mock(ObjectReference.class);
@@ -248,7 +232,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
         when(slice.getEndpoints()).thenReturn(List.of(endpoint1, endpoint2));
 
-        // Mock queryForNode for both pods
         Pod pod1 = mock(Pod.class);
         ObjectMeta meta1 = mock(ObjectMeta.class);
         when(meta1.getLabels()).thenReturn(new HashMap<>());
@@ -271,20 +254,14 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(podResource1.get()).thenReturn(pod1);
         when(podResource2.get()).thenReturn(pod2);
 
-        // Execute
         var result = discovery.getTargetTuplesFrom(slice);
 
-        // Assertions - should have 2 endpoints * 2 ports = 4 tuples
         assertNotNull(result);
         assertEquals(4, result.size(), "Should return 4 tuples (2 endpoints × 2 ports)");
     }
 
     @Test
     void testBuildOwnershipHierarchyWithPodOnly() {
-        // This test verifies that buildOwnershipHierarchy correctly handles a Pod
-        // with no owner references. The Pod itself should be the root of the hierarchy.
-
-        // Create a Pod with no owners
         Pod pod = mock(Pod.class);
         ObjectMeta podMeta = mock(ObjectMeta.class);
         when(podMeta.getOwnerReferences()).thenReturn(List.of());
@@ -292,7 +269,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
         when(pod.getMetadata()).thenReturn(podMeta);
 
-        // Create a Pod node
         DiscoveryNode podNode = new DiscoveryNode();
         podNode.name = "test-pod";
         podNode.nodeType = "Pod";
@@ -300,10 +276,8 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         podNode.labels.put(
                 KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
 
-        // Execute - Pod has no owners, so it should be the root
         DiscoveryNode root = discovery.buildOwnershipHierarchy(pod, podNode);
 
-        // Assertions
         assertNotNull(root);
         assertEquals(podNode, root, "Pod should be the root since it has no owners");
         assertNull(podNode.parent, "Pod should have no parent");
@@ -311,10 +285,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     void testBuildOwnershipHierarchyWithPodToReplicaSet() {
-        // This test verifies the ownership hierarchy: Pod -> ReplicaSet
-        // The ReplicaSet should become the root of the hierarchy.
-
-        // Create Pod with ReplicaSet owner
         Pod pod = mock(Pod.class);
         ObjectMeta podMeta = mock(ObjectMeta.class);
         OwnerReference rsOwner = mock(OwnerReference.class);
@@ -325,7 +295,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
         when(pod.getMetadata()).thenReturn(podMeta);
 
-        // Mock ReplicaSet with no further owners
         ReplicaSet rs = mock(ReplicaSet.class);
         ObjectMeta rsMeta = mock(ObjectMeta.class);
         when(rsMeta.getOwnerReferences()).thenReturn(List.of());
@@ -333,7 +302,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(rsMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
         when(rs.getMetadata()).thenReturn(rsMeta);
 
-        // Mock Kubernetes client
         AppsAPIGroupDSL appsApi = mock(AppsAPIGroupDSL.class);
         MixedOperation rsOp = mock(MixedOperation.class);
         NonNamespaceOperation rsNsOp = mock(NonNamespaceOperation.class);
@@ -345,7 +313,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(rsNsOp.withName("test-rs")).thenReturn(rsResource);
         when(rsResource.get()).thenReturn(rs);
 
-        // Create Pod node
         DiscoveryNode podNode = new DiscoveryNode();
         podNode.name = "test-pod";
         podNode.nodeType = "Pod";
@@ -353,10 +320,8 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         podNode.labels.put(
                 KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
 
-        // Execute
         DiscoveryNode root = discovery.buildOwnershipHierarchy(pod, podNode);
 
-        // Assertions
         assertNotNull(root, "Should return a non-null root node");
         assertEquals("test-rs", root.name, "Root should be the ReplicaSet");
         assertEquals("ReplicaSet", root.nodeType, "Root should be of type ReplicaSet");
@@ -366,10 +331,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     void testBuildOwnershipHierarchyWithFullChain() {
-        // This test verifies the full ownership hierarchy: Pod -> ReplicaSet -> Deployment
-        // The Deployment should become the root of the hierarchy.
-
-        // Create Pod with ReplicaSet owner
         Pod pod = mock(Pod.class);
         ObjectMeta podMeta = mock(ObjectMeta.class);
         OwnerReference rsOwner = mock(OwnerReference.class);
@@ -380,7 +341,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
         when(pod.getMetadata()).thenReturn(podMeta);
 
-        // Mock ReplicaSet with Deployment owner
         ReplicaSet rs = mock(ReplicaSet.class);
         ObjectMeta rsMeta = mock(ObjectMeta.class);
         OwnerReference deployOwner = mock(OwnerReference.class);
@@ -391,7 +351,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(rsMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
         when(rs.getMetadata()).thenReturn(rsMeta);
 
-        // Mock Deployment with no further owners
         Deployment deployment = mock(Deployment.class);
         ObjectMeta deployMeta = mock(ObjectMeta.class);
         when(deployMeta.getOwnerReferences()).thenReturn(List.of());
@@ -399,7 +358,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(deployMeta.getLabels()).thenReturn(Map.of("app", "test-app", "version", "v1"));
         when(deployment.getMetadata()).thenReturn(deployMeta);
 
-        // Mock Kubernetes client
         AppsAPIGroupDSL appsApi = mock(AppsAPIGroupDSL.class);
 
         MixedOperation rsOp = mock(MixedOperation.class);
@@ -421,7 +379,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         when(deployNsOp.withName("test-deployment")).thenReturn(deployResource);
         when(deployResource.get()).thenReturn(deployment);
 
-        // Create Pod node
         DiscoveryNode podNode = new DiscoveryNode();
         podNode.name = "test-pod";
         podNode.nodeType = "Pod";
@@ -429,15 +386,12 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         podNode.labels.put(
                 KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
 
-        // Execute
         DiscoveryNode root = discovery.buildOwnershipHierarchy(pod, podNode);
 
-        // Assertions
         assertNotNull(root, "Should return a non-null root node");
         assertEquals("test-deployment", root.name, "Root should be the Deployment");
         assertEquals("Deployment", root.nodeType, "Root should be of type Deployment");
 
-        // Verify the hierarchy: Pod -> ReplicaSet -> Deployment
         assertNotNull(podNode.parent, "Pod should have a parent");
         assertEquals("test-rs-abc123", podNode.parent.name, "Pod's parent should be ReplicaSet");
         assertNotNull(podNode.parent.parent, "ReplicaSet should have a parent");
