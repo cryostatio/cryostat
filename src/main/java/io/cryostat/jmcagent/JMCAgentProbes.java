@@ -74,16 +74,17 @@ public class JMCAgentProbes {
                     """)
     public void postProbe(@RestPath long id, @RestPath String probeTemplateName) {
         Target target = Target.getTargetById(id);
+
+        String templateContent = service.getTemplateContent(probeTemplateName);
+        ProbeTemplate template = new ProbeTemplate();
+        template.setFileName(probeTemplateName);
+        template.deserialize(
+                new ByteArrayInputStream(templateContent.getBytes(StandardCharsets.UTF_8)));
+
         connectionManager.executeConnectedTask(
                 target,
                 connection -> {
                     try {
-                        String templateContent = service.getTemplateContent(probeTemplateName);
-                        ProbeTemplate template = new ProbeTemplate();
-                        template.setFileName(probeTemplateName);
-                        template.deserialize(
-                                new ByteArrayInputStream(
-                                        templateContent.getBytes(StandardCharsets.UTF_8)));
                         Object[] args = {templateContent};
                         connection.invokeMBeanOperation(
                                 AGENT_OBJECT_NAME,
