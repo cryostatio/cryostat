@@ -267,7 +267,9 @@ components:
         context:
           additionalProperties:
             type: string
-          type: object
+          type:
+            - object
+            - "null"
         fillAlgorithm:
           $ref: '#/components/schemas/DiscoveryFillAlgorithm'
         nodes:
