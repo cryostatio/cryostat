@@ -33,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
@@ -462,7 +463,8 @@ public class Discovery {
                 ctx,
                 id,
                 token,
-                new DiscoveryPublication(body, DiscoveryFillAlgorithm.NONE, Map.of()));
+                new DiscoveryPublication(
+                        body, Optional.of(DiscoveryFillAlgorithm.NONE), Optional.of(Map.of())));
     }
 
     @Transactional
@@ -498,18 +500,27 @@ public class Discovery {
         }
 
         List<DiscoveryNode> nodes = new ArrayList<>();
-        switch (body.fillAlgorithm) {
-            case KUBERNETES:
-                String namespace = body.context().get("namespace");
-                String nodeType = body.context().get("nodeType");
-                String name = body.context().get("name");
-                DiscoveryNode wrapper = k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
-                wrapper.children.addAll(body.nodes);
-                nodes.add(wrapper);
-            default:
-                nodes.addAll(body.nodes);
-                break;
-        }
+        body.fillAlgorithm.ifPresent(
+                algo -> {
+                    Map<String, String> pubCtx = body.context.orElse(Map.of());
+                    switch (algo) {
+                        case KUBERNETES:
+                            String namespace = pubCtx.get("namespace");
+                            String nodeType = pubCtx.get("nodetype");
+                            String name = pubCtx.get("name");
+                            if (namespace == null || nodeType == null || name == null) {
+                                throw new BadRequestException();
+                            }
+                            DiscoveryNode wrapper =
+                                    k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
+                            wrapper.children.addAll(body.nodes);
+                            nodes.add(wrapper);
+                            break;
+                        default:
+                            nodes.addAll(body.nodes);
+                            break;
+                    }
+                });
 
         plugin.realm.children.clear();
         plugin.realm.children.addAll(nodes);
@@ -831,32 +842,13 @@ public class Discovery {
 
     static record DiscoveryPublication(
             List<DiscoveryNode> nodes,
-            DiscoveryFillAlgorithm fillAlgorithm,
-            Map<String, String> context) {}
+            Optional<DiscoveryFillAlgorithm> fillAlgorithm,
+            Optional<Map<String, String>> context) {}
 
     enum DiscoveryFillAlgorithm {
-        NONE("none"),
-        KUBERNETES("kubernetes"),
+        NONE,
+        KUBERNETES,
         ;
-
-        private final String key;
-
-        DiscoveryFillAlgorithm(String key) {
-            this.key = key;
-        }
-
-        String getKey() {
-            return key;
-        }
-
-        static DiscoveryFillAlgorithm fromString(String s) {
-            for (var a : values()) {
-                if (a.getKey().equalsIgnoreCase(s)) {
-                    return a;
-                }
-            }
-            return NONE;
-        }
     }
 
     static class DuplicatePluginException extends IllegalArgumentException {
