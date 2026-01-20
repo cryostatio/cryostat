@@ -43,12 +43,11 @@ import io.fabric8.kubernetes.client.dsl.PodResource;
 import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.junit.mockito.MockitoConfig;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import org.junit.jupiter.api.Test;
-import io.quarkus.test.junit.TestProfile;
 
 @QuarkusTest
 @TestProfile(KubeEndpointSlicesDiscoveryTest.TestProfile.class)
@@ -57,7 +56,10 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     public static class TestProfile implements io.quarkus.test.junit.QuarkusTestProfile {
         @Override
         public Map<String, String> getConfigOverrides() {
-            return Map.of("cryostat.discovery.kubernetes.port-names", "jfr-jmx,other-port");
+            return Map.of(
+                    "cryostat.discovery.kubernetes.enabled", "true",
+                    "cryostat.discovery.kubernetes.port-numbers", "9091",
+                    "cryostat.discovery.kubernetes.port-names", "jfr-jmx,other-port");
         }
     }
 
@@ -156,7 +158,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    @Transactional
     void testGetTargetTuplesFromReturnsValidTargetTuplesWithSingleEndpoint() {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
@@ -209,7 +210,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    @Transactional
     void testGetTargetTuplesFromWithMultipleEndpointsAndPorts() {
         EndpointSlice slice = mock(EndpointSlice.class);
         when(slice.getAddressType()).thenReturn("ipv4");
@@ -280,7 +280,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    @Transactional
     void testBuildOwnershipHierarchyWithPodOnly() {
         // This test verifies that buildOwnershipHierarchy correctly handles a Pod
         // with no owner references. The Pod itself should be the root of the hierarchy.
@@ -311,7 +310,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    @Transactional
     void testBuildOwnershipHierarchyWithPodToReplicaSet() {
         // This test verifies the ownership hierarchy: Pod -> ReplicaSet
         // The ReplicaSet should become the root of the hierarchy.
@@ -367,7 +365,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    @Transactional
     void testBuildOwnershipHierarchyWithFullChain() {
         // This test verifies the full ownership hierarchy: Pod -> ReplicaSet -> Deployment
         // The Deployment should become the root of the hierarchy.
@@ -493,7 +490,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    @Transactional
     void testGetOwnershipLineageWithStringParametersForPod() {
         Pod pod = mock(Pod.class);
         ObjectMeta podMeta = mock(ObjectMeta.class);
@@ -522,7 +518,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    @Transactional
     void testGetOwnershipLineageWithStringParametersForPodWithReplicaSetOwner() {
         Pod pod = mock(Pod.class);
         ObjectMeta podMeta = mock(ObjectMeta.class);
@@ -573,7 +568,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    @Transactional
     void testGetOwnershipLineageWithStringParametersForEndpointSlice() {
         EndpointSlice slice = mock(EndpointSlice.class);
         ObjectMeta sliceMeta = mock(ObjectMeta.class);
@@ -625,7 +619,6 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    @Transactional
     void testGetOwnershipLineageWithStringParametersForNonExistentResource() {
         MixedOperation podOp = mock(MixedOperation.class);
         NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
