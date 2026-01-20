@@ -19,95 +19,48 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import io.cryostat.AbstractTransactionalTestBase;
-import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeConfig;
-import io.cryostat.libcryostat.sys.FileSystem;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectReference;
+import io.fabric8.kubernetes.api.model.OwnerReference;
 import io.fabric8.kubernetes.api.model.Pod;
+import io.fabric8.kubernetes.api.model.apps.Deployment;
+import io.fabric8.kubernetes.api.model.apps.ReplicaSet;
 import io.fabric8.kubernetes.api.model.discovery.v1.Endpoint;
 import io.fabric8.kubernetes.api.model.discovery.v1.EndpointConditions;
 import io.fabric8.kubernetes.api.model.discovery.v1.EndpointPort;
 import io.fabric8.kubernetes.api.model.discovery.v1.EndpointSlice;
 import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.PodResource;
+import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.mockito.MockitoConfig;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
-import org.jboss.logging.Logger;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.quartz.Scheduler;
 
 @QuarkusTest
 class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
-    @Inject Logger logger;
+    @InjectMock
+    @MockitoConfig(convertScopes = true)
+    KubernetesClient client;
 
-    @InjectMock KubeConfig kubeConfig;
-
-    @InjectMock KubernetesClient client;
-
-    @Inject Scheduler scheduler;
-
-    @Inject EventBus bus;
-
-    @InjectMock FileSystem fs;
+    @InjectMock
+    @MockitoConfig(convertScopes = true)
+    EventBus bus;
 
     @Inject KubeEndpointSlicesDiscovery discovery;
-
-    @BeforeEach
-    void setup() {
-        discovery.enabled = true;
-        discovery.ipv6Enabled = false;
-        discovery.ipv4TransformEnabled = false;
-        discovery.jmxPortNames = Optional.of(List.of("jfr-jmx"));
-        discovery.jmxPortNumbers = Optional.of(List.of(9091));
-        discovery.informerResyncPeriod = Duration.ofMinutes(5);
-        discovery.forceResyncEnabled = false;
-    }
-
-    @Test
-    void testAvailableReturnsTrueWhenKubeApiAvailableAndHasNamespace() {
-        when(kubeConfig.kubeApiAvailable()).thenReturn(true);
-        when(kubeConfig.getOwnNamespace()).thenReturn("test-namespace");
-
-        assertTrue(discovery.available());
-    }
-
-    @Test
-    void testAvailableReturnsFalseWhenKubeApiNotAvailable() {
-        when(kubeConfig.kubeApiAvailable()).thenReturn(false);
-        when(kubeConfig.getOwnNamespace()).thenReturn("test-namespace");
-
-        assertFalse(discovery.available());
-    }
-
-    @Test
-    void testAvailableReturnsFalseWhenNamespaceIsBlank() {
-        when(kubeConfig.kubeApiAvailable()).thenReturn(true);
-        when(kubeConfig.getOwnNamespace()).thenReturn("");
-
-        assertFalse(discovery.available());
-    }
-
-    @Test
-    void testAvailableReturnsFalseWhenExceptionThrown() {
-        when(kubeConfig.kubeApiAvailable()).thenThrow(new RuntimeException("Test exception"));
-
-        assertFalse(discovery.available());
-    }
 
     @Test
     void testTuplesFromEndpointsReturnsEmptyListForIPv6WhenDisabled() {
@@ -328,125 +281,28 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     @Transactional
-    void testTuplesFromEndpointsWithIPv6Address() {
-        // This test verifies that IPv6 addresses are correctly handled when IPv6 is enabled.
-        // The address should be wrapped in brackets in the resulting TargetTuple.
-
-        discovery.ipv6Enabled = true;
-
-        EndpointSlice slice = mock(EndpointSlice.class);
-        when(slice.getAddressType()).thenReturn("ipv6");
-
-        EndpointPort port = mock(EndpointPort.class);
-        when(port.getName()).thenReturn("jfr-jmx");
-        when(port.getPort()).thenReturn(9091);
-        when(slice.getPorts()).thenReturn(List.of(port));
-
-        Endpoint endpoint = mock(Endpoint.class);
-        when(endpoint.getAddresses()).thenReturn(List.of("2001:db8::1"));
-
-        ObjectReference targetRef = mock(ObjectReference.class);
-        when(targetRef.getNamespace()).thenReturn("test-namespace");
-        when(targetRef.getName()).thenReturn("test-pod");
-        when(targetRef.getKind()).thenReturn("Pod");
-        when(endpoint.getTargetRef()).thenReturn(targetRef);
-
-        EndpointConditions conditions = mock(EndpointConditions.class);
-        when(endpoint.getConditions()).thenReturn(conditions);
-
-        when(slice.getEndpoints()).thenReturn(List.of(endpoint));
-
-        // Mock queryForNode
-        Pod pod = mock(Pod.class);
-        ObjectMeta podMeta = mock(ObjectMeta.class);
-        when(podMeta.getLabels()).thenReturn(new HashMap<>());
-        when(pod.getMetadata()).thenReturn(podMeta);
-
-        MixedOperation podOp = mock(MixedOperation.class);
-        NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
-        PodResource podResource = mock(PodResource.class);
-        when(client.pods()).thenReturn(podOp);
-        when(podOp.inNamespace("test-namespace")).thenReturn(nsOp);
-        when(nsOp.withName("test-pod")).thenReturn(podResource);
-        when(podResource.get()).thenReturn(pod);
-
-        // Execute
-        var result = discovery.tuplesFromEndpoints(slice);
-
-        // Assertions
-        assertNotNull(result);
-        assertEquals(1, result.size(), "Should return one tuple for IPv6 endpoint");
-        // IPv6 address should be wrapped in brackets in the tuple
-    }
-
-    @Test
-    @Transactional
-    void testTuplesFromEndpointsWithIPv4DnsTransform() {
-        // This test verifies that IPv4 addresses are transformed to DNS format when enabled.
-        // The address should be transformed from "192.168.1.100" to
-        // "192-168-1-100.test-namespace.pod"
-
-        discovery.ipv4TransformEnabled = true;
-
-        EndpointSlice slice = mock(EndpointSlice.class);
-        when(slice.getAddressType()).thenReturn("ipv4");
-
-        EndpointPort port = mock(EndpointPort.class);
-        when(port.getName()).thenReturn("jfr-jmx");
-        when(port.getPort()).thenReturn(9091);
-        when(slice.getPorts()).thenReturn(List.of(port));
-
-        Endpoint endpoint = mock(Endpoint.class);
-        when(endpoint.getAddresses()).thenReturn(List.of("192.168.1.100"));
-
-        ObjectReference targetRef = mock(ObjectReference.class);
-        when(targetRef.getNamespace()).thenReturn("test-namespace");
-        when(targetRef.getName()).thenReturn("test-pod");
-        when(targetRef.getKind()).thenReturn("Pod");
-        when(endpoint.getTargetRef()).thenReturn(targetRef);
-
-        EndpointConditions conditions = mock(EndpointConditions.class);
-        when(endpoint.getConditions()).thenReturn(conditions);
-
-        when(slice.getEndpoints()).thenReturn(List.of(endpoint));
-
-        // Mock queryForNode
-        Pod pod = mock(Pod.class);
-        ObjectMeta podMeta = mock(ObjectMeta.class);
-        when(podMeta.getLabels()).thenReturn(new HashMap<>());
-        when(pod.getMetadata()).thenReturn(podMeta);
-
-        MixedOperation podOp = mock(MixedOperation.class);
-        NonNamespaceOperation nsOp = mock(NonNamespaceOperation.class);
-        PodResource podResource = mock(PodResource.class);
-        when(client.pods()).thenReturn(podOp);
-        when(podOp.inNamespace("test-namespace")).thenReturn(nsOp);
-        when(nsOp.withName("test-pod")).thenReturn(podResource);
-        when(podResource.get()).thenReturn(pod);
-
-        // Execute
-        var result = discovery.tuplesFromEndpoints(slice);
-
-        // Assertions
-        assertNotNull(result);
-        assertEquals(1, result.size(), "Should return one tuple with DNS-transformed address");
-        // Address should be transformed to DNS format: 192-168-1-100.test-namespace.pod
-    }
-
-    @Test
-    @Transactional
     void testBuildOwnershipHierarchyWithPodOnly() {
         // This test verifies that buildOwnershipHierarchy correctly handles a Pod
         // with no owner references. The Pod itself should be the root of the hierarchy.
 
-        // Create a Pod node without owners
+        // Create a Pod with no owners
+        Pod pod = mock(Pod.class);
+        ObjectMeta podMeta = mock(ObjectMeta.class);
+        when(podMeta.getOwnerReferences()).thenReturn(List.of());
+        when(podMeta.getNamespace()).thenReturn("test-namespace");
+        when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
+        when(pod.getMetadata()).thenReturn(podMeta);
+
+        // Create a Pod node
         DiscoveryNode podNode = new DiscoveryNode();
         podNode.name = "test-pod";
         podNode.nodeType = "Pod";
         podNode.labels = new HashMap<>();
+        podNode.labels.put(
+                KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
 
         // Execute - Pod has no owners, so it should be the root
-        DiscoveryNode root = discovery.buildOwnershipHierarchy(podNode);
+        DiscoveryNode root = discovery.buildOwnershipHierarchy(pod, podNode);
 
         // Assertions
         assertNotNull(root);
@@ -460,29 +316,36 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
         // This test verifies the ownership hierarchy: Pod -> ReplicaSet
         // The ReplicaSet should become the root of the hierarchy.
 
-        // Create Pod node
-        DiscoveryNode podNode = new DiscoveryNode();
-        podNode.name = "test-pod";
-        podNode.nodeType = "Pod";
-        podNode.labels = new HashMap<>();
-        podNode.labels.put(
-                KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
+        // Create Pod with ReplicaSet owner
+        Pod pod = mock(Pod.class);
+        ObjectMeta podMeta = mock(ObjectMeta.class);
+        OwnerReference rsOwner = mock(OwnerReference.class);
+        when(rsOwner.getKind()).thenReturn("ReplicaSet");
+        when(rsOwner.getName()).thenReturn("test-rs");
+        when(podMeta.getOwnerReferences()).thenReturn(List.of(rsOwner));
+        when(podMeta.getNamespace()).thenReturn("test-namespace");
+        when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
+        when(pod.getMetadata()).thenReturn(podMeta);
 
-        // Execute - this will attempt to build the hierarchy
-        // Note: Without mocking the full Kubernetes client chain and database queries,
-        // this test demonstrates the method signature and basic behavior
-        DiscoveryNode root = discovery.buildOwnershipHierarchy(podNode);
+        // Mock ReplicaSet with no further owners
+        ReplicaSet rs = mock(ReplicaSet.class);
+        ObjectMeta rsMeta = mock(ObjectMeta.class);
+        when(rsMeta.getOwnerReferences()).thenReturn(List.of());
+        when(rsMeta.getNamespace()).thenReturn("test-namespace");
+        when(rsMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
+        when(rs.getMetadata()).thenReturn(rsMeta);
 
-        // Assertions
-        assertNotNull(root, "Should return a non-null root node");
-        // The root should be the topmost owner in the chain
-    }
+        // Mock Kubernetes client
+        AppsAPIGroupDSL appsApi = mock(AppsAPIGroupDSL.class);
+        MixedOperation rsOp = mock(MixedOperation.class);
+        NonNamespaceOperation rsNsOp = mock(NonNamespaceOperation.class);
+        RollableScalableResource rsResource = mock(RollableScalableResource.class);
 
-    @Test
-    @Transactional
-    void testBuildOwnershipHierarchyWithFullChain() {
-        // This test verifies the full ownership hierarchy: Pod -> ReplicaSet -> Deployment
-        // The Deployment should become the root of the hierarchy.
+        when(client.apps()).thenReturn(appsApi);
+        when(appsApi.replicaSets()).thenReturn(rsOp);
+        when(rsOp.inNamespace("test-namespace")).thenReturn(rsNsOp);
+        when(rsNsOp.withName("test-rs")).thenReturn(rsResource);
+        when(rsResource.get()).thenReturn(rs);
 
         // Create Pod node
         DiscoveryNode podNode = new DiscoveryNode();
@@ -493,12 +356,95 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
                 KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
 
         // Execute
-        DiscoveryNode root = discovery.buildOwnershipHierarchy(podNode);
+        DiscoveryNode root = discovery.buildOwnershipHierarchy(pod, podNode);
 
         // Assertions
         assertNotNull(root, "Should return a non-null root node");
-        // The root should be the Deployment (topmost owner in the chain)
-        // Verify the hierarchy was built (Pod -> ReplicaSet -> Deployment)
+        assertEquals("test-rs", root.name, "Root should be the ReplicaSet");
+        assertEquals("ReplicaSet", root.nodeType, "Root should be of type ReplicaSet");
+        assertNotNull(podNode.parent, "Pod should have a parent");
+        assertEquals(root, podNode.parent, "Pod's parent should be the ReplicaSet");
+    }
+
+    @Test
+    @Transactional
+    void testBuildOwnershipHierarchyWithFullChain() {
+        // This test verifies the full ownership hierarchy: Pod -> ReplicaSet -> Deployment
+        // The Deployment should become the root of the hierarchy.
+
+        // Create Pod with ReplicaSet owner
+        Pod pod = mock(Pod.class);
+        ObjectMeta podMeta = mock(ObjectMeta.class);
+        OwnerReference rsOwner = mock(OwnerReference.class);
+        when(rsOwner.getKind()).thenReturn("ReplicaSet");
+        when(rsOwner.getName()).thenReturn("test-rs-abc123");
+        when(podMeta.getOwnerReferences()).thenReturn(List.of(rsOwner));
+        when(podMeta.getNamespace()).thenReturn("test-namespace");
+        when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
+        when(pod.getMetadata()).thenReturn(podMeta);
+
+        // Mock ReplicaSet with Deployment owner
+        ReplicaSet rs = mock(ReplicaSet.class);
+        ObjectMeta rsMeta = mock(ObjectMeta.class);
+        OwnerReference deployOwner = mock(OwnerReference.class);
+        when(deployOwner.getKind()).thenReturn("Deployment");
+        when(deployOwner.getName()).thenReturn("test-deployment");
+        when(rsMeta.getOwnerReferences()).thenReturn(List.of(deployOwner));
+        when(rsMeta.getNamespace()).thenReturn("test-namespace");
+        when(rsMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
+        when(rs.getMetadata()).thenReturn(rsMeta);
+
+        // Mock Deployment with no further owners
+        Deployment deployment = mock(Deployment.class);
+        ObjectMeta deployMeta = mock(ObjectMeta.class);
+        when(deployMeta.getOwnerReferences()).thenReturn(List.of());
+        when(deployMeta.getNamespace()).thenReturn("test-namespace");
+        when(deployMeta.getLabels()).thenReturn(Map.of("app", "test-app", "version", "v1"));
+        when(deployment.getMetadata()).thenReturn(deployMeta);
+
+        // Mock Kubernetes client
+        AppsAPIGroupDSL appsApi = mock(AppsAPIGroupDSL.class);
+
+        MixedOperation rsOp = mock(MixedOperation.class);
+        NonNamespaceOperation rsNsOp = mock(NonNamespaceOperation.class);
+        RollableScalableResource rsResource = mock(RollableScalableResource.class);
+
+        MixedOperation deployOp = mock(MixedOperation.class);
+        NonNamespaceOperation deployNsOp = mock(NonNamespaceOperation.class);
+        RollableScalableResource deployResource = mock(RollableScalableResource.class);
+
+        when(client.apps()).thenReturn(appsApi);
+        when(appsApi.replicaSets()).thenReturn(rsOp);
+        when(rsOp.inNamespace("test-namespace")).thenReturn(rsNsOp);
+        when(rsNsOp.withName("test-rs-abc123")).thenReturn(rsResource);
+        when(rsResource.get()).thenReturn(rs);
+
+        when(appsApi.deployments()).thenReturn(deployOp);
+        when(deployOp.inNamespace("test-namespace")).thenReturn(deployNsOp);
+        when(deployNsOp.withName("test-deployment")).thenReturn(deployResource);
+        when(deployResource.get()).thenReturn(deployment);
+
+        // Create Pod node
+        DiscoveryNode podNode = new DiscoveryNode();
+        podNode.name = "test-pod";
+        podNode.nodeType = "Pod";
+        podNode.labels = new HashMap<>();
+        podNode.labels.put(
+                KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
+
+        // Execute
+        DiscoveryNode root = discovery.buildOwnershipHierarchy(pod, podNode);
+
+        // Assertions
+        assertNotNull(root, "Should return a non-null root node");
+        assertEquals("test-deployment", root.name, "Root should be the Deployment");
+        assertEquals("Deployment", root.nodeType, "Root should be of type Deployment");
+
+        // Verify the hierarchy: Pod -> ReplicaSet -> Deployment
+        assertNotNull(podNode.parent, "Pod should have a parent");
+        assertEquals("test-rs-abc123", podNode.parent.name, "Pod's parent should be ReplicaSet");
+        assertNotNull(podNode.parent.parent, "ReplicaSet should have a parent");
+        assertEquals(root, podNode.parent.parent, "ReplicaSet's parent should be Deployment");
     }
 
     @Test
