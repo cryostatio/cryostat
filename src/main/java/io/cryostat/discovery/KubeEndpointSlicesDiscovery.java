@@ -514,19 +514,20 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     /**
-     * Builds the ownership hierarchy for a given DiscoveryNode by chasing owner references up the
-     * chain. This method does NOT persist any nodes - it only constructs the hierarchical
-     * relationships in memory.
+     * Builds the ownership hierarchy for a given Kubernetes object by chasing owner references up
+     * the chain. This method does NOT persist any nodes or access the database - it only constructs
+     * the hierarchical relationships in memory using the Kubernetes API.
      *
-     * @param node The starting node to build the ownership hierarchy from
+     * @param kubeObj The Kubernetes object to start from
+     * @param node The DiscoveryNode representing the Kubernetes object
      * @return The root node of the ownership chain (the topmost owner)
      */
-    public DiscoveryNode buildOwnershipHierarchy(DiscoveryNode node) {
-        Pair<HasMetadata, DiscoveryNode> current = Pair.of(null, node);
+    public DiscoveryNode buildOwnershipHierarchy(HasMetadata kubeObj, DiscoveryNode node) {
+        Pair<HasMetadata, DiscoveryNode> current = Pair.of(kubeObj, node);
 
         // Chase the owner chain upward
         while (true) {
-            Pair<HasMetadata, DiscoveryNode> owner = getOwnerNode(current);
+            Pair<HasMetadata, DiscoveryNode> owner = getOwnerNodeInMemory(current);
             if (owner == null) {
                 break;
             }
@@ -616,7 +617,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             targetNode.parent = podNode;
 
             // Build the entire ownership hierarchy without persisting
-            rootNode = buildOwnershipHierarchy(podNode);
+            // Pass the Pod HasMetadata object so hierarchy can be built without database access
+            rootNode = buildOwnershipHierarchy(pod.getLeft(), podNode);
 
             // Connect the root to the namespace
             nsNode.children.add(rootNode);
@@ -657,7 +659,15 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         nsNode.persist();
     }
 
-    private Pair<HasMetadata, DiscoveryNode> getOwnerNode(Pair<HasMetadata, DiscoveryNode> child) {
+    /**
+     * Gets the owner node for a given child node by querying Kubernetes API. This method creates an
+     * in-memory DiscoveryNode without database access.
+     *
+     * @param child Pair of Kubernetes object and its DiscoveryNode
+     * @return Pair of owner Kubernetes object and its DiscoveryNode, or null if no owner
+     */
+    private Pair<HasMetadata, DiscoveryNode> getOwnerNodeInMemory(
+            Pair<HasMetadata, DiscoveryNode> child) {
         HasMetadata childRef = child.getLeft();
         if (childRef == null) {
             return null;
@@ -674,9 +684,56 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                         .filter(o -> KubeDiscoveryNodeType.fromKubernetesKind(o.getKind()) != null)
                         .findFirst()
                         .orElse(owners.get(0));
-        return queryForNode(namespace, owner.getName(), owner.getKind());
+        return queryForNodeInMemory(namespace, owner.getName(), owner.getKind());
     }
 
+    /**
+     * Queries Kubernetes API for a node and creates an in-memory DiscoveryNode. This method does
+     * NOT access the database.
+     *
+     * @param namespace Kubernetes namespace
+     * @param name Resource name
+     * @param kind Resource kind
+     * @return Pair of Kubernetes object and in-memory DiscoveryNode, or null if not found
+     */
+    private Pair<HasMetadata, DiscoveryNode> queryForNodeInMemory(
+            String namespace, String name, String kind) {
+
+        KubeDiscoveryNodeType nodeType = KubeDiscoveryNodeType.fromKubernetesKind(kind);
+        if (nodeType == null) {
+            return null;
+        }
+
+        HasMetadata kubeObj =
+                nodeType.getQueryFunction().apply(client).apply(namespace).apply(name);
+
+        // Create in-memory DiscoveryNode without database access
+        DiscoveryNode node = new DiscoveryNode();
+        node.name = name;
+        node.nodeType = nodeType.getKind();
+        node.labels = new HashMap<>();
+
+        // Create mutable copy of labels
+        Map<String, String> labels = new HashMap<>();
+        if (kubeObj != null && kubeObj.getMetadata().getLabels() != null) {
+            labels.putAll(kubeObj.getMetadata().getLabels());
+        }
+        // Add namespace to label to retrieve node later
+        labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
+        node.labels.putAll(labels);
+
+        return Pair.of(kubeObj, node);
+    }
+
+    /**
+     * Queries Kubernetes API for a node and retrieves or creates a DiscoveryNode from the database.
+     * This method DOES access the database.
+     *
+     * @param namespace Kubernetes namespace
+     * @param name Resource name
+     * @param kind Resource kind
+     * @return Pair of Kubernetes object and DiscoveryNode from database, or null if not found
+     */
     private Pair<HasMetadata, DiscoveryNode> queryForNode(
             String namespace, String name, String kind) {
 
@@ -694,10 +751,10 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                         name,
                         n -> namespace.equals(n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY)),
                         n -> {
-                            Map<String, String> labels =
-                                    kubeObj != null
-                                            ? kubeObj.getMetadata().getLabels()
-                                            : new HashMap<>();
+                            Map<String, String> labels = new HashMap<>();
+                            if (kubeObj != null && kubeObj.getMetadata().getLabels() != null) {
+                                labels.putAll(kubeObj.getMetadata().getLabels());
+                            }
                             // Add namespace to label to retrieve node later
                             labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
                             n.labels.putAll(labels);
