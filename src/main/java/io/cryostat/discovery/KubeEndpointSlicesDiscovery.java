@@ -405,40 +405,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         realm.persist();
     }
 
-    /**
-     * Builds the ownership hierarchy for a given DiscoveryNode by chasing owner references up the
-     * chain. This method does NOT persist any nodes - it only constructs the hierarchical
-     * relationships in memory.
-     *
-     * @param node The starting node to build the ownership hierarchy from
-     * @return The root node of the ownership chain (the topmost owner)
-     */
-    public DiscoveryNode buildOwnershipHierarchy(DiscoveryNode node) {
-        Pair<HasMetadata, DiscoveryNode> current = Pair.of(null, node);
-
-        // Chase the owner chain upward
-        while (true) {
-            Pair<HasMetadata, DiscoveryNode> owner = getOwnerNode(current);
-            if (owner == null) {
-                break;
-            }
-
-            DiscoveryNode ownerNode = owner.getRight();
-            DiscoveryNode childNode = current.getRight();
-
-            // Build parent-child relationships without persisting
-            if (!ownerNode.children.contains(childNode)) {
-                ownerNode.children.add(childNode);
-            }
-            childNode.parent = ownerNode;
-
-            current = owner;
-        }
-
-        // Return the root of the ownership chain
-        return current.getRight();
-    }
-
     private void notify(NamespaceQueryEvent evt) {
         bus.publish(NAMESPACE_QUERY_ADDR, evt);
     }
