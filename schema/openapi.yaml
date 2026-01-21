@@ -209,7 +209,7 @@ components:
         - 2022-03-10
       format: date
       type: string
-    DiscoveryFillAlgorithm:
+    DiscoveryFillStrategy:
       enum:
         - NONE
         - KUBERNETES
@@ -302,8 +302,8 @@ components:
           type:
             - object
             - "null"
-        fillAlgorithm:
-          $ref: '#/components/schemas/DiscoveryFillAlgorithm'
+        fillStrategy:
+          $ref: '#/components/schemas/DiscoveryFillStrategy'
         nodes:
           items:
             $ref: '#/components/schemas/DiscoveryNode'
