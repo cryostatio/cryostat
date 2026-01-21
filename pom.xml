@@ -31,8 +31,13 @@
 
     <build.arch>amd64</build.arch>
 
+<<<<<<< HEAD
     <io.cryostat.core.version>4.1.1-SNAPSHOT</io.cryostat.core.version>
     <org.openjdk.jmc.version>9.1.0</org.openjdk.jmc.version>
+=======
+    <io.cryostat.core.version>4.2.0-SNAPSHOT</io.cryostat.core.version>
+    <org.openjdk.jmc.version>9.1.2</org.openjdk.jmc.version>
+>>>>>>> 7e7a727 (build(deps): bump org.openjdk.jmc.version from 9.1.1 to 9.1.2 (#1257))
 
     <org.apache.commons.io.version>2.16.1</org.apache.commons.io.version>
     <org.apache.commons.collections.version>4.5.0</org.apache.commons.collections.version>
