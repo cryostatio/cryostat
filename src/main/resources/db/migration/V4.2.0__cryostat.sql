@@ -1,14 +1,3 @@
--- Soft deletion support for Target table
-alter table Target add column deleted boolean default false;
-
--- Clean up discovery nodes and targets for fresh start with soft deletion
-delete from DiscoveryNode where nodeType not in ('Universe', 'Realm');
-delete from Target where true;
-
--- Drop constraints to allow soft deletion to work properly
-alter table Target drop constraint FKl0dhd7qeayg54dcoblpww6x34;
-alter table Target drop constraint target_connecturl_key;
-
 -- Quarkus Quartz setup so that scheduled jobs, triggers, etc. are persisted in
 -- the database and can survive application restarts
 -- https://github.com/quartz-scheduler/quartz/blob/2a97f397949ec58fc980a661fd2930213b29d77b/quartz/src/main/resources/org/quartz/impl/jdbcjobstore/tables_postgres.sql
@@ -212,5 +201,13 @@ CREATE INDEX IDX_QRTZ_FT_T_G
 CREATE INDEX IDX_QRTZ_FT_TG
   ON QRTZ_FIRED_TRIGGERS (SCHED_NAME, TRIGGER_GROUP);
 
+alter table Target
+add column deleted timestamp default null;
+
+delete from DiscoveryNode where nodeType not in ('Universe', 'Realm');
+delete from Target where true;
+
+alter table Target drop constraint FKl0dhd7qeayg54dcoblpww6x34;
+alter table Target drop constraint target_connecturl_key;
 
 COMMIT;
