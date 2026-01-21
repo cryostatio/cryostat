@@ -168,8 +168,8 @@ public class DiscoveryJwtFactory {
         return jwe.serialize();
     }
 
-    private String resourceListToClaim(Collection<URI> resources) {
-        return String.join(",", resources.stream().map(URI::toASCIIString).toList());
+    private List<String> resourceListToClaim(Collection<URI> resources) {
+        return resources.stream().map(URI::toASCIIString).toList();
     }
 
     public JWT parseDiscoveryPluginJwt(

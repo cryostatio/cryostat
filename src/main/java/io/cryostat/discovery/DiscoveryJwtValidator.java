@@ -111,8 +111,7 @@ public class DiscoveryJwtValidator {
         try {
             for (var s :
                     parsed.getJWTClaimsSet()
-                            .getStringClaim(DiscoveryJwtFactory.RESOURCE_CLAIM)
-                            .split(",")) {
+                            .getStringListClaim(DiscoveryJwtFactory.RESOURCE_CLAIM)) {
                 resourceClaims.add(new URI(s));
             }
         } catch (URISyntaxException use) {
