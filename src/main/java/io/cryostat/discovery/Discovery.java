@@ -465,7 +465,7 @@ public class Discovery {
                 id,
                 token,
                 new DiscoveryPublication(
-                        body, Optional.of(DiscoveryFillAlgorithm.NONE), Optional.of(Map.of())));
+                        body, Optional.of(DiscoveryFillStrategy.NONE), Optional.of(Map.of())));
     }
 
     @Transactional
@@ -509,7 +509,7 @@ public class Discovery {
         for (var n : body.nodes) {
             n.target.discoveryNode = n;
         }
-        body.fillAlgorithm.ifPresent(
+        body.fillStrategy.ifPresent(
                 algo -> {
                     Map<String, String> pubCtx = body.context.orElse(Map.of());
                     switch (algo) {
@@ -871,10 +871,10 @@ public class Discovery {
 
     static record DiscoveryPublication(
             List<DiscoveryNode> nodes,
-            Optional<DiscoveryFillAlgorithm> fillAlgorithm,
+            Optional<DiscoveryFillStrategy> fillStrategy,
             Optional<Map<String, String>> context) {}
 
-    enum DiscoveryFillAlgorithm {
+    enum DiscoveryFillStrategy {
         NONE,
         KUBERNETES,
         ;
