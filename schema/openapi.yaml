@@ -177,7 +177,7 @@ components:
         grafanaDatasourceUrl:
           type: string
       type: object
-    DiscoveryFillAlgorithm:
+    DiscoveryFillStrategy:
       enum:
         - NONE
         - KUBERNETES
@@ -270,8 +270,8 @@ components:
           type:
             - object
             - "null"
-        fillAlgorithm:
-          $ref: '#/components/schemas/DiscoveryFillAlgorithm'
+        fillStrategy:
+          $ref: '#/components/schemas/DiscoveryFillStrategy'
         nodes:
           items:
             $ref: '#/components/schemas/DiscoveryNode'
