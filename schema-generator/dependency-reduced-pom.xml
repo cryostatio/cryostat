@@ -46,12 +46,68 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>com.diffplug.spotless</groupId>
+        <artifactId>spotless-maven-plugin</artifactId>
+        <version>${com.diffplug.spotless.maven.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>spotless</id>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <java>
+            <googleJavaFormat>
+              <version>${com.google.java-format.version}</version>
+              <style>AOSP</style>
+              <reflowLongStrings>true</reflowLongStrings>
+            </googleJavaFormat>
+            <trimTrailingWhitespace />
+            <endWithNewline />
+            <importOrder>
+              <order>java,javax,org.openjdk.jmc,io.cryostat,</order>
+            </importOrder>
+            <removeUnusedImports />
+          </java>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>com.mycila</groupId>
+        <artifactId>license-maven-plugin</artifactId>
+        <version>${com.mycila.license.maven.plugin.version}</version>
+        <executions>
+          <execution>
+            <id>update-license</id>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+        <configuration>
+          <licenseSets>
+            <licenseSet>
+              <header>../LICENSE</header>
+              <includes>
+                <include>src/main/java/**/*.java</include>
+              </includes>
+            </licenseSet>
+          </licenseSets>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
   <properties>
     <maven.compiler.release>21</maven.compiler.release>
-    <maven.compiler.target>21</maven.compiler.target>
+    <com.diffplug.spotless.maven.plugin.version>3.1.0</com.diffplug.spotless.maven.plugin.version>
     <maven.compiler.source>21</maven.compiler.source>
+    <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
+    <maven.compiler.target>21</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <com.google.java-format.version>1.33.0</com.google.java-format.version>
   </properties>
 </project>

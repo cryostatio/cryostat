@@ -420,7 +420,59 @@ components:
             type: object
             properties:
               event:
-                $ref: '#/components/schemas/TargetDiscovery'
+                type: object
+                properties:
+                  kind:
+                    type: object
+                    description: Payload of type EventKind
+                  serviceRef:
+                    type: object
+                    properties:
+                      TARGET_JVM_DISCOVERY:
+                        type: string
+                      connectUrl:
+                        type: object
+                        description: Payload of type URI
+                      alias:
+                        type: string
+                      jvmId:
+                        type: string
+                      labels:
+                        type: object
+                        additionalProperties: true
+                      annotations:
+                        type: object
+                        properties:
+                          platform:
+                            type: object
+                            additionalProperties: true
+                          cryostat:
+                            type: object
+                            additionalProperties: true
+                      activeRecordings:
+                        type: array
+                      discoveryNode:
+                        type: object
+                        properties:
+                          NODE_TYPE:
+                            type: string
+                          name:
+                            type: string
+                          nodeType:
+                            type: string
+                          labels:
+                            type: object
+                            additionalProperties: true
+                          children:
+                            type: array
+                          parent:
+                            type: object
+                            description: Payload of type DiscoveryNode
+                          target:
+                            type: object
+                            description: Payload of type Target
+                  jvmId:
+                    type: string
         required:
         - meta
         - message

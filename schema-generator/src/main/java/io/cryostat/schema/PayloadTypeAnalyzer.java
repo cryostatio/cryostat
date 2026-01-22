@@ -31,10 +31,9 @@ import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.expr.Expression;
-import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
-import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
+import com.github.javaparser.resolution.types.ResolvedType;
 
 /** Analyzes notification payload types and generates JSON Schema representations. */
 public class PayloadTypeAnalyzer {
@@ -54,6 +53,33 @@ public class PayloadTypeAnalyzer {
     }
 
     private Map<String, Object> analyzeExpression(Expression expr) {
+        // Try to resolve the type using JavaParser's symbol solver
+        try {
+            ResolvedType resolvedType = expr.calculateResolvedType();
+            String typeName = resolvedType.describe();
+
+            // Handle Map.of(...) - common pattern for simple payloads
+            if (typeName.startsWith("java.util.Map")) {
+                return createMapSchema();
+            }
+
+            // Clean up the type name (remove package prefixes for project types)
+            String simpleTypeName = extractSimpleTypeName(typeName);
+            return analyzeType(simpleTypeName);
+
+        } catch (Exception e) {
+            // Fallback to heuristic analysis if type resolution fails
+            System.err.println(
+                    "Warning: Could not resolve type for expression: "
+                            + expr
+                            + " - "
+                            + e.getMessage());
+            return analyzeExpressionFallback(expr);
+        }
+    }
+
+    /** Fallback analysis when type resolution fails. */
+    private Map<String, Object> analyzeExpressionFallback(Expression expr) {
         // Handle Map.of(...) - common pattern for simple payloads
         if (expr instanceof MethodCallExpr) {
             MethodCallExpr methodCall = (MethodCallExpr) expr;
@@ -61,9 +87,6 @@ public class PayloadTypeAnalyzer {
                     && methodCall.getScope().map(s -> s.toString().equals("Map")).orElse(false)) {
                 return createMapSchema();
             }
-
-            // Handle method calls that return payload objects (e.g., event.payload())
-            return createObjectSchema("UnknownPayload");
         }
 
         // Handle object creation: new SomePayload(...)
@@ -73,13 +96,28 @@ public class PayloadTypeAnalyzer {
             return analyzeType(typeName);
         }
 
-        // Handle field access or variable reference
-        if (expr instanceof FieldAccessExpr || expr instanceof NameExpr) {
-            // Would need type resolution to determine the actual type
-            return createObjectSchema("UnknownPayload");
-        }
-
         return createObjectSchema("UnknownPayload");
+    }
+
+    /** Extract simple type name from fully qualified name. */
+    private String extractSimpleTypeName(String fullyQualifiedName) {
+        // Remove generic parameters
+        String withoutGenerics = fullyQualifiedName.replaceAll("<.*>", "");
+
+        // For nested classes like "io.cryostat.Foo.Bar", keep "Foo.Bar"
+        // For regular classes like "io.cryostat.Foo", keep "Foo"
+        if (withoutGenerics.contains(".")) {
+            String[] parts = withoutGenerics.split("\\.");
+            // If it looks like a nested class (last two parts start with uppercase)
+            if (parts.length >= 2
+                    && Character.isUpperCase(parts[parts.length - 2].charAt(0))
+                    && Character.isUpperCase(parts[parts.length - 1].charAt(0))) {
+                return parts[parts.length - 2] + "." + parts[parts.length - 1];
+            }
+            // Otherwise just return the simple name
+            return parts[parts.length - 1];
+        }
+        return withoutGenerics;
     }
 
     private Map<String, Object> analyzeType(String typeName) {
@@ -188,8 +226,12 @@ public class PayloadTypeAnalyzer {
             case "Collection":
                 return Map.of("type", "array");
             default:
-                // For custom types, create a reference
-                return createRefSchema(baseType);
+                // For complex types, try to analyze them inline (avoid circular references)
+                if (!analyzedTypes.contains(baseType)) {
+                    return analyzeType(baseType);
+                }
+                // If already analyzed (circular reference), just describe it
+                return createObjectSchema(baseType);
         }
     }
 
@@ -247,7 +289,12 @@ public class PayloadTypeAnalyzer {
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .flatMap(cu -> cu.findAll(RecordDeclaration.class).stream())
-                    .filter(record -> record.getNameAsString().equals(typeName))
+                    .filter(
+                            record ->
+                                    matchesTypeName(
+                                            record.getNameAsString(),
+                                            record.getFullyQualifiedName().orElse(""),
+                                            typeName))
                     .findFirst();
         } catch (IOException e) {
             return Optional.empty();
@@ -262,11 +309,43 @@ public class PayloadTypeAnalyzer {
                     .filter(Optional::isPresent)
                     .map(Optional::get)
                     .flatMap(cu -> cu.findAll(ClassOrInterfaceDeclaration.class).stream())
-                    .filter(cls -> cls.getNameAsString().equals(typeName))
+                    .filter(
+                            cls ->
+                                    matchesTypeName(
+                                            cls.getNameAsString(),
+                                            cls.getFullyQualifiedName().orElse(""),
+                                            typeName))
                     .findFirst();
         } catch (IOException e) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * Check if a type matches the target type name. Handles: - Simple names: "TargetDiscoveryEvent"
+     * - Nested class names: "Listener.TargetDiscoveryEvent" - Fully qualified names:
+     * "io.cryostat.discovery.Listener.TargetDiscoveryEvent"
+     */
+    private boolean matchesTypeName(
+            String simpleName, String fullyQualifiedName, String targetTypeName) {
+        // Direct simple name match
+        if (simpleName.equals(targetTypeName)) {
+            return true;
+        }
+
+        // Check if fully qualified name ends with the target type name
+        // This handles nested classes like "Listener.TargetDiscoveryEvent"
+        if (fullyQualifiedName.endsWith("." + targetTypeName)
+                || fullyQualifiedName.endsWith("$" + targetTypeName.replace(".", "$"))) {
+            return true;
+        }
+
+        // Check if the fully qualified name matches exactly
+        if (fullyQualifiedName.equals(targetTypeName)) {
+            return true;
+        }
+
+        return false;
     }
 
     private Optional<CompilationUnit> parseFile(Path javaFile) {
