@@ -4,6 +4,7 @@
     "config:recommended",
     ":dependencyDashboard"
   ],
+  "reviewersFromCodeOwners": true,
   "labels": [
     "dependencies",
     "chore",
