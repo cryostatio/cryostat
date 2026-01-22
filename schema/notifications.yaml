@@ -103,8 +103,6 @@ components:
               matchExpression:
                 type: object
                 properties:
-                  EXPRESSION_ADDRESS:
-                    type: string
                   script:
                     type: string
               targets:
@@ -363,8 +361,6 @@ components:
               matchExpression:
                 type: object
                 properties:
-                  EXPRESSION_ADDRESS:
-                    type: string
                   script:
                     type: string
               targets:
@@ -453,8 +449,6 @@ components:
               matchExpression:
                 type: object
                 properties:
-                  EXPRESSION_ADDRESS:
-                    type: string
                   script:
                     type: string
               targets:
@@ -493,8 +487,6 @@ components:
                   serviceRef:
                     type: object
                     properties:
-                      TARGET_JVM_DISCOVERY:
-                        type: string
                       connectUrl:
                         type: object
                         description: Payload of type URI
@@ -519,8 +511,6 @@ components:
                       discoveryNode:
                         type: object
                         properties:
-                          NODE_TYPE:
-                            type: string
                           name:
                             type: string
                           nodeType:
