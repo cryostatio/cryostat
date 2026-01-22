@@ -24,7 +24,11 @@ import java.util.stream.Collectors;
 public class AsyncAPISchemaBuilder {
 
     private static final String ASYNCAPI_VERSION = "2.6.0";
-    private static final String CRYOSTAT_VERSION = "4.2.0";
+    private final String cryostatVersion;
+
+    public AsyncAPISchemaBuilder(String cryostatVersion) {
+        this.cryostatVersion = cryostatVersion;
+    }
 
     public Map<String, Object> build(List<NotificationSite> notificationSites) {
         Map<String, Object> schema = new LinkedHashMap<>();
@@ -50,7 +54,7 @@ public class AsyncAPISchemaBuilder {
     private Map<String, Object> buildInfo() {
         Map<String, Object> info = new LinkedHashMap<>();
         info.put("title", "Cryostat WebSocket Notifications");
-        info.put("version", CRYOSTAT_VERSION);
+        info.put("version", cryostatVersion);
         info.put(
                 "description",
                 "Real-time notifications emitted by Cryostat for various events including recording"
