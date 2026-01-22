@@ -26,7 +26,9 @@ import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.expr.Expression;
+import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 
 /**
@@ -74,7 +76,7 @@ public class SourceCodeScanner {
         cu.findAll(MethodCallExpr.class)
                 .forEach(
                         methodCall -> {
-                            if (isNotificationPublish(methodCall)) {
+                            if (isNotificationPublish(cu, methodCall)) {
                                 NotificationSite site =
                                         extractNotificationSite(javaFile, methodCall);
                                 if (site != null) {
@@ -89,9 +91,23 @@ public class SourceCodeScanner {
     /**
      * Check if this method call is a notification publish call. Pattern:
      * eventBus.publish(MessagingServer.class.getName(), new Notification(...))
+     *
+     * <p>This method verifies that:
+     * <ol>
+     *   <li>The method is named "publish"</li>
+     *   <li>It's called on an EventBus instance (checked via imports and scope)</li>
+     *   <li>It has exactly 2 arguments</li>
+     *   <li>First argument is MessagingServer.class.getName()</li>
+     *   <li>Second argument is new Notification(...)</li>
+     * </ol>
      */
-    private boolean isNotificationPublish(MethodCallExpr methodCall) {
+    private boolean isNotificationPublish(CompilationUnit cu, MethodCallExpr methodCall) {
         if (!methodCall.getNameAsString().equals("publish")) {
+            return false;
+        }
+
+        // Check if the method is called on an EventBus instance
+        if (!isEventBusPublish(cu, methodCall)) {
             return false;
         }
 
@@ -115,6 +131,54 @@ public class SourceCodeScanner {
                                 .equals("Notification");
 
         return isMessagingServerTarget && isNotificationCreation;
+    }
+
+    /**
+     * Check if the publish method is being called on an EventBus instance. This checks:
+     * <ol>
+     *   <li>The compilation unit imports io.vertx.mutiny.core.eventbus.EventBus</li>
+     *   <li>The scope (receiver) of the method call is a simple name like "bus" or "eventBus"</li>
+     * </ol>
+     *
+     * <p>This is a heuristic approach since full type resolution would require configuring
+     * JavaParser's symbol solver with the entire classpath.
+     */
+    private boolean isEventBusPublish(CompilationUnit cu, MethodCallExpr methodCall) {
+        // Check if EventBus is imported
+        boolean hasEventBusImport =
+                cu.getImports().stream()
+                        .anyMatch(
+                                imp ->
+                                        imp.getNameAsString()
+                                                .equals("io.vertx.mutiny.core.eventbus.EventBus"));
+
+        if (!hasEventBusImport) {
+            return false;
+        }
+
+        // Check the scope (what the method is called on)
+        return methodCall
+                .getScope()
+                .map(
+                        scope -> {
+                            // Simple name like "bus" or "eventBus"
+                            if (scope instanceof NameExpr) {
+                                String name = ((NameExpr) scope).getNameAsString();
+                                // Common EventBus variable names
+                                return name.equals("bus")
+                                        || name.equals("eventBus")
+                                        || name.toLowerCase().contains("bus");
+                            }
+                            // Field access like "this.bus"
+                            if (scope instanceof FieldAccessExpr) {
+                                String fieldName = ((FieldAccessExpr) scope).getNameAsString();
+                                return fieldName.equals("bus")
+                                        || fieldName.equals("eventBus")
+                                        || fieldName.toLowerCase().contains("bus");
+                            }
+                            return false;
+                        })
+                .orElse(false);
     }
 
     /** Extract notification details from a publish method call. */
