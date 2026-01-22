@@ -1,0 +1,528 @@
+asyncapi: 2.6.0
+info:
+  title: Cryostat WebSocket Notifications
+  version: 4.2.0
+  description: Real-time notifications emitted by Cryostat for various events including
+    recording lifecycle, target discovery, diagnostic operations, and more. Clients
+    connect to the WebSocket endpoint and receive notifications as JSON messages.
+  contact:
+    name: Cryostat Development Team
+    url: https://cryostat.io
+    email: cryostat-development@googlegroups.com
+  license:
+    name: Apache 2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+servers:
+  production:
+    url: ws://localhost:8181/api/notifications
+    protocol: ws
+    description: WebSocket notification endpoint
+channels:
+  /api/notifications:
+    description: Subscribe to receive all Cryostat notifications
+    subscribe:
+      summary: Subscribe to Cryostat notifications
+      description: Clients connect to this WebSocket endpoint to receive real-time
+        notifications about events occurring in Cryostat.
+      message:
+        oneOf:
+        - $ref: '#/components/messages/ArchiveRecordingFailure'
+        - $ref: '#/components/messages/ArchiveRecordingSuccess'
+        - $ref: '#/components/messages/CredentialsDeleted'
+        - $ref: '#/components/messages/CredentialsStored'
+        - $ref: '#/components/messages/CredentialsUpdated'
+        - $ref: '#/components/messages/GrafanaUploadFailure'
+        - $ref: '#/components/messages/GrafanaUploadSuccess'
+        - $ref: '#/components/messages/HeapDumpFailure'
+        - $ref: '#/components/messages/HeapDumpSuccess'
+        - $ref: '#/components/messages/ProbeTemplateApplied'
+        - $ref: '#/components/messages/ProbeTemplateDeleted'
+        - $ref: '#/components/messages/ProbeTemplateUploaded'
+        - $ref: '#/components/messages/ProbesRemoved'
+        - $ref: '#/components/messages/ReportFailure'
+        - $ref: '#/components/messages/ReportSuccess'
+        - $ref: '#/components/messages/TargetJvmDiscovery'
+        - $ref: '#/components/messages/TemplateDeleted'
+        - $ref: '#/components/messages/TemplateUploaded'
+        - $ref: '#/components/messages/ThreadDumpFailure'
+components:
+  messages:
+    ThreadDumpFailure:
+      name: ThreadDumpFailure
+      title: Thread Dump Failure
+      summary: 'Notification: ThreadDumpFailure'
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:117
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ThreadDumpFailure
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    CredentialsStored:
+      name: CredentialsStored
+      title: Credentials Stored
+      summary: 'Notification: CredentialsStored'
+      description: Emitted from src/main/java/io/cryostat/credentials/Credential.java:134
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: CredentialsStored
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            description: Payload of type UnknownPayload
+        required:
+        - meta
+        - message
+    HeapDumpFailure:
+      name: HeapDumpFailure
+      title: Heap Dump Failure
+      summary: 'Notification: HeapDumpFailure'
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:332
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: HeapDumpFailure
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    ReportSuccess:
+      name: ReportSuccess
+      title: Report Success
+      summary: 'Notification: ReportSuccess'
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:249
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ReportSuccess
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    ArchiveRecordingFailure:
+      name: ArchiveRecordingFailure
+      title: Archive Recording Failure
+      summary: 'Notification: ArchiveRecordingFailure'
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:154
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ArchiveRecordingFailure
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    ProbeTemplateApplied:
+      name: ProbeTemplateApplied
+      title: Probe Template Applied
+      summary: 'Notification: ProbeTemplateApplied'
+      description: Emitted from src/main/java/io/cryostat/jmcagent/JMCAgentProbes.java:102
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ProbeTemplateApplied
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    TemplateDeleted:
+      name: TemplateDeleted
+      title: Template Deleted
+      summary: 'Notification: TemplateDeleted'
+      description: Emitted from src/main/java/io/cryostat/events/S3TemplateService.java:368
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: TemplateDeleted
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    ProbeTemplateUploaded:
+      name: ProbeTemplateUploaded
+      title: Probe Template Uploaded
+      summary: 'Notification: ProbeTemplateUploaded'
+      description: Emitted from src/main/java/io/cryostat/jmcagent/S3ProbeTemplateService.java:174
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ProbeTemplateUploaded
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    GrafanaUploadSuccess:
+      name: GrafanaUploadSuccess
+      title: Grafana Upload Success
+      summary: 'Notification: GrafanaUploadSuccess'
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:172
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: GrafanaUploadSuccess
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    ProbesRemoved:
+      name: ProbesRemoved
+      title: Probes Removed
+      summary: 'Notification: ProbesRemoved'
+      description: Emitted from src/main/java/io/cryostat/jmcagent/JMCAgentProbes.java:148
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ProbesRemoved
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    CredentialsDeleted:
+      name: CredentialsDeleted
+      title: Credentials Deleted
+      summary: 'Notification: CredentialsDeleted'
+      description: Emitted from src/main/java/io/cryostat/credentials/Credential.java:152
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: CredentialsDeleted
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            description: Payload of type UnknownPayload
+        required:
+        - meta
+        - message
+    GrafanaUploadFailure:
+      name: GrafanaUploadFailure
+      title: Grafana Upload Failure
+      summary: 'Notification: GrafanaUploadFailure'
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:185
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: GrafanaUploadFailure
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    TemplateUploaded:
+      name: TemplateUploaded
+      title: Template Uploaded
+      summary: 'Notification: TemplateUploaded'
+      description: Emitted from src/main/java/io/cryostat/events/S3TemplateService.java:343
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: TemplateUploaded
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    CredentialsUpdated:
+      name: CredentialsUpdated
+      title: Credentials Updated
+      summary: 'Notification: CredentialsUpdated'
+      description: Emitted from src/main/java/io/cryostat/credentials/Credential.java:143
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: CredentialsUpdated
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            description: Payload of type UnknownPayload
+        required:
+        - meta
+        - message
+    TargetJvmDiscovery:
+      name: TargetJvmDiscovery
+      title: Target Jvm Discovery
+      summary: 'Notification: TargetJvmDiscovery'
+      description: Emitted from src/main/java/io/cryostat/targets/Target.java:351
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: TargetJvmDiscovery
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              event:
+                $ref: '#/components/schemas/TargetDiscovery'
+        required:
+        - meta
+        - message
+    HeapDumpSuccess:
+      name: HeapDumpSuccess
+      title: Heap Dump Success
+      summary: 'Notification: HeapDumpSuccess'
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:325
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: HeapDumpSuccess
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    ArchiveRecordingSuccess:
+      name: ArchiveRecordingSuccess
+      title: Archive Recording Success
+      summary: 'Notification: ArchiveRecordingSuccess'
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:135
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ArchiveRecordingSuccess
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    ProbeTemplateDeleted:
+      name: ProbeTemplateDeleted
+      title: Probe Template Deleted
+      summary: 'Notification: ProbeTemplateDeleted'
+      description: Emitted from src/main/java/io/cryostat/jmcagent/S3ProbeTemplateService.java:136
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ProbeTemplateDeleted
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+    ReportFailure:
+      name: ReportFailure
+      title: Report Failure
+      summary: 'Notification: ReportFailure'
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:270
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ReportFailure
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
+        required:
+        - meta
+        - message
+  schemas: {
+    }
