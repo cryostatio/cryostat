@@ -93,7 +93,18 @@ components:
             - category
           message:
             type: object
-            description: Payload of type UnknownPayload
+            properties:
+              id:
+                type: integer
+              matchExpression:
+                type: object
+                properties:
+                  EXPRESSION_ADDRESS:
+                    type: string
+                  script:
+                    type: string
+              targets:
+                type: array
         required:
         - meta
         - message
@@ -317,8 +328,7 @@ components:
             required:
             - category
           message:
-            type: object
-            description: Payload of type UnknownPayload
+            $ref: '#/components/schemas/Credentials.CredentialMatchResult'
         required:
         - meta
         - message
@@ -392,8 +402,7 @@ components:
             required:
             - category
           message:
-            type: object
-            description: Payload of type UnknownPayload
+            $ref: '#/components/schemas/Credentials.CredentialMatchResult'
         required:
         - meta
         - message
