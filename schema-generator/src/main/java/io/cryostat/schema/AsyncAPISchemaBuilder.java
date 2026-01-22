@@ -32,22 +32,11 @@ public class AsyncAPISchemaBuilder {
 
     public Map<String, Object> build(List<NotificationSite> notificationSites) {
         Map<String, Object> schema = new LinkedHashMap<>();
-
-        // AsyncAPI version
         schema.put("asyncapi", ASYNCAPI_VERSION);
-
-        // Info section
         schema.put("info", buildInfo());
-
-        // Servers section
         schema.put("servers", buildServers());
-
-        // Channels section
         schema.put("channels", buildChannels(notificationSites));
-
-        // Components section
         schema.put("components", buildComponents(notificationSites));
-
         return schema;
     }
 
@@ -129,7 +118,6 @@ public class AsyncAPISchemaBuilder {
     private Map<String, Object> buildComponents(List<NotificationSite> notificationSites) {
         Map<String, Object> components = new LinkedHashMap<>();
 
-        // Build messages
         Map<String, Object> messages = new LinkedHashMap<>();
 
         // Group sites by category
@@ -169,14 +157,12 @@ public class AsyncAPISchemaBuilder {
                         site.getSourceFile().replaceAll(".*/src/main/java/", ""),
                         site.getLineNumber()));
 
-        // Build payload schema
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("type", "object");
         payload.put("description", "WebSocket notification message wrapper");
 
         Map<String, Object> properties = new LinkedHashMap<>();
 
-        // Meta property
         Map<String, Object> meta = new LinkedHashMap<>();
         meta.put("type", "object");
         meta.put("description", "Notification metadata");
@@ -190,7 +176,6 @@ public class AsyncAPISchemaBuilder {
         meta.put("required", List.of("category"));
         properties.put("meta", meta);
 
-        // Message property (the actual payload)
         Map<String, Object> messagePayload = site.getPayloadSchema();
         if (messagePayload != null && !messagePayload.isEmpty()) {
             properties.put("message", messagePayload);
@@ -210,7 +195,6 @@ public class AsyncAPISchemaBuilder {
     }
 
     private String formatTitle(String category) {
-        // Convert "ActiveRecordingCreated" to "Active Recording Created"
         return category.replaceAll("([A-Z])", " $1").trim();
     }
 }
