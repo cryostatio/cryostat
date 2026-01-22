@@ -17,6 +17,7 @@ package io.cryostat.schema;
 
 import java.util.Map;
 
+import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.Expression;
 
 /** Represents a location in the source code where a WebSocket notification is published. */
@@ -25,6 +26,7 @@ public class NotificationSite {
     private final int lineNumber;
     private final Expression categoryExpression;
     private final Expression payloadExpression;
+    private final MethodDeclaration enclosingMethod;
 
     private String resolvedCategory;
     private Map<String, Object> payloadSchema;
@@ -33,11 +35,13 @@ public class NotificationSite {
             String sourceFile,
             int lineNumber,
             Expression categoryExpression,
-            Expression payloadExpression) {
+            Expression payloadExpression,
+            MethodDeclaration enclosingMethod) {
         this.sourceFile = sourceFile;
         this.lineNumber = lineNumber;
         this.categoryExpression = categoryExpression;
         this.payloadExpression = payloadExpression;
+        this.enclosingMethod = enclosingMethod;
     }
 
     public String getSourceFile() {
@@ -54,6 +58,10 @@ public class NotificationSite {
 
     public Expression getPayloadExpression() {
         return payloadExpression;
+    }
+
+    public MethodDeclaration getEnclosingMethod() {
+        return enclosingMethod;
     }
 
     public String getResolvedCategory() {
