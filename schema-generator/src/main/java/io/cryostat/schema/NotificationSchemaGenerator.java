@@ -113,7 +113,26 @@ public class NotificationSchemaGenerator {
         }
 
         // Add compiled classes from target directory using ClassLoader
-        Path targetClasses = sourceDir.getParent().resolve("target/classes");
+        // sourceDir is src/main/java, so we need to go up 3 levels to get to project root
+        // First convert to absolute path
+        Path absoluteSourceDir = sourceDir.toAbsolutePath().normalize();
+        Path projectRoot = absoluteSourceDir.getParent(); // src/main
+        if (projectRoot != null) {
+            projectRoot = projectRoot.getParent(); // src
+        }
+        if (projectRoot != null) {
+            projectRoot = projectRoot.getParent(); // project root
+        }
+
+        if (projectRoot == null) {
+            System.err.println(
+                    "Warning: Could not determine project root from source directory: "
+                            + absoluteSourceDir);
+            return;
+        }
+
+        Path targetClasses = projectRoot.resolve("target/classes");
+        System.out.println("Checking for compiled classes at: " + targetClasses);
         if (java.nio.file.Files.exists(targetClasses)) {
             try {
                 // Create a custom ClassLoader that includes the compiled classes
@@ -129,7 +148,8 @@ public class NotificationSchemaGenerator {
         }
 
         // Add dependency JARs from Maven repository (for full package build)
-        Path targetLib = sourceDir.getParent().resolve("target/quarkus-app/lib/main");
+        Path targetLib = projectRoot.resolve("target/quarkus-app/lib/main");
+        System.out.println("Checking for dependency JARs at: " + targetLib);
         if (java.nio.file.Files.exists(targetLib)) {
             try {
                 int jarCount = 0;

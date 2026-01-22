@@ -7,9 +7,11 @@ cd "${DIR}/.."
 
 CRYOSTAT_VERSION=$(./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version)
 
-# Compile the main Cryostat project to ensure dependencies are available for type resolution
-echo "Compiling Cryostat project for dependency resolution..."
-./mvnw -B clean compile -DskipTests -Dspotless.check.skip=true
+# Package the main Cryostat project to get full classpath with all dependencies
+# This enables complete type resolution including external library types
+# Skip Quinoa (frontend build) to speed up the process
+echo "Packaging Cryostat project for full classpath resolution (skipping frontend build)..."
+./mvnw -B clean package -DskipTests -Dspotless.check.skip=true -Dspotbugs.skip=true -Dlicense.skip=true -Dquarkus.quinoa=disabled
 
 # Build the schema generator tool
 echo "Building notification schema generator..."
