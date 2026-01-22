@@ -28,23 +28,25 @@ import org.yaml.snakeyaml.Yaml;
 public class NotificationSchemaGenerator {
 
     public static void main(String[] args) {
-        if (args.length < 2) {
+        if (args.length < 3) {
             System.err.println(
-                    "Usage: NotificationSchemaGenerator <source-directory> <output-file>");
+                    "Usage: NotificationSchemaGenerator <source-directory> <output-file> <cryostat-version>");
             System.err.println(
-                    "Example: NotificationSchemaGenerator src/main/java schema/notifications.yaml");
+                    "Example: NotificationSchemaGenerator src/main/java schema/notifications.yaml 4.2.0");
             System.exit(1);
         }
 
         Path sourceDir = Paths.get(args[0]);
         Path outputFile = Paths.get(args[1]);
+        String cryostatVersion = args[2];
 
         System.out.println("Scanning source directory: " + sourceDir);
         System.out.println("Output file: " + outputFile);
+        System.out.println("Cryostat version: " + cryostatVersion);
 
         try {
             NotificationSchemaGenerator generator = new NotificationSchemaGenerator();
-            generator.generate(sourceDir, outputFile);
+            generator.generate(sourceDir, outputFile, cryostatVersion);
             System.out.println("Successfully generated notification schema!");
         } catch (Exception e) {
             System.err.println("Error generating notification schema: " + e.getMessage());
@@ -53,7 +55,8 @@ public class NotificationSchemaGenerator {
         }
     }
 
-    public void generate(Path sourceDir, Path outputFile) throws IOException {
+    public void generate(Path sourceDir, Path outputFile, String cryostatVersion)
+            throws IOException {
         // Step 1: Scan source code for notification patterns
         SourceCodeScanner scanner = new SourceCodeScanner();
         List<NotificationSite> notificationSites = scanner.scan(sourceDir);
@@ -72,7 +75,7 @@ public class NotificationSchemaGenerator {
         }
 
         // Step 3: Build AsyncAPI schema
-        AsyncAPISchemaBuilder schemaBuilder = new AsyncAPISchemaBuilder();
+        AsyncAPISchemaBuilder schemaBuilder = new AsyncAPISchemaBuilder(cryostatVersion);
         Map<String, Object> asyncApiSchema = schemaBuilder.build(notificationSites);
 
         // Step 4: Write to YAML file

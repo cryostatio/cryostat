@@ -24,20 +24,30 @@ This creates a fat JAR with all dependencies: `target/notification-schema-genera
 ### Command Line
 
 ```bash
-java -jar target/notification-schema-generator.jar <source-directory> <output-file>
+java -jar target/notification-schema-generator.jar <source-directory> <output-file> <cryostat-version>
 ```
 
 Example:
 ```bash
-java -jar target/notification-schema-generator.jar ../src/main/java ../schema/notifications.yaml
+java -jar target/notification-schema-generator.jar ../src/main/java ../schema/notifications.yaml 4.2.0-SNAPSHOT
 ```
 
-### Via Script
+**Parameters:**
+- `source-directory`: Path to the Java source code directory to scan
+- `output-file`: Path where the AsyncAPI YAML schema will be written
+- `cryostat-version`: Version string to include in the generated schema (typically extracted from pom.xml)
+
+### Via Script (Recommended)
 
 From the Cryostat root directory:
 ```bash
 ./schema/generate-notifications.bash
 ```
+
+This script automatically:
+1. Extracts the Cryostat version from `pom.xml`
+2. Builds the schema generator
+3. Runs the generator with the correct parameters
 
 ## How It Works
 
