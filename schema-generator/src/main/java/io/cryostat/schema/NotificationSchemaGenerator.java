@@ -22,6 +22,14 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 
+import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.StaticJavaParser;
+import com.github.javaparser.symbolsolver.JavaSymbolSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ClassLoaderTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.JarTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
+import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
@@ -30,9 +38,11 @@ public class NotificationSchemaGenerator {
     public static void main(String[] args) {
         if (args.length < 3) {
             System.err.println(
-                    "Usage: NotificationSchemaGenerator <source-directory> <output-file> <cryostat-version>");
+                    "Usage: NotificationSchemaGenerator <source-directory> <output-file>"
+                            + " <cryostat-version>");
             System.err.println(
-                    "Example: NotificationSchemaGenerator src/main/java schema/notifications.yaml 4.2.0");
+                    "Example: NotificationSchemaGenerator src/main/java schema/notifications.yaml"
+                            + " 4.2.0");
             System.exit(1);
         }
 
@@ -57,6 +67,9 @@ public class NotificationSchemaGenerator {
 
     public void generate(Path sourceDir, Path outputFile, String cryostatVersion)
             throws IOException {
+        // Step 0: Set up JavaParser with symbol resolution
+        setupSymbolSolver(sourceDir);
+
         // Step 1: Scan source code for notification patterns
         SourceCodeScanner scanner = new SourceCodeScanner();
         List<NotificationSite> notificationSites = scanner.scan(sourceDir);
@@ -82,6 +95,68 @@ public class NotificationSchemaGenerator {
         writeYaml(asyncApiSchema, outputFile);
 
         System.out.println("Schema written to: " + outputFile);
+    }
+
+    /** Set up JavaParser's symbol solver to enable type resolution across all scanners. */
+    private void setupSymbolSolver(Path sourceDir) {
+        CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
+
+        // Add reflection type solver for JDK classes
+        combinedTypeSolver.add(new ReflectionTypeSolver());
+
+        // Add source directory type solver for project classes
+        try {
+            combinedTypeSolver.add(new JavaParserTypeSolver(sourceDir.toFile()));
+        } catch (Exception e) {
+            System.err.println(
+                    "Warning: Could not set up source directory type solver: " + e.getMessage());
+        }
+
+        // Add compiled classes from target directory using ClassLoader
+        Path targetClasses = sourceDir.getParent().resolve("target/classes");
+        if (java.nio.file.Files.exists(targetClasses)) {
+            try {
+                // Create a custom ClassLoader that includes the compiled classes
+                java.net.URL[] urls = new java.net.URL[] {targetClasses.toUri().toURL()};
+                java.net.URLClassLoader classLoader =
+                        new java.net.URLClassLoader(urls, ClassLoader.getSystemClassLoader());
+                combinedTypeSolver.add(new ClassLoaderTypeSolver(classLoader));
+                System.out.println("Added compiled classes from " + targetClasses);
+            } catch (Exception e) {
+                System.err.println(
+                        "Warning: Could not set up compiled classes resolver: " + e.getMessage());
+            }
+        }
+
+        // Add dependency JARs from Maven repository (for full package build)
+        Path targetLib = sourceDir.getParent().resolve("target/quarkus-app/lib/main");
+        if (java.nio.file.Files.exists(targetLib)) {
+            try {
+                int jarCount = 0;
+                for (Path jarPath :
+                        (Iterable<Path>)
+                                java.nio.file.Files.walk(targetLib)
+                                                .filter(p -> p.toString().endsWith(".jar"))
+                                        ::iterator) {
+                    try {
+                        combinedTypeSolver.add(new JarTypeSolver(jarPath.toString()));
+                        jarCount++;
+                    } catch (Exception e) {
+                        // Silently skip JARs that can't be loaded
+                    }
+                }
+                System.out.println("Added " + jarCount + " dependency JARs from " + targetLib);
+            } catch (Exception e) {
+                System.err.println("Warning: Could not add dependency JARs: " + e.getMessage());
+            }
+        }
+
+        // Configure JavaParser to use the symbol solver
+        JavaSymbolSolver symbolSolver = new JavaSymbolSolver(combinedTypeSolver);
+        ParserConfiguration config = new ParserConfiguration();
+        config.setSymbolResolver(symbolSolver);
+        config.setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21);
+        StaticJavaParser.setConfiguration(config);
     }
 
     private void writeYaml(Map<String, Object> schema, Path outputFile) throws IOException {

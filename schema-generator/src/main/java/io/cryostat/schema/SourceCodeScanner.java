@@ -22,7 +22,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
-import com.github.javaparser.ParserConfiguration;
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
 import com.github.javaparser.ast.expr.Expression;
@@ -38,10 +37,8 @@ import com.github.javaparser.ast.expr.ObjectCreationExpr;
 public class SourceCodeScanner {
 
     public SourceCodeScanner() {
-        // Configure JavaParser to support Java 21 features
-        ParserConfiguration config = new ParserConfiguration();
-        config.setLanguageLevel(ParserConfiguration.LanguageLevel.JAVA_21);
-        StaticJavaParser.setConfiguration(config);
+        // JavaParser configuration (including symbol resolver) is set up centrally
+        // in NotificationSchemaGenerator before any scanners are created
     }
 
     public List<NotificationSite> scan(Path sourceDir) throws IOException {
@@ -93,12 +90,13 @@ public class SourceCodeScanner {
      * eventBus.publish(MessagingServer.class.getName(), new Notification(...))
      *
      * <p>This method verifies that:
+     *
      * <ol>
-     *   <li>The method is named "publish"</li>
-     *   <li>It's called on an EventBus instance (checked via imports and scope)</li>
-     *   <li>It has exactly 2 arguments</li>
-     *   <li>First argument is MessagingServer.class.getName()</li>
-     *   <li>Second argument is new Notification(...)</li>
+     *   <li>The method is named "publish"
+     *   <li>It's called on an EventBus instance (checked via imports and scope)
+     *   <li>It has exactly 2 arguments
+     *   <li>First argument is MessagingServer.class.getName()
+     *   <li>Second argument is new Notification(...)
      * </ol>
      */
     private boolean isNotificationPublish(CompilationUnit cu, MethodCallExpr methodCall) {
@@ -135,9 +133,10 @@ public class SourceCodeScanner {
 
     /**
      * Check if the publish method is being called on an EventBus instance. This checks:
+     *
      * <ol>
-     *   <li>The compilation unit imports io.vertx.mutiny.core.eventbus.EventBus</li>
-     *   <li>The scope (receiver) of the method call is a simple name like "bus" or "eventBus"</li>
+     *   <li>The compilation unit imports io.vertx.mutiny.core.eventbus.EventBus
+     *   <li>The scope (receiver) of the method call is a simple name like "bus" or "eventBus"
      * </ol>
      *
      * <p>This is a heuristic approach since full type resolution would require configuring
