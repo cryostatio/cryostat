@@ -50,10 +50,10 @@ import io.cryostat.libcryostat.templates.InvalidEventTemplateException;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.ArchivedRecordingMetadataService;
-import io.cryostat.recordings.LongRunningRequestGenerator.TemplatePayload;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
+import io.cryostat.ws.notifications.NotificationPayloads.TemplatePayload;
 
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;

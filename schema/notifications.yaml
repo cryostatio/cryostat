@@ -51,7 +51,7 @@ components:
       name: ThreadDumpFailure
       title: Thread Dump Failure
       summary: 'Notification: ThreadDumpFailure'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:164
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:118
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -114,7 +114,7 @@ components:
       name: HeapDumpFailure
       title: Heap Dump Failure
       summary: 'Notification: HeapDumpFailure'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:369
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:323
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -141,7 +141,7 @@ components:
       name: ReportSuccess
       title: Report Success
       summary: 'Notification: ReportSuccess'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:289
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:243
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -170,7 +170,7 @@ components:
       name: ArchiveRecordingFailure
       title: Archive Recording Failure
       summary: 'Notification: ArchiveRecordingFailure'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:194
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:148
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -197,7 +197,7 @@ components:
       name: ProbeTemplateApplied
       title: Probe Template Applied
       summary: 'Notification: ProbeTemplateApplied'
-      description: Emitted from src/main/java/io/cryostat/jmcagent/JMCAgentProbes.java:101
+      description: Emitted from src/main/java/io/cryostat/jmcagent/JMCAgentProbes.java:102
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -282,7 +282,7 @@ components:
       name: GrafanaUploadSuccess
       title: Grafana Upload Success
       summary: 'Notification: GrafanaUploadSuccess'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:212
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:166
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -309,7 +309,7 @@ components:
       name: ProbesRemoved
       title: Probes Removed
       summary: 'Notification: ProbesRemoved'
-      description: Emitted from src/main/java/io/cryostat/jmcagent/JMCAgentProbes.java:144
+      description: Emitted from src/main/java/io/cryostat/jmcagent/JMCAgentProbes.java:145
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -372,7 +372,7 @@ components:
       name: GrafanaUploadFailure
       title: Grafana Upload Failure
       summary: 'Notification: GrafanaUploadFailure'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:225
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:179
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -535,7 +535,7 @@ components:
       name: HeapDumpSuccess
       title: Heap Dump Success
       summary: 'Notification: HeapDumpSuccess'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:362
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:316
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -564,7 +564,7 @@ components:
       name: ArchiveRecordingSuccess
       title: Archive Recording Success
       summary: 'Notification: ArchiveRecordingSuccess'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:182
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:136
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -624,7 +624,7 @@ components:
       name: ReportFailure
       title: Report Failure
       summary: 'Notification: ReportFailure'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:307
+      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:261
       payload:
         type: object
         description: WebSocket notification message wrapper
