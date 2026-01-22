@@ -17,37 +17,48 @@
   "packageRules": [
     {
       "description": "Require approval for Quarkus minor version updates",
-      "matchManagers": ["maven"],
-      "matchPackagePatterns": [
-        "^io\\.quarkus:",
-        "^io\\.quarkus\\.platform:"
+      "matchManagers": [
+        "maven"
       ],
-      "matchUpdateTypes": ["major", "minor"],
-      "dependencyDashboardApproval": true
+      "matchUpdateTypes": [
+        "major",
+        "minor"
+      ],
+      "dependencyDashboardApproval": true,
+      "matchPackageNames": [
+        "/^io\\.quarkus:/",
+        "/^io\\.quarkus\\.platform:/"
+      ]
     },
     {
       "description": "Require approval for projectnessie updates",
-      "matchManagers": ["maven"],
-      "matchPackagePatterns": [
-        "^org\\.projectnessie\\.cel:"
+      "matchManagers": [
+        "maven"
       ],
-      "dependencyDashboardApproval": true
+      "dependencyDashboardApproval": true,
+      "matchPackageNames": [
+        "/^org\\.projectnessie\\.cel:/"
+      ]
     },
     {
       "description": "Require approval for protobuf updates",
-      "matchManagers": ["maven"],
-      "matchPackagePatterns": [
-        "^com\\.google\\.protobuf:"
+      "matchManagers": [
+        "maven"
       ],
-      "dependencyDashboardApproval": true
+      "dependencyDashboardApproval": true,
+      "matchPackageNames": [
+        "/^com\\.google\\.protobuf:/"
+      ]
     },
     {
       "description": "Require approval for hibernate-jfr updates",
-      "matchManagers": ["maven"],
-      "matchPackagePatterns": [
-        "^org\\.hibernate\\.orm:hibernate-jfr"
+      "matchManagers": [
+        "maven"
       ],
-      "dependencyDashboardApproval": true
+      "dependencyDashboardApproval": true,
+      "matchPackageNames": [
+        "/^org\\.hibernate\\.orm:hibernate-jfr/"
+      ]
     }
   ]
 }
