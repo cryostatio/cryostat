@@ -51,7 +51,7 @@ components:
       name: ThreadDumpFailure
       title: Thread Dump Failure
       summary: 'Notification: ThreadDumpFailure'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:122
+      description: WebSocket notification for Thread Dump Failure events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -80,7 +80,7 @@ components:
       name: CredentialsStored
       title: Credentials Stored
       summary: 'Notification: CredentialsStored'
-      description: Emitted from src/main/java/io/cryostat/credentials/Credential.java:134
+      description: WebSocket notification for Credentials Stored events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -114,7 +114,7 @@ components:
       name: HeapDumpFailure
       title: Heap Dump Failure
       summary: 'Notification: HeapDumpFailure'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:327
+      description: WebSocket notification for Heap Dump Failure events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -141,7 +141,7 @@ components:
       name: ReportSuccess
       title: Report Success
       summary: 'Notification: ReportSuccess'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:247
+      description: WebSocket notification for Report Success events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -170,7 +170,7 @@ components:
       name: ArchiveRecordingFailure
       title: Archive Recording Failure
       summary: 'Notification: ArchiveRecordingFailure'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:152
+      description: WebSocket notification for Archive Recording Failure events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -197,7 +197,7 @@ components:
       name: ProbeTemplateApplied
       title: Probe Template Applied
       summary: 'Notification: ProbeTemplateApplied'
-      description: Emitted from src/main/java/io/cryostat/jmcagent/JMCAgentProbes.java:103
+      description: WebSocket notification for Probe Template Applied events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -226,7 +226,7 @@ components:
       name: TemplateDeleted
       title: Template Deleted
       summary: 'Notification: TemplateDeleted'
-      description: Emitted from src/main/java/io/cryostat/events/S3TemplateService.java:370
+      description: WebSocket notification for Template Deleted events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -253,7 +253,7 @@ components:
       name: ProbeTemplateUploaded
       title: Probe Template Uploaded
       summary: 'Notification: ProbeTemplateUploaded'
-      description: Emitted from src/main/java/io/cryostat/jmcagent/S3ProbeTemplateService.java:175
+      description: WebSocket notification for Probe Template Uploaded events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -282,7 +282,7 @@ components:
       name: GrafanaUploadSuccess
       title: Grafana Upload Success
       summary: 'Notification: GrafanaUploadSuccess'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:170
+      description: WebSocket notification for Grafana Upload Success events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -309,7 +309,7 @@ components:
       name: ProbesRemoved
       title: Probes Removed
       summary: 'Notification: ProbesRemoved'
-      description: Emitted from src/main/java/io/cryostat/jmcagent/JMCAgentProbes.java:146
+      description: WebSocket notification for Probes Removed events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -338,7 +338,7 @@ components:
       name: CredentialsDeleted
       title: Credentials Deleted
       summary: 'Notification: CredentialsDeleted'
-      description: Emitted from src/main/java/io/cryostat/credentials/Credential.java:152
+      description: WebSocket notification for Credentials Deleted events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -372,7 +372,7 @@ components:
       name: GrafanaUploadFailure
       title: Grafana Upload Failure
       summary: 'Notification: GrafanaUploadFailure'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:183
+      description: WebSocket notification for Grafana Upload Failure events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -399,7 +399,7 @@ components:
       name: TemplateUploaded
       title: Template Uploaded
       summary: 'Notification: TemplateUploaded'
-      description: Emitted from src/main/java/io/cryostat/events/S3TemplateService.java:344
+      description: WebSocket notification for Template Uploaded events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -426,7 +426,7 @@ components:
       name: CredentialsUpdated
       title: Credentials Updated
       summary: 'Notification: CredentialsUpdated'
-      description: Emitted from src/main/java/io/cryostat/credentials/Credential.java:143
+      description: WebSocket notification for Credentials Updated events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -460,7 +460,7 @@ components:
       name: TargetJvmDiscovery
       title: Target Jvm Discovery
       summary: 'Notification: TargetJvmDiscovery'
-      description: Emitted from src/main/java/io/cryostat/targets/Target.java:351
+      description: WebSocket notification for Target Jvm Discovery events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -535,7 +535,7 @@ components:
       name: HeapDumpSuccess
       title: Heap Dump Success
       summary: 'Notification: HeapDumpSuccess'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:320
+      description: WebSocket notification for Heap Dump Success events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -564,7 +564,7 @@ components:
       name: ArchiveRecordingSuccess
       title: Archive Recording Success
       summary: 'Notification: ArchiveRecordingSuccess'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:140
+      description: WebSocket notification for Archive Recording Success events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -597,7 +597,7 @@ components:
       name: ProbeTemplateDeleted
       title: Probe Template Deleted
       summary: 'Notification: ProbeTemplateDeleted'
-      description: Emitted from src/main/java/io/cryostat/jmcagent/S3ProbeTemplateService.java:137
+      description: WebSocket notification for Probe Template Deleted events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -624,7 +624,7 @@ components:
       name: ReportFailure
       title: Report Failure
       summary: 'Notification: ReportFailure'
-      description: Emitted from src/main/java/io/cryostat/recordings/LongRunningRequestGenerator.java:265
+      description: WebSocket notification for Report Failure events
       payload:
         type: object
         description: WebSocket notification message wrapper
