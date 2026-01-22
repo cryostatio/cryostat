@@ -14,6 +14,7 @@
   "major": {
     "dependencyDashboardApproval": true
   },
+  "stopUpdatingLabel": "blocked",
   "packageRules": [
     {
       "description": "Require approval for Quarkus minor version updates",
