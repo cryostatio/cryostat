@@ -55,6 +55,4 @@ elif command -v wget; then
     wget http://localhost:8181/api/v4/graphql/schema.graphql -O "${DIR}/schema.graphql"
 fi
 
-# Generate WebSocket notification schema
-echo "Generating WebSocket notification schema..."
 "${DIR}"/generate-notifications.bash
