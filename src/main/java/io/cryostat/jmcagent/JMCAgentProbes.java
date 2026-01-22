@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import javax.management.InstanceNotFoundException;
 
@@ -103,11 +102,8 @@ public class JMCAgentProbes {
                                 MessagingServer.class.getName(),
                                 new Notification(
                                         TEMPLATE_APPLIED_CATEGORY,
-                                        Map.of(
-                                                "jvmId",
-                                                target.jvmId,
-                                                "probeTemplate",
-                                                probeTemplateName)));
+                                        new ProbeTemplateAppliedPayload(
+                                                target.jvmId, probeTemplateName)));
                         return null;
                     } catch (InstanceNotFoundException infe) {
                         throw new BadRequestException(infe);
@@ -149,11 +145,8 @@ public class JMCAgentProbes {
                                 MessagingServer.class.getName(),
                                 new Notification(
                                         PROBES_REMOVED_CATEGORY,
-                                        Map.of(
-                                                "jvmId",
-                                                target.jvmId,
-                                                "target",
-                                                target.connectUrl.toString())));
+                                        new ProbesRemovedPayload(
+                                                target.jvmId, target.connectUrl.toString())));
                         return null;
                     } catch (InstanceNotFoundException infe) {
                         throw new BadRequestException(infe);
@@ -211,6 +204,20 @@ public class JMCAgentProbes {
                         throw new InternalServerErrorException(e);
                     }
                 });
+    }
+
+    public record ProbeTemplateAppliedPayload(String jvmId, String probeTemplate) {
+        public ProbeTemplateAppliedPayload {
+            java.util.Objects.requireNonNull(jvmId);
+            java.util.Objects.requireNonNull(probeTemplate);
+        }
+    }
+
+    public record ProbesRemovedPayload(String jvmId, String target) {
+        public ProbesRemovedPayload {
+            java.util.Objects.requireNonNull(jvmId);
+            java.util.Objects.requireNonNull(target);
+        }
     }
 
     static record ProbeResponse(String name, String description) {
