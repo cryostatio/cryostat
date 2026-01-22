@@ -205,6 +205,13 @@ public class SourceCodeScanner {
 
         int lineNumber = methodCall.getBegin().map(p -> p.line).orElse(-1);
 
-        return new NotificationSite(javaFile.toString(), lineNumber, categoryExpr, payloadExpr);
+        // Capture the enclosing method for context
+        com.github.javaparser.ast.body.MethodDeclaration enclosingMethod =
+                methodCall
+                        .findAncestor(com.github.javaparser.ast.body.MethodDeclaration.class)
+                        .orElse(null);
+
+        return new NotificationSite(
+                javaFile.toString(), lineNumber, categoryExpr, payloadExpr, enclosingMethod);
     }
 }
