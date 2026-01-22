@@ -50,6 +50,7 @@ import io.cryostat.libcryostat.templates.InvalidEventTemplateException;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.ArchivedRecordingMetadataService;
+import io.cryostat.recordings.LongRunningRequestGenerator.TemplatePayload;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
@@ -352,7 +353,8 @@ public class S3TemplateService implements MutableTemplateService {
 
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(EVENT_TEMPLATE_CREATED, Map.of("template", template)));
+                    new Notification(
+                            EVENT_TEMPLATE_CREATED, new TemplatePayload(template.getName())));
             return template;
         } catch (IOException ioe) {
             // FIXME InvalidXmlException constructor should be made public in -core
@@ -377,7 +379,8 @@ public class S3TemplateService implements MutableTemplateService {
             if (storage.deleteObject(req).sdkHttpResponse().isSuccessful()) {
                 bus.publish(
                         MessagingServer.class.getName(),
-                        new Notification(EVENT_TEMPLATE_DELETED, Map.of("template", template)));
+                        new Notification(
+                                EVENT_TEMPLATE_DELETED, new TemplatePayload(template.getName())));
             }
         } catch (FlightRecorderException e) {
             logger.error(e);
