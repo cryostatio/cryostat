@@ -31,6 +31,11 @@ import io.cryostat.reports.ReportsService;
 import io.cryostat.targets.Target;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
+import io.cryostat.ws.notifications.NotificationPayloads.ArchiveRecordingSuccessPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpSuccessPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.JobIdPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.ReportSuccessPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.ThreadDumpFailurePayload;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
@@ -95,53 +100,6 @@ public class LongRunningRequestGenerator {
     Duration uploadFailedTimeout;
 
     public LongRunningRequestGenerator() {}
-
-    // Notification payload records
-    public record JobIdPayload(String jobId) {
-        public JobIdPayload {
-            Objects.requireNonNull(jobId);
-        }
-    }
-
-    public record HeapDumpSuccessPayload(String jobId, String targetAlias) {
-        public HeapDumpSuccessPayload {
-            Objects.requireNonNull(jobId);
-            Objects.requireNonNull(targetAlias);
-        }
-    }
-
-    public record TemplatePayload(String template) {
-        public TemplatePayload {
-            Objects.requireNonNull(template);
-        }
-    }
-
-    public record ProbeTemplatePayload(String probeTemplate) {
-        public ProbeTemplatePayload {
-            Objects.requireNonNull(probeTemplate);
-        }
-    }
-
-    public record ThreadDumpFailurePayload(String jobId, long targetId) {
-        public ThreadDumpFailurePayload {
-            Objects.requireNonNull(jobId);
-            Objects.requireNonNull(targetId);
-        }
-    }
-
-    public record ReportSuccessPayload(String jobId, String jvmId) {
-        public ReportSuccessPayload {
-            Objects.requireNonNull(jobId);
-            Objects.requireNonNull(jvmId);
-        }
-    }
-
-    public record ArchiveRecordingSuccessPayload(
-            String jobId, String recording, String reportUrl, String downloadUrl) {
-        public ArchiveRecordingSuccessPayload {
-            Objects.requireNonNull(jobId);
-        }
-    }
 
     @ConsumeEvent(value = THREAD_DUMP_ADDRESS, blocking = true)
     @Transactional

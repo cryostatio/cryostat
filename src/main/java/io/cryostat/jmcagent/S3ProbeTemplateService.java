@@ -28,9 +28,10 @@ import io.cryostat.DeclarativeConfiguration;
 import io.cryostat.StorageBuckets;
 import io.cryostat.core.jmcagent.ProbeTemplate;
 import io.cryostat.core.jmcagent.ProbeTemplateService;
-import io.cryostat.recordings.LongRunningRequestGenerator.ProbeTemplatePayload;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
+import io.cryostat.ws.notifications.NotificationPayloads.ProbeTemplatePayload;
+import io.cryostat.ws.notifications.NotificationPayloads.ProbeTemplateUploadedPayload;
 
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -187,13 +188,6 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                             TEMPLATE_UPLOADED_CATEGORY,
                             new ProbeTemplateUploadedPayload(template.getFileName(), xml)));
             return template;
-        }
-    }
-
-    public record ProbeTemplateUploadedPayload(String probeTemplate, String templateContent) {
-        public ProbeTemplateUploadedPayload {
-            Objects.requireNonNull(probeTemplate);
-            Objects.requireNonNull(templateContent);
         }
     }
 

@@ -30,6 +30,8 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
+import io.cryostat.ws.notifications.NotificationPayloads.ProbeTemplateAppliedPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.ProbesRemovedPayload;
 
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -204,20 +206,6 @@ public class JMCAgentProbes {
                         throw new InternalServerErrorException(e);
                     }
                 });
-    }
-
-    public record ProbeTemplateAppliedPayload(String jvmId, String probeTemplate) {
-        public ProbeTemplateAppliedPayload {
-            java.util.Objects.requireNonNull(jvmId);
-            java.util.Objects.requireNonNull(probeTemplate);
-        }
-    }
-
-    public record ProbesRemovedPayload(String jvmId, String target) {
-        public ProbesRemovedPayload {
-            java.util.Objects.requireNonNull(jvmId);
-            java.util.Objects.requireNonNull(target);
-        }
     }
 
     static record ProbeResponse(String name, String description) {
