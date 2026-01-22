@@ -1,0 +1,52 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard"
+  ],
+  "labels": [
+    "dependencies",
+    "chore",
+    "safe-to-test"
+  ],
+  "semanticCommits": "enabled",
+  "major": {
+    "dependencyDashboardApproval": true
+  },
+  "packageRules": [
+    {
+      "description": "Require approval for Quarkus minor version updates",
+      "matchManagers": ["maven"],
+      "matchPackagePatterns": [
+        "^io\\.quarkus:",
+        "^io\\.quarkus\\.platform:"
+      ],
+      "matchUpdateTypes": ["major", "minor"],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Require approval for projectnessie updates",
+      "matchManagers": ["maven"],
+      "matchPackagePatterns": [
+        "^org\\.projectnessie\\.cel:"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Require approval for protobuf updates",
+      "matchManagers": ["maven"],
+      "matchPackagePatterns": [
+        "^com\\.google\\.protobuf:"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "Require approval for hibernate-jfr updates",
+      "matchManagers": ["maven"],
+      "matchPackagePatterns": [
+        "^org\\.hibernate\\.orm:hibernate-jfr"
+      ],
+      "dependencyDashboardApproval": true
+    }
+  ]
+}
