@@ -48,6 +48,8 @@ public class PayloadTypeAnalyzer {
 
     /** Analyze the payload type from a notification site and generate its schema. */
     public Map<String, Object> analyze(NotificationSite site) {
+        // Clear analyzed types for each notification to ensure fresh analysis
+        analyzedTypes.clear();
         Expression payloadExpr = site.getPayloadExpression();
         return analyzeExpression(payloadExpr, site.getEnclosingMethod());
     }
@@ -308,9 +310,12 @@ public class PayloadTypeAnalyzer {
     }
 
     private Map<String, Object> analyzeType(String typeName) {
-        // Prevent infinite recursion
+        // Prevent infinite recursion - return a simple description instead of a broken $ref
         if (analyzedTypes.contains(typeName)) {
-            return createRefSchema(typeName);
+            Map<String, Object> schema = new LinkedHashMap<>();
+            schema.put("type", "object");
+            schema.put("description", "Payload of type " + typeName);
+            return schema;
         }
         analyzedTypes.add(typeName);
 
@@ -434,10 +439,6 @@ public class PayloadTypeAnalyzer {
         schema.put("type", "object");
         schema.put("description", "Payload of type " + typeName);
         return schema;
-    }
-
-    private Map<String, Object> createRefSchema(String typeName) {
-        return Map.of("$ref", "#/components/schemas/" + typeName);
     }
 
     private Map<String, Object> createPrimitiveSchema(String typeName) {
