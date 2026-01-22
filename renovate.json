@@ -21,7 +21,7 @@
         "^io\\.quarkus:",
         "^io\\.quarkus\\.platform:"
       ],
-      "matchUpdateTypes": ["minor"],
+      "matchUpdateTypes": ["major", "minor"],
       "dependencyDashboardApproval": true
     },
     {
