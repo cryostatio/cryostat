@@ -367,12 +367,12 @@ public class PayloadTypeAnalyzer {
 
         Map<String, Object> properties = new LinkedHashMap<>();
 
-        // Analyze public fields
+        // Analyze public fields (excluding static final constants)
         classDecl
                 .getFields()
                 .forEach(
                         field -> {
-                            if (field.isPublic()) {
+                            if (field.isPublic() && !(field.isStatic() && field.isFinal())) {
                                 field.getVariables()
                                         .forEach(
                                                 var -> {
