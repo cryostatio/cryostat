@@ -178,25 +178,11 @@ public class JMCAgentTemplatesTest extends AbstractTransactionalTestBase {
                 """
                 <jfragent>
                     <config>
-                        <classprefix>__JFREvent</classprefix>
+                        <classprefix>__JFR</classprefix>
                         <allowtostring>true</allowtostring>
                         <allowconverter>true</allowconverter>
                     </config>
-                    <events>
-                        <event id="download.test.jfr">
-                            <label>DownloadTestEvent</label>
-                            <description>Event for download test</description>
-                            <class>io.cryostat.test.DownloadTestHandler</class>
-                            <path>downloadtest</path>
-                            <stacktrace>true</stacktrace>
-                            <rethrow>false</rethrow>
-                            <location>ENTRY</location>
-                            <method>
-                                <name>handleRequest</name>
-                                <descriptor>(Ljava/lang/Object;)V</descriptor>
-                            </method>
-                        </event>
-                    </events>
+                    <events></events>
                 </jfragent>
                 """;
 
