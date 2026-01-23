@@ -118,7 +118,7 @@ public class AgentClient {
                 .ping()
                 .invoke(Response::close)
                 .map(Response::getStatus)
-                .map(HttpStatusCodeIdentifier::isSuccessCode);
+                .map(status -> HttpStatusCodeIdentifier.isSuccessCode(status));
     }
 
     Uni<MBeanMetrics> mbeanMetrics() {
@@ -136,7 +136,6 @@ public class AgentClient {
                         });
     }
 
-    @SuppressWarnings("unchecked")
     <T> Uni<T> invokeMBeanOperation(
             String beanName,
             String operation,
@@ -404,7 +403,9 @@ public class AgentClient {
                             return arr.stream()
                                     .map(
                                             o -> {
-                                                JsonObject json = new JsonObject((Map) o);
+                                                @SuppressWarnings("unchecked")
+                                                JsonObject json =
+                                                        new JsonObject((Map<String, Object>) o);
                                                 String eventName = json.getString("name");
                                                 JsonArray jsonSettings =
                                                         json.getJsonArray("settings");
@@ -551,6 +552,7 @@ public class AgentClient {
         }
 
         @Override
+        @SuppressWarnings("unchecked")
         public String[] getHierarchicalCategory() {
             return ((List<String>)
                             json.getJsonArray("categories").getList().stream()
@@ -564,14 +566,9 @@ public class AgentClient {
             return json.getString("name");
         }
 
-        static <T, V> V capture(T t) {
-            // TODO clean up this generics hack
-            return (V) t;
-        }
-
         @Override
         public Map<String, ? extends IOptionDescriptor<?>> getOptionDescriptors() {
-            Map<String, ? extends IOptionDescriptor<?>> result = new HashMap<>();
+            Map<String, IOptionDescriptor<?>> result = new HashMap<>();
             JsonArray settings = json.getJsonArray("settings");
             settings.forEach(
                     setting -> {
@@ -579,83 +576,80 @@ public class AgentClient {
                         String defaultValue = ((JsonObject) setting).getString("defaultValue");
                         result.put(
                                 name,
-                                capture(
-                                        new IOptionDescriptor<String>() {
+                                new IOptionDescriptor<String>() {
+                                    @Override
+                                    public String getName() {
+                                        return name;
+                                    }
+
+                                    @Override
+                                    public String getDescription() {
+                                        return "";
+                                    }
+
+                                    @Override
+                                    public IConstraint<String> getConstraint() {
+                                        return new IConstraint<String>() {
+
                                             @Override
-                                            public String getName() {
-                                                return name;
+                                            public IConstraint<String> combine(
+                                                    IConstraint<?> other) {
+                                                // TODO Auto-generated method stub
+                                                throw new UnsupportedOperationException(
+                                                        "Unimplemented method 'combine'");
                                             }
 
                                             @Override
-                                            public String getDescription() {
-                                                return "";
+                                            public boolean validate(String value)
+                                                    throws QuantityConversionException {
+                                                // TODO Auto-generated method stub
+                                                throw new UnsupportedOperationException(
+                                                        "Unimplemented method 'validate'");
                                             }
 
                                             @Override
-                                            public IConstraint<String> getConstraint() {
-                                                return new IConstraint<String>() {
-
-                                                    @Override
-                                                    public IConstraint<String> combine(
-                                                            IConstraint<?> other) {
-                                                        // TODO Auto-generated method stub
-                                                        throw new UnsupportedOperationException(
-                                                                "Unimplemented method 'combine'");
-                                                    }
-
-                                                    @Override
-                                                    public boolean validate(String value)
-                                                            throws QuantityConversionException {
-                                                        // TODO Auto-generated method stub
-                                                        throw new UnsupportedOperationException(
-                                                                "Unimplemented method 'validate'");
-                                                    }
-
-                                                    @Override
-                                                    public String persistableString(String value)
-                                                            throws QuantityConversionException {
-                                                        // TODO Auto-generated method stub
-                                                        throw new UnsupportedOperationException(
-                                                                "Unimplemented method"
-                                                                        + " 'persistableString'");
-                                                    }
-
-                                                    @Override
-                                                    public String parsePersisted(
-                                                            String persistedValue)
-                                                            throws QuantityConversionException {
-                                                        // TODO Auto-generated method stub
-                                                        throw new UnsupportedOperationException(
-                                                                "Unimplemented method"
-                                                                        + " 'parsePersisted'");
-                                                    }
-
-                                                    @Override
-                                                    public String interactiveFormat(String value)
-                                                            throws QuantityConversionException {
-                                                        // TODO Auto-generated method stub
-                                                        throw new UnsupportedOperationException(
-                                                                "Unimplemented method"
-                                                                        + " 'interactiveFormat'");
-                                                    }
-
-                                                    @Override
-                                                    public String parseInteractive(
-                                                            String interactiveValue)
-                                                            throws QuantityConversionException {
-                                                        // TODO Auto-generated method stub
-                                                        throw new UnsupportedOperationException(
-                                                                "Unimplemented method"
-                                                                        + " 'parseInteractive'");
-                                                    }
-                                                };
+                                            public String persistableString(String value)
+                                                    throws QuantityConversionException {
+                                                // TODO Auto-generated method stub
+                                                throw new UnsupportedOperationException(
+                                                        "Unimplemented method"
+                                                                + " 'persistableString'");
                                             }
 
                                             @Override
-                                            public String getDefault() {
-                                                return defaultValue;
+                                            public String parsePersisted(String persistedValue)
+                                                    throws QuantityConversionException {
+                                                // TODO Auto-generated method stub
+                                                throw new UnsupportedOperationException(
+                                                        "Unimplemented method"
+                                                                + " 'parsePersisted'");
                                             }
-                                        }));
+
+                                            @Override
+                                            public String interactiveFormat(String value)
+                                                    throws QuantityConversionException {
+                                                // TODO Auto-generated method stub
+                                                throw new UnsupportedOperationException(
+                                                        "Unimplemented method"
+                                                                + " 'interactiveFormat'");
+                                            }
+
+                                            @Override
+                                            public String parseInteractive(String interactiveValue)
+                                                    throws QuantityConversionException {
+                                                // TODO Auto-generated method stub
+                                                throw new UnsupportedOperationException(
+                                                        "Unimplemented method"
+                                                                + " 'parseInteractive'");
+                                            }
+                                        };
+                                    }
+
+                                    @Override
+                                    public String getDefault() {
+                                        return defaultValue;
+                                    }
+                                });
                     });
             return result;
         }

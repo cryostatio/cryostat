@@ -34,9 +34,10 @@ public class JFRDatasourceResource
     private Optional<String> containerNetworkId;
     private GenericContainer<?> container;
 
+    @SuppressWarnings("resource")
     @Override
     public Map<String, String> start() {
-        container =
+        this.container =
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .withExposedPorts(JFR_DATASOURCE_PORT)
                         .withEnv(envMap)

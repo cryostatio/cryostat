@@ -68,6 +68,7 @@ public class S3StorageResource
         return properties;
     }
 
+    @SuppressWarnings("resource")
     @Override
     public Map<String, String> start() {
         String storageVersion =
@@ -76,7 +77,7 @@ public class S3StorageResource
                                         "cryostat-storage.version",
                                         System.getenv("CRYOSTAT_STORAGE_VERSION")))
                         .orElse("latest");
-        container =
+        this.container =
                 new GenericContainer<>(
                                 DockerImageName.parse(
                                         IMAGE_NAME.replace("STORAGE_VERSION", storageVersion)))
