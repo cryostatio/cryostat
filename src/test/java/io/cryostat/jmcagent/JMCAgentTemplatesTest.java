@@ -165,4 +165,68 @@ public class JMCAgentTemplatesTest extends AbstractTransactionalTestBase {
         given().log().all().when().delete(filename).then().assertThat().statusCode(204);
         given().log().all().when().delete(filename).then().assertThat().statusCode(404);
     }
+
+    @Test
+    void testDownloadNonExistent() {
+        given().log().all().when().get("/nonexistent").then().assertThat().statusCode(404);
+    }
+
+    @Test
+    void testCreateDownloadAndDelete() {
+        var filename = "downloadTestProbe";
+        var xmlContent =
+                """
+                <jfragent>
+                    <config>
+                        <classprefix>__JFREvent</classprefix>
+                        <allowtostring>true</allowtostring>
+                        <allowconverter>true</allowconverter>
+                    </config>
+                    <events>
+                        <event id="download.test.jfr">
+                            <label>DownloadTestEvent</label>
+                            <description>Event for download test</description>
+                            <class>io.cryostat.test.DownloadTestHandler</class>
+                            <path>downloadtest</path>
+                            <stacktrace>true</stacktrace>
+                            <rethrow>false</rethrow>
+                            <location>ENTRY</location>
+                            <method>
+                                <name>handleRequest</name>
+                                <descriptor>(Ljava/lang/Object;)V</descriptor>
+                            </method>
+                        </event>
+                    </events>
+                </jfragent>
+                """;
+
+        // Create template
+        given().log()
+                .all()
+                .when()
+                .multiPart("name", filename)
+                .multiPart("probeTemplate", xmlContent)
+                .post()
+                .then()
+                .assertThat()
+                .statusCode(201);
+
+        // Download and verify
+        var downloaded =
+                given().log()
+                        .all()
+                        .when()
+                        .get("/" + filename)
+                        .then()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.XML)
+                        .extract()
+                        .body()
+                        .asString();
+        MatcherAssert.assertThat(downloaded, Matchers.containsString("<jfragent>"));
+
+        // Cleanup
+        given().log().all().when().delete("/" + filename).then().assertThat().statusCode(204);
+    }
 }

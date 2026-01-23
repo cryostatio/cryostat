@@ -59,6 +59,16 @@ public class JMCAgentTemplates {
     }
 
     @Blocking
+    @GET
+    @Path("/{probeTemplateName}")
+    @Produces(MediaType.APPLICATION_XML)
+    @Operation(summary = "Get a specific probe template")
+    public String getProbeTemplate(@RestPath String probeTemplateName)
+            throws IOException, SAXException {
+        return service.getTemplateContent(probeTemplateName);
+    }
+
+    @Blocking
     @DELETE
     @Path("/{probeTemplateName}")
     @Operation(summary = "Delete the specified probe template")
