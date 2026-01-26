@@ -17,9 +17,12 @@ package io.cryostat.jmcagent;
 
 import static io.restassured.RestAssured.given;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.core.jmcagent.ProbeTemplate;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
@@ -172,7 +175,7 @@ public class JMCAgentTemplatesTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testCreateDownloadAndDelete() {
+    void testCreateDownloadAndDelete() throws Exception {
         var filename = "downloadTestProbe";
         var xmlContent =
                 """
@@ -210,7 +213,13 @@ public class JMCAgentTemplatesTest extends AbstractTransactionalTestBase {
                         .extract()
                         .body()
                         .asString();
-        MatcherAssert.assertThat(downloaded, Matchers.containsString("<jfragent>"));
+
+        // parse both XMLs then compare
+        ProbeTemplate expected = new ProbeTemplate();
+        expected.deserialize(new ByteArrayInputStream(xmlContent.getBytes(StandardCharsets.UTF_8)));
+        ProbeTemplate actual = new ProbeTemplate();
+        actual.deserialize(new ByteArrayInputStream(downloaded.getBytes(StandardCharsets.UTF_8)));
+        MatcherAssert.assertThat(actual.serialize(), Matchers.equalTo(expected.serialize()));
 
         // Cleanup
         given().log().all().when().delete("/" + filename).then().assertThat().statusCode(204);
