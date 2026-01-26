@@ -38,7 +38,7 @@ jobs:
         && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
       run: exit 1
     - name: React to comment
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
             const {owner, repo} = context.issue
@@ -60,7 +60,7 @@ jobs:
     permissions:
       pull-requests: read
     steps:
-    - uses: actions/github-script@v7
+    - uses: actions/github-script@v8
       id: comment-branch
       with:
         script: |
@@ -78,7 +78,7 @@ jobs:
       pull-requests: write
     steps:
     - name: Leave Actions Run Comment
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const runURL = `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${{ github.run_id }}`;
@@ -172,7 +172,7 @@ jobs:
           clean verify
 
     - name: Add workflow result as comment on PR
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       if: always()
       with:
         script: |
@@ -253,7 +253,7 @@ jobs:
       with:
         name: openapi-diff
     - name: Comment schema check result
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const diffFmt = s => {
@@ -279,7 +279,7 @@ jobs:
       with:
         name: graphql-diff
     - name: Comment schema check result
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       with:
         script: |
           const diffFmt = s => {
@@ -348,7 +348,7 @@ jobs:
           git commit -S -m "chore(schema): automatic update"
           git push origin ${{ needs.checkout-branch.outputs.PR_head_ref }}
       - name: Comment on schema update
-        uses: actions/github-script@v7
+        uses: actions/github-script@v8
         with:
           script: |
             const prNumber = ${{ needs.checkout-branch.outputs.PR_num }};
