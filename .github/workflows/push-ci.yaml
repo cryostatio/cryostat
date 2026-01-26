@@ -89,7 +89,7 @@ jobs:
         cache: 'maven'
     - run: git submodule init && git submodule update
     - name: Cache yarn packages and frontend build
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ./src/main/webui/.yarn/cache
@@ -173,7 +173,7 @@ jobs:
         cache: 'maven'
     - run: git submodule init && git submodule update
     - name: Cache yarn packages and frontend build
-      uses: actions/cache@v4
+      uses: actions/cache@v5
       with:
         path: |
           ./src/main/webui/.yarn/cache
