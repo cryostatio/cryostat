@@ -26,7 +26,7 @@ jobs:
     if: ${{ github.repository_owner == 'cryostatio' }}
     runs-on: ubuntu-24.04
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
         fetch-depth: 0
@@ -78,7 +78,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt -y satisfy "podman (>= 4.0), qemu-user-static"
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
         fetch-depth: 0
@@ -162,7 +162,7 @@ jobs:
       run: |
         sudo apt update
         sudo apt -y satisfy "podman (>= 4.0), qemu-user-static"
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
         fetch-depth: 0
@@ -228,7 +228,7 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
         fetch-depth: 0
