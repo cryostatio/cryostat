@@ -27,7 +27,7 @@ jobs:
       if: |
         !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
         && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
-      uses: thollander/actions-comment-pull-request@v2
+      uses: thollander/actions-comment-pull-request@v3
       with:
         message: |-
           You do not have permission to run the /build_test command. Please ask @cryostatio/reviewers
