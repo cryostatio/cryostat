@@ -119,13 +119,13 @@ jobs:
       run: podman pull docker-daemon:${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Save container image
       run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v6
       with:
         name: cryostat-${{ matrix.arch }}-podman
         path: cryostat-${{ matrix.arch }}.tar
     - name: Save container image (docker)
       run: podman save -o cryostat-${{ matrix.arch }}-docker.tar --format docker-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v6
       with:
         name: cryostat-${{ matrix.arch }}-docker
         path: cryostat-${{ matrix.arch }}-docker.tar
@@ -238,7 +238,7 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
     - name: Download container tarball
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         path: containers
         name: cryostat-${{ matrix.arch }}-docker
@@ -295,7 +295,7 @@ jobs:
         sudo apt update
         sudo apt -y satisfy "podman (>= 4.0), qemu-user-static"
     - name: Download container tarballs
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         path: containers
         pattern: cryostat-*-podman
