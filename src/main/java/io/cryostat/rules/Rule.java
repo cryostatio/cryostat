@@ -48,6 +48,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.envers.Audited;
 import org.hibernate.type.SqlTypes;
 
 /**
@@ -57,6 +58,7 @@ import org.hibernate.type.SqlTypes;
  *
  * @see io.cryostat.expressions.MatchExpression
  */
+@Audited
 @Entity
 @EntityListeners(Rule.Listener.class)
 @Cacheable
