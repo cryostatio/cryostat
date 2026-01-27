@@ -55,12 +55,6 @@ public class TargetUpdateService {
     @Inject Scheduler scheduler;
     @Inject MatchExpressionEvaluator matchExpressionEvaluator;
 
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration connectionTimeout;
-
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_TTL)
-    Duration connectionTtl;
-
     @ConfigProperty(name = ConfigProperties.EXTERNAL_RECORDINGS_DELAY)
     Duration externalRecordingDelay;
 
