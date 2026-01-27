@@ -1949,6 +1949,23 @@ paths:
       summary: Delete the specified probe template
       tags:
         - JMC Agent Templates
+    get:
+      parameters:
+        - in: path
+          name: probeTemplateName
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/xml:
+              schema:
+                type: string
+          description: OK
+      summary: Get a specific probe template
+      tags:
+        - JMC Agent Templates
   /api/v4/recordings:
     get:
       description: |
