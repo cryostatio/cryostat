@@ -209,6 +209,7 @@ CREATE INDEX IDX_QRTZ_FT_TG
 CREATE TABLE REVINFO (
     REV INTEGER NOT NULL,
     REVTSTMP BIGINT,
+    username text check (char_length(username) < 64),
     PRIMARY KEY (REV)
 );
 
