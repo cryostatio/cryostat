@@ -1474,6 +1474,12 @@ paths:
         - Credentials
   /api/v4/discovery:
     get:
+      parameters:
+        - in: query
+          name: mergeRealms
+          schema:
+            default: false
+            type: boolean
       responses:
         "200":
           content:
