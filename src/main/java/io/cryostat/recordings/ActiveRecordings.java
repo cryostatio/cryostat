@@ -327,7 +327,9 @@ public class ActiveRecordings {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record Metadata(Map<String, String> labels) {
+    public record Metadata(Map<String, String> labels) implements java.io.Serializable {
+        private static final long serialVersionUID = 1L;
+
         public Metadata {
             Objects.requireNonNull(labels);
         }
