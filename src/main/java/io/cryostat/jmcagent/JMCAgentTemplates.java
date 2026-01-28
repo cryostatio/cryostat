@@ -29,7 +29,9 @@ import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriInfo;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -56,6 +58,16 @@ public class JMCAgentTemplates {
                 .map(SerializableProbeTemplateInfo::fromProbeTemplate)
                 .map(ProbeTemplateResponse::new)
                 .toList();
+    }
+
+    @Blocking
+    @GET
+    @Path("/{probeTemplateName}")
+    @Produces(MediaType.APPLICATION_XML)
+    @Operation(summary = "Get a specific probe template")
+    public String getProbeTemplate(@RestPath String probeTemplateName)
+            throws IOException, SAXException {
+        return service.getTemplateContent(probeTemplateName);
     }
 
     @Blocking

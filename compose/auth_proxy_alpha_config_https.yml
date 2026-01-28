@@ -29,7 +29,9 @@ providers:
 injectRequestHeaders:
   - name: "X-Forwarded-Proto"
     values:
-      - fromEnv: CRYOSTAT_PROXY_PROTOCOL
+      - secretSource:
+          fromEnv: CRYOSTAT_PROXY_PROTOCOL
   - name: "X-Forwarded-Port"
     values:
-      - fromEnv: CRYOSTAT_PROXY_PORT
+      - secretSource:
+          fromEnv: CRYOSTAT_PROXY_PORT

@@ -16,6 +16,7 @@
 package io.cryostat.jmcagent;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
@@ -44,6 +45,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
+import org.xml.sax.SAXException;
 
 @Path("")
 public class JMCAgentProbes {
@@ -74,12 +76,22 @@ public class JMCAgentProbes {
                     """)
     public void postProbe(@RestPath long id, @RestPath String probeTemplateName) {
         Target target = Target.getTargetById(id);
+
+        String templateContent;
+        try {
+            templateContent = service.getTemplateContent(probeTemplateName);
+            ProbeTemplate template = new ProbeTemplate();
+            template.setFileName(probeTemplateName);
+            template.deserialize(
+                    new ByteArrayInputStream(templateContent.getBytes(StandardCharsets.UTF_8)));
+        } catch (IOException | SAXException e) {
+            throw new BadRequestException("Invalid probe template", e);
+        }
+
         connectionManager.executeConnectedTask(
                 target,
                 connection -> {
                     try {
-                        ProbeTemplate template = new ProbeTemplate();
-                        String templateContent = service.getTemplateContent(probeTemplateName);
                         Object[] args = {templateContent};
                         connection.invokeMBeanOperation(
                                 AGENT_OBJECT_NAME,
@@ -94,10 +106,8 @@ public class JMCAgentProbes {
                                         Map.of(
                                                 "jvmId",
                                                 target.jvmId,
-                                                "events",
-                                                template.getEvents(),
                                                 "probeTemplate",
-                                                template.getFileName())));
+                                                probeTemplateName)));
                         return null;
                     } catch (InstanceNotFoundException infe) {
                         throw new BadRequestException(infe);
@@ -138,7 +148,12 @@ public class JMCAgentProbes {
                         bus.publish(
                                 MessagingServer.class.getName(),
                                 new Notification(
-                                        PROBES_REMOVED_CATEGORY, Map.of("jvmId", target.jvmId)));
+                                        PROBES_REMOVED_CATEGORY,
+                                        Map.of(
+                                                "jvmId",
+                                                target.jvmId,
+                                                "target",
+                                                target.connectUrl.toString())));
                         return null;
                     } catch (InstanceNotFoundException infe) {
                         throw new BadRequestException(infe);

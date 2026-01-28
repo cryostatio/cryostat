@@ -17,9 +17,12 @@ package io.cryostat.jmcagent;
 
 import static io.restassured.RestAssured.given;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.core.jmcagent.ProbeTemplate;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
@@ -164,5 +167,61 @@ public class JMCAgentTemplatesTest extends AbstractTransactionalTestBase {
 
         given().log().all().when().delete(filename).then().assertThat().statusCode(204);
         given().log().all().when().delete(filename).then().assertThat().statusCode(404);
+    }
+
+    @Test
+    void testDownloadNonExistent() {
+        given().log().all().when().get("/nonexistent").then().assertThat().statusCode(404);
+    }
+
+    @Test
+    void testCreateDownloadAndDelete() throws Exception {
+        var filename = "downloadTestProbe";
+        var xmlContent =
+                """
+                <jfragent>
+                    <config>
+                        <classprefix>__JFR</classprefix>
+                        <allowtostring>true</allowtostring>
+                        <allowconverter>true</allowconverter>
+                    </config>
+                    <events></events>
+                </jfragent>
+                """;
+
+        // Create template
+        given().log()
+                .all()
+                .when()
+                .multiPart("name", filename)
+                .multiPart("probeTemplate", xmlContent)
+                .post()
+                .then()
+                .assertThat()
+                .statusCode(201);
+
+        // Download and verify
+        var downloaded =
+                given().log()
+                        .all()
+                        .when()
+                        .get("/" + filename)
+                        .then()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.XML)
+                        .extract()
+                        .body()
+                        .asString();
+
+        // parse both XMLs then compare
+        ProbeTemplate expected = new ProbeTemplate();
+        expected.deserialize(new ByteArrayInputStream(xmlContent.getBytes(StandardCharsets.UTF_8)));
+        ProbeTemplate actual = new ProbeTemplate();
+        actual.deserialize(new ByteArrayInputStream(downloaded.getBytes(StandardCharsets.UTF_8)));
+        MatcherAssert.assertThat(actual.serialize(), Matchers.equalTo(expected.serialize()));
+
+        // Cleanup
+        given().log().all().when().delete("/" + filename).then().assertThat().statusCode(204);
     }
 }

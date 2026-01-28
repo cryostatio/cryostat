@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
-    if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]'
+    if: github.actor != 'dependabot[bot]' && github.actor != 'dependabot-preview[bot]' && github.actor != 'renovate[bot]'
     name: Verify Pull Request references Issue
     steps:
       - uses: Codeinwp/verify-linked-issue-action@6da9af91d78847c7ea264083a64eab3271b4369f
