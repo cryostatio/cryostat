@@ -119,6 +119,26 @@ public class Rule extends PanacheEntity {
         return find("name", name).firstResult();
     }
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(name);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        Rule other = (Rule) obj;
+        return Objects.equals(name, other.name);
+    }
+
     @ApplicationScoped
     static class Listener {
         @Inject EventBus bus;

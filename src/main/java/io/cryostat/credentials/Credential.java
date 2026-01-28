@@ -15,6 +15,8 @@
  */
 package io.cryostat.credentials;
 
+import java.util.Objects;
+
 import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.ws.MessagingServer;
@@ -128,6 +130,31 @@ public class Credential extends PanacheEntity {
     @JsonIgnore
     @Nullable
     public DiscoveryPlugin discoveryPlugin;
+
+    @Override
+    public int hashCode() {
+        Long matchExpressionId = matchExpression != null ? matchExpression.id : null;
+        return Objects.hash(matchExpressionId, username);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        Credential other = (Credential) obj;
+        Long thisMatchExpressionId = this.matchExpression != null ? this.matchExpression.id : null;
+        Long otherMatchExpressionId =
+                other.matchExpression != null ? other.matchExpression.id : null;
+        return Objects.equals(thisMatchExpressionId, otherMatchExpressionId)
+                && Objects.equals(username, other.username);
+    }
 
     @ApplicationScoped
     static class Listener {

@@ -150,6 +150,29 @@ public class ActiveRecording extends PanacheEntity {
         return recording;
     }
 
+    @Override
+    public int hashCode() {
+        Long targetId = target != null ? target.id : null;
+        return Objects.hash(targetId, remoteId);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        ActiveRecording other = (ActiveRecording) obj;
+        Long thisTargetId = this.target != null ? this.target.id : null;
+        Long otherTargetId = other.target != null ? other.target.id : null;
+        return Objects.equals(thisTargetId, otherTargetId) && this.remoteId == other.remoteId;
+    }
+
     public void setMetadata(Metadata metadata) {
         this.metadata = metadata;
     }

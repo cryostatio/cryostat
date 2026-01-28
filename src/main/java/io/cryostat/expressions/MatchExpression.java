@@ -78,6 +78,26 @@ public class MatchExpression extends PanacheEntity {
         this.script = script;
     }
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(script);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        MatchExpression other = (MatchExpression) obj;
+        return Objects.equals(script, other.script);
+    }
+
     @ApplicationScoped
     public static class TargetMatcher {
         @Inject MatchExpressionEvaluator evaluator;
