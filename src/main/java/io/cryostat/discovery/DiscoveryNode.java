@@ -118,11 +118,6 @@ public class DiscoveryNode extends PanacheEntity {
     @JsonView(Views.Flat.class)
     public Target target;
 
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, name, nodeType, labels, children, target);
-    }
-
     public boolean hasChildren() {
         return !children.isEmpty();
     }
@@ -199,6 +194,11 @@ public class DiscoveryNode extends PanacheEntity {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hash(id, name, nodeType, labels);
+    }
+
+    @Override
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
@@ -210,9 +210,10 @@ public class DiscoveryNode extends PanacheEntity {
             return false;
         }
         DiscoveryNode other = (DiscoveryNode) obj;
-        return Objects.equals(target, other.target)
-                && Objects.equals(labels, other.labels)
-                && Objects.equals(children, other.children);
+        return Objects.equals(id, other.id)
+                && Objects.equals(name, other.name)
+                && Objects.equals(nodeType, other.nodeType)
+                && Objects.equals(labels, other.labels);
     }
 
     @Override
