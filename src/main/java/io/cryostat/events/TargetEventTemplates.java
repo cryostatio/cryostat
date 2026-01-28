@@ -67,7 +67,7 @@ public class TargetEventTemplates {
                     specifically from the target (ex. within /usr/lib/jvm/java/lib/jfr).
                     """)
     public List<Template> listTargetTemplates(@RestPath long id) throws Exception {
-        Target target = Target.find("id", id).singleResult();
+        Target target = Target.getTargetById(id);
         var list = new ArrayList<Template>();
         list.add(ALL_EVENTS_TEMPLATE);
         Comparator<Template> comparator =
@@ -99,7 +99,7 @@ public class TargetEventTemplates {
                 && ALL_EVENTS_TEMPLATE.getType().equals(templateType)) {
             throw new BadRequestException();
         }
-        Target target = Target.find("id", id).singleResult();
+        Target target = Target.getTargetById(id);
         TemplateService svc;
         switch (templateType) {
             case TARGET:

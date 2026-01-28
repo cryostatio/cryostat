@@ -103,6 +103,9 @@ public class CustomDiscovery {
             TargetStub target,
             @RestQuery boolean dryrun,
             @RestQuery boolean storeCredentials) {
+        if (Target.find("connectUrl", target.connectUrl).singleResultOptional().isPresent()) {
+            throw new BadRequestException("Duplicate connection URL");
+        }
         return doCreate(uriInfo, target, dryrun, storeCredentials);
     }
 
@@ -128,11 +131,23 @@ public class CustomDiscovery {
             @RestForm String password,
             @RestQuery boolean dryrun,
             @RestQuery boolean storeCredentials) {
-        return doCreate(
-                uriInfo,
-                new TargetStub(connectUrl, alias, username, password),
-                dryrun,
-                storeCredentials);
+        if (Target.find("connectUrl", connectUrl).singleResultOptional().isPresent()) {
+            throw new BadRequestException("Duplicate connection URL");
+        }
+        var target = Target.createOrUndelete(connectUrl);
+        target.alias = alias;
+
+        Credential credential = null;
+        if (StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password)) {
+            credential = new Credential();
+            credential.matchExpression =
+                    new MatchExpression(
+                            String.format("target.connectUrl == \"%s\"", connectUrl.toString()));
+            credential.username = username;
+            credential.password = password;
+        }
+
+        return doCreate(uriInfo, TargetStub.from(target, credential), dryrun, storeCredentials);
     }
 
     RestResponse<Target> doCreate(
@@ -149,27 +164,20 @@ public class CustomDiscovery {
                                 target.connectUrl));
             }
 
-            if (QuarkusTransaction.joiningExisting()
-                    .call(() -> Target.find("connectUrl", target.connectUrl).count() > 0)) {
-                throw new BadRequestException("Duplicate connection URL");
-            }
-
             try {
                 String jvmId =
-                        target.jvmId =
-                                connectionManager
-                                        .executeDirect(
-                                                target,
-                                                credential,
-                                                conn -> conn.getJvmIdentifier().getHash())
-                                        .await()
-                                        .atMost(timeout);
-
-                if (QuarkusTransaction.joiningExisting()
-                        .call(() -> Target.find("jvmId", jvmId).count() > 0)) {
+                        connectionManager
+                                .executeDirect(
+                                        target,
+                                        credential,
+                                        conn -> conn.getJvmIdentifier().getHash())
+                                .await()
+                                .atMost(timeout);
+                if (Target.find("jvmId", jvmId).count() > 0) {
                     throw new BadRequestException(
                             String.format("Target with JVM ID \"%s\" already discovered", jvmId));
                 }
+                target.jvmId = jvmId;
             } catch (Exception e) {
                 logger.error("Target connection failed", e);
                 String msg =
@@ -237,7 +245,7 @@ public class CustomDiscovery {
                     discovered them.
                     """)
     public void delete(@RestPath long id) throws URISyntaxException {
-        Target target = Target.find("id", id).singleResult();
+        Target target = Target.getTargetById(id);
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
         boolean withinRealm = realm.children.remove(target.discoveryNode);
         if (!withinRealm) {
@@ -273,6 +281,14 @@ public class CustomDiscovery {
             t.alias = alias;
             t.connectUrl = connectUrl;
             return t;
+        }
+
+        public static TargetStub from(Target target, Credential credential) {
+            return new TargetStub(
+                    target.connectUrl,
+                    target.alias,
+                    credential == null ? null : credential.username,
+                    credential == null ? null : credential.password);
         }
 
         Optional<Credential> getCredential() {

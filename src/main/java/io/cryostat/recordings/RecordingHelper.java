@@ -282,7 +282,7 @@ public class RecordingHelper {
     }
 
     private List<ActiveRecording> listActiveRecordingsImpl(Target target) {
-        target = Target.find("id", target.id).singleResult();
+        target = Target.getTargetById(target.id);
         try {
             var previousRecordings = target.activeRecordings;
             var previousIds =
