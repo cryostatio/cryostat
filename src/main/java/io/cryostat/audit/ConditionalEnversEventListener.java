@@ -39,7 +39,6 @@ public class ConditionalEnversEventListener {
 
     public static void setAuditEnabledSupplier(Supplier<Boolean> supplier) {
         auditEnabledSupplier = supplier;
-        logger.infof("Audit enabled supplier configured");
     }
 
     private static boolean isAuditEnabled() {
