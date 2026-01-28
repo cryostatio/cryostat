@@ -102,4 +102,6 @@ public class ConfigProperties {
 
     public static final String DECLARATIVE_CONFIG_RESOLVE_SYMLINKS =
             "cryostat.declarative-configuration.symlinks.resolve";
+
+    public static final String AUDIT_ENABLED = "cryostat.audit.enabled";
 }
