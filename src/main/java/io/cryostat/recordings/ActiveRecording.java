@@ -53,6 +53,7 @@ import jakarta.validation.constraints.PositiveOrZero;
 import jdk.jfr.RecordingState;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.envers.Audited;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
@@ -61,6 +62,7 @@ import org.jboss.logging.Logger;
  * JVM. This Recording may be in any state, but should actually be present on the remote Target. It
  * may have been created by Cryostat, by another external tool, or by the target JVM itself.
  */
+@Audited
 @Entity
 @EntityListeners(ActiveRecording.Listener.class)
 @Table(
