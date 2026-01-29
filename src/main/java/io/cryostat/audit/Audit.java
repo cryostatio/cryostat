@@ -49,19 +49,24 @@ public class Audit {
         if (StringUtils.isBlank(jvmId)) {
             throw new BadRequestException();
         }
-        AuditReader ar = AuditReaderFactory.get(em);
-        var q =
-                ar.createQuery()
-                        .forRevisionsOfEntity(Target.class, true, false)
-                        .add(AuditEntity.property("jvmId").eq(jvmId))
-                        .addOrder(AuditEntity.revisionNumber().desc())
-                        .setMaxResults(1)
-                        .getResultList();
-        if (q.isEmpty()) {
+        try {
+            AuditReader ar = AuditReaderFactory.get(em);
+            var q =
+                    ar.createQuery()
+                            .forRevisionsOfEntity(Target.class, true, false)
+                            .add(AuditEntity.property("jvmId").eq(jvmId))
+                            .addOrder(AuditEntity.revisionNumber().desc())
+                            .setMaxResults(1)
+                            .getResultList();
+            if (q.isEmpty()) {
+                throw new NotFoundException();
+            }
+            var t = (Target) q.get(0);
+            return t;
+        } catch (IllegalStateException e) {
+            logger.debug("Audit service not available", e);
             throw new NotFoundException();
         }
-        var t = (Target) q.get(0);
-        return t;
     }
 
     @GET
@@ -71,19 +76,24 @@ public class Audit {
         if (StringUtils.isBlank(jvmId)) {
             throw new BadRequestException();
         }
-        AuditReader ar = AuditReaderFactory.get(em);
-        var q =
-                ar.createQuery()
-                        .forRevisionsOfEntity(Target.class, true, false)
-                        .add(AuditEntity.property("jvmId").eq(jvmId))
-                        .addOrder(AuditEntity.revisionNumber().desc())
-                        .setMaxResults(1)
-                        .getResultList();
-        if (q.isEmpty()) {
+        try {
+            AuditReader ar = AuditReaderFactory.get(em);
+            var q =
+                    ar.createQuery()
+                            .forRevisionsOfEntity(Target.class, true, false)
+                            .add(AuditEntity.property("jvmId").eq(jvmId))
+                            .addOrder(AuditEntity.revisionNumber().desc())
+                            .setMaxResults(1)
+                            .getResultList();
+            if (q.isEmpty()) {
+                throw new NotFoundException();
+            }
+            var t = (Target) q.get(0);
+            return lineage(t);
+        } catch (IllegalStateException e) {
+            logger.debug("Audit service not available", e);
             throw new NotFoundException();
         }
-        var t = (Target) q.get(0);
-        return lineage(t);
     }
 
     DiscoveryNode lineage(Target target) {
