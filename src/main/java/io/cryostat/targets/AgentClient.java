@@ -143,10 +143,20 @@ public class AgentClient {
                 .map(
                         Unchecked.function(
                                 resp -> {
-                                    try (resp;
-                                            var is = (InputStream) resp.getEntity()) {
-                                        return Arrays.asList(
-                                                mapper.readValue(is, SmartTrigger[].class));
+                                    int statusCode = resp.getStatus();
+                                    if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                        Object buf = resp.getEntity();
+                                        if (Objects.nonNull(buf)) {
+                                            try (resp;
+                                                    var is = (InputStream) resp.getEntity()) {
+                                                return Arrays.asList(
+                                                        mapper.readValue(is, SmartTrigger[].class));
+                                            }
+                                        } else {
+                                            return Arrays.asList();
+                                        }
+                                    } else {
+                                        throw new AgentApiException(statusCode);
                                     }
                                 }));
     }
