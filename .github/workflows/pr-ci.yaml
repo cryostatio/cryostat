@@ -218,14 +218,9 @@ jobs:
         distribution: 'temurin'
         cache: 'maven'
     - run: git submodule init && git submodule update
-    - name: Update schemas
-      id: schema-update
+    - id: schema-update
+      name: Update schemas
       run: |
-        set -x
-        mkdir "${HOME}/bin"
-        wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O "${HOME}/bin/yq"
-        chmod +x "${HOME}/bin/yq"
-        export PATH="${HOME}/bin:${PATH}"
         bash /home/runner/work/cryostat/cryostat/schema/update.bash 90 15
         set +e
         git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/openapi.yaml > /home/runner/work/openapi.diff
