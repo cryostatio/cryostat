@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 
 import io.cryostat.AbstractTransactionalTestBase;
-import io.cryostat.targets.Target;
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;

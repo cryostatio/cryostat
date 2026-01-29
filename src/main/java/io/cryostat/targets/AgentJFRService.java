@@ -51,7 +51,6 @@ import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 
 import io.smallrye.mutiny.Uni;
-import org.jboss.logging.Logger;
 
 /**
  * {@link io.cryostat.core.net.CryostatFlightRecorderService} implementation representing a Cryostat
@@ -70,7 +69,6 @@ class AgentJFRService implements CryostatFlightRecorderService {
 
     private final AgentClient client;
     private final TemplateService templateService;
-    private final Logger logger = Logger.getLogger(getClass());
 
     AgentJFRService(AgentClient client, TemplateService templateService) {
         this.client = client;
@@ -219,6 +217,7 @@ class AgentJFRService implements CryostatFlightRecorderService {
     }
 
     @Override
+    @SuppressWarnings("rawtypes")
     public IRecordingDescriptor start(IConstrainedMap<String> recordingOptions, String template)
             throws FlightRecorderException,
                     ParseException,
@@ -257,6 +256,7 @@ class AgentJFRService implements CryostatFlightRecorderService {
     }
 
     @Override
+    @SuppressWarnings("rawtypes")
     public IRecordingDescriptor start(IConstrainedMap<String> recordingOptions, Template template)
             throws io.cryostat.core.FlightRecorderException,
                     FlightRecorderException,

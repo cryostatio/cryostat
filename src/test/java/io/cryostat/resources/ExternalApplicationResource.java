@@ -78,6 +78,7 @@ public class ExternalApplicationResource
     private GenericContainer<?> container;
     private AtomicInteger cryostatPort = new AtomicInteger(8081);
 
+    @SuppressWarnings("resource")
     @Override
     public Map<String, String> start() {
         Optional<Network> network =
@@ -101,7 +102,7 @@ public class ExternalApplicationResource
                                 });
         authProxy = new AuthProxyContainer(network, cryostatPort.get());
 
-        container =
+        this.container =
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .dependsOn(authProxy)
                         .withExposedPorts(PORT, JMX_PORT)

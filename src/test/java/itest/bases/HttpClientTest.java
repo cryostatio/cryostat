@@ -20,9 +20,7 @@ import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingDeque;
@@ -40,7 +38,6 @@ import io.vertx.core.AsyncResult;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
 import io.vertx.core.file.FileSystem;
-import io.vertx.core.http.WebSocket;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.client.HttpRequest;
 import io.vertx.ext.web.client.HttpResponse;
@@ -94,57 +91,6 @@ public abstract class HttpClientTest {
         WS_SESSION.close();
     }
 
-    @Deprecated
-    public CompletableFuture<JsonObject> expectNotification(
-            String category, long timeout, TimeUnit unit)
-            throws TimeoutException, ExecutionException, InterruptedException {
-        return expectNotification(category, o -> true, timeout, unit);
-    }
-
-    @Deprecated
-    public CompletableFuture<JsonObject> expectNotification(
-            String category, Predicate<JsonObject> p, long timeout, TimeUnit unit) {
-        logger.debugv(
-                "Waiting for a \"{0}\" message within the next {1} {2} ...",
-                category, timeout, unit.name());
-        CompletableFuture<JsonObject> future = new CompletableFuture<>();
-
-        var a = new WebSocket[1];
-        Utils.HTTP_CLIENT.webSocket(
-                "ws://localhost/api/notifications",
-                ar -> {
-                    if (ar.failed()) {
-                        future.completeExceptionally(ar.cause());
-                        return;
-                    }
-                    a[0] = ar.result();
-                    var ws = a[0];
-
-                    ws.handler(
-                                    m -> {
-                                        JsonObject resp = m.toJsonObject();
-                                        JsonObject meta = resp.getJsonObject("meta");
-                                        String c = meta.getString("category");
-                                        if (Objects.equals(c, category) && p.test(resp)) {
-                                            logger.tracev(
-                                                    "Received expected \"{0}\" message", category);
-                                            ws.end(unused -> future.complete(resp));
-                                            ws.close();
-                                        }
-                                    })
-                            // FIXME in the cryostat itests we DO use auth. The message below is
-                            // copy-pasted from the old codebase, however cryostat does not yet
-                            // perform authentication when websocket clients connect.
-
-                            // just to initialize the connection - Cryostat expects
-                            // clients to send a message after the connection opens
-                            // to authenticate themselves, but in itests we don't
-                            // use auth
-                            .writeTextMessage("");
-                });
-        return future.orTimeout(timeout, unit).whenComplete((o, t) -> a[0].close());
-    }
-
     protected JsonObject expectWebSocketNotification(String category)
             throws IOException, DeploymentException, InterruptedException, TimeoutException {
         return expectWebSocketNotification(category, Duration.ofSeconds(30), v -> true);
@@ -180,6 +126,8 @@ public abstract class HttpClientTest {
             if (category.equals(msgCategory) && predicate.test(obj)) {
                 return obj;
             }
+            Thread.sleep(500);
+            WS_CLIENT.msgQ.put(msg);
         } while (now < deadline);
         throw new TimeoutException();
     }
