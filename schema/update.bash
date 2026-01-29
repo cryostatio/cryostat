@@ -9,7 +9,16 @@ if ! command -v httpz && ! command -v wget; then
     exit 1
 fi
 
-"${DIR}"/../mvnw -B -U -Dquarkus.log.level=info -Dmaven.test.skip -Dspotless.check.skip -Dquarkus.smallrye-openapi.info-title="Cryostat API" clean quarkus:generate-code compile test-compile quarkus:dev &
+"${DIR}"/../mvnw --offline -B \
+    -Dquarkus.quinoa=false \
+    -Dquarkus.log.level=warn \
+    -Dquarkus.http.access-log.enabled=false \
+    -Dquarkus.hibernate-orm.log.sql=false \
+    -Dmaven.test.skip \
+    -Dspotless.check.skip \
+    -Dquarkus.smallrye-openapi.info-title="Cryostat API" \
+    clean quarkus:generate-code compile test-compile quarkus:dev &
+
 pid="$!"
 function cleanup() {
     kill $pid
