@@ -15,6 +15,7 @@
  */
 package io.cryostat.targets;
 
+import java.io.Serializable;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.util.ArrayList;
@@ -41,6 +42,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.Cacheable;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -72,6 +74,7 @@ import org.jboss.logging.Logger;
  */
 @Entity
 @EntityListeners(Target.Listener.class)
+@Cacheable
 @NamedQueries({@NamedQuery(name = "Target.unconnected", query = "from Target where jvmId is null")})
 @Table(
         indexes = {
@@ -171,7 +174,11 @@ public class Target extends PanacheEntity {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public static record Annotations(Map<String, String> platform, Map<String, String> cryostat) {
+    public static record Annotations(Map<String, String> platform, Map<String, String> cryostat)
+            implements Serializable {
+
+        private static final long serialVersionUID = 1L;
+
         public Annotations {
             if (platform == null) {
                 platform = new HashMap<>();
