@@ -38,6 +38,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.Cacheable;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -72,6 +73,7 @@ import org.jboss.logging.Logger;
  */
 @Entity
 @EntityListeners(DiscoveryNode.Listener.class)
+@Cacheable
 @NamedQueries({
     @NamedQuery(
             name = "DiscoveryNode.byTypeWithName",
