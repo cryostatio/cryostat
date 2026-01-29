@@ -152,8 +152,8 @@ public class ActiveRecording extends PanacheEntity {
 
     @Override
     public int hashCode() {
-        Long targetId = target != null ? target.id : null;
-        return Objects.hash(targetId, remoteId);
+        String connectUrl = target != null ? target.connectUrl.toString() : null;
+        return Objects.hash(connectUrl, remoteId);
     }
 
     @Override
@@ -168,9 +168,12 @@ public class ActiveRecording extends PanacheEntity {
             return false;
         }
         ActiveRecording other = (ActiveRecording) obj;
-        Long thisTargetId = this.target != null ? this.target.id : null;
-        Long otherTargetId = other.target != null ? other.target.id : null;
-        return Objects.equals(thisTargetId, otherTargetId) && this.remoteId == other.remoteId;
+        String thisTargetConnectUrl =
+                this.target != null ? this.target.connectUrl.toString() : null;
+        String otherTargetConnectUrl =
+                other.target != null ? other.target.connectUrl.toString() : null;
+        return Objects.equals(thisTargetConnectUrl, otherTargetConnectUrl)
+                && this.remoteId == other.remoteId;
     }
 
     public void setMetadata(Metadata metadata) {
