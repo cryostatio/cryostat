@@ -17,7 +17,6 @@ package io.cryostat.discovery;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -100,26 +99,6 @@ public class DiscoveryPlugin extends PanacheEntityBase {
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     public boolean builtin;
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (getClass() != obj.getClass()) {
-            return false;
-        }
-        DiscoveryPlugin other = (DiscoveryPlugin) obj;
-        return Objects.equals(id, other.id);
-    }
 
     @ApplicationScoped
     static class Listener {

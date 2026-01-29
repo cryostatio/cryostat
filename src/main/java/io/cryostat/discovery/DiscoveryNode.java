@@ -195,7 +195,7 @@ public class DiscoveryNode extends PanacheEntity {
 
     @Override
     public int hashCode() {
-        return Objects.hash(id, name, nodeType, labels);
+        return Objects.hash(name, nodeType, labels);
     }
 
     @Override
@@ -210,8 +210,7 @@ public class DiscoveryNode extends PanacheEntity {
             return false;
         }
         DiscoveryNode other = (DiscoveryNode) obj;
-        return Objects.equals(id, other.id)
-                && Objects.equals(name, other.name)
+        return Objects.equals(name, other.name)
                 && Objects.equals(nodeType, other.nodeType)
                 && Objects.equals(labels, other.labels);
     }
