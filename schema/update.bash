@@ -4,7 +4,7 @@ set -x
 
 DIR="$(dirname "$(readlink -f "$0")")"
 
-if ! command -v httpz && ! command -v wget; then
+if ! command -v http && ! command -v wget; then
     echo "No HTTPie or wget?"
     exit 1
 fi
