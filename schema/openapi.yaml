@@ -177,6 +177,11 @@ components:
         grafanaDatasourceUrl:
           type: string
       type: object
+    Date:
+      examples:
+        - 2022-03-10
+      format: date
+      type: string
     DiscoveryNode:
       properties:
         children:
@@ -257,6 +262,11 @@ components:
         - id
         - realm
       type: object
+    Duration:
+      examples:
+        - P1D
+      format: duration
+      type: string
     Evaluation:
       properties:
         explanation:
@@ -617,6 +627,31 @@ components:
         name:
           type: string
       type: object
+    SmartTrigger:
+      properties:
+        durationConstraint:
+          type: string
+        expression:
+          type: string
+        firstMetTime:
+          $ref: '#/components/schemas/Date'
+        rawExpression:
+          type: string
+        recordingTemplate:
+          type: string
+        recordingTemplateName:
+          type: string
+        simple:
+          type: boolean
+        state:
+          $ref: '#/components/schemas/TriggerState'
+        targetDuration:
+          $ref: '#/components/schemas/Duration'
+        timeConditionFirstMet:
+          $ref: '#/components/schemas/Date'
+        triggerCondition:
+          type: string
+      type: object
     Suggestion:
       properties:
         name:
@@ -732,6 +767,13 @@ components:
         threadDumpId:
           type: string
       type: object
+    TriggerState:
+      enum:
+        - NEW
+        - WAITING_HIGH
+        - WAITING_LOW
+        - COMPLETE
+      type: string
     UUID:
       format: uuid
       pattern: '[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
@@ -2868,6 +2910,75 @@ paths:
       summary: Check if the application is able to accept and respond to requests.
       tags:
         - Health
+  /api/beta/targets/{targetId}/smart_triggers:
+    delete:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                definition:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "204":
+          description: No Content
+      summary: Remove Smart Triggers
+      tags:
+        - Smart Triggers
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SmartTrigger'
+                type: array
+          description: OK
+      summary: Get Smart Triggers
+      tags:
+        - Smart Triggers
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                definition:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+      summary: Add Smart Triggers
+      tags:
+        - Smart Triggers
 tags:
   - description: |
       Endpoints for Discovery Plugins to register with a Cryostat instance, refresh their registration
