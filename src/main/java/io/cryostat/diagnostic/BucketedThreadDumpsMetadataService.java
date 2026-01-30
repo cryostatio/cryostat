@@ -33,11 +33,13 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.UploadRequest;
 
 @ApplicationScoped
 @LookupIfProperty(
@@ -54,6 +56,7 @@ class BucketedThreadDumpsMetadataService implements ThreadDumpsMetadataService {
 
     @Inject StorageBuckets storageBuckets;
     @Inject S3Client storage;
+    @Inject S3TransferManager transferManager;
     @Inject Logger logger;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE)
@@ -83,8 +86,16 @@ class BucketedThreadDumpsMetadataService implements ThreadDumpsMetadataService {
                         .bucket(bucket)
                         .key(prefix(storageKey))
                         .contentType(HttpMimeType.JSON.mime());
-        storage.putObject(
-                builder.build(), RequestBody.fromBytes(mapper.writeValueAsBytes(metadata)));
+        transferManager
+                .upload(
+                        UploadRequest.builder()
+                                .putObjectRequest(builder.build())
+                                .requestBody(
+                                        AsyncRequestBody.fromBytes(
+                                                mapper.writeValueAsBytes(metadata)))
+                                .build())
+                .completionFuture()
+                .join();
     }
 
     @Override
