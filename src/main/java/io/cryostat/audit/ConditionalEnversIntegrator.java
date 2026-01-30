@@ -40,13 +40,13 @@ import org.jboss.logging.Logger;
  * configuration. This allows Envers auditing to be enabled or disabled without rebuilding the
  * application.
  *
- * <p>Configuration: Set {@code cryostat.audit.enabled=true} to enable auditing (disabled by
+ * <p>Configuration: Set {@code hibernate.envers.enabled=true} to enable auditing (disabled by
  * default).
  */
 public class ConditionalEnversIntegrator implements Integrator {
 
     private static final Logger logger = Logger.getLogger(ConditionalEnversIntegrator.class);
-    private static final String ENVERS_ENABLED_PROPERTY = "cryostat.audit.enabled";
+    private static final String ENVERS_ENABLED_PROPERTY = "hibernate.envers.enabled";
 
     @Override
     public void integrate(
