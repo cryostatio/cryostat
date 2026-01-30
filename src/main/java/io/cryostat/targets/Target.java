@@ -60,6 +60,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.envers.Audited;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
@@ -70,6 +71,7 @@ import org.jboss.logging.Logger;
  *
  * @see io.cryostat.discovery.Discovery
  */
+@Audited
 @Entity
 @EntityListeners(Target.Listener.class)
 @NamedQueries({@NamedQuery(name = "Target.unconnected", query = "from Target where jvmId is null")})
