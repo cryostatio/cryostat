@@ -39,6 +39,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
@@ -63,6 +64,7 @@ public class SmartTriggers {
     @Transactional
     @Produces({MediaType.APPLICATION_JSON})
     @GET
+    @Operation(summary = "Retrieve all currently active Smart Triggers for a target")
     public List<SmartTrigger> getSmartTriggers(@RestPath long targetId) {
         log.trace("Smart triggers list request received");
         Target target = Target.getTargetById(targetId);
@@ -77,6 +79,16 @@ public class SmartTriggers {
     @RolesAllowed("write")
     @Transactional
     @POST
+    @Operation(
+            summary = "Define a new Smart Trigger for a target",
+            description =
+                    """
+                    Define a new Smart Trigger. A custom trigger definition must consist of both an expression
+                    that defines the overall trigger condition and the name of an event template that is used
+                    for the JFR Recording. The entire trigger expression must be enclosed in square brackets,
+                    with the recording template name specified after a ~. For an example definition:
+                    [ProcessCpuLoad > 0.2 ; TargetDuration > duration(\"30s\")]~profile
+                    """)
     public void addSmartTriggers(@RestPath long targetId, @RestForm String definition) {
         log.tracev("Smart Triggers Add request received: {0}", definition);
         Target target = Target.getTargetById(targetId);
@@ -101,6 +113,16 @@ public class SmartTriggers {
     @RolesAllowed("write")
     @Transactional
     @DELETE
+    @Operation(
+            summary = "Delete a currently active Smart Trigger for a target",
+            description =
+                    """
+                    Delete an active Smart Trigger. A custom trigger definition must consist of both an expression
+                    that defines the overall trigger condition and the name of an event template that is used
+                    for the JFR Recording. The entire trigger expression must be enclosed in square brackets,
+                    with the recording template name specified after a ~. For an example definition:
+                    [ProcessCpuLoad > 0.2 ; TargetDuration > duration(\"30s\")]~profile
+                    """)
     public void removeSmartTriggers(@RestPath long targetId, @RestForm String definition) {
         log.tracev("Smart Triggers Remove request received: {0}", definition);
         Target target = Target.getTargetById(targetId);
