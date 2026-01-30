@@ -31,6 +31,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
@@ -65,6 +66,9 @@ public class SmartTriggers {
     public List<SmartTrigger> getSmartTriggers(@RestPath long targetId) {
         log.trace("Smart triggers list request received");
         Target target = Target.getTargetById(targetId);
+        if (!target.isAgent()) {
+            throw new BadRequestException("Smart Triggers are unsupported for non-agent targets");
+        }
         return targetConnectionManager.executeConnectedTask(
                 target, conn -> conn.listSmartTriggers(), uploadFailedTimeout);
     }
@@ -76,6 +80,9 @@ public class SmartTriggers {
     public void addSmartTriggers(@RestPath long targetId, @RestForm String definition) {
         log.tracev("Smart Triggers Add request received: {0}", definition);
         Target target = Target.getTargetById(targetId);
+        if (!target.isAgent()) {
+            throw new BadRequestException("Smart Triggers are unsupported for non-agent targets");
+        }
         targetConnectionManager.executeConnectedTask(
                 target,
                 conn -> {
@@ -97,6 +104,9 @@ public class SmartTriggers {
     public void removeSmartTriggers(@RestPath long targetId, @RestForm String definition) {
         log.tracev("Smart Triggers Remove request received: {0}", definition);
         Target target = Target.getTargetById(targetId);
+        if (!target.isAgent()) {
+            throw new BadRequestException("Smart Triggers are unsupported for non-agent targets");
+        }
         targetConnectionManager.executeConnectedTask(
                 target,
                 conn -> {

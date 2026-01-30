@@ -1243,6 +1243,75 @@ paths:
       summary: Upload a JFR binary file to archives, associated with a particular target
       tags:
         - Archived Recordings
+  /api/beta/targets/{targetId}/smart_triggers:
+    delete:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                definition:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "204":
+          description: No Content
+      summary: Remove Smart Triggers
+      tags:
+        - Smart Triggers
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SmartTrigger'
+                type: array
+          description: OK
+      summary: Get Smart Triggers
+      tags:
+        - Smart Triggers
+    post:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                definition:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+      summary: Add Smart Triggers
+      tags:
+        - Smart Triggers
   /api/v4.1/metrics/reports:
     get:
       description: |
@@ -2910,75 +2979,6 @@ paths:
       summary: Check if the application is able to accept and respond to requests.
       tags:
         - Health
-  /api/beta/targets/{targetId}/smart_triggers:
-    delete:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            format: int64
-            type: integer
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                definition:
-                  type: string
-              type: object
-        required: true
-      responses:
-        "204":
-          description: No Content
-      summary: Remove Smart Triggers
-      tags:
-        - Smart Triggers
-    get:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            format: int64
-            type: integer
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                items:
-                  $ref: '#/components/schemas/SmartTrigger'
-                type: array
-          description: OK
-      summary: Get Smart Triggers
-      tags:
-        - Smart Triggers
-    post:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            format: int64
-            type: integer
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                definition:
-                  type: string
-              type: object
-        required: true
-      responses:
-        "201":
-          description: Created
-        "400":
-          description: Bad Request
-      summary: Add Smart Triggers
-      tags:
-        - Smart Triggers
 tags:
   - description: |
       Endpoints for Discovery Plugins to register with a Cryostat instance, refresh their registration
