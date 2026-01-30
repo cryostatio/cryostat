@@ -15,8 +15,10 @@
  */
 package io.cryostat.audit;
 
+import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.lang3.StringUtils;
 import org.hibernate.boot.Metadata;
 import org.hibernate.boot.spi.BootstrapContext;
 import org.hibernate.engine.config.spi.ConfigurationService;
@@ -47,6 +49,7 @@ public class ConditionalEnversIntegrator implements Integrator {
 
     private static final Logger logger = Logger.getLogger(ConditionalEnversIntegrator.class);
     private static final String ENVERS_ENABLED_PROPERTY = "hibernate.envers.enabled";
+    private static final String AUDIT_ENABLED_ENV_VAR = "CRYOSTAT_AUDIT_ENABLED";
 
     @Override
     public void integrate(
@@ -56,7 +59,15 @@ public class ConditionalEnversIntegrator implements Integrator {
 
         ConfigurationService configService =
                 bootstrapContext.getServiceRegistry().getService(ConfigurationService.class);
-        Map<String, Object> settings = configService.getSettings();
+        Map<String, Object> settings = new HashMap<>(configService.getSettings());
+
+        // TODO we don't have CDI/Quarkus ArC at this point so we can't use the smallrye-config
+        // configuration loader. This should ideally be a 'cryostat.audit.enabled' config property,
+        // not only an environment variable.
+        String auditEnv = System.getenv(AUDIT_ENABLED_ENV_VAR);
+        if (StringUtils.isNotBlank(auditEnv)) {
+            settings.put(ENVERS_ENABLED_PROPERTY, auditEnv);
+        }
 
         boolean enversEnabled =
                 Boolean.parseBoolean(
