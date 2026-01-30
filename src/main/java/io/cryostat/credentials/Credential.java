@@ -27,6 +27,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.Cacheable;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -39,6 +40,8 @@ import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.ColumnTransformer;
 import org.projectnessie.cel.tools.ScriptException;
 
@@ -59,6 +62,7 @@ import org.projectnessie.cel.tools.ScriptException;
  */
 @Entity
 @EntityListeners(Credential.Listener.class)
+@Cacheable
 public class Credential extends PanacheEntity {
 
     public static final String CREDENTIALS_STORED = "CredentialsStored";
@@ -68,6 +72,7 @@ public class Credential extends PanacheEntity {
     @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
     @JoinColumn(name = "matchExpression")
     @NotNull
+    @Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
     public MatchExpression matchExpression;
 
     @ColumnTransformer(
