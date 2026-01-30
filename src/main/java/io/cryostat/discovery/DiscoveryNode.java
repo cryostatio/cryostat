@@ -58,6 +58,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.envers.Audited;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
@@ -70,6 +71,7 @@ import org.jboss.logging.Logger;
  * etc. All {@link io.cryostat.targets.Target} instances are associated with a DiscoveryNode which
  * places them in the tree.
  */
+@Audited
 @Entity
 @EntityListeners(DiscoveryNode.Listener.class)
 @NamedQueries({
@@ -117,11 +119,6 @@ public class DiscoveryNode extends PanacheEntity {
     @JsonInclude(value = Include.NON_NULL)
     @JsonView(Views.Flat.class)
     public Target target;
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, name, nodeType, labels, children, target);
-    }
 
     public boolean hasChildren() {
         return !children.isEmpty();
@@ -199,6 +196,11 @@ public class DiscoveryNode extends PanacheEntity {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hash(id, name, nodeType, labels);
+    }
+
+    @Override
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
@@ -210,9 +212,10 @@ public class DiscoveryNode extends PanacheEntity {
             return false;
         }
         DiscoveryNode other = (DiscoveryNode) obj;
-        return Objects.equals(target, other.target)
-                && Objects.equals(labels, other.labels)
-                && Objects.equals(children, other.children);
+        return Objects.equals(id, other.id)
+                && Objects.equals(name, other.name)
+                && Objects.equals(nodeType, other.nodeType)
+                && Objects.equals(labels, other.labels);
     }
 
     @Override
