@@ -205,6 +205,8 @@ jobs:
       OPENAPI_DIFF_FILE: ${{ steps.schema-update.outputs.openapi_diff_file }}
       GRAPHQL_STATUS: ${{ steps.schema-update.outputs.graphql_status }}
       GRAPHQL_DIFF_FILE: ${{ steps.schema-update.outputs.graphql_diff_file }}
+      NOTIFICATIONS_STATUS: ${{ steps.schema-update.outputs.notifications_status }}
+      NOTIFICATIONS_DIFF_FILE: ${{ steps.schema-update.outputs.notifications_diff_file }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -229,6 +231,9 @@ jobs:
         git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/schema.graphql > /home/runner/work/graphql.diff
         echo "graphql_status=$?" >> "$GITHUB_OUTPUT"
         echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
+        git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/notifications.yaml > /home/runner/work/notifications.diff
+        echo "notifications_status=$?" >> "$GITHUB_OUTPUT"
+        echo "notifications_diff_file=notifications.diff" >> "$GITHUB_OUTPUT"
     - uses: actions/upload-artifact@v6
       with:
         name: openapi-diff
@@ -237,6 +242,10 @@ jobs:
       with:
         name: graphql-diff
         path: /home/runner/work/graphql.diff
+    - uses: actions/upload-artifact@v6
+      with:
+        name: notifications-diff
+        path: /home/runner/work/notifications.diff
 
   compare-openapi-schema:
     needs: [update-schemas]
@@ -290,13 +299,39 @@ jobs:
             body: commentBody
           });
 
+  compare-notifications-schema:
+    needs: [update-schemas]
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+    - uses: actions/download-artifact@v7
+      with:
+        name: notifications-diff
+    - name: Comment schema check result
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const diffFmt = s => {
+            return "```diff\n" + s + "\n```";
+          };
+          const commentBody = ${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS }} == '0'
+            ? `No WebSocket notifications schema changes detected.`
+            : `WebSocket notifications schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.NOTIFICATIONS_DIFF_FILE }}'))}`;
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: commentBody
+          });
+
   auto-commit-schemas:
-    needs: [compare-graphql-schema, compare-openapi-schema, checkout-branch, update-schemas]
+    needs: [compare-graphql-schema, compare-openapi-schema, compare-notifications-schema, checkout-branch, update-schemas]
     runs-on: ubuntu-latest
     permissions:
       contents: write
       pull-requests: write
-    if: needs.update-schemas.outputs.OPENAPI_STATUS != '0' || needs.update-schemas.outputs.GRAPHQL_STATUS != '0'
+    if: needs.update-schemas.outputs.OPENAPI_STATUS != '0' || needs.update-schemas.outputs.GRAPHQL_STATUS != '0' || needs.update-schemas.outputs.NOTIFICATIONS_STATUS != '0'
     steps:
       - name: Check out PR branch
         uses: actions/checkout@v6
@@ -323,6 +358,11 @@ jobs:
         with:
           name: graphql-diff
           path: diffs
+      - name: Download Notifications diff
+        uses: actions/download-artifact@v7
+        with:
+          name: notifications-diff
+          path: diffs
       - name: List downloaded files
         run: ls -l diffs/
       - name: Apply OpenAPI diff
@@ -337,9 +377,15 @@ jobs:
           patch -p1 < diffs/graphql.diff
           echo "Contents of GraphQL schema after patch:"
           cat schema/schema.graphql
+      - name: Apply Notifications diff
+        if: needs.update-schemas.outputs.NOTIFICATIONS_STATUS != '0'
+        run: |
+          patch -p1 < diffs/notifications.diff
+          echo "Contents of Notifications schema after patch:"
+          cat schema/notifications.yaml
       - name: Commit and push schema changes
         run: |
-          git add schema/openapi.yaml schema/schema.graphql
+          git add schema/openapi.yaml schema/schema.graphql schema/notifications.yaml
           git commit -S -m "chore(schema): automatic update"
           git push origin ${{ needs.checkout-branch.outputs.PR_head_ref }}
       - name: Comment on schema update
