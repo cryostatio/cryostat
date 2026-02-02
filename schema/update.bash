@@ -9,7 +9,7 @@ if ! command -v http && ! command -v wget; then
     exit 1
 fi
 
-"${DIR}"/../mvnw --offline -B \
+"${DIR}"/../mvnw -B \
     -Dquarkus.quinoa=false \
     -Dquarkus.log.level=warn \
     -Dquarkus.http.access-log.enabled=false \
