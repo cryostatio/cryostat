@@ -30,12 +30,10 @@ public abstract class AbstractTransactionalTestBase extends AbstractTestBase {
     @BeforeEach
     void migrate() throws SchedulerException {
         flyway.migrate();
-        scheduler.start();
     }
 
     @AfterEach
     void cleanup() throws SchedulerException {
-        scheduler.standby();
         scheduler.clear();
         flyway.clean();
         flyway.migrate();
