@@ -45,6 +45,7 @@ import jakarta.websocket.OnMessage;
 import jakarta.websocket.Session;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
@@ -126,6 +127,11 @@ public abstract class AbstractTestBase {
                 throw new IllegalStateException("Storage took too long to become ready");
             }
         }
+    }
+
+    @AfterEach
+    void cleanup() throws SchedulerException {
+        scheduler.clear();
     }
 
     private boolean bucketExists(String bucket) {
