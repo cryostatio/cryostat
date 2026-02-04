@@ -46,11 +46,9 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusTest
 @QuarkusTestResource(S3StorageResource.class)
-@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class RecordingWorkflowTest extends StandardSelfTest {
 
     static String TEST_RECORDING_NAME = "workflow_itest";

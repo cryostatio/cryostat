@@ -45,7 +45,10 @@ import jakarta.websocket.OnMessage;
 import jakarta.websocket.Session;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.quartz.Scheduler;
+import org.quartz.SchedulerException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
@@ -98,16 +101,22 @@ public abstract class AbstractTestBase {
 
     @Inject S3Client storage;
     @Inject Logger logger;
+    @Inject Scheduler scheduler;
 
     protected int selfId = -1;
     protected String selfJvmId = "";
     protected int selfRecordingId = -1;
 
     @BeforeEach
-    void waitForStorage() throws InterruptedException {
+    void waitForStorage() throws InterruptedException, SchedulerException {
         selfId = -1;
         selfJvmId = "";
         selfRecordingId = -1;
+
+        if (!scheduler.isStarted() || scheduler.isInStandbyMode()) {
+            scheduler.start();
+        }
+
         long totalTime = 0;
         while (!bucketExists(archivesBucket)) {
             long start = System.nanoTime();
@@ -118,6 +127,11 @@ public abstract class AbstractTestBase {
                 throw new IllegalStateException("Storage took too long to become ready");
             }
         }
+    }
+
+    @AfterEach
+    void cleanup() throws SchedulerException {
+        scheduler.clear();
     }
 
     private boolean bucketExists(String bucket) {
