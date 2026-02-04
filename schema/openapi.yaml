@@ -651,6 +651,10 @@ components:
           $ref: '#/components/schemas/Date'
         triggerCondition:
           type: string
+        uUID:
+          type: string
+        uuid:
+          type: string
       type: object
     Suggestion:
       properties:
@@ -1244,29 +1248,6 @@ paths:
       tags:
         - Archived Recordings
   /api/beta/targets/{targetId}/smart_triggers:
-    delete:
-      parameters:
-        - in: path
-          name: targetId
-          required: true
-          schema:
-            format: int64
-            type: integer
-      requestBody:
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              properties:
-                definition:
-                  type: string
-              type: object
-        required: true
-      responses:
-        "204":
-          description: No Content
-      summary: Remove Smart Triggers
-      tags:
-        - Smart Triggers
     get:
       parameters:
         - in: path
@@ -1284,10 +1265,16 @@ paths:
                   $ref: '#/components/schemas/SmartTrigger'
                 type: array
           description: OK
-      summary: Get Smart Triggers
+      summary: Retrieve all currently active Smart Triggers for a target
       tags:
         - Smart Triggers
     post:
+      description: |
+        Define a new Smart Trigger. A custom trigger definition must consist of both an expression
+        that defines the overall trigger condition and the name of an event template that is used
+        for the JFR Recording. The entire trigger expression must be enclosed in square brackets,
+        with the recording template name specified after a ~. For an example definition:
+        [ProcessCpuLoad > 0.2 ; TargetDuration > duration("30s")]~profile
       parameters:
         - in: path
           name: targetId
@@ -1309,7 +1296,33 @@ paths:
           description: Created
         "400":
           description: Bad Request
-      summary: Add Smart Triggers
+      summary: Define a new Smart Trigger for a target
+      tags:
+        - Smart Triggers
+  /api/beta/targets/{targetId}/smart_triggers/{uuid}:
+    delete:
+      description: |
+        Delete an active Smart Trigger. A custom trigger definition must consist of both an expression
+        that defines the overall trigger condition and the name of an event template that is used
+        for the JFR Recording. The entire trigger expression must be enclosed in square brackets,
+        with the recording template name specified after a ~. For an example definition:
+        [ProcessCpuLoad > 0.2 ; TargetDuration > duration("30s")]~profile
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: path
+          name: uuid
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete a currently active Smart Trigger for a target
       tags:
         - Smart Triggers
   /api/v4.1/metrics/reports:

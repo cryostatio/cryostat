@@ -161,24 +161,23 @@ public class AgentClient {
                                 }));
     }
 
-    Uni<Void> addSmartTriggers(String definitions) {
+    Uni<List<String>> addSmartTriggers(String definitions) {
         return agentRestClient
                 .addTriggers(definitions)
                 .invoke(Response::close)
                 .map(
-                        resp -> {
-                            int statusCode = resp.getStatus();
-                            if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
-                                return null;
-                            } else {
-                                throw new AgentApiException(statusCode);
-                            }
-                        });
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return Arrays.asList(mapper.readValue(is, String[].class));
+                                    }
+                                }));
     }
 
-    Uni<Void> removeSmartTriggers(String definitions) {
+    Uni<Void> removeSmartTrigger(String uuid) {
         return agentRestClient
-                .removeTriggers(definitions)
+                .removeTrigger(uuid)
                 .invoke(Response::close)
                 .map(
                         resp -> {

@@ -109,7 +109,7 @@ public class SmartTriggers {
                         Map.of("trigger", definition, "jvmId", target.jvmId)));
     }
 
-    @Path("targets/{targetId}/smart_triggers")
+    @Path("targets/{targetId}/smart_triggers/{uuid}")
     @RolesAllowed("write")
     @Transactional
     @DELETE
@@ -123,8 +123,8 @@ public class SmartTriggers {
                     with the recording template name specified after a ~. For an example definition:
                     [ProcessCpuLoad > 0.2 ; TargetDuration > duration(\"30s\")]~profile
                     """)
-    public void removeSmartTriggers(@RestPath long targetId, @RestForm String definition) {
-        log.tracev("Smart Triggers Remove request received: {0}", definition);
+    public void removeSmartTriggers(@RestPath long targetId, @RestPath String uuid) {
+        log.tracev("Smart Triggers Remove request received: {0}", uuid);
         Target target = Target.getTargetById(targetId);
         if (!target.isAgent()) {
             throw new BadRequestException("Smart Triggers are unsupported for non-agent targets");
@@ -132,14 +132,13 @@ public class SmartTriggers {
         targetConnectionManager.executeConnectedTask(
                 target,
                 conn -> {
-                    conn.removeSmartTriggers(definition);
+                    conn.removeSmartTrigger(uuid);
                     return null;
                 },
                 uploadFailedTimeout);
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(
-                        SMART_TRIGGER_DELETED,
-                        Map.of("trigger", definition, "jvmId", target.jvmId)));
+                        SMART_TRIGGER_DELETED, Map.of("trigger", uuid, "jvmId", target.jvmId)));
     }
 }

@@ -64,7 +64,7 @@ interface AgentRestClient {
 
     @Path("/smart-triggers/")
     @DELETE
-    Uni<Response> removeTriggers(String definitions);
+    Uni<Response> removeTrigger(String uuid);
 
     @Path("/recordings/")
     @GET
