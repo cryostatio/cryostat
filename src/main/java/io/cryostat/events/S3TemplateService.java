@@ -68,7 +68,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.parser.Parser;
-import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -79,6 +79,8 @@ import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.UploadRequest;
 
 /**
  * Event Template service implementation for Custom Event Templates. Custom Event Templates are ones
@@ -106,6 +108,7 @@ public class S3TemplateService implements MutableTemplateService {
 
     @Inject DeclarativeConfiguration declarativeConfiguration;
     @Inject S3Client storage;
+    @Inject S3TransferManager transferManager;
     @Inject StorageBuckets storageBuckets;
     @Inject Instance<BucketedEventTemplateMetadataService> metadataService;
 
@@ -338,7 +341,14 @@ public class S3TemplateService implements MutableTemplateService {
                 default:
                     throw new IllegalStateException();
             }
-            storage.putObject(reqBuilder.build(), RequestBody.fromString(model.toString()));
+            transferManager
+                    .upload(
+                            UploadRequest.builder()
+                                    .putObjectRequest(reqBuilder.build())
+                                    .requestBody(AsyncRequestBody.fromString(model.toString()))
+                                    .build())
+                    .completionFuture()
+                    .join();
 
             bus.publish(
                     MessagingServer.class.getName(),
