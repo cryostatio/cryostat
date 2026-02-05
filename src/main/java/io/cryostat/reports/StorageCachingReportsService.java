@@ -72,9 +72,6 @@ class StorageCachingReportsService implements ReportsService {
     @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_EXPIRY_DURATION)
     Duration expiry;
 
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration timeout;
-
     @Inject S3Client storage;
     @Inject ObjectMapper mapper;
 
@@ -185,13 +182,13 @@ class StorageCachingReportsService implements ReportsService {
     @Override
     public boolean keyExists(ActiveRecording recording) {
         String key = ReportsService.key(recording);
-        return enabled && checkStorage(key).await().atMost(timeout);
+        return enabled && checkStorage(key).await().indefinitely();
     }
 
     @Override
     public boolean keyExists(String jvmId, String filename) {
         String key = RecordingHelper.archivedRecordingKey(jvmId, filename);
-        return enabled && checkStorage(key).await().atMost(timeout);
+        return enabled && checkStorage(key).await().indefinitely();
     }
 
     private String suffixKey(String key) {
