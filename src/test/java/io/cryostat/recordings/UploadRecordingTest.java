@@ -13,36 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest;
+package io.cryostat.recordings;
+
+import static io.restassured.RestAssured.given;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeoutException;
 
+import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.GrafanaResource;
 import io.cryostat.resources.JFRDatasourceResource;
 import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpMimeType;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import io.quarkus.test.common.TestResourceScope;
 import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusTest;
-import io.vertx.core.MultiMap;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpHeaders;
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.HttpRequest;
-import io.vertx.ext.web.client.HttpResponse;
-import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -55,103 +50,89 @@ import org.junit.jupiter.api.Test;
         value = JFRDatasourceResource.class,
         scope = TestResourceScope.GLOBAL,
         parallel = true)
-public class UploadRecordingTest extends StandardSelfTest {
+public class UploadRecordingTest extends AbstractTransactionalTestBase {
 
     // TODO this should be a constant somewhere in the server sources
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
     static final String RECORDING_NAME = "upload_recording_it_rec";
     static final int RECORDING_DURATION_SECONDS = 10;
+    static final int REQUEST_TIMEOUT_SECONDS = 30;
 
-    static String CREATE_RECORDING_URL;
-    static String DELETE_RECORDING_URL;
-    static String UPLOAD_RECORDING_URL;
-    static long RECORDING_REMOTE_ID;
-
-    @BeforeAll
-    public static void createRecording() throws Exception {
-        MultiMap form = MultiMap.caseInsensitiveMultiMap();
-        form.add("recordingName", RECORDING_NAME);
-        form.add("duration", String.valueOf(RECORDING_DURATION_SECONDS));
-        form.add("events", "template=ALL");
-
-        CREATE_RECORDING_URL =
-                String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId());
-        HttpResponse<Buffer> resp =
-                webClient.extensions().post(CREATE_RECORDING_URL, form, RECORDING_DURATION_SECONDS);
-        long id = resp.bodyAsJsonObject().getLong("remoteId");
-        RECORDING_REMOTE_ID = id;
-        MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(201));
-        Thread.sleep(
-                Long.valueOf(
-                        RECORDING_DURATION_SECONDS * 1000)); // Wait for the recording to finish
+    @BeforeEach
+    void setupUploadRecordingTest() throws Exception {
+        // MUST call getSelfReferenceTargetId() BEFORE cleanup to ensure target exists
+        getSelfReferenceTargetId();
+        cleanupSelfActiveAndArchivedRecordings();
     }
 
-    @AfterAll
-    public static void cleanup()
-            throws InterruptedException,
-                    TimeoutException,
-                    ExecutionException,
-                    JsonProcessingException {
+    @AfterEach
+    void cleanupUploadRecordingTest() throws Exception {
         cleanupSelfActiveAndArchivedRecordings();
     }
 
     @Test
     public void shouldLoadRecordingToDatasource() throws Exception {
+        long targetId = getSelfReferenceTargetId();
 
-        HttpResponse<Buffer> resp =
-                webClient
-                        .extensions()
-                        .post(
-                                String.format(
-                                        "/api/v4/targets/%d/recordings/%d/upload",
-                                        getSelfReferenceTargetId(), RECORDING_REMOTE_ID),
-                                (Buffer) null,
-                                0);
+        // Create a recording
+        String createRecordingUrl = String.format("/api/v4/targets/%d/recordings", targetId);
+        Response createResp =
+                given().formParam("recordingName", RECORDING_NAME)
+                        .formParam("duration", String.valueOf(RECORDING_DURATION_SECONDS))
+                        .formParam("events", "template=ALL")
+                        .when()
+                        .post(createRecordingUrl)
+                        .then()
+                        .statusCode(201)
+                        .extract()
+                        .response();
+
+        long recordingRemoteId = createResp.jsonPath().getLong("remoteId");
+
+        // Wait for the recording to finish
+        Thread.sleep(RECORDING_DURATION_SECONDS * 1000L);
+
+        // Upload recording to datasource
+        String uploadRecordingUrl =
+                String.format(
+                        "/api/v4/targets/%d/recordings/%d/upload", targetId, recordingRemoteId);
+        Response uploadResp =
+                given().when().post(uploadRecordingUrl).then().statusCode(200).extract().response();
+
         // The endpoint should send back a job ID, while it kicks off the upload.
-        MatcherAssert.assertThat(resp.statusCode(), Matchers.equalTo(200));
-        MatcherAssert.assertThat(resp.bodyAsString(), Matchers.notNullValue());
+        MatcherAssert.assertThat(uploadResp.body().asString(), Matchers.notNullValue());
 
         // Sleep for a bit to give the upload time to complete
         Thread.sleep(2000);
 
-        HttpRequest<Buffer> req = webClient.get("/api/v4/grafana_datasource_url");
-        CompletableFuture<JsonObject> respFuture = new CompletableFuture<>();
-        req.send(
-                ar -> {
-                    if (assertRequestStatus(ar, respFuture)) {
-                        respFuture.complete(ar.result().bodyAsJsonObject());
-                    } else {
-                        respFuture.completeExceptionally(ar.cause());
-                    }
-                });
+        // Get Grafana datasource URL
+        Response datasourceUrlResp =
+                given().when()
+                        .get("/api/v4/grafana_datasource_url")
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
 
-        String DATASOURCEURL = respFuture.get().getString("grafanaDatasourceUrl");
+        String datasourceUrl =
+                new JsonObject(datasourceUrlResp.body().asString())
+                        .getString("grafanaDatasourceUrl");
 
         // Confirm recording is loaded in Data Source
-        final CompletableFuture<String> getRespFuture = new CompletableFuture<>();
-        webClient
-                .getAbs(DATASOURCEURL + "/list")
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, getRespFuture)) {
-                                MatcherAssert.assertThat(
-                                        ar.result().statusCode(), Matchers.equalTo(200));
-                                MatcherAssert.assertThat(
-                                        ar.result()
-                                                .getHeader(HttpHeaders.CONTENT_TYPE.toString())
-                                                .split(";")[0],
-                                        Matchers.equalTo(HttpMimeType.PLAINTEXT.mime()));
-                                getRespFuture.complete(ar.result().bodyAsString());
-                            }
-                        });
+        Response listResp =
+                given().when()
+                        .get(datasourceUrl + "/list")
+                        .then()
+                        .statusCode(200)
+                        .contentType(HttpMimeType.PLAINTEXT.mime())
+                        .extract()
+                        .response();
 
         MatcherAssert.assertThat(
-                getRespFuture.get().trim(),
+                listResp.body().asString().trim(),
                 Matchers.equalTo(String.format("**%s**", DATASOURCE_FILENAME)));
 
         // Query Data Source for recording metrics
-        final CompletableFuture<JsonArray> queryRespFuture = new CompletableFuture<>();
-
         Instant toDate = Instant.now(); // Capture the current moment in UTC
         Instant fromDate = toDate.plusSeconds(-REQUEST_TIMEOUT_SECONDS);
         final String FROM = fromDate.toString();
@@ -190,24 +171,18 @@ public class UploadRecordingTest extends StandardSelfTest {
                                 Map.entry("maxDataPoints", 1000),
                                 Map.entry("adhocFilters", List.of())));
 
-        webClient
-                .postAbs(DATASOURCEURL + "/query")
-                .sendJsonObject(
-                        query,
-                        ar -> {
-                            if (assertRequestStatus(ar, queryRespFuture)) {
-                                MatcherAssert.assertThat(
-                                        ar.result().statusCode(), Matchers.equalTo(200));
-                                MatcherAssert.assertThat(
-                                        ar.result()
-                                                .getHeader(HttpHeaders.CONTENT_TYPE.toString())
-                                                .split(";")[0],
-                                        Matchers.equalTo(HttpMimeType.JSON.mime()));
-                                queryRespFuture.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
+        Response queryResp =
+                given().contentType(ContentType.JSON)
+                        .body(query.encode())
+                        .when()
+                        .post(datasourceUrl + "/query")
+                        .then()
+                        .statusCode(200)
+                        .contentType(HttpMimeType.JSON.mime())
+                        .extract()
+                        .response();
 
-        final JsonArray arrResponse = queryRespFuture.get();
+        final JsonArray arrResponse = new JsonArray(queryResp.body().asString());
         MatcherAssert.assertThat(arrResponse, Matchers.notNullValue());
         MatcherAssert.assertThat(arrResponse.size(), Matchers.equalTo(1)); // Single target
 
