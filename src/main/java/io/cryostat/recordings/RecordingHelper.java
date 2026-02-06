@@ -473,37 +473,45 @@ public class RecordingHelper {
         target.activeRecordings.add(recording);
         target.persist();
 
-        if (!recording.continuous) {
-            JobKey key =
-                    JobKey.jobKey(
-                            String.format("%s.%d", target.jvmId, recording.remoteId),
-                            "recording.fixed-duration");
-            JobDetail jobDetail =
-                    JobBuilder.newJob(StopRecordingJob.class)
-                            .withIdentity(key)
-                            .usingJobData(JobInterruptMonitorPlugin.AUTO_INTERRUPTIBLE, "true")
-                            .usingJobData("recordingId", recording.id)
-                            .build();
-            try {
-                if (!scheduler.checkExists(key)) {
-                    Trigger trigger =
-                            TriggerBuilder.newTrigger()
-                                    .withIdentity(key.getName(), key.getGroup())
-                                    .startAt(
-                                            new Date(
-                                                    System.currentTimeMillis()
-                                                            + recording.duration))
-                                    .build();
-                    scheduler.scheduleJob(jobDetail, trigger);
-                }
-            } catch (SchedulerException e) {
-                logger.warn(e);
-            }
-        }
-
         logger.debugv("Started recording: {0} {1}", target.connectUrl, target.activeRecordings);
 
-        return Uni.createFrom().item(recording);
+        // Schedule the stop job after returning the recording
+        // The Uni.invoke() will execute after the item is emitted, which happens after
+        // the transaction commits
+        return Uni.createFrom()
+                .item(recording)
+                .invoke(
+                        r -> {
+                            if (!r.continuous) {
+                                scheduleStopJob(r.id, r.duration, target.jvmId, r.remoteId);
+                            }
+                        });
+    }
+
+    private void scheduleStopJob(long recordingId, long duration, String jvmId, long remoteId) {
+        JobKey key =
+                JobKey.jobKey(String.format("%s.%d", jvmId, remoteId), "recording.fixed-duration");
+        JobDetail jobDetail =
+                JobBuilder.newJob(StopRecordingJob.class)
+                        .withIdentity(key)
+                        .usingJobData(JobInterruptMonitorPlugin.AUTO_INTERRUPTIBLE, "true")
+                        .usingJobData("recordingId", recordingId)
+                        .build();
+        try {
+            if (!scheduler.checkExists(key)) {
+                Trigger trigger =
+                        TriggerBuilder.newTrigger()
+                                .withIdentity(key.getName(), key.getGroup())
+                                .startAt(new Date(System.currentTimeMillis() + duration))
+                                .build();
+                scheduler.scheduleJob(jobDetail, trigger);
+                logger.debugv(
+                        "Scheduled stop job for recording {0} to run in {1}ms",
+                        recordingId, duration);
+            }
+        } catch (SchedulerException e) {
+            logger.warn(e);
+        }
     }
 
     public Uni<ActiveRecording> createSnapshot(Target target) {
@@ -1572,7 +1580,7 @@ public class RecordingHelper {
         @Inject Logger logger;
 
         @Override
-        @Transactional
+        @Transactional(Transactional.TxType.REQUIRES_NEW)
         public void execute(JobExecutionContext ctx) throws JobExecutionException {
             try {
                 ActiveRecording recording =
