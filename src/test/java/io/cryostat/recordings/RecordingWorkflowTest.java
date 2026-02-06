@@ -44,6 +44,7 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -57,6 +58,15 @@ public class RecordingWorkflowTest extends AbstractTransactionalTestBase {
     static String TEST_RECORDING_NAME = "workflow_itest";
     static long TEST_REMOTE_ID;
     final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+
+    @BeforeEach
+    void setupRecordingWorkflowTest()
+            throws InterruptedException,
+                    TimeoutException,
+                    ExecutionException,
+                    JsonProcessingException {
+        cleanupSelfActiveAndArchivedRecordings();
+    }
 
     @AfterEach
     void cleanupRecordingWorkflowTest()

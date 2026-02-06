@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest;
+package io.cryostat.recordings;
+
+import static io.restassured.RestAssured.given;
 
 import java.nio.file.Path;
 import java.time.Duration;
@@ -28,26 +30,23 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageBucketedMetadataResource;
-import io.cryostat.util.HttpMimeType;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.quarkus.test.common.TestResourceScope;
 import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusTest;
-import io.vertx.core.MultiMap;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpHeaders;
+import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.HttpResponse;
-import itest.bases.StandardSelfTest;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordingFile;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
@@ -56,15 +55,25 @@ import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
         value = S3StorageBucketedMetadataResource.class,
         scope = TestResourceScope.MATCHING_RESOURCES)
 @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
-public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
+public class RecordingWorkflowBucketedMetadataTest extends AbstractTransactionalTestBase {
 
     private final ExecutorService worker = ForkJoinPool.commonPool();
 
-    static String TEST_RECORDING_NAME = "bucketedmeta_itest";
-    static long TEST_REMOTE_ID;
+    static final int REQUEST_TIMEOUT_SECONDS = RecordingWorkflowTest.REQUEST_TIMEOUT_SECONDS;
+    String testRecordingName = "bucketedmeta_itest";
+    long testRemoteId;
+
+    @BeforeEach
+    void setupRecordingWorkflowBucketedMetadataTest()
+            throws InterruptedException,
+                    TimeoutException,
+                    ExecutionException,
+                    JsonProcessingException {
+        cleanupSelfActiveAndArchivedRecordings();
+    }
 
     @AfterEach
-    void cleanup()
+    void cleanupRecordingWorkflowBucketedMetadataTest()
             throws InterruptedException,
                     TimeoutException,
                     ExecutionException,
@@ -75,45 +84,37 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
     @Test
     public void testWorkflow() throws Exception {
         // Check preconditions
-        CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
-        webClient
-                .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture1)) {
-                                listRespFuture1.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        JsonArray listResp = listRespFuture1.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Response listResponse1 =
+                given().when()
+                        .get("/api/v4/targets/{targetId}/recordings", getSelfReferenceTargetId())
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        JsonArray listResp = new JsonArray(listResponse1.body().asString());
         Assertions.assertTrue(listResp.isEmpty());
 
         List<String> archivedRecordingFilenames = new ArrayList<>();
         // create an in-memory recording
-        MultiMap form = MultiMap.caseInsensitiveMultiMap();
-        form.add("recordingName", TEST_RECORDING_NAME);
-        form.add("duration", "20");
-        form.add("events", "template=ALL");
-        webClient
-                .extensions()
-                .post(
-                        String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()),
-                        form,
-                        REQUEST_TIMEOUT_SECONDS);
+        given().contentType("application/x-www-form-urlencoded")
+                .formParam("recordingName", testRecordingName)
+                .formParam("duration", "20")
+                .formParam("events", "template=ALL")
+                .when()
+                .post("/api/v4/targets/{targetId}/recordings", getSelfReferenceTargetId())
+                .then()
+                .statusCode(201);
         Thread.sleep(500);
 
         // verify in-memory recording created
-        CompletableFuture<JsonArray> listRespFuture2 = new CompletableFuture<>();
-        webClient
-                .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture2)) {
-                                listRespFuture2.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        listResp = listRespFuture2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Response listResponse2 =
+                given().when()
+                        .get("/api/v4/targets/{targetId}/recordings", getSelfReferenceTargetId())
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        listResp = new JsonArray(listResponse2.body().asString());
 
         MatcherAssert.assertThat(
                 "list should have size 1 after recording creation",
@@ -121,26 +122,24 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
                 Matchers.equalTo(1));
         JsonObject recordingInfo = listResp.getJsonObject(0);
         long remoteId = recordingInfo.getLong("remoteId");
-        TEST_REMOTE_ID = remoteId;
+        testRemoteId = remoteId;
         MatcherAssert.assertThat(
-                recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
+                recordingInfo.getString("name"), Matchers.equalTo(testRecordingName));
         MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("RUNNING"));
 
         Thread.sleep(5_000L); // wait some time to save a portion of the recording
 
         // save a copy of the partial recording dump
-        MultiMap saveHeaders = MultiMap.caseInsensitiveMultiMap();
-        saveHeaders.add(HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.PLAINTEXT.mime());
-        webClient
-                .extensions()
+        given().contentType("text/plain")
+                .body("SAVE")
+                .when()
                 .patch(
-                        String.format(
-                                "/api/v4/targets/%d/recordings/%d",
-                                getSelfReferenceTargetId(), TEST_REMOTE_ID),
-                        saveHeaders,
-                        Buffer.buffer("SAVE"),
-                        REQUEST_TIMEOUT_SECONDS)
-                .bodyAsString();
+                        "/api/v4/targets/{targetId}/recordings/{remoteId}",
+                        getSelfReferenceTargetId(),
+                        testRemoteId)
+                .then()
+                .statusCode(200);
+
         // Wait for the archive request to conclude, the server won't block the client
         // while it performs the archive so we need to wait.
         CountDownLatch archiveLatch = new CountDownLatch(1);
@@ -163,17 +162,14 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
 
         Thread.sleep(500);
         // check that the in-memory recording list hasn't changed
-        CompletableFuture<JsonArray> listRespFuture3 = new CompletableFuture<>();
-        webClient
-                .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture3)) {
-                                listRespFuture3.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        listResp = listRespFuture3.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Response listResponse3 =
+                given().when()
+                        .get("/api/v4/targets/{targetId}/recordings", getSelfReferenceTargetId())
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        listResp = new JsonArray(listResponse3.body().asString());
 
         MatcherAssert.assertThat(
                 "list should have size 1 after recording creation",
@@ -181,21 +177,18 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
                 Matchers.equalTo(1));
         recordingInfo = listResp.getJsonObject(0);
         MatcherAssert.assertThat(
-                recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
+                recordingInfo.getString("name"), Matchers.equalTo(testRecordingName));
         MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("RUNNING"));
 
         // verify saved recording created
-        CompletableFuture<JsonArray> listRespFuture4 = new CompletableFuture<>();
-        webClient
-                .get("/api/v4/recordings")
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture4)) {
-                                listRespFuture4.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        listResp = listRespFuture4.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Response listResponse4 =
+                given().when()
+                        .get("/api/v4/recordings")
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        listResp = new JsonArray(listResponse4.body().asString());
         Thread.sleep(500);
 
         MatcherAssert.assertThat(
@@ -206,27 +199,24 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
         MatcherAssert.assertThat(
                 recordingInfo.getString("name"),
                 Matchers.matchesRegex(
-                        SELFTEST_ALIAS + "_" + TEST_RECORDING_NAME + "_[\\d]{8}T[\\d]{6}Z.jfr"));
+                        SELFTEST_ALIAS + "_" + testRecordingName + "_[\\d]{8}T[\\d]{6}Z.jfr"));
         String savedDownloadUrl = recordingInfo.getString("downloadUrl");
         Thread.sleep(30_000L); // wait for the dump to complete
 
         // verify the in-memory recording list has not changed, except recording is now stopped
-        CompletableFuture<JsonArray> listRespFuture5 = new CompletableFuture<>();
-        webClient
-                .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture5)) {
-                                listRespFuture5.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        listResp = listRespFuture5.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Response listResponse5 =
+                given().when()
+                        .get("/api/v4/targets/{targetId}/recordings", getSelfReferenceTargetId())
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        listResp = new JsonArray(listResponse5.body().asString());
         MatcherAssert.assertThat(
                 "list should have size 1 after wait period", listResp.size(), Matchers.equalTo(1));
         recordingInfo = listResp.getJsonObject(0);
         MatcherAssert.assertThat(
-                recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
+                recordingInfo.getString("name"), Matchers.equalTo(testRecordingName));
         MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("STOPPED"));
         MatcherAssert.assertThat(recordingInfo.getInteger("duration"), Matchers.equalTo(20_000));
 
@@ -235,12 +225,12 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
         // the fully completed in-memory recording is larger than the saved partial copy
         String inMemoryDownloadUrl = recordingInfo.getString("downloadUrl");
         Path inMemoryDownloadPath =
-                downloadFile(inMemoryDownloadUrl, TEST_RECORDING_NAME, ".jfr")
+                downloadFile(inMemoryDownloadUrl, testRecordingName, ".jfr")
                         .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         Thread.sleep(100);
 
         Path savedDownloadPath =
-                downloadFile(savedDownloadUrl, TEST_RECORDING_NAME + "_saved", ".jfr")
+                downloadFile(savedDownloadUrl, testRecordingName + "_saved", ".jfr")
                         .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         Thread.sleep(100);
         MatcherAssert.assertThat(savedDownloadPath.toFile().length(), Matchers.greaterThan(0L));
@@ -255,18 +245,29 @@ public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
 
         String reportUrl = recordingInfo.getString("reportUrl");
 
-        HttpResponse<Buffer> reportResponse =
-                webClient
-                        .get(reportUrl)
-                        .send()
-                        .toCompletionStage()
-                        .toCompletableFuture()
-                        .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        MatcherAssert.assertThat(
-                reportResponse.statusCode(),
-                Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(300)));
+        CompletableFuture<Response> reportResponseFuture = new CompletableFuture<>();
+        worker.submit(
+                () -> {
+                    try {
+                        Response reportResponse =
+                                given().when()
+                                        .get(reportUrl)
+                                        .then()
+                                        .statusCode(
+                                                Matchers.allOf(
+                                                        Matchers.greaterThanOrEqualTo(200),
+                                                        Matchers.lessThan(300)))
+                                        .extract()
+                                        .response();
+                        reportResponseFuture.complete(reportResponse);
+                    } catch (Exception e) {
+                        reportResponseFuture.completeExceptionally(e);
+                    }
+                });
+        Response reportResponse =
+                reportResponseFuture.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         MatcherAssert.assertThat(reportResponse.getHeader("Location"), Matchers.notNullValue());
-        MatcherAssert.assertThat(reportResponse.bodyAsString(), Matchers.notNullValue());
+        MatcherAssert.assertThat(reportResponse.body().asString(), Matchers.notNullValue());
 
         // Check that report generation concludes
         CountDownLatch latch = new CountDownLatch(1);

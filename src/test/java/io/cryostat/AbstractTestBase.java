@@ -236,9 +236,8 @@ public abstract class AbstractTestBase {
     protected void cleanupSelfActiveAndArchivedRecordings() {
         if (selfId > 0) {
             cleanupActiveAndArchivedRecordingsForTarget(this.selfId);
-        } else {
-            cleanupSelfActiveAndArchivedRecordings();
         }
+        // else: no self target defined yet, nothing to clean up
     }
 
     protected static void cleanupActiveAndArchivedRecordingsForTarget(int... ids) {
