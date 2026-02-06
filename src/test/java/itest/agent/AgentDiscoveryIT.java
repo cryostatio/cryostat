@@ -26,8 +26,15 @@ import io.quarkus.test.junit.QuarkusIntegrationTest;
 import itest.resources.S3StorageITestResource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
+@EnabledIfEnvironmentVariable(
+        named = "PR_CI",
+        matches = "true",
+        disabledReason =
+                "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
+                        + " testcontainers 'Broken Pipe' IOException")
 @WithTestResource(
         value = AgentApplicationResource.class,
         scope = TestResourceScope.MATCHING_RESOURCES)
