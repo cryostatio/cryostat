@@ -19,11 +19,14 @@ import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -37,6 +40,7 @@ import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
+import io.restassured.response.Response;
 import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import jakarta.websocket.ClientEndpoint;
@@ -151,6 +155,13 @@ public abstract class AbstractTestBase {
             logger.warn(e);
         }
         return exists;
+    }
+
+    protected long getSelfReferenceTargetId() {
+        if (selfId < 1) {
+            defineSelfCustomTarget();
+        }
+        return selfId;
     }
 
     protected int defineSelfCustomTarget() {
@@ -315,6 +326,24 @@ public abstract class AbstractTestBase {
             client.wsMessages.clear();
         }
         throw new TimeoutException();
+    }
+
+    protected CompletableFuture<Path> downloadFile(String url, String name, String suffix) {
+        CompletableFuture<Path> future = new CompletableFuture<>();
+        new Thread(
+                        () -> {
+                            try {
+                                Response response =
+                                        given().when().get(url).then().extract().response();
+                                Path tempFile = java.nio.file.Files.createTempFile(name, suffix);
+                                Files.write(tempFile, response.asByteArray());
+                                future.complete(tempFile);
+                            } catch (Exception e) {
+                                future.completeExceptionally(e);
+                            }
+                        })
+                .start();
+        return future;
     }
 
     @ClientEndpoint

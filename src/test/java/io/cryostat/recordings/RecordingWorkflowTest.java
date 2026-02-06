@@ -13,33 +13,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest;
+package io.cryostat.recordings;
+
+import static io.restassured.RestAssured.given;
 
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
-import io.cryostat.util.HttpMimeType;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import io.quarkus.test.common.TestResourceScope;
 import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusTest;
-import io.vertx.core.MultiMap;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpHeaders;
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.HttpResponse;
-import itest.bases.StandardSelfTest;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordingFile;
 import org.hamcrest.MatcherAssert;
@@ -53,14 +51,15 @@ import org.junit.jupiter.api.Test;
         value = S3StorageResource.class,
         scope = TestResourceScope.MATCHING_RESOURCES,
         parallel = true)
-public class RecordingWorkflowTest extends StandardSelfTest {
+public class RecordingWorkflowTest extends AbstractTransactionalTestBase {
 
+    static final int REQUEST_TIMEOUT_SECONDS = 30;
     static String TEST_RECORDING_NAME = "workflow_itest";
     static long TEST_REMOTE_ID;
     final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     @AfterEach
-    void cleanup()
+    void cleanupRecordingWorkflowTest()
             throws InterruptedException,
                     TimeoutException,
                     ExecutionException,
@@ -71,17 +70,14 @@ public class RecordingWorkflowTest extends StandardSelfTest {
     @Test
     public void testWorkflow() throws Exception {
         // Check preconditions
-        CompletableFuture<JsonArray> listRespFuture1 = new CompletableFuture<>();
-        webClient
-                .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture1)) {
-                                listRespFuture1.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        JsonArray listResp = listRespFuture1.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Response listResp1 =
+                given().when()
+                        .get("/api/v4/targets/{id}/recordings", getSelfReferenceTargetId())
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        JsonArray listResp = new JsonArray(listResp1.body().asString());
         Assertions.assertTrue(listResp.isEmpty());
 
         List<String> archivedRecordingFilenames = new ArrayList<>();
@@ -89,19 +85,15 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                 () -> {
                     try {
                         // create an in-memory recording
-                        MultiMap form = MultiMap.caseInsensitiveMultiMap();
-                        form.add("recordingName", TEST_RECORDING_NAME);
-                        form.add("duration", "20");
-                        form.add("events", "template=ALL");
-                        webClient
-                                .extensions()
-                                .post(
-                                        String.format(
-                                                "/api/v4/targets/%d/recordings",
-                                                getSelfReferenceTargetId()),
-                                        form,
-                                        REQUEST_TIMEOUT_SECONDS);
-                    } catch (InterruptedException | TimeoutException | ExecutionException e) {
+                        given().contentType(ContentType.URLENC)
+                                .formParam("recordingName", TEST_RECORDING_NAME)
+                                .formParam("duration", "20")
+                                .formParam("events", "template=ALL")
+                                .when()
+                                .post("/api/v4/targets/{id}/recordings", getSelfReferenceTargetId())
+                                .then()
+                                .statusCode(201);
+                    } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 },
@@ -111,17 +103,14 @@ public class RecordingWorkflowTest extends StandardSelfTest {
         Thread.sleep(1000); // allow time for things to settle
 
         // verify in-memory recording created
-        CompletableFuture<JsonArray> listRespFuture2 = new CompletableFuture<>();
-        webClient
-                .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture2)) {
-                                listRespFuture2.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        listResp = listRespFuture2.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Response listResp2 =
+                given().when()
+                        .get("/api/v4/targets/{id}/recordings", getSelfReferenceTargetId())
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        listResp = new JsonArray(listResp2.body().asString());
 
         MatcherAssert.assertThat(
                 "list should have size 1 after recording creation",
@@ -140,20 +129,16 @@ public class RecordingWorkflowTest extends StandardSelfTest {
         executor.schedule(
                 () -> {
                     try {
-                        MultiMap saveHeaders = MultiMap.caseInsensitiveMultiMap();
-                        saveHeaders.add(
-                                HttpHeaders.CONTENT_TYPE.toString(), HttpMimeType.PLAINTEXT.mime());
-                        webClient
-                                .extensions()
+                        given().contentType("text/plain")
+                                .body("SAVE")
+                                .when()
                                 .patch(
-                                        String.format(
-                                                "/api/v4/targets/%d/recordings/%d",
-                                                getSelfReferenceTargetId(), TEST_REMOTE_ID),
-                                        saveHeaders,
-                                        Buffer.buffer("SAVE"),
-                                        REQUEST_TIMEOUT_SECONDS)
-                                .bodyAsString();
-                    } catch (InterruptedException | TimeoutException | ExecutionException e) {
+                                        "/api/v4/targets/{targetId}/recordings/{recordingId}",
+                                        getSelfReferenceTargetId(),
+                                        TEST_REMOTE_ID)
+                                .then()
+                                .statusCode(200);
+                    } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 },
@@ -166,17 +151,14 @@ public class RecordingWorkflowTest extends StandardSelfTest {
                 archiveNotification.getJsonObject("message").getString("recording").toString());
 
         // check that the in-memory recording list hasn't changed
-        CompletableFuture<JsonArray> listRespFuture3 = new CompletableFuture<>();
-        webClient
-                .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture3)) {
-                                listRespFuture3.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        listResp = listRespFuture3.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Response listResp3 =
+                given().when()
+                        .get("/api/v4/targets/{id}/recordings", getSelfReferenceTargetId())
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        listResp = new JsonArray(listResp3.body().asString());
 
         MatcherAssert.assertThat(
                 "list should have size 1 after recording creation",
@@ -188,17 +170,14 @@ public class RecordingWorkflowTest extends StandardSelfTest {
         MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("RUNNING"));
 
         // verify saved recording created
-        CompletableFuture<JsonArray> listRespFuture4 = new CompletableFuture<>();
-        webClient
-                .get("/api/v4/recordings")
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture4)) {
-                                listRespFuture4.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        listResp = listRespFuture4.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Response listResp4 =
+                given().when()
+                        .get("/api/v4/recordings")
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        listResp = new JsonArray(listResp4.body().asString());
 
         MatcherAssert.assertThat(
                 "list-saved should have size 1 after recording save",
@@ -216,17 +195,14 @@ public class RecordingWorkflowTest extends StandardSelfTest {
         Thread.sleep(1000); // allow time for things to settle
 
         // verify the in-memory recording list has not changed, except recording is now stopped
-        CompletableFuture<JsonArray> listRespFuture5 = new CompletableFuture<>();
-        webClient
-                .get(String.format("/api/v4/targets/%d/recordings", getSelfReferenceTargetId()))
-                .followRedirects(true)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, listRespFuture5)) {
-                                listRespFuture5.complete(ar.result().bodyAsJsonArray());
-                            }
-                        });
-        listResp = listRespFuture5.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        Response listResp5 =
+                given().when()
+                        .get("/api/v4/targets/{id}/recordings", getSelfReferenceTargetId())
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        listResp = new JsonArray(listResp5.body().asString());
         MatcherAssert.assertThat(
                 "list should have size 1 after wait period", listResp.size(), Matchers.equalTo(1));
         recordingInfo = listResp.getJsonObject(0);
@@ -260,22 +236,19 @@ public class RecordingWorkflowTest extends StandardSelfTest {
         executor.schedule(
                 () -> {
                     try {
-                        HttpResponse<Buffer> reportResponse =
-                                webClient
+                        Response reportResponse =
+                                given().when()
                                         .get(reportUrl)
-                                        .send()
-                                        .toCompletionStage()
-                                        .toCompletableFuture()
-                                        .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                                        .then()
+                                        .statusCode(
+                                                Matchers.both(Matchers.greaterThanOrEqualTo(200))
+                                                        .and(Matchers.lessThan(300)))
+                                        .header("Location", Matchers.notNullValue())
+                                        .extract()
+                                        .response();
                         MatcherAssert.assertThat(
-                                reportResponse.statusCode(),
-                                Matchers.both(Matchers.greaterThanOrEqualTo(200))
-                                        .and(Matchers.lessThan(300)));
-                        MatcherAssert.assertThat(
-                                reportResponse.getHeader("Location"), Matchers.notNullValue());
-                        MatcherAssert.assertThat(
-                                reportResponse.bodyAsString(), Matchers.notNullValue());
-                    } catch (InterruptedException | TimeoutException | ExecutionException e) {
+                                reportResponse.body().asString(), Matchers.notNullValue());
+                    } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 },
