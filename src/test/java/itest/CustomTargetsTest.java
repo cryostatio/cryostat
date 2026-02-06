@@ -1,0 +1,311 @@
+/*
+ * Copyright The Cryostat Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package itest;
+
+import java.net.UnknownHostException;
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
+import io.cryostat.resources.S3StorageResource;
+
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
+import io.quarkus.test.junit.QuarkusTest;
+import io.vertx.core.MultiMap;
+import io.vertx.core.buffer.Buffer;
+import io.vertx.core.json.JsonArray;
+import io.vertx.core.json.JsonObject;
+import io.vertx.ext.web.client.HttpResponse;
+import itest.bases.StandardSelfTest;
+import itest.util.http.JvmIdWebRequest;
+import itest.util.http.StoredCredential;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
+import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
+
+@QuarkusTest
+@TestMethodOrder(OrderAnnotation.class)
+@WithTestResource(
+        value = S3StorageResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES,
+        parallel = true)
+public class CustomTargetsTest extends StandardSelfTest {
+
+    private final ExecutorService worker = Executors.newCachedThreadPool();
+    private static String itestJvmId;
+    private static StoredCredential storedCredential;
+
+    @BeforeAll
+    static void removeTestHarnessTargetDefinition()
+            throws InterruptedException,
+                    ExecutionException,
+                    TimeoutException,
+                    UnknownHostException {
+        itestJvmId = JvmIdWebRequest.jvmIdRequest(SELF_JMX_URL);
+
+        deleteSelfCustomTarget();
+
+        JsonArray list =
+                webClient
+                        .extensions()
+                        .get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS)
+                        .bodyAsJsonArray();
+        if (!list.isEmpty()) throw new IllegalStateException();
+    }
+
+    @AfterAll
+    static void restoreTestHarnessTargetDefinition()
+            throws InterruptedException,
+                    ExecutionException,
+                    TimeoutException,
+                    UnknownHostException {
+        waitForDiscovery(0);
+    }
+
+    @AfterAll
+    static void cleanup() throws Exception {
+        // Delete credentials to clean up
+        if (storedCredential == null) {
+            return;
+        }
+        webClient
+                .extensions()
+                .delete("/api/v4/credentials/" + storedCredential.id, 0)
+                .bodyAsJsonObject();
+    }
+
+    @Test
+    @Order(1)
+    void shouldBeAbleToTestTargetConnection()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        HttpResponse<Buffer> response =
+                webClient
+                        .extensions()
+                        .post(
+                                "/api/v4/targets?dryrun=true",
+                                Buffer.buffer(
+                                        JsonObject.of("connectUrl", SELF_JMX_URL, "alias", "self")
+                                                .encode()),
+                                REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(202));
+        JsonObject body = response.bodyAsJsonObject();
+        MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));
+        MatcherAssert.assertThat(body.getString("alias"), Matchers.equalTo("self"));
+        MatcherAssert.assertThat(body.getString("jvmId"), Matchers.equalTo(itestJvmId));
+
+        JsonArray list =
+                webClient
+                        .extensions()
+                        .get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS)
+                        .bodyAsJsonArray();
+        MatcherAssert.assertThat(list, Matchers.notNullValue());
+        MatcherAssert.assertThat(list.size(), Matchers.equalTo(0));
+    }
+
+    @Test
+    @Order(2)
+    void shouldBeAbleToDefineTarget()
+            throws TimeoutException, ExecutionException, InterruptedException {
+        MultiMap form = MultiMap.caseInsensitiveMultiMap();
+        String alias = UUID.randomUUID().toString();
+        form.add("connectUrl", SELF_JMX_URL);
+        form.add("alias", alias);
+        form.add("username", "username");
+        form.add("password", "password");
+
+        CountDownLatch latch = new CountDownLatch(2);
+
+        Future<JsonObject> resultFuture1 =
+                worker.submit(
+                        () -> {
+                            try {
+                                return expectWebSocketNotification(
+                                        "CredentialsStored",
+                                        Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                latch.countDown();
+                            }
+                        });
+
+        Future<JsonObject> resultFuture2 =
+                worker.submit(
+                        () -> {
+                            try {
+                                return expectWebSocketNotification(
+                                        "TargetJvmDiscovery",
+                                        Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS),
+                                        o ->
+                                                "FOUND"
+                                                        .equals(
+                                                                o.getJsonObject("message")
+                                                                        .getJsonObject("event")
+                                                                        .getString("kind")));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            } finally {
+                                latch.countDown();
+                            }
+                        });
+
+        Thread.sleep(500);
+
+        HttpResponse<Buffer> response =
+                webClient
+                        .extensions()
+                        .post(
+                                "/api/v4/targets?storeCredentials=true",
+                                form,
+                                REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(201));
+
+        JsonObject body = response.bodyAsJsonObject();
+        latch.await(30, TimeUnit.SECONDS);
+
+        MatcherAssert.assertThat(body.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));
+        MatcherAssert.assertThat(body.getString("alias"), Matchers.equalTo(alias));
+
+        JsonObject result1 = resultFuture1.get();
+
+        JsonObject message = result1.getJsonObject("message");
+
+        storedCredential =
+                new StoredCredential(
+                        message.getInteger("id"), message.getString("matchExpression"));
+
+        MatcherAssert.assertThat(storedCredential.id, Matchers.any(Integer.class));
+        MatcherAssert.assertThat(
+                storedCredential.matchExpression,
+                Matchers.equalTo(String.format("target.connectUrl == \"%s\"", SELF_JMX_URL)));
+
+        JsonObject result2 = resultFuture2.get();
+        JsonObject foundDiscoveryEvent = result2.getJsonObject("message").getJsonObject("event");
+        MatcherAssert.assertThat(foundDiscoveryEvent.getString("kind"), Matchers.equalTo("FOUND"));
+        MatcherAssert.assertThat(
+                foundDiscoveryEvent.getJsonObject("serviceRef").getString("connectUrl"),
+                Matchers.equalTo(SELF_JMX_URL));
+        MatcherAssert.assertThat(
+                foundDiscoveryEvent.getJsonObject("serviceRef").getString("alias"),
+                Matchers.equalTo(alias));
+
+        HttpResponse<Buffer> listResponse =
+                webClient.extensions().get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
+        JsonArray list = listResponse.bodyAsJsonArray();
+        MatcherAssert.assertThat(list, Matchers.notNullValue());
+        MatcherAssert.assertThat(list.size(), Matchers.equalTo(1));
+        JsonObject item = list.getJsonObject(0);
+        MatcherAssert.assertThat(item.getString("jvmId"), Matchers.equalTo(itestJvmId));
+        MatcherAssert.assertThat(item.getString("alias"), Matchers.equalTo(alias));
+        MatcherAssert.assertThat(item.getString("connectUrl"), Matchers.equalTo(SELF_JMX_URL));
+        MatcherAssert.assertThat(item.getJsonArray("labels"), Matchers.equalTo(new JsonArray()));
+        MatcherAssert.assertThat(
+                item.getJsonObject("annotations"),
+                Matchers.equalTo(
+                        new JsonObject(
+                                Map.of(
+                                        "platform",
+                                        List.of(),
+                                        "cryostat",
+                                        List.of(
+                                                Map.of(
+                                                        "key",
+                                                        "REALM",
+                                                        "value",
+                                                        "Custom Targets"))))));
+    }
+
+    @Test
+    @Order(3)
+    void shouldBeAbleToDeleteTarget()
+            throws TimeoutException, ExecutionException, InterruptedException {
+        CountDownLatch latch = new CountDownLatch(1);
+
+        long targetId = retrieveTargetId();
+
+        worker.submit(
+                () -> {
+                    try {
+                        JsonObject notification =
+                                expectWebSocketNotification(
+                                        "TargetJvmDiscovery",
+                                        Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS));
+                        JsonObject event =
+                                notification.getJsonObject("message").getJsonObject("event");
+                        MatcherAssert.assertThat(event.getString("kind"), Matchers.equalTo("LOST"));
+                        MatcherAssert.assertThat(
+                                event.getJsonObject("serviceRef").getString("connectUrl"),
+                                Matchers.equalTo(SELF_JMX_URL));
+                        MatcherAssert.assertThat(
+                                event.getJsonObject("serviceRef").getString("alias"),
+                                Matchers.equalTo("self"));
+                        latch.countDown();
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+
+        webClient
+                .extensions()
+                .delete(String.format("/api/v4/targets/%d", targetId), REQUEST_TIMEOUT_SECONDS);
+
+        latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+
+        // Verify that no targets remain
+        HttpResponse<Buffer> listResponse =
+                webClient.extensions().get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS);
+        MatcherAssert.assertThat(listResponse.statusCode(), Matchers.equalTo(200));
+        JsonArray list = listResponse.bodyAsJsonArray();
+        MatcherAssert.assertThat(list, Matchers.notNullValue());
+        MatcherAssert.assertThat(list.size(), Matchers.equalTo(0));
+    }
+
+    private long retrieveTargetId()
+            throws InterruptedException, ExecutionException, TimeoutException {
+        // Call the API endpoint to list all targets
+        HttpResponse<Buffer> response =
+                webClient.extensions().get("/api/v4/targets", REQUEST_TIMEOUT_SECONDS);
+        if (response.statusCode() != 200) {
+            throw new IllegalStateException("Failed to retrieve targets from API");
+        }
+
+        JsonArray targets = response.bodyAsJsonArray();
+
+        for (int i = 0; i < targets.size(); i++) {
+            JsonObject target = targets.getJsonObject(i);
+            if (target.getString("connectUrl").equals(SELF_JMX_URL)
+                    || target.getString("alias").equals("knownAlias")) {
+                return target.getLong("id");
+            }
+        }
+        throw new IllegalStateException("Target not found with known identifier");
+    }
+}
