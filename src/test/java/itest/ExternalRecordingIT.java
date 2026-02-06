@@ -24,7 +24,8 @@ import java.util.Map;
 import io.cryostat.resources.ExternalApplicationResource;
 import io.cryostat.resources.S3StorageResource;
 
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -36,8 +37,14 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-@QuarkusTestResource(S3StorageResource.class)
-@QuarkusTestResource(value = ExternalApplicationResource.class, restrictToAnnotatedClass = true)
+@WithTestResource(
+        value = S3StorageResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES,
+        parallel = true)
+@WithTestResource(
+        value = ExternalApplicationResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES,
+        parallel = true)
 @Disabled
 public class ExternalRecordingIT extends StandardSelfTest {
 

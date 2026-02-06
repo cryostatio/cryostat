@@ -116,6 +116,23 @@ public class ActiveRecording extends PanacheEntity {
             RecordingHelper.RecordingOptions options) {
         Objects.requireNonNull(target);
         Objects.requireNonNull(descriptor);
+
+        ActiveRecording existing =
+                ActiveRecording.find(
+                                "target.id = ?1 and remoteId = ?2", target.id, descriptor.getId())
+                        .firstResult();
+
+        if (existing != null) {
+            if (existing.name.equals(descriptor.getName())) {
+                return existing;
+            }
+            throw new IllegalStateException(
+                    String.format(
+                            "ActiveRecording already exists for target %d with remoteId %d but with"
+                                    + " different name: existing='%s', new='%s'",
+                            target.id, descriptor.getId(), existing.name, descriptor.getName()));
+        }
+
         ActiveRecording recording = new ActiveRecording();
 
         recording.target = target;

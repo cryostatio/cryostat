@@ -18,7 +18,12 @@ package itest.agent;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.resources.AgentApplicationResource;
+
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
+import itest.resources.S3StorageITestResource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
@@ -30,6 +35,13 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
         disabledReason =
                 "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
                         + " testcontainers 'Broken Pipe' IOException")
+@WithTestResource(
+        value = AgentApplicationResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES)
+@WithTestResource(
+        value = S3StorageITestResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES,
+        parallel = true)
 public class AgentDiscoveryIT extends AgentTestBase {
     @Test
     void shouldDiscoverTarget() throws InterruptedException, TimeoutException, ExecutionException {

@@ -19,11 +19,14 @@ import static io.restassured.RestAssured.given;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -32,10 +35,12 @@ import java.util.function.Predicate;
 import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
+import io.restassured.response.Response;
 import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import jakarta.websocket.ClientEndpoint;
@@ -45,14 +50,19 @@ import jakarta.websocket.OnMessage;
 import jakarta.websocket.Session;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
-@QuarkusTestResource(S3StorageResource.class)
+@WithTestResource(
+        value = S3StorageResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES,
+        parallel = true)
 public abstract class AbstractTestBase {
 
     public static final String CLEANUP_QUERY =
@@ -89,6 +99,32 @@ public abstract class AbstractTestBase {
 
     @TestHTTPResource("/api/notifications")
     URI wsUri;
+
+    static WebSocketClient WS_CLIENT;
+    static Session WS_SESSION;
+
+    @BeforeAll
+    static void setupWebSocketClient() throws IOException, DeploymentException {
+        WS_CLIENT = new WebSocketClient();
+        WS_SESSION =
+                ContainerProvider.getWebSocketContainer()
+                        .connectToServer(
+                                WS_CLIENT, URI.create("ws://localhost:8081/api/notifications"));
+    }
+
+    @BeforeEach
+    void clearWebSocketNotifications() {
+        if (WS_CLIENT != null) {
+            WS_CLIENT.wsMessages.clear();
+        }
+    }
+
+    @AfterAll
+    static void tearDownWebSocketClient() throws IOException {
+        if (WS_SESSION != null) {
+            WS_SESSION.close();
+        }
+    }
 
     @ConfigProperty(name = "storage.buckets.archives.name")
     String archivesBucket;
@@ -147,6 +183,13 @@ public abstract class AbstractTestBase {
             logger.warn(e);
         }
         return exists;
+    }
+
+    protected long getSelfReferenceTargetId() {
+        if (selfId < 1) {
+            defineSelfCustomTarget();
+        }
+        return selfId;
     }
 
     protected int defineSelfCustomTarget() {
@@ -221,9 +264,8 @@ public abstract class AbstractTestBase {
     protected void cleanupSelfActiveAndArchivedRecordings() {
         if (selfId > 0) {
             cleanupActiveAndArchivedRecordingsForTarget(this.selfId);
-        } else {
-            cleanupSelfActiveAndArchivedRecordings();
         }
+        // else: no self target defined yet, nothing to clean up
     }
 
     protected static void cleanupActiveAndArchivedRecordingsForTarget(int... ids) {
@@ -291,30 +333,48 @@ public abstract class AbstractTestBase {
             throws IOException, DeploymentException, InterruptedException, TimeoutException {
         long now = System.nanoTime();
         long deadline = now + timeout.toNanos();
-        var client = new WebSocketClient();
-        try (Session session =
-                ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri)) {
-            do {
-                now = System.nanoTime();
-                String msg = client.wsMessages.poll(1, TimeUnit.SECONDS);
-                if (msg == null) {
-                    continue;
-                }
-                JsonObject obj = new JsonObject(msg);
-                logger.infov("Received WebSocket message: {0}", obj.encodePrettily());
-                String msgCategory = obj.getJsonObject("meta").getString("category");
-                if (category.equals(msgCategory) && predicate.test(obj)) {
-                    return obj;
-                }
-            } while (now < deadline);
-        } finally {
-            client.wsMessages.clear();
-        }
+        logger.infov(
+                "waiting up to {0} for a WebSocket notification with category={1}",
+                timeout, category);
+        do {
+            now = System.nanoTime();
+            String msg = WS_CLIENT.wsMessages.poll(1, TimeUnit.SECONDS);
+            if (msg == null) {
+                continue;
+            }
+            JsonObject obj = new JsonObject(msg);
+            logger.infov("Received WebSocket message: {0}", obj.encodePrettily());
+            String msgCategory = obj.getJsonObject("meta").getString("category");
+            if (category.equals(msgCategory) && predicate.test(obj)) {
+                return obj;
+            }
+            // Put message back in queue for other tests to consume
+            Thread.sleep(500);
+            WS_CLIENT.wsMessages.put(msg);
+        } while (now < deadline);
         throw new TimeoutException();
     }
 
+    protected CompletableFuture<Path> downloadFile(String url, String name, String suffix) {
+        CompletableFuture<Path> future = new CompletableFuture<>();
+        new Thread(
+                        () -> {
+                            try {
+                                Response response =
+                                        given().when().get(url).then().extract().response();
+                                Path tempFile = java.nio.file.Files.createTempFile(name, suffix);
+                                Files.write(tempFile, response.asByteArray());
+                                future.complete(tempFile);
+                            } catch (Exception e) {
+                                future.completeExceptionally(e);
+                            }
+                        })
+                .start();
+        return future;
+    }
+
     @ClientEndpoint
-    private class WebSocketClient {
+    private static class WebSocketClient {
         private final LinkedBlockingDeque<String> wsMessages = new LinkedBlockingDeque<>();
 
         @OnMessage

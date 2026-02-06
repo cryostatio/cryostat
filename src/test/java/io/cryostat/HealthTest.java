@@ -20,8 +20,10 @@ import static org.hamcrest.CoreMatchers.is;
 
 import io.cryostat.resources.GrafanaResource;
 import io.cryostat.resources.JFRDatasourceResource;
+import io.cryostat.resources.S3StorageResource;
 
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -30,8 +32,15 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(GrafanaResource.class)
-@QuarkusTestResource(JFRDatasourceResource.class)
+@WithTestResource(
+        value = S3StorageResource.class,
+        scope = TestResourceScope.GLOBAL,
+        parallel = true)
+@WithTestResource(value = GrafanaResource.class, scope = TestResourceScope.GLOBAL, parallel = true)
+@WithTestResource(
+        value = JFRDatasourceResource.class,
+        scope = TestResourceScope.GLOBAL,
+        parallel = true)
 @TestHTTPEndpoint(Health.class)
 public class HealthTest {
 
