@@ -13,76 +13,58 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest;
+package io.cryostat.events;
 
+import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-
-import io.cryostat.util.HttpMimeType;
+import io.cryostat.AbstractTransactionalTestBase;
 
 import io.quarkus.test.junit.QuarkusTest;
-import io.vertx.core.buffer.Buffer;
-import io.vertx.core.http.HttpHeaders;
+import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.HttpResponse;
-import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-public class TargetEventsGetTest extends StandardSelfTest {
+public class TargetEventsGetTest extends AbstractTransactionalTestBase {
 
     String eventReqUrl;
-    String searchReqUrl;
 
     @BeforeEach
-    void setup() {
+    void setupTargetEventsGetTest() {
         eventReqUrl = String.format("/api/v4/targets/%d/events", getSelfReferenceTargetId());
     }
 
     @Test
     public void testGetTargetEventsReturnsListOfEvents() throws Exception {
-        CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
-        webClient
-                .get(eventReqUrl)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, getResponse)) {
-                                getResponse.complete(ar.result());
-                            }
-                        });
-        HttpResponse<Buffer> response = getResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(200));
-        MatcherAssert.assertThat(
-                response.getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                Matchers.startsWith(HttpMimeType.JSON.mime()));
-        MatcherAssert.assertThat(
-                getResponse.get().bodyAsJsonArray().size(), Matchers.greaterThan(0));
+        Response response =
+                given().when()
+                        .get(eventReqUrl)
+                        .then()
+                        .statusCode(200)
+                        .contentType(startsWith("application/json"))
+                        .extract()
+                        .response();
+        JsonArray events = new JsonArray(response.body().asString());
+        MatcherAssert.assertThat(events.size(), Matchers.greaterThan(0));
     }
 
     @Test
     public void testGetTargetEventsWithNoQueryReturnsListOfEvents() throws Exception {
-        CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
-        webClient
-                .get(eventReqUrl)
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, getResponse)) {
-                                getResponse.complete(ar.result());
-                            }
-                        });
-        HttpResponse<Buffer> response = getResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(200));
-        MatcherAssert.assertThat(
-                response.getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                Matchers.startsWith(HttpMimeType.JSON.mime()));
+        Response response =
+                given().when()
+                        .get(eventReqUrl)
+                        .then()
+                        .statusCode(200)
+                        .contentType(startsWith("application/json"))
+                        .extract()
+                        .response();
 
-        JsonArray events = response.bodyAsJsonArray();
+        JsonArray events = new JsonArray(response.body().asString());
         MatcherAssert.assertThat(events.size(), Matchers.greaterThan(0));
 
         events.forEach(
@@ -96,22 +78,17 @@ public class TargetEventsGetTest extends StandardSelfTest {
 
     @Test
     public void testGetTargetEventsWithQueryReturnsRequestedEvents() throws Exception {
-        CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
-        webClient
-                .get(String.format("%s?q=TargetConnectionOpened", eventReqUrl))
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, getResponse)) {
-                                getResponse.complete(ar.result());
-                            }
-                        });
-        HttpResponse<Buffer> response = getResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(200));
-        MatcherAssert.assertThat(
-                response.getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                Matchers.startsWith(HttpMimeType.JSON.mime()));
+        Response response =
+                given().queryParam("q", "TargetConnectionOpened")
+                        .when()
+                        .get(eventReqUrl)
+                        .then()
+                        .statusCode(200)
+                        .contentType(startsWith("application/json"))
+                        .extract()
+                        .response();
 
-        JsonArray results = response.bodyAsJsonArray();
+        JsonArray results = new JsonArray(response.body().asString());
         MatcherAssert.assertThat(results.size(), Matchers.greaterThan(0));
 
         JsonObject expectedEvent =
@@ -153,23 +130,17 @@ public class TargetEventsGetTest extends StandardSelfTest {
 
     @Test
     public void testGetTargetEventsWithQueryReturnsEmptyListWhenNoEventsMatch() throws Exception {
-        CompletableFuture<HttpResponse<Buffer>> getResponse = new CompletableFuture<>();
-        webClient
-                .get(String.format("%s?q=thisEventDoesNotExist", eventReqUrl))
-                .send(
-                        ar -> {
-                            if (assertRequestStatus(ar, getResponse)) {
-                                getResponse.complete(ar.result());
-                            }
-                        });
-        HttpResponse<Buffer> response = getResponse.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        MatcherAssert.assertThat(response.statusCode(), Matchers.equalTo(200));
-        MatcherAssert.assertThat(
-                response.getHeader(HttpHeaders.CONTENT_TYPE.toString()),
-                Matchers.startsWith(HttpMimeType.JSON.mime()));
+        Response response =
+                given().queryParam("q", "thisEventDoesNotExist")
+                        .when()
+                        .get(eventReqUrl)
+                        .then()
+                        .statusCode(200)
+                        .contentType(startsWith("application/json"))
+                        .extract()
+                        .response();
 
-        JsonArray results = response.bodyAsJsonArray();
-
+        JsonArray results = new JsonArray(response.body().asString());
         MatcherAssert.assertThat(results.size(), Matchers.is(0));
     }
 }
