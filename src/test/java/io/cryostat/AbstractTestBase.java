@@ -50,7 +50,9 @@ import jakarta.websocket.OnMessage;
 import jakarta.websocket.Session;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
@@ -97,6 +99,32 @@ public abstract class AbstractTestBase {
 
     @TestHTTPResource("/api/notifications")
     URI wsUri;
+
+    static WebSocketClient WS_CLIENT;
+    static Session WS_SESSION;
+
+    @BeforeAll
+    static void setupWebSocketClient() throws IOException, DeploymentException {
+        WS_CLIENT = new WebSocketClient();
+        WS_SESSION =
+                ContainerProvider.getWebSocketContainer()
+                        .connectToServer(
+                                WS_CLIENT, URI.create("ws://localhost:8081/api/notifications"));
+    }
+
+    @BeforeEach
+    void clearWebSocketNotifications() {
+        if (WS_CLIENT != null) {
+            WS_CLIENT.wsMessages.clear();
+        }
+    }
+
+    @AfterAll
+    static void tearDownWebSocketClient() throws IOException {
+        if (WS_SESSION != null) {
+            WS_SESSION.close();
+        }
+    }
 
     @ConfigProperty(name = "storage.buckets.archives.name")
     String archivesBucket;
@@ -305,25 +333,25 @@ public abstract class AbstractTestBase {
             throws IOException, DeploymentException, InterruptedException, TimeoutException {
         long now = System.nanoTime();
         long deadline = now + timeout.toNanos();
-        var client = new WebSocketClient();
-        try (Session session =
-                ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri)) {
-            do {
-                now = System.nanoTime();
-                String msg = client.wsMessages.poll(1, TimeUnit.SECONDS);
-                if (msg == null) {
-                    continue;
-                }
-                JsonObject obj = new JsonObject(msg);
-                logger.infov("Received WebSocket message: {0}", obj.encodePrettily());
-                String msgCategory = obj.getJsonObject("meta").getString("category");
-                if (category.equals(msgCategory) && predicate.test(obj)) {
-                    return obj;
-                }
-            } while (now < deadline);
-        } finally {
-            client.wsMessages.clear();
-        }
+        logger.infov(
+                "waiting up to {0} for a WebSocket notification with category={1}",
+                timeout, category);
+        do {
+            now = System.nanoTime();
+            String msg = WS_CLIENT.wsMessages.poll(1, TimeUnit.SECONDS);
+            if (msg == null) {
+                continue;
+            }
+            JsonObject obj = new JsonObject(msg);
+            logger.infov("Received WebSocket message: {0}", obj.encodePrettily());
+            String msgCategory = obj.getJsonObject("meta").getString("category");
+            if (category.equals(msgCategory) && predicate.test(obj)) {
+                return obj;
+            }
+            // Put message back in queue for other tests to consume
+            Thread.sleep(500);
+            WS_CLIENT.wsMessages.put(msg);
+        } while (now < deadline);
         throw new TimeoutException();
     }
 
@@ -346,7 +374,7 @@ public abstract class AbstractTestBase {
     }
 
     @ClientEndpoint
-    private class WebSocketClient {
+    private static class WebSocketClient {
         private final LinkedBlockingDeque<String> wsMessages = new LinkedBlockingDeque<>();
 
         @OnMessage
