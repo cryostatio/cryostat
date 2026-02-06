@@ -38,6 +38,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.Cacheable;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -72,6 +73,7 @@ import org.jboss.logging.Logger;
  */
 @Entity
 @EntityListeners(DiscoveryNode.Listener.class)
+@Cacheable
 @NamedQueries({
     @NamedQuery(
             name = "DiscoveryNode.byTypeWithName",
@@ -117,11 +119,6 @@ public class DiscoveryNode extends PanacheEntity {
     @JsonInclude(value = Include.NON_NULL)
     @JsonView(Views.Flat.class)
     public Target target;
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(id, name, nodeType, labels, children, target);
-    }
 
     public boolean hasChildren() {
         return !children.isEmpty();
@@ -199,6 +196,11 @@ public class DiscoveryNode extends PanacheEntity {
     }
 
     @Override
+    public int hashCode() {
+        return Objects.hash(name, nodeType, labels);
+    }
+
+    @Override
     public boolean equals(Object obj) {
         if (this == obj) {
             return true;
@@ -210,9 +212,9 @@ public class DiscoveryNode extends PanacheEntity {
             return false;
         }
         DiscoveryNode other = (DiscoveryNode) obj;
-        return Objects.equals(target, other.target)
-                && Objects.equals(labels, other.labels)
-                && Objects.equals(children, other.children);
+        return Objects.equals(name, other.name)
+                && Objects.equals(nodeType, other.nodeType)
+                && Objects.equals(labels, other.labels);
     }
 
     @Override
