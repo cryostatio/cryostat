@@ -40,6 +40,7 @@ import jakarta.persistence.PostUpdate;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.ColumnTransformer;
+import org.hibernate.envers.Audited;
 import org.projectnessie.cel.tools.ScriptException;
 
 /**
@@ -57,6 +58,7 @@ import org.projectnessie.cel.tools.ScriptException;
  * match the target, then use the first matching Credential (see
  * https://github.com/cryostatio/cryostat/issues/376)
  */
+@Audited
 @Entity
 @EntityListeners(Credential.Listener.class)
 public class Credential extends PanacheEntity {
