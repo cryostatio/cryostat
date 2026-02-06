@@ -32,7 +32,8 @@ import java.util.function.Predicate;
 import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
@@ -52,7 +53,10 @@ import org.quartz.SchedulerException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
-@QuarkusTestResource(S3StorageResource.class)
+@WithTestResource(
+        value = S3StorageResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES,
+        parallel = true)
 public abstract class AbstractTestBase {
 
     public static final String CLEANUP_QUERY =

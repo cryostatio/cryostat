@@ -23,11 +23,16 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import io.cryostat.resources.AgentApplicationResource;
+
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.restassured.http.ContentType;
 import io.smallrye.mutiny.TimeoutException;
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.JsonObject;
+import itest.resources.S3StorageITestResource;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -40,6 +45,13 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
         disabledReason =
                 "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
                         + " testcontainers 'Broken Pipe' IOException")
+@WithTestResource(
+        value = AgentApplicationResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES)
+@WithTestResource(
+        value = S3StorageITestResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES,
+        parallel = true)
 public class AgentTargetAnalysisIT extends AgentTestBase {
 
     @Test

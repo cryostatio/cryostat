@@ -24,10 +24,12 @@ import java.util.concurrent.TimeoutException;
 
 import io.cryostat.resources.GrafanaResource;
 import io.cryostat.resources.JFRDatasourceResource;
+import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpMimeType;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
@@ -44,8 +46,15 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(GrafanaResource.class)
-@QuarkusTestResource(JFRDatasourceResource.class)
+@WithTestResource(
+        value = S3StorageResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES,
+        parallel = true)
+@WithTestResource(value = GrafanaResource.class, scope = TestResourceScope.GLOBAL, parallel = true)
+@WithTestResource(
+        value = JFRDatasourceResource.class,
+        scope = TestResourceScope.GLOBAL,
+        parallel = true)
 public class UploadRecordingTest extends StandardSelfTest {
 
     // TODO this should be a constant somewhere in the server sources

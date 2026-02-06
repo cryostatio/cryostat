@@ -21,7 +21,8 @@ import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.resources.S3StorageResource;
 
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -29,7 +30,10 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(S3StorageResource.class)
+@WithTestResource(
+        value = S3StorageResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES,
+        parallel = true)
 @TestHTTPEndpoint(Diagnostics.class)
 public class HeapDumpsTest extends AbstractTransactionalTestBase {
 

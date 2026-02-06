@@ -17,7 +17,12 @@ package itest.agent;
 
 import static io.restassured.RestAssured.given;
 
+import io.cryostat.resources.AgentApplicationResource;
+
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
+import itest.resources.S3StorageITestResource;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
@@ -33,6 +38,13 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
         disabledReason =
                 "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
                         + " testcontainers 'Broken Pipe' IOException")
+@WithTestResource(
+        value = AgentApplicationResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES)
+@WithTestResource(
+        value = S3StorageITestResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES,
+        parallel = true)
 public class AgentWorkflowIT extends AgentTestBase {
 
     static final String RECORDING_NAME = AgentWorkflowIT.class.getSimpleName();

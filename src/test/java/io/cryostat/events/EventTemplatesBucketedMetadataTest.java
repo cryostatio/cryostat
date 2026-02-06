@@ -20,7 +20,8 @@ import static io.restassured.RestAssured.given;
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageBucketedMetadataResource;
 
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -29,9 +30,9 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(EventTemplates.class)
-@QuarkusTestResource(
+@WithTestResource(
         value = S3StorageBucketedMetadataResource.class,
-        restrictToAnnotatedClass = true)
+        scope = TestResourceScope.MATCHING_RESOURCES)
 public class EventTemplatesBucketedMetadataTest extends AbstractTransactionalTestBase {
 
     @Test

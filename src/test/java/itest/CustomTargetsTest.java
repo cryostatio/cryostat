@@ -28,6 +28,10 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.resources.S3StorageResource;
+
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
@@ -48,6 +52,10 @@ import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusTest
 @TestMethodOrder(OrderAnnotation.class)
+@WithTestResource(
+        value = S3StorageResource.class,
+        scope = TestResourceScope.MATCHING_RESOURCES,
+        parallel = true)
 public class CustomTargetsTest extends StandardSelfTest {
 
     private final ExecutorService worker = Executors.newCachedThreadPool();

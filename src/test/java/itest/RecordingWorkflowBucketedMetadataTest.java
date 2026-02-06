@@ -32,7 +32,8 @@ import io.cryostat.resources.S3StorageBucketedMetadataResource;
 import io.cryostat.util.HttpMimeType;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.TestResourceScope;
+import io.quarkus.test.common.WithTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.MultiMap;
 import io.vertx.core.buffer.Buffer;
@@ -51,9 +52,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusTest
-@QuarkusTestResource(
+@WithTestResource(
         value = S3StorageBucketedMetadataResource.class,
-        restrictToAnnotatedClass = true)
+        scope = TestResourceScope.MATCHING_RESOURCES)
 @DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class RecordingWorkflowBucketedMetadataTest extends StandardSelfTest {
 

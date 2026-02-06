@@ -17,7 +17,7 @@ package itest.resources;
 
 import org.testcontainers.containers.GenericContainer;
 
-public class S3StorageResource extends io.cryostat.resources.S3StorageResource {
+public class S3StorageITestResource extends io.cryostat.resources.S3StorageResource {
     @Override
     protected String adjustS3Url(GenericContainer<?> container, String host, int port) {
         return "http://"
