@@ -221,9 +221,8 @@ public abstract class AbstractTestBase {
     protected void cleanupSelfActiveAndArchivedRecordings() {
         if (selfId > 0) {
             cleanupActiveAndArchivedRecordingsForTarget(this.selfId);
-        } else {
-            cleanupSelfActiveAndArchivedRecordings();
         }
+        // If selfId <= 0, there's nothing to clean up, so just return
     }
 
     protected static void cleanupActiveAndArchivedRecordingsForTarget(int... ids) {
@@ -234,6 +233,8 @@ public abstract class AbstractTestBase {
         var variables = new HashMap<String, Object>();
         if (ids == null || ids.isEmpty()) {
             variables.put("targetIds", null);
+        } else {
+            variables.put("targetIds", ids);
         }
         given().basePath("/")
                 .body(Map.of("query", CLEANUP_QUERY, "variables", variables))
