@@ -25,11 +25,23 @@ import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(Snapshots.class)
 public class SnapshotsTest extends AbstractTransactionalTestBase {
+
+    @BeforeEach
+    void setupSnapshotsTest() {
+        cleanupSelfActiveAndArchivedRecordings();
+    }
+
+    @AfterEach
+    void cleanupSnapshotsTest() {
+        cleanupSelfActiveAndArchivedRecordings();
+    }
 
     @Test
     void testNoSource() {
@@ -45,6 +57,21 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                 .and()
                 .assertThat()
                 .statusCode(202);
+    }
+
+    @Test
+    void testNonExistentTarget() {
+        given().log()
+                .all()
+                .when()
+                .pathParams(Map.of("targetId", Long.MAX_VALUE))
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(404);
     }
 
     @Test
