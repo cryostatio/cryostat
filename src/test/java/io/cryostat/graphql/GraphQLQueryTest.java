@@ -213,12 +213,14 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
     }
 
     @Test
-    @org.junit.jupiter.api.Disabled("Flaky test - duplicate key constraint violation. Needs investigation.")
     void testQueryForFilteredActiveRecordingsByNames() throws Exception {
         String recordingName1 = "test";
         // Create Recording 1
         JsonObject notificationRecording = createRecording(recordingName1);
         assertThat(notificationRecording.getString("name"), equalTo(recordingName1));
+
+        // Wait for first recording to fully complete before creating second
+        Thread.sleep(DATA_COLLECTION_DELAY_MS);
 
         // Create Recording 2
         String recordingName2 = "test2";
