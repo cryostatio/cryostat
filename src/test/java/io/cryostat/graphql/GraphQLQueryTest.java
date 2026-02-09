@@ -416,4 +416,58 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
         }
         assertThat("Name not found", nameExists, is(true));
     }
+
+    @Test
+    void testNodesHaveIds() throws Exception {
+        // Query for environment nodes with their IDs
+        JsonObject query = new JsonObject();
+        query.put(
+                "query",
+                "query { environmentNodes(filter: { name: \"Custom Targets\" }) { id name nodeType"
+                        + " children { id name nodeType } } }");
+
+        Response response =
+                given().contentType(ContentType.JSON)
+                        .body(query.encode())
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                        .extract()
+                        .response();
+
+        EnvironmentNodesResponse actual =
+                mapper.readValue(response.body().asString(), EnvironmentNodesResponse.class);
+
+        // Verify environment nodes have IDs
+        Set<Long> observedIds = new HashSet<>();
+        for (DiscoveryNode envNode : actual.getData().getEnvironmentNodes()) {
+            assertThat("Environment node should have an ID", envNode.id, notNullValue());
+            assertThat("Environment node ID should be positive", envNode.id, greaterThan(0L));
+            assertThat(
+                    "Environment node ID should be unique",
+                    observedIds.contains(envNode.id),
+                    is(false));
+            observedIds.add(envNode.id);
+
+            // Verify children (target nodes) also have IDs
+            if (envNode.children != null) {
+                for (DiscoveryNode childNode : envNode.children) {
+                    assertThat("Child node should have an ID", childNode.id, notNullValue());
+                    assertThat("Child node ID should be positive", childNode.id, greaterThan(0L));
+                    assertThat(
+                            "Child node ID should be unique",
+                            observedIds.contains(childNode.id),
+                            is(false));
+                    observedIds.add(childNode.id);
+                }
+            }
+        }
+
+        // Verify we actually tested some nodes
+        assertThat(
+                "Should have found at least one node with an ID",
+                observedIds.size(),
+                greaterThan(0));
+    }
 }
