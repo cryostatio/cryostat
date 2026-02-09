@@ -510,6 +510,7 @@ public class GraphQLTestModels {
         public long maxAge;
         public List<KeyValue> labels;
         private DoPutMetadata doPutMetadata;
+        public DeletedRecording doDelete;
 
         public DoPutMetadata getDoPutMetadata() {
             return doPutMetadata;
@@ -517,6 +518,14 @@ public class GraphQLTestModels {
 
         public void setDoPutMetadata(DoPutMetadata doPutMetadata) {
             this.doPutMetadata = doPutMetadata;
+        }
+
+        public DeletedRecording getDoDelete() {
+            return doDelete;
+        }
+
+        public void setDoDelete(DeletedRecording doDelete) {
+            this.doDelete = doDelete;
         }
 
         @Override
@@ -637,6 +646,7 @@ public class GraphQLTestModels {
 
     public static class ArchivedRecordings {
         private List<ArchivedRecording> data;
+        public AggregateInfo aggregate;
 
         public List<ArchivedRecording> getData() {
             return data;
@@ -644,6 +654,14 @@ public class GraphQLTestModels {
 
         public void setData(List<ArchivedRecording> data) {
             this.data = data;
+        }
+
+        public AggregateInfo getAggregate() {
+            return aggregate;
+        }
+
+        public void setAggregate(AggregateInfo aggregate) {
+            this.aggregate = aggregate;
         }
     }
 
@@ -655,6 +673,80 @@ public class GraphQLTestModels {
         public long size;
         public long archivedTime;
         public List<KeyValue> labels;
+        private DoPutMetadata doPutMetadata;
+        public DeletedRecording doDelete;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+
+        public String getReportUrl() {
+            return reportUrl;
+        }
+
+        public void setReportUrl(String reportUrl) {
+            this.reportUrl = reportUrl;
+        }
+
+        public String getDownloadUrl() {
+            return downloadUrl;
+        }
+
+        public void setDownloadUrl(String downloadUrl) {
+            this.downloadUrl = downloadUrl;
+        }
+
+        public RecordingMetadata getMetadata() {
+            return metadata;
+        }
+
+        public void setMetadata(RecordingMetadata metadata) {
+            this.metadata = metadata;
+        }
+
+        public long getSize() {
+            return size;
+        }
+
+        public void setSize(long size) {
+            this.size = size;
+        }
+
+        public long getArchivedTime() {
+            return archivedTime;
+        }
+
+        public void setArchivedTime(long archivedTime) {
+            this.archivedTime = archivedTime;
+        }
+
+        public List<KeyValue> getLabels() {
+            return labels;
+        }
+
+        public void setLabels(List<KeyValue> labels) {
+            this.labels = labels;
+        }
+
+        public DoPutMetadata getDoPutMetadata() {
+            return doPutMetadata;
+        }
+
+        public void setDoPutMetadata(DoPutMetadata doPutMetadata) {
+            this.doPutMetadata = doPutMetadata;
+        }
+
+        public DeletedRecording getDoDelete() {
+            return doDelete;
+        }
+
+        public void setDoDelete(DeletedRecording doDelete) {
+            this.doDelete = doDelete;
+        }
     }
 
     public static class CreateRecordingMutationResponse {
@@ -833,6 +925,89 @@ public class GraphQLTestModels {
             if (getClass() != obj.getClass()) return false;
             DoPutMetadata other = (DoPutMetadata) obj;
             return Objects.equals(metadata, other.metadata);
+        }
+    }
+
+    public static class DeletedRecording {
+        public String name;
+
+        public String getName() {
+            return name;
+        }
+
+        public void setName(String name) {
+            this.name = name;
+        }
+    }
+
+    public static class AggregateInfo {
+        public long count;
+        public long size;
+
+        public long getCount() {
+            return count;
+        }
+
+        public void setCount(long count) {
+            this.count = count;
+        }
+
+        public long getSize() {
+            return size;
+        }
+
+        public void setSize(long size) {
+            this.size = size;
+        }
+    }
+
+    public static class MetadataUpdateResponse {
+        @JsonProperty("data")
+        private MetadataData data;
+
+        public MetadataData getData() {
+            return data;
+        }
+
+        public void setData(MetadataData data) {
+            this.data = data;
+        }
+
+        public static class MetadataData {
+            private List<TargetNode> targetNodes;
+
+            public List<TargetNode> getTargetNodes() {
+                return targetNodes;
+            }
+
+            public void setTargetNodes(List<TargetNode> targetNodes) {
+                this.targetNodes = targetNodes;
+            }
+        }
+    }
+
+    public static class DeleteMutationResponse {
+        @JsonProperty("data")
+        private DeleteData data;
+
+        public DeleteData getData() {
+            return data;
+        }
+
+        public void setData(DeleteData data) {
+            this.data = data;
+        }
+
+        public static class DeleteData {
+            private List<TargetNode> targetNodes;
+
+            public List<TargetNode> getTargetNodes() {
+                return targetNodes;
+            }
+
+            public void setTargetNodes(List<TargetNode> targetNodes) {
+                this.targetNodes = targetNodes;
+            }
         }
     }
 }

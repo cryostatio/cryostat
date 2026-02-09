@@ -22,9 +22,7 @@ import static org.hamcrest.Matchers.*;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.stream.Collectors;
 
-import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.graphql.GraphQLTestModels.*;
 import io.cryostat.resources.S3StorageResource;
 
@@ -39,7 +37,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-class GraphQLTest extends AbstractGraphQLTestBase {
+class GraphQLMutationTest extends AbstractGraphQLTestBase {
 
     @Test
     void testStartRecordingMutationOnSpecificTarget() throws Exception {
@@ -242,168 +240,13 @@ class GraphQLTest extends AbstractGraphQLTestBase {
     }
 
     @Test
-    void testQueryForSpecificTargetsByNames() throws Exception {
-        JsonObject query = new JsonObject();
-        query.put(
-                "query",
-                "query { targetNodes(filter: { names:"
-                        + " [\"service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi\","
-                        + " \"service:jmx:rmi:///jndi/rmi://localhost:9091/jmxrmi\"] }) {"
-                        + " name nodeType } }");
-
-        Response response =
-                given().contentType(ContentType.JSON)
-                        .body(query.encode())
-                        .when()
-                        .post("/api/v4/graphql")
-                        .then()
-                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
-                        .extract()
-                        .response();
-
-        TargetNodesQueryResponse actual =
-                mapper.readValue(response.body().asString(), TargetNodesQueryResponse.class);
-
-        List<TargetNode> targetNodes = actual.getData().getTargetNodes();
-
-        int expectedSize = 1;
-        assertThat(targetNodes.size(), is(expectedSize));
-
-        TargetNode target1 = new TargetNode();
-        target1.setName("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi");
-        target1.setNodeType("JVM");
-
-        assertThat(targetNodes, hasItem(target1));
-    }
-
-    @Test
-    void testQueryForFilteredActiveRecordingsByNames() throws Exception {
-        String recordingName1 = "test";
-        // Create Recording 1
-        JsonObject notificationRecording = createRecording(recordingName1);
-        assertThat(notificationRecording.getString("name"), equalTo(recordingName1));
-
-        // Create Recording 2
-        String recordingName2 = "test2";
-        JsonObject query = new JsonObject();
-        query.put(
-                "query",
-                String.format(
-                        "mutation { createRecording( nodes:{annotations: [\"REALM = Custom"
-                            + " Targets\"]}, recording: { name: \"%s\", template: \"Profiling\","
-                            + " templateType: \"TARGET\", duration: 30, continuous: false,"
-                            + " archiveOnStop: true, toDisk: true }) { name state duration"
-                            + " continuous metadata { labels { key value } } } }",
-                        recordingName2));
-
-        CountDownLatch latch = new CountDownLatch(1);
-        Future<JsonObject> f =
-                worker.submit(
-                        () -> {
-                            try {
-                                return expectWebSocketNotification(
-                                        "ActiveRecordingCreated", Duration.ofSeconds(15));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                latch.countDown();
-                            }
-                        });
-
-        Thread.sleep(DATA_COLLECTION_DELAY_MS);
-
-        Response response =
-                given().contentType(ContentType.JSON)
-                        .body(query.encode())
-                        .when()
-                        .post("/api/v4/graphql")
-                        .then()
-                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
-                        .extract()
-                        .response();
-
-        CreateRecordingMutationResponse actual =
-                mapper.readValue(response.body().asString(), CreateRecordingMutationResponse.class);
-
-        assertThat("Response should contain data", actual.getData(), notNullValue());
-        assertThat(
-                "Response should contain recordings list",
-                actual.getData().getRecordings(),
-                notNullValue());
-        assertThat(
-                "Response should contain at least one recording",
-                actual.getData().getRecordings().size(),
-                greaterThan(0));
-        assertThat(
-                "Recording name should match",
-                actual.getData().getRecordings().get(0).name,
-                equalTo(recordingName2));
-
-        latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        JsonObject test2 = notification.getJsonObject("message").getJsonObject("recording");
-        assertThat(test2.getString("name"), equalTo(recordingName2));
-
-        // GraphQL Query to filter Active recordings by names
-        JsonObject query2 = new JsonObject();
-        query2.put(
-                "query",
-                String.format(
-                        "query { targetNodes (filter: { annotations:"
-                                + " [\"REALM = Custom Targets\"]}){ target { recordings"
-                                + " { active (filter: { names: [\"%s\", \"%s\",\"Recording3\"]"
-                                + " }) {data {name}}}}}}",
-                        recordingName1, recordingName2));
-
-        Response response2 =
-                given().contentType(ContentType.JSON)
-                        .body(query2.encode())
-                        .when()
-                        .post("/api/v4/graphql")
-                        .then()
-                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
-                        .extract()
-                        .response();
-
-        TargetNodesQueryResponse graphqlResp =
-                mapper.readValue(response2.body().asString(), TargetNodesQueryResponse.class);
-
-        List<String> filterNames = Arrays.asList(recordingName1, recordingName2);
-
-        List<ActiveRecording> filteredRecordings =
-                graphqlResp.getData().getTargetNodes().stream()
-                        .flatMap(
-                                targetNode ->
-                                        targetNode
-                                                .getTarget()
-                                                .getRecordings()
-                                                .getActive()
-                                                .getData()
-                                                .stream())
-                        .filter(recording -> filterNames.contains(recording.name))
-                        .collect(Collectors.toList());
-
-        assertThat(filteredRecordings.size(), equalTo(2));
-        ActiveRecording r1 = new ActiveRecording();
-        r1.name = recordingName1;
-        ActiveRecording r2 = new ActiveRecording();
-        r2.name = recordingName2;
-
-        assertThat(filteredRecordings, hasItem(r1));
-        assertThat(filteredRecordings, hasItem(r2));
-
-        // Delete the Recordings
-        deleteRecording();
-    }
-
-    @Test
-    void shouldReturnArchivedRecordingsFilteredByNames() throws Exception {
-        // Create a new recording
+    void testArchivedRecordingMetadataMutation() throws Exception {
         String recordingName = "test";
+        // Create a Recording
         JsonObject notificationRecording = createRecording(recordingName);
         assertThat(notificationRecording.getString("name"), equalTo(recordingName));
 
-        // Archive the recording
+        // Archive it
         JsonObject query1 = new JsonObject();
         query1.put(
                 "query",
@@ -429,40 +272,32 @@ class GraphQLTest extends AbstractGraphQLTestBase {
         assertThat(archivedRecordings, not(empty()));
         assertThat(archivedRecordings, hasSize(1));
 
-        // Retrieve archived recording name via REST API
-        Response archivedListResponse =
-                given().when()
-                        .get("/api/v4/recordings")
-                        .then()
-                        .statusCode(200)
-                        .extract()
-                        .response();
-        JsonArray retrievedArchivedRecordings =
-                new JsonArray(archivedListResponse.body().asString());
-        JsonObject retrievedArchivedRecording = retrievedArchivedRecordings.getJsonObject(0);
-        String retrievedArchivedRecordingsName = retrievedArchivedRecording.getString("name");
+        String archivedRecordingName = archivedRecordings.get(0).getName();
 
-        // GraphQL Query to filter Archived recordings by names
-        JsonObject query = new JsonObject();
-        query.put(
+        // Edit Labels
+        JsonObject variables = new JsonObject();
+        JsonArray labels = new JsonArray();
+        labels.add(new JsonObject().put("key", "template.name").put("value", "Profiling"));
+        labels.add(new JsonObject().put("key", "template.type").put("value", "TARGET"));
+        labels.add(
+                new JsonObject().put("key", "newArchivedLabel").put("value", "newArchivedValue"));
+        JsonObject metadataInput = new JsonObject().put("labels", labels);
+        variables.put("metadataInput", metadataInput);
+
+        JsonObject query2 = new JsonObject();
+        query2.put(
                 "query",
-                "query { targetNodes { name target {"
-                        + "recordings {"
-                        + "archived(filter: { names: [\""
-                        + retrievedArchivedRecordingsName
-                        + "\",\"someOtherName\"] }) {"
-                        + "data {"
-                        + "name"
-                        + "}"
-                        + "}"
-                        + "}"
-                        + "}"
-                        + "}"
-                        + "}");
+                "query ($metadataInput: MetadataLabelsInput!) { targetNodes(filter: { annotations:"
+                        + " [\"REALM = Custom Targets\"] }) { name target { recordings { archived"
+                        + " (filter: {name: \""
+                        + archivedRecordingName
+                        + "\"}) { data { name doPutMetadata(metadataInput:"
+                        + " $metadataInput) { metadata { labels { key value } } } } } } } } }");
+        query2.put("variables", variables);
 
-        Response response =
+        Response response2 =
                 given().contentType(ContentType.JSON)
-                        .body(query.encode())
+                        .body(query2.encode())
                         .when()
                         .post("/api/v4/graphql")
                         .then()
@@ -470,47 +305,56 @@ class GraphQLTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
-        TargetNodesQueryResponse graphqlResp =
-                mapper.readValue(response.body().asString(), TargetNodesQueryResponse.class);
+        MetadataUpdateResponse actual =
+                mapper.readValue(response2.body().asString(), MetadataUpdateResponse.class);
 
-        List<ArchivedRecording> archivedRecordings2 =
-                graphqlResp.getData().getTargetNodes().stream()
-                        .flatMap(
-                                targetNode ->
-                                        targetNode
-                                                .getTarget()
-                                                .getRecordings()
-                                                .getArchived()
-                                                .getData()
-                                                .stream())
-                        .collect(Collectors.toList());
+        List<TargetNode> targetNodes = actual.getData().getTargetNodes();
+        assertThat(targetNodes, not(empty()));
+        assertThat(targetNodes, hasSize(1));
 
-        int filteredRecordingsCount = archivedRecordings2.size();
+        List<ArchivedRecording> updatedArchivedRecordings =
+                targetNodes.get(0).getTarget().getRecordings().getArchived().getData();
+        assertThat(updatedArchivedRecordings, not(empty()));
+        assertThat(updatedArchivedRecordings, hasSize(1));
+        ArchivedRecording updatedArchivedRecording = updatedArchivedRecordings.get(0);
         assertThat(
-                "Number of filtered recordings should be 1", filteredRecordingsCount, equalTo(1));
+                updatedArchivedRecording.getName(),
+                matchesRegex(
+                        String.format("^selftest_%s_[0-9]{8}T[0-9]{6}Z\\.jfr$", recordingName)));
 
-        ArchivedRecording archivedRecording = archivedRecordings2.get(0);
-        String filteredName = archivedRecording.name;
+        List<KeyValue> expectedLabels =
+                List.of(
+                        new KeyValue("template.name", "Profiling"),
+                        new KeyValue("template.type", "TARGET"),
+                        new KeyValue("newArchivedLabel", "newArchivedValue"));
+
         assertThat(
-                "Filtered name should match the archived recording name",
-                filteredName,
-                equalTo(retrievedArchivedRecordingsName));
+                updatedArchivedRecording.getDoPutMetadata().getMetadata().labels,
+                containsInAnyOrder(expectedLabels.toArray()));
 
-        // Delete archived recording
         deleteRecording();
     }
 
     @Test
-    void testQueryforFilteredEnvironmentNodesByNames() throws Exception {
-        JsonObject query = new JsonObject();
-        query.put(
-                "query",
-                "query { environmentNodes(filter: { names: [\"anotherName1\","
-                        + " \"JDP\",\"anotherName2\"] }) { name nodeType } }");
+    void testDeleteMutation() throws Exception {
+        // this will delete all Active and Archived recordings that match the filter input.
+        String recordingName = "test";
+        // Create a Recording
+        JsonObject notificationRecording = createRecording(recordingName);
+        assertThat(notificationRecording.getString("name"), equalTo(recordingName));
 
-        Response response =
+        // Archive it
+        JsonObject query1 = new JsonObject();
+        query1.put(
+                "query",
+                String.format(
+                        "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom"
+                            + " Targets\"]}, recordings: { name: \"%s\"}) { name downloadUrl } }",
+                        recordingName));
+
+        Response response1 =
                 given().contentType(ContentType.JSON)
-                        .body(query.encode())
+                        .body(query1.encode())
                         .when()
                         .post("/api/v4/graphql")
                         .then()
@@ -518,72 +362,52 @@ class GraphQLTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
-        EnvironmentNodesResponse actual =
-                mapper.readValue(response.body().asString(), EnvironmentNodesResponse.class);
-        List<DiscoveryNode> environmentNodes = actual.getData().getEnvironmentNodes();
+        ArchiveMutationResponse archiveResponse =
+                mapper.readValue(response1.body().asString(), ArchiveMutationResponse.class);
+        List<ArchivedRecording> archivedRecordings =
+                archiveResponse.getData().getArchivedRecording();
+        assertThat(archivedRecordings, not(empty()));
+        assertThat(archivedRecordings, hasSize(1));
 
-        assertThat("The list filtered should be 1", environmentNodes.size(), equalTo(1));
+        // Delete
+        JsonObject query2 = new JsonObject();
+        query2.put(
+                "query",
+                "query { targetNodes(filter: { annotations: [\"REALM = Custom Targets\"] }) { name"
+                    + " target { recordings { active { data { name doDelete { name } } aggregate {"
+                    + " count } } archived { data { name doDelete { name } } aggregate { count size"
+                    + " } } } } } }");
 
-        boolean nameExists = false;
-        for (DiscoveryNode environmentNode : environmentNodes) {
-            if (environmentNode.name.matches("JDP")) {
-                nameExists = true;
-                break;
-            }
-        }
-        assertThat("Name not found", nameExists, is(true));
-    }
+        Response response2 =
+                given().contentType(ContentType.JSON)
+                        .body(query2.encode())
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                        .extract()
+                        .response();
 
-    @Test
-    void testReplaceAlwaysOnStoppedRecording() throws Exception {
-        try {
-            // Start a Recording
-            String recordingName = "test";
-            JsonObject notificationRecording = createRecording(recordingName);
-            assertThat(notificationRecording.getString("name"), equalTo(recordingName));
-            assertThat(notificationRecording.getString("state"), equalTo("RUNNING"));
+        DeleteMutationResponse actual =
+                mapper.readValue(response2.body().asString(), DeleteMutationResponse.class);
+        assertThat(actual.getData().getTargetNodes(), hasSize(1));
 
-            // Stop the Recording
-            notificationRecording = stopRecording();
-            assertThat(notificationRecording.getString("name"), equalTo(recordingName));
-            assertThat(notificationRecording.getString("state"), equalTo("STOPPED"));
+        TargetNode node = actual.getData().getTargetNodes().get(0);
+        assertThat(node.getTarget().getRecordings().getActive().getData(), hasSize(1));
+        assertThat(node.getTarget().getRecordings().getArchived().getData(), hasSize(1));
+        assertThat(node.getTarget().getRecordings().getArchived().aggregate.count, equalTo(1L));
+        assertThat(node.getTarget().getRecordings().getArchived().aggregate.size, greaterThan(0L));
 
-            // Restart the recording with replace:ALWAYS
-            notificationRecording = restartRecording(recordingName, "ALWAYS");
-            assertThat(notificationRecording.getString("name"), equalTo(recordingName));
-            assertThat(notificationRecording.getString("state"), equalTo("RUNNING"));
-        } finally {
-            // Delete the Recording
-            deleteRecording();
-        }
-    }
+        ActiveRecording activeRecording =
+                node.getTarget().getRecordings().getActive().getData().get(0);
+        ArchivedRecording archivedRecording =
+                node.getTarget().getRecordings().getArchived().getData().get(0);
 
-    @Test
-    void testReplaceNeverOnStoppedRecording() throws Exception {
-        try {
-            String recordingName = "test";
-            // Start a Recording
-            JsonObject notificationRecording = createRecording(recordingName);
-            assertThat(notificationRecording.getString("name"), equalTo(recordingName));
-            assertThat(notificationRecording.getString("state"), equalTo("RUNNING"));
-
-            // Stop the Recording
-            notificationRecording = stopRecording();
-            assertThat(notificationRecording.getString("name"), equalTo(recordingName));
-            assertThat(notificationRecording.getString("state"), equalTo("STOPPED"));
-
-            // Restart the recording with replace:NEVER
-            JsonObject error = restartRecordingWithError(recordingName, "NEVER");
-            assertThat(
-                    error.getString("message"),
-                    containsString(
-                            String.format(
-                                    "Recording with name %s already exists. Try again with a"
-                                            + " different name",
-                                    recordingName)));
-        } finally {
-            // Delete the Recording
-            deleteRecording();
-        }
+        assertThat(activeRecording.name, equalTo(recordingName));
+        assertThat(activeRecording.doDelete.name, equalTo(recordingName));
+        assertThat(
+                archivedRecording.name,
+                matchesRegex(
+                        String.format("^selftest_%s_[0-9]{8}T[0-9]{6}Z\\.jfr$", recordingName)));
     }
 }
