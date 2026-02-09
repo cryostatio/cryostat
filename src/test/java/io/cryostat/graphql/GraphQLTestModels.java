@@ -509,6 +509,15 @@ public class GraphQLTestModels {
         public long maxSize;
         public long maxAge;
         public List<KeyValue> labels;
+        private DoPutMetadata doPutMetadata;
+
+        public DoPutMetadata getDoPutMetadata() {
+            return doPutMetadata;
+        }
+
+        public void setDoPutMetadata(DoPutMetadata doPutMetadata) {
+            this.doPutMetadata = doPutMetadata;
+        }
 
         @Override
         public int hashCode() {
@@ -526,7 +535,8 @@ public class GraphQLTestModels {
                     toDisk,
                     maxSize,
                     maxAge,
-                    labels);
+                    labels,
+                    doPutMetadata);
         }
 
         @Override
@@ -548,7 +558,8 @@ public class GraphQLTestModels {
                     && Objects.equals(downloadUrl, other.downloadUrl)
                     && Objects.equals(metadata, other.metadata)
                     && Objects.equals(state, other.state)
-                    && Objects.equals(labels, other.labels);
+                    && Objects.equals(labels, other.labels)
+                    && Objects.equals(doPutMetadata, other.doPutMetadata);
         }
 
         @Override
@@ -669,6 +680,159 @@ public class GraphQLTestModels {
 
         public void setData(List<ActiveRecording> recordings) {
             this.recordings = recordings;
+        }
+    }
+
+    public static class ArchiveMutationResponse {
+        protected Data data;
+
+        public static class Data {
+            private List<ArchivedRecording> archiveRecording;
+
+            public List<ArchivedRecording> getArchivedRecording() {
+                return archiveRecording;
+            }
+
+            public void setArchiveRecording(List<ArchivedRecording> archiveRecording) {
+                this.archiveRecording = archiveRecording;
+            }
+
+            @Override
+            public String toString() {
+                return "Data{" + "archiveRecording=" + archiveRecording + '}';
+            }
+        }
+
+        public Data getData() {
+            return data;
+        }
+
+        public void setData(Data data) {
+            this.data = data;
+        }
+
+        @Override
+        public String toString() {
+            return "ArchiveMutationResponse [data=" + data + "]";
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(data);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            ArchiveMutationResponse other = (ArchiveMutationResponse) obj;
+            return Objects.equals(data, other.data);
+        }
+    }
+
+    public static class ActiveMutationResponse {
+        @JsonProperty("data")
+        private ActiveData data;
+
+        public ActiveData getData() {
+            return data;
+        }
+
+        public void setData(ActiveData data) {
+            this.data = data;
+        }
+
+        @Override
+        public String toString() {
+            return "ActiveMutationResponse [data=" + data + "]";
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(data);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (obj == null) {
+                return false;
+            }
+            if (getClass() != obj.getClass()) {
+                return false;
+            }
+            ActiveMutationResponse other = (ActiveMutationResponse) obj;
+            return Objects.equals(data, other.data);
+        }
+
+        public static class ActiveData {
+            private List<TargetNode> targetNodes;
+
+            public List<TargetNode> getTargetNodes() {
+                return targetNodes;
+            }
+
+            public void setTargetNodes(List<TargetNode> targetNodes) {
+                this.targetNodes = targetNodes;
+            }
+
+            @Override
+            public String toString() {
+                return "ActiveData{" + "targetNodes=" + targetNodes + '}';
+            }
+
+            @Override
+            public int hashCode() {
+                return Objects.hash(targetNodes);
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (this == obj) return true;
+                if (obj == null || getClass() != obj.getClass()) return false;
+                ActiveData other = (ActiveData) obj;
+                return Objects.equals(targetNodes, other.targetNodes);
+            }
+        }
+    }
+
+    public static class DoPutMetadata {
+        private RecordingMetadata metadata;
+
+        public RecordingMetadata getMetadata() {
+            return metadata;
+        }
+
+        public void setMetadata(RecordingMetadata metadata) {
+            this.metadata = metadata;
+        }
+
+        @Override
+        public String toString() {
+            return "DoPutMetadata [metadata=" + metadata + "]";
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(metadata);
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (obj == null) return false;
+            if (getClass() != obj.getClass()) return false;
+            DoPutMetadata other = (DoPutMetadata) obj;
+            return Objects.equals(metadata, other.metadata);
         }
     }
 }

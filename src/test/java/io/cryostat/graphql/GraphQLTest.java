@@ -294,6 +294,112 @@ class GraphQLTest extends AbstractTransactionalTestBase {
         deleteRecording();
     }
 
+    @Test
+    void testArchiveMutation() throws Exception {
+        String recordingName = "test";
+        JsonObject notificationRecording = createRecording(recordingName);
+        assertThat(notificationRecording.getString("name"), equalTo("test"));
+        assertThat(notificationRecording.getString("state"), equalTo("RUNNING"));
+
+        JsonObject query = new JsonObject();
+        query.put(
+                "query",
+                String.format(
+                        "mutation { archiveRecording (nodes: { annotations: [\"REALM = Custom"
+                            + " Targets\"]}, recordings: { name: \"%s\"}) { name downloadUrl } }",
+                        recordingName));
+
+        Response response =
+                given().contentType(ContentType.JSON)
+                        .body(query.encode())
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                        .extract()
+                        .response();
+
+        ArchiveMutationResponse archiveResponse =
+                mapper.readValue(response.body().asString(), ArchiveMutationResponse.class);
+
+        List<ArchivedRecording> archivedRecordings =
+                archiveResponse.getData().getArchivedRecording();
+        assertThat(archivedRecordings, not(empty()));
+        assertThat(archivedRecordings, hasSize(1));
+
+        String archivedRecordingName = archivedRecordings.get(0).name;
+        assertThat(archivedRecordingName, matchesRegex("^selftest_test_[0-9]{8}T[0-9]{6}Z\\.jfr$"));
+
+        deleteRecording();
+    }
+
+    @Test
+    void testActiveRecordingMetadataMutation() throws Exception {
+        String recordingName = "test";
+        JsonObject notificationRecording = createRecording(recordingName);
+        assertThat(notificationRecording.getString("name"), equalTo(recordingName));
+
+        JsonObject variables = new JsonObject();
+        JsonArray labels = new JsonArray();
+        labels.add(new JsonObject().put("key", "template.name").put("value", "Profiling"));
+        labels.add(new JsonObject().put("key", "template.type").put("value", "TARGET"));
+        labels.add(new JsonObject().put("key", "newLabel").put("value", "newValue"));
+        labels.add(new JsonObject().put("key", "newKey").put("value", "anotherValue"));
+        JsonObject metadataInput = new JsonObject().put("labels", labels);
+        variables.put("metadataInput", metadataInput);
+
+        JsonObject query = new JsonObject();
+        query.put(
+                "query",
+                String.format(
+                        "query ($metadataInput: MetadataLabelsInput!) { targetNodes(filter: {"
+                            + " annotations: [\"REALM = Custom Targets\"] }) { name target {"
+                            + " recordings{ active(filter: {name: \"%s\"}) { data { name id"
+                            + " doPutMetadata(metadataInput: $metadataInput) { metadata { labels {"
+                            + " key value } } } } } } } } }",
+                        recordingName));
+        query.put("variables", variables);
+
+        Response response =
+                given().contentType(ContentType.JSON)
+                        .body(query.encode())
+                        .when()
+                        .post("/api/v4/graphql")
+                        .then()
+                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                        .extract()
+                        .response();
+
+        TypeReference<ActiveMutationResponse> typeRef =
+                new TypeReference<ActiveMutationResponse>() {};
+        ActiveMutationResponse actual = mapper.readValue(response.body().asString(), typeRef);
+
+        List<TargetNode> targetNodes = actual.getData().getTargetNodes();
+        assertThat(targetNodes, not(empty()));
+        assertThat(targetNodes, hasSize(1));
+
+        TargetNode targetNode = targetNodes.get(0);
+        List<ActiveRecording> activeRecordings =
+                targetNode.getTarget().getRecordings().getActive().getData();
+        assertThat(activeRecordings, not(empty()));
+        assertThat(activeRecordings, hasSize(1));
+
+        ActiveRecording updatedRecording = activeRecordings.get(0);
+
+        List<KeyValue> expectedLabels =
+                List.of(
+                        new KeyValue("template.name", "Profiling"),
+                        new KeyValue("template.type", "TARGET"),
+                        new KeyValue("newLabel", "newValue"),
+                        new KeyValue("newKey", "anotherValue"));
+
+        assertThat(
+                updatedRecording.getDoPutMetadata().getMetadata().getLabels(),
+                containsInAnyOrder(expectedLabels.toArray()));
+
+        deleteRecording();
+    }
+
     // Helper methods
     private JsonObject createRecording(String name) throws Exception {
         CountDownLatch latch = new CountDownLatch(1);
