@@ -34,6 +34,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.Cacheable;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -56,6 +57,7 @@ import org.projectnessie.cel.tools.ScriptException;
  */
 @Entity
 @EntityListeners(MatchExpression.Listener.class)
+@Cacheable
 public class MatchExpression extends PanacheEntity {
     public static final String EXPRESSION_ADDRESS = "io.cryostat.expressions.MatchExpression";
 
@@ -74,6 +76,26 @@ public class MatchExpression extends PanacheEntity {
     @JsonCreator
     public MatchExpression(String script) {
         this.script = script;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(script);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        MatchExpression other = (MatchExpression) obj;
+        return Objects.equals(script, other.script);
     }
 
     @ApplicationScoped

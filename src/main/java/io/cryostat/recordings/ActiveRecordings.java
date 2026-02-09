@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.InputStream;
+import java.io.Serializable;
 import java.net.URI;
 import java.time.Duration;
 import java.util.HashMap;
@@ -319,7 +320,10 @@ public class ActiveRecordings {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record Metadata(Map<String, String> labels) {
+    public record Metadata(Map<String, String> labels) implements Serializable {
+
+        private static final long serialVersionUID = 1L;
+
         public Metadata {
             Objects.requireNonNull(labels);
         }
