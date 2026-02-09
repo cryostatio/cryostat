@@ -15,11 +15,15 @@
  */
 package io.cryostat.recordings;
 
-import io.cryostat.resources.S3StorageResource;
+import io.cryostat.resources.S3StorageBucketedMetadataResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusTest
-@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-public class RecordingWorkflowTest extends AbstractRecordingWorkflowTest {}
+@QuarkusTestResource(
+        value = S3StorageBucketedMetadataResource.class,
+        restrictToAnnotatedClass = true)
+@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
+public class RecordingWorkflowBucketedMetadataTest extends AbstractRecordingWorkflowTest {}
