@@ -35,7 +35,7 @@ class GraphQLRecordingLifecycleTest extends AbstractGraphQLTestBase {
     void testReplaceAlwaysOnStoppedRecording() throws Exception {
         try {
             // Start a Recording
-            String recordingName = "test";
+            String recordingName = "testReplaceAlwaysOnStoppedRecording";
             JsonObject notificationRecording = createRecording(recordingName);
             assertThat(notificationRecording.getString("name"), equalTo(recordingName));
             assertThat(notificationRecording.getString("state"), equalTo("RUNNING"));
@@ -58,7 +58,7 @@ class GraphQLRecordingLifecycleTest extends AbstractGraphQLTestBase {
     @Test
     void testReplaceNeverOnStoppedRecording() throws Exception {
         try {
-            String recordingName = "test";
+            String recordingName = "testReplaceNeverOnStoppedRecording";
             // Start a Recording
             JsonObject notificationRecording = createRecording(recordingName);
             assertThat(notificationRecording.getString("name"), equalTo(recordingName));
@@ -88,7 +88,7 @@ class GraphQLRecordingLifecycleTest extends AbstractGraphQLTestBase {
     void testReplaceStoppedOnStoppedRecording() throws Exception {
         try {
             // Start a Recording
-            String recordingName = "test";
+            String recordingName = "testReplaceStoppedOnStoppedRecording";
             JsonObject notificationRecording = createRecording(recordingName);
             assertThat(notificationRecording.getString("name"), equalTo(recordingName));
             assertThat(notificationRecording.getString("state"), equalTo("RUNNING"));
@@ -112,7 +112,7 @@ class GraphQLRecordingLifecycleTest extends AbstractGraphQLTestBase {
     @ValueSource(strings = {"STOPPED", "NEVER"})
     void testReplaceStoppedOrNeverOnRunningRecording(String replace) throws Exception {
         try {
-            String recordingName = "test";
+            String recordingName = "testReplaceStoppedOrNeverOnRunningRecording_" + replace;
             // Start a Recording
             JsonObject notificationRecording = createRecording(recordingName);
             assertThat(notificationRecording.getString("name"), equalTo(recordingName));
@@ -137,7 +137,7 @@ class GraphQLRecordingLifecycleTest extends AbstractGraphQLTestBase {
     void testReplaceAlwaysOnRunningRecording() throws Exception {
         try {
             // Start a Recording
-            String recordingName = "test";
+            String recordingName = "testReplaceAlwaysOnRunningRecording";
             JsonObject notificationRecording = createRecording(recordingName);
             assertThat(notificationRecording.getString("name"), equalTo(recordingName));
             assertThat(notificationRecording.getString("state"), equalTo("RUNNING"));
@@ -156,7 +156,7 @@ class GraphQLRecordingLifecycleTest extends AbstractGraphQLTestBase {
     @ValueSource(strings = {"ALWAYS", "STOPPED", "NEVER"})
     void testStartingNewRecordingWithAllReplaceValues(String replace) throws Exception {
         try {
-            String recordingName = "test";
+            String recordingName = "testStartingNewRecordingWithAllReplaceValues_" + replace;
             JsonObject notificationRecording = restartRecording(recordingName, replace);
             assertThat(notificationRecording.getString("name"), equalTo(recordingName));
             assertThat(notificationRecording.getString("state"), equalTo("RUNNING"));

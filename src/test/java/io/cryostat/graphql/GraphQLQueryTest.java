@@ -214,7 +214,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
 
     @Test
     void testQueryForFilteredActiveRecordingsByNames() throws Exception {
-        String recordingName1 = "test";
+        String recordingName1 = "testQueryForFilteredActiveRecordingsByNames1";
         // Create Recording 1
         JsonObject notificationRecording = createRecording(recordingName1);
         assertThat(notificationRecording.getString("name"), equalTo(recordingName1));
@@ -223,7 +223,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
         Thread.sleep(DATA_COLLECTION_DELAY_MS);
 
         // Create Recording 2
-        String recordingName2 = "test2";
+        String recordingName2 = "testQueryForFilteredActiveRecordingsByNames2";
         JsonObject notificationRecording2 = createRecording(recordingName2);
         assertThat(notificationRecording2.getString("name"), equalTo(recordingName2));
 
@@ -282,7 +282,7 @@ class GraphQLQueryTest extends AbstractGraphQLTestBase {
     @Test
     void shouldReturnArchivedRecordingsFilteredByNames() throws Exception {
         // Create a new recording
-        String recordingName = "test";
+        String recordingName = "shouldReturnArchivedRecordingsFilteredByNames";
         JsonObject notificationRecording = createRecording(recordingName);
         assertThat(notificationRecording.getString("name"), equalTo(recordingName));
 

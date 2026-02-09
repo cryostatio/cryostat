@@ -41,17 +41,19 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
 
     @Test
     void testStartRecordingMutationOnSpecificTarget() throws Exception {
+        String recordingName = "testStartRecordingMutationOnSpecificTarget";
         CountDownLatch latch = new CountDownLatch(2);
 
         JsonObject query = new JsonObject();
         query.put(
                 "query",
-                "mutation { createRecording( nodes:{annotations: ["
-                        + "\"REALM = Custom Targets\""
-                        + "]}, recording: { name: \"test\", template:"
-                        + " \"Profiling\", templateType: \"TARGET\", duration: 30, continuous:"
-                        + " false, archiveOnStop: true, toDisk: true }) { name state duration"
-                        + " continuous metadata { labels { key value } } } }");
+                String.format(
+                        "mutation { createRecording( nodes:{annotations: [\"REALM = Custom"
+                            + " Targets\"]}, recording: { name: \"%s\", template: \"Profiling\","
+                            + " templateType: \"TARGET\", duration: 30, continuous: false,"
+                            + " archiveOnStop: true, toDisk: true }) { name state duration"
+                            + " continuous metadata { labels { key value } } } }",
+                        recordingName));
 
         Future<JsonObject> f =
                 worker.submit(
@@ -87,7 +89,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
 
         JsonObject notificationRecording =
                 notification.getJsonObject("message").getJsonObject("recording");
-        assertThat(notificationRecording.getString("name"), equalTo("test"));
+        assertThat(notificationRecording.getString("name"), equalTo(recordingName));
         assertThat(
                 notification.getJsonObject("message").getString("target"),
                 equalTo(
@@ -114,7 +116,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
         ActiveRecording recording = new ActiveRecording();
         recording.id = 0;
         recording.remoteId = 0;
-        recording.name = "test";
+        recording.name = recordingName;
         recording.reportUrl = null;
         recording.downloadUrl = null;
         recording.metadata = RecordingMetadata.of(expectedLabels);
@@ -135,9 +137,9 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
 
     @Test
     void testArchiveMutation() throws Exception {
-        String recordingName = "test";
+        String recordingName = "testArchiveMutation";
         JsonObject notificationRecording = createRecording(recordingName);
-        assertThat(notificationRecording.getString("name"), equalTo("test"));
+        assertThat(notificationRecording.getString("name"), equalTo(recordingName));
         assertThat(notificationRecording.getString("state"), equalTo("RUNNING"));
 
         JsonObject query = new JsonObject();
@@ -167,14 +169,17 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
         assertThat(archivedRecordings, hasSize(1));
 
         String archivedRecordingName = archivedRecordings.get(0).name;
-        assertThat(archivedRecordingName, matchesRegex("^selftest_test_[0-9]{8}T[0-9]{6}Z\\.jfr$"));
+        assertThat(
+                archivedRecordingName,
+                matchesRegex(
+                        String.format("^selftest_%s_[0-9]{8}T[0-9]{6}Z\\.jfr$", recordingName)));
 
         deleteRecording();
     }
 
     @Test
     void testActiveRecordingMetadataMutation() throws Exception {
-        String recordingName = "test";
+        String recordingName = "testActiveRecordingMetadataMutation";
         JsonObject notificationRecording = createRecording(recordingName);
         assertThat(notificationRecording.getString("name"), equalTo(recordingName));
 
@@ -241,7 +246,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
 
     @Test
     void testArchivedRecordingMetadataMutation() throws Exception {
-        String recordingName = "test";
+        String recordingName = "testArchivedRecordingMetadataMutation";
         // Create a Recording
         JsonObject notificationRecording = createRecording(recordingName);
         assertThat(notificationRecording.getString("name"), equalTo(recordingName));
@@ -338,7 +343,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
     @Test
     void testDeleteMutation() throws Exception {
         // this will delete all Active and Archived recordings that match the filter input.
-        String recordingName = "test";
+        String recordingName = "testDeleteMutation";
         // Create a Recording
         JsonObject notificationRecording = createRecording(recordingName);
         assertThat(notificationRecording.getString("name"), equalTo(recordingName));
