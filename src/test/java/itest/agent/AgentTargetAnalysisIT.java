@@ -50,7 +50,6 @@ public class AgentTargetAnalysisIT extends AgentTestBase {
                     TimeoutException,
                     ExecutionException,
                     java.util.concurrent.TimeoutException {
-        Target agent = waitForDiscovery();
         long targetId = target.id();
         String archivedRecordingName = null;
         long recordingId = -1;
@@ -107,14 +106,17 @@ public class AgentTargetAnalysisIT extends AgentTestBase {
                     "ReportSuccess",
                     o ->
                             Objects.equals(
-                                    agent.jvmId(), o.getJsonObject("message").getString("jvmId")));
+                                    target.jvmId(), o.getJsonObject("message").getString("jvmId")));
         } finally {
             if (archivedRecordingName != null) {
                 given().log()
                         .all()
                         .when()
                         .pathParams(
-                                "connectUrl", agent.connectUrl(), "filename", archivedRecordingName)
+                                "connectUrl",
+                                target.connectUrl(),
+                                "filename",
+                                archivedRecordingName)
                         .delete("/api/beta/recordings/{connectUrl}/{filename}")
                         .then()
                         .log()

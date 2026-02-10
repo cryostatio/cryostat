@@ -36,29 +36,38 @@ public class AgentApplicationResource
             "quay.io/redhat-java-monitoring/quarkus-cryostat-agent:latest";
     public static final int PORT = 9977;
     public static final String ALIAS = "quarkus-cryostat-agent";
-    private static final Map<String, String> envMap =
-            new HashMap<>(
-                    Map.of(
-                            "JAVA_OPTS_APPEND",
-                            """
-                            -javaagent:/deployments/app/cryostat-agent.jar
-                            -Djava.util.logging.manager=org.jboss.logmanager.LogManager
-                            -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
-                            """,
-                            "QUARKUS_HTTP_PORT",
-                            "9898",
-                            "CRYOSTAT_AGENT_APP_NAME",
-                            "quarkus-cryostat-agent",
-                            "CRYOSTAT_AGENT_WEBCLIENT_TLS_REQUIRED",
-                            "false",
-                            "CRYOSTAT_AGENT_WEBSERVER_HOST",
-                            "0.0.0.0",
-                            "CRYOSTAT_AGENT_WEBSERVER_PORT",
-                            Integer.toString(PORT),
-                            "CRYOSTAT_AGENT_BASEURI_RANGE",
-                            "public",
-                            "CRYOSTAT_AGENT_API_WRITES_ENABLED",
-                            "true"));
+
+    /**
+     * Get the environment map for the agent container. Child classes can override this to add or
+     * modify environment variables.
+     *
+     * @return Map of environment variables
+     */
+    protected Map<String, String> getEnvMap() {
+        return new HashMap<>(
+                Map.of(
+                        "JAVA_OPTS_APPEND",
+                        """
+                        -javaagent:/deployments/app/cryostat-agent.jar
+                        -Djava.util.logging.manager=org.jboss.logmanager.LogManager
+                        -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
+                        """,
+                        "QUARKUS_HTTP_PORT",
+                        "9898",
+                        "CRYOSTAT_AGENT_APP_NAME",
+                        "quarkus-cryostat-agent",
+                        "CRYOSTAT_AGENT_WEBCLIENT_TLS_REQUIRED",
+                        "false",
+                        "CRYOSTAT_AGENT_WEBSERVER_HOST",
+                        "0.0.0.0",
+                        "CRYOSTAT_AGENT_WEBSERVER_PORT",
+                        Integer.toString(PORT),
+                        "CRYOSTAT_AGENT_BASEURI_RANGE",
+                        "public",
+                        "CRYOSTAT_AGENT_API_WRITES_ENABLED",
+                        "true"));
+    }
+
     private Optional<String> containerNetworkId;
     private AuthProxyContainer authProxy;
     private GenericContainer<?> container;
@@ -92,7 +101,7 @@ public class AgentApplicationResource
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .dependsOn(authProxy)
                         .withExposedPorts(PORT)
-                        .withEnv(envMap)
+                        .withEnv(getEnvMap())
                         .withNetworkAliases(ALIAS)
                         .waitingFor(new HostPortWaitStrategy().forPorts(PORT));
         network.ifPresent(container::withNetwork);
