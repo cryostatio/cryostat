@@ -15,14 +15,10 @@
  */
 package itest.agent;
 
-import java.util.Map;
-
 import io.cryostat.resources.AgentExternalRecordingApplicationResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
-import io.quarkus.test.junit.QuarkusTestProfile;
-import io.quarkus.test.junit.TestProfile;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
@@ -32,7 +28,6 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
  * to external recording configuration.
  */
 @QuarkusIntegrationTest
-@TestProfile(AgentExternalRecordingIT.class)
 @QuarkusTestResource(
         value = AgentExternalRecordingApplicationResource.class,
         restrictToAnnotatedClass = true)
@@ -41,19 +36,7 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
         matches = "true",
         disabledReason =
                 "Runs well in PR CI under Docker, but not on main CI or locally under Podman")
-public class AgentExternalRecordingIT extends AgentTestBase implements QuarkusTestProfile {
-
-    /** Configure external recording detection settings for this test. */
-    @Override
-    public Map<String, String> getConfigOverrides() {
-        return Map.of(
-                "cryostat.external-recordings.delay",
-                "2s",
-                "cryostat.external-recordings.archive",
-                "true",
-                "cryostat.external-recordings.autoanalyze",
-                "true");
-    }
+public class AgentExternalRecordingIT extends AgentTestBase {
 
     @Test
     void testExternalRecordingDetectionAndLifecycle() throws Exception {
