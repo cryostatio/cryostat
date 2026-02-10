@@ -20,9 +20,7 @@ import static io.restassured.RestAssured.given;
 import java.util.List;
 
 import io.cryostat.AbstractTransactionalTestBase;
-import io.cryostat.resources.S3StorageResource;
 
-import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -31,7 +29,6 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(Credentials.class)
-@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class CredentialsTest extends AbstractTransactionalTestBase {
 
     @Test

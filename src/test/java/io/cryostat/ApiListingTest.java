@@ -19,9 +19,6 @@ import static io.restassured.RestAssured.given;
 
 import java.util.regex.Pattern;
 
-import io.cryostat.resources.S3StorageResource;
-
-import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
@@ -30,7 +27,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class ApiListingTest extends AbstractTestBase {
 
     ValidatableResponse resp;
