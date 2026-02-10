@@ -26,11 +26,14 @@ import java.util.function.Predicate;
 
 import io.cryostat.resources.AgentApplicationResource;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import itest.bases.HttpClientTest;
+import itest.resources.S3StorageResource;
 import junit.framework.AssertionFailedError;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = false)
 public class AgentTestBase extends HttpClientTest {
 
     static final Duration DISCOVERY_PERIOD = Duration.ofSeconds(5);

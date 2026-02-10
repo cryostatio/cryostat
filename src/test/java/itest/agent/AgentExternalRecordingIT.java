@@ -23,7 +23,6 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
-import itest.resources.S3StorageResource;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
@@ -37,7 +36,6 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 @QuarkusTestResource(
         value = AgentExternalRecordingApplicationResource.class,
         restrictToAnnotatedClass = true)
-@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @EnabledIfEnvironmentVariable(
         named = "PR_CI",
         matches = "true",
