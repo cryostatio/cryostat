@@ -43,8 +43,14 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-@QuarkusTestResource(GrafanaResource.class)
-@QuarkusTestResource(JFRDatasourceResource.class)
+@QuarkusTestResource(
+        value = GrafanaResource.class,
+        restrictToAnnotatedClass = true,
+        parallel = true)
+@QuarkusTestResource(
+        value = JFRDatasourceResource.class,
+        restrictToAnnotatedClass = true,
+        parallel = true)
 public class UploadRecordingTest extends AbstractTransactionalTestBase {
 
     // TODO this should be a constant somewhere in the server sources
