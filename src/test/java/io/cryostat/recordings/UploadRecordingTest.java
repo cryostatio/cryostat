@@ -56,14 +56,19 @@ public class UploadRecordingTest extends AbstractTransactionalTestBase {
 
     @BeforeEach
     void setupUploadRecordingTest() throws Exception {
-        // Ensure we have a self target
         if (selfId < 1) {
             defineSelfCustomTarget();
         }
-
-        // Clean up any existing recordings
         cleanupSelfActiveAndArchivedRecordings();
+    }
 
+    @AfterEach
+    void cleanupUploadRecordingTest() {
+        cleanupSelfActiveAndArchivedRecordings();
+    }
+
+    @Test
+    public void shouldLoadRecordingToDatasource() throws Exception {
         // Create a recording for the test
         var jp =
                 startSelfRecording(
@@ -78,15 +83,7 @@ public class UploadRecordingTest extends AbstractTransactionalTestBase {
 
         // Wait for the recording to finish
         Thread.sleep(RECORDING_DURATION_SECONDS * 1000L);
-    }
 
-    @AfterEach
-    void cleanupUploadRecordingTest() {
-        cleanupSelfActiveAndArchivedRecordings();
-    }
-
-    @Test
-    public void shouldLoadRecordingToDatasource() throws Exception {
         // Upload the recording to the datasource
         Response uploadResponse =
                 given().log()
