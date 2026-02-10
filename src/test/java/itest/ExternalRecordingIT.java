@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-@QuarkusTestResource(S3StorageResource.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = ExternalApplicationResource.class, restrictToAnnotatedClass = true)
 @Disabled
 public class ExternalRecordingIT extends StandardSelfTest {
