@@ -18,12 +18,18 @@ package itest.agent;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 
+import io.cryostat.resources.AgentApplicationResource;
+
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
+import itest.resources.S3StorageResource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
+@QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @EnabledIfEnvironmentVariable(
         named = "PR_CI",
         matches = "true",

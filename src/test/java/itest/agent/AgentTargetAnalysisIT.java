@@ -23,17 +23,23 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
+import io.cryostat.resources.AgentApplicationResource;
+
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.restassured.http.ContentType;
 import io.smallrye.mutiny.TimeoutException;
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.JsonObject;
+import itest.resources.S3StorageResource;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
+@QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @EnabledIfEnvironmentVariable(
         named = "PR_CI",
         matches = "true",
