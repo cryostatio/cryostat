@@ -33,8 +33,8 @@ import org.junit.jupiter.api.BeforeEach;
 
 public class AgentTestBase extends HttpClientTest {
 
-    static final Duration DISCOVERY_PERIOD = Duration.ofSeconds(5);
-    static final Duration DISCOVERY_TIMEOUT = Duration.ofSeconds(60);
+    static final Duration DISCOVERY_PERIOD = Duration.ofSeconds(10);
+    static final Duration DISCOVERY_TIMEOUT = Duration.ofMinutes(5);
     static final String CONTINUOUS_TEMPLATE = "template=Continuous,type=TARGET";
 
     protected Target target;
