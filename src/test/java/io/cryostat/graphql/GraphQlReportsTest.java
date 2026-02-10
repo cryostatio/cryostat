@@ -21,8 +21,10 @@ import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.reports.AnalysisReportAggregator;
+import io.cryostat.resources.S3StorageResource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
@@ -32,6 +34,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class GraphQlReportsTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;
