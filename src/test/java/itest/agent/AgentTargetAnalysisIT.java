@@ -35,17 +35,10 @@ import itest.resources.S3StorageITResource;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
-@EnabledIfEnvironmentVariable(
-        named = "PR_CI",
-        matches = "true",
-        disabledReason =
-                "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
-                        + " testcontainers 'Broken Pipe' IOException")
 public class AgentTargetAnalysisIT extends AgentTestBase {
 
     @Test

@@ -20,7 +20,6 @@ import io.cryostat.resources.AgentExternalRecordingApplicationResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 /**
  * Integration test for external recording detection using the Cryostat agent. Tests that recordings
@@ -31,11 +30,6 @@ import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 @QuarkusTestResource(
         value = AgentExternalRecordingApplicationResource.class,
         restrictToAnnotatedClass = true)
-@EnabledIfEnvironmentVariable(
-        named = "PR_CI",
-        matches = "true",
-        disabledReason =
-                "Runs well in PR CI under Docker, but not on main CI or locally under Podman")
 public class AgentExternalRecordingIT extends AgentTestBase {
 
     @Test
