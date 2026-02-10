@@ -23,16 +23,14 @@ import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @TestMethodOrder(OrderAnnotation.class)
-@EnabledIfEnvironmentVariable(
-        named = "PR_CI",
+@DisabledIfEnvironmentVariable(
+        named = "CI",
         matches = "true",
-        disabledReason =
-                "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
-                        + " testcontainers 'Broken Pipe' IOException")
+        disabledReason = "Fails in CI due to testcontainers 'Broken Pipe' IOException")
 public class AgentWorkflowIT extends AgentTestBase {
 
     static final String RECORDING_NAME = AgentWorkflowIT.class.getSimpleName();

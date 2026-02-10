@@ -31,15 +31,13 @@ import io.vertx.core.json.JsonObject;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
-@EnabledIfEnvironmentVariable(
-        named = "PR_CI",
+@DisabledIfEnvironmentVariable(
+        named = "CI",
         matches = "true",
-        disabledReason =
-                "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
-                        + " testcontainers 'Broken Pipe' IOException")
+        disabledReason = "Fails in CI due to testcontainers 'Broken Pipe' IOException")
 public class AgentTargetAnalysisIT extends AgentTestBase {
 
     @Test

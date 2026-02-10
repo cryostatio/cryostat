@@ -21,15 +21,13 @@ import java.util.concurrent.TimeoutException;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
-@EnabledIfEnvironmentVariable(
-        named = "PR_CI",
+@DisabledIfEnvironmentVariable(
+        named = "CI",
         matches = "true",
-        disabledReason =
-                "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
-                        + " testcontainers 'Broken Pipe' IOException")
+        disabledReason = "Fails in CI due to testcontainers 'Broken Pipe' IOException")
 public class AgentDiscoveryIT extends AgentTestBase {
     @Test
     void shouldDiscoverTarget() throws InterruptedException, TimeoutException, ExecutionException {
