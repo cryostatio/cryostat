@@ -36,7 +36,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(S3StorageResource.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @TestHTTPEndpoint(Diagnostics.class)
 public class HeapDumpsAllArchivesTest extends AbstractTransactionalTestBase {
 
