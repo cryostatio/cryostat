@@ -49,7 +49,7 @@ public class S3StorageResource
         properties.put("quarkus.s3.aws.region", "us-east-1");
         properties.put(
                 "s3.url.override",
-                adjustS3Url(container, container.getHost(), container.getMappedPort(S3_PORT)));
+                adjustS3Url(container.getHost(), container.getMappedPort(S3_PORT)));
         properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
         properties.put("quarkus.s3.path-style-access", "true");
         properties.put("quarkus.s3.aws.credentials.type", "static");
@@ -107,7 +107,7 @@ public class S3StorageResource
         containerNetworkId = context.containerNetworkId();
     }
 
-    protected String adjustS3Url(GenericContainer<?> container, String host, int port) {
-        return "http://" + container.getHost() + ":" + container.getMappedPort(S3_PORT);
+    protected String adjustS3Url(String host, int port) {
+        return "http://" + host + ":" + port;
     }
 }
