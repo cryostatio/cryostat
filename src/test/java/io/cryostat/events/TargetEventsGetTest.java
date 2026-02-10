@@ -19,9 +19,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
 import io.cryostat.AbstractTransactionalTestBase;
-import io.cryostat.resources.S3StorageResource;
 
-import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
@@ -32,7 +30,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class TargetEventsGetTest extends AbstractTransactionalTestBase {
 
     @BeforeEach

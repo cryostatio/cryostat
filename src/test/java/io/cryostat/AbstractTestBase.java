@@ -52,33 +52,6 @@ import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
 public abstract class AbstractTestBase {
 
-    public static final String CLEANUP_QUERY =
-            """
-            query TestCleanup($targetIds: [ BigInteger! ]) {
-              targetNodes(filter: { targetIds: $targetIds }) {
-                descendantTargets {
-                  target {
-                    recordings {
-                      active {
-                        data {
-                          doDelete {
-                            name
-                          }
-                        }
-                      }
-                      archived {
-                        data {
-                          doDelete {
-                            name
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-            """;
     public static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
     public static final String SELFTEST_ALIAS = "selftest";
 
@@ -89,6 +62,9 @@ public abstract class AbstractTestBase {
 
     @ConfigProperty(name = "storage.buckets.archives.name")
     String archivesBucket;
+
+    @ConfigProperty(name = "test.storage.enabled", defaultValue = "false")
+    boolean storageEnabled;
 
     @ConfigProperty(name = "test.storage.timeout", defaultValue = "5m")
     Duration storageTimeout;
@@ -106,6 +82,10 @@ public abstract class AbstractTestBase {
 
     @BeforeEach
     void waitForStorage() throws InterruptedException, SchedulerException {
+        if (!storageEnabled) {
+            return;
+        }
+
         selfId = -1;
         selfJvmId = "";
         selfRecordingId = -1;
@@ -129,6 +109,45 @@ public abstract class AbstractTestBase {
     @AfterEach
     void cleanup() throws SchedulerException {
         scheduler.clear();
+    }
+
+    public String cleanupQuery() {
+        return cleanupQuery(storageEnabled);
+    }
+
+    public static String cleanupQuery(boolean storageEnabled) {
+        String query =
+                """
+                query TestCleanup($targetIds: [ BigInteger! ]) {
+                  targetNodes(filter: { targetIds: $targetIds }) {
+                    descendantTargets {
+                      target {
+                        recordings {
+                          active {
+                            data {
+                              doDelete {
+                                name
+                              }
+                            }
+                          }
+                          %s
+                        }
+                      }
+                    }
+                  }
+                }
+                """;
+        String archivesFragment =
+                """
+                archived {
+                  data {
+                    doDelete {
+                      name
+                    }
+                  }
+                }
+                """;
+        return String.format(query, storageEnabled ? archivesFragment : "");
     }
 
     private boolean bucketExists(String bucket) {
@@ -222,11 +241,11 @@ public abstract class AbstractTestBase {
         // If selfId <= 0, there's nothing to clean up, so just return
     }
 
-    protected static void cleanupActiveAndArchivedRecordingsForTarget(int... ids) {
+    protected void cleanupActiveAndArchivedRecordingsForTarget(int... ids) {
         cleanupActiveAndArchivedRecordingsForTarget(Arrays.stream(ids).boxed().toList());
     }
 
-    protected static void cleanupActiveAndArchivedRecordingsForTarget(List<Integer> ids) {
+    protected void cleanupActiveAndArchivedRecordingsForTarget(List<Integer> ids) {
         var variables = new HashMap<String, Object>();
         if (ids == null || ids.isEmpty()) {
             variables.put("targetIds", null);
@@ -234,7 +253,7 @@ public abstract class AbstractTestBase {
             variables.put("targetIds", ids);
         }
         given().basePath("/")
-                .body(Map.of("query", CLEANUP_QUERY, "variables", variables))
+                .body(Map.of("query", cleanupQuery(), "variables", variables))
                 .contentType(ContentType.JSON)
                 .log()
                 .all()

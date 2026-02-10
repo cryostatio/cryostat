@@ -293,7 +293,7 @@ public abstract class StandardSelfTest extends HttpClientTest {
                                         "variables",
                                         variables,
                                         "query",
-                                        AbstractTestBase.CLEANUP_QUERY)));
+                                        AbstractTestBase.cleanupQuery(true))));
         webClient.extensions().post("/api/v4/graphql", payload, 30);
     }
 }
