@@ -20,6 +20,7 @@ import static org.hamcrest.CoreMatchers.is;
 
 import io.cryostat.resources.GrafanaResource;
 import io.cryostat.resources.JFRDatasourceResource;
+import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
@@ -32,6 +33,7 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 @QuarkusTestResource(GrafanaResource.class)
 @QuarkusTestResource(JFRDatasourceResource.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @TestHTTPEndpoint(Health.class)
 public class HealthTest {
 
