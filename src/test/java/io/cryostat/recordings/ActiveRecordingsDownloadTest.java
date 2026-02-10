@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 public class ActiveRecordingsDownloadTest extends AbstractTransactionalTestBase {
 
     @Test
-    void testCreateDownloadAndDelete() {
+    void testCreateDownloadAndDelete() throws InterruptedException {
         int targetId = defineSelfCustomTarget();
         var json =
                 given().log()
@@ -57,7 +57,7 @@ public class ActiveRecordingsDownloadTest extends AbstractTransactionalTestBase 
                 .all()
                 .when()
                 .pathParams(Map.of("targetId", targetId))
-                .get(Integer.toString(json.getInt("id")))
+                .get(Integer.toString(json.getInt("remoteId")))
                 .then()
                 .log()
                 .all()
