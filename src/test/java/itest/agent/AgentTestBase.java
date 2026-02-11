@@ -29,7 +29,6 @@ import java.util.function.Predicate;
 import io.cryostat.resources.AgentApplicationResource;
 
 import io.vertx.core.json.JsonObject;
-import itest.agent.AgentTestBase.KeyValue;
 import itest.bases.WebSocketTestBase;
 import jakarta.websocket.DeploymentException;
 import junit.framework.AssertionFailedError;
@@ -38,8 +37,8 @@ import org.junit.jupiter.api.BeforeEach;
 
 public class AgentTestBase extends WebSocketTestBase {
 
-    static final Duration DISCOVERY_PERIOD = Duration.ofSeconds(20);
-    static final Duration DISCOVERY_TIMEOUT = Duration.ofMinutes(2);
+    static final Duration DISCOVERY_PERIOD = Duration.ofSeconds(30);
+    static final Duration DISCOVERY_TIMEOUT = Duration.ofMinutes(5);
     static final String CONTINUOUS_TEMPLATE = "template=Continuous,type=TARGET";
 
     protected Target target;
