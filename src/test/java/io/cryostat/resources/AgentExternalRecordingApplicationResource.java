@@ -26,7 +26,7 @@ import java.util.Map;
 public class AgentExternalRecordingApplicationResource extends AgentApplicationResource {
 
     public static final String RECORDING_NAME = "external-test-recording";
-    public static final int RECORDING_DURATION_SECONDS = 90;
+    public static final int RECORDING_DURATION_SECONDS = 120;
 
     /**
      * Override to add the pre-started recording flag to JAVA_OPTS_APPEND. All other environment
