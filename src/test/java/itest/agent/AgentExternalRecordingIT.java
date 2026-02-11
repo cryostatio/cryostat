@@ -18,6 +18,7 @@ package itest.agent;
 import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 
 import io.cryostat.resources.AgentExternalRecordingApplicationResource;
 
@@ -80,9 +81,15 @@ public class AgentExternalRecordingIT extends AgentTestBase {
                 Matchers.equalTo("RUNNING"));
 
         MatcherAssert.assertThat(
-                "Recording duration should be 60 seconds",
+                String.format(
+                        "Recording duration should be %d seconds",
+                        AgentExternalRecordingApplicationResource.RECORDING_DURATION_SECONDS),
                 recording.getInteger("duration"),
-                Matchers.equalTo(60_000));
+                Matchers.equalTo(
+                        (int)
+                                TimeUnit.SECONDS.toMillis(
+                                        AgentExternalRecordingApplicationResource
+                                                .RECORDING_DURATION_SECONDS)));
 
         // Verify autoanalyze label
         JsonObject metadata = recording.getJsonObject("metadata");
