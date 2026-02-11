@@ -128,7 +128,7 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
         worker.submit(
                 () -> {
                     try {
-                        return expectWebSocketNotification(
+                        return webSocketClient.expectNotification(
                                 "ArchiveRecordingFailed", Duration.ofSeconds(15));
                     } catch (Exception e) {
                         throw new RuntimeException(e);

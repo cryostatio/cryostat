@@ -17,7 +17,6 @@ package itest.agent;
 
 import static io.restassured.RestAssured.given;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
@@ -28,9 +27,9 @@ import java.util.function.Predicate;
 
 import io.cryostat.resources.AgentApplicationResource;
 
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import itest.bases.WebSocketTestBase;
-import jakarta.websocket.DeploymentException;
 import junit.framework.AssertionFailedError;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -108,7 +107,7 @@ public class AgentTestBase extends WebSocketTestBase {
     private Target waitForDiscoveryViaWebSocket(Predicate<Target> p) {
         try {
             JsonObject notification =
-                    expectWebSocketNotification(
+                    webSocketClient.expectNotification(
                             "TargetJvmDiscovery", DISCOVERY_TIMEOUT, msg -> matchesAgentAlias(msg));
 
             Target target = extractTargetFromNotification(notification);
@@ -119,7 +118,7 @@ public class AgentTestBase extends WebSocketTestBase {
             }
 
             return target;
-        } catch (IOException | DeploymentException | InterruptedException | TimeoutException e) {
+        } catch (InterruptedException | TimeoutException e) {
             throw new RuntimeException(e);
         }
     }
@@ -157,8 +156,8 @@ public class AgentTestBase extends WebSocketTestBase {
         if (arrayObj == null) {
             return List.of();
         }
-        if (arrayObj instanceof io.vertx.core.json.JsonArray) {
-            io.vertx.core.json.JsonArray array = (io.vertx.core.json.JsonArray) arrayObj;
+        if (arrayObj instanceof JsonArray) {
+            JsonArray array = (io.vertx.core.json.JsonArray) arrayObj;
             return array.stream()
                     .map(
                             item -> {

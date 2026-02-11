@@ -123,7 +123,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                 worker.submit(
                         () -> {
                             try {
-                                return expectWebSocketNotification(
+                                return webSocketClient.expectNotification(
                                         "CredentialsStored", Duration.ofSeconds(30));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
@@ -136,7 +136,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                 worker.submit(
                         () -> {
                             try {
-                                return expectWebSocketNotification(
+                                return webSocketClient.expectNotification(
                                         "TargetJvmDiscovery",
                                         Duration.ofSeconds(30),
                                         o ->
@@ -256,7 +256,7 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                 () -> {
                     try {
                         JsonObject notification =
-                                expectWebSocketNotification(
+                                webSocketClient.expectNotification(
                                         "TargetJvmDiscovery", Duration.ofSeconds(30));
                         JsonObject event =
                                 notification.getJsonObject("message").getJsonObject("event");

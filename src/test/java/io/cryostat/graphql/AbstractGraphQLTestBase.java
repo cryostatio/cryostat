@@ -19,13 +19,16 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 
 import java.time.Duration;
+import java.util.Map;
 import java.util.concurrent.*;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.restassured.http.ContentType;
+import io.restassured.path.json.JsonPath;
 import io.restassured.response.Response;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.AfterEach;
@@ -47,15 +50,38 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
 
     @BeforeEach
     public void setupGraphQLTest() throws Exception {
+        // Create target once per test class (selfId persists across test methods)
         if (selfId < 1) {
             defineSelfCustomTarget();
         }
+        // Clean up any recordings from previous tests before starting new test
         cleanupSelfActiveAndArchivedRecordings();
     }
 
     @AfterEach
     public void cleanupGraphQLTest() throws Exception {
+        // Also clean up after each test for good measure
         cleanupSelfActiveAndArchivedRecordings();
+    }
+
+    protected JsonPath graphql(String query) {
+        return given().log()
+                .all()
+                .when()
+                .basePath("")
+                .contentType(ContentType.JSON)
+                .body(Map.of("query", query))
+                .post("/api/v4/graphql")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .extract()
+                .body()
+                .jsonPath();
     }
 
     /**
@@ -82,7 +108,7 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                 worker.submit(
                         () -> {
                             try {
-                                return expectWebSocketNotification(
+                                return webSocketClient.expectNotification(
                                         "ActiveRecordingCreated", Duration.ofSeconds(15));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
@@ -126,7 +152,7 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                 worker.submit(
                         () -> {
                             try {
-                                return expectWebSocketNotification(
+                                return webSocketClient.expectNotification(
                                         "ActiveRecordingStopped", Duration.ofSeconds(15));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
@@ -191,7 +217,7 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                 worker.submit(
                         () -> {
                             try {
-                                return expectWebSocketNotification(
+                                return webSocketClient.expectNotification(
                                         "ActiveRecordingCreated", Duration.ofSeconds(15));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
@@ -246,7 +272,7 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                         .response();
 
         JsonObject responseObj = new JsonObject(response.body().asString());
-        io.vertx.core.json.JsonArray errors = responseObj.getJsonArray("errors");
+        JsonArray errors = responseObj.getJsonArray("errors");
         return errors.getJsonObject(0);
     }
 }

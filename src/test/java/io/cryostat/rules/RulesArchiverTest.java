@@ -124,8 +124,8 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 50,
                 TimeUnit.SECONDS);
 
-        expectWebSocketNotification("ArchivedRecordingDeleted", Duration.ofSeconds(50));
-        expectWebSocketNotification("RuleDeleted", Duration.ofSeconds(65));
+        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(50));
+        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(65));
 
         given().log()
                 .all()

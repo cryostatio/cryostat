@@ -69,7 +69,7 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                             mapper.writeValueAsString(
                                     Map.of("labels", Map.of("autoanalyze", "true")))));
 
-            expectWebSocketNotification("ReportSuccess");
+            webSocketClient.expectNotification("ReportSuccess");
 
             String scrape =
                     given().log()
@@ -141,7 +141,7 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                                     mapper.writeValueAsString(
                                             Map.of("labels", Map.of("autoanalyze", "true")))));
             recording.getInt("remoteId");
-            expectWebSocketNotification("ReportSuccess");
+            webSocketClient.expectNotification("ReportSuccess");
 
             String scrape =
                     given().log()

@@ -93,14 +93,14 @@ public class AgentTargetAnalysisIT extends AgentTestBase {
                             TimeUnit.SECONDS);
 
             JsonObject archiveMessage =
-                    expectWebSocketNotification(
+                    webSocketClient.expectNotification(
                             "ArchiveRecordingSuccess",
                             o ->
                                     archiveJobId[0].equals(
                                             o.getJsonObject("message").getString("jobId")));
             archivedRecordingName = archiveMessage.getJsonObject("message").getString("recording");
 
-            expectWebSocketNotification(
+            webSocketClient.expectNotification(
                     "ReportSuccess",
                     o ->
                             Objects.equals(

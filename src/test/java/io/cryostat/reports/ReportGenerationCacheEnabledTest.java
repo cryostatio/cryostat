@@ -18,7 +18,6 @@ package io.cryostat.reports;
 
 import static io.restassured.RestAssured.given;
 
-import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -34,7 +33,6 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonObject;
-import jakarta.websocket.DeploymentException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
@@ -113,9 +111,9 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
                 worker.submit(
                         () -> {
                             try {
-                                return expectWebSocketNotification(
+                                return webSocketClient.expectNotification(
                                         "ArchiveRecordingSuccess", Duration.ofSeconds(15));
-                            } catch (IOException | DeploymentException | InterruptedException e) {
+                            } catch (InterruptedException e) {
                                 throw new RuntimeException(e);
                             }
                         });
@@ -175,9 +173,9 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
                 worker.submit(
                         () -> {
                             try {
-                                return expectWebSocketNotification(
+                                return webSocketClient.expectNotification(
                                         "ReportSuccess", Duration.ofSeconds(15));
-                            } catch (IOException | DeploymentException | InterruptedException e) {
+                            } catch (InterruptedException e) {
                                 throw new RuntimeException(e);
                             }
                         });

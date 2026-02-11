@@ -87,7 +87,8 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
                         TimeUnit.SECONDS);
 
         String threadDumpId =
-                expectWebSocketNotification("ThreadDumpSuccess")
+                webSocketClient
+                        .expectNotification("ThreadDumpSuccess")
                         .getJsonObject("message")
                         .getJsonObject("threadDump")
                         .getString("threadDumpId");
@@ -126,7 +127,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
                         3,
                         TimeUnit.SECONDS);
 
-        expectWebSocketNotification(
+        webSocketClient.expectNotification(
                 "ThreadDumpDeleted",
                 json ->
                         Objects.equals(

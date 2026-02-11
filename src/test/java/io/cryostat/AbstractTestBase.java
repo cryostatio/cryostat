@@ -24,23 +24,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Predicate;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
+import io.cryostat.util.WebSocketTestClient;
 
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
-import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
-import jakarta.websocket.ClientEndpoint;
-import jakarta.websocket.ContainerProvider;
 import jakarta.websocket.DeploymentException;
-import jakarta.websocket.OnMessage;
-import jakarta.websocket.Session;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.AfterEach;
@@ -80,18 +72,22 @@ public abstract class AbstractTestBase {
     protected String selfJvmId = "";
     protected int selfRecordingId = -1;
 
-    @BeforeEach
-    void waitForStorage() throws InterruptedException, SchedulerException {
-        if (!storageEnabled) {
-            return;
-        }
+    protected WebSocketTestClient webSocketClient;
 
-        selfId = -1;
-        selfJvmId = "";
-        selfRecordingId = -1;
+    @BeforeEach
+    void setupTestBase()
+            throws InterruptedException, SchedulerException, IOException, DeploymentException {
+        if (webSocketClient == null) {
+            webSocketClient = new WebSocketTestClient(() -> wsUri);
+            webSocketClient.connect();
+        }
 
         if (!scheduler.isStarted() || scheduler.isInStandbyMode()) {
             scheduler.start();
+        }
+
+        if (!storageEnabled) {
+            return;
         }
 
         long totalTime = 0;
@@ -107,8 +103,11 @@ public abstract class AbstractTestBase {
     }
 
     @AfterEach
-    void cleanup() throws SchedulerException {
+    void cleanupTestBase() throws SchedulerException {
         scheduler.clear();
+        if (webSocketClient != null) {
+            webSocketClient.clearMessages();
+        }
     }
 
     public String cleanupQuery() {
@@ -166,6 +165,9 @@ public abstract class AbstractTestBase {
     }
 
     protected int defineSelfCustomTarget() {
+        if (selfId > 0) {
+            return selfId;
+        }
         var jp =
                 given().basePath("/")
                         .log()
@@ -285,60 +287,5 @@ public abstract class AbstractTestBase {
                 .extract()
                 .body()
                 .jsonPath();
-    }
-
-    protected JsonObject expectWebSocketNotification(String category)
-            throws IOException, DeploymentException, InterruptedException, TimeoutException {
-        return expectWebSocketNotification(category, Duration.ofSeconds(30), v -> true);
-    }
-
-    protected JsonObject expectWebSocketNotification(String category, Duration timeout)
-            throws IOException, DeploymentException, InterruptedException, TimeoutException {
-        return expectWebSocketNotification(category, timeout, v -> true);
-    }
-
-    protected JsonObject expectWebSocketNotification(
-            String category, Predicate<JsonObject> predicate)
-            throws IOException, DeploymentException, InterruptedException, TimeoutException {
-        return expectWebSocketNotification(category, Duration.ofSeconds(30), predicate);
-    }
-
-    protected JsonObject expectWebSocketNotification(
-            String category, Duration timeout, Predicate<JsonObject> predicate)
-            throws IOException, DeploymentException, InterruptedException, TimeoutException {
-        long now = System.nanoTime();
-        long deadline = now + timeout.toNanos();
-        var client = new WebSocketClient();
-        try (Session session =
-                ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri)) {
-            do {
-                now = System.nanoTime();
-                JsonObject obj = client.wsMessages.poll(1, TimeUnit.SECONDS);
-                if (obj == null) {
-                    continue;
-                }
-                String msgCategory = obj.getJsonObject("meta").getString("category");
-                if (category.equals(msgCategory) && predicate.test(obj)) {
-                    return obj;
-                }
-                Thread.sleep(500);
-                client.wsMessages.put(obj);
-            } while (now < deadline);
-        } finally {
-            client.wsMessages.clear();
-        }
-        throw new TimeoutException();
-    }
-
-    @ClientEndpoint
-    private class WebSocketClient {
-        private final LinkedBlockingDeque<JsonObject> wsMessages = new LinkedBlockingDeque<>();
-
-        @OnMessage
-        void message(String msg) {
-            JsonObject obj = new JsonObject(msg);
-            logger.infov("Received WebSocket message: {0}", obj.encodePrettily());
-            wsMessages.add(obj);
-        }
     }
 }

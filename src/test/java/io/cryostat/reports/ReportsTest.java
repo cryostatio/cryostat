@@ -149,14 +149,14 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                             .asString();
 
             JsonObject archiveMessage =
-                    expectWebSocketNotification(
+                    webSocketClient.expectNotification(
                             "ArchiveRecordingSuccess",
                             o ->
                                     archiveJobId.equals(
                                             o.getJsonObject("message").getString("jobId")));
             archivedRecordingName = archiveMessage.getJsonObject("message").getString("recording");
 
-            expectWebSocketNotification(
+            webSocketClient.expectNotification(
                     "ReportSuccess",
                     o -> Objects.equals(selfJvmId, o.getJsonObject("message").getString("jvmId")));
         } finally {
@@ -275,7 +275,7 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                             .asString();
 
             JsonObject archiveMessage =
-                    expectWebSocketNotification(
+                    webSocketClient.expectNotification(
                             "ArchiveRecordingSuccess",
                             o ->
                                     archiveJobId.equals(
@@ -307,7 +307,7 @@ public class ReportsTest extends AbstractTransactionalTestBase {
                             .body()
                             .asString();
 
-            expectWebSocketNotification(
+            webSocketClient.expectNotification(
                     "ReportSuccess",
                     o -> reportJobId.equals(o.getJsonObject("message").getString("jobId")));
 

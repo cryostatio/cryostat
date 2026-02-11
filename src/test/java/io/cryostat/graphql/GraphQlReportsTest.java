@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
-import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.resources.S3StorageResource;
 
@@ -35,7 +34,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-public class GraphQlReportsTest extends AbstractTransactionalTestBase {
+public class GraphQlReportsTest extends AbstractGraphQLTestBase {
 
     @Inject ObjectMapper mapper;
     @Inject AnalysisReportAggregator reportAggregator;
@@ -99,7 +98,7 @@ public class GraphQlReportsTest extends AbstractTransactionalTestBase {
                             mapper.writeValueAsString(
                                     Map.of("labels", Map.of("autoanalyze", "true")))));
 
-            expectWebSocketNotification("ReportSuccess");
+            webSocketClient.expectNotification("ReportSuccess");
 
             var jsonPath =
                     graphql(

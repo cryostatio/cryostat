@@ -17,7 +17,6 @@ package io.cryostat.reports;
 
 import static io.restassured.RestAssured.given;
 
-import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -34,7 +33,6 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonObject;
-import jakarta.websocket.DeploymentException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
@@ -128,9 +126,9 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
                 worker.submit(
                         () -> {
                             try {
-                                return expectWebSocketNotification(
+                                return webSocketClient.expectNotification(
                                         "ReportSuccess", Duration.ofSeconds(15));
-                            } catch (IOException | DeploymentException | InterruptedException e) {
+                            } catch (InterruptedException e) {
                                 throw new RuntimeException(e);
                             }
                         });
@@ -173,9 +171,9 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
                 worker.submit(
                         () -> {
                             try {
-                                return expectWebSocketNotification(
+                                return webSocketClient.expectNotification(
                                         "ArchiveRecordingSuccess", Duration.ofSeconds(15));
-                            } catch (IOException | DeploymentException | InterruptedException e) {
+                            } catch (InterruptedException e) {
                                 throw new RuntimeException(e);
                             }
                         });
@@ -235,9 +233,9 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
                 worker.submit(
                         () -> {
                             try {
-                                return expectWebSocketNotification(
+                                return webSocketClient.expectNotification(
                                         "ReportSuccess", Duration.ofSeconds(15));
-                            } catch (IOException | DeploymentException | InterruptedException e) {
+                            } catch (InterruptedException e) {
                                 throw new RuntimeException(e);
                             }
                         });

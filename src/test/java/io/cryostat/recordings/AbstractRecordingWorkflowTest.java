@@ -99,7 +99,7 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
                 TimeUnit.SECONDS);
 
         // Wait for ActiveRecordingCreated notification
-        expectWebSocketNotification("ActiveRecordingCreated");
+        webSocketClient.expectNotification("ActiveRecordingCreated");
         Thread.sleep(1000); // allow time for things to settle
 
         // Verify in-memory recording created
@@ -155,7 +155,8 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
                 TimeUnit.SECONDS);
 
         // Wait for the archive request to conclude
-        JsonObject archiveNotification = expectWebSocketNotification("ArchiveRecordingSuccess");
+        JsonObject archiveNotification =
+                webSocketClient.expectNotification("ArchiveRecordingSuccess");
         String archivedRecordingFilename =
                 archiveNotification.getJsonObject("message").getString("recording");
 
@@ -221,7 +222,7 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
         String savedDownloadUrl = archivedRecordingInfo.getString("downloadUrl");
 
         // Wait for the recording to complete (duration=20s)
-        expectWebSocketNotification(
+        webSocketClient.expectNotification(
                 "ActiveRecordingStopped", Duration.ofMinutes(1)); // wait for the dump to complete
         Thread.sleep(1000); // allow time for things to settle
 
@@ -291,7 +292,7 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
                 TimeUnit.SECONDS);
 
         // Check that report generation concludes
-        JsonObject notification = expectWebSocketNotification("ReportSuccess");
+        JsonObject notification = webSocketClient.expectNotification("ReportSuccess");
         MatcherAssert.assertThat(notification.getJsonObject("message"), Matchers.notNullValue());
 
         // Cleanup downloaded files

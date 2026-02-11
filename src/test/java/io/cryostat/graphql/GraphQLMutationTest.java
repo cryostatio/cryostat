@@ -59,7 +59,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                 worker.submit(
                         () -> {
                             try {
-                                return expectWebSocketNotification(
+                                return webSocketClient.expectNotification(
                                         "ActiveRecordingCreated", Duration.ofSeconds(15));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);

@@ -90,7 +90,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                             1,
                             TimeUnit.SECONDS);
             var notification =
-                    expectWebSocketNotification(
+                    webSocketClient.expectNotification(
                             "ThreadDumpSuccess",
                             json ->
                                     Objects.equals(
@@ -150,7 +150,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                         1,
                         TimeUnit.SECONDS);
         var notification =
-                expectWebSocketNotification(
+                webSocketClient.expectNotification(
                         "ThreadDumpSuccess",
                         json ->
                                 Objects.equals(
@@ -233,7 +233,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                         1,
                         TimeUnit.SECONDS);
 
-        expectWebSocketNotification("ThreadDumpSuccess");
+        webSocketClient.expectNotification("ThreadDumpSuccess");
 
         var listResponseJson =
                 given().log()
@@ -273,7 +273,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
                         1,
                         TimeUnit.SECONDS);
 
-        expectWebSocketNotification(
+        webSocketClient.expectNotification(
                 "ThreadDumpDeleted",
                 json ->
                         Objects.equals(
