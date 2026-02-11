@@ -15,11 +15,13 @@
  */
 package itest;
 
+import static io.restassured.RestAssured.given;
+
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmc.flightrecorder.configuration.events.EventConfiguration;
 import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLAttributeInstance;
@@ -27,9 +29,8 @@ import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLModel;
 import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLTagInstance;
 
 import io.quarkus.test.junit.QuarkusIntegrationTest;
-import io.vertx.core.buffer.Buffer;
+import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
-import io.vertx.ext.web.client.HttpRequest;
 import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -45,18 +46,16 @@ public class PresetTemplatesIT extends StandardSelfTest {
 
     @Test
     public void shouldListPresetTemplates() throws Exception {
-        CompletableFuture<JsonArray> future = new CompletableFuture<>();
-        HttpRequest<Buffer> req = webClient.get("/api/v4/event_templates/PRESET");
-        req.send(
-                ar -> {
-                    if (ar.failed()) {
-                        future.completeExceptionally(ar.cause());
-                        return;
-                    }
-                    future.complete(ar.result().bodyAsJsonArray());
-                });
-        JsonArray response = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        MatcherAssert.assertThat(response.size(), Matchers.equalTo(TEMPLATE_NAMES.length));
+        Response response =
+                given().when()
+                        .get("/api/v4/event_templates/PRESET")
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+
+        JsonArray list = new JsonArray(response.body().asString());
+        MatcherAssert.assertThat(list.size(), Matchers.equalTo(TEMPLATE_NAMES.length));
     }
 
     static List<String> templateNames() {
@@ -67,10 +66,20 @@ public class PresetTemplatesIT extends StandardSelfTest {
     @MethodSource("templateNames")
     public void shouldHaveExpectedPresetTemplates(String templateName) throws Exception {
         String url = String.format("/api/v4/event_templates/PRESET/%s", templateName);
-        File file =
-                downloadFile(url, templateName, ".jfc")
-                        .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                        .toFile();
+
+        Response response =
+                given().redirects()
+                        .follow(true)
+                        .when()
+                        .get(url)
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+
+        Path tempFile = Files.createTempFile(templateName, ".jfc");
+        Files.write(tempFile, response.asByteArray());
+        File file = tempFile.toFile();
 
         XMLModel model = EventConfiguration.createModel(file);
         model.checkErrors();
