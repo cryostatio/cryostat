@@ -22,13 +22,13 @@ import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import io.cryostat.resources.AgentApplicationResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.restassured.http.ContentType;
-import io.smallrye.mutiny.TimeoutException;
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.JsonObject;
 import itest.resources.S3StorageITResource;
@@ -46,7 +46,6 @@ public class AgentTargetAnalysisIT extends AgentTestBase {
             throws InterruptedException,
                     IOException,
                     DeploymentException,
-                    TimeoutException,
                     ExecutionException,
                     TimeoutException {
         long targetId = target.id();
