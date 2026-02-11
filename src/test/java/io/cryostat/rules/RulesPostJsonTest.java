@@ -92,7 +92,7 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
                 .body("id", notNullValue())
                 .body("name", equalTo(TEST_RULE_NAME))
                 .body("description", equalTo(RulesPostFormTest.TEST_RULE_DESCRIPTION))
-                .body("matchExpression", equalTo(RulesPostFormTest.TEST_RULE_DESCRIPTION))
+                .body("matchExpression", equalTo(RulesPostFormTest.TEST_RULE_MATCH_EXPRESSION))
                 .body("eventSpecifier", equalTo(RulesPostFormTest.TEST_RULE_EVENT_SPECIFIER))
                 .body("archivalPeriodSeconds", equalTo(0))
                 .body("initialDelaySeconds", equalTo(0))
