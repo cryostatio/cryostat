@@ -36,7 +36,6 @@ import io.vertx.core.json.JsonObject;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -58,11 +57,6 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
                 "quarkus.cache.caffeine.activereports.maximum-size", "0",
                 "quarkus.cache.caffeine.archivedreports.maximum-size", "0",
                 "quarkus.cache.caffeine.reports-aggregator.maximum-size", "0");
-    }
-
-    @BeforeEach
-    void setupReportGenerationTest() {
-        cleanupSelfActiveAndArchivedRecordings();
     }
 
     @AfterEach

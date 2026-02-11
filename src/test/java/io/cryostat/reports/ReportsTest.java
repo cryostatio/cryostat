@@ -35,6 +35,8 @@ import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -43,6 +45,48 @@ import org.junit.jupiter.api.Test;
 public class ReportsTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;
+
+    private String archivedRecordingName;
+
+    @BeforeEach
+    void setupReportsTest() {
+        if (selfId < 1) {
+            defineSelfCustomTarget();
+        }
+        archivedRecordingName = null;
+    }
+
+    @AfterEach
+    void cleanupReportsTest() {
+        // Clean up active recordings
+        if (selfId > 0 && selfRecordingId > 0) {
+            try {
+                cleanupSelfRecording();
+            } catch (Exception e) {
+                // Ignore cleanup failures
+            }
+        }
+
+        // Clean up archived recording if created
+        if (archivedRecordingName != null) {
+            try {
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("connectUrl", SELF_JMX_URL, "filename", archivedRecordingName)
+                        .delete("/api/beta/recordings/{connectUrl}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(204);
+            } catch (Exception e) {
+                // Ignore cleanup failures
+            }
+            archivedRecordingName = null;
+        }
+    }
 
     @Test
     void testGetReportsRules() {
@@ -114,232 +158,173 @@ public class ReportsTest extends AbstractTransactionalTestBase {
     @Test
     void testGetTargetReport()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
-        int targetId = defineSelfCustomTarget();
-        String archivedRecordingName = null;
-        try {
-            startSelfRecording("targetAnalysisReportRecording", TEMPLATE_CONTINUOUS);
+        startSelfRecording("targetAnalysisReportRecording", TEMPLATE_CONTINUOUS);
 
-            String archiveJobId =
-                    given().log()
-                            .all()
-                            .when()
-                            .pathParams("targetId", targetId)
-                            .post("/api/v4.1/targets/{targetId}/reports")
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .assertThat()
-                            // 202 Indicates report generation is in progress and sends an
-                            // intermediate
-                            // response.
-                            .statusCode(202)
-                            .contentType(ContentType.TEXT)
-                            .body(Matchers.any(String.class))
-                            .assertThat()
-                            // Verify we get a location header from a 202.
-                            .header(
-                                    "Location",
-                                    String.format(
-                                            "http://localhost:8081/api/v4.1/targets/%d/reports",
-                                            targetId))
-                            .and()
-                            .extract()
-                            .body()
-                            .asString();
-
-            JsonObject archiveMessage =
-                    webSocketClient.expectNotification(
-                            "ArchiveRecordingSuccess",
-                            o ->
-                                    archiveJobId.equals(
-                                            o.getJsonObject("message").getString("jobId")));
-            archivedRecordingName = archiveMessage.getJsonObject("message").getString("recording");
-
-            webSocketClient.expectNotification(
-                    "ReportSuccess",
-                    o -> Objects.equals(selfJvmId, o.getJsonObject("message").getString("jvmId")));
-        } finally {
-            cleanupSelfRecording();
-
-            if (archivedRecordingName != null) {
+        String archiveJobId =
                 given().log()
                         .all()
                         .when()
-                        .pathParams("connectUrl", SELF_JMX_URL, "filename", archivedRecordingName)
-                        .delete("/api/beta/recordings/{connectUrl}/{filename}")
+                        .pathParams("targetId", selfId)
+                        .post("/api/v4.1/targets/{targetId}/reports")
                         .then()
                         .log()
                         .all()
                         .and()
                         .assertThat()
-                        .statusCode(204);
-            }
-        }
+                        // 202 Indicates report generation is in progress and sends an
+                        // intermediate
+                        // response.
+                        .statusCode(202)
+                        .contentType(ContentType.TEXT)
+                        .body(Matchers.any(String.class))
+                        .assertThat()
+                        // Verify we get a location header from a 202.
+                        .header(
+                                "Location",
+                                String.format(
+                                        "http://localhost:8081/api/v4.1/targets/%d/reports",
+                                        selfId))
+                        .and()
+                        .extract()
+                        .body()
+                        .asString();
+
+        JsonObject archiveMessage =
+                webSocketClient.expectNotification(
+                        "ArchiveRecordingSuccess",
+                        o -> archiveJobId.equals(o.getJsonObject("message").getString("jobId")));
+        archivedRecordingName = archiveMessage.getJsonObject("message").getString("recording");
+
+        webSocketClient.expectNotification(
+                "ReportSuccess",
+                o -> Objects.equals(selfJvmId, o.getJsonObject("message").getString("jvmId")));
     }
 
     @Test
     void testGetReportByTargetAndRemoteId() {
-        int targetId = defineSelfCustomTarget();
-        try {
-            int remoteId =
-                    startSelfRecording("reportsTest", TEMPLATE_CONTINUOUS).getInt("remoteId");
+        int remoteId = startSelfRecording("reportsTest", TEMPLATE_CONTINUOUS).getInt("remoteId");
 
-            given().log()
-                    .all()
-                    .when()
-                    .pathParams("targetId", targetId, "remoteId", remoteId)
-                    .get("/api/v4/targets/{targetId}/reports/{remoteId}")
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(202)
-                    .contentType(ContentType.TEXT)
-                    .body(Matchers.any(String.class))
-                    .assertThat()
-                    // 202 Indicates report generation is in progress and sends an intermediate
-                    // response.
-                    // Verify we get a location header from a 202.
-                    .header(
-                            "Location",
-                            "http://localhost:8081/api/v4/targets/"
-                                    + targetId
-                                    + "/reports/"
-                                    + remoteId);
-        } finally {
-            cleanupSelfRecording();
-        }
+        given().log()
+                .all()
+                .when()
+                .pathParams("targetId", selfId, "remoteId", remoteId)
+                .get("/api/v4/targets/{targetId}/reports/{remoteId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(202)
+                .contentType(ContentType.TEXT)
+                .body(Matchers.any(String.class))
+                .assertThat()
+                // 202 Indicates report generation is in progress and sends an intermediate
+                // response.
+                // Verify we get a location header from a 202.
+                .header(
+                        "Location",
+                        "http://localhost:8081/api/v4/targets/" + selfId + "/reports/" + remoteId);
     }
 
     @Test
     void testGetReportByUrl() {
-        defineSelfCustomTarget();
-        try {
-            JsonPath recording = startSelfRecording("reportsTestByUrl", TEMPLATE_CONTINUOUS);
-            String reportUrl = recording.getString("reportUrl");
+        JsonPath recording = startSelfRecording("reportsTestByUrl", TEMPLATE_CONTINUOUS);
+        String reportUrl = recording.getString("reportUrl");
 
-            given().log()
-                    .all()
-                    .when()
-                    .get(reportUrl)
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(202)
-                    .contentType(ContentType.TEXT)
-                    .body(Matchers.any(String.class))
-                    .assertThat()
-                    // 202 Indicates report generation is in progress and sends an intermediate
-                    // response.
-                    // Verify we get a location header from a 202.
-                    .header("Location", "http://localhost:8081" + reportUrl);
-        } finally {
-            cleanupSelfRecording();
-        }
+        given().log()
+                .all()
+                .when()
+                .get(reportUrl)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(202)
+                .contentType(ContentType.TEXT)
+                .body(Matchers.any(String.class))
+                .assertThat()
+                // 202 Indicates report generation is in progress and sends an intermediate
+                // response.
+                // Verify we get a location header from a 202.
+                .header("Location", "http://localhost:8081" + reportUrl);
     }
 
     @Test
     void testArchiveAndGetReportByUrl()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
-        int targetId = defineSelfCustomTarget();
-        String archivedRecordingName = null;
-        try {
-            JsonPath activeRecording =
-                    startSelfRecording("archivedRecordingsTestReportsURL", TEMPLATE_CONTINUOUS);
+        JsonPath activeRecording =
+                startSelfRecording("archivedRecordingsTestReportsURL", TEMPLATE_CONTINUOUS);
 
-            Thread.sleep(10_000);
+        Thread.sleep(10_000);
 
-            int remoteId = activeRecording.getInt("remoteId");
+        int remoteId = activeRecording.getInt("remoteId");
 
-            String archiveJobId =
-                    given().log()
-                            .all()
-                            .when()
-                            .pathParam("targetId", targetId)
-                            .pathParam("remoteId", remoteId)
-                            .body("SAVE")
-                            .patch("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .assertThat()
-                            .statusCode(200)
-                            .and()
-                            .extract()
-                            .body()
-                            .asString();
-
-            JsonObject archiveMessage =
-                    webSocketClient.expectNotification(
-                            "ArchiveRecordingSuccess",
-                            o ->
-                                    archiveJobId.equals(
-                                            o.getJsonObject("message").getString("jobId")));
-            archivedRecordingName = archiveMessage.getJsonObject("message").getString("recording");
-            String reportUrl = archiveMessage.getJsonObject("message").getString("reportUrl");
-
-            String reportJobId =
-                    given().log()
-                            .all()
-                            .when()
-                            .get(reportUrl)
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .assertThat()
-                            .statusCode(202)
-                            .contentType(ContentType.TEXT)
-                            .body(Matchers.any(String.class))
-                            .assertThat()
-                            // 202 Indicates report generation is in progress and sends an
-                            // intermediate
-                            // response.
-                            // Verify we get a location header from a 202.
-                            .header("Location", "http://localhost:8081" + reportUrl)
-                            .and()
-                            .extract()
-                            .body()
-                            .asString();
-
-            webSocketClient.expectNotification(
-                    "ReportSuccess",
-                    o -> reportJobId.equals(o.getJsonObject("message").getString("jobId")));
-
-            given().log()
-                    .all()
-                    .when()
-                    .get(reportUrl)
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(200)
-                    .contentType(ContentType.JSON)
-                    .body(Matchers.any(String.class));
-
-        } finally {
-            cleanupSelfRecording();
-
-            if (archivedRecordingName != null) {
+        String archiveJobId =
                 given().log()
                         .all()
                         .when()
-                        .pathParams("connectUrl", SELF_JMX_URL, "filename", archivedRecordingName)
-                        .delete("/api/beta/recordings/{connectUrl}/{filename}")
+                        .pathParam("targetId", selfId)
+                        .pathParam("remoteId", remoteId)
+                        .body("SAVE")
+                        .patch("/api/v4/targets/{targetId}/recordings/{remoteId}")
                         .then()
                         .log()
                         .all()
                         .and()
                         .assertThat()
-                        .statusCode(204);
-            }
-        }
+                        .statusCode(200)
+                        .and()
+                        .extract()
+                        .body()
+                        .asString();
+
+        JsonObject archiveMessage =
+                webSocketClient.expectNotification(
+                        "ArchiveRecordingSuccess",
+                        o -> archiveJobId.equals(o.getJsonObject("message").getString("jobId")));
+        archivedRecordingName = archiveMessage.getJsonObject("message").getString("recording");
+        String reportUrl = archiveMessage.getJsonObject("message").getString("reportUrl");
+
+        String reportJobId =
+                given().log()
+                        .all()
+                        .when()
+                        .get(reportUrl)
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(202)
+                        .contentType(ContentType.TEXT)
+                        .body(Matchers.any(String.class))
+                        .assertThat()
+                        // 202 Indicates report generation is in progress and sends an
+                        // intermediate
+                        // response.
+                        // Verify we get a location header from a 202.
+                        .header("Location", "http://localhost:8081" + reportUrl)
+                        .and()
+                        .extract()
+                        .body()
+                        .asString();
+
+        webSocketClient.expectNotification(
+                "ReportSuccess",
+                o -> reportJobId.equals(o.getJsonObject("message").getString("jobId")));
+
+        given().log()
+                .all()
+                .when()
+                .get(reportUrl)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON)
+                .body(Matchers.any(String.class));
     }
 }

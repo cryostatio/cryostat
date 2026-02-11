@@ -51,7 +51,6 @@ public class TargetRecordingPatchTest extends AbstractTransactionalTestBase {
     @BeforeEach
     void setupTargetRecordingPatchTest() throws Exception {
         getSelfReferenceTargetId();
-        cleanupSelfActiveAndArchivedRecordings();
     }
 
     @AfterEach

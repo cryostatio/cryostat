@@ -33,6 +33,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -61,6 +62,11 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
 
     private static final ScheduledExecutorService worker =
             Executors.newSingleThreadScheduledExecutor();
+
+    @AfterEach
+    void cleanupRulesArchiverTest() {
+        cleanupSelfActiveAndArchivedRecordings();
+    }
 
     @Test
     public void test()
@@ -140,7 +146,5 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(3));
-
-        cleanupSelfActiveAndArchivedRecordings();
     }
 }

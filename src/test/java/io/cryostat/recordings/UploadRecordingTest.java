@@ -65,7 +65,6 @@ public class UploadRecordingTest extends AbstractTransactionalTestBase {
         if (selfId < 1) {
             defineSelfCustomTarget();
         }
-        cleanupSelfActiveAndArchivedRecordings();
     }
 
     @AfterEach

@@ -28,18 +28,12 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @TestHTTPEndpoint(Snapshots.class)
 public class SnapshotsTest extends AbstractTransactionalTestBase {
-
-    @BeforeEach
-    void setupSnapshotsTest() {
-        cleanupSelfActiveAndArchivedRecordings();
-    }
 
     @AfterEach
     void cleanupSnapshotsTest() {

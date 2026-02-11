@@ -37,7 +37,6 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -48,11 +47,6 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
     final ExecutorService worker = ForkJoinPool.commonPool();
 
     static final String TEST_RECORDING_NAME = "reportGeneration";
-
-    @BeforeEach
-    void setupReportGenerationTest() {
-        cleanupSelfActiveAndArchivedRecordings();
-    }
 
     @AfterEach
     void cleanupReportGenerationTest() {
