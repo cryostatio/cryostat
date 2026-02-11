@@ -22,7 +22,8 @@ import io.cryostat.resources.AgentApplicationResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
-import org.junit.jupiter.api.Assertions;
+import org.hamcrest.MatcherAssert;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
@@ -30,6 +31,9 @@ import org.junit.jupiter.api.Test;
 public class AgentDiscoveryIT extends AgentTestBase {
     @Test
     void shouldDiscoverTarget() throws InterruptedException, TimeoutException, ExecutionException {
-        Assertions.assertDoesNotThrow(() -> waitForDiscovery());
+        MatcherAssert.assertThat(target.agent(), Matchers.equalTo(true));
+        MatcherAssert.assertThat(target.alias(), Matchers.equalTo(AgentApplicationResource.ALIAS));
+        MatcherAssert.assertThat(target.connectUrl(), Matchers.startsWith("http"));
+        MatcherAssert.assertThat(target.jvmId(), Matchers.not(Matchers.blankOrNullString()));
     }
 }
