@@ -41,13 +41,10 @@ public class ClientAssetsIT {
     static Document doc;
 
     @BeforeAll
-    static void configureRestAssured() {
+    static void setup() throws Exception {
         RestAssured.baseURI = "http://" + Utils.WEB_HOST;
         RestAssured.port = Utils.WEB_PORT;
-    }
 
-    @BeforeAll
-    static void setup() throws Exception {
         byte[] content =
                 given().when().get("/index.html").then().statusCode(200).extract().asByteArray();
 
