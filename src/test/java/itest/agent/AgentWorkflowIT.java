@@ -22,19 +22,14 @@ import io.cryostat.resources.AgentApplicationResource;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@TestMethodOrder(OrderAnnotation.class)
 public class AgentWorkflowIT extends AgentTestBase {
 
     static final String RECORDING_NAME = AgentWorkflowIT.class.getSimpleName();
 
-    @Order(0)
     @Test
     void testListNoRecordings() {
         given().log()
@@ -52,7 +47,6 @@ public class AgentWorkflowIT extends AgentTestBase {
                 .body("$.size()", Matchers.equalTo(0));
     }
 
-    @Order(1)
     @Test
     void testStartListAndDeleteRecording() {
         var recordingId =
