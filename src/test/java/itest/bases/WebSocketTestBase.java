@@ -125,7 +125,10 @@ public abstract class WebSocketTestBase {
             }
             Thread.sleep(500);
             WS_CLIENT.msgQ.put(msg);
-        } while (now < deadline);
+        } while (now < deadline && !Thread.currentThread().isInterrupted());
+        if (Thread.currentThread().isInterrupted()) {
+            throw new InterruptedException();
+        }
         throw new TimeoutException();
     }
 
