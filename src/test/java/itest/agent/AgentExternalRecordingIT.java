@@ -110,7 +110,10 @@ public class AgentExternalRecordingIT extends AgentTestBase {
         MatcherAssert.assertThat(
                 "Should have autoanalyze label", hasAutoanalyze, Matchers.equalTo(true));
 
-        expectWebSocketNotification("ActiveRecordingStopped", Duration.ofSeconds(120));
+        expectWebSocketNotification(
+                "ActiveRecordingStopped",
+                Duration.ofSeconds(
+                        AgentExternalRecordingApplicationResource.RECORDING_DURATION_SECONDS * 2));
         Thread.sleep(2000);
 
         var stoppedResponse =
@@ -138,8 +141,7 @@ public class AgentExternalRecordingIT extends AgentTestBase {
                 stoppedRecording.getString("state"),
                 Matchers.equalTo("STOPPED"));
 
-        JsonObject archiveNotification =
-                expectWebSocketNotification("ArchivedRecordingCreated", Duration.ofSeconds(10));
+        JsonObject archiveNotification = expectWebSocketNotification("ArchivedRecordingCreated");
 
         JsonObject archiveMessage = archiveNotification.getJsonObject("message");
         JsonObject archivedRecording = archiveMessage.getJsonObject("recording");
