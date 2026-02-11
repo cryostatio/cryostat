@@ -28,7 +28,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
-import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
@@ -36,7 +35,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusIntegrationTest
-public class PresetRulesIT extends StandardSelfTest {
+public class PresetRulesIT {
 
     static final String[] RULE_NAMES = new String[] {"quarkus", "hibernate", "continuous_analysis"};
 

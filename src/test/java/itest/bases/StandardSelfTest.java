@@ -15,34 +15,30 @@
  */
 package itest.bases;
 
+import static io.restassured.RestAssured.given;
+
 import java.net.URI;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTestBase;
-import io.cryostat.util.HttpStatusCodeIdentifier;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import io.vertx.core.buffer.Buffer;
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.client.HttpResponse;
-import io.vertx.ext.web.codec.BodyCodec;
 import itest.util.ITestCleanupFailedException;
-import jakarta.ws.rs.core.HttpHeaders;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.client.utils.URLEncodedUtils;
 import org.jboss.logging.Logger;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
-public abstract class StandardSelfTest extends HttpClientTest {
+public abstract class StandardSelfTest extends WebSocketTestBase {
 
     public static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
     public static final String SELFTEST_ALIAS = "selftest";
@@ -67,15 +63,14 @@ public abstract class StandardSelfTest extends HttpClientTest {
     }
 
     public static void assertNoRecordings() throws Exception {
-        JsonArray listResp =
-                webClient
-                        .extensions()
-                        .get(
-                                String.format(
-                                        "/api/v4/targets/%d/recordings",
-                                        getSelfReferenceTargetId()),
-                                REQUEST_TIMEOUT_SECONDS)
-                        .bodyAsJsonArray();
+        Response response =
+                given().when()
+                        .get("/api/v4/targets/{targetId}/recordings", getSelfReferenceTargetId())
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+        JsonArray listResp = new JsonArray(response.body().asString());
         if (!listResp.isEmpty()) {
             throw new ITestCleanupFailedException(
                     String.format("Unexpected recordings:\n%s", listResp.encodePrettily()));
@@ -83,17 +78,14 @@ public abstract class StandardSelfTest extends HttpClientTest {
     }
 
     @AfterAll
-    public static void deleteSelfCustomTarget()
-            throws InterruptedException, ExecutionException, TimeoutException {
+    public static void deleteSelfCustomTarget() {
         if (!selfCustomTargetExists()) {
             return;
         }
         logger.debugv("Deleting self custom target at {0}", selfCustomTargetLocation);
         String path = URI.create(selfCustomTargetLocation).getPath();
-        HttpResponse<Buffer> resp = webClient.extensions().delete(path, REQUEST_TIMEOUT_SECONDS);
-        logger.tracev(
-                "DELETE {0} -> HTTP {1} {2}: [{3}]",
-                path, resp.statusCode(), resp.statusMessage(), resp.headers());
+        given().when().delete(path).then().statusCode(204);
+        logger.debugv("DELETE {0} -> HTTP 204", path);
         selfCustomTargetLocation = null;
     }
 
@@ -103,37 +95,17 @@ public abstract class StandardSelfTest extends HttpClientTest {
         long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(DISCOVERY_DEADLINE_SECONDS);
         while (!found && System.nanoTime() < deadline) {
             logger.debugv("Waiting for discovery to see at least {0} target(s)...", totalTargets);
-            CompletableFuture<Boolean> queryFound = new CompletableFuture<>();
-            WORKER.submit(
-                    () -> {
-                        webClient
-                                .get("/api/v4/targets")
-                                .as(BodyCodec.jsonArray())
-                                .timeout(TimeUnit.SECONDS.toMillis(REQUEST_TIMEOUT_SECONDS))
-                                .send(
-                                        ar -> {
-                                            if (ar.failed()) {
-                                                logger.error(ar.cause());
-                                                queryFound.completeExceptionally(ar.cause());
-                                                return;
-                                            }
-                                            HttpResponse<JsonArray> resp = ar.result();
-                                            JsonArray arr = resp.body();
-                                            logger.tracev(
-                                                    "GET /api/v4/targets -> HTTP {1} {2}: [{3}] ->"
-                                                            + " {4}",
-                                                    selfCustomTargetLocation,
-                                                    resp.statusCode(),
-                                                    resp.statusMessage(),
-                                                    resp.headers(),
-                                                    arr);
-                                            logger.debugv(
-                                                    "Discovered {0} targets: {1}", arr.size(), arr);
-                                            queryFound.complete(arr.size() >= totalTargets);
-                                        });
-                    });
             try {
-                found |= queryFound.get(5000, TimeUnit.MILLISECONDS);
+                Response response =
+                        given().when()
+                                .get("/api/v4/targets")
+                                .then()
+                                .statusCode(200)
+                                .extract()
+                                .response();
+                JsonArray arr = new JsonArray(response.body().asString());
+                logger.debugv("Discovered {0} targets: {1}", arr.size(), arr);
+                found = arr.size() >= totalTargets;
                 if (!found) {
                     tryDefineSelfCustomTarget();
                     Thread.sleep(TimeUnit.SECONDS.toMillis(DISCOVERY_DEADLINE_SECONDS) / 4);
@@ -152,12 +124,9 @@ public abstract class StandardSelfTest extends HttpClientTest {
             return false;
         }
         try {
-            HttpResponse<Buffer> resp =
-                    webClient.extensions().get(selfCustomTargetLocation, REQUEST_TIMEOUT_SECONDS);
-            logger.tracev(
-                    "POST /api/v4/targets -> HTTP {0} {1}: [{2}]",
-                    resp.statusCode(), resp.statusMessage(), resp.headers());
-            boolean result = HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode());
+            Response response = given().when().get(selfCustomTargetLocation);
+            logger.tracev("GET {0} -> HTTP {1}", selfCustomTargetLocation, response.statusCode());
+            boolean result = response.statusCode() >= 200 && response.statusCode() < 300;
             if (!result) {
                 selfCustomTargetLocation = null;
             }
@@ -176,41 +145,29 @@ public abstract class StandardSelfTest extends HttpClientTest {
         logger.debug("Trying to define self-referential custom target...");
         JsonObject self =
                 new JsonObject(Map.of("connectUrl", SELF_JMX_URL, "alias", SELFTEST_ALIAS));
-        HttpResponse<Buffer> resp;
-        try {
-            resp =
-                    webClient
-                            .extensions()
-                            .post(
-                                    "/api/v4/targets",
-                                    Buffer.buffer(self.encode()),
-                                    REQUEST_TIMEOUT_SECONDS);
-            logger.tracev(
-                    "POST /api/v4/targets -> HTTP {0} {1}: [{2}]",
-                    resp.statusCode(), resp.statusMessage(), resp.headers());
-            if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
-                throw new IllegalStateException(
-                        String.format("HTTP %d:%n\t%s", resp.statusCode(), resp.statusMessage()));
-            }
-            selfCustomTargetLocation =
-                    URI.create(resp.headers().get(HttpHeaders.LOCATION)).getPath();
-        } catch (InterruptedException | ExecutionException | TimeoutException e) {
-            throw new IllegalStateException(e);
+        Response response =
+                given().contentType(ContentType.JSON)
+                        .body(self.encode())
+                        .when()
+                        .post("/api/v4/targets")
+                        .then()
+                        .extract()
+                        .response();
+        logger.tracev("POST /api/v4/targets -> HTTP {0}", response.statusCode());
+        if (response.statusCode() < 200 || response.statusCode() >= 300) {
+            throw new IllegalStateException(String.format("HTTP %d", response.statusCode()));
         }
+        selfCustomTargetLocation = URI.create(response.header("Location")).getPath();
     }
 
     public static long getSelfReferenceTargetId() {
         try {
             tryDefineSelfCustomTarget();
             String path = URI.create(selfCustomTargetLocation).getPath();
-            HttpResponse<Buffer> resp = webClient.extensions().get(path, REQUEST_TIMEOUT_SECONDS);
-            JsonObject body = resp.bodyAsJsonObject();
-            logger.tracev(
-                    "GET {0} -> HTTP {1} {2}: [{3}] = {4}",
-                    path, resp.statusCode(), resp.statusMessage(), resp.headers(), body);
-            if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
-                throw new IllegalStateException(Integer.toString(resp.statusCode()));
-            }
+            Response response =
+                    given().when().get(path).then().statusCode(200).extract().response();
+            JsonObject body = new JsonObject(response.body().asString());
+            logger.tracev("GET {0} -> HTTP {1} = {2}", path, response.statusCode(), body);
             return body.getLong("id");
         } catch (Exception e) {
             throw new RuntimeException("Could not determine own connectUrl", e);
@@ -221,14 +178,10 @@ public abstract class StandardSelfTest extends HttpClientTest {
         try {
             tryDefineSelfCustomTarget();
             String path = URI.create(selfCustomTargetLocation).getPath();
-            HttpResponse<Buffer> resp = webClient.extensions().get(path, REQUEST_TIMEOUT_SECONDS);
-            JsonObject body = resp.bodyAsJsonObject();
-            logger.tracev(
-                    "GET {0} -> HTTP {1} {2}: [{3}] = {4}",
-                    path, resp.statusCode(), resp.statusMessage(), resp.headers(), body);
-            if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
-                throw new IllegalStateException(Integer.toString(resp.statusCode()));
-            }
+            Response response =
+                    given().when().get(path).then().statusCode(200).extract().response();
+            JsonObject body = new JsonObject(response.body().asString());
+            logger.tracev("GET {0} -> HTTP {1} = {2}", path, response.statusCode(), body);
             return body.getString("jvmId");
         } catch (Exception e) {
             throw new RuntimeException("Could not determine own connectUrl", e);
@@ -239,14 +192,10 @@ public abstract class StandardSelfTest extends HttpClientTest {
         try {
             tryDefineSelfCustomTarget();
             String path = URI.create(selfCustomTargetLocation).getPath();
-            HttpResponse<Buffer> resp = webClient.extensions().get(path, REQUEST_TIMEOUT_SECONDS);
-            JsonObject body = resp.bodyAsJsonObject();
-            logger.tracev(
-                    "GET {0} -> HTTP {1} {2}: [{3}] = {4}",
-                    path, resp.statusCode(), resp.statusMessage(), resp.headers(), body);
-            if (!HttpStatusCodeIdentifier.isSuccessCode(resp.statusCode())) {
-                throw new IllegalStateException(Integer.toString(resp.statusCode()));
-            }
+            Response response =
+                    given().when().get(path).then().statusCode(200).extract().response();
+            JsonObject body = new JsonObject(response.body().asString());
+            logger.tracev("GET {0} -> HTTP {1} = {2}", path, response.statusCode(), body);
             return body.getString("connectUrl");
         } catch (Exception e) {
             throw new RuntimeException("Could not determine own connectUrl", e);
@@ -257,11 +206,7 @@ public abstract class StandardSelfTest extends HttpClientTest {
         return URLEncodedUtils.formatSegments(getSelfReferenceConnectUrl()).substring(1);
     }
 
-    protected static void cleanupSelfActiveAndArchivedRecordings()
-            throws InterruptedException,
-                    TimeoutException,
-                    ExecutionException,
-                    JsonProcessingException {
+    protected static void cleanupSelfActiveAndArchivedRecordings() throws JsonProcessingException {
         if (selfCustomTargetExists()) {
             cleanupActiveAndArchivedRecordingsForTarget(getSelfReferenceTargetId());
         } else {
@@ -270,30 +215,24 @@ public abstract class StandardSelfTest extends HttpClientTest {
     }
 
     protected static void cleanupActiveAndArchivedRecordingsForTarget(long... ids)
-            throws InterruptedException,
-                    TimeoutException,
-                    ExecutionException,
-                    JsonProcessingException {
+            throws JsonProcessingException {
         cleanupActiveAndArchivedRecordingsForTarget(Arrays.stream(ids).boxed().toList());
     }
 
     protected static void cleanupActiveAndArchivedRecordingsForTarget(List<Long> ids)
-            throws InterruptedException,
-                    TimeoutException,
-                    ExecutionException,
-                    JsonProcessingException {
+            throws JsonProcessingException {
         var variables = new HashMap<String, Object>();
         if (ids == null || ids.isEmpty()) {
             variables.put("targetIds", null);
+        } else {
+            variables.put("targetIds", ids);
         }
-        var payload =
-                Buffer.buffer(
-                        mapper.writeValueAsBytes(
-                                Map.of(
-                                        "variables",
-                                        variables,
-                                        "query",
-                                        AbstractTestBase.cleanupQuery(true))));
-        webClient.extensions().post("/api/v4/graphql", payload, 30);
+        var payload = Map.of("variables", variables, "query", AbstractTestBase.cleanupQuery(true));
+        given().contentType(ContentType.JSON)
+                .body(mapper.writeValueAsString(payload))
+                .when()
+                .post("/api/v4/graphql")
+                .then()
+                .statusCode(200);
     }
 }

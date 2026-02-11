@@ -31,7 +31,6 @@ import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLTagInstance;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
-import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
@@ -40,7 +39,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusIntegrationTest
-public class PresetTemplatesIT extends StandardSelfTest {
+public class PresetTemplatesIT {
 
     static final String[] TEMPLATE_NAMES = new String[] {"Quarkus", "Hibernate"};
 

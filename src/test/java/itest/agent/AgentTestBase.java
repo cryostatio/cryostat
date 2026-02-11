@@ -30,13 +30,13 @@ import io.cryostat.resources.AgentApplicationResource;
 
 import io.vertx.core.json.JsonObject;
 import itest.agent.AgentTestBase.KeyValue;
-import itest.bases.HttpClientTest;
+import itest.bases.WebSocketTestBase;
 import jakarta.websocket.DeploymentException;
 import junit.framework.AssertionFailedError;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 
-public class AgentTestBase extends HttpClientTest {
+public class AgentTestBase extends WebSocketTestBase {
 
     static final Duration DISCOVERY_PERIOD = Duration.ofSeconds(20);
     static final Duration DISCOVERY_TIMEOUT = Duration.ofMinutes(2);
