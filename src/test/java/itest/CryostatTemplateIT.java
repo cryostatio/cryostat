@@ -15,8 +15,11 @@
  */
 package itest;
 
+import static io.restassured.RestAssured.given;
+
 import java.io.File;
-import java.util.concurrent.TimeUnit;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.openjdk.jmc.flightrecorder.configuration.events.EventConfiguration;
 import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLAttributeInstance;
@@ -24,6 +27,7 @@ import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLModel;
 import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLTagInstance;
 
 import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.restassured.response.Response;
 import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -39,10 +43,20 @@ public class CryostatTemplateIT extends StandardSelfTest {
                 String.format(
                         "/api/v4/targets/%d/event_templates/TARGET/Cryostat",
                         getSelfReferenceTargetId());
-        File file =
-                downloadFile(url, "cryostat", ".jfc")
-                        .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                        .toFile();
+
+        Response response =
+                given().redirects()
+                        .follow(true)
+                        .when()
+                        .get(url)
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+
+        Path tempFile = Files.createTempFile("cryostat", ".jfc");
+        Files.write(tempFile, response.asByteArray());
+        File file = tempFile.toFile();
 
         XMLModel model = EventConfiguration.createModel(file);
         model.checkErrors();
