@@ -114,30 +114,30 @@ public abstract class WebSocketTestBase {
                 timeout, category);
         do {
             now = System.nanoTime();
-            String msg = WS_CLIENT.msgQ.poll(1, TimeUnit.SECONDS);
-            if (msg == null) {
+            JsonObject obj = WS_CLIENT.msgQ.poll(1, TimeUnit.SECONDS);
+            if (obj == null) {
                 continue;
             }
-            JsonObject obj = new JsonObject(msg);
             String msgCategory = obj.getJsonObject("meta").getString("category");
             if (category.equals(msgCategory) && predicate.test(obj)) {
                 return obj;
             }
             Thread.sleep(500);
-            WS_CLIENT.msgQ.put(msg);
+            WS_CLIENT.msgQ.put(obj);
         } while (now < deadline);
         throw new TimeoutException();
     }
 
     @ClientEndpoint
     static class WebSocketClient {
-        private final LinkedBlockingDeque<String> msgQ = new LinkedBlockingDeque<>();
+        private final LinkedBlockingDeque<JsonObject> msgQ = new LinkedBlockingDeque<>();
         private final Logger logger = Logger.getLogger(getClass());
 
         @OnMessage
         void message(String msg) {
-            logger.info(msg);
-            msgQ.add(msg);
+            JsonObject obj = new JsonObject(msg);
+            logger.info(obj.encodePrettily());
+            msgQ.add(obj);
         }
     }
 }

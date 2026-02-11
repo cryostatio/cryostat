@@ -313,18 +313,16 @@ public abstract class AbstractTestBase {
                 ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri)) {
             do {
                 now = System.nanoTime();
-                String msg = client.wsMessages.poll(1, TimeUnit.SECONDS);
-                if (msg == null) {
+                JsonObject obj = client.wsMessages.poll(1, TimeUnit.SECONDS);
+                if (obj == null) {
                     continue;
                 }
-                JsonObject obj = new JsonObject(msg);
-                logger.infov("Received WebSocket message: {0}", obj.encodePrettily());
                 String msgCategory = obj.getJsonObject("meta").getString("category");
                 if (category.equals(msgCategory) && predicate.test(obj)) {
                     return obj;
                 }
                 Thread.sleep(500);
-                client.wsMessages.put(msg);
+                client.wsMessages.put(obj);
             } while (now < deadline);
         } finally {
             client.wsMessages.clear();
@@ -334,11 +332,13 @@ public abstract class AbstractTestBase {
 
     @ClientEndpoint
     private class WebSocketClient {
-        private final LinkedBlockingDeque<String> wsMessages = new LinkedBlockingDeque<>();
+        private final LinkedBlockingDeque<JsonObject> wsMessages = new LinkedBlockingDeque<>();
 
         @OnMessage
         void message(String msg) {
-            wsMessages.add(msg);
+            JsonObject obj = new JsonObject(msg);
+            logger.infov("Received WebSocket message: {0}", obj.encodePrettily());
+            wsMessages.add(obj);
         }
     }
 }
