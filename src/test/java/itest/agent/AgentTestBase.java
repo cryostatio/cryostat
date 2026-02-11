@@ -45,7 +45,9 @@ public class AgentTestBase extends WebSocketTestBase {
 
     @BeforeEach
     void getTarget() throws InterruptedException, TimeoutException, ExecutionException {
-        target = waitForDiscovery();
+        if (target == null) {
+            target = waitForDiscovery();
+        }
     }
 
     Target waitForDiscovery() throws InterruptedException, TimeoutException, ExecutionException {
