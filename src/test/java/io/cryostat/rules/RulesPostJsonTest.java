@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 @TestHTTPEndpoint(Rules.class)
 public class RulesPostJsonTest extends AbstractTransactionalTestBase {
 
-    private static final String TEST_RULE_NAME = "Test_Rule";
+    private static final String TEST_RULE_NAME = "Test_Rule_JSON";
 
     @AfterEach
     void cleanupRulesPostJsonTest() {
@@ -51,9 +51,9 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
     void testAddRuleThrowsWhenMimeUnsupported() {
         JsonObject body = new JsonObject();
         body.put("name", TEST_RULE_NAME);
-        body.put("matchExpression", "target.alias == 'es.andrewazor.demo.Main'");
-        body.put("description", "AutoRulesIT automated rule");
-        body.put("eventSpecifier", "template=Continuous,type=TARGET");
+        body.put("matchExpression", RulesPostFormTest.TEST_RULE_MATCH_EXPRESSION);
+        body.put("description", RulesPostFormTest.TEST_RULE_DESCRIPTION);
+        body.put("eventSpecifier", RulesPostFormTest.TEST_RULE_EVENT_SPECIFIER);
 
         given().contentType("text/plain")
                 .body(body.encode())
@@ -74,9 +74,9 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
     void testAddRuleThrowsWhenRuleNameAlreadyExists() {
         JsonObject body = new JsonObject();
         body.put("name", TEST_RULE_NAME);
-        body.put("matchExpression", "target.alias == 'es.andrewazor.demo.Main'");
-        body.put("description", "AutoRulesIT automated rule");
-        body.put("eventSpecifier", "template=Continuous,type=TARGET");
+        body.put("matchExpression", RulesPostFormTest.TEST_RULE_MATCH_EXPRESSION);
+        body.put("description", RulesPostFormTest.TEST_RULE_DESCRIPTION);
+        body.put("eventSpecifier", RulesPostFormTest.TEST_RULE_EVENT_SPECIFIER);
 
         // Create the rule first time - should succeed
         given().log()
@@ -91,9 +91,9 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
                 .statusCode(201)
                 .body("id", notNullValue())
                 .body("name", equalTo(TEST_RULE_NAME))
-                .body("description", equalTo("AutoRulesIT automated rule"))
-                .body("matchExpression", equalTo("target.alias == 'es.andrewazor.demo.Main'"))
-                .body("eventSpecifier", equalTo("template=Continuous,type=TARGET"))
+                .body("description", equalTo(RulesPostFormTest.TEST_RULE_DESCRIPTION))
+                .body("matchExpression", equalTo(RulesPostFormTest.TEST_RULE_DESCRIPTION))
+                .body("eventSpecifier", equalTo(RulesPostFormTest.TEST_RULE_EVENT_SPECIFIER))
                 .body("archivalPeriodSeconds", equalTo(0))
                 .body("initialDelaySeconds", equalTo(0))
                 .body("preservedArchives", equalTo(0))
@@ -119,9 +119,9 @@ public class RulesPostJsonTest extends AbstractTransactionalTestBase {
     void testAddRuleThrowsWhenIntegerAttributesNegative() {
         JsonObject body = new JsonObject();
         body.put("name", TEST_RULE_NAME);
-        body.put("matchExpression", "target.alias == 'es.andrewazor.demo.Main'");
-        body.put("description", "AutoRulesIT automated rule");
-        body.put("eventSpecifier", "template=Continuous,type=TARGET");
+        body.put("matchExpression", RulesPostFormTest.TEST_RULE_MATCH_EXPRESSION);
+        body.put("description", RulesPostFormTest.TEST_RULE_DESCRIPTION);
+        body.put("eventSpecifier", RulesPostFormTest.TEST_RULE_EVENT_SPECIFIER);
         body.put("archivalPeriodSeconds", -60);
         body.put("preservedArchives", -3);
 

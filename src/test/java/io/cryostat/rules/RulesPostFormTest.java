@@ -33,11 +33,10 @@ import org.junit.jupiter.api.Test;
 @TestHTTPEndpoint(Rules.class)
 public class RulesPostFormTest extends AbstractTransactionalTestBase {
 
-    private static final String TEST_RULE_NAME = "Test_Rule";
-    private static final String TEST_RULE_EVENT_SPECIFIER = "template=Continuous,type=TARGET";
-    private static final String TEST_RULE_DESCRIPTION = "AutoRulesIT automated rule";
-    private static final String TEST_RULE_MATCH_EXPRESSION =
-            "target.alias == 'es.andrewazor.demo.Main'";
+    private static final String TEST_RULE_NAME = "Test_Rule_Form";
+    static final String TEST_RULE_DESCRIPTION = "RulesPost RulesPost test automated rule";
+    static final String TEST_RULE_EVENT_SPECIFIER = "template=Continuous,type=TARGET";
+    static final String TEST_RULE_MATCH_EXPRESSION = "target.alias == 'some-target'";
 
     @AfterEach
     void cleanupRulesPostFormTest() {
