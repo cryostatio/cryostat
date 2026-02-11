@@ -39,7 +39,6 @@ public class WebSocketTestClient {
     private final WebSocketClient client;
     private final Supplier<URI> wsUriSupplier;
     private Session session;
-    private boolean connected = false;
 
     public WebSocketTestClient(Supplier<URI> wsUriSupplier) {
         this.wsUriSupplier = wsUriSupplier;
@@ -51,13 +50,12 @@ public class WebSocketTestClient {
     }
 
     public void connect() throws IOException, DeploymentException {
-        if (connected && session != null && session.isOpen()) {
+        if (session != null && session.isOpen()) {
             logger.warn("WebSocket already connected");
             return;
         }
         URI wsUri = wsUriSupplier.get();
         session = ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri);
-        connected = true;
         logger.infov("WebSocket connected to {0}", wsUri);
     }
 
@@ -73,11 +71,11 @@ public class WebSocketTestClient {
             logger.info("WebSocket disconnected");
         }
         client.messageQueue.clear();
-        connected = false;
+        session = null;
     }
 
     public boolean isConnected() {
-        return connected && session != null && session.isOpen();
+        return session != null && session.isOpen();
     }
 
     /**
