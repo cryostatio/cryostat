@@ -18,9 +18,13 @@ package io.cryostat.util;
 import java.io.IOException;
 import java.net.URI;
 import java.time.Duration;
-import java.util.concurrent.LinkedBlockingDeque;
+import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 
@@ -60,9 +64,14 @@ public class WebSocketTestClient {
     }
 
     public void clearMessages() {
-        int cleared = client.messageQueue.size();
-        client.messageQueue.clear();
-        logger.debugv("Cleared {0} messages from WebSocket queue", cleared);
+        client.lock.lock();
+        try {
+            int cleared = client.messageHistory.size();
+            client.messageHistory.clear();
+            logger.debugv("Cleared {0} messages from WebSocket history", cleared);
+        } finally {
+            client.lock.unlock();
+        }
     }
 
     public void disconnect() throws IOException {
@@ -70,8 +79,8 @@ public class WebSocketTestClient {
             session.close();
             logger.info("WebSocket disconnected");
         }
-        client.messageQueue.clear();
         session = null;
+        clearMessages();
     }
 
     public boolean isConnected() {
@@ -120,14 +129,16 @@ public class WebSocketTestClient {
     }
 
     /**
-     * Wait for a WebSocket notification with the specified category, timeout, and predicate.
+     * Wait for a WebSocket notification matching the specified category and predicate. This method
+     * checks both historical messages (already received) and waits for future messages until the
+     * timeout expires.
      *
      * @param category The notification category to wait for
      * @param timeout The maximum time to wait
      * @param predicate Additional filter for the notification
-     * @return The notification as a JsonObject
+     * @return The matching notification as a JsonObject
      * @throws InterruptedException if the thread is interrupted while waiting
-     * @throws TimeoutException if the timeout is exceeded
+     * @throws TimeoutException if the timeout is exceeded without finding a match
      */
     public JsonObject expectNotification(
             String category, Duration timeout, Predicate<JsonObject> predicate)
@@ -139,44 +150,63 @@ public class WebSocketTestClient {
                             + " method.");
         }
 
-        long now = System.nanoTime();
-        long deadline = now + timeout.toNanos();
+        long deadlineNanos = System.nanoTime() + timeout.toNanos();
         logger.infov(
                 "Waiting up to {0} for WebSocket notification with category={1}",
                 timeout, category);
 
-        do {
-            now = System.nanoTime();
-            String msg = client.messageQueue.poll(1, TimeUnit.SECONDS);
-            if (msg == null) {
-                continue;
-            }
+        client.lock.lock();
+        try {
+            int lastCheckedIndex = 0;
 
-            JsonObject obj = new JsonObject(msg);
-            logger.debugv("Received WebSocket message: {0}", obj.encodePrettily());
+            while (true) {
+                for (int i = lastCheckedIndex; i < client.messageHistory.size(); i++) {
+                    JsonObject obj = client.messageHistory.get(i);
 
-            String msgCategory = obj.getJsonObject("meta").getString("category");
-            if (category.equals(msgCategory) && predicate.test(obj)) {
-                logger.infov("Found matching notification for category={0}", category);
-                return obj;
+                    String msgCategory = obj.getJsonObject("meta").getString("category");
+                    if (category.equals(msgCategory) && predicate.test(obj)) {
+                        logger.infov("Found matching notification for category={0}", category);
+                        return obj;
+                    }
+                }
+
+                lastCheckedIndex = client.messageHistory.size();
+
+                long remainingNanos = deadlineNanos - System.nanoTime();
+                if (remainingNanos <= 0) {
+                    break;
+                }
+
+                client.newMessageCondition.await(remainingNanos, TimeUnit.NANOSECONDS);
             }
-            Thread.sleep(500);
-            client.messageQueue.put(msg);
-        } while (now < deadline);
+        } finally {
+            client.lock.unlock();
+        }
 
         throw new TimeoutException(
-                String.format("Timeout waiting for WebSocket notification: category=%s", category));
+                String.format(
+                        "Timeout waiting for WebSocket notification: category=%s, timeout=%s",
+                        category, timeout));
     }
 
     @ClientEndpoint
     private static class WebSocketClient {
-        private final LinkedBlockingDeque<String> messageQueue = new LinkedBlockingDeque<>();
+        private final List<JsonObject> messageHistory = new CopyOnWriteArrayList<>();
+        private final Lock lock = new ReentrantLock();
+        private final Condition newMessageCondition = lock.newCondition();
         private final Logger logger = Logger.getLogger(getClass());
 
         @OnMessage
         void message(String msg) {
-            logger.debugv("WebSocket message received: {0}", msg);
-            messageQueue.add(msg);
+            JsonObject obj = new JsonObject(msg);
+            logger.infov("WebSocket message received: {0}", obj.encodePrettily());
+            lock.lock();
+            try {
+                messageHistory.add(obj);
+                newMessageCondition.signalAll();
+            } finally {
+                lock.unlock();
+            }
         }
     }
 }
