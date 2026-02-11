@@ -117,15 +117,14 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                             }
                         });
 
-        Response response =
-                given().contentType(ContentType.JSON)
-                        .body(query.encode())
-                        .when()
-                        .post("/api/v4/graphql")
-                        .then()
-                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
-                        .extract()
-                        .response();
+        given().contentType(ContentType.JSON)
+                .body(query.encode())
+                .when()
+                .post("/api/v4/graphql")
+                .then()
+                .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                .extract()
+                .response();
 
         latch.await(30, TimeUnit.SECONDS);
         JsonObject notification = f.get(30, TimeUnit.SECONDS);
@@ -161,15 +160,14 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                             }
                         });
 
-        Response response =
-                given().contentType(ContentType.JSON)
-                        .body(query.encode())
-                        .when()
-                        .post("/api/v4/graphql")
-                        .then()
-                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
-                        .extract()
-                        .response();
+        given().contentType(ContentType.JSON)
+                .body(query.encode())
+                .when()
+                .post("/api/v4/graphql")
+                .then()
+                .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                .extract()
+                .response();
 
         latch.await(30, TimeUnit.SECONDS);
         JsonObject notification = f2.get(30, TimeUnit.SECONDS);
@@ -226,15 +224,14 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
                             }
                         });
 
-        Response response =
-                given().contentType(ContentType.JSON)
-                        .body(query.encode())
-                        .when()
-                        .post("/api/v4/graphql")
-                        .then()
-                        .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
-                        .extract()
-                        .response();
+        given().contentType(ContentType.JSON)
+                .body(query.encode())
+                .when()
+                .post("/api/v4/graphql")
+                .then()
+                .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
+                .extract()
+                .response();
 
         latch.await(30, TimeUnit.SECONDS);
         JsonObject notification = f.get(30, TimeUnit.SECONDS);
