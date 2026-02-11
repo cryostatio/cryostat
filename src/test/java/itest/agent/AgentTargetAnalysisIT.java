@@ -48,7 +48,7 @@ public class AgentTargetAnalysisIT extends AgentTestBase {
                     DeploymentException,
                     TimeoutException,
                     ExecutionException,
-                    java.util.concurrent.TimeoutException {
+                    TimeoutException {
         long targetId = target.id();
         String archivedRecordingName = null;
         long recordingId = -1;
@@ -142,7 +142,7 @@ public class AgentTargetAnalysisIT extends AgentTestBase {
     }
 
     private long startRecording(long targetId, String recordingName, String events)
-            throws java.util.concurrent.TimeoutException, InterruptedException, ExecutionException {
+            throws TimeoutException, InterruptedException, ExecutionException {
         MultiMap form = MultiMap.caseInsensitiveMultiMap();
         form.add("recordingName", recordingName);
         form.add("duration", "5");
