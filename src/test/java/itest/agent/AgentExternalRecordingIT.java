@@ -80,9 +80,9 @@ public class AgentExternalRecordingIT extends AgentTestBase {
                 Matchers.equalTo("RUNNING"));
 
         MatcherAssert.assertThat(
-                "Recording duration should be 90 seconds",
+                "Recording duration should be 60 seconds",
                 recording.getInteger("duration"),
-                Matchers.equalTo(90_000));
+                Matchers.equalTo(60_000));
 
         // Verify autoanalyze label
         JsonObject metadata = recording.getJsonObject("metadata");
