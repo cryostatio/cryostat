@@ -29,11 +29,14 @@ import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLModel;
 import org.openjdk.jmc.flightrecorder.configuration.model.xml.XMLTagInstance;
 
 import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
+import itest.util.Utils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -42,6 +45,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class PresetTemplatesIT {
 
     static final String[] TEMPLATE_NAMES = new String[] {"Quarkus", "Hibernate"};
+
+    @BeforeAll
+    static void configureRestAssured() {
+        RestAssured.baseURI = "http://" + Utils.WEB_HOST;
+        RestAssured.port = Utils.WEB_PORT;
+    }
 
     @Test
     public void shouldListPresetTemplates() throws Exception {

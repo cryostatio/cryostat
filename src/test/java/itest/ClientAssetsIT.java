@@ -22,6 +22,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 import io.quarkus.test.junit.QuarkusIntegrationTest;
+import io.restassured.RestAssured;
+import itest.util.Utils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jsoup.Jsoup;
@@ -37,6 +39,12 @@ public class ClientAssetsIT {
 
     static File file;
     static Document doc;
+
+    @BeforeAll
+    static void configureRestAssured() {
+        RestAssured.baseURI = "http://" + Utils.WEB_HOST;
+        RestAssured.port = Utils.WEB_PORT;
+    }
 
     @BeforeAll
     static void setup() throws Exception {
