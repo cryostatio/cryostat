@@ -31,7 +31,6 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.restassured.RestAssured;
 import io.vertx.core.json.JsonObject;
-import itest.util.Utils;
 import jakarta.websocket.ClientEndpoint;
 import jakarta.websocket.ContainerProvider;
 import jakarta.websocket.DeploymentException;
@@ -61,12 +60,14 @@ public abstract class WebSocketTestBase {
 
     @BeforeAll
     static void configureRestAssured() {
-        RestAssured.baseURI = "http://" + Utils.WEB_HOST;
-        RestAssured.port = Utils.WEB_PORT;
+        RestAssured.baseURI = "http://localhost";
+        int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
+        RestAssured.port = port;
     }
 
     @BeforeAll
     static void setupWebSocketClient() throws IOException, DeploymentException {
+        int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
         WS_CLIENT = new WebSocketClient();
         WS_SESSION =
                 ContainerProvider.getWebSocketContainer()
@@ -74,8 +75,7 @@ public abstract class WebSocketTestBase {
                                 WS_CLIENT,
                                 URI.create(
                                         String.format(
-                                                "ws://%s:%d/api/notifications",
-                                                Utils.WEB_HOST, Utils.WEB_PORT)));
+                                                "ws://localhost:%d/api/notifications", port)));
     }
 
     @BeforeEach

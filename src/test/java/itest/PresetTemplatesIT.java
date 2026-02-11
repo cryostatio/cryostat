@@ -32,7 +32,6 @@ import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
-import itest.util.Utils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Assertions;
@@ -48,8 +47,9 @@ public class PresetTemplatesIT {
 
     @BeforeAll
     static void configureRestAssured() {
-        RestAssured.baseURI = "http://" + Utils.WEB_HOST;
-        RestAssured.port = Utils.WEB_PORT;
+        int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
+        RestAssured.baseURI = "http://localhost";
+        RestAssured.port = port;
     }
 
     @Test

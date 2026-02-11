@@ -23,7 +23,6 @@ import java.nio.file.Path;
 
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.restassured.RestAssured;
-import itest.util.Utils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jsoup.Jsoup;
@@ -36,14 +35,14 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
 public class ClientAssetsIT {
-
     static File file;
     static Document doc;
 
     @BeforeAll
     static void setup() throws Exception {
-        RestAssured.baseURI = "http://" + Utils.WEB_HOST;
-        RestAssured.port = Utils.WEB_PORT;
+        int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
+        RestAssured.baseURI = "http://localhost";
+        RestAssured.port = port;
 
         byte[] content =
                 given().when().get("/index.html").then().statusCode(200).extract().asByteArray();
