@@ -103,10 +103,12 @@ public abstract class AbstractTestBase {
     }
 
     @AfterEach
-    void cleanupTestBase() throws SchedulerException {
+    void cleanupTestBase() throws SchedulerException, IOException {
         scheduler.clear();
         if (webSocketClient != null) {
             webSocketClient.clearMessages();
+            webSocketClient.disconnect();
+            webSocketClient = null;
         }
     }
 
