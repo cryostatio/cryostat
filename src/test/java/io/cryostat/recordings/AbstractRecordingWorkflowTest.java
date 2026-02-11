@@ -38,18 +38,12 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 public abstract class AbstractRecordingWorkflowTest extends AbstractTransactionalTestBase {
 
     static final String TEST_RECORDING_NAME = "workflow_itest";
     final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
-
-    @BeforeEach
-    void setupRecordingWorkflowTest() {
-        cleanupSelfActiveAndArchivedRecordings();
-    }
 
     @AfterEach
     void cleanupRecordingWorkflowTest() {
