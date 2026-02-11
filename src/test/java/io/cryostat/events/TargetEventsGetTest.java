@@ -45,25 +45,6 @@ public class TargetEventsGetTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    public void testGetTargetEventsReturnsListOfEvents() throws Exception {
-        Response response =
-                given().log()
-                        .all()
-                        .when()
-                        .get("/api/v4/targets/{targetId}/events", getSelfReferenceTargetId())
-                        .then()
-                        .log()
-                        .all()
-                        .statusCode(200)
-                        .contentType(startsWith("application/json"))
-                        .extract()
-                        .response();
-
-        JsonArray events = new JsonArray(response.body().asString());
-        MatcherAssert.assertThat(events.size(), Matchers.greaterThan(0));
-    }
-
-    @Test
     public void testGetTargetEventsWithNoQueryReturnsListOfEvents() throws Exception {
         Response response =
                 given().log()
