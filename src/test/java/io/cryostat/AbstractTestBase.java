@@ -323,6 +323,8 @@ public abstract class AbstractTestBase {
                 if (category.equals(msgCategory) && predicate.test(obj)) {
                     return obj;
                 }
+                Thread.sleep(500);
+                client.wsMessages.put(msg);
             } while (now < deadline);
         } finally {
             client.wsMessages.clear();
