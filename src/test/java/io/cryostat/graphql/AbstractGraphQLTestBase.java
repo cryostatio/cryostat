@@ -31,6 +31,7 @@ import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
 /**
@@ -52,6 +53,11 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
         if (selfId < 1) {
             defineSelfCustomTarget();
         }
+    }
+
+    @AfterEach
+    public void cleanupGraphQLTest() throws Exception {
+        cleanupSelfActiveAndArchivedRecordings();
     }
 
     protected JsonPath graphql(String query) {
