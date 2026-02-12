@@ -80,12 +80,17 @@ public abstract class AbstractTestBase {
             throws InterruptedException, SchedulerException, IOException, DeploymentException {
         if (webSocketClient == null) {
             webSocketClient = new WebSocketTestClient(wsUri);
+        }
+        if (!webSocketClient.isConnected()) {
             webSocketClient.connect();
         }
+        webSocketClient.clearMessages();
 
         if (!scheduler.isStarted() || scheduler.isInStandbyMode()) {
             scheduler.start();
         }
+
+        cleanupSelfActiveAndArchivedRecordings();
 
         if (!storageEnabled) {
             return;
@@ -106,9 +111,15 @@ public abstract class AbstractTestBase {
     @AfterEach
     void cleanupTestBase() throws SchedulerException, IOException {
         scheduler.clear();
+        if (scheduler.isStarted() && !scheduler.isInStandbyMode()) {
+            scheduler.standby();
+        }
+
         if (webSocketClient != null) {
             webSocketClient.clearMessages();
         }
+
+        cleanupSelfActiveAndArchivedRecordings();
     }
 
     @AfterAll
