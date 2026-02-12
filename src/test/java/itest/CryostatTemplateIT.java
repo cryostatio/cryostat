@@ -32,7 +32,6 @@ import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.restassured.http.ContentType;
 import io.restassured.response.Response;
 import io.vertx.core.json.JsonObject;
-import itest.bases.WebSocketTestBase;
 import org.apache.commons.lang3.StringUtils;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -40,7 +39,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-public class CryostatTemplateIT extends WebSocketTestBase {
+public class CryostatTemplateIT {
 
     private static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
     private static final String SELFTEST_ALIAS = "selftest";
