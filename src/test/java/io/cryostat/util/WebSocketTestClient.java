@@ -166,6 +166,7 @@ public class WebSocketTestClient {
                     String msgCategory = obj.getJsonObject("meta").getString("category");
                     if (category.equals(msgCategory) && predicate.test(obj)) {
                         logger.infov("Found matching notification for category={0}", category);
+                        client.messageHistory.remove(i);
                         return obj;
                     }
                 }
