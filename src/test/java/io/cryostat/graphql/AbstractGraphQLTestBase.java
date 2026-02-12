@@ -57,6 +57,7 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
 
     @AfterEach
     public void cleanupGraphQLTest() throws Exception {
+        Thread.sleep(500);
         cleanupSelfActiveAndArchivedRecordings();
     }
 
