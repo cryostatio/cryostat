@@ -26,4 +26,4 @@ import io.quarkus.test.junit.QuarkusTest;
 @TestHTTPEndpoint(Reports.class)
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = ReportsSidecarResource.class, restrictToAnnotatedClass = true)
-public class ReportsSidecarTest extends ReportsTest {}
+public class ReportsSidecarTest extends AbstractReportsTest {}
