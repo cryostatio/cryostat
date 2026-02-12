@@ -17,9 +17,6 @@ package io.cryostat.diagnostics;
 
 import static io.restassured.RestAssured.given;
 
-import java.io.IOException;
-import java.util.concurrent.TimeoutException;
-
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.diagnostic.Diagnostics;
 import io.cryostat.resources.S3StorageResource;
@@ -29,10 +26,8 @@ import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.inject.Inject;
-import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
 import org.jboss.logging.Logger;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -57,9 +52,4 @@ public class HeapDumpsAllArchivesTest extends AbstractTransactionalTestBase {
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(0));
     }
-
-    @Test
-    @Disabled("TODO - this requires the Cryostat Agent installed on the target application")
-    public void testCreateListAndDelete()
-            throws InterruptedException, IOException, DeploymentException, TimeoutException {}
 }
