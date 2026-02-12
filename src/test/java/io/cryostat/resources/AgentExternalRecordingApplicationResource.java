@@ -28,23 +28,21 @@ public class AgentExternalRecordingApplicationResource extends AgentApplicationR
     public static final String RECORDING_NAME = "external-test-recording";
     public static final int RECORDING_DURATION_SECONDS = 120;
 
-    /**
-     * Override to add the pre-started recording flag to JAVA_OPTS_APPEND. All other environment
-     * variables are inherited from parent.
-     */
     @Override
     protected Map<String, String> getEnvMap() {
-        // Get base environment from parent
         Map<String, String> envMap = new HashMap<>(super.getEnvMap());
 
-        // Modify JAVA_OPTS_APPEND to include pre-started recording
         String baseJavaOpts = envMap.get("JAVA_OPTS_APPEND");
         String recordingOpts =
                 String.format(
-                        " -XX:StartFlightRecording=name=%s,settings=profile,duration=%ds",
+                        """
+                        -XX:StartFlightRecording=name=%s,settings=profile,duration=%ds
+                        """,
                         RECORDING_NAME, RECORDING_DURATION_SECONDS);
 
-        envMap.put("JAVA_OPTS_APPEND", baseJavaOpts + recordingOpts);
+        envMap.put(
+                "JAVA_OPTS_APPEND",
+                (baseJavaOpts + " " + recordingOpts).replace("\n", " ").strip());
 
         return envMap;
     }

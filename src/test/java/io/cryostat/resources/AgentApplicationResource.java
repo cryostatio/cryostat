@@ -49,9 +49,12 @@ public class AgentApplicationResource
                         "JAVA_OPTS_APPEND",
                         """
                         -javaagent:/deployments/app/cryostat-agent.jar
+                        -javaagent:/deployments/app/jmc-agent.jar
                         -Djava.util.logging.manager=org.jboss.logmanager.LogManager
                         -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
-                        """,
+                        """
+                                .replace("\n", " ")
+                                .strip(),
                         "QUARKUS_HTTP_PORT",
                         "9898",
                         "CRYOSTAT_AGENT_APP_NAME",
