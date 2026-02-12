@@ -35,6 +35,7 @@ import jakarta.inject.Inject;
 import jakarta.websocket.DeploymentException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.quartz.Scheduler;
@@ -72,13 +73,13 @@ public abstract class AbstractTestBase {
     protected String selfJvmId = "";
     protected int selfRecordingId = -1;
 
-    protected WebSocketTestClient webSocketClient;
+    protected static WebSocketTestClient webSocketClient;
 
     @BeforeEach
     void setupTestBase()
             throws InterruptedException, SchedulerException, IOException, DeploymentException {
         if (webSocketClient == null) {
-            webSocketClient = new WebSocketTestClient(() -> wsUri);
+            webSocketClient = new WebSocketTestClient(wsUri);
             webSocketClient.connect();
         }
 
@@ -107,8 +108,13 @@ public abstract class AbstractTestBase {
         scheduler.clear();
         if (webSocketClient != null) {
             webSocketClient.clearMessages();
+        }
+    }
+
+    @AfterAll
+    static void tearDownWebSocketClient() throws IOException {
+        if (webSocketClient != null) {
             webSocketClient.disconnect();
-            webSocketClient = null;
         }
     }
 

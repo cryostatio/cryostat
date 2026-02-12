@@ -50,17 +50,13 @@ public abstract class AbstractGraphQLTestBase extends AbstractTransactionalTestB
 
     @BeforeEach
     public void setupGraphQLTest() throws Exception {
-        // Create target once per test class (selfId persists across test methods)
         if (selfId < 1) {
             defineSelfCustomTarget();
         }
-        // Clean up any recordings from previous tests before starting new test
-        cleanupSelfActiveAndArchivedRecordings();
     }
 
     @AfterEach
     public void cleanupGraphQLTest() throws Exception {
-        // Also clean up after each test for good measure
         cleanupSelfActiveAndArchivedRecordings();
     }
 

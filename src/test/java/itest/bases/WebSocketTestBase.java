@@ -50,39 +50,29 @@ public abstract class WebSocketTestBase {
     protected static WebSocketTestClient webSocketClient;
 
     @BeforeAll
-    static void configureRestAssured() {
-        RestAssured.baseURI = "http://localhost";
-        int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
-        RestAssured.port = port;
-    }
-
-    @BeforeAll
-    static void setupWebSocketClient() throws IOException, DeploymentException {
+    static void setupTestBase() throws IOException, DeploymentException {
         // Integration tests don't have Quarkus injection, so construct URI from environment
+        int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
+        RestAssured.baseURI = "http://localhost";
+        RestAssured.port = port;
+
         webSocketClient =
                 new WebSocketTestClient(
-                        () -> {
-                            int port =
-                                    Integer.parseInt(
-                                            System.getenv()
-                                                    .getOrDefault("QUARKUS_HTTP_PORT", "8081"));
-                            return URI.create(
-                                    String.format("ws://localhost:%d/api/notifications", port));
-                        });
-        // Establish connection once for entire test class
+                        () ->
+                                URI.create(
+                                        String.format(
+                                                "ws://localhost:%d/api/notifications", port)));
         webSocketClient.connect();
     }
 
     @BeforeEach
     void clearWebSocketNotifications() {
-        // Clear message queue between test methods, but keep connection alive
         webSocketClient.clearMessages();
     }
 
     @AfterAll
     static void tearDownWebSocketClient() throws IOException {
         if (webSocketClient != null) {
-            // Disconnect after all tests in class complete
             webSocketClient.disconnect();
         }
     }
