@@ -102,7 +102,8 @@ public class S3StorageResource
                         .withExposedPorts(S3_PORT)
                         .withEnv(envMap)
                         .withTmpFs(Map.of("/data", "rw"))
-                        .waitingFor(Wait.forListeningPort());
+                        .waitingFor(Wait.forListeningPort())
+                        .withStartupAttempts(3);
         containerNetworkId.ifPresent(container::withNetworkMode);
 
         container.start();

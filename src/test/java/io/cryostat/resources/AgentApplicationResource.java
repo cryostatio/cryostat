@@ -106,7 +106,8 @@ public class AgentApplicationResource
                         .withExposedPorts(PORT)
                         .withEnv(getEnvMap())
                         .withNetworkAliases(ALIAS)
-                        .waitingFor(new HostPortWaitStrategy().forPorts(PORT));
+                        .waitingFor(new HostPortWaitStrategy().forPorts(PORT))
+                        .withStartupAttempts(3);
         network.ifPresent(container::withNetwork);
         container.addEnv(
                 "CRYOSTAT_AGENT_BASEURI",
