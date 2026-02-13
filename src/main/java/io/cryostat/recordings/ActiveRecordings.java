@@ -16,6 +16,7 @@
 package io.cryostat.recordings;
 
 import java.io.InputStream;
+import java.io.Serializable;
 import java.net.URI;
 import java.time.Duration;
 import java.util.HashMap;
@@ -25,7 +26,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-import io.cryostat.ConfigProperties;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchiveRequest;
@@ -54,7 +54,6 @@ import jakarta.ws.rs.core.UriInfo;
 import jdk.jfr.RecordingState;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.Parameter;
 import org.jboss.logging.Logger;
@@ -71,9 +70,6 @@ public class ActiveRecordings {
     @Inject LongRunningRequestGenerator generator;
     @Inject EventBus bus;
     @Inject Logger logger;
-
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration connectionFailedTimeout;
 
     @GET
     @Blocking
@@ -148,10 +144,7 @@ public class ActiveRecordings {
         ActiveRecording activeRecording = recording.get();
         switch (body.strip().toLowerCase()) {
             case "stop":
-                recordingHelper
-                        .stopRecording(activeRecording)
-                        .await()
-                        .atMost(connectionFailedTimeout);
+                recordingHelper.stopRecording(activeRecording).await().indefinitely();
                 return null;
             case "save":
                 ArchiveRequest request =
@@ -267,7 +260,7 @@ public class ActiveRecordings {
         if (recording == null) {
             throw new NotFoundException();
         }
-        recordingHelper.deleteRecording(recording).await().atMost(connectionFailedTimeout);
+        recordingHelper.deleteRecording(recording).await().indefinitely();
     }
 
     @POST
@@ -327,7 +320,10 @@ public class ActiveRecordings {
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP")
-    public record Metadata(Map<String, String> labels) {
+    public record Metadata(Map<String, String> labels) implements Serializable {
+
+        private static final long serialVersionUID = 1L;
+
         public Metadata {
             Objects.requireNonNull(labels);
         }

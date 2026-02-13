@@ -32,6 +32,7 @@ import io.vertx.ext.auth.authentication.UsernamePasswordCredentials;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.Cacheable;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -52,7 +53,9 @@ import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
-import org.hibernate.annotations.GenericGenerator;
+import org.hibernate.annotations.Cache;
+import org.hibernate.annotations.CacheConcurrencyStrategy;
+import org.hibernate.annotations.UuidGenerator;
 import org.jboss.logging.Logger;
 
 /**
@@ -63,12 +66,13 @@ import org.jboss.logging.Logger;
  */
 @Entity
 @EntityListeners(DiscoveryPlugin.Listener.class)
+@Cacheable
 public class DiscoveryPlugin extends PanacheEntityBase {
 
     @Id
     @Column(name = "id")
-    @GeneratedValue(generator = "UUID")
-    @GenericGenerator(name = "UUID", strategy = "org.hibernate.id.UUIDGenerator")
+    @GeneratedValue
+    @UuidGenerator
     @NotNull
     public UUID id;
 
@@ -90,6 +94,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
             cascade = CascadeType.REMOVE)
     @JsonIgnore
     @Nullable
+    @Cache(usage = CacheConcurrencyStrategy.READ_ONLY)
     public Credential credential;
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)

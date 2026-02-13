@@ -4,12 +4,21 @@ set -x
 
 DIR="$(dirname "$(readlink -f "$0")")"
 
-if ! command -v httpz && ! command -v wget; then
+if ! command -v http && ! command -v wget; then
     echo "No HTTPie or wget?"
     exit 1
 fi
 
-"${DIR}"/../mvnw -B -U -Dquarkus.log.level=info -Dmaven.test.skip -Dspotless.check.skip -Dquarkus.smallrye-openapi.info-title="Cryostat API" clean quarkus:generate-code compile test-compile quarkus:dev &
+"${DIR}"/../mvnw -B \
+    -Dquarkus.quinoa=false \
+    -Dquarkus.log.level=warn \
+    -Dquarkus.http.access-log.enabled=false \
+    -Dquarkus.hibernate-orm.log.sql=false \
+    -Dmaven.test.skip \
+    -Dspotless.check.skip \
+    -Dquarkus.smallrye-openapi.info-title="Cryostat API" \
+    clean quarkus:generate-code compile test-compile quarkus:dev &
+
 pid="$!"
 function cleanup() {
     kill $pid

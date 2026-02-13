@@ -91,9 +91,6 @@ public class LongRunningRequestGenerator {
     @Inject private DiagnosticsHelper diagnosticsHelper;
     @Inject AnalysisReportAggregator analysisReportAggregator;
 
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration timeout;
-
     @ConfigProperty(name = ConfigProperties.CONNECTIONS_UPLOAD_TIMEOUT)
     Duration uploadFailedTimeout;
 
@@ -146,7 +143,7 @@ public class LongRunningRequestGenerator {
                                     "downloadUrl",
                                     rec.downloadUrl())));
             if (request.deleteOnCompletion) {
-                recordingHelper.deleteRecording(recording).await().atMost(timeout);
+                recordingHelper.deleteRecording(recording).await().indefinitely();
             }
             return rec;
         } catch (Exception e) {

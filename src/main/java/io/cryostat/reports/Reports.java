@@ -15,7 +15,6 @@
  */
 package io.cryostat.reports;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Date;
 import java.util.Map;
@@ -57,7 +56,6 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriBuilder;
-import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.jboss.logging.Logger;
@@ -75,9 +73,6 @@ public class Reports {
 
     @ConfigProperty(name = ConfigProperties.ARCHIVED_REPORTS_STORAGE_CACHE_NAME)
     String bucket;
-
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration timeout;
 
     @Inject LongRunningRequestGenerator generator;
     @Inject StorageBuckets storageBuckets;
@@ -126,7 +121,7 @@ public class Reports {
                             reportsService
                                     .reportFor(pair.getKey(), pair.getValue())
                                     .await()
-                                    .atMost(timeout),
+                                    .indefinitely(),
                             MediaType.APPLICATION_JSON)
                     .status(200)
                     .build();
@@ -155,7 +150,7 @@ public class Reports {
     public Stream<ReportRule> listReportRules() {
         return RuleRegistry.getRules().stream()
                 .map(ReportRule::new)
-                .sorted((a, b) -> StringUtils.compare(a.id(), b.id()));
+                .sorted((a, b) -> a.id().compareTo(b.id()));
     }
 
     @POST
@@ -270,7 +265,7 @@ public class Reports {
         // Check if we've already cached a result for this report, return it if so
         if (reportsService.keyExists(recording)) {
             return Response.ok(
-                            reportsService.reportFor(recording).await().atMost(timeout),
+                            reportsService.reportFor(recording).await().indefinitely(),
                             MediaType.APPLICATION_JSON)
                     .status(Response.Status.OK)
                     .build();

@@ -16,6 +16,7 @@
 package itest;
 
 import java.net.UnknownHostException;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -137,11 +138,9 @@ public class CustomTargetsTest extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification(
-                                                "CredentialsStored",
-                                                REQUEST_TIMEOUT_SECONDS,
-                                                TimeUnit.SECONDS)
-                                        .get();
+                                return expectWebSocketNotification(
+                                        "CredentialsStored",
+                                        Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
@@ -153,18 +152,15 @@ public class CustomTargetsTest extends StandardSelfTest {
                 worker.submit(
                         () -> {
                             try {
-                                return expectNotification(
-                                                "TargetJvmDiscovery",
-                                                o ->
-                                                        "FOUND"
-                                                                .equals(
-                                                                        o.getJsonObject("message")
-                                                                                .getJsonObject(
-                                                                                        "event")
-                                                                                .getString("kind")),
-                                                REQUEST_TIMEOUT_SECONDS,
-                                                TimeUnit.SECONDS)
-                                        .get();
+                                return expectWebSocketNotification(
+                                        "TargetJvmDiscovery",
+                                        Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS),
+                                        o ->
+                                                "FOUND"
+                                                        .equals(
+                                                                o.getJsonObject("message")
+                                                                        .getJsonObject("event")
+                                                                        .getString("kind")));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             } finally {
@@ -250,30 +246,20 @@ public class CustomTargetsTest extends StandardSelfTest {
         worker.submit(
                 () -> {
                     try {
-                        expectNotification(
+                        JsonObject notification =
+                                expectWebSocketNotification(
                                         "TargetJvmDiscovery",
-                                        REQUEST_TIMEOUT_SECONDS,
-                                        TimeUnit.SECONDS)
-                                .thenAcceptAsync(
-                                        notification -> {
-                                            JsonObject event =
-                                                    notification
-                                                            .getJsonObject("message")
-                                                            .getJsonObject("event");
-                                            MatcherAssert.assertThat(
-                                                    event.getString("kind"),
-                                                    Matchers.equalTo("LOST"));
-                                            MatcherAssert.assertThat(
-                                                    event.getJsonObject("serviceRef")
-                                                            .getString("connectUrl"),
-                                                    Matchers.equalTo(SELF_JMX_URL));
-                                            MatcherAssert.assertThat(
-                                                    event.getJsonObject("serviceRef")
-                                                            .getString("alias"),
-                                                    Matchers.equalTo("self"));
-                                            latch.countDown();
-                                        })
-                                .get();
+                                        Duration.ofSeconds(REQUEST_TIMEOUT_SECONDS));
+                        JsonObject event =
+                                notification.getJsonObject("message").getJsonObject("event");
+                        MatcherAssert.assertThat(event.getString("kind"), Matchers.equalTo("LOST"));
+                        MatcherAssert.assertThat(
+                                event.getJsonObject("serviceRef").getString("connectUrl"),
+                                Matchers.equalTo(SELF_JMX_URL));
+                        MatcherAssert.assertThat(
+                                event.getJsonObject("serviceRef").getString("alias"),
+                                Matchers.equalTo("self"));
+                        latch.countDown();
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }

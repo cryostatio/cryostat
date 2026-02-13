@@ -203,10 +203,7 @@ public class RuleService {
                     .ifPresent(
                             recording -> {
                                 try {
-                                    recordingHelper
-                                            .stopRecording(recording)
-                                            .await()
-                                            .atMost(connectionFailedTimeout);
+                                    recordingHelper.stopRecording(recording).await().indefinitely();
                                 } catch (Exception e) {
                                     logger.warn(e);
                                 }

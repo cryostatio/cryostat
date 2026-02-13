@@ -19,24 +19,18 @@ import jakarta.inject.Inject;
 import org.flywaydb.core.Flyway;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.quartz.Scheduler;
-import org.quartz.SchedulerException;
 
 public abstract class AbstractTransactionalTestBase extends AbstractTestBase {
 
     @Inject Flyway flyway;
-    @Inject Scheduler scheduler;
 
     @BeforeEach
-    void migrate() throws SchedulerException {
+    void migrateFlyway() {
         flyway.migrate();
-        scheduler.start();
     }
 
     @AfterEach
-    void cleanup() throws SchedulerException {
-        scheduler.standby();
-        scheduler.clear();
+    void cleanupFlyway() {
         flyway.clean();
         flyway.migrate();
     }

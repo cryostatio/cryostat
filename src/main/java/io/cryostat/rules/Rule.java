@@ -29,6 +29,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.Cacheable;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -58,6 +59,7 @@ import org.hibernate.type.SqlTypes;
  */
 @Entity
 @EntityListeners(Rule.Listener.class)
+@Cacheable
 @Table(indexes = {@Index(columnList = "name")})
 public class Rule extends PanacheEntity {
     public static final String RULE_ADDRESS = "io.cryostat.rules.Rule";
@@ -115,6 +117,26 @@ public class Rule extends PanacheEntity {
 
     public static Rule getByName(String name) {
         return find("name", name).firstResult();
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+        if (obj == null) {
+            return false;
+        }
+        if (getClass() != obj.getClass()) {
+            return false;
+        }
+        Rule other = (Rule) obj;
+        return Objects.equals(name, other.name);
     }
 
     @ApplicationScoped

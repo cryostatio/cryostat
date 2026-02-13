@@ -63,7 +63,7 @@ public class ObjectMapperCustomization implements ObjectMapperCustomizer {
                 SerializationConfig config,
                 MapType valueType,
                 BeanDescription beanDesc,
-                JsonSerializer serializer) {
+                JsonSerializer<?> serializer) {
             if (valueType.getKeyType().getRawClass().equals(String.class)
                     && valueType.getContentType().getRawClass().equals(String.class)) {
                 return new MapSerializer();

@@ -15,7 +15,6 @@
  */
 package io.cryostat.rules;
 
-import java.time.Duration;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -26,7 +25,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import io.cryostat.ConfigProperties;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
@@ -49,7 +47,6 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.tuple.Pair;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.quartz.JobBuilder;
 import org.quartz.JobDetail;
@@ -82,9 +79,6 @@ public class RuleExecutor {
     @Inject MatchExpressionEvaluator evaluator;
     @Inject Scheduler quartz;
 
-    @ConfigProperty(name = ConfigProperties.CONNECTIONS_FAILED_TIMEOUT)
-    Duration connectionFailedTimeout;
-
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         quartz.shutdown();
     }
@@ -107,10 +101,7 @@ public class RuleExecutor {
                     recordingHelper.getActiveRecording(
                             target, r -> Objects.equals(r.name, rule.getRecordingName()));
             if (priorRecording.isPresent()) {
-                recordingHelper
-                        .stopRecording(priorRecording.get())
-                        .await()
-                        .atMost(connectionFailedTimeout);
+                recordingHelper.stopRecording(priorRecording.get()).await().indefinitely();
             }
             var labels = new HashMap<>(rule.metadata.labels());
             labels.put(RULE_LABEL_KEY, rule.name);
@@ -125,7 +116,7 @@ public class RuleExecutor {
                                         createRecordingOptions(rule),
                                         labels)
                                 .await()
-                                .atMost(connectionFailedTimeout);
+                                .indefinitely();
             } catch (EntityExistsException eee) {
                 // ignore - the recording already existed and was running, so we don't want to
                 // replace it - but we should continue on to reschedule the periodic archival job
@@ -214,10 +205,7 @@ public class RuleExecutor {
                                         return;
                                     }
                                     var recording = opt.get();
-                                    recordingHelper
-                                            .stopRecording(recording)
-                                            .await()
-                                            .atMost(connectionFailedTimeout);
+                                    recordingHelper.stopRecording(recording).await().indefinitely();
                                 } catch (Exception e) {
                                     logger.warn(e);
                                 }

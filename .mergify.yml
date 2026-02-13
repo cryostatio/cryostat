@@ -26,19 +26,15 @@ pull_request_rules:
         approved: [ 'mergify', 'Mergifyio' ]
         changes_requested: [ 'mergify', 'Mergifyio' ]
 
-  - name: block pull requests that manually update web-client submodule
+  - name: set reviewers for pull requests that update web-client
     conditions:
       - or:
         - files=src/main/webui
         - files~=src/main/webui/
     actions:
-      review:
-        type: REQUEST_CHANGES
-        message: >-
-            Pull Request blocked. `webui` submodule updates are performed automatically by CI when that repository
-            is updated. Please revert or drop all changes to the `webui` submodule from this PR and perform any
-            required frontend work by opening and merging a PR against
-            [cryostat-web](https://github.com/cryostatio/cryostat-web).
+      request_reviews:
+        teams:
+          - "@cryostatio/maintainers"
 
   - name: request reviews from the reviewers team
     conditions:

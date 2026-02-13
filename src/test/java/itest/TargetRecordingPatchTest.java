@@ -15,12 +15,12 @@
  */
 package itest;
 
+import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -103,19 +103,17 @@ public class TargetRecordingPatchTest extends StandardSelfTest {
         MatcherAssert.assertThat(saveResponse.bodyAsString(), Matchers.any(String.class));
 
         CountDownLatch latch = new CountDownLatch(1);
-        Future<JsonObject> f =
-                worker.submit(
-                        () -> {
-                            try {
-                                return expectNotification(
-                                                "ArchiveRecordingFailed", 15, TimeUnit.SECONDS)
-                                        .get();
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                latch.countDown();
-                            }
-                        });
+        worker.submit(
+                () -> {
+                    try {
+                        return expectWebSocketNotification(
+                                "ArchiveRecordingFailed", Duration.ofSeconds(15));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    } finally {
+                        latch.countDown();
+                    }
+                });
 
         latch.await(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
