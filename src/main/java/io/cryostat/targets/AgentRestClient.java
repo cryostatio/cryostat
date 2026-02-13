@@ -55,16 +55,16 @@ interface AgentRestClient {
 
     @Path("/smart-triggers/")
     @POST
-    Uni<Response> addTriggers(String definitions);
+    Uni<Response> addTriggers(InputStream payload);
 
     @Path("/smart-triggers/")
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     Uni<Response> listTriggers();
 
-    @Path("/smart-triggers/")
+    @Path("/smart-triggers/{id}")
     @DELETE
-    Uni<Response> removeTrigger(String uuid);
+    Uni<Response> removeTrigger(@PathParam("id") String id);
 
     @Path("/recordings/")
     @GET

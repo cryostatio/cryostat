@@ -72,7 +72,11 @@ public class SmartTriggers {
             throw new BadRequestException("Smart Triggers are unsupported for non-agent targets");
         }
         return targetConnectionManager.executeConnectedTask(
-                target, conn -> conn.listSmartTriggers(), uploadFailedTimeout);
+                target,
+                conn -> {
+                    return conn.listSmartTriggers();
+                },
+                uploadFailedTimeout);
     }
 
     @Path("targets/{targetId}/smart_triggers")
@@ -98,7 +102,7 @@ public class SmartTriggers {
         targetConnectionManager.executeConnectedTask(
                 target,
                 conn -> {
-                    conn.addSmartTriggers(definition);
+                    conn.enableSmartTriggers(definition);
                     return null;
                 },
                 uploadFailedTimeout);
@@ -132,7 +136,7 @@ public class SmartTriggers {
         targetConnectionManager.executeConnectedTask(
                 target,
                 conn -> {
-                    conn.removeSmartTrigger(uuid);
+                    conn.disableSmartTrigger(uuid);
                     return null;
                 },
                 uploadFailedTimeout);

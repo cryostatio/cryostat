@@ -141,12 +141,12 @@ class AgentConnection implements JFRConnection {
     }
 
     @Override
-    public List<String> addSmartTriggers(String definitions) {
+    public List<String> enableSmartTriggers(String definitions) {
         return client.addSmartTriggers(definitions).await().atMost(client.getTimeout());
     }
 
     @Override
-    public void removeSmartTrigger(String uuid) {
+    public void disableSmartTrigger(String uuid) {
         client.removeSmartTrigger(uuid).await().atMost(client.getTimeout());
     }
 
