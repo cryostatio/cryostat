@@ -635,9 +635,9 @@ components:
           type: string
         firstMetTime:
           $ref: '#/components/schemas/Date'
-        rawExpression:
+        iD:
           type: string
-        recordingTemplate:
+        id:
           type: string
         recordingTemplateName:
           type: string
@@ -650,10 +650,6 @@ components:
         timeConditionFirstMet:
           $ref: '#/components/schemas/Date'
         triggerCondition:
-          type: string
-        uUID:
-          type: string
-        uuid:
           type: string
       type: object
     Suggestion:
