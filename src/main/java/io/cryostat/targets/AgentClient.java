@@ -195,7 +195,7 @@ public class AgentClient {
                             }
                         });
     }
-    
+
     <T> Uni<T> invokeMBeanOperation(
             String beanName,
             String operation,
