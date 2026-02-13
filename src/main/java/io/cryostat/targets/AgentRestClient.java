@@ -19,6 +19,7 @@ package io.cryostat.targets;
 import java.io.InputStream;
 import java.util.Map;
 
+import io.cryostat.targets.AgentClient.StartProfileRequest;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 
 import io.smallrye.mutiny.Uni;
@@ -92,4 +93,29 @@ interface AgentRestClient {
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     Uni<Response> listEventTemplates();
+
+    @Path("/async-profiler/status")
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    Uni<Response> asyncProfilerStatus();
+
+    @Path("/async-profiler/")
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.TEXT_PLAIN)
+    Uni<Response> dumpAsyncProfiler(StartProfileRequest req);
+
+    @Path("/async-profiler/")
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    Uni<Response> listAsyncProfiler();
+
+    @Path("/async-profiler/{id}")
+    @DELETE
+    Uni<Response> deleteAsyncProfiler(@PathParam("id") String id);
+
+    @Path("/async-profiler/{id}")
+    @GET
+    @Produces(MediaType.APPLICATION_OCTET_STREAM)
+    Uni<Response> streamAsyncProfile(@PathParam("id") String id);
 }
