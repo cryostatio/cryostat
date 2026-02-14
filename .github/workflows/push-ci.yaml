@@ -111,12 +111,9 @@ jobs:
         ./mvnw -B -U \
         -DskipTests \
         -Dquarkus.container-image.image=${{ env.CI_IMG }}:linux-${{ matrix.arch }} \
-        -Dquarkus.docker.executable-name=docker \
-        -Dquarkus.docker.buildx.platform=linux/${{ matrix.arch }} \
+        -Dquarkus.podman.platform=linux/${{ matrix.arch }} \
         -Dbuild.arch=${{ matrix.arch }} \
         clean package
-    - name: Copy docker image to podman
-      run: podman pull docker-daemon:${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - name: Save container image
       run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - uses: actions/upload-artifact@v6
@@ -257,7 +254,6 @@ jobs:
     - name: Run tests
       run: |
         ./mvnw -B -U \
-          -Dquarkus.docker.executable-name=docker \
           -Dquarkus.log.level=error \
           -Dquarkus.hibernate-orm.log.sql=false \
           -Dquarkus.http.access-log.enabled=false \
