@@ -47,6 +47,7 @@ import io.cryostat.core.serialization.JmcSerializableRecordingDescriptor;
 import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory;
 import io.cryostat.libcryostat.net.MBeanMetrics;
+import io.cryostat.libcryostat.triggers.SmartTrigger;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
 
@@ -132,6 +133,65 @@ public class AgentClient {
                             } catch (IOException e) {
                                 throw new AgentApiException(
                                         Response.Status.BAD_GATEWAY.getStatusCode(), e);
+                            }
+                        });
+    }
+
+    Uni<List<SmartTrigger>> listTriggers() {
+        return agentRestClient
+                .listTriggers()
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    int statusCode = resp.getStatus();
+                                    if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                        Object buf = resp.getEntity();
+                                        if (Objects.nonNull(buf)) {
+                                            try (resp;
+                                                    var is = (InputStream) resp.getEntity()) {
+                                                return Arrays.asList(
+                                                        mapper.readValue(is, SmartTrigger[].class));
+                                            }
+                                        } else {
+                                            return Arrays.asList();
+                                        }
+                                    } else {
+                                        throw new AgentApiException(statusCode);
+                                    }
+                                }));
+    }
+
+    Uni<List<String>> addSmartTriggers(String definitions) {
+        var req = new SmartTriggerRequest(definitions);
+        try {
+            return agentRestClient
+                    .addTriggers(new ByteArrayInputStream(mapper.writeValueAsBytes(req)))
+                    .map(
+                            Unchecked.function(
+                                    resp -> {
+                                        try (resp;
+                                                var is = (InputStream) resp.getEntity()) {
+                                            return Arrays.asList(
+                                                    mapper.readValue(is, String[].class));
+                                        }
+                                    }));
+        } catch (JsonProcessingException e) {
+            logger.error("Smart Triggers request failed", e);
+            return Uni.createFrom().failure(e);
+        }
+    }
+
+    Uni<Void> removeSmartTrigger(String uuid) {
+        return agentRestClient
+                .removeTrigger(uuid)
+                .invoke(Response::close)
+                .map(
+                        resp -> {
+                            int statusCode = resp.getStatus();
+                            if (HttpStatusCodeIdentifier.isSuccessCode(statusCode)) {
+                                return null;
+                            } else {
+                                throw new AgentApiException(statusCode);
                             }
                         });
     }
@@ -667,4 +727,6 @@ public class AgentClient {
             Objects.requireNonNull(operation);
         }
     }
+
+    static record SmartTriggerRequest(String definitions) {}
 }

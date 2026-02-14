@@ -53,6 +53,19 @@ interface AgentRestClient {
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
     Uni<Response> invokeMBeanOperation(InputStream payload);
 
+    @Path("/smart-triggers/")
+    @POST
+    Uni<Response> addTriggers(InputStream payload);
+
+    @Path("/smart-triggers/")
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    Uni<Response> listTriggers();
+
+    @Path("/smart-triggers/{id}")
+    @DELETE
+    Uni<Response> removeTrigger(@PathParam("id") String id);
+
     @Path("/recordings/")
     @GET
     @Produces(MediaType.APPLICATION_JSON)

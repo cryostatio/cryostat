@@ -177,6 +177,11 @@ components:
         grafanaDatasourceUrl:
           type: string
       type: object
+    Date:
+      examples:
+        - 2022-03-10
+      format: date
+      type: string
     DiscoveryNode:
       properties:
         children:
@@ -257,6 +262,11 @@ components:
         - id
         - realm
       type: object
+    Duration:
+      examples:
+        - P1D
+      format: duration
+      type: string
     Evaluation:
       properties:
         explanation:
@@ -617,6 +627,31 @@ components:
         name:
           type: string
       type: object
+    SmartTrigger:
+      properties:
+        durationConstraint:
+          type: string
+        expression:
+          type: string
+        firstMetTime:
+          $ref: '#/components/schemas/Date'
+        iD:
+          type: string
+        id:
+          type: string
+        recordingTemplateName:
+          type: string
+        simple:
+          type: boolean
+        state:
+          $ref: '#/components/schemas/TriggerState'
+        targetDuration:
+          $ref: '#/components/schemas/Duration'
+        timeConditionFirstMet:
+          $ref: '#/components/schemas/Date'
+        triggerCondition:
+          type: string
+      type: object
     Suggestion:
       properties:
         name:
@@ -732,6 +767,13 @@ components:
         threadDumpId:
           type: string
       type: object
+    TriggerState:
+      enum:
+        - NEW
+        - WAITING_HIGH
+        - WAITING_LOW
+        - COMPLETE
+      type: string
     UUID:
       format: uuid
       pattern: '[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}'
@@ -1201,6 +1243,84 @@ paths:
       summary: Upload a JFR binary file to archives, associated with a particular target
       tags:
         - Archived Recordings
+  /api/beta/targets/{targetId}/smart_triggers:
+    get:
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/SmartTrigger'
+                type: array
+          description: OK
+      summary: Retrieve all currently active Smart Triggers for a target
+      tags:
+        - Smart Triggers
+    post:
+      description: |
+        Define a new Smart Trigger. A custom trigger definition must consist of both an expression
+        that defines the overall trigger condition and the name of an event template that is used
+        for the JFR Recording. The entire trigger expression must be enclosed in square brackets,
+        with the recording template name specified after a ~. For an example definition:
+        [ProcessCpuLoad > 0.2 ; TargetDuration > duration("30s")]~profile
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                definition:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+      summary: Define a new Smart Trigger for a target
+      tags:
+        - Smart Triggers
+  /api/beta/targets/{targetId}/smart_triggers/{uuid}:
+    delete:
+      description: |
+        Delete an active Smart Trigger. A custom trigger definition must consist of both an expression
+        that defines the overall trigger condition and the name of an event template that is used
+        for the JFR Recording. The entire trigger expression must be enclosed in square brackets,
+        with the recording template name specified after a ~. For an example definition:
+        [ProcessCpuLoad > 0.2 ; TargetDuration > duration("30s")]~profile
+      parameters:
+        - in: path
+          name: targetId
+          required: true
+          schema:
+            format: int64
+            type: integer
+        - in: path
+          name: uuid
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+      summary: Delete a currently active Smart Trigger for a target
+      tags:
+        - Smart Triggers
   /api/v4.1/metrics/reports:
     get:
       description: |
