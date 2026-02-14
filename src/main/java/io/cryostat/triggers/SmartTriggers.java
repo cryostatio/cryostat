@@ -44,7 +44,7 @@ import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestPath;
 
-@Path("/api/beta")
+@Path("/")
 public class SmartTriggers {
 
     @Inject Logger log;
@@ -59,7 +59,7 @@ public class SmartTriggers {
 
     @Inject EventBus bus;
 
-    @Path("targets/{targetId}/smart_triggers")
+    @Path("api/beta/targets/{targetId}/smart_triggers")
     @RolesAllowed("read")
     @Transactional
     @Produces({MediaType.APPLICATION_JSON})
@@ -79,7 +79,7 @@ public class SmartTriggers {
                 uploadFailedTimeout);
     }
 
-    @Path("targets/{targetId}/smart_triggers")
+    @Path("api/beta/targets/{targetId}/smart_triggers")
     @RolesAllowed("write")
     @Transactional
     @POST
@@ -113,7 +113,7 @@ public class SmartTriggers {
                         Map.of("trigger", definition, "jvmId", target.jvmId)));
     }
 
-    @Path("targets/{targetId}/smart_triggers/{uuid}")
+    @Path("api/beta/targets/{targetId}/smart_triggers/{uuid}")
     @RolesAllowed("write")
     @Transactional
     @DELETE
