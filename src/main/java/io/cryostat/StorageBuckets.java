@@ -48,6 +48,9 @@ public class StorageBuckets {
     @Inject S3Client storage;
     @Inject Logger logger;
 
+    @ConfigProperty(name = "storage.buckets.attempt-create", defaultValue = "true")
+    boolean enabled;
+
     @ConfigProperty(name = "storage.buckets.creation-retry.period")
     Duration creationRetryPeriod;
 
@@ -59,6 +62,9 @@ public class StorageBuckets {
     private volatile boolean shutdown = false;
 
     public CompletableFuture<Void> createIfNecessary(String bucket) {
+        if (!enabled) {
+            return CompletableFuture.completedFuture(null);
+        }
         if (buckets.contains(bucket)) {
             logger.debugv("Bucket \"{0}\" already queued, skipping");
             return CompletableFuture.completedFuture(null);

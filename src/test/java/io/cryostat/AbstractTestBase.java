@@ -24,27 +24,18 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Predicate;
 
-import io.cryostat.resources.S3StorageResource;
 import io.cryostat.util.HttpStatusCodeIdentifier;
+import io.cryostat.util.WebSocketTestClient;
 
-import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPResource;
 import io.restassured.http.ContentType;
 import io.restassured.path.json.JsonPath;
-import io.vertx.core.json.JsonObject;
 import jakarta.inject.Inject;
-import jakarta.websocket.ClientEndpoint;
-import jakarta.websocket.ContainerProvider;
 import jakarta.websocket.DeploymentException;
-import jakarta.websocket.OnMessage;
-import jakarta.websocket.Session;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.quartz.Scheduler;
@@ -52,36 +43,8 @@ import org.quartz.SchedulerException;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.HeadBucketRequest;
 
-@QuarkusTestResource(S3StorageResource.class)
 public abstract class AbstractTestBase {
 
-    public static final String CLEANUP_QUERY =
-            """
-            query TestCleanup($targetIds: [ BigInteger! ]) {
-              targetNodes(filter: { targetIds: $targetIds }) {
-                descendantTargets {
-                  target {
-                    recordings {
-                      active {
-                        data {
-                          doDelete {
-                            name
-                          }
-                        }
-                      }
-                      archived {
-                        data {
-                          doDelete {
-                            name
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-            """;
     public static final String SELF_JMX_URL = "service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi";
     public static final String SELFTEST_ALIAS = "selftest";
 
@@ -92,6 +55,9 @@ public abstract class AbstractTestBase {
 
     @ConfigProperty(name = "storage.buckets.archives.name")
     String archivesBucket;
+
+    @ConfigProperty(name = "test.storage.enabled", defaultValue = "false")
+    boolean storageEnabled;
 
     @ConfigProperty(name = "test.storage.timeout", defaultValue = "5m")
     Duration storageTimeout;
@@ -107,14 +73,27 @@ public abstract class AbstractTestBase {
     protected String selfJvmId = "";
     protected int selfRecordingId = -1;
 
+    protected static WebSocketTestClient webSocketClient;
+
     @BeforeEach
-    void waitForStorage() throws InterruptedException, SchedulerException {
-        selfId = -1;
-        selfJvmId = "";
-        selfRecordingId = -1;
+    void setupTestBase()
+            throws InterruptedException, SchedulerException, IOException, DeploymentException {
+        if (webSocketClient == null) {
+            webSocketClient = new WebSocketTestClient(wsUri);
+        }
+        if (!webSocketClient.isConnected()) {
+            webSocketClient.connect();
+        }
+        webSocketClient.clearMessages();
 
         if (!scheduler.isStarted() || scheduler.isInStandbyMode()) {
             scheduler.start();
+        }
+
+        cleanupSelfActiveAndArchivedRecordings();
+
+        if (!storageEnabled) {
+            return;
         }
 
         long totalTime = 0;
@@ -130,8 +109,63 @@ public abstract class AbstractTestBase {
     }
 
     @AfterEach
-    void cleanup() throws SchedulerException {
+    void cleanupTestBase() throws SchedulerException, IOException {
         scheduler.clear();
+        if (scheduler.isStarted() && !scheduler.isInStandbyMode()) {
+            scheduler.standby();
+        }
+
+        if (webSocketClient != null) {
+            webSocketClient.clearMessages();
+        }
+
+        cleanupSelfActiveAndArchivedRecordings();
+    }
+
+    @AfterAll
+    static void tearDownWebSocketClient() throws IOException {
+        if (webSocketClient != null) {
+            webSocketClient.disconnect();
+        }
+    }
+
+    public String cleanupQuery() {
+        return cleanupQuery(storageEnabled);
+    }
+
+    public static String cleanupQuery(boolean storageEnabled) {
+        String query =
+                """
+                query TestCleanup($targetIds: [ BigInteger! ]) {
+                  targetNodes(filter: { targetIds: $targetIds }) {
+                    descendantTargets {
+                      target {
+                        recordings {
+                          active {
+                            data {
+                              doDelete {
+                                name
+                              }
+                            }
+                          }
+                          %s
+                        }
+                      }
+                    }
+                  }
+                }
+                """;
+        String archivesFragment =
+                """
+                archived {
+                  data {
+                    doDelete {
+                      name
+                    }
+                  }
+                }
+                """;
+        return String.format(query, storageEnabled ? archivesFragment : "");
     }
 
     private boolean bucketExists(String bucket) {
@@ -150,6 +184,9 @@ public abstract class AbstractTestBase {
     }
 
     protected int defineSelfCustomTarget() {
+        if (selfId > 0) {
+            return selfId;
+        }
         var jp =
                 given().basePath("/")
                         .log()
@@ -221,22 +258,23 @@ public abstract class AbstractTestBase {
     protected void cleanupSelfActiveAndArchivedRecordings() {
         if (selfId > 0) {
             cleanupActiveAndArchivedRecordingsForTarget(this.selfId);
-        } else {
-            cleanupSelfActiveAndArchivedRecordings();
         }
+        // If selfId <= 0, there's nothing to clean up, so just return
     }
 
-    protected static void cleanupActiveAndArchivedRecordingsForTarget(int... ids) {
+    protected void cleanupActiveAndArchivedRecordingsForTarget(int... ids) {
         cleanupActiveAndArchivedRecordingsForTarget(Arrays.stream(ids).boxed().toList());
     }
 
-    protected static void cleanupActiveAndArchivedRecordingsForTarget(List<Integer> ids) {
+    protected void cleanupActiveAndArchivedRecordingsForTarget(List<Integer> ids) {
         var variables = new HashMap<String, Object>();
         if (ids == null || ids.isEmpty()) {
             variables.put("targetIds", null);
+        } else {
+            variables.put("targetIds", ids);
         }
         given().basePath("/")
-                .body(Map.of("query", CLEANUP_QUERY, "variables", variables))
+                .body(Map.of("query", cleanupQuery(), "variables", variables))
                 .contentType(ContentType.JSON)
                 .log()
                 .all()
@@ -268,58 +306,5 @@ public abstract class AbstractTestBase {
                 .extract()
                 .body()
                 .jsonPath();
-    }
-
-    protected JsonObject expectWebSocketNotification(String category)
-            throws IOException, DeploymentException, InterruptedException, TimeoutException {
-        return expectWebSocketNotification(category, Duration.ofSeconds(30), v -> true);
-    }
-
-    protected JsonObject expectWebSocketNotification(String category, Duration timeout)
-            throws IOException, DeploymentException, InterruptedException, TimeoutException {
-        return expectWebSocketNotification(category, timeout, v -> true);
-    }
-
-    protected JsonObject expectWebSocketNotification(
-            String category, Predicate<JsonObject> predicate)
-            throws IOException, DeploymentException, InterruptedException, TimeoutException {
-        return expectWebSocketNotification(category, Duration.ofSeconds(30), predicate);
-    }
-
-    protected JsonObject expectWebSocketNotification(
-            String category, Duration timeout, Predicate<JsonObject> predicate)
-            throws IOException, DeploymentException, InterruptedException, TimeoutException {
-        long now = System.nanoTime();
-        long deadline = now + timeout.toNanos();
-        var client = new WebSocketClient();
-        try (Session session =
-                ContainerProvider.getWebSocketContainer().connectToServer(client, wsUri)) {
-            do {
-                now = System.nanoTime();
-                String msg = client.wsMessages.poll(1, TimeUnit.SECONDS);
-                if (msg == null) {
-                    continue;
-                }
-                JsonObject obj = new JsonObject(msg);
-                logger.infov("Received WebSocket message: {0}", obj.encodePrettily());
-                String msgCategory = obj.getJsonObject("meta").getString("category");
-                if (category.equals(msgCategory) && predicate.test(obj)) {
-                    return obj;
-                }
-            } while (now < deadline);
-        } finally {
-            client.wsMessages.clear();
-        }
-        throw new TimeoutException();
-    }
-
-    @ClientEndpoint
-    private class WebSocketClient {
-        private final LinkedBlockingDeque<String> wsMessages = new LinkedBlockingDeque<>();
-
-        @OnMessage
-        void message(String msg) {
-            wsMessages.add(msg);
-        }
     }
 }

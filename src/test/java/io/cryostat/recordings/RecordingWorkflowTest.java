@@ -13,16 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.util.http;
+package io.cryostat.recordings;
 
-public class StoredCredential {
-    public int id;
-    public String matchExpression;
+import io.cryostat.resources.S3StorageResource;
 
-    public StoredCredential(int id, String matchExpression) {
-        this.id = id;
-        this.matchExpression = matchExpression;
-    }
+import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.junit.QuarkusTest;
 
-    public StoredCredential() {}
-}
+@QuarkusTest
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+public class RecordingWorkflowTest extends AbstractRecordingWorkflowTest {}

@@ -80,5 +80,6 @@ providers:
                                 .replaceAll("CRYOSTAT_PORT", Integer.toString(cryostatPort))),
                 CFG_FILE_PATH);
         waitingFor(Wait.forLogMessage(".*OAuthProxy configured.*", 1));
+        withStartupAttempts(3);
     }
 }

@@ -18,7 +18,9 @@ package io.cryostat.recordings;
 import static io.restassured.RestAssured.given;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.resources.S3StorageResource;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -27,8 +29,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(ArchivedRecordings.class)
-// TODO add tests storing new archived recordings, listing, downloading, and deleting them - already
-// largely handled by itest.RecordingWorkflowTest
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class ArchivedRecordingsTest extends AbstractTransactionalTestBase {
 
     @Test

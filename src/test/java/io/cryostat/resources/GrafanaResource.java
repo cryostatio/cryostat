@@ -47,7 +47,8 @@ public class GrafanaResource
                         .withEnv(envMap)
                         .waitingFor(
                                 Wait.forLogMessage(
-                                        ".*inserting datasource from configuration.*", 1));
+                                        ".*inserting datasource from configuration.*", 1))
+                        .withStartupAttempts(3);
         containerNetworkId.ifPresent(container::withNetworkMode);
 
         container.start();

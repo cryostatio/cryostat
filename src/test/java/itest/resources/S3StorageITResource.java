@@ -13,13 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest;
+package itest.resources;
 
-import io.cryostat.expressions.MatchExpressionsTest;
+import io.cryostat.resources.S3StorageResource;
 
-import io.quarkus.test.junit.QuarkusIntegrationTest;
-import org.junit.jupiter.api.Disabled;
-
-@QuarkusIntegrationTest
-@Disabled("TODO fix to account for targets being discovered")
-public class MatchExpressionsIT extends MatchExpressionsTest {}
+public class S3StorageITResource extends S3StorageResource {
+    @Override
+    protected String adjustS3Url(String host, int port) {
+        return super.adjustS3Url(
+                container.getCurrentContainerInfo().getConfig().getHostName(), S3_PORT);
+    }
+}
