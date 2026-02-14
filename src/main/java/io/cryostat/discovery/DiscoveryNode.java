@@ -59,6 +59,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.envers.Audited;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
@@ -71,6 +72,7 @@ import org.jboss.logging.Logger;
  * etc. All {@link io.cryostat.targets.Target} instances are associated with a DiscoveryNode which
  * places them in the tree.
  */
+@Audited
 @Entity
 @EntityListeners(DiscoveryNode.Listener.class)
 @Cacheable
