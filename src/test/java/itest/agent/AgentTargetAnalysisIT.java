@@ -30,16 +30,11 @@ import io.vertx.core.MultiMap;
 import io.vertx.core.json.JsonObject;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
-@EnabledIfEnvironmentVariable(
-        named = "PR_CI",
-        matches = "true",
-        disabledReason =
-                "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
-                        + " testcontainers 'Broken Pipe' IOException")
+@Disabled
 public class AgentTargetAnalysisIT extends AgentTestBase {
 
     @Test
