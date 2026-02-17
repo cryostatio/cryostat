@@ -45,6 +45,8 @@ channels:
         - $ref: '#/components/messages/TemplateDeleted'
         - $ref: '#/components/messages/TemplateUploaded'
         - $ref: '#/components/messages/ThreadDumpFailure'
+        - $ref: '#/components/messages/TriggerCreated'
+        - $ref: '#/components/messages/TriggerDeleted'
 components:
   messages:
     ThreadDumpFailure:
@@ -107,6 +109,31 @@ components:
                     type: string
               targets:
                 type: array
+        required:
+        - meta
+        - message
+    TriggerCreated:
+      name: TriggerCreated
+      title: Trigger Created
+      summary: 'Notification: TriggerCreated'
+      description: WebSocket notification for Trigger Created events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: TriggerCreated
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            additionalProperties: true
         required:
         - meta
         - message
@@ -278,11 +305,11 @@ components:
         required:
         - meta
         - message
-    GrafanaUploadSuccess:
-      name: GrafanaUploadSuccess
-      title: Grafana Upload Success
-      summary: 'Notification: GrafanaUploadSuccess'
-      description: WebSocket notification for Grafana Upload Success events
+    TriggerDeleted:
+      name: TriggerDeleted
+      title: Trigger Deleted
+      summary: 'Notification: TriggerDeleted'
+      description: WebSocket notification for Trigger Deleted events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -293,15 +320,13 @@ components:
             properties:
               category:
                 type: string
-                const: GrafanaUploadSuccess
+                const: TriggerDeleted
                 description: Notification category identifier
             required:
             - category
           message:
             type: object
-            properties:
-              jobId:
-                type: string
+            additionalProperties: true
         required:
         - meta
         - message
@@ -330,6 +355,33 @@ components:
               jvmId:
                 type: string
               target:
+                type: string
+        required:
+        - meta
+        - message
+    GrafanaUploadSuccess:
+      name: GrafanaUploadSuccess
+      title: Grafana Upload Success
+      summary: 'Notification: GrafanaUploadSuccess'
+      description: WebSocket notification for Grafana Upload Success events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: GrafanaUploadSuccess
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              jobId:
                 type: string
         required:
         - meta
