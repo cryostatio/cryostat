@@ -19,7 +19,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <!-- Code quality plugins -->
-        <com.diffplug.spotless.maven.plugin.version>3.1.0</com.diffplug.spotless.maven.plugin.version>
+        <com.diffplug.spotless.maven.plugin.version>3.2.1</com.diffplug.spotless.maven.plugin.version>
         <com.google.java-format.version>1.33.0</com.google.java-format.version>
         <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
     </properties>
