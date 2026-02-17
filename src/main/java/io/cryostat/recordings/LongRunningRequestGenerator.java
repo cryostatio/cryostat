@@ -31,6 +31,11 @@ import io.cryostat.reports.ReportsService;
 import io.cryostat.targets.Target;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
+import io.cryostat.ws.notifications.NotificationPayloads.ArchiveRecordingSuccessPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.HeapDumpSuccessPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.JobIdPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.ReportSuccessPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.ThreadDumpFailurePayload;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.vertx.ConsumeEvent;
@@ -115,7 +120,7 @@ public class LongRunningRequestGenerator {
                     MessagingServer.class.getName(),
                     new Notification(
                             THREAD_DUMP_FAILURE,
-                            Map.of("jobId", request.id(), "targetId", request.targetId)));
+                            new ThreadDumpFailurePayload(request.id(), request.targetId)));
             throw new CompletionException(e);
         }
     }
@@ -133,15 +138,8 @@ public class LongRunningRequestGenerator {
                     MessagingServer.class.getName(),
                     new Notification(
                             ARCHIVE_RECORDING_SUCCESS,
-                            Map.of(
-                                    "jobId",
-                                    request.id(),
-                                    "recording",
-                                    rec.name(),
-                                    "reportUrl",
-                                    rec.reportUrl(),
-                                    "downloadUrl",
-                                    rec.downloadUrl())));
+                            new ArchiveRecordingSuccessPayload(
+                                    request.id(), rec.name(), rec.reportUrl(), rec.downloadUrl())));
             if (request.deleteOnCompletion) {
                 recordingHelper.deleteRecording(recording).await().indefinitely();
             }
@@ -150,7 +148,7 @@ public class LongRunningRequestGenerator {
             logger.warn("Archiving failed");
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(ARCHIVE_RECORDING_FAIL, Map.of("jobId", request.id())));
+                    new Notification(ARCHIVE_RECORDING_FAIL, new JobIdPayload(request.id())));
             throw new CompletionException(e);
         }
     }
@@ -170,7 +168,7 @@ public class LongRunningRequestGenerator {
                                         MessagingServer.class.getName(),
                                         new Notification(
                                                 GRAFANA_UPLOAD_SUCCESS,
-                                                Map.of("jobId", request.id())));
+                                                new JobIdPayload(request.id())));
                             })
                     .ifNoItem()
                     .after(uploadFailedTimeout)
@@ -183,13 +181,13 @@ public class LongRunningRequestGenerator {
                                         MessagingServer.class.getName(),
                                         new Notification(
                                                 GRAFANA_UPLOAD_FAIL,
-                                                Map.of("jobId", request.id())));
+                                                new JobIdPayload(request.id())));
                             });
         } catch (Exception e) {
             logger.error("Exception thrown while preparing request: ", e);
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(GRAFANA_UPLOAD_FAIL, Map.of("jobId", request.id())));
+                    new Notification(GRAFANA_UPLOAD_FAIL, new JobIdPayload(request.id())));
             return Uni.createFrom().failure(e);
         }
     }
@@ -210,7 +208,7 @@ public class LongRunningRequestGenerator {
                                         MessagingServer.class.getName(),
                                         new Notification(
                                                 GRAFANA_UPLOAD_SUCCESS,
-                                                Map.of("jobId", request.id())));
+                                                new JobIdPayload(request.id())));
                             })
                     .ifNoItem()
                     .after(uploadFailedTimeout)
@@ -223,13 +221,13 @@ public class LongRunningRequestGenerator {
                                         MessagingServer.class.getName(),
                                         new Notification(
                                                 GRAFANA_UPLOAD_FAIL,
-                                                Map.of("jobId", request.id())));
+                                                new JobIdPayload(request.id())));
                             });
         } catch (Exception e) {
             logger.error("Exception thrown while preparing request: ", e);
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(GRAFANA_UPLOAD_FAIL, Map.of("jobId", request.id())));
+                    new Notification(GRAFANA_UPLOAD_FAIL, new JobIdPayload(request.id())));
             return Uni.createFrom().failure(e);
         }
     }
@@ -247,11 +245,8 @@ public class LongRunningRequestGenerator {
                                     MessagingServer.class.getName(),
                                     new Notification(
                                             REPORT_SUCCESS,
-                                            Map.of(
-                                                    "jobId",
-                                                    request.id(),
-                                                    "jvmId",
-                                                    request.recording.target.jvmId)));
+                                            new ReportSuccessPayload(
+                                                    request.id(), request.recording.target.jvmId)));
                             bus.publish(
                                     ACTIVE_REPORT_COMPLETE_ADDRESS,
                                     new ActiveReportCompletion(
@@ -267,7 +262,7 @@ public class LongRunningRequestGenerator {
                             bus.publish(
                                     MessagingServer.class.getName(),
                                     new Notification(
-                                            REPORT_FAILURE, Map.of("jobId", request.id())));
+                                            REPORT_FAILURE, new JobIdPayload(request.id())));
                         });
     }
 
@@ -307,7 +302,7 @@ public class LongRunningRequestGenerator {
                             bus.publish(
                                     MessagingServer.class.getName(),
                                     new Notification(
-                                            REPORT_FAILURE, Map.of("jobId", request.id())));
+                                            REPORT_FAILURE, new JobIdPayload(request.id())));
                         });
     }
 
@@ -323,12 +318,12 @@ public class LongRunningRequestGenerator {
                     MessagingServer.class.getName(),
                     new Notification(
                             HEAP_DUMP_SUCCESS,
-                            Map.of("jobId", request.id(), "targetAlias", target.alias)));
+                            new HeapDumpSuccessPayload(request.id(), target.alias)));
         } catch (Exception e) {
             logger.warn("Failed to dump heap");
             bus.publish(
                     MessagingServer.class.getName(),
-                    new Notification(HEAP_DUMP_FAILURE, Map.of("jobId", request.id())));
+                    new Notification(HEAP_DUMP_FAILURE, new JobIdPayload(request.id())));
             throw new CompletionException(e);
         }
     }

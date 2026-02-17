@@ -21,7 +21,6 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
 import io.cryostat.ConfigProperties;
@@ -31,6 +30,8 @@ import io.cryostat.core.jmcagent.ProbeTemplate;
 import io.cryostat.core.jmcagent.ProbeTemplateService;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
+import io.cryostat.ws.notifications.NotificationPayloads.ProbeTemplatePayload;
+import io.cryostat.ws.notifications.NotificationPayloads.ProbeTemplateUploadedPayload;
 
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -139,7 +140,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
-                            TEMPLATE_DELETED_CATEGORY, Map.of("probeTemplate", templateName)));
+                            TEMPLATE_DELETED_CATEGORY, new ProbeTemplatePayload(templateName)));
         }
     }
 
@@ -185,11 +186,7 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                     MessagingServer.class.getName(),
                     new Notification(
                             TEMPLATE_UPLOADED_CATEGORY,
-                            Map.of(
-                                    "probeTemplate",
-                                    template.getFileName(),
-                                    "templateContent",
-                                    xml)));
+                            new ProbeTemplateUploadedPayload(template.getFileName(), xml)));
             return template;
         }
     }

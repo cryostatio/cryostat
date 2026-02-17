@@ -20,7 +20,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 
 import javax.management.InstanceNotFoundException;
 
@@ -31,6 +30,8 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
+import io.cryostat.ws.notifications.NotificationPayloads.ProbeTemplateAppliedPayload;
+import io.cryostat.ws.notifications.NotificationPayloads.ProbesRemovedPayload;
 
 import io.smallrye.common.annotation.Blocking;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -103,11 +104,8 @@ public class JMCAgentProbes {
                                 MessagingServer.class.getName(),
                                 new Notification(
                                         TEMPLATE_APPLIED_CATEGORY,
-                                        Map.of(
-                                                "jvmId",
-                                                target.jvmId,
-                                                "probeTemplate",
-                                                probeTemplateName)));
+                                        new ProbeTemplateAppliedPayload(
+                                                target.jvmId, probeTemplateName)));
                         return null;
                     } catch (InstanceNotFoundException infe) {
                         throw new BadRequestException(infe);
@@ -149,11 +147,8 @@ public class JMCAgentProbes {
                                 MessagingServer.class.getName(),
                                 new Notification(
                                         PROBES_REMOVED_CATEGORY,
-                                        Map.of(
-                                                "jvmId",
-                                                target.jvmId,
-                                                "target",
-                                                target.connectUrl.toString())));
+                                        new ProbesRemovedPayload(
+                                                target.jvmId, target.connectUrl.toString())));
                         return null;
                     } catch (InstanceNotFoundException infe) {
                         throw new BadRequestException(infe);
