@@ -24,7 +24,6 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
 import java.nio.ByteBuffer;
-import java.nio.channels.Channels;
 import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -42,6 +41,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
@@ -125,14 +126,9 @@ import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.quartz.TriggerBuilder;
 import org.quartz.plugins.interrupt.JobInterruptMonitorPlugin;
-import software.amazon.awssdk.core.exception.SdkClientException;
-import software.amazon.awssdk.core.sync.RequestBody;
+import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.AbortMultipartUploadRequest;
-import software.amazon.awssdk.services.s3.model.CompleteMultipartUploadRequest;
-import software.amazon.awssdk.services.s3.model.CompletedMultipartUpload;
-import software.amazon.awssdk.services.s3.model.CompletedPart;
-import software.amazon.awssdk.services.s3.model.CreateMultipartUploadRequest;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectTaggingRequest;
@@ -146,9 +142,10 @@ import software.amazon.awssdk.services.s3.model.PutObjectTaggingRequest;
 import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
-import software.amazon.awssdk.services.s3.model.UploadPartRequest;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
+import software.amazon.awssdk.transfer.s3.S3TransferManager;
+import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 
 /**
  * Utility class for all things relating to Flight Recording operations. This class is used to
@@ -166,14 +163,14 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 @ApplicationScoped
 public class RecordingHelper {
 
-    private static final int S3_API_PART_LIMIT = 10_000;
-    private static final int MIB = 1024 * 1024;
-
     private static final Pattern TEMPLATE_PATTERN =
             Pattern.compile("^template=([\\w]+)(?:,type=([\\w]+))?$");
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
     @Inject S3Client storage;
+    @Inject S3AsyncClient storageAsync;
+    @Inject S3TransferManager transferManager;
+    final ExecutorService partUploader = Executors.newVirtualThreadPerTaskExecutor();
 
     @Inject @RestClient DatasourceClient datasourceClient;
     @Inject StorageBuckets buckets;
@@ -884,14 +881,9 @@ public class RecordingHelper {
         String filename =
                 String.format("%s_%s_%s.jfr", transformedAlias, recording.name, timestamp);
         String key = archivedRecordingKey(recording.target.jvmId, filename);
-        String multipartId = null;
-        List<Pair<Integer, String>> parts = new ArrayList<>();
-        long accum = 0;
-        try (var stream = getActiveInputStream(recording, uploadFailedTimeout);
-                var ch = Channels.newChannel(stream)) {
-            ByteBuffer buf = ByteBuffer.allocate(20 * MIB);
-            CreateMultipartUploadRequest.Builder builder =
-                    CreateMultipartUploadRequest.builder()
+        try (var stream = getActiveInputStream(recording, uploadFailedTimeout)) {
+            PutObjectRequest.Builder builder =
+                    PutObjectRequest.builder()
                             .bucket(archiveBucket)
                             .key(key)
                             .contentType(HttpMimeType.JFR.mime())
@@ -915,114 +907,26 @@ public class RecordingHelper {
                 default:
                     throw new IllegalStateException();
             }
-            CreateMultipartUploadRequest request = builder.build();
-            multipartId = storage.createMultipartUpload(request).uploadId();
-            int read = 0;
-            for (int i = 1; i <= S3_API_PART_LIMIT; i++) {
-                read = ch.read(buf);
-
-                if (read == 0) {
-                    read = retryRead(ch, buf);
-                }
-                accum += read;
-                if (read == -1) {
-                    logger.tracev(
-                            "Key: {0} completed upload of {1} chunks ({2} bytes)",
-                            key, i - 1, accum + 1);
-                    break;
-                }
-
-                logger.tracev("Writing chunk {0} of {1} bytes", i, read);
-                String eTag =
-                        storage.uploadPart(
-                                        UploadPartRequest.builder()
-                                                .bucket(archiveBucket)
-                                                .key(key)
-                                                .uploadId(multipartId)
-                                                .partNumber(i)
-                                                .contentLength(Long.valueOf(read))
-                                                .build(),
-                                        RequestBody.fromByteBuffer(buf.slice(0, read)))
-                                .eTag();
-                parts.add(Pair.of(i, eTag));
-                buf.clear();
-                // S3 API limit
-                if (i == S3_API_PART_LIMIT) {
-                    throw new IndexOutOfBoundsException("Exceeded S3 maximum part count");
-                }
-            }
-        } catch (Exception e) {
-            logger.error("Could not upload recording to S3 storage", e);
-            try {
-                if (multipartId != null) {
-                    storage.abortMultipartUpload(
-                            AbortMultipartUploadRequest.builder()
-                                    .bucket(archiveBucket)
-                                    .key(key)
-                                    .uploadId(multipartId)
-                                    .build());
-                }
-            } catch (Exception e2) {
-                logger.error("Could not abort S3 multipart upload", e2);
-            }
-            throw e;
-        }
-        try {
-            storage.completeMultipartUpload(
-                    CompleteMultipartUploadRequest.builder()
-                            .bucket(archiveBucket)
-                            .key(key)
-                            .uploadId(multipartId)
-                            .multipartUpload(
-                                    CompletedMultipartUpload.builder()
-                                            .parts(
-                                                    parts.stream()
-                                                            .map(
-                                                                    part ->
-                                                                            CompletedPart.builder()
-                                                                                    .partNumber(
-                                                                                            part
-                                                                                                    .getLeft())
-                                                                                    .eTag(
-                                                                                            part
-                                                                                                    .getRight())
-                                                                                    .build())
-                                                            .toList())
-                                            .build())
-                            .build());
-        } catch (SdkClientException e) {
-            // Amazon S3 couldn't be contacted for a response, or the client
-            // couldn't parse the response from Amazon S3.
-            throw e;
+            storageAsync
+                    .putObject(
+                            builder.build(),
+                            AsyncRequestBody.fromInputStream(stream, null, partUploader))
+                    .join();
         }
         ArchivedRecording archivedRecording =
-                new ArchivedRecording(
-                        recording.target.jvmId,
-                        filename,
-                        downloadUrl(recording.target.jvmId, filename),
-                        reportUrl(recording.target.jvmId, filename),
-                        recording.metadata,
-                        accum,
-                        now.getEpochSecond());
-
-        URI connectUrl = recording.target.connectUrl;
+                getArchivedRecordingInfo(recording.target.jvmId, filename).orElseThrow();
 
         var event =
                 new ArchivedRecordingEvent(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
-                        ArchivedRecordingEvent.Payload.of(connectUrl, archivedRecording));
+                        ArchivedRecordingEvent.Payload.of(
+                                recording.target.connectUrl, archivedRecording));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
-        return new ArchivedRecording(
-                recording.target.jvmId,
-                filename,
-                downloadUrl(recording.target.jvmId, filename),
-                reportUrl(recording.target.jvmId, filename),
-                recording.metadata,
-                accum,
-                now.getEpochSecond());
+
+        return archivedRecording;
     }
 
     public Optional<ArchivedRecording> getArchivedRecordingInfo(String jvmId, String filename) {
@@ -1387,7 +1291,14 @@ public class RecordingHelper {
             default:
                 throw new IllegalStateException();
         }
-        storage.putObject(requestBuilder.build(), RequestBody.fromFile(recording.filePath()));
+        transferManager
+                .uploadFile(
+                        UploadFileRequest.builder()
+                                .putObjectRequest(requestBuilder.build())
+                                .source(recording.filePath())
+                                .build())
+                .completionFuture()
+                .join();
 
         var target = Target.getTargetByJvmId(jvmId);
         ArchivedRecording archivedRecording =
