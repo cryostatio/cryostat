@@ -241,7 +241,7 @@ jobs:
       with:
         name: graphql-diff
         path: /home/runner/work/graphql.diff
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v6
       with:
         name: notifications-diff
         path: /home/runner/work/notifications.diff
@@ -304,7 +304,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v7
       with:
         name: notifications-diff
     - name: Comment schema check result
@@ -358,7 +358,7 @@ jobs:
           name: graphql-diff
           path: diffs
       - name: Download Notifications diff
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: notifications-diff
           path: diffs
