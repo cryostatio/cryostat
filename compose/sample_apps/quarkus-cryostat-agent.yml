@@ -13,6 +13,7 @@ services:
         -Dio.cryostat.agent.shaded.org.slf4j.simpleLogger.defaultLogLevel=warn
         -javaagent:/deployments/app/cryostat-agent.jar
         -javaagent:/deployments/app/jmc-agent.jar
+        -javaagent:/deployments/app/async-profiler.jar
         -Dcom.sun.management.jmxremote.autodiscovery=false
         -Dcom.sun.management.jmxremote
         -Dcom.sun.management.jmxremote.port=22222
