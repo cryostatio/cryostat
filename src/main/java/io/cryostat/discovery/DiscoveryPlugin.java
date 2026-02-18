@@ -56,6 +56,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.UuidGenerator;
+import org.hibernate.envers.Audited;
 import org.jboss.logging.Logger;
 
 /**
@@ -64,6 +65,7 @@ import org.jboss.logging.Logger;
  * io.cryostat.discovery.Discovery} API endpoints. Registration through that API generates a
  * DiscoveryPlugin record to place that plugin into the discovery tree.
  */
+@Audited
 @Entity
 @EntityListeners(DiscoveryPlugin.Listener.class)
 @Cacheable

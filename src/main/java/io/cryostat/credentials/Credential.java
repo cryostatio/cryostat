@@ -43,6 +43,7 @@ import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.ColumnTransformer;
+import org.hibernate.envers.Audited;
 import org.projectnessie.cel.tools.ScriptException;
 
 /**
@@ -60,6 +61,7 @@ import org.projectnessie.cel.tools.ScriptException;
  * match the target, then use the first matching Credential (see
  * https://github.com/cryostatio/cryostat/issues/376)
  */
+@Audited
 @Entity
 @EntityListeners(Credential.Listener.class)
 @Cacheable
