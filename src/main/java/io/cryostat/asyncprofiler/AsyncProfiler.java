@@ -33,6 +33,7 @@ import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.smallrye.common.annotation.Blocking;
@@ -251,6 +252,7 @@ public class AsyncProfiler {
         T execute(AgentConnection connection) throws Exception;
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record AsyncProfilerEvent(
             AsyncProfiler.AsyncProfilerEventCategory category, Payload payload) {
         public AsyncProfilerEvent {

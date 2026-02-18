@@ -55,6 +55,7 @@ import io.cryostat.util.HttpStatusCodeIdentifier;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.rest.client.reactive.QuarkusRestClientBuilder;
 import io.smallrye.mutiny.Uni;
@@ -826,6 +827,7 @@ public class AgentClient {
 
     static record SmartTriggerRequest(String definitions) {}
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record StartProfileRequest(
             String id, long startTime, List<String> events, long duration) {
         public StartProfileRequest(List<String> events, Duration duration) {
@@ -845,6 +847,7 @@ public class AgentClient {
 
     public static record AsyncProfile(String id, long startTime, long duration, long size) {}
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public static record AsyncProfilerStatus(
             StartProfileRequest currentProfile,
             ProfilerStatus status,
