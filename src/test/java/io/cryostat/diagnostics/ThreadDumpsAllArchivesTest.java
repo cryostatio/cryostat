@@ -38,7 +38,7 @@ import org.jboss.logging.Logger;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(S3StorageResource.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @TestHTTPEndpoint(Diagnostics.class)
 public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
 
@@ -87,7 +87,8 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
                         TimeUnit.SECONDS);
 
         String threadDumpId =
-                expectWebSocketNotification("ThreadDumpSuccess")
+                webSocketClient
+                        .expectNotification("ThreadDumpSuccess")
                         .getJsonObject("message")
                         .getJsonObject("threadDump")
                         .getString("threadDumpId");
@@ -126,7 +127,7 @@ public class ThreadDumpsAllArchivesTest extends AbstractTransactionalTestBase {
                         3,
                         TimeUnit.SECONDS);
 
-        expectWebSocketNotification(
+        webSocketClient.expectNotification(
                 "ThreadDumpDeleted",
                 json ->
                         Objects.equals(

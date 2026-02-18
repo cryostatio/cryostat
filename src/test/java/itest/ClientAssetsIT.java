@@ -15,11 +15,14 @@
  */
 package itest;
 
+import static io.restassured.RestAssured.given;
+
 import java.io.File;
-import java.util.concurrent.TimeUnit;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import io.quarkus.test.junit.QuarkusIntegrationTest;
-import itest.bases.StandardSelfTest;
+import io.restassured.RestAssured;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.jsoup.Jsoup;
@@ -31,17 +34,22 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 @QuarkusIntegrationTest
-public class ClientAssetsIT extends StandardSelfTest {
-
+public class ClientAssetsIT {
     static File file;
     static Document doc;
 
     @BeforeAll
     static void setup() throws Exception {
-        file =
-                downloadFile("/index.html", "index", "html")
-                        .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                        .toFile();
+        int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
+        RestAssured.baseURI = "http://localhost";
+        RestAssured.port = port;
+
+        byte[] content =
+                given().when().get("/index.html").then().statusCode(200).extract().asByteArray();
+
+        Path tempFile = Files.createTempFile("index", ".html");
+        Files.write(tempFile, content);
+        file = tempFile.toFile();
         doc = Jsoup.parse(file, "UTF-8");
     }
 

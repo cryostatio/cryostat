@@ -13,16 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package itest.resources;
+package io.cryostat.reports;
 
-import org.testcontainers.containers.GenericContainer;
+import io.cryostat.resources.ReportsSidecarResource;
+import io.cryostat.resources.S3StorageResource;
 
-public class S3StorageResource extends io.cryostat.resources.S3StorageResource {
-    @Override
-    protected String adjustS3Url(GenericContainer<?> container, String host, int port) {
-        return "http://"
-                + container.getCurrentContainerInfo().getConfig().getHostName()
-                + ":"
-                + S3_PORT;
-    }
-}
+import io.quarkus.test.common.QuarkusTestResource;
+import io.quarkus.test.common.http.TestHTTPEndpoint;
+import io.quarkus.test.junit.QuarkusTest;
+
+@QuarkusTest
+@TestHTTPEndpoint(Reports.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(value = ReportsSidecarResource.class, restrictToAnnotatedClass = true)
+public class ReportsSidecarTest extends AbstractReportsTest {}

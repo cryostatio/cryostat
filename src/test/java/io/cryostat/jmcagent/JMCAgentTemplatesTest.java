@@ -23,7 +23,9 @@ import java.util.List;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.core.jmcagent.ProbeTemplate;
+import io.cryostat.resources.S3StorageResource;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(JMCAgentTemplates.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class JMCAgentTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test

@@ -20,7 +20,9 @@ import static io.restassured.RestAssured.given;
 import java.util.Map;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.resources.S3StorageResource;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -28,10 +30,11 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(ActiveRecordings.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class ActiveRecordingsDownloadTest extends AbstractTransactionalTestBase {
 
     @Test
-    void testCreateDownloadAndDelete() {
+    void testCreateDownloadAndDelete() throws InterruptedException {
         int targetId = defineSelfCustomTarget();
         var json =
                 given().log()
@@ -54,7 +57,7 @@ public class ActiveRecordingsDownloadTest extends AbstractTransactionalTestBase 
                 .all()
                 .when()
                 .pathParams(Map.of("targetId", targetId))
-                .get(Integer.toString(json.getInt("id")))
+                .get(Integer.toString(json.getInt("remoteId")))
                 .then()
                 .log()
                 .all()
