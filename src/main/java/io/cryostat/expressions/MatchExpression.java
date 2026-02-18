@@ -44,6 +44,7 @@ import jakarta.persistence.PostUpdate;
 import jakarta.persistence.PrePersist;
 import jakarta.validation.ValidationException;
 import jakarta.validation.constraints.NotBlank;
+import org.hibernate.envers.Audited;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
 
@@ -55,6 +56,7 @@ import org.projectnessie.cel.tools.ScriptException;
  * passes a slightly slimmed down and read-only representation of the Target instance into the
  * expression context so that the expression can make assertions about the Target's properties.
  */
+@Audited
 @Entity
 @EntityListeners(MatchExpression.Listener.class)
 @Cacheable
