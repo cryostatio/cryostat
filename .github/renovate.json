@@ -10,11 +10,14 @@
     "chore",
     "safe-to-test"
   ],
+  "stopUpdatingLabel": "blocked",
   "semanticCommits": "enabled",
   "major": {
     "dependencyDashboardApproval": true
   },
-  "stopUpdatingLabel": "blocked",
+  "git-submodules": {
+      "enabled": true
+  },
   "packageRules": [
     {
       "description": "Require approval for Quarkus minor version updates",
