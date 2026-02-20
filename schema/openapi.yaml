@@ -1291,6 +1291,25 @@ paths:
       summary: Upload a JFR binary file to archives, associated with a particular target
       tags:
         - Archived Recordings
+  /api/beta/targets/{jvmId}/smart_triggers/sync/{uuid}:
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: uuid
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Created
+      summary: Sync Recordings
+      tags:
+        - Smart Triggers
   /api/beta/targets/{targetId}/async-profiler:
     get:
       parameters:
@@ -1451,20 +1470,6 @@ paths:
         "400":
           description: Bad Request
       summary: Define a new Smart Trigger for a target
-      tags:
-        - Smart Triggers
-  /api/beta/targets/{targetId}/smart_triggers/sync/{uuid}:
-    post:
-      parameters:
-        - in: path
-          name: uuid
-          required: true
-          schema:
-            type: string
-      responses:
-        "201":
-          description: Created
-      summary: Sync Recordings
       tags:
         - Smart Triggers
   /api/beta/targets/{targetId}/smart_triggers/{uuid}:
