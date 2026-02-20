@@ -24,6 +24,7 @@ import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.targets.Target.TargetDiscovery;
+import io.cryostat.triggers.SmartTriggers;
 
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
@@ -92,6 +93,11 @@ public class TargetUpdateService {
     @Transactional
     void onCredentialsDeleted(Credential credential) {
         updateTargetsForExpression(credential);
+    }
+
+    @ConsumeEvent(value = SmartTriggers.SMART_TRIGGER_SYNC)
+    void onSmartTriggerSync(Target target) throws SchedulerException {
+        fireTargetUpdate(target);
     }
 
     private void updateTargetsForExpression(Credential credential) {

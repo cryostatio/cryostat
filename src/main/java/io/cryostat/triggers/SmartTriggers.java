@@ -56,6 +56,7 @@ public class SmartTriggers {
 
     static final String SMART_TRIGGER_CREATED = "TriggerCreated";
     static final String SMART_TRIGGER_DELETED = "TriggerDeleted";
+    public static final String SMART_TRIGGER_SYNC = "TriggerSync";
 
     @Inject EventBus bus;
 
@@ -140,6 +141,21 @@ public class SmartTriggers {
                     return null;
                 },
                 uploadFailedTimeout);
+        bus.publish(
+                MessagingServer.class.getName(),
+                new Notification(
+                        SMART_TRIGGER_DELETED, Map.of("trigger", uuid, "jvmId", target.jvmId)));
+    }
+
+    @Path("api/beta/targets/{jvmId}/smart_triggers/sync/{uuid}")
+    @RolesAllowed("write")
+    @Transactional
+    @POST
+    public void syncRecordings(@RestPath String jvmId, @RestPath String uuid) {
+        log.tracev("Smart Trigger Sync request received");
+        Target target = Target.getTargetByJvmId(jvmId).get();
+        bus.publish(SMART_TRIGGER_SYNC, target);
+        // Trigger has concluded, fire deletion notification
         bus.publish(
                 MessagingServer.class.getName(),
                 new Notification(

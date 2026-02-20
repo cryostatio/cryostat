@@ -1453,6 +1453,20 @@ paths:
       summary: Define a new Smart Trigger for a target
       tags:
         - Smart Triggers
+  /api/beta/targets/{targetId}/smart_triggers/sync/{uuid}:
+    post:
+      parameters:
+        - in: path
+          name: uuid
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Created
+      summary: Sync Recordings
+      tags:
+        - Smart Triggers
   /api/beta/targets/{targetId}/smart_triggers/{uuid}:
     delete:
       description: |
