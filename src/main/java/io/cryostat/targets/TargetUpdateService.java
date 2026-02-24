@@ -24,7 +24,6 @@ import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.targets.Target.TargetDiscovery;
-import io.cryostat.triggers.SmartTriggers;
 
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
@@ -95,11 +94,6 @@ public class TargetUpdateService {
         updateTargetsForExpression(credential);
     }
 
-    @ConsumeEvent(value = SmartTriggers.SMART_TRIGGER_SYNC)
-    void onSmartTriggerSync(Target target) throws SchedulerException {
-        fireTargetUpdate(target);
-    }
-
     private void updateTargetsForExpression(Credential credential) {
         for (Target target :
                 matchExpressionEvaluator.getMatchedTargets(credential.matchExpression)) {
@@ -125,6 +119,7 @@ public class TargetUpdateService {
         }
     }
 
+    @ConsumeEvent
     void fireTargetUpdate(Target target) throws SchedulerException {
         JobKey key = new JobKey(Long.toString(target.id), "target-update");
         JobDetail job =

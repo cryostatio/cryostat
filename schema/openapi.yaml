@@ -1291,7 +1291,7 @@ paths:
       summary: Upload a JFR binary file to archives, associated with a particular target
       tags:
         - Archived Recordings
-  /api/beta/targets/{jvmId}/smart_triggers/sync/{uuid}:
+  /api/beta/targets/{jvmId}/smart_triggers/sync:
     post:
       parameters:
         - in: path
@@ -1299,11 +1299,12 @@ paths:
           required: true
           schema:
             type: string
-        - in: path
-          name: uuid
-          required: true
-          schema:
-            type: string
+      requestBody:
+        content:
+          text/plain:
+            schema:
+              type: string
+        required: true
       responses:
         "201":
           description: Created
