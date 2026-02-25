@@ -49,11 +49,11 @@ channels:
         - $ref: '#/components/messages/TriggerDeleted'
 components:
   messages:
-    ThreadDumpFailure:
-      name: ThreadDumpFailure
-      title: Thread Dump Failure
-      summary: 'Notification: ThreadDumpFailure'
-      description: WebSocket notification for Thread Dump Failure events
+    ArchiveRecordingFailure:
+      name: ArchiveRecordingFailure
+      title: Archive Recording Failure
+      summary: 'Notification: ArchiveRecordingFailure'
+      description: WebSocket notification for Archive Recording Failure events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -64,7 +64,7 @@ components:
             properties:
               category:
                 type: string
-                const: ThreadDumpFailure
+                const: ArchiveRecordingFailure
                 description: Notification category identifier
             required:
             - category
@@ -73,8 +73,73 @@ components:
             properties:
               jobId:
                 type: string
-              targetId:
+        required:
+        - meta
+        - message
+    ArchiveRecordingSuccess:
+      name: ArchiveRecordingSuccess
+      title: Archive Recording Success
+      summary: 'Notification: ArchiveRecordingSuccess'
+      description: WebSocket notification for Archive Recording Success events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ArchiveRecordingSuccess
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              jobId:
+                type: string
+              recording:
+                type: string
+              reportUrl:
+                type: string
+              downloadUrl:
+                type: string
+        required:
+        - meta
+        - message
+    CredentialsDeleted:
+      name: CredentialsDeleted
+      title: Credentials Deleted
+      summary: 'Notification: CredentialsDeleted'
+      description: WebSocket notification for Credentials Deleted events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: CredentialsDeleted
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              id:
                 type: integer
+              matchExpression:
+                type: object
+                properties:
+                  script:
+                    type: string
+              targets:
+                type: array
         required:
         - meta
         - message
@@ -112,11 +177,11 @@ components:
         required:
         - meta
         - message
-    TriggerCreated:
-      name: TriggerCreated
-      title: Trigger Created
-      summary: 'Notification: TriggerCreated'
-      description: WebSocket notification for Trigger Created events
+    CredentialsUpdated:
+      name: CredentialsUpdated
+      title: Credentials Updated
+      summary: 'Notification: CredentialsUpdated'
+      description: WebSocket notification for Credentials Updated events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -127,281 +192,7 @@ components:
             properties:
               category:
                 type: string
-                const: TriggerCreated
-                description: Notification category identifier
-            required:
-            - category
-          message:
-            type: object
-            additionalProperties: true
-        required:
-        - meta
-        - message
-    HeapDumpFailure:
-      name: HeapDumpFailure
-      title: Heap Dump Failure
-      summary: 'Notification: HeapDumpFailure'
-      description: WebSocket notification for Heap Dump Failure events
-      payload:
-        type: object
-        description: WebSocket notification message wrapper
-        properties:
-          meta:
-            type: object
-            description: Notification metadata
-            properties:
-              category:
-                type: string
-                const: HeapDumpFailure
-                description: Notification category identifier
-            required:
-            - category
-          message:
-            type: object
-            properties:
-              jobId:
-                type: string
-        required:
-        - meta
-        - message
-    ReportSuccess:
-      name: ReportSuccess
-      title: Report Success
-      summary: 'Notification: ReportSuccess'
-      description: WebSocket notification for Report Success events
-      payload:
-        type: object
-        description: WebSocket notification message wrapper
-        properties:
-          meta:
-            type: object
-            description: Notification metadata
-            properties:
-              category:
-                type: string
-                const: ReportSuccess
-                description: Notification category identifier
-            required:
-            - category
-          message:
-            type: object
-            properties:
-              jobId:
-                type: string
-              jvmId:
-                type: string
-        required:
-        - meta
-        - message
-    ArchiveRecordingFailure:
-      name: ArchiveRecordingFailure
-      title: Archive Recording Failure
-      summary: 'Notification: ArchiveRecordingFailure'
-      description: WebSocket notification for Archive Recording Failure events
-      payload:
-        type: object
-        description: WebSocket notification message wrapper
-        properties:
-          meta:
-            type: object
-            description: Notification metadata
-            properties:
-              category:
-                type: string
-                const: ArchiveRecordingFailure
-                description: Notification category identifier
-            required:
-            - category
-          message:
-            type: object
-            properties:
-              jobId:
-                type: string
-        required:
-        - meta
-        - message
-    ProbeTemplateApplied:
-      name: ProbeTemplateApplied
-      title: Probe Template Applied
-      summary: 'Notification: ProbeTemplateApplied'
-      description: WebSocket notification for Probe Template Applied events
-      payload:
-        type: object
-        description: WebSocket notification message wrapper
-        properties:
-          meta:
-            type: object
-            description: Notification metadata
-            properties:
-              category:
-                type: string
-                const: ProbeTemplateApplied
-                description: Notification category identifier
-            required:
-            - category
-          message:
-            type: object
-            properties:
-              jvmId:
-                type: string
-              probeTemplate:
-                type: string
-        required:
-        - meta
-        - message
-    TemplateDeleted:
-      name: TemplateDeleted
-      title: Template Deleted
-      summary: 'Notification: TemplateDeleted'
-      description: WebSocket notification for Template Deleted events
-      payload:
-        type: object
-        description: WebSocket notification message wrapper
-        properties:
-          meta:
-            type: object
-            description: Notification metadata
-            properties:
-              category:
-                type: string
-                const: TemplateDeleted
-                description: Notification category identifier
-            required:
-            - category
-          message:
-            type: object
-            properties:
-              template:
-                type: string
-        required:
-        - meta
-        - message
-    ProbeTemplateUploaded:
-      name: ProbeTemplateUploaded
-      title: Probe Template Uploaded
-      summary: 'Notification: ProbeTemplateUploaded'
-      description: WebSocket notification for Probe Template Uploaded events
-      payload:
-        type: object
-        description: WebSocket notification message wrapper
-        properties:
-          meta:
-            type: object
-            description: Notification metadata
-            properties:
-              category:
-                type: string
-                const: ProbeTemplateUploaded
-                description: Notification category identifier
-            required:
-            - category
-          message:
-            type: object
-            properties:
-              probeTemplate:
-                type: string
-              templateContent:
-                type: string
-        required:
-        - meta
-        - message
-    TriggerDeleted:
-      name: TriggerDeleted
-      title: Trigger Deleted
-      summary: 'Notification: TriggerDeleted'
-      description: WebSocket notification for Trigger Deleted events
-      payload:
-        type: object
-        description: WebSocket notification message wrapper
-        properties:
-          meta:
-            type: object
-            description: Notification metadata
-            properties:
-              category:
-                type: string
-                const: TriggerDeleted
-                description: Notification category identifier
-            required:
-            - category
-          message:
-            type: object
-            additionalProperties: true
-        required:
-        - meta
-        - message
-    ProbesRemoved:
-      name: ProbesRemoved
-      title: Probes Removed
-      summary: 'Notification: ProbesRemoved'
-      description: WebSocket notification for Probes Removed events
-      payload:
-        type: object
-        description: WebSocket notification message wrapper
-        properties:
-          meta:
-            type: object
-            description: Notification metadata
-            properties:
-              category:
-                type: string
-                const: ProbesRemoved
-                description: Notification category identifier
-            required:
-            - category
-          message:
-            type: object
-            properties:
-              jvmId:
-                type: string
-              target:
-                type: string
-        required:
-        - meta
-        - message
-    GrafanaUploadSuccess:
-      name: GrafanaUploadSuccess
-      title: Grafana Upload Success
-      summary: 'Notification: GrafanaUploadSuccess'
-      description: WebSocket notification for Grafana Upload Success events
-      payload:
-        type: object
-        description: WebSocket notification message wrapper
-        properties:
-          meta:
-            type: object
-            description: Notification metadata
-            properties:
-              category:
-                type: string
-                const: GrafanaUploadSuccess
-                description: Notification category identifier
-            required:
-            - category
-          message:
-            type: object
-            properties:
-              jobId:
-                type: string
-        required:
-        - meta
-        - message
-    CredentialsDeleted:
-      name: CredentialsDeleted
-      title: Credentials Deleted
-      summary: 'Notification: CredentialsDeleted'
-      description: WebSocket notification for Credentials Deleted events
-      payload:
-        type: object
-        description: WebSocket notification message wrapper
-        properties:
-          meta:
-            type: object
-            description: Notification metadata
-            properties:
-              category:
-                type: string
-                const: CredentialsDeleted
+                const: CredentialsUpdated
                 description: Notification category identifier
             required:
             - category
@@ -447,11 +238,11 @@ components:
         required:
         - meta
         - message
-    TemplateUploaded:
-      name: TemplateUploaded
-      title: Template Uploaded
-      summary: 'Notification: TemplateUploaded'
-      description: WebSocket notification for Template Uploaded events
+    GrafanaUploadSuccess:
+      name: GrafanaUploadSuccess
+      title: Grafana Upload Success
+      summary: 'Notification: GrafanaUploadSuccess'
+      description: WebSocket notification for Grafana Upload Success events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -462,23 +253,23 @@ components:
             properties:
               category:
                 type: string
-                const: TemplateUploaded
+                const: GrafanaUploadSuccess
                 description: Notification category identifier
             required:
             - category
           message:
             type: object
             properties:
-              template:
+              jobId:
                 type: string
         required:
         - meta
         - message
-    CredentialsUpdated:
-      name: CredentialsUpdated
-      title: Credentials Updated
-      summary: 'Notification: CredentialsUpdated'
-      description: WebSocket notification for Credentials Updated events
+    HeapDumpFailure:
+      name: HeapDumpFailure
+      title: Heap Dump Failure
+      summary: 'Notification: HeapDumpFailure'
+      description: WebSocket notification for Heap Dump Failure events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -489,22 +280,214 @@ components:
             properties:
               category:
                 type: string
-                const: CredentialsUpdated
+                const: HeapDumpFailure
                 description: Notification category identifier
             required:
             - category
           message:
             type: object
             properties:
-              id:
-                type: integer
-              matchExpression:
-                type: object
-                properties:
-                  script:
-                    type: string
-              targets:
-                type: array
+              jobId:
+                type: string
+        required:
+        - meta
+        - message
+    HeapDumpSuccess:
+      name: HeapDumpSuccess
+      title: Heap Dump Success
+      summary: 'Notification: HeapDumpSuccess'
+      description: WebSocket notification for Heap Dump Success events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: HeapDumpSuccess
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              jobId:
+                type: string
+              targetAlias:
+                type: string
+        required:
+        - meta
+        - message
+    ProbeTemplateApplied:
+      name: ProbeTemplateApplied
+      title: Probe Template Applied
+      summary: 'Notification: ProbeTemplateApplied'
+      description: WebSocket notification for Probe Template Applied events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ProbeTemplateApplied
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              jvmId:
+                type: string
+              probeTemplate:
+                type: string
+        required:
+        - meta
+        - message
+    ProbeTemplateDeleted:
+      name: ProbeTemplateDeleted
+      title: Probe Template Deleted
+      summary: 'Notification: ProbeTemplateDeleted'
+      description: WebSocket notification for Probe Template Deleted events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ProbeTemplateDeleted
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              probeTemplate:
+                type: string
+        required:
+        - meta
+        - message
+    ProbeTemplateUploaded:
+      name: ProbeTemplateUploaded
+      title: Probe Template Uploaded
+      summary: 'Notification: ProbeTemplateUploaded'
+      description: WebSocket notification for Probe Template Uploaded events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ProbeTemplateUploaded
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              probeTemplate:
+                type: string
+              templateContent:
+                type: string
+        required:
+        - meta
+        - message
+    ProbesRemoved:
+      name: ProbesRemoved
+      title: Probes Removed
+      summary: 'Notification: ProbesRemoved'
+      description: WebSocket notification for Probes Removed events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ProbesRemoved
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              jvmId:
+                type: string
+              target:
+                type: string
+        required:
+        - meta
+        - message
+    ReportFailure:
+      name: ReportFailure
+      title: Report Failure
+      summary: 'Notification: ReportFailure'
+      description: WebSocket notification for Report Failure events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ReportFailure
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              jobId:
+                type: string
+        required:
+        - meta
+        - message
+    ReportSuccess:
+      name: ReportSuccess
+      title: Report Success
+      summary: 'Notification: ReportSuccess'
+      description: WebSocket notification for Report Success events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ReportSuccess
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              jobId:
+                type: string
+              jvmId:
+                type: string
         required:
         - meta
         - message
@@ -583,11 +566,11 @@ components:
         required:
         - meta
         - message
-    HeapDumpSuccess:
-      name: HeapDumpSuccess
-      title: Heap Dump Success
-      summary: 'Notification: HeapDumpSuccess'
-      description: WebSocket notification for Heap Dump Success events
+    TemplateDeleted:
+      name: TemplateDeleted
+      title: Template Deleted
+      summary: 'Notification: TemplateDeleted'
+      description: WebSocket notification for Template Deleted events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -598,7 +581,61 @@ components:
             properties:
               category:
                 type: string
-                const: HeapDumpSuccess
+                const: TemplateDeleted
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              template:
+                type: string
+        required:
+        - meta
+        - message
+    TemplateUploaded:
+      name: TemplateUploaded
+      title: Template Uploaded
+      summary: 'Notification: TemplateUploaded'
+      description: WebSocket notification for Template Uploaded events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: TemplateUploaded
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              template:
+                type: string
+        required:
+        - meta
+        - message
+    ThreadDumpFailure:
+      name: ThreadDumpFailure
+      title: Thread Dump Failure
+      summary: 'Notification: ThreadDumpFailure'
+      description: WebSocket notification for Thread Dump Failure events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ThreadDumpFailure
                 description: Notification category identifier
             required:
             - category
@@ -607,16 +644,16 @@ components:
             properties:
               jobId:
                 type: string
-              targetAlias:
-                type: string
+              targetId:
+                type: integer
         required:
         - meta
         - message
-    ArchiveRecordingSuccess:
-      name: ArchiveRecordingSuccess
-      title: Archive Recording Success
-      summary: 'Notification: ArchiveRecordingSuccess'
-      description: WebSocket notification for Archive Recording Success events
+    TriggerCreated:
+      name: TriggerCreated
+      title: Trigger Created
+      summary: 'Notification: TriggerCreated'
+      description: WebSocket notification for Trigger Created events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -627,29 +664,21 @@ components:
             properties:
               category:
                 type: string
-                const: ArchiveRecordingSuccess
+                const: TriggerCreated
                 description: Notification category identifier
             required:
             - category
           message:
             type: object
-            properties:
-              jobId:
-                type: string
-              recording:
-                type: string
-              reportUrl:
-                type: string
-              downloadUrl:
-                type: string
+            additionalProperties: true
         required:
         - meta
         - message
-    ProbeTemplateDeleted:
-      name: ProbeTemplateDeleted
-      title: Probe Template Deleted
-      summary: 'Notification: ProbeTemplateDeleted'
-      description: WebSocket notification for Probe Template Deleted events
+    TriggerDeleted:
+      name: TriggerDeleted
+      title: Trigger Deleted
+      summary: 'Notification: TriggerDeleted'
+      description: WebSocket notification for Trigger Deleted events
       payload:
         type: object
         description: WebSocket notification message wrapper
@@ -660,42 +689,13 @@ components:
             properties:
               category:
                 type: string
-                const: ProbeTemplateDeleted
+                const: TriggerDeleted
                 description: Notification category identifier
             required:
             - category
           message:
             type: object
-            properties:
-              probeTemplate:
-                type: string
-        required:
-        - meta
-        - message
-    ReportFailure:
-      name: ReportFailure
-      title: Report Failure
-      summary: 'Notification: ReportFailure'
-      description: WebSocket notification for Report Failure events
-      payload:
-        type: object
-        description: WebSocket notification message wrapper
-        properties:
-          meta:
-            type: object
-            description: Notification metadata
-            properties:
-              category:
-                type: string
-                const: ReportFailure
-                description: Notification category identifier
-            required:
-            - category
-          message:
-            type: object
-            properties:
-              jobId:
-                type: string
+            additionalProperties: true
         required:
         - meta
         - message

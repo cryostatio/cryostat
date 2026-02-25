@@ -18,6 +18,7 @@ package io.cryostat.schema;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 
 /** Builds an AsyncAPI 2.6.0 compliant schema from discovered notification sites. */
@@ -118,7 +119,7 @@ public class AsyncAPISchemaBuilder {
     private Map<String, Object> buildComponents(List<NotificationSite> notificationSites) {
         Map<String, Object> components = new LinkedHashMap<>();
 
-        Map<String, Object> messages = new LinkedHashMap<>();
+        Map<String, Object> messages = new TreeMap<>();
 
         // Group sites by category
         Map<String, List<NotificationSite>> sitesByCategory =
