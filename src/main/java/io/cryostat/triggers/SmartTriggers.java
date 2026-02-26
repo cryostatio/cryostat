@@ -24,9 +24,12 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.libcryostat.triggers.SmartTrigger;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
+import io.cryostat.targets.TargetUpdateService;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -56,8 +59,11 @@ public class SmartTriggers {
 
     static final String SMART_TRIGGER_CREATED = "TriggerCreated";
     static final String SMART_TRIGGER_DELETED = "TriggerDeleted";
+    public static final String SMART_TRIGGER_SYNC = "TriggerSync";
 
     @Inject EventBus bus;
+
+    @Inject ObjectMapper mapper;
 
     @Path("api/beta/targets/{targetId}/smart_triggers")
     @RolesAllowed("read")
@@ -145,4 +151,35 @@ public class SmartTriggers {
                 new Notification(
                         SMART_TRIGGER_DELETED, Map.of("trigger", uuid, "jvmId", target.jvmId)));
     }
+
+    @Path("api/beta/targets/{jvmId}/smart_triggers/sync/")
+    @RolesAllowed("write")
+    @Transactional
+    @POST
+    public void syncRecordings(@RestPath String jvmId, String body) {
+        try {
+            log.tracev("Smart Trigger Sync request received {}", body);
+            Target target = Target.getTargetByJvmId(jvmId).get();
+            bus.publish(TargetUpdateService.class.getName(), target);
+            List<String> removedIds =
+                    mapper.readValue(body, SmartTriggerUpdate.class).removedTriggers;
+            // Trigger has concluded, fire deletion notification
+            for (String id : removedIds) {
+                bus.publish(
+                        MessagingServer.class.getName(),
+                        new Notification(
+                                SMART_TRIGGER_DELETED,
+                                Map.of("trigger", id, "jvmId", target.jvmId)));
+            }
+        } catch (Exception e) {
+            log.warn("Error while parsing smart trigger request: ", e);
+        }
+    }
+
+    @SuppressFBWarnings("EI_EXPOSE_REP")
+    public record SmartTriggerUpdate(
+            List<String> addedTriggers,
+            List<String> removedTriggers,
+            List<String> updatedTriggers) {}
+    ;
 }

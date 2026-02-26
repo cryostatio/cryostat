@@ -119,6 +119,7 @@ public class TargetUpdateService {
         }
     }
 
+    @ConsumeEvent
     void fireTargetUpdate(Target target) throws SchedulerException {
         JobKey key = new JobKey(Long.toString(target.id), "target-update");
         JobDetail job =
