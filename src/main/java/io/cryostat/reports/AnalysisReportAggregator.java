@@ -297,6 +297,7 @@ public class AnalysisReportAggregator {
             list.add(Pair.of(n.nodeType, n.name));
         }
         list.add(Pair.of("jvmId", target.jvmId));
+        list.add(Pair.of("targetId", String.valueOf(target.id)));
         return list;
     }
 
