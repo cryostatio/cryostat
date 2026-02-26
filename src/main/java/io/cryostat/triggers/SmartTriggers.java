@@ -29,6 +29,7 @@ import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -175,6 +176,7 @@ public class SmartTriggers {
         }
     }
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record SmartTriggerUpdate(
             List<String> addedTriggers,
             List<String> removedTriggers,
