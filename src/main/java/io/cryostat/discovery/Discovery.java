@@ -517,8 +517,20 @@ public class Discovery {
                             String namespace = pubCtx.get("namespace");
                             String nodeType = pubCtx.get("nodetype");
                             String name = pubCtx.get("name");
-                            if (namespace == null || nodeType == null || name == null) {
-                                throw new BadRequestException();
+                            if (StringUtils.isBlank(namespace)
+                                    || StringUtils.isBlank(nodeType)
+                                    || StringUtils.isBlank(name)) {
+                                String key;
+                                if (StringUtils.isBlank(namespace)) {
+                                    key = "namespace";
+                                } else if (StringUtils.isBlank(nodeType)) {
+                                    key = "nodeType";
+                                } else {
+                                    key = "name";
+                                }
+                                throw new BadRequestException(
+                                        new IllegalArgumentException(
+                                                String.format("%s cannot be blank", key)));
                             }
                             DiscoveryNode lineage =
                                     k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
