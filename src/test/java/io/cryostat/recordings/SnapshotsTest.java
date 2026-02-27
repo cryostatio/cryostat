@@ -20,16 +20,25 @@ import static io.restassured.RestAssured.given;
 import java.util.Map;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.resources.S3StorageResource;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 @TestHTTPEndpoint(Snapshots.class)
 public class SnapshotsTest extends AbstractTransactionalTestBase {
+
+    @AfterEach
+    void cleanupSnapshotsTest() {
+        cleanupSelfActiveAndArchivedRecordings();
+    }
 
     @Test
     void testNoSource() {
@@ -45,6 +54,21 @@ public class SnapshotsTest extends AbstractTransactionalTestBase {
                 .and()
                 .assertThat()
                 .statusCode(202);
+    }
+
+    @Test
+    void testNonExistentTarget() {
+        given().log()
+                .all()
+                .when()
+                .pathParams(Map.of("targetId", Long.MAX_VALUE))
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(404);
     }
 
     @Test

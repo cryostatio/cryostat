@@ -23,8 +23,10 @@ import java.util.Map;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.resources.S3StorageResource;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -38,6 +40,7 @@ import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @TestHTTPEndpoint(AnalysisReportAggregator.class)
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase {
 
     @Inject ObjectMapper mapper;
@@ -46,163 +49,152 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
     @AfterEach
     void reset() {
         aggregator.reset();
+        cleanupSelfActiveAndArchivedRecordings();
     }
 
     @Test
     void testScrapeAll()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         defineSelfCustomTarget();
-        try {
-            startSelfRecording(
-                    "analysisReportAggregatorAll",
-                    Map.of(
-                            "events",
-                            TEMPLATE_CONTINUOUS,
-                            "duration",
-                            5,
-                            "archiveOnStop",
-                            true,
-                            "metadata",
-                            mapper.writeValueAsString(
-                                    Map.of("labels", Map.of("autoanalyze", "true")))));
+        startSelfRecording(
+                "analysisReportAggregatorAll",
+                Map.of(
+                        "events",
+                        TEMPLATE_CONTINUOUS,
+                        "duration",
+                        5,
+                        "archiveOnStop",
+                        true,
+                        "metadata",
+                        mapper.writeValueAsString(
+                                Map.of("labels", Map.of("autoanalyze", "true")))));
 
-            expectWebSocketNotification("ReportSuccess");
+        webSocketClient.expectNotification("ReportSuccess");
 
-            String scrape =
-                    given().log()
-                            .all()
-                            .when()
-                            .get()
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .assertThat()
-                            .statusCode(200)
-                            .contentType(ContentType.TEXT)
-                            .and()
-                            .extract()
-                            .body()
-                            .asString();
-            MatcherAssert.assertThat(scrape, Matchers.not(Matchers.emptyString()));
-            Arrays.asList(scrape.split("\n")).stream()
-                    .map(String::strip)
-                    .map(
-                            s ->
-                                    Pair.of(
-                                            s.substring(0, s.lastIndexOf('=')),
-                                            s.substring(s.lastIndexOf('=') + 1)))
-                    .forEach(
-                            kv -> {
-                                MatcherAssert.assertThat(
-                                        kv.getKey(),
-                                        Matchers.allOf(
-                                                Matchers.containsString("Realm=\"Custom Targets\""),
-                                                Matchers.containsString(
-                                                        String.format(
-                                                                "JVM=\"%s\"", SELF_JMX_URL))));
-                                double score = Double.parseDouble(kv.getValue());
-                                MatcherAssert.assertThat(
-                                        score,
-                                        Matchers.either(Matchers.equalTo(-1.0))
-                                                .or(
-                                                        Matchers.both(
-                                                                        Matchers
-                                                                                .greaterThanOrEqualTo(
-                                                                                        0.0))
-                                                                .and(
-                                                                        Matchers.lessThanOrEqualTo(
-                                                                                100.0))));
-                            });
-        } finally {
-            cleanupSelfActiveAndArchivedRecordings();
-        }
+        String scrape =
+                given().log()
+                        .all()
+                        .when()
+                        .get()
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.TEXT)
+                        .and()
+                        .extract()
+                        .body()
+                        .asString();
+        MatcherAssert.assertThat(scrape, Matchers.not(Matchers.emptyString()));
+        Arrays.asList(scrape.split("\n")).stream()
+                .map(String::strip)
+                .map(
+                        s ->
+                                Pair.of(
+                                        s.substring(0, s.lastIndexOf('=')),
+                                        s.substring(s.lastIndexOf('=') + 1)))
+                .forEach(
+                        kv -> {
+                            MatcherAssert.assertThat(
+                                    kv.getKey(),
+                                    Matchers.allOf(
+                                            Matchers.containsString("Realm=\"Custom Targets\""),
+                                            Matchers.containsString(
+                                                    String.format("JVM=\"%s\"", SELF_JMX_URL))));
+                            double score = Double.parseDouble(kv.getValue());
+                            MatcherAssert.assertThat(
+                                    score,
+                                    Matchers.either(Matchers.equalTo(-1.0))
+                                            .or(
+                                                    Matchers.both(
+                                                                    Matchers.greaterThanOrEqualTo(
+                                                                            0.0))
+                                                            .and(
+                                                                    Matchers.lessThanOrEqualTo(
+                                                                            100.0))));
+                        });
     }
 
     @Test
     void testScrapeSingle()
             throws InterruptedException, IOException, DeploymentException, TimeoutException {
         int targetId = defineSelfCustomTarget();
-        try {
-            var recording =
-                    startSelfRecording(
-                            "analysisReportAggregatorSingle",
-                            Map.of(
-                                    "events",
-                                    TEMPLATE_CONTINUOUS,
-                                    "duration",
-                                    5,
-                                    "archiveOnStop",
-                                    true,
-                                    "metadata",
-                                    mapper.writeValueAsString(
-                                            Map.of("labels", Map.of("autoanalyze", "true")))));
-            recording.getInt("remoteId");
-            expectWebSocketNotification("ReportSuccess");
+        var recording =
+                startSelfRecording(
+                        "analysisReportAggregatorSingle",
+                        Map.of(
+                                "events",
+                                TEMPLATE_CONTINUOUS,
+                                "duration",
+                                5,
+                                "archiveOnStop",
+                                true,
+                                "metadata",
+                                mapper.writeValueAsString(
+                                        Map.of("labels", Map.of("autoanalyze", "true")))));
+        recording.getInt("remoteId");
+        webSocketClient.expectNotification("ReportSuccess");
 
-            String scrape =
-                    given().log()
-                            .all()
-                            .when()
-                            .get(selfJvmId)
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .assertThat()
-                            .statusCode(200)
-                            .contentType(ContentType.TEXT)
-                            .and()
-                            .extract()
-                            .body()
-                            .asString();
-            MatcherAssert.assertThat(scrape, Matchers.not(Matchers.emptyString()));
-            Arrays.asList(scrape.split("\n")).stream()
-                    .map(String::strip)
-                    .map(
-                            s ->
-                                    Pair.of(
-                                            s.substring(0, s.lastIndexOf('=')),
-                                            s.substring(s.lastIndexOf('=') + 1)))
-                    .forEach(
-                            kv -> {
-                                MatcherAssert.assertThat(
-                                        kv.getKey(),
-                                        Matchers.allOf(
-                                                Matchers.containsString("Realm=\"Custom Targets\""),
-                                                Matchers.containsString(
-                                                        String.format(
-                                                                "JVM=\"%s\"", SELF_JMX_URL))));
-                                double score = Double.parseDouble(kv.getValue());
-                                MatcherAssert.assertThat(
-                                        score,
-                                        Matchers.either(Matchers.equalTo(-1.0))
-                                                .or(
-                                                        Matchers.both(
-                                                                        Matchers
-                                                                                .greaterThanOrEqualTo(
-                                                                                        0.0))
-                                                                .and(
-                                                                        Matchers.lessThanOrEqualTo(
-                                                                                100.0))));
-                            });
+        String scrape =
+                given().log()
+                        .all()
+                        .when()
+                        .get(selfJvmId)
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.TEXT)
+                        .and()
+                        .extract()
+                        .body()
+                        .asString();
+        MatcherAssert.assertThat(scrape, Matchers.not(Matchers.emptyString()));
+        Arrays.asList(scrape.split("\n")).stream()
+                .map(String::strip)
+                .map(
+                        s ->
+                                Pair.of(
+                                        s.substring(0, s.lastIndexOf('=')),
+                                        s.substring(s.lastIndexOf('=') + 1)))
+                .forEach(
+                        kv -> {
+                            MatcherAssert.assertThat(
+                                    kv.getKey(),
+                                    Matchers.allOf(
+                                            Matchers.containsString("Realm=\"Custom Targets\""),
+                                            Matchers.containsString(
+                                                    String.format("JVM=\"%s\"", SELF_JMX_URL))));
+                            double score = Double.parseDouble(kv.getValue());
+                            MatcherAssert.assertThat(
+                                    score,
+                                    Matchers.either(Matchers.equalTo(-1.0))
+                                            .or(
+                                                    Matchers.both(
+                                                                    Matchers.greaterThanOrEqualTo(
+                                                                            0.0))
+                                                            .and(
+                                                                    Matchers.lessThanOrEqualTo(
+                                                                            100.0))));
+                        });
 
-            given().log()
-                    .all()
-                    .when()
-                    .basePath("/api/v4.1/targets/{targetId}/reports")
-                    .pathParams("targetId", targetId)
-                    .get()
-                    .then()
-                    .log()
-                    .all()
-                    .and()
-                    .assertThat()
-                    .statusCode(200)
-                    .contentType(ContentType.JSON);
-        } finally {
-            cleanupSelfActiveAndArchivedRecordings();
-        }
+        given().log()
+                .all()
+                .when()
+                .basePath("/api/v4.1/targets/{targetId}/reports")
+                .pathParams("targetId", targetId)
+                .get()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .contentType(ContentType.JSON);
     }
 
     @Test

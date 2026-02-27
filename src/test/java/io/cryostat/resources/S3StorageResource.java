@@ -16,6 +16,7 @@
 package io.cryostat.resources;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -33,23 +34,40 @@ public class S3StorageResource
     protected static final String IMAGE_NAME = "quay.io/cryostat/cryostat-storage:STORAGE_VERSION";
     protected static final Map<String, String> envMap =
             Map.of(
-                    "DATA_DIR", "/tmp",
-                    "IP_BIND", "0.0.0.0",
-                    "WEED_V", "4",
-                    "REST_ENCRYPTION_ENABLE", "1",
-                    "CRYOSTAT_ACCESS_KEY", "access_key",
-                    "CRYOSTAT_SECRET_KEY", "secret_key",
-                    "CRYOSTAT_BUCKETS", "archivedrecordings,archivedreports,eventtemplates,probes");
+                    "DATA_DIR",
+                    "/tmp",
+                    "IP_BIND",
+                    "0.0.0.0",
+                    "WEED_V",
+                    "4",
+                    "REST_ENCRYPTION_ENABLE",
+                    "1",
+                    "CRYOSTAT_ACCESS_KEY",
+                    "access_key",
+                    "CRYOSTAT_SECRET_KEY",
+                    "secret_key",
+                    "CRYOSTAT_BUCKETS",
+                    String.join(
+                            ",",
+                            List.of(
+                                    "metadata",
+                                    "archivedrecordings",
+                                    "archivedreports",
+                                    "eventtemplates",
+                                    "probes",
+                                    "threaddumps",
+                                    "heapdumps")));
     protected final Logger logger = Logger.getLogger(getClass());
     protected Optional<String> containerNetworkId;
     protected GenericContainer<?> container;
 
     public Map<String, String> getProperties(GenericContainer<?> container) {
         Map<String, String> properties = new HashMap<>();
+        properties.put("test.storage.enabled", "true");
         properties.put("quarkus.s3.aws.region", "us-east-1");
         properties.put(
                 "s3.url.override",
-                adjustS3Url(container, container.getHost(), container.getMappedPort(S3_PORT)));
+                adjustS3Url(container.getHost(), container.getMappedPort(S3_PORT)));
         properties.put("quarkus.s3.endpoint-override", properties.get("s3.url.override"));
         properties.put("quarkus.s3.path-style-access", "true");
         properties.put("quarkus.s3.aws.credentials.type", "static");
@@ -84,7 +102,8 @@ public class S3StorageResource
                         .withExposedPorts(S3_PORT)
                         .withEnv(envMap)
                         .withTmpFs(Map.of("/data", "rw"))
-                        .waitingFor(Wait.forListeningPort());
+                        .waitingFor(Wait.forListeningPort())
+                        .withStartupAttempts(3);
         containerNetworkId.ifPresent(container::withNetworkMode);
 
         container.start();
@@ -107,7 +126,7 @@ public class S3StorageResource
         containerNetworkId = context.containerNetworkId();
     }
 
-    protected String adjustS3Url(GenericContainer<?> container, String host, int port) {
-        return "http://" + container.getHost() + ":" + container.getMappedPort(S3_PORT);
+    protected String adjustS3Url(String host, int port) {
+        return "http://" + host + ":" + port;
     }
 }

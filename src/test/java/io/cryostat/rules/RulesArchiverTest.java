@@ -26,14 +26,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.resources.S3StorageResource;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class RulesArchiverTest extends AbstractTransactionalTestBase {
 
     static String RULE_NAME = "periodic_archiver";
@@ -58,6 +62,11 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
 
     private static final ScheduledExecutorService worker =
             Executors.newSingleThreadScheduledExecutor();
+
+    @AfterEach
+    void cleanupRulesArchiverTest() {
+        cleanupSelfActiveAndArchivedRecordings();
+    }
 
     @Test
     public void test()
@@ -121,8 +130,8 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 50,
                 TimeUnit.SECONDS);
 
-        expectWebSocketNotification("ArchivedRecordingDeleted", Duration.ofSeconds(50));
-        expectWebSocketNotification("RuleDeleted", Duration.ofSeconds(65));
+        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(50));
+        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(65));
 
         given().log()
                 .all()
@@ -137,7 +146,5 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .contentType(ContentType.JSON)
                 .statusCode(200)
                 .body("size()", Matchers.equalTo(3));
-
-        cleanupSelfActiveAndArchivedRecordings();
     }
 }

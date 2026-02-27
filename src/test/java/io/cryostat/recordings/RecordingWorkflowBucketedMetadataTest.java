@@ -13,13 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.cryostat.jmcagent;
+package io.cryostat.recordings;
 
-import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.resources.S3StorageBucketedMetadataResource;
 
-import io.quarkus.test.common.http.TestHTTPEndpoint;
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 
 @QuarkusTest
-@TestHTTPEndpoint(JMCAgentProbes.class)
-public class JMCAgentProbesTest extends AbstractTransactionalTestBase {}
+@QuarkusTestResource(
+        value = S3StorageBucketedMetadataResource.class,
+        restrictToAnnotatedClass = true)
+public class RecordingWorkflowBucketedMetadataTest extends AbstractRecordingWorkflowTest {}

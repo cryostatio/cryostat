@@ -15,44 +15,45 @@
  */
 package itest;
 
+import static io.restassured.RestAssured.given;
+
 import java.io.File;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
-import io.vertx.core.buffer.Buffer;
+import io.restassured.RestAssured;
+import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
-import io.vertx.ext.web.client.HttpRequest;
-import itest.bases.StandardSelfTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 @QuarkusIntegrationTest
-public class PresetRulesIT extends StandardSelfTest {
-
+public class PresetRulesIT {
     static final String[] RULE_NAMES = new String[] {"quarkus", "hibernate", "continuous_analysis"};
+
+    @BeforeAll
+    static void configureRestAssured() {
+        int port = Integer.parseInt(System.getenv().getOrDefault("QUARKUS_HTTP_PORT", "8081"));
+        RestAssured.baseURI = "http://localhost";
+        RestAssured.port = port;
+    }
 
     @Test
     public void shouldListPresetRules() throws Exception {
-        CompletableFuture<JsonArray> future = new CompletableFuture<>();
-        HttpRequest<Buffer> req = webClient.get("/api/v4/rules");
-        req.send(
-                ar -> {
-                    if (ar.failed()) {
-                        future.completeExceptionally(ar.cause());
-                        return;
-                    }
-                    future.complete(ar.result().bodyAsJsonArray());
-                });
-        JsonArray response = future.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        MatcherAssert.assertThat(response.size(), Matchers.equalTo(RULE_NAMES.length));
+        Response response =
+                given().when().get("/api/v4/rules").then().statusCode(200).extract().response();
+
+        JsonArray list = new JsonArray(response.body().asString());
+        MatcherAssert.assertThat(list.size(), Matchers.equalTo(RULE_NAMES.length));
     }
 
     static List<String> ruleNames() {
@@ -63,10 +64,20 @@ public class PresetRulesIT extends StandardSelfTest {
     @MethodSource("ruleNames")
     public void shouldHavePresetRules(String ruleName) throws Exception {
         String url = String.format("/api/v4/rules/%s", ruleName);
-        File file =
-                downloadFile(url, ruleName, ".json")
-                        .get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                        .toFile();
+
+        Response response =
+                given().redirects()
+                        .follow(true)
+                        .when()
+                        .get(url)
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .response();
+
+        Path tempFile = Files.createTempFile(ruleName, ".json");
+        Files.write(tempFile, response.asByteArray());
+        File file = tempFile.toFile();
 
         ObjectMapper mapper = new ObjectMapper();
         JsonNode json = mapper.readTree(file);
