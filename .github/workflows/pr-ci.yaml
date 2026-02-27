@@ -165,11 +165,21 @@ jobs:
         PR_CI: true
       run: |
         ./mvnw -B -U \
-          -Dquarkus.log.level=error \
-          -Dquarkus.hibernate-orm.log.sql=false \
-          -Dquarkus.http.access-log.enabled=false \
-          clean verify
-
+          -Dquarkus.container-image.builder=docker \
+          -Dquarkus.log.level=debug \
+          -Dquarkus.hibernate-orm.log.sql=true \
+          -Dquarkus.http.access-log.enabled=true \
+          clean verify > test.log 2>&1
+    - uses: actions/upload-artifact@v6
+      if: always()
+      with:
+        name: cryostat-test-log
+        path: test.log
+    - uses: actions/upload-artifact@v6
+      if: always()
+      with:
+        name: cryostat-itest-server-log
+        path: target/quarkus.log
     - name: Add workflow result as comment on PR
       uses: actions/github-script@v7
       if: always()
