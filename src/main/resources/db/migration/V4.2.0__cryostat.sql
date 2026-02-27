@@ -220,8 +220,6 @@ CREATE TABLE Target_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
     REVTYPE SMALLINT,
-    REVEND INTEGER,
-    REVEND_TSTMP BIGINT,
     connectUrl BYTEA,
     alias text check (char_length(alias) < 255),
     jvmId text check (char_length(jvmId) < 255),
@@ -229,8 +227,7 @@ CREATE TABLE Target_AUD (
     annotations TEXT,
     discoveryNode BIGINT,
     PRIMARY KEY (id, REV),
-    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
-    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
 );
 
 -- Audit table for Rule entity
@@ -238,8 +235,6 @@ CREATE TABLE Rule_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
     REVTYPE SMALLINT,
-    REVEND INTEGER,
-    REVEND_TSTMP BIGINT,
     name text check (char_length(name) < 255),
     description text check (char_length(description) < 1024),
     matchExpression BIGINT,
@@ -252,8 +247,7 @@ CREATE TABLE Rule_AUD (
     metadata TEXT,
     enabled BOOLEAN,
     PRIMARY KEY (id, REV),
-    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
-    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
 );
 
 -- Audit table for ActiveRecording entity
@@ -261,8 +255,6 @@ CREATE TABLE ActiveRecording_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
     REVTYPE SMALLINT,
-    REVEND INTEGER,
-    REVEND_TSTMP BIGINT,
     target_id BIGINT,
     name text check (char_length(name) < 64),
     remoteId BIGINT,
@@ -277,8 +269,7 @@ CREATE TABLE ActiveRecording_AUD (
     external BOOLEAN,
     metadata TEXT,
     PRIMARY KEY (id, REV),
-    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
-    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
 );
 
 -- Audit table for MatchExpression entity
@@ -286,12 +277,9 @@ CREATE TABLE MatchExpression_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
     REVTYPE SMALLINT,
-    REVEND INTEGER,
-    REVEND_TSTMP BIGINT,
     script text check (char_length(script) < 1024),
     PRIMARY KEY (id, REV),
-    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
-    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
 );
 
 -- Audit table for DiscoveryPlugin entity
@@ -299,15 +287,12 @@ CREATE TABLE DiscoveryPlugin_AUD (
     id UUID NOT NULL,
     REV INTEGER NOT NULL,
     REVTYPE SMALLINT,
-    REVEND INTEGER,
-    REVEND_TSTMP BIGINT,
     realm_id BIGINT,
     callback TEXT,
     credential_id BIGINT,
     builtin BOOLEAN,
     PRIMARY KEY (id, REV),
-    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
-    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
 );
 
 -- Audit table for DiscoveryNode entity
@@ -315,15 +300,12 @@ CREATE TABLE DiscoveryNode_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
     REVTYPE SMALLINT,
-    REVEND INTEGER,
-    REVEND_TSTMP BIGINT,
     name text check (char_length(name) < 255),
     nodeType text check (char_length(nodeType) < 255),
     labels TEXT,
     parentNode BIGINT,
     PRIMARY KEY (id, REV),
-    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
-    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
 );
 
 -- Audit table for Credential entity
@@ -331,14 +313,11 @@ CREATE TABLE Credential_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
     REVTYPE SMALLINT,
-    REVEND INTEGER,
-    REVEND_TSTMP BIGINT,
     matchExpression BIGINT,
     username BYTEA,
     password BYTEA,
     PRIMARY KEY (id, REV),
-    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
-    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
 );
 
 -- Indexes for audit tables to improve query performance
@@ -374,17 +353,6 @@ CREATE INDEX IDX_DISCOVERYNODE_AUD_REVTYPE ON DiscoveryNode_AUD (REVTYPE);
 CREATE INDEX IDX_CREDENTIAL_AUD_ID ON Credential_AUD (id);
 CREATE INDEX IDX_CREDENTIAL_AUD_REV ON Credential_AUD (REV);
 CREATE INDEX IDX_CREDENTIAL_AUD_REVTYPE ON Credential_AUD (REVTYPE);
-
--- Indexes for REVEND columns to optimize validity queries
--- These indexes enable efficient point-in-time queries by allowing fast lookups
--- of audit records that were valid at a specific revision or timestamp
-CREATE INDEX IDX_TARGET_AUD_REVEND ON Target_AUD (REVEND);
-CREATE INDEX IDX_RULE_AUD_REVEND ON Rule_AUD (REVEND);
-CREATE INDEX IDX_ACTIVERECORDING_AUD_REVEND ON ActiveRecording_AUD (REVEND);
-CREATE INDEX IDX_MATCHEXPRESSION_AUD_REVEND ON MatchExpression_AUD (REVEND);
-CREATE INDEX IDX_DISCOVERYPLUGIN_AUD_REVEND ON DiscoveryPlugin_AUD (REVEND);
-CREATE INDEX IDX_DISCOVERYNODE_AUD_REVEND ON DiscoveryNode_AUD (REVEND);
-CREATE INDEX IDX_CREDENTIAL_AUD_REVEND ON Credential_AUD (REVEND);
 
 --
 
