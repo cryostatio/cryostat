@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.Stack;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -781,6 +782,31 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             nodeChain.get(i).persist();
         }
 
+        // Use Stack-based iterative approach to persist all nodes at once
+        // This ensures we persist from leaf to root
+        Stack<DiscoveryNode> stack = new Stack<>();
+        Set<DiscoveryNode> visited = new HashSet<>();
+
+        // Start from the target node and traverse up to collect all nodes
+        DiscoveryNode current = targetNode;
+        while (current != null && current != nsNode) {
+            if (!visited.contains(current)) {
+                stack.push(current);
+                visited.add(current);
+            }
+            current = current.parent;
+        }
+
+        // Persist target first (it has the associated Target entity)
+        target.persist();
+
+        // Persist all nodes in the chain from top to bottom
+        while (!stack.isEmpty()) {
+            DiscoveryNode node = stack.pop();
+            node.persist();
+        }
+
+        // Finally persist the namespace node
         nsNode.persist();
     }
 

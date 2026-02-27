@@ -33,12 +33,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
+import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
@@ -127,6 +129,7 @@ public class Discovery {
     @Inject DiscoveryJwtValidator jwtValidator;
     @Inject Scheduler scheduler;
     @Inject URIUtil uriUtil;
+    @Inject KubeEndpointSlicesDiscovery k8sDiscovery;
 
     void onStart(@Observes StartupEvent evt) {
         QuarkusTransaction.requiringNew()
@@ -316,7 +319,7 @@ public class Discovery {
                             ConfigProperties.AGENT_TLS_REQUIRED));
         }
 
-        URI location;
+        List<URI> locations;
         DiscoveryPlugin plugin;
         if (StringUtils.isNotBlank(pluginId) && StringUtils.isNotBlank(priorToken)) {
             // refresh the JWT for existing registration
@@ -330,9 +333,9 @@ public class Discovery {
                 throw new BadRequestException("plugin callback mismatch");
             }
             try {
-                location = jwtFactory.getPluginLocation(plugin);
+                locations = jwtFactory.getPluginLocations(plugin);
                 jwtFactory.parseDiscoveryPluginJwt(
-                        plugin, priorToken, location, remoteAddress, false);
+                        plugin, priorToken, locations, remoteAddress, false);
             } catch (URISyntaxException
                     | UnknownHostException
                     | SocketException
@@ -391,7 +394,7 @@ public class Discovery {
                                     });
 
             try {
-                location = jwtFactory.getPluginLocation(plugin);
+                locations = jwtFactory.getPluginLocations(plugin);
             } catch (URISyntaxException e) {
                 throw new BadRequestException(e);
             }
@@ -420,7 +423,7 @@ public class Discovery {
 
         String token;
         try {
-            token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, location);
+            token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, locations);
         } catch (URISyntaxException | JOSEException | UnknownHostException | SocketException e) {
             throw new BadRequestException(e);
         } catch (NoSuchAlgorithmException e) {
@@ -457,6 +460,34 @@ public class Discovery {
             @RestPath UUID id,
             @RestHeader("Cryostat-Discovery-Authentication") String token,
             List<DiscoveryNode> body) {
+        publishWithContext(
+                ctx,
+                id,
+                token,
+                new DiscoveryPublication(
+                        body, Optional.of(DiscoveryFillStrategy.NONE), Optional.of(Map.of())));
+    }
+
+    @Transactional
+    @POST
+    @Path("/api/v4.2/discovery/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @PermitAll
+    @Tag(ref = "Discovery")
+    @Operation(
+            summary = "Publish updated target discovery information",
+            description =
+                    """
+                    Using its plugin ID and current token, a discovery plugin uses this endpoint to publish a JSON
+                    request body containing a list of discovery nodes. The discovery plugin itself is a Realm node in
+                    the overall discovery tree, so the published list of nodes here will replace the plugin Realm
+                    node's list of children.
+                    """)
+    public void publishWithContext(
+            @Context RoutingContext ctx,
+            @RestPath UUID id,
+            @RestHeader("Cryostat-Discovery-Authentication") String token,
+            DiscoveryPublication body) {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         try {
             jwtValidator.validateJwt(ctx, plugin, token, true);
@@ -468,34 +499,83 @@ public class Discovery {
                 | ParseException e) {
             throw new BadRequestException(e);
         }
+
+        for (var n : body.nodes) {
+            validatePublishedNode(n);
+        }
+
         plugin.realm.children.clear();
-        plugin.realm.children.addAll(body);
 
-        ArrayDeque<DiscoveryNode> nodeStack = new ArrayDeque<>();
-        for (var node : body) {
-            node.parent = plugin.realm;
-            nodeStack.push(node);
+        for (var n : body.nodes) {
+            n.target.discoveryNode = n;
         }
+        body.fillStrategy.ifPresent(
+                algo -> {
+                    Map<String, String> pubCtx = body.context.orElse(Map.of());
+                    switch (algo) {
+                        case KUBERNETES:
+                            String namespace = pubCtx.get("namespace");
+                            String nodeType = pubCtx.get("nodetype");
+                            String name = pubCtx.get("name");
+                            if (StringUtils.isBlank(namespace)
+                                    || StringUtils.isBlank(nodeType)
+                                    || StringUtils.isBlank(name)) {
+                                String key;
+                                if (StringUtils.isBlank(namespace)) {
+                                    key = "namespace";
+                                } else if (StringUtils.isBlank(nodeType)) {
+                                    key = "nodeType";
+                                } else {
+                                    key = "name";
+                                }
+                                throw new BadRequestException(
+                                        new IllegalArgumentException(
+                                                String.format("%s cannot be blank", key)));
+                            }
+                            DiscoveryNode lineage =
+                                    k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
+                            DiscoveryNode innermost = innermostNode(lineage);
+                            innermost.children.addAll(body.nodes);
+                            body.nodes.forEach(
+                                    n -> {
+                                        n.parent = innermost;
+                                        n.persist();
+                                    });
 
-        while (!nodeStack.isEmpty()) {
-            var currentNode = nodeStack.pop();
+                            DiscoveryNode nsNode = new DiscoveryNode();
+                            nsNode.name = namespace;
+                            nsNode.nodeType = KubeDiscoveryNodeType.NAMESPACE.getKind();
+                            nsNode.labels = new HashMap<>();
+                            nsNode.children = new ArrayList<>();
+                            nsNode.target = null;
+                            nsNode.parent = plugin.realm;
 
-            if (currentNode.target != null) {
-                validatePublishedNode(currentNode);
-                currentNode.target.discoveryNode = currentNode;
-                currentNode.target.discoveryNode.parent = currentNode.parent;
-            }
+                            nsNode.children.add(lineage);
+                            lineage.parent = nsNode;
 
-            if (currentNode.children != null && !currentNode.children.isEmpty()) {
-                for (var child : currentNode.children) {
-                    child.parent = currentNode;
-                    nodeStack.push(child);
-                }
-            }
+                            DiscoveryNode current = innermost;
+                            while (true) {
+                                current.persist();
+                                current = current.parent;
+                                if (current == null) {
+                                    break;
+                                }
+                            }
 
-            currentNode.persist();
-        }
+                            nsNode.persist();
+                            plugin.realm.children.add(nsNode);
+                            break;
+                        default:
+                            plugin.realm.children.addAll(body.nodes);
+                            for (var n : body.nodes) {
+                                n.parent = plugin.realm;
+                                n.persist();
+                            }
+                            break;
+                    }
+                });
 
+        plugin.realm.persist();
         plugin.persist();
     }
 
@@ -577,6 +657,9 @@ public class Discovery {
     }
 
     private void validatePublishedNode(DiscoveryNode currentNode) {
+        if (currentNode.target == null) {
+            throw new BadRequestException("Published nodes must have embedded targets");
+        }
         try {
             if (!uriUtil.validateUri(currentNode.target.connectUrl)) {
                 throw new BadRequestException(
@@ -684,6 +767,18 @@ public class Discovery {
         return mergedRoot;
     }
 
+    /**
+     * Get the innermost node of a hierarchical lineage. This assumes that the ancestor node passed
+     * in is the root of a tree where each node has either 0 or 1 children.
+     */
+    private DiscoveryNode innermostNode(DiscoveryNode ancestor) {
+        DiscoveryNode node = ancestor;
+        while (node.hasChildren()) {
+            node = node.children.get(0);
+        }
+        return node;
+    }
+
     private DiscoveryNode copyNode(DiscoveryNode source) {
         var copy = new DiscoveryNode();
         copy.id = source.id;
@@ -785,6 +880,17 @@ public class Discovery {
     }
 
     static record PluginRegistration(String id, String token, Map<String, String> env) {}
+
+    static record DiscoveryPublication(
+            List<DiscoveryNode> nodes,
+            Optional<DiscoveryFillStrategy> fillStrategy,
+            Optional<Map<String, String>> context) {}
+
+    enum DiscoveryFillStrategy {
+        NONE,
+        KUBERNETES,
+        ;
+    }
 
     static class DuplicatePluginException extends IllegalArgumentException {
 
