@@ -23,11 +23,9 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class AgentWorkflowIT extends AgentTestBase {
 
     static final String RECORDING_NAME = AgentWorkflowIT.class.getSimpleName();

@@ -25,11 +25,9 @@ import io.quarkus.test.junit.QuarkusIntegrationTest;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
-@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class AgentDiscoveryIT extends AgentTestBase {
     @Test
     void shouldDiscoverTarget() throws InterruptedException, TimeoutException, ExecutionException {

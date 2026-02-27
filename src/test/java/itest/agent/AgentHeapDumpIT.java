@@ -33,12 +33,10 @@ import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
-@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class AgentHeapDumpIT extends AgentTestBase {
 
     private static final String GRAPHQL_HEAP_DUMP_CLEANUP_QUERY =

@@ -35,12 +35,10 @@ import itest.resources.S3StorageITResource;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
-@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class AgentTargetAnalysisIT extends AgentTestBase {
 
     @Test
