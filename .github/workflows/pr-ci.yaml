@@ -168,11 +168,13 @@ jobs:
           -Dquarkus.hibernate-orm.log.sql=true \
           -Dquarkus.http.access-log.enabled=true \
           clean verify > test.log 2>&1
+    - run: tail -500l test.log
     - uses: actions/upload-artifact@v6
       if: always()
       with:
         name: cryostat-test-log
         path: test.log
+    - run: tail -500l target/quarkus.log
     - uses: actions/upload-artifact@v6
       if: always()
       with:
