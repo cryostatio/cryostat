@@ -165,6 +165,7 @@ jobs:
         PR_CI: true
       run: |
         ./mvnw -B -U \
+          -Dquarkus.container-image.builder=docker \
           -Dquarkus.log.level=debug \
           -Dquarkus.hibernate-orm.log.sql=true \
           -Dquarkus.http.access-log.enabled=true \
