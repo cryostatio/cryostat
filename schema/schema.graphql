@@ -380,10 +380,13 @@ input DiscoveryNodeFilterInput {
   annotations: [String]
   id: BigInteger
   ids: [BigInteger]
+  jvmId: String
+  jvmIds: [String]
   labels: [String]
   name: String
   names: [String]
   nodeTypes: [String]
+  targetId: BigInteger
   targetIds: [BigInteger]
 }
 
