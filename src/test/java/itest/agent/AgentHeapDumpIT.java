@@ -17,6 +17,7 @@ package itest.agent;
 
 import static io.restassured.RestAssured.given;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -124,11 +125,13 @@ public class AgentHeapDumpIT extends AgentTestBase {
 
         webSocketClient.expectNotification(
                 "HeapDumpSuccess",
+                Duration.ofMinutes(2),
                 o -> jobId.equals(o.getJsonObject("message").getString("jobId")));
 
         JsonObject uploadedNotification =
                 webSocketClient.expectNotification(
                         "HeapDumpUploaded",
+                        Duration.ofMinutes(5),
                         o -> target.jvmId().equals(o.getJsonObject("message").getString("jvmId")));
 
         JsonObject message = uploadedNotification.getJsonObject("message");
@@ -204,10 +207,12 @@ public class AgentHeapDumpIT extends AgentTestBase {
 
         webSocketClient.expectNotification(
                 "HeapDumpSuccess",
+                Duration.ofMinutes(2),
                 o -> jobId1.equals(o.getJsonObject("message").getString("jobId")));
 
         webSocketClient.expectNotification(
                 "HeapDumpUploaded",
+                Duration.ofMinutes(5),
                 o -> target.jvmId().equals(o.getJsonObject("message").getString("jvmId")));
 
         String jobId2 =
@@ -229,10 +234,12 @@ public class AgentHeapDumpIT extends AgentTestBase {
 
         webSocketClient.expectNotification(
                 "HeapDumpSuccess",
+                Duration.ofMinutes(2),
                 o -> jobId2.equals(o.getJsonObject("message").getString("jobId")));
 
         webSocketClient.expectNotification(
                 "HeapDumpUploaded",
+                Duration.ofMinutes(5),
                 o -> target.jvmId().equals(o.getJsonObject("message").getString("jvmId")));
 
         given().log()
@@ -318,10 +325,12 @@ public class AgentHeapDumpIT extends AgentTestBase {
 
         webSocketClient.expectNotification(
                 "HeapDumpSuccess",
+                Duration.ofMinutes(2),
                 o -> jobId.equals(o.getJsonObject("message").getString("jobId")));
 
         webSocketClient.expectNotification(
                 "HeapDumpUploaded",
+                Duration.ofMinutes(5),
                 o -> target.jvmId().equals(o.getJsonObject("message").getString("jvmId")));
 
         given().log()
