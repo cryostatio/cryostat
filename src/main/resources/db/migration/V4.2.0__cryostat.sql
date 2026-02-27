@@ -201,5 +201,158 @@ CREATE INDEX IDX_QRTZ_FT_T_G
 CREATE INDEX IDX_QRTZ_FT_TG
   ON QRTZ_FIRED_TRIGGERS (SCHED_NAME, TRIGGER_GROUP);
 
+-- Hibernate Envers audit tables
+-- These tables track historical changes to @Audited entities
+-- Standard Envers columns: REV (revision number), REVTYPE (0=add, 1=modify, 2=delete)
+
+-- Revision info table - stores metadata about each revision
+CREATE TABLE REVINFO (
+    REV INTEGER NOT NULL,
+    REVTSTMP BIGINT,
+    PRIMARY KEY (REV)
+);
+
+CREATE SEQUENCE REVINFO_SEQ START WITH 1 INCREMENT BY 1;
+
+-- Audit table for Target entity
+CREATE TABLE Target_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    connectUrl BYTEA,
+    alias text check (char_length(alias) < 255),
+    jvmId text check (char_length(jvmId) < 255),
+    labels TEXT,
+    annotations TEXT,
+    discoveryNode BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
+);
+
+-- Audit table for Rule entity
+CREATE TABLE Rule_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    name text check (char_length(name) < 255),
+    description text check (char_length(description) < 1024),
+    matchExpression BIGINT,
+    eventSpecifier text check (char_length(eventSpecifier) < 255),
+    archivalPeriodSeconds INTEGER,
+    initialDelaySeconds INTEGER,
+    preservedArchives INTEGER,
+    maxAgeSeconds INTEGER,
+    maxSizeBytes INTEGER,
+    metadata TEXT,
+    enabled BOOLEAN,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
+);
+
+-- Audit table for ActiveRecording entity
+CREATE TABLE ActiveRecording_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    target_id BIGINT,
+    name text check (char_length(name) < 64),
+    remoteId BIGINT,
+    state SMALLINT,
+    duration BIGINT,
+    startTime BIGINT,
+    archiveOnStop BOOLEAN,
+    continuous BOOLEAN,
+    toDisk BOOLEAN,
+    maxSize BIGINT,
+    maxAge BIGINT,
+    external BOOLEAN,
+    metadata TEXT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
+);
+
+-- Audit table for MatchExpression entity
+CREATE TABLE MatchExpression_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    script text check (char_length(script) < 1024),
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
+);
+
+-- Audit table for DiscoveryPlugin entity
+CREATE TABLE DiscoveryPlugin_AUD (
+    id UUID NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    realm_id BIGINT,
+    callback TEXT,
+    credential_id BIGINT,
+    builtin BOOLEAN,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
+);
+
+-- Audit table for DiscoveryNode entity
+CREATE TABLE DiscoveryNode_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    name text check (char_length(name) < 255),
+    nodeType text check (char_length(nodeType) < 255),
+    labels TEXT,
+    parentNode BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
+);
+
+-- Audit table for Credential entity
+CREATE TABLE Credential_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    matchExpression BIGINT,
+    username BYTEA,
+    password BYTEA,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV)
+);
+
+-- Indexes for audit tables to improve query performance
+-- These indexes support common audit queries:
+-- - Finding all revisions of a specific entity (by entity id)
+-- - Finding all changes in a specific revision (by REV)
+-- - Filtering by operation type (by REVTYPE: 0=add, 1=modify, 2=delete)
+
+CREATE INDEX IDX_TARGET_AUD_ID ON Target_AUD (id);
+CREATE INDEX IDX_TARGET_AUD_REV ON Target_AUD (REV);
+CREATE INDEX IDX_TARGET_AUD_REVTYPE ON Target_AUD (REVTYPE);
+
+CREATE INDEX IDX_RULE_AUD_ID ON Rule_AUD (id);
+CREATE INDEX IDX_RULE_AUD_REV ON Rule_AUD (REV);
+CREATE INDEX IDX_RULE_AUD_REVTYPE ON Rule_AUD (REVTYPE);
+
+CREATE INDEX IDX_ACTIVERECORDING_AUD_ID ON ActiveRecording_AUD (id);
+CREATE INDEX IDX_ACTIVERECORDING_AUD_REV ON ActiveRecording_AUD (REV);
+CREATE INDEX IDX_ACTIVERECORDING_AUD_REVTYPE ON ActiveRecording_AUD (REVTYPE);
+
+CREATE INDEX IDX_MATCHEXPRESSION_AUD_ID ON MatchExpression_AUD (id);
+CREATE INDEX IDX_MATCHEXPRESSION_AUD_REV ON MatchExpression_AUD (REV);
+CREATE INDEX IDX_MATCHEXPRESSION_AUD_REVTYPE ON MatchExpression_AUD (REVTYPE);
+
+CREATE INDEX IDX_DISCOVERYPLUGIN_AUD_ID ON DiscoveryPlugin_AUD (id);
+CREATE INDEX IDX_DISCOVERYPLUGIN_AUD_REV ON DiscoveryPlugin_AUD (REV);
+CREATE INDEX IDX_DISCOVERYPLUGIN_AUD_REVTYPE ON DiscoveryPlugin_AUD (REVTYPE);
+
+CREATE INDEX IDX_DISCOVERYNODE_AUD_ID ON DiscoveryNode_AUD (id);
+CREATE INDEX IDX_DISCOVERYNODE_AUD_REV ON DiscoveryNode_AUD (REV);
+CREATE INDEX IDX_DISCOVERYNODE_AUD_REVTYPE ON DiscoveryNode_AUD (REVTYPE);
+
+CREATE INDEX IDX_CREDENTIAL_AUD_ID ON Credential_AUD (id);
+CREATE INDEX IDX_CREDENTIAL_AUD_REV ON Credential_AUD (REV);
+CREATE INDEX IDX_CREDENTIAL_AUD_REVTYPE ON Credential_AUD (REVTYPE);
+
+--
 
 COMMIT;
