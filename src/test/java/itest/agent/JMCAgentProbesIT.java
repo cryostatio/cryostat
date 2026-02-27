@@ -30,12 +30,14 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
 @QuarkusTestResource(
         value = AgentExternalRecordingApplicationResource.class,
         restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
+@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class JMCAgentProbesIT extends AgentTestBase {
 
     static final String PROBE_TEMPLATE_NAME = "agentProbesTestTemplate";

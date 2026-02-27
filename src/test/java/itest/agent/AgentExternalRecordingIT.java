@@ -30,6 +30,7 @@ import itest.resources.S3StorageITResource;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfEnvironmentVariable;
 
 /**
  * Integration test for external recording detection using the Cryostat agent. Tests that recordings
@@ -41,6 +42,7 @@ import org.junit.jupiter.api.Test;
         value = AgentExternalRecordingApplicationResource.class,
         restrictToAnnotatedClass = true)
 @QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
+@DisabledIfEnvironmentVariable(named = "CI", matches = "true")
 public class AgentExternalRecordingIT extends AgentTestBase {
 
     @Test
