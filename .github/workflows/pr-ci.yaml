@@ -161,8 +161,6 @@ jobs:
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa
     - name: Build application
-      env:
-        PR_CI: true
       run: |
         ./mvnw -B -U \
           -Dquarkus.container-image.builder=docker \
@@ -195,8 +193,7 @@ jobs:
             repo: context.repo.repo,
             body: body
           })
-
-    - name: Set latest commit status as ${{ job.status }}
+    - name: Set latest commit status
       uses: myrotvorets/set-commit-status-action@master
       if: always()
       with:
