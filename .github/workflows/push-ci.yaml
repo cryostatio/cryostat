@@ -110,6 +110,7 @@ jobs:
       run: |
         ./mvnw -B -U \
         -DskipTests \
+        -Dquarkus.container-image.builder=podman \
         -Dquarkus.container-image.image=${{ env.CI_IMG }}:linux-${{ matrix.arch }} \
         -Dquarkus.podman.platform=linux/${{ matrix.arch }} \
         -Dbuild.arch=${{ matrix.arch }} \
@@ -190,6 +191,7 @@ jobs:
     - name: Run unit tests
       run: |
         ./mvnw -B -U \
+        -Dquarkus.container-image.builder=docker \
         -Dquarkus.quinoa=false \
         -Dspotless.check.skip \
         -Dquarkus.log.level=error \
@@ -254,6 +256,7 @@ jobs:
     - name: Run tests
       run: |
         ./mvnw -B -U \
+          -Dquarkus.container-image.builder=docker \
           -Dquarkus.log.level=error \
           -Dquarkus.hibernate-orm.log.sql=false \
           -Dquarkus.http.access-log.enabled=false \
