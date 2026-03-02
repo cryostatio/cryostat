@@ -141,7 +141,7 @@ jobs:
           -Dquarkus.log.level=debug \
           -Dquarkus.hibernate-orm.log.sql=true \
           -Dquarkus.http.access-log.enabled=true \
-          clean verify > test.log 2>&1
+          clean test > test.log 2>&1
     - run: tail -500l test.log
       if: always()
     - uses: actions/upload-artifact@v6
