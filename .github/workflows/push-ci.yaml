@@ -173,10 +173,13 @@ jobs:
         -Dquarkus.container-image.builder=docker \
         -Dquarkus.quinoa=false \
         -Dspotless.check.skip \
-        -Dquarkus.log.level=error \
-        -Dquarkus.hibernate-orm.log.sql=false \
-        -Dquarkus.http.access-log.enabled=false \
-        compile test
+        -Dquarkus.log.level=debug \
+        -Dquarkus.hibernate-orm.log.sql=true \
+        -Dquarkus.http.access-log.enabled=true \
+        compile test > test.log 2>&1
+    - name: Dump test harness logs
+      if: always()
+      run: cat test.log
 
   integration-test:
     name: Run integration tests
@@ -208,11 +211,15 @@ jobs:
       run: |
         ./mvnw -B -U \
           -Dquarkus.container-image.builder=docker \
-          -Dquarkus.log.level=error \
-          -Dquarkus.hibernate-orm.log.sql=false \
-          -Dquarkus.http.access-log.enabled=false \
-          verify
-    - name: Dump logs
+          -Dquarkus.log.level=debug \
+          -Dquarkus.hibernate-orm.log.sql=true \
+          -Dquarkus.http.access-log.enabled=true \
+          -Dskip.surefire.tests \
+          verify > test.log 2>&1
+    - name: Dump test harness logs
+      if: always()
+      run: cat test.log
+    - name: Dump server logs
       if: always()
       run: cat target/quarkus.log
 
