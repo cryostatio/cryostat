@@ -17,6 +17,7 @@ package io.cryostat.audit;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.boot.Metadata;
@@ -54,9 +55,14 @@ public class ConditionalEnversIntegrator implements Integrator {
             BootstrapContext bootstrapContext,
             SessionFactoryImplementor sessionFactory) {
 
-        ConfigurationService configService =
-                bootstrapContext.getServiceRegistry().getService(ConfigurationService.class);
-        Map<String, Object> settings = new HashMap<>(configService.getSettings());
+        Optional<ConfigurationService> configService =
+                Optional.ofNullable(
+                        bootstrapContext
+                                .getServiceRegistry()
+                                .getService(ConfigurationService.class));
+        Map<String, Object> settings =
+                new HashMap<>(
+                        configService.map(ConfigurationService::getSettings).orElseGet(Map::of));
 
         // TODO we don't have CDI/Quarkus ArC at this point so we can't use the smallrye-config
         // configuration loader. This should ideally be a 'cryostat.audit.enabled' config property,
@@ -77,10 +83,20 @@ public class ConditionalEnversIntegrator implements Integrator {
 
         logger.trace("Hibernate Envers auditing is enabled - registering event listeners");
 
-        final EventListenerRegistry listenerRegistry =
+        EventListenerRegistry listenerRegistry =
                 sessionFactory.getServiceRegistry().getService(EventListenerRegistry.class);
-        final EnversService enversService =
+        EnversService enversService =
                 sessionFactory.getServiceRegistry().getService(EnversService.class);
+
+        if (listenerRegistry == null) {
+            logger.warn("Hibernate Envers Listener Registry could not be located");
+            return;
+        }
+
+        if (enversService == null) {
+            logger.warn("Hibernate Envers Service could not be located");
+            return;
+        }
 
         listenerRegistry.addDuplicationStrategy(EnversListenerDuplicationStrategy.INSTANCE);
 
