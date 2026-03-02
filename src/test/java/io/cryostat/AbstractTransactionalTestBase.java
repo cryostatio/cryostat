@@ -17,21 +17,19 @@ package io.cryostat;
 
 import jakarta.inject.Inject;
 import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.quartz.SchedulerException;
 
 public abstract class AbstractTransactionalTestBase extends AbstractTestBase {
 
     @Inject Flyway flyway;
 
     @BeforeEach
-    void migrateFlyway() {
-        flyway.migrate();
-    }
-
-    @AfterEach
-    void cleanupFlyway() {
+    void migrateFlyway() throws SchedulerException {
+        shutdownScheduler();
         flyway.clean();
         flyway.migrate();
+        flyway.validate();
+        restartScheduler();
     }
 }

@@ -86,11 +86,9 @@ public abstract class AbstractTestBase {
         }
         webSocketClient.clearMessages();
 
-        if (!scheduler.isStarted() || scheduler.isInStandbyMode()) {
-            scheduler.start();
-        }
-
         cleanupSelfActiveAndArchivedRecordings();
+
+        restartScheduler();
 
         if (!storageEnabled) {
             return;
@@ -110,10 +108,7 @@ public abstract class AbstractTestBase {
 
     @AfterEach
     void cleanupTestBase() throws SchedulerException, IOException {
-        scheduler.clear();
-        if (scheduler.isStarted() && !scheduler.isInStandbyMode()) {
-            scheduler.standby();
-        }
+        shutdownScheduler();
 
         if (webSocketClient != null) {
             webSocketClient.clearMessages();
@@ -126,6 +121,19 @@ public abstract class AbstractTestBase {
     static void tearDownWebSocketClient() throws IOException {
         if (webSocketClient != null) {
             webSocketClient.disconnect();
+        }
+    }
+
+    protected void shutdownScheduler() throws SchedulerException {
+        if (scheduler.isStarted() && !scheduler.isInStandbyMode()) {
+            scheduler.standby();
+        }
+        scheduler.clear();
+    }
+
+    protected void restartScheduler() throws SchedulerException {
+        if (!scheduler.isStarted() || scheduler.isInStandbyMode()) {
+            scheduler.start();
         }
     }
 
