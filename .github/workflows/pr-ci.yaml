@@ -323,7 +323,7 @@ jobs:
         cache: 'maven'
     - run: |
         ./mvnw -B -U \
-          spotbugs:check
+          clean compile spotbugs:check
 
   update-schemas:
     needs: [checkout-branch]
