@@ -105,7 +105,7 @@ jobs:
     - uses: actions/upload-artifact@v6
       if: always()
       with:
-        name: cryostat-unittest-log
+        name: cryostat-unittest-${{ matrix.arch }}.log
         path: test.log
 
   integration-test:
@@ -176,7 +176,7 @@ jobs:
     - uses: actions/upload-artifact@v6
       if: always()
       with:
-        name: cryostat-itest-harness-log
+        name: cryostat-itest-harness-${{ matrix.arch }}.log
         path: test.log
     - name: Dump server logs
       if: always()
@@ -184,7 +184,7 @@ jobs:
     - uses: actions/upload-artifact@v6
       if: always()
       with:
-        name: cryostat-itest-server-log
+        name: cryostat-itest-server-${{ matrix.arch }}.log
         path: target/quarkus.log
 
   build-images:
