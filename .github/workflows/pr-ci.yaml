@@ -132,7 +132,7 @@ jobs:
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha}}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
-    - name: Build application
+    - name: Run unit tests
       run: |
         ./mvnw -B -U \
           -Dquarkus.container-image.builder=docker \
@@ -240,7 +240,7 @@ jobs:
         cd -
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa
-    - name: Build application
+    - name: Run integration tests
       run: |
         ./mvnw -B -U \
           -Dquarkus.container-image.builder=docker \
