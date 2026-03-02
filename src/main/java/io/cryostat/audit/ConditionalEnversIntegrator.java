@@ -41,9 +41,6 @@ import org.jboss.logging.Logger;
  * Custom Hibernate Integrator that conditionally registers Envers event listeners based on runtime
  * configuration. This allows Envers auditing to be enabled or disabled without rebuilding the
  * application.
- *
- * <p>Configuration: Set {@code hibernate.envers.enabled=true} to enable auditing (disabled by
- * default).
  */
 public class ConditionalEnversIntegrator implements Integrator {
 
