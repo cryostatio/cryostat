@@ -120,7 +120,6 @@ jobs:
 
   unit-test:
     name: Run unit tests
-    needs: [get-pom-properties]
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -181,7 +180,6 @@ jobs:
 
   integration-test:
     name: Run integration tests
-    needs: [build-images]
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -206,23 +204,6 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: 'maven'
-    - name: Download container tarball
-      uses: actions/download-artifact@v7
-      with:
-        path: containers
-        name: cryostat-${{ matrix.arch }}-docker
-    - name: Import container tarball
-      run: docker image load -i containers/cryostat-${{ matrix.arch }}-docker.tar
-    - name: Prepare test harness
-      run: ./mvnw -Dquarkus.quinoa=false -Dquarkus.container-image.build=false -Dspotless.check.skip -DskipTests package
-    - name: Replace artifact metadata
-      run: |
-        [ -d target ] || mkdir target ; \
-        touch target/quarkus-artifact.properties ; \
-        > target/quarkus-artifact.properties ; \
-        echo "metadata.container-image=${{ env.CI_IMG }}:linux-${{ matrix.arch }}" >> target/quarkus-artifact.properties ; \
-        echo "metadata.pull-required=false" >> target/quarkus-artifact.properties ; \
-        echo "type=jar-container" >> target/quarkus-artifact.properties
     - name: Run tests
       run: |
         ./mvnw -B -U \
@@ -230,7 +211,7 @@ jobs:
           -Dquarkus.log.level=error \
           -Dquarkus.hibernate-orm.log.sql=false \
           -Dquarkus.http.access-log.enabled=false \
-          failsafe:integration-test failsafe:verify
+          verify
     - name: Dump logs
       if: always()
       run: cat target/quarkus.log
