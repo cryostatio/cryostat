@@ -16,13 +16,11 @@
 package io.cryostat.audit;
 
 import java.util.List;
-import java.util.Map;
 
 import io.cryostat.rules.Rules;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
 import io.vertx.core.json.JsonObject;
 import org.hamcrest.MatcherAssert;
@@ -32,14 +30,7 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 @TestProfile(EnversAuditEnabledTest.class)
 @TestHTTPEndpoint(Rules.class)
-public class EnversAuditEnabledTest extends EnversAuditTestBase implements QuarkusTestProfile {
-
-    @Override
-    public Map<String, String> getConfigOverrides() {
-        return Map.of(
-                "quarkus.hibernate-orm.unsupported-properties.\"hibernate.envers.enabled\"",
-                "true");
-    }
+public class EnversAuditEnabledTest extends EnversAuditTestBase {
 
     @Test
     public void testRuleCreateGeneratesAuditRecord() {

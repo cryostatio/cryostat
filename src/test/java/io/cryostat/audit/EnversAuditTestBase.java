@@ -26,7 +26,7 @@ import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
 
-public abstract class EnversAuditTestBase {
+public abstract class EnversAuditTestBase extends AuditTestBase {
 
     protected static final int REVTYPE_ADD = 0;
     protected static final int REVTYPE_MOD = 1;

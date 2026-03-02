@@ -22,7 +22,6 @@ import io.cryostat.rules.Rules;
 
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
 import io.vertx.core.json.JsonObject;
 import org.hamcrest.MatcherAssert;
@@ -32,7 +31,7 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 @TestProfile(EnversAuditDisabledTest.class)
 @TestHTTPEndpoint(Rules.class)
-public class EnversAuditDisabledTest extends EnversAuditTestBase implements QuarkusTestProfile {
+public class EnversAuditDisabledTest extends EnversAuditTestBase {
 
     @Override
     public Map<String, String> getConfigOverrides() {
