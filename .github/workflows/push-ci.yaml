@@ -41,7 +41,7 @@ jobs:
 
   unit-test:
     name: Run unit tests
-    needs: [get-pom-properties]
+    if: ${{ github.repository_owner == 'cryostatio' }}
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -110,7 +110,7 @@ jobs:
 
   integration-test:
     name: Run integration tests
-    needs: [get-pom-properties]
+    if: ${{ github.repository_owner == 'cryostatio' }}
     strategy:
       matrix:
         arch: [amd64, arm64]
@@ -183,6 +183,7 @@ jobs:
 
   build-images:
     name: Build images
+    if: ${{ github.repository_owner == 'cryostatio' }}
     needs: [get-pom-properties]
     strategy:
       matrix:
@@ -262,6 +263,7 @@ jobs:
 
   publish-manifest:
     runs-on: ubuntu-24.04
+    if: ${{ github.repository_owner == 'cryostatio' }}
     needs: [get-pom-properties, build-images, unit-test, integration-test]
     steps:
     - uses: DamianReeves/write-file-action@v1.3
