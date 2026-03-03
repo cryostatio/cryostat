@@ -17,17 +17,17 @@ package io.cryostat.audit;
 
 import static io.restassured.RestAssured.given;
 
-import io.cryostat.AbstractTransactionalTestBase;
-
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
+import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@TestProfile(AuditTest.class)
 @TestHTTPEndpoint(Audit.class)
-public class AuditTest extends AbstractTransactionalTestBase {
+public class AuditTest extends AuditTestBase {
 
     @Test
     public void testGetTargetByJvmId() {
