@@ -60,6 +60,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
@@ -104,6 +105,8 @@ public class DiscoveryNode extends PanacheEntity {
     @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true, mappedBy = "parent")
     @JsonView(Views.Nested.class)
     @Nullable
+    @NotAudited // Inverse side of bidirectional relationship - child DiscoveryNode.parent owns this
+    // (has @JoinColumn)
     public List<DiscoveryNode> children = new ArrayList<>();
 
     @Nullable
@@ -120,6 +123,8 @@ public class DiscoveryNode extends PanacheEntity {
     @Nullable
     @JsonInclude(value = Include.NON_NULL)
     @JsonView(Views.Flat.class)
+    @NotAudited // Inverse side of bidirectional relationship - Target.discoveryNode owns this (has
+    // @JoinColumn)
     public Target target;
 
     public boolean hasChildren() {

@@ -63,6 +63,7 @@ import jakarta.validation.constraints.NotNull;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
@@ -123,6 +124,8 @@ public class Target extends PanacheEntity {
             orphanRemoval = true)
     @NotNull
     @JsonIgnore
+    @NotAudited // Inverse side of bidirectional relationship - ActiveRecording.target owns this
+    // (has @JoinColumn)
     public List<ActiveRecording> activeRecordings = new ArrayList<>();
 
     @OneToOne(
