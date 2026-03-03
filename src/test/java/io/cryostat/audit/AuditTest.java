@@ -89,22 +89,45 @@ public class AuditTest extends AuditTestBase {
                 .then()
                 .log()
                 .all()
+                .log()
+                .body()
                 .assertThat()
                 .statusCode(200)
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
+                .body("id", Matchers.notNullValue())
                 .body("name", Matchers.equalTo("Universe"))
                 .body("nodeType", Matchers.equalTo("Universe"))
                 .body("labels", Matchers.notNullValue())
                 .body("children", Matchers.notNullValue())
                 .body("children", Matchers.hasSize(Matchers.greaterThanOrEqualTo(1)))
                 .body("target", Matchers.nullValue())
+                .body("children[0].id", Matchers.notNullValue())
                 .body("children[0].name", Matchers.notNullValue())
                 .body("children[0].nodeType", Matchers.notNullValue())
                 .body("children[0].labels", Matchers.notNullValue())
                 .body("children[0].children", Matchers.notNullValue())
-                .body("children[0].target", Matchers.nullValue());
+                .body("children[0].target", Matchers.nullValue())
+                .body("children[0].children[0].id", Matchers.notNullValue())
+                .body("children[0].children[0].name", Matchers.notNullValue())
+                .body("children[0].children[0].nodeType", Matchers.equalTo("JVM"))
+                .body("children[0].children[0].labels", Matchers.notNullValue())
+                .body("children[0].children[0].children", Matchers.notNullValue())
+                .body("children[0].children[0].target", Matchers.notNullValue())
+                .body("children[0].children[0].target.id", Matchers.notNullValue())
+                .body("children[0].children[0].target.connectUrl", Matchers.equalTo(SELF_JMX_URL))
+                .body("children[0].children[0].target.alias", Matchers.equalTo(SELFTEST_ALIAS))
+                .body("children[0].children[0].target.jvmId", Matchers.equalTo(selfJvmId))
+                .body("children[0].children[0].target.labels", Matchers.notNullValue())
+                .body("children[0].children[0].target.annotations", Matchers.notNullValue())
+                .body(
+                        "children[0].children[0].target.annotations.platform",
+                        Matchers.notNullValue())
+                .body(
+                        "children[0].children[0].target.annotations.cryostat",
+                        Matchers.notNullValue())
+                .body("children[0].children[0].target.agent", Matchers.equalTo(false));
     }
 
     @Test
