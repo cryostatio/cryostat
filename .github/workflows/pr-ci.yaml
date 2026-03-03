@@ -1,4 +1,4 @@
-name: CI build and push
+name: CI build
 
 concurrency:
   group: ci-${{ github.run_id }}
@@ -98,7 +98,7 @@ jobs:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
       deps-cache-name: cache-yarn
       build-cache-name: cache-webpack
-    name: Build and test
+    name: Unit test
     permissions:
       packages: write
       contents: read
@@ -180,7 +180,7 @@ jobs:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
       deps-cache-name: cache-yarn
       build-cache-name: cache-webpack
-    name: Build and test
+    name: Integration test
     permissions:
       packages: write
       contents: read
