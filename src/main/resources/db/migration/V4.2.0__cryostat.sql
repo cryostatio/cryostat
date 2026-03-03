@@ -387,6 +387,32 @@ CREATE INDEX IDX_DISCOVERYPLUGIN_AUD_REVEND ON DiscoveryPlugin_AUD (REVEND);
 CREATE INDEX IDX_DISCOVERYNODE_AUD_REVEND ON DiscoveryNode_AUD (REVEND);
 CREATE INDEX IDX_CREDENTIAL_AUD_REVEND ON Credential_AUD (REVEND);
 
+-- Pre-seed audit records for Universe and Realm nodes that were created in V4.0.0
+-- These nodes are created directly via SQL migration and don't go through Hibernate/Envers,
+-- so we need to manually create their initial audit records for the Validity Strategy to work correctly.
+-- We use revision 0 as a special "initial state" revision for these pre-existing nodes.
+
+-- Insert initial revision record for the pre-seeded nodes
+INSERT INTO REVINFO (REV, REVTSTMP, username) VALUES (0, 0, 'system');
+
+-- Insert audit records for Universe and Realm nodes
+-- REVTYPE 0 = ADD operation
+-- REVEND and REVEND_TSTMP are NULL because these records are still valid
+INSERT INTO DiscoveryNode_AUD (id, REV, REVTYPE, REVEND, REVEND_TSTMP, name, nodeType, labels, parentNode)
+SELECT id, 0, 0, NULL, NULL, name, nodeType, labels, parentNode
+FROM DiscoveryNode
+WHERE nodeType IN ('Universe', 'Realm');
+
+-- Insert audit records for builtin DiscoveryPlugin entities
+-- These plugins are created for each Realm node in V4.0.0 migration
+INSERT INTO DiscoveryPlugin_AUD (id, REV, REVTYPE, REVEND, REVEND_TSTMP, realm_id, callback, credential_id, builtin)
+SELECT id, 0, 0, NULL, NULL, realm_id, callback, credential_id, builtin
+FROM DiscoveryPlugin
+WHERE builtin = true;
+
+-- Update the REVINFO sequence to start after our pre-seeded revision
+SELECT setval('REVINFO_SEQ', 1, false);
+
 --
 
 COMMIT;
