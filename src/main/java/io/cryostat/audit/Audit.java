@@ -106,8 +106,6 @@ public class Audit {
             node.children = new ArrayList<>();
             nodes.add(node);
 
-            // If parent is null but we know there should be a parent (from parentNode column),
-            // query the audit history to get it
             if (node.parent == null) {
                 Long parentNodeId = getParentNodeId(node);
                 if (parentNodeId != null) {
@@ -121,15 +119,12 @@ public class Audit {
         // Rebuild the tree from the stack, starting with Universe at the root
         DiscoveryNode parent = nodes.pop();
         DiscoveryNode root = parent;
-        // Clear target for non-leaf nodes to avoid lazy initialization issues
         parent.target = null;
         while (!nodes.isEmpty()) {
             DiscoveryNode child = nodes.pop();
-            // Set the target reference only for the leaf JVM node
             if (child.id == leafNodeId) {
                 child.target = target;
             } else {
-                // Clear target for non-leaf nodes to avoid lazy initialization issues
                 child.target = null;
             }
             parent.children.add(child);
@@ -153,8 +148,8 @@ public class Audit {
             return result != null ? ((Number) result).longValue() : null;
         } catch (Exception e) {
             logger.debugv(e, "Failed to get parent node ID for node {0}", node.id);
-            return null;
         }
+        return null;
     }
 
     private DiscoveryNode findNodeInAuditHistory(AuditReader ar, Long nodeId) {

@@ -205,7 +205,6 @@ CREATE INDEX IDX_QRTZ_FT_TG
 -- These tables track historical changes to @Audited entities
 -- Standard Envers columns: REV (revision number), REVTYPE (0=add, 1=modify, 2=delete)
 
--- Revision info table - stores metadata about each revision
 CREATE TABLE REVINFO (
     REV INTEGER NOT NULL,
     REVTSTMP BIGINT,
@@ -215,7 +214,6 @@ CREATE TABLE REVINFO (
 
 CREATE SEQUENCE REVINFO_SEQ START WITH 1 INCREMENT BY 1;
 
--- Audit table for Target entity
 CREATE TABLE Target_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
@@ -233,7 +231,6 @@ CREATE TABLE Target_AUD (
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
 );
 
--- Audit table for Rule entity
 CREATE TABLE Rule_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
@@ -256,7 +253,6 @@ CREATE TABLE Rule_AUD (
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
 );
 
--- Audit table for ActiveRecording entity
 CREATE TABLE ActiveRecording_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
@@ -281,7 +277,6 @@ CREATE TABLE ActiveRecording_AUD (
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
 );
 
--- Audit table for MatchExpression entity
 CREATE TABLE MatchExpression_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
@@ -294,7 +289,6 @@ CREATE TABLE MatchExpression_AUD (
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
 );
 
--- Audit table for DiscoveryPlugin entity
 CREATE TABLE DiscoveryPlugin_AUD (
     id UUID NOT NULL,
     REV INTEGER NOT NULL,
@@ -310,7 +304,6 @@ CREATE TABLE DiscoveryPlugin_AUD (
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
 );
 
--- Audit table for DiscoveryNode entity
 CREATE TABLE DiscoveryNode_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
@@ -326,7 +319,6 @@ CREATE TABLE DiscoveryNode_AUD (
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
 );
 
--- Audit table for Credential entity
 CREATE TABLE Credential_AUD (
     id BIGINT NOT NULL,
     REV INTEGER NOT NULL,
@@ -340,12 +332,6 @@ CREATE TABLE Credential_AUD (
     FOREIGN KEY (REV) REFERENCES REVINFO (REV),
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
 );
-
--- Indexes for audit tables to improve query performance
--- These indexes support common audit queries:
--- - Finding all revisions of a specific entity (by entity id)
--- - Finding all changes in a specific revision (by REV)
--- - Filtering by operation type (by REVTYPE: 0=add, 1=modify, 2=delete)
 
 CREATE INDEX IDX_TARGET_AUD_ID ON Target_AUD (id);
 CREATE INDEX IDX_TARGET_AUD_JVMID ON Target_AUD (jvmId);
@@ -376,9 +362,6 @@ CREATE INDEX IDX_CREDENTIAL_AUD_ID ON Credential_AUD (id);
 CREATE INDEX IDX_CREDENTIAL_AUD_REV ON Credential_AUD (REV);
 CREATE INDEX IDX_CREDENTIAL_AUD_REVTYPE ON Credential_AUD (REVTYPE);
 
--- Indexes for REVEND columns to optimize validity queries
--- These indexes enable efficient point-in-time queries by allowing fast lookups
--- of audit records that were valid at a specific revision or timestamp
 CREATE INDEX IDX_TARGET_AUD_REVEND ON Target_AUD (REVEND);
 CREATE INDEX IDX_RULE_AUD_REVEND ON Rule_AUD (REVEND);
 CREATE INDEX IDX_ACTIVERECORDING_AUD_REVEND ON ActiveRecording_AUD (REVEND);
@@ -390,27 +373,19 @@ CREATE INDEX IDX_CREDENTIAL_AUD_REVEND ON Credential_AUD (REVEND);
 -- Pre-seed audit records for Universe and Realm nodes that were created in V4.0.0
 -- These nodes are created directly via SQL migration and don't go through Hibernate/Envers,
 -- so we need to manually create their initial audit records for the Validity Strategy to work correctly.
--- We use revision 0 as a special "initial state" revision for these pre-existing nodes.
 
--- Insert initial revision record for the pre-seeded nodes
 INSERT INTO REVINFO (REV, REVTSTMP, username) VALUES (0, 0, 'system');
 
--- Insert audit records for Universe and Realm nodes
--- REVTYPE 0 = ADD operation
--- REVEND and REVEND_TSTMP are NULL because these records are still valid
 INSERT INTO DiscoveryNode_AUD (id, REV, REVTYPE, REVEND, REVEND_TSTMP, name, nodeType, labels, parentNode)
 SELECT id, 0, 0, NULL, NULL, name, nodeType, labels, parentNode
 FROM DiscoveryNode
 WHERE nodeType IN ('Universe', 'Realm');
 
--- Insert audit records for builtin DiscoveryPlugin entities
--- These plugins are created for each Realm node in V4.0.0 migration
 INSERT INTO DiscoveryPlugin_AUD (id, REV, REVTYPE, REVEND, REVEND_TSTMP, realm_id, callback, credential_id, builtin)
 SELECT id, 0, 0, NULL, NULL, realm_id, callback, credential_id, builtin
 FROM DiscoveryPlugin
 WHERE builtin = true;
 
--- Update the REVINFO sequence to start after our pre-seeded revision
 SELECT setval('REVINFO_SEQ', 1, false);
 
 --

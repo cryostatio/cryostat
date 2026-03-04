@@ -125,7 +125,6 @@ public class Target extends PanacheEntity {
     @NotNull
     @JsonIgnore
     @NotAudited // Inverse side of bidirectional relationship - ActiveRecording.target owns this
-    // (has @JoinColumn)
     public List<ActiveRecording> activeRecordings = new ArrayList<>();
 
     @OneToOne(
