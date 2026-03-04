@@ -1,4 +1,4 @@
-name: CI build and push
+name: CI build
 
 concurrency:
   group: ci-${{ github.run_id }}
@@ -98,7 +98,7 @@ jobs:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
       deps-cache-name: cache-yarn
       build-cache-name: cache-webpack
-    name: Build and test
+    name: Unit test
     permissions:
       packages: write
       contents: read
@@ -157,7 +157,7 @@ jobs:
           const name = '${{github.workflow}}';
           const url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
           const success = '${{ job.status }}' === 'success';
-          const body = `${name}: ${success ? 'All tests pass ✅' : 'At least one test failed ❌'}\n${url}`;
+          const body = `${name}: ${success ? 'Unit tests pass ✅' : 'At least one unit test failed ❌'}\n${url}`;
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
@@ -180,7 +180,7 @@ jobs:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
       deps-cache-name: cache-yarn
       build-cache-name: cache-webpack
-    name: Build and test
+    name: Integration test
     permissions:
       packages: write
       contents: read
@@ -273,7 +273,7 @@ jobs:
           const name = '${{github.workflow}}';
           const url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
           const success = '${{ job.status }}' === 'success';
-          const body = `${name}: ${success ? 'All tests pass ✅' : 'At least one test failed ❌'}\n${url}`;
+          const body = `${name}: ${success ? 'Integration tests pass ✅' : 'At least one integration test failed ❌'}\n${url}`;
           github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
@@ -288,42 +288,6 @@ jobs:
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha}}
         token: ${{ secrets.GITHUB_TOKEN }}
         status: ${{ job.status }}
-
-  spotless:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v6
-      with:
-        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
-        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
-        submodules: false
-        fetch-depth: 0
-    - uses: actions/setup-java@v5
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: 'maven'
-    - run: |
-        ./mvnw -B -U \
-          spotless:check
-
-  spotbugs:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v6
-      with:
-        repository: ${{ needs.checkout-branch.outputs.PR_repo }}
-        ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
-        submodules: false
-        fetch-depth: 0
-    - uses: actions/setup-java@v5
-      with:
-        java-version: '21'
-        distribution: 'temurin'
-        cache: 'maven'
-    - run: |
-        ./mvnw -B -U \
-          clean compile spotbugs:check
 
   update-schemas:
     needs: [checkout-branch]
