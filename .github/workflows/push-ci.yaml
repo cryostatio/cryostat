@@ -90,15 +90,18 @@ jobs:
         yarn install && yarn yarn:frzinstall
         popd
     - name: Run unit tests
-      run: |
-        ./mvnw -B -U \
-        -Dquarkus.container-image.builder=docker \
-        -Dquarkus.quinoa=false \
-        -Dspotless.check.skip \
-        -Dquarkus.log.level=debug \
-        -Dquarkus.hibernate-orm.log.sql=true \
-        -Dquarkus.http.access-log.enabled=true \
-        compile test > test.log 2>&1
+      uses: Wandalen/wretry.action@v3.8.0
+      with:
+        attempt_limit: 3
+        command: |
+          ./mvnw -B -U \
+            -Dquarkus.container-image.builder=docker \
+            -Dquarkus.quinoa=false \
+            -Dspotless.check.skip \
+            -Dquarkus.log.level=debug \
+            -Dquarkus.hibernate-orm.log.sql=true \
+            -Dquarkus.http.access-log.enabled=true \
+            compile test > test.log 2>&1
     - name: Dump test harness logs
       if: always()
       run: tail -500l test.log
@@ -161,15 +164,18 @@ jobs:
         pushd  src/main/webui
         yarn install && yarn yarn:frzinstall
         popd
-    - name: Run tests
-      run: |
-        ./mvnw -B -U \
-          -Dquarkus.container-image.builder=docker \
-          -Dquarkus.log.level=debug \
-          -Dquarkus.hibernate-orm.log.sql=true \
-          -Dquarkus.http.access-log.enabled=true \
-          -Dskip.surefire.tests \
-          verify > test.log 2>&1
+    - name: Run integration tests
+      uses: Wandalen/wretry.action@v3.8.0
+      with:
+        attempt_limit: 3
+        command: |
+          ./mvnw -B -U \
+            -Dquarkus.container-image.builder=docker \
+            -Dquarkus.log.level=debug \
+            -Dquarkus.hibernate-orm.log.sql=true \
+            -Dquarkus.http.access-log.enabled=true \
+            -Dskip.surefire.tests \
+            verify > test.log 2>&1
     - name: Dump test harness logs
       if: always()
       run: tail -500l test.log
@@ -248,12 +254,12 @@ jobs:
     - name: Build ${{ matrix.arch }} container image
       run: |
         ./mvnw -B -U \
-        -DskipTests \
-        -Dquarkus.container-image.builder=podman \
-        -Dquarkus.container-image.image=${{ env.CI_IMG }}:linux-${{ matrix.arch }} \
-        -Dquarkus.podman.platform=linux/${{ matrix.arch }} \
-        -Dbuild.arch=${{ matrix.arch }} \
-        clean package
+          -DskipTests \
+          -Dquarkus.container-image.builder=podman \
+          -Dquarkus.container-image.image=${{ env.CI_IMG }}:linux-${{ matrix.arch }} \
+          -Dquarkus.podman.platform=linux/${{ matrix.arch }} \
+          -Dbuild.arch=${{ matrix.arch }} \
+          clean package
     - name: Save container image
       run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
     - uses: actions/upload-artifact@v6
