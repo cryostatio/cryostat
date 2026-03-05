@@ -89,8 +89,6 @@ public class AuditTest extends AuditTestBase {
                 .then()
                 .log()
                 .all()
-                .log()
-                .body()
                 .assertThat()
                 .statusCode(200)
                 .and()
