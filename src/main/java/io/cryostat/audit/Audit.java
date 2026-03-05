@@ -80,7 +80,7 @@ public class Audit {
             AuditReader ar = AuditReaderFactory.get(em);
             var q =
                     ar.createQuery()
-                            .forRevisionsOfEntity(Target.class, true, false)
+                            .forRevisionsOfEntity(Target.class, true, true)
                             .add(AuditEntity.property("jvmId").eq(jvmId))
                             .addOrder(AuditEntity.revisionNumber().desc())
                             .setMaxResults(1)
@@ -89,39 +89,84 @@ public class Audit {
                 throw new NotFoundException();
             }
             var t = (Target) q.get(0);
-            return lineage(t);
+            return lineage(ar, t);
         } catch (IllegalStateException e) {
             logger.debug("Audit service not available", e);
             throw new NotFoundException();
         }
     }
 
-    DiscoveryNode lineage(Target target) {
+    DiscoveryNode lineage(AuditReader ar, Target target) {
         Stack<DiscoveryNode> nodes = new Stack<>();
         DiscoveryNode node = target.discoveryNode;
-        logger.tracev("Initial target node: {0}", node);
-        while (true) {
-            if (node == null) {
-                break;
-            }
+        long leafNodeId = node.id; // Keep ID of the leaf (JVM) node
+
+        // Walk up the parent chain, querying audit history for each parent
+        while (node != null) {
             node.children = new ArrayList<>();
             nodes.add(node);
-            logger.tracev("stack: {0}", nodes);
-            logger.tracev("{0} <- {1}", node, node.parent);
+
+            if (node.parent == null) {
+                Long parentNodeId = getParentNodeId(node);
+                if (parentNodeId != null) {
+                    node.parent = findNodeInAuditHistory(ar, parentNodeId);
+                }
+            }
+
             node = node.parent;
         }
-        logger.tracev("final stack: {0}", nodes);
 
+        // Rebuild the tree from the stack, starting with Universe at the root
         DiscoveryNode parent = nodes.pop();
         DiscoveryNode root = parent;
+        parent.target = null;
         while (!nodes.isEmpty()) {
             DiscoveryNode child = nodes.pop();
+            if (child.id == leafNodeId) {
+                child.target = target;
+            } else {
+                child.target = null;
+            }
             parent.children.add(child);
             parent = child;
         }
-        DiscoveryNode universe = DiscoveryNode.getUniverse();
-        universe.children.clear();
-        universe.children.add(root);
-        return universe;
+
+        return root;
+    }
+
+    private Long getParentNodeId(DiscoveryNode node) {
+        // Query the audit table to get the parentNode foreign key value
+        // We need to get it from the same revision as the node
+        try {
+            var result =
+                    em.createNativeQuery(
+                                    "SELECT parentNode FROM DiscoveryNode_AUD WHERE id = :id AND"
+                                        + " REV = (SELECT MAX(REV) FROM DiscoveryNode_AUD WHERE id"
+                                        + " = :id)")
+                            .setParameter("id", node.id)
+                            .getSingleResult();
+            return result != null ? ((Number) result).longValue() : null;
+        } catch (Exception e) {
+            logger.debugv(e, "Failed to get parent node ID for node {0}", node.id);
+        }
+        return null;
+    }
+
+    private DiscoveryNode findNodeInAuditHistory(AuditReader ar, Long nodeId) {
+        try {
+            var q =
+                    ar.createQuery()
+                            .forRevisionsOfEntity(DiscoveryNode.class, true, true)
+                            .add(AuditEntity.id().eq(nodeId))
+                            .addOrder(AuditEntity.revisionNumber().desc())
+                            .setMaxResults(1)
+                            .getResultList();
+            if (!q.isEmpty()) {
+                return (DiscoveryNode) q.get(0);
+            }
+        } catch (Exception e) {
+            logger.debugv(e, "Failed to find node {0} in audit history", nodeId);
+        }
+        return null;
     }
 }
