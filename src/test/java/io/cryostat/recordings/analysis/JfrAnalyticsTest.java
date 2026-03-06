@@ -482,4 +482,63 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 .assertThat()
                 .statusCode(400);
     }
+
+    @Test
+    void testThreadStartEndJoin() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT ts."parentThread"."javaName", ts."thread"."javaName", ts."thread"."javaThreadId", te."thread"."javaName", te."thread"."javaThreadId"
+                                FROM jfr."jdk.ThreadStart" ts
+                                LEFT JOIN jfr."jdk.ThreadEnd" te ON ts."thread"."javaThreadId" = te."thread"."javaThreadId"
+                                ORDER BY ts."thread"."javaThreadId"
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        // Response is array of arrays with thread information
+        // Each row has 5 columns: [parentThread.javaName, thread.javaName,
+        // thread.javaThreadId, te.thread.javaName, te.thread.javaThreadId]
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.greaterThan(0));
+
+        if (!result.isEmpty()) {
+            // Verify structure of first row
+            List<String> firstRow = result.get(0);
+            MatcherAssert.assertThat(firstRow, Matchers.instanceOf(List.class));
+            MatcherAssert.assertThat(firstRow.size(), Matchers.equalTo(5));
+
+            // Column 0: parentThread.javaName (can be null or string)
+            // Column 1: thread.javaName (should be non-null string)
+            MatcherAssert.assertThat(firstRow.get(1), Matchers.notNullValue());
+
+            // Column 2: thread.javaThreadId (should be numeric string)
+            MatcherAssert.assertThat(firstRow.get(2), Matchers.matchesRegex("\\d+"));
+
+            // Columns 3-4: te.thread.javaName and te.thread.javaThreadId
+            // These can be null if thread hasn't ended (LEFT JOIN)
+            // If column 3 is not null, column 4 should also not be null and match column 2
+            if (firstRow.get(3) != null) {
+                MatcherAssert.assertThat(firstRow.get(4), Matchers.notNullValue());
+                MatcherAssert.assertThat(firstRow.get(4), Matchers.matchesRegex("\\d+"));
+            }
+        }
+    }
 }
