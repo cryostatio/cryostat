@@ -424,6 +424,6 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(400);
+                .statusCode(200);
     }
 }
