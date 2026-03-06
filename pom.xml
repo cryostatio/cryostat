@@ -41,6 +41,8 @@
     <com.google.protobuf-java.version>4.31.1</com.google.protobuf-java.version>
     <com.nimbusds.jose.jwt.version>10.7</com.nimbusds.jose.jwt.version>
     <org.testcontainers.bom.version>2.0.4</org.testcontainers.bom.version>
+    <jfr-analytics.version>1.0.0-SNAPSHOT</jfr-analytics.version>
+    <org.apache.calcite.version>1.33.0</org.apache.calcite.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.27.2</quarkus.platform.version>
@@ -94,6 +96,16 @@
     </dependencies>
   </dependencyManagement>
   <dependencies>
+    <dependency>
+      <groupId>org.moditect.jfranalytics</groupId>
+      <artifactId>jfr-analytics</artifactId>
+      <version>${jfr-analytics.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.calcite</groupId>
+      <artifactId>calcite-core</artifactId>
+      <version>${org.apache.calcite.version}</version>
+    </dependency>
     <dependency>
       <groupId>io.cryostat</groupId>
       <artifactId>cryostat-core</artifactId>
@@ -370,6 +382,22 @@
         <version>${org.codehaus.mojo.exec.plugin.version}</version>
         <executions>
           <execution>
+            <id>build-jfr-analytics</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>exec</goal>
+            </goals>
+            <configuration>
+              <executable>mvn</executable>
+              <workingDirectory>${project.basedir}/src/main/jfr-analytics</workingDirectory>
+              <arguments>
+                <argument>clean</argument>
+                <argument>install</argument>
+                <argument>-Dquick</argument>
+              </arguments>
+            </configuration>
+          </execution>
+          <execution>
             <id>generate-git-version</id>
             <phase>generate-resources</phase>
             <goals>
@@ -424,6 +452,9 @@
         </executions>
         <configuration>
           <java>
+            <excludes>
+              <exclude>src/main/jfr-analytics/**/*.java</exclude>
+            </excludes>
             <googleJavaFormat>
               <version>${com.google.java-format.version}</version>
               <style>AOSP</style>
@@ -478,6 +509,7 @@
               </includes>
               <excludes>
                 <exclude>src/main/java/io/cryostat/util/OutputToReadStream.java</exclude>
+                <exclude>src/main/jfr-analytics/**/*.java</exclude>
               </excludes>
             </licenseSet>
           </licenseSets>
