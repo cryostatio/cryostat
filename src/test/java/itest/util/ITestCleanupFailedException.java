@@ -23,6 +23,10 @@ public class ITestCleanupFailedException extends Exception {
         super(reason);
     }
 
+    public ITestCleanupFailedException(Throwable cause) {
+        super(cause);
+    }
+
     public ITestCleanupFailedException(String reason, Throwable cause) {
         super(reason, cause);
     }
