@@ -131,7 +131,11 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .pathParams("jvmId", selfJvmId, "filename", "nonexistent.jfr")
-                .formParam("query", "SELECT COUNT(*) FROM \"JFR\".\"jdk.ObjectAllocationSample\"")
+                .formParam(
+                        "query",
+                        """
+                        SELECT COUNT(*) FROM "JFR"."jdk.ObjectAllocationSample"
+                        """)
                 .post("/api/beta/recording_analytics/{jvmId}/{filename}")
                 .then()
                 .log()
@@ -147,7 +151,11 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 .all()
                 .when()
                 .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
-                .formParam("query", "INVALID SQL QUERY")
+                .formParam(
+                        "query",
+                        """
+                        INVALID SQL QUERY
+                        """)
                 .post("/api/beta/recording_analytics/{jvmId}/{filename}")
                 .then()
                 .log()
@@ -166,8 +174,9 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
                         .formParam(
                                 "query",
-                                "SELECT COUNT(*) FROM \"JFR\".\"jdk.ObjectAllocationSample\""
-                                        + " LIMIT 1")
+                                """
+                                SELECT COUNT(*) FROM "JFR"."jdk.ObjectAllocationSample" LIMIT 1
+                                """)
                         .post("/api/beta/recording_analytics/{jvmId}/{filename}")
                         .then()
                         .log()
@@ -195,7 +204,9 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
                         .formParam(
                                 "query",
-                                "SELECT * FROM \"JFR\".\"jdk.ObjectAllocationSample\" LIMIT 10")
+                                """
+                                SELECT * FROM "JFR"."jdk.ObjectAllocationSample" LIMIT 10
+                                """)
                         .post("/api/beta/recording_analytics/{jvmId}/{filename}")
                         .then()
                         .log()
@@ -223,8 +234,9 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
                         .formParam(
                                 "query",
-                                "SELECT COUNT(*) as \"total\" FROM"
-                                        + " \"JFR\".\"jdk.ObjectAllocationSample\"")
+                                """
+                                SELECT COUNT(*) as "total" FROM "JFR"."jdk.ObjectAllocationSample"
+                                """)
                         .post("/api/beta/recording_analytics/{jvmId}/{filename}")
                         .then()
                         .log()
@@ -241,5 +253,177 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
 
         MatcherAssert.assertThat(result, Matchers.notNullValue());
         MatcherAssert.assertThat(result.size(), Matchers.greaterThan(0));
+    }
+
+    @Test
+    void testExecuteQueryWithGroupByAndOrderBy() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT "state", COUNT(*) AS "count"
+                                FROM "JFR"."jdk.ExecutionSample"
+                                GROUP BY "state"
+                                ORDER BY COUNT(*) DESC
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+    }
+
+    @Test
+    void testExecuteQueryWithNestedFieldAccessFails() {
+        // Nested field access with dot notation is not supported by Apache Calcite
+        // for JFR events - this test verifies the error is handled correctly
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                .formParam(
+                        "query",
+                        """
+                        SELECT "sampledThread"."javaName" AS "thread_name",
+                               COUNT(*) AS "sample_count"
+                        FROM "JFR"."jdk.ExecutionSample"
+                        GROUP BY "sampledThread"."javaName"
+                        ORDER BY COUNT(*) DESC
+                        LIMIT 20
+                        """)
+                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testExecuteQueryWithCustomFunction() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT TRUNCATE_STACKTRACE("stackTrace", 10) AS "stacktrace",
+                                       COUNT(*) AS "sample_count"
+                                FROM "JFR"."jdk.ExecutionSample"
+                                GROUP BY TRUNCATE_STACKTRACE("stackTrace", 10)
+                                ORDER BY COUNT(*) DESC
+                                LIMIT 15
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+    }
+
+    @Test
+    void testDiscoverSchemaStructure() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT * FROM "JFR"."jdk.ExecutionSample" LIMIT 1
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+    }
+
+    @Test
+    void testNestedFieldAccessWithFlattenedName() {
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                .formParam(
+                        "query",
+                        """
+                        SELECT "sampledThread.javaName" AS "thread_name",
+                               COUNT(*) AS "sample_count"
+                        FROM "JFR"."jdk.ExecutionSample"
+                        GROUP BY "sampledThread.javaName"
+                        ORDER BY COUNT(*) DESC
+                        LIMIT 20
+                        """)
+                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testNestedFieldAccessWithBracketNotation() {
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                .formParam(
+                        "query",
+                        """
+                        SELECT "sampledThread"['javaName'] AS "thread_name",
+                               COUNT(*) AS "sample_count"
+                        FROM "JFR"."jdk.ExecutionSample"
+                        GROUP BY "sampledThread"['javaName']
+                        ORDER BY COUNT(*) DESC
+                        LIMIT 20
+                        """)
+                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
     }
 }
