@@ -45,7 +45,7 @@
     <com.google.protobuf-java.version>4.31.1</com.google.protobuf-java.version>
     <com.nimbusds.jose.jwt.version>10.7</com.nimbusds.jose.jwt.version>
     <jfr-analytics.version>352daa673e</jfr-analytics.version>
-    <org.apache.calcite.version>1.33.0</org.apache.calcite.version>
+    <org.apache.calcite.version>1.34.0</org.apache.calcite.version>
     <org.testcontainers.bom.version>2.0.3</org.testcontainers.bom.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
