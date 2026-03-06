@@ -40,7 +40,6 @@
     <org.projectnessie.cel.bom.version>0.5.2</org.projectnessie.cel.bom.version>
     <com.google.protobuf-java.version>4.31.1</com.google.protobuf-java.version>
     <com.nimbusds.jose.jwt.version>10.7</com.nimbusds.jose.jwt.version>
-    <jfr-analytics.version>1.0.0-SNAPSHOT</jfr-analytics.version>
     <org.apache.calcite.version>1.33.0</org.apache.calcite.version>
     <org.testcontainers.bom.version>2.0.3</org.testcontainers.bom.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
@@ -96,11 +95,6 @@
     </dependencies>
   </dependencyManagement>
   <dependencies>
-    <dependency>
-      <groupId>org.moditect.jfranalytics</groupId>
-      <artifactId>jfr-analytics</artifactId>
-      <version>${jfr-analytics.version}</version>
-    </dependency>
     <dependency>
       <groupId>org.apache.calcite</groupId>
       <artifactId>calcite-core</artifactId>
@@ -382,22 +376,6 @@
         <version>${org.codehaus.mojo.exec.plugin.version}</version>
         <executions>
           <execution>
-            <id>build-jfr-analytics</id>
-            <phase>initialize</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-            <configuration>
-              <executable>mvn</executable>
-              <workingDirectory>${project.basedir}/src/main/jfr-analytics</workingDirectory>
-              <arguments>
-                <argument>clean</argument>
-                <argument>install</argument>
-                <argument>-Dquick</argument>
-              </arguments>
-            </configuration>
-          </execution>
-          <execution>
             <id>generate-git-version</id>
             <phase>generate-resources</phase>
             <goals>
@@ -454,6 +432,7 @@
           <java>
             <excludes>
               <exclude>src/main/jfr-analytics/**/*.java</exclude>
+              <exclude>src/main/java/org/moditect/**/*.java</exclude>
             </excludes>
             <googleJavaFormat>
               <version>${com.google.java-format.version}</version>
@@ -510,6 +489,7 @@
               <excludes>
                 <exclude>src/main/java/io/cryostat/util/OutputToReadStream.java</exclude>
                 <exclude>src/main/jfr-analytics/**/*.java</exclude>
+                <exclude>src/main/java/org/moditect/**/*.java</exclude>
               </excludes>
             </licenseSet>
           </licenseSets>
