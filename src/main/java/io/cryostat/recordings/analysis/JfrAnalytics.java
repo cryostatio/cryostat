@@ -50,6 +50,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PathParam;
@@ -103,7 +104,7 @@ public class JfrAnalytics {
                                 return executeQueryOnFile(jfrFile, query);
                             } catch (SQLException e) {
                                 logger.error(e);
-                                throw new RuntimeException(
+                                throw new BadRequestException(
                                         "Failed to execute query on JFR file", e);
                             }
                         });
@@ -198,6 +199,9 @@ public class JfrAnalytics {
     }
 
     static class FileSizeWeigher implements Weigher<RecordingKey, Path> {
+
+        private final Logger logger = Logger.getLogger(getClass());
+
         @Override
         public int weigh(RecordingKey key, Path tempFile) {
             try {
@@ -205,6 +209,7 @@ public class JfrAnalytics {
                 long sizeInMB = sizeInBytes / (1024 * 1024);
                 return (int) Math.max(1, sizeInMB);
             } catch (IOException e) {
+                logger.error(e);
                 return 1;
             }
         }
