@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
+import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.RecordingHelper;
 
 import com.github.benmanes.caffeine.cache.AsyncCacheLoader;
@@ -52,11 +53,18 @@ import jakarta.inject.Inject;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PathParam;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.moditect.jfranalytics.JfrSchemaFactory;
 
 @jakarta.ws.rs.Path("")
 public class JfrAnalytics {
+
+    @ConfigProperty(name = ConfigProperties.JFR_ANALYTICS_CACHE_MAX_WEIGHT)
+    long maxCacheWeight;
+
+    @ConfigProperty(name = ConfigProperties.JFR_ANALYTICS_CACHE_TTL)
+    Duration cacheTtl;
 
     @Inject RecordingHelper recordings;
     @Inject Logger logger;
@@ -69,9 +77,9 @@ public class JfrAnalytics {
                 Caffeine.newBuilder()
                         .executor(executor)
                         .scheduler(Scheduler.systemScheduler())
-                        .maximumWeight(1024)
+                        .maximumWeight(maxCacheWeight)
                         .weigher(new FileSizeWeigher())
-                        .expireAfterAccess(Duration.ofMinutes(10))
+                        .expireAfterAccess(cacheTtl)
                         .removalListener(this::onCacheRemoval)
                         .buildAsync(new JfrFileLoader());
     }
