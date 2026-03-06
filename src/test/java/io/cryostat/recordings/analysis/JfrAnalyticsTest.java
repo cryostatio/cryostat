@@ -312,6 +312,97 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    void testExecuteQueryWithClassNameFunction() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT CLASS_NAME("objectClass") AS "class_name",
+                                       COUNT(*) AS "allocation_count"
+                                FROM "JFR"."jdk.ObjectAllocationSample"
+                                GROUP BY CLASS_NAME("objectClass")
+                                ORDER BY COUNT(*) DESC
+                                LIMIT 20
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        // Response is array of arrays, each row has [class_name, allocation_count]
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(20));
+        if (!result.isEmpty()) {
+            // Each row should have exactly 2 columns: class_name and allocation_count
+            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
+            MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
+            // First column is class_name (string), second is count (numeric string)
+            MatcherAssert.assertThat(result.get(0).get(0), Matchers.notNullValue());
+            MatcherAssert.assertThat(result.get(0).get(1), Matchers.matchesRegex("\\d+"));
+        }
+    }
+
+    @Test
+    void testExecuteQueryWithHasMatchingFrameFunction() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT TRUNCATE_STACKTRACE("stackTrace", 5) AS "stacktrace",
+                                       COUNT(*) AS "allocation_count"
+                                FROM "JFR"."jdk.ObjectAllocationSample"
+                                WHERE HAS_MATCHING_FRAME("stackTrace", '.*java\\.util\\..*')
+                                GROUP BY TRUNCATE_STACKTRACE("stackTrace", 5)
+                                ORDER BY COUNT(*) DESC
+                                LIMIT 10
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        // Response is array of arrays, each row has [stacktrace, allocation_count]
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(10));
+        if (!result.isEmpty()) {
+            // Each row should have exactly 2 columns: stacktrace and allocation_count
+            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
+            MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
+            // First column is stacktrace (string), second is count (numeric string)
+            MatcherAssert.assertThat(result.get(0).get(0), Matchers.notNullValue());
+            MatcherAssert.assertThat(result.get(0).get(1), Matchers.matchesRegex("\\d+"));
+        }
+    }
+
+    @Test
     void testExecuteQueryWithNestedFieldAccessFails() {
         // Nested field access with dot notation is not supported. This test verifies the error is
         // handled correctly
