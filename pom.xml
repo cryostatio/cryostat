@@ -17,6 +17,10 @@
         <updatePolicy>always</updatePolicy>
       </snapshots>
     </repository>
+    <repository>
+      <id>jitpack.io</id>
+      <url>https://jitpack.io</url>
+    </repository>
   </repositories>
 
   <properties>
@@ -40,6 +44,8 @@
     <org.projectnessie.cel.bom.version>0.5.2</org.projectnessie.cel.bom.version>
     <com.google.protobuf-java.version>4.31.1</com.google.protobuf-java.version>
     <com.nimbusds.jose.jwt.version>10.7</com.nimbusds.jose.jwt.version>
+    <jfr-analytics.version>352daa673e</jfr-analytics.version>
+    <org.apache.calcite.version>1.34.0</org.apache.calcite.version>
     <org.testcontainers.bom.version>2.0.3</org.testcontainers.bom.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
@@ -94,6 +100,16 @@
     </dependencies>
   </dependencyManagement>
   <dependencies>
+    <dependency>
+      <groupId>com.github.moditect</groupId>
+      <artifactId>jfr-analytics</artifactId>
+      <version>${jfr-analytics.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.calcite</groupId>
+      <artifactId>calcite-core</artifactId>
+      <version>${org.apache.calcite.version}</version>
+    </dependency>
     <dependency>
       <groupId>io.cryostat</groupId>
       <artifactId>cryostat-core</artifactId>
@@ -476,9 +492,6 @@
                 <include>src/main/**/*.java</include>
                 <include>src/test/**/*.java</include>
               </includes>
-              <excludes>
-                <exclude>src/main/java/io/cryostat/util/OutputToReadStream.java</exclude>
-              </excludes>
             </licenseSet>
           </licenseSets>
         </configuration>
