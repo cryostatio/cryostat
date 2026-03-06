@@ -2,6 +2,3 @@
 	path = src/main/webui
 	url = https://github.com/cryostatio/cryostat-web
 	branch = main
-[submodule "src/main/jfr-analytics"]
-	path = src/main/jfr-analytics
-	url = https://github.com/moditect/jfr-analytics
