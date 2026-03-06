@@ -191,8 +191,14 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getList("$");
 
+        // Response is array of arrays: [[count_value]]
         MatcherAssert.assertThat(result, Matchers.notNullValue());
-        MatcherAssert.assertThat(result.size(), Matchers.greaterThanOrEqualTo(0));
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(1));
+        // Count value should be a numeric string
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.matchesRegex("\\d+"));
     }
 
     @Test
@@ -221,8 +227,16 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getList("$");
 
+        // Response is array of arrays, each row contains multiple columns
         MatcherAssert.assertThat(result, Matchers.notNullValue());
-        MatcherAssert.assertThat(result.size(), Matchers.greaterThanOrEqualTo(0));
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(10));
+        if (!result.isEmpty()) {
+            // Each row should have multiple columns (startTime, sampledThread, stackTrace,
+            // objectClass, weight)
+            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
+            MatcherAssert.assertThat(result.get(0).size(), Matchers.greaterThan(1));
+        }
     }
 
     @Test
@@ -251,8 +265,14 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getList("$");
 
+        // Response is array with single row containing aggregated count
         MatcherAssert.assertThat(result, Matchers.notNullValue());
-        MatcherAssert.assertThat(result.size(), Matchers.greaterThan(0));
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(1));
+        // Count value should be a numeric string
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.matchesRegex("\\d+"));
     }
 
     @Test
@@ -284,7 +304,17 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getList("$");
 
+        // Response is array of arrays, each row has [state, count]
         MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        if (!result.isEmpty()) {
+            // Each row should have exactly 2 columns: state and count
+            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
+            MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
+            // First column is state (string), second is count (numeric string)
+            MatcherAssert.assertThat(result.get(0).get(0), Matchers.notNullValue());
+            MatcherAssert.assertThat(result.get(0).get(1), Matchers.matchesRegex("\\d+"));
+        }
     }
 
     @Test
@@ -345,7 +375,18 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getList("$");
 
+        // Response is array of arrays, each row has [stacktrace, sample_count]
         MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(15));
+        if (!result.isEmpty()) {
+            // Each row should have exactly 2 columns: stacktrace and sample_count
+            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
+            MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
+            // First column is stacktrace (string), second is count (numeric string)
+            MatcherAssert.assertThat(result.get(0).get(0), Matchers.notNullValue());
+            MatcherAssert.assertThat(result.get(0).get(1), Matchers.matchesRegex("\\d+"));
+        }
     }
 
     @Test
@@ -374,7 +415,15 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getList("$");
 
+        // Response is array of arrays with single row containing all columns
         MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(1));
+        if (!result.isEmpty()) {
+            // ExecutionSample has multiple columns (startTime, sampledThread, stackTrace, state)
+            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
+            MatcherAssert.assertThat(result.get(0).size(), Matchers.greaterThan(1));
+        }
     }
 
     @Test
