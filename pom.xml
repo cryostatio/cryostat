@@ -46,7 +46,7 @@
     <com.nimbusds.jose.jwt.version>10.7</com.nimbusds.jose.jwt.version>
     <org.testcontainers.bom.version>2.0.4</org.testcontainers.bom.version>
     <jfr-analytics.version>352daa673e</jfr-analytics.version>
-    <org.apache.calcite.version>1.33.0</org.apache.calcite.version>
+    <org.apache.calcite.version>1.34.0</org.apache.calcite.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.27.2</quarkus.platform.version>
