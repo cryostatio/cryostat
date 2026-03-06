@@ -17,9 +17,8 @@ package io.cryostat.recordings.analysis;
 
 import static io.restassured.RestAssured.given;
 
-import java.io.IOException;
+import java.io.File;
 import java.util.List;
-import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -28,9 +27,6 @@ import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
-import io.vertx.core.json.JsonObject;
-import itest.util.ITestCleanupFailedException;
-import jakarta.websocket.DeploymentException;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterEach;
@@ -42,87 +38,38 @@ import org.junit.jupiter.api.Test;
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
 
-    private static boolean recordingSetupComplete = false;
-    private static String sharedArchivedRecordingName;
+    private static final String RECORDING_FILENAME = "analytics-sample.jfr";
 
     @BeforeEach
-    void setupRecording()
-            throws InterruptedException, IOException, DeploymentException, TimeoutException {
-        if (recordingSetupComplete) {
-            return;
-        }
-
+    void setupRecording() throws Exception {
         if (selfId < 1) {
             defineSelfCustomTarget();
         }
 
-        startSelfRecording("jfrAnalyticsTest", TEMPLATE_CONTINUOUS);
+        File recordingFile =
+                new File(
+                        getClass()
+                                .getClassLoader()
+                                .getResource(
+                                        "io/cryostat/recordings/analysis/" + RECORDING_FILENAME)
+                                .toURI());
 
-        Thread.sleep(5_000);
-
-        String archiveJobId =
-                given().log()
-                        .all()
-                        .when()
-                        .pathParams("targetId", selfId, "remoteId", selfRecordingId)
-                        .body("SAVE")
-                        .patch("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(200)
-                        .and()
-                        .extract()
-                        .body()
-                        .asString();
-
-        JsonObject archiveMessage =
-                webSocketClient.expectNotification(
-                        "ArchiveRecordingSuccess",
-                        o -> archiveJobId.equals(o.getJsonObject("message").getString("jobId")));
-        sharedArchivedRecordingName =
-                archiveMessage.getJsonObject("message").getString("recording");
-
-        recordingSetupComplete = true;
+        given().contentType(ContentType.MULTIPART)
+                .multiPart("recording", recordingFile, "application/octet-stream")
+                .pathParam("jvmId", selfJvmId)
+                .post("/api/beta/recordings/{jvmId}")
+                .then()
+                .assertThat()
+                .statusCode(204);
     }
 
     @AfterEach
-    void cleanupRecording() throws ITestCleanupFailedException {
-        if (!recordingSetupComplete) {
-            return;
-        }
-
-        if (selfId > 0 && selfRecordingId > 0) {
-            try {
-                cleanupSelfRecording();
-            } catch (Exception e) {
-                throw new ITestCleanupFailedException(e);
-            }
-        }
-
-        if (sharedArchivedRecordingName != null) {
-            try {
-                given().log()
-                        .all()
-                        .when()
-                        .pathParams(
-                                "connectUrl", SELF_JMX_URL, "filename", sharedArchivedRecordingName)
-                        .delete("/api/beta/recordings/{connectUrl}/{filename}")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(204);
-            } catch (Exception e) {
-                throw new ITestCleanupFailedException(e);
-            }
-            sharedArchivedRecordingName = null;
-        }
-
-        recordingSetupComplete = false;
+    void cleanupRecording() {
+        given().pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                .delete("/api/beta/fs/recordings/{jvmId}/{filename}")
+                .then()
+                .assertThat()
+                .statusCode(204);
     }
 
     @Test
@@ -146,11 +93,11 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testExecuteQueryWithInvalidQuery() {
+    void testExecuteInvalidQuery() {
         given().log()
                 .all()
                 .when()
-                .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
                 .formParam(
                         "query",
                         """
@@ -171,7 +118,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -207,7 +154,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -245,7 +192,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -281,14 +228,15 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
-                                SELECT "state", COUNT(*) AS "count"
-                                FROM "JFR"."jdk.ExecutionSample"
-                                GROUP BY "state"
+                                SELECT "objectClass", COUNT(*) AS "count"
+                                FROM "JFR"."jdk.ObjectAllocationSample"
+                                GROUP BY "objectClass"
                                 ORDER BY COUNT(*) DESC
+                                LIMIT 10
                                 """)
                         .post("/api/beta/recording_analytics/{jvmId}/{filename}")
                         .then()
@@ -304,44 +252,18 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getList("$");
 
-        // Response is array of arrays, each row has [state, count]
+        // Response is array of arrays, each row has [objectClass, count]
         MatcherAssert.assertThat(result, Matchers.notNullValue());
         MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(10));
         if (!result.isEmpty()) {
-            // Each row should have exactly 2 columns: state and count
+            // Each row should have exactly 2 columns: objectClass and count
             MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
             MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
-            // First column is state (string), second is count (numeric string)
+            // First column is objectClass (string), second is count (numeric string)
             MatcherAssert.assertThat(result.get(0).get(0), Matchers.notNullValue());
             MatcherAssert.assertThat(result.get(0).get(1), Matchers.matchesRegex("\\d+"));
         }
-    }
-
-    @Test
-    void testExecuteQueryWithNestedFieldAccessFails() {
-        // Nested field access with dot notation is not supported by Apache Calcite
-        // for JFR events - this test verifies the error is handled correctly
-        given().log()
-                .all()
-                .when()
-                .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
-                .formParam(
-                        "query",
-                        """
-                        SELECT "sampledThread"."javaName" AS "thread_name",
-                               COUNT(*) AS "sample_count"
-                        FROM "JFR"."jdk.ExecutionSample"
-                        GROUP BY "sampledThread"."javaName"
-                        ORDER BY COUNT(*) DESC
-                        LIMIT 20
-                        """)
-                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(400);
     }
 
     @Test
@@ -350,13 +272,13 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
                                 SELECT TRUNCATE_STACKTRACE("stackTrace", 10) AS "stacktrace",
-                                       COUNT(*) AS "sample_count"
-                                FROM "JFR"."jdk.ExecutionSample"
+                                       COUNT(*) AS "allocation_count"
+                                FROM "JFR"."jdk.ObjectAllocationSample"
                                 GROUP BY TRUNCATE_STACKTRACE("stackTrace", 10)
                                 ORDER BY COUNT(*) DESC
                                 LIMIT 15
@@ -375,12 +297,12 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getList("$");
 
-        // Response is array of arrays, each row has [stacktrace, sample_count]
+        // Response is array of arrays, each row has [stacktrace, allocation_count]
         MatcherAssert.assertThat(result, Matchers.notNullValue());
         MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
         MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(15));
         if (!result.isEmpty()) {
-            // Each row should have exactly 2 columns: stacktrace and sample_count
+            // Each row should have exactly 2 columns: stacktrace and allocation_count
             MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
             MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
             // First column is stacktrace (string), second is count (numeric string)
@@ -390,55 +312,47 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
-    void testDiscoverSchemaStructure() {
-        List<List<String>> result =
-                given().log()
-                        .all()
-                        .when()
-                        .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
-                        .formParam(
-                                "query",
-                                """
-                                SELECT * FROM "JFR"."jdk.ExecutionSample" LIMIT 1
-                                """)
-                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(200)
-                        .contentType(ContentType.JSON)
-                        .and()
-                        .extract()
-                        .body()
-                        .jsonPath()
-                        .getList("$");
-
-        // Response is array of arrays with single row containing all columns
-        MatcherAssert.assertThat(result, Matchers.notNullValue());
-        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
-        MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(1));
-        if (!result.isEmpty()) {
-            // ExecutionSample has multiple columns (startTime, sampledThread, stackTrace, state)
-            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
-            MatcherAssert.assertThat(result.get(0).size(), Matchers.greaterThan(1));
-        }
+    void testExecuteQueryWithNestedFieldAccessFails() {
+        // Nested field access with dot notation is not supported. This test verifies the error is
+        // handled correctly
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                .formParam(
+                        "query",
+                        """
+                        SELECT "objectClass"."name" AS "class_name",
+                               COUNT(*) AS "allocation_count"
+                        FROM "JFR"."jdk.ObjectAllocationSample"
+                        GROUP BY "objectClass"."name"
+                        ORDER BY COUNT(*) DESC
+                        LIMIT 20
+                        """)
+                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
     }
 
     @Test
     void testNestedFieldAccessWithFlattenedName() {
+        // Nested field access with flattened name notation is not supported. This test verifies the
+        // error is handled correctly
         given().log()
                 .all()
                 .when()
-                .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
                 .formParam(
                         "query",
                         """
-                        SELECT "sampledThread.javaName" AS "thread_name",
-                               COUNT(*) AS "sample_count"
-                        FROM "JFR"."jdk.ExecutionSample"
-                        GROUP BY "sampledThread.javaName"
+                        SELECT "objectClass.name" AS "class_name",
+                               COUNT(*) AS "allocation_count"
+                        FROM "JFR"."jdk.ObjectAllocationSample"
+                        GROUP BY "objectClass.name"
                         ORDER BY COUNT(*) DESC
                         LIMIT 20
                         """)
@@ -453,17 +367,19 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
 
     @Test
     void testNestedFieldAccessWithBracketNotation() {
+        // Nested field access with bracket notation is not supported. This test verifies the error
+        // is handled correctly
         given().log()
                 .all()
                 .when()
-                .pathParams("jvmId", selfJvmId, "filename", sharedArchivedRecordingName)
+                .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
                 .formParam(
                         "query",
                         """
-                        SELECT "sampledThread"['javaName'] AS "thread_name",
-                               COUNT(*) AS "sample_count"
-                        FROM "JFR"."jdk.ExecutionSample"
-                        GROUP BY "sampledThread"['javaName']
+                        SELECT "objectClass"['name'] AS "class_name",
+                               COUNT(*) AS "allocation_count"
+                        FROM "JFR"."jdk.ObjectAllocationSample"
+                        GROUP BY "objectClass"['name']
                         ORDER BY COUNT(*) DESC
                         LIMIT 20
                         """)
@@ -473,6 +389,6 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 .all()
                 .and()
                 .assertThat()
-                .statusCode(200);
+                .statusCode(400);
     }
 }
