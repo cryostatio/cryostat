@@ -1274,6 +1274,44 @@ paths:
       summary: Delete an archived recording by name belonging to the specified target
       tags:
         - Archived Recordings
+  /api/beta/recording_analytics/{jvmId}/{filename}:
+    post:
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                query:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  items:
+                    type: string
+                  type: array
+                type: array
+          description: OK
+        "400":
+          description: Bad Request
+      summary: Execute Query
+      tags:
+        - Jfr Analytics
   /api/beta/recordings/{connectUrl}/{filename}:
     delete:
       parameters:
