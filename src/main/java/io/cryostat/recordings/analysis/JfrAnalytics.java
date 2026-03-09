@@ -44,6 +44,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import com.github.benmanes.caffeine.cache.Weigher;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -110,13 +111,15 @@ public class JfrAnalytics {
                         });
     }
 
+    @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
     private List<List<String>> executeQueryOnFile(Path jfrFile, String query) throws SQLException {
         Properties properties = new Properties();
         properties.put("model", JfrSchemaFactory.INLINE_MODEL.formatted(jfrFile));
 
         try (Connection connection = DriverManager.getConnection("jdbc:calcite:", properties)) {
             PreparedStatement statement = connection.prepareStatement(query);
-            try (ResultSet rs = statement.executeQuery()) {
+            try (statement;
+                    ResultSet rs = statement.executeQuery()) {
                 ResultSetMetaData metaData = rs.getMetaData();
                 int columnCount = metaData.getColumnCount();
 
