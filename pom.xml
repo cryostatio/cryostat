@@ -280,7 +280,11 @@
       <version>${com.google.java-format.version}</version>
       <scope>provided</scope>
     </dependency>
-
+    <dependency>
+      <groupId>me.bechberger</groupId>
+      <artifactId>jthreaddump</artifactId>
+      <version>0.5.8</version>
+    </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-flyway</artifactId>
