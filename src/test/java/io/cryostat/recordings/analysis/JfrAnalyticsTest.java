@@ -144,8 +144,8 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
         MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
         MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(1));
-        // Count value should be a numeric string
-        MatcherAssert.assertThat(result.get(0).get(0), Matchers.matchesRegex("\\d+"));
+        // Verify the exact count from the static recording
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("9391"));
     }
 
     @Test
@@ -177,12 +177,89 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         // Response is array of arrays, each row contains multiple columns
         MatcherAssert.assertThat(result, Matchers.notNullValue());
         MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
-        MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(10));
-        if (!result.isEmpty()) {
-            // Each row should have multiple columns (startTime, sampledThread, stackTrace,
-            // objectClass, weight)
-            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
-            MatcherAssert.assertThat(result.get(0).size(), Matchers.greaterThan(1));
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(10));
+
+        String[][] expectedData = {
+            {"2025-10-16 07:29:07", "C1 CompilerThread0", null, "java/lang/String", "81232"},
+            {
+                "2025-10-16 07:29:07",
+                "VirtualThreads",
+                "io.quarkus.jfr.runtime.runtime.JfrRuntimeBean$ExtensionEventTask.run()",
+                "io/quarkus/jfr/runtime/runtime/ExtensionEvent",
+                "39750912"
+            },
+            {
+                "2025-10-16 07:29:07",
+                "VirtualThreads",
+                "java.io.BufferedReader.<init>",
+                "[C",
+                "49216"
+            },
+            {
+                "2025-10-16 07:29:07",
+                "VirtualThreads",
+                "sun.nio.ch.FileChannelImpl.open",
+                "sun/nio/ch/FileChannelImpl",
+                "38432"
+            },
+            {
+                "2025-10-16 07:29:07",
+                "VirtualThreads",
+                "java.io.BufferedReader.<init>",
+                "[C",
+                "41008"
+            },
+            {
+                "2025-10-16 07:29:07",
+                "JFR Periodic Tasks",
+                "java.util.Arrays.copyOf",
+                "[Ljava/lang/Object;",
+                "22568"
+            },
+            {
+                "2025-10-16 07:29:07",
+                "VirtualThreads",
+                "java.util.HashMap.resize()",
+                "[Ljava/util/HashMap$Node;",
+                "62664"
+            },
+            {
+                "2025-10-16 07:29:07",
+                "JFR Periodic Tasks",
+                "java.lang.StringBuilder.toString()",
+                "java/lang/String",
+                "2712"
+            },
+            {
+                "2025-10-16 07:29:07",
+                "VirtualThreads",
+                "javax.management.openmbean.CompositeDataSupport.makeMap",
+                "java/util/TreeMap",
+                "40520"
+            },
+            {
+                "2025-10-16 07:29:07",
+                "VirtualThreads",
+                "java.util.TreeMap.keyIterator()",
+                "java/util/TreeMap$KeyIterator",
+                "38496"
+            }
+        };
+
+        for (int i = 0; i < expectedData.length; i++) {
+            MatcherAssert.assertThat(result.get(i).get(0), Matchers.equalTo(expectedData[i][0]));
+            MatcherAssert.assertThat(
+                    result.get(i).get(1), Matchers.containsString(expectedData[i][1]));
+            if (expectedData[i][2] == null) {
+                MatcherAssert.assertThat(result.get(i).get(2), Matchers.nullValue());
+            } else {
+                MatcherAssert.assertThat(
+                        result.get(i).get(2), Matchers.containsString(expectedData[i][2]));
+            }
+            MatcherAssert.assertThat(
+                    result.get(i).get(3), Matchers.containsString(expectedData[i][3]));
+
+            MatcherAssert.assertThat(result.get(i).get(4), Matchers.equalTo(expectedData[i][4]));
         }
     }
 
@@ -218,8 +295,8 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
         MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
         MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(1));
-        // Count value should be a numeric string
-        MatcherAssert.assertThat(result.get(0).get(0), Matchers.matchesRegex("\\d+"));
+        // Verify the exact count from the static recording
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("9391"));
     }
 
     @Test
@@ -255,15 +332,21 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         // Response is array of arrays, each row has [objectClass, count]
         MatcherAssert.assertThat(result, Matchers.notNullValue());
         MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
-        MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(10));
-        if (!result.isEmpty()) {
-            // Each row should have exactly 2 columns: objectClass and count
-            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
-            MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
-            // First column is objectClass (string), second is count (numeric string)
-            MatcherAssert.assertThat(result.get(0).get(0), Matchers.notNullValue());
-            MatcherAssert.assertThat(result.get(0).get(1), Matchers.matchesRegex("\\d+"));
-        }
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(10));
+
+        MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
+
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.containsString("name = \"[B\""));
+        MatcherAssert.assertThat(result.get(0).get(1), Matchers.equalTo("2596"));
+
+        MatcherAssert.assertThat(
+                result.get(1).get(0), Matchers.containsString("name = \"[Ljava/lang/Object;\""));
+        MatcherAssert.assertThat(result.get(1).get(1), Matchers.equalTo("599"));
+
+        MatcherAssert.assertThat(
+                result.get(2).get(0), Matchers.containsString("name = \"java/lang/String\""));
+        MatcherAssert.assertThat(result.get(2).get(1), Matchers.equalTo("319"));
     }
 
     @Test
@@ -297,18 +380,59 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                         .jsonPath()
                         .getList("$");
 
-        // Response is array of arrays, each row has [stacktrace, allocation_count]
         MatcherAssert.assertThat(result, Matchers.notNullValue());
         MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
         MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(15));
-        if (!result.isEmpty()) {
-            // Each row should have exactly 2 columns: stacktrace and allocation_count
-            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
-            MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
-            // First column is stacktrace (string), second is count (numeric string)
-            MatcherAssert.assertThat(result.get(0).get(0), Matchers.notNullValue());
-            MatcherAssert.assertThat(result.get(0).get(1), Matchers.matchesRegex("\\d+"));
-        }
+        MatcherAssert.assertThat(result.size(), Matchers.greaterThan(0));
+
+        List<String> row0 = result.get(0);
+        MatcherAssert.assertThat(row0.size(), Matchers.equalTo(2));
+        MatcherAssert.assertThat(
+                row0.get(0),
+                Matchers.containsString(
+                        "io.netty.util.internal.PlatformDependent.allocateUninitializedArray(int):328"));
+        MatcherAssert.assertThat(
+                row0.get(0),
+                Matchers.containsString(
+                        "io.netty.buffer.UnpooledUnsafeHeapByteBuf.allocateArray(int):39"));
+        MatcherAssert.assertThat(
+                row0.get(0),
+                Matchers.containsString(
+                        "io.vertx.core.buffer.impl.PartialPooledByteBufAllocator.heapBuffer(int):69"));
+        MatcherAssert.assertThat(row0.get(1), Matchers.equalTo("213"));
+
+        List<String> row1 = result.get(1);
+        MatcherAssert.assertThat(row1.size(), Matchers.equalTo(2));
+        MatcherAssert.assertThat(
+                row1.get(0),
+                Matchers.containsString(
+                        "io.netty.util.internal.PlatformDependent.allocateUninitializedArray(int):328"));
+        MatcherAssert.assertThat(
+                row1.get(0),
+                Matchers.containsString(
+                        "io.netty.buffer.UnpooledUnsafeHeapByteBuf.allocateArray(int):39"));
+        MatcherAssert.assertThat(
+                row1.get(0),
+                Matchers.containsString(
+                        "io.vertx.core.buffer.impl.PartialPooledByteBufAllocator.buffer(int):39"));
+        MatcherAssert.assertThat(row1.get(1), Matchers.equalTo("95"));
+
+        List<String> row2 = result.get(2);
+        MatcherAssert.assertThat(row2.size(), Matchers.equalTo(2));
+        MatcherAssert.assertThat(
+                row2.get(0),
+                Matchers.containsString("io.vertx.core.buffer.impl.BufferImpl.getBytes():216"));
+        MatcherAssert.assertThat(
+                row2.get(0),
+                Matchers.containsString(
+                        "io.fabric8.kubernetes.client.vertx.VertxHttpRequest.lambda$consumeBytes$0(AsyncBody$Consumer,"
+                            + " AsyncBody, HttpClientResponse, Buffer):79"));
+        MatcherAssert.assertThat(
+                row2.get(0),
+                Matchers.containsString(
+                        "io.vertx.core.streams.impl.InboundBuffer.handleEvent(Handler,"
+                                + " Object):279"));
+        MatcherAssert.assertThat(row2.get(1), Matchers.equalTo("82"));
     }
 
     @Test
@@ -345,15 +469,19 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         // Response is array of arrays, each row has [class_name, allocation_count]
         MatcherAssert.assertThat(result, Matchers.notNullValue());
         MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
-        MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(20));
-        if (!result.isEmpty()) {
-            // Each row should have exactly 2 columns: class_name and allocation_count
-            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
-            MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
-            // First column is class_name (string), second is count (numeric string)
-            MatcherAssert.assertThat(result.get(0).get(0), Matchers.notNullValue());
-            MatcherAssert.assertThat(result.get(0).get(1), Matchers.matchesRegex("\\d+"));
-        }
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(20));
+
+        MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
+
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("[B"));
+        MatcherAssert.assertThat(result.get(0).get(1), Matchers.equalTo("2596"));
+
+        MatcherAssert.assertThat(result.get(1).get(0), Matchers.equalTo("[Ljava.lang.Object;"));
+        MatcherAssert.assertThat(result.get(1).get(1), Matchers.equalTo("599"));
+
+        MatcherAssert.assertThat(result.get(2).get(0), Matchers.equalTo("java.lang.String"));
+        MatcherAssert.assertThat(result.get(2).get(1), Matchers.equalTo("319"));
     }
 
     @Test
@@ -391,14 +519,32 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         // Response is array of arrays, each row has [stacktrace, allocation_count]
         MatcherAssert.assertThat(result, Matchers.notNullValue());
         MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
-        MatcherAssert.assertThat(result.size(), Matchers.lessThanOrEqualTo(10));
-        if (!result.isEmpty()) {
-            // Each row should have exactly 2 columns: stacktrace and allocation_count
-            MatcherAssert.assertThat(result.get(0), Matchers.instanceOf(List.class));
-            MatcherAssert.assertThat(result.get(0).size(), Matchers.equalTo(2));
-            // First column is stacktrace (string), second is count (numeric string)
-            MatcherAssert.assertThat(result.get(0).get(0), Matchers.notNullValue());
-            MatcherAssert.assertThat(result.get(0).get(1), Matchers.matchesRegex("\\d+"));
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(10));
+
+        String[][] expectedResults = {
+            {"java.util.Arrays.copyOfRangeByte", "97"},
+            {"java.lang.StringUTF16.compress", "93"},
+            {"java.util.HashMap.newNode", "88"},
+            {
+                "com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializerNR$Scope.finishBranchObject",
+                "68"
+            },
+            {"jdk.internal.vm.Continuation.doYield", "67"},
+            {
+                "com.fasterxml.jackson.databind.deser.std.UntypedObjectDeserializerNR$Scope.childObject",
+                "63"
+            },
+            {"io.fabric8.kubernetes.client.http.BufferUtil.toArray", "62"},
+            {"java.util.LinkedHashMap.newNode", "59"},
+            {"java.io.BufferedInputStream.getBufIfOpen", "56"},
+            {"com.fasterxml.jackson.core.util.TextBuffer.setCurrentAndReturn", "51"}
+        };
+
+        for (int i = 0; i < expectedResults.length; i++) {
+            MatcherAssert.assertThat(result.get(i).size(), Matchers.equalTo(2));
+            MatcherAssert.assertThat(
+                    result.get(i).get(0), Matchers.containsString(expectedResults[i][0]));
+            MatcherAssert.assertThat(result.get(i).get(1), Matchers.equalTo(expectedResults[i][1]));
         }
     }
 
@@ -484,6 +630,90 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    void testExecuteQuerySelectingMultipleColumns() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT "startTime", "objectClass", "weight", "stackTrace"
+                                FROM jfr."jdk.ObjectAllocationSample"
+                                ORDER by "startTime"
+                                LIMIT 1
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+
+        List<String> firstRow = result.get(0);
+        MatcherAssert.assertThat(firstRow, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(firstRow.size(), Matchers.equalTo(4));
+
+        MatcherAssert.assertThat(firstRow.get(0), Matchers.equalTo("2025-10-16 07:29:07"));
+        MatcherAssert.assertThat(
+                firstRow.get(1), Matchers.containsString("name = \"java/lang/String\""));
+        MatcherAssert.assertThat(firstRow.get(2), Matchers.equalTo("81232"));
+        MatcherAssert.assertThat(firstRow.get(3), Matchers.nullValue());
+    }
+
+    @Test
+    void testExecuteQueryWithClassNameFunctionInSelect() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                """
+                                SELECT CLASS_NAME("objectClass") as className
+                                FROM jfr."jdk.ObjectAllocationSample"
+                                ORDER by "startTime"
+                                LIMIT 1
+                                """)
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+
+        List<String> firstRow = result.get(0);
+        MatcherAssert.assertThat(firstRow, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(firstRow.size(), Matchers.equalTo(1));
+
+        MatcherAssert.assertThat(firstRow.get(0), Matchers.equalTo("java.lang.String"));
+    }
+
+    @Test
     void testThreadStartEndJoin() {
         List<List<String>> result =
                 given().log()
@@ -519,26 +749,20 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
         MatcherAssert.assertThat(result.size(), Matchers.greaterThan(0));
 
-        if (!result.isEmpty()) {
-            // Verify structure of first row
-            List<String> firstRow = result.get(0);
-            MatcherAssert.assertThat(firstRow, Matchers.instanceOf(List.class));
-            MatcherAssert.assertThat(firstRow.size(), Matchers.equalTo(5));
+        // Verify first row: thread that hasn't ended (LEFT JOIN returns nulls)
+        MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("executor-thread-30"));
+        MatcherAssert.assertThat(
+                result.get(0).get(1), Matchers.equalTo("executor-thread-0 (scheduler)"));
+        MatcherAssert.assertThat(result.get(0).get(2), Matchers.equalTo("19"));
+        MatcherAssert.assertThat(result.get(0).get(3), Matchers.nullValue());
+        MatcherAssert.assertThat(result.get(0).get(4), Matchers.nullValue());
 
-            // Column 0: parentThread.javaName (can be null or string)
-            // Column 1: thread.javaName (should be non-null string)
-            MatcherAssert.assertThat(firstRow.get(1), Matchers.notNullValue());
-
-            // Column 2: thread.javaThreadId (should be numeric string)
-            MatcherAssert.assertThat(firstRow.get(2), Matchers.matchesRegex("\\d+"));
-
-            // Columns 3-4: te.thread.javaName and te.thread.javaThreadId
-            // These can be null if thread hasn't ended (LEFT JOIN)
-            // If column 3 is not null, column 4 should also not be null and match column 2
-            if (firstRow.get(3) != null) {
-                MatcherAssert.assertThat(firstRow.get(4), Matchers.notNullValue());
-                MatcherAssert.assertThat(firstRow.get(4), Matchers.matchesRegex("\\d+"));
-            }
-        }
+        // Verify a row where thread has ended (JOIN matches)
+        MatcherAssert.assertThat(
+                result.get(2).get(0), Matchers.equalTo("vert.x-eventloop-thread-0"));
+        MatcherAssert.assertThat(result.get(2).get(1), Matchers.equalTo("Thread-8"));
+        MatcherAssert.assertThat(result.get(2).get(2), Matchers.equalTo("422"));
+        MatcherAssert.assertThat(result.get(2).get(3), Matchers.equalTo("Thread-8"));
+        MatcherAssert.assertThat(result.get(2).get(4), Matchers.equalTo("422"));
     }
 }
