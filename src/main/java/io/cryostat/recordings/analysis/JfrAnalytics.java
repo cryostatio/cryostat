@@ -142,8 +142,8 @@ public class JfrAnalytics {
             try {
                 Files.deleteIfExists(tempFile);
                 logger.debugv(
-                        "Deleted temp file for {0}/{1} due to {2}",
-                        key.jvmId(), key.filename(), cause);
+                        "Deleted temp file {0} for {1}/{2} due to {3}",
+                        tempFile, key.jvmId(), key.filename(), cause);
             } catch (IOException e) {
                 logger.warnv(
                         e,
