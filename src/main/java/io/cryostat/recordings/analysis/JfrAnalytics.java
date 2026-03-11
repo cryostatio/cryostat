@@ -116,26 +116,24 @@ public class JfrAnalytics {
         Properties properties = new Properties();
         properties.put("model", JfrSchemaFactory.getInlineModel(jfrFile));
 
-        try (Connection connection = DriverManager.getConnection("jdbc:calcite:", properties)) {
-            PreparedStatement statement = connection.prepareStatement(query);
-            try (statement;
-                    ResultSet rs = statement.executeQuery()) {
-                ResultSetMetaData metaData = rs.getMetaData();
-                int columnCount = metaData.getColumnCount();
+        try (Connection connection = DriverManager.getConnection("jdbc:calcite:", properties);
+                PreparedStatement statement = connection.prepareStatement(query);
+                ResultSet rs = statement.executeQuery()) {
+            ResultSetMetaData metaData = rs.getMetaData();
+            int columnCount = metaData.getColumnCount();
 
-                List<List<String>> result = new ArrayList<>();
+            List<List<String>> result = new ArrayList<>();
 
-                while (rs.next()) {
-                    List<String> row = new ArrayList<>(columnCount);
-                    for (int i = 1; i <= columnCount; i++) {
-                        String value = rs.getString(i);
-                        row.add(value);
-                    }
-                    result.add(row);
+            while (rs.next()) {
+                List<String> row = new ArrayList<>(columnCount);
+                for (int i = 1; i <= columnCount; i++) {
+                    String value = rs.getString(i);
+                    row.add(value);
                 }
-
-                return result;
+                result.add(row);
             }
+
+            return result;
         }
     }
 
