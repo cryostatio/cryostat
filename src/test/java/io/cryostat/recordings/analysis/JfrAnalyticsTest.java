@@ -20,7 +20,6 @@ import static io.restassured.RestAssured.given;
 import java.io.File;
 import java.util.List;
 
-import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
 
 import io.quarkus.test.common.QuarkusTestResource;
@@ -36,16 +35,12 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 @TestHTTPEndpoint(JfrAnalytics.class)
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
+public class JfrAnalyticsTest {
 
     private static final String RECORDING_FILENAME = "analytics-sample.jfr";
 
     @BeforeEach
     void setupRecording() throws Exception {
-        if (selfId < 1) {
-            defineSelfCustomTarget();
-        }
-
         File recordingFile =
                 new File(
                         getClass()
@@ -56,20 +51,12 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
 
         given().contentType(ContentType.MULTIPART)
                 .multiPart("recording", recordingFile, "application/octet-stream")
-                .pathParam("jvmId", selfJvmId)
-                .post("/api/beta/recordings/{jvmId}")
-                .then()
-                .assertThat()
-                .statusCode(204);
+                .post("/api/v4/recordings");
     }
 
     @AfterEach
     void cleanupRecording() {
-        given().pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
-                .delete("/api/beta/fs/recordings/{jvmId}/{filename}")
-                .then()
-                .assertThat()
-                .statusCode(204);
+        given().pathParam("filename", RECORDING_FILENAME).delete("/api/v4/recordings/{filename}");
     }
 
     @Test
@@ -77,7 +64,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams("jvmId", selfJvmId, "filename", "nonexistent.jfr")
+                .pathParams("jvmId", "uploads", "filename", "nonexistent.jfr")
                 .formParam(
                         "query",
                         """
@@ -97,7 +84,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                 .formParam(
                         "query",
                         """
@@ -118,7 +105,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -154,7 +141,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -269,7 +256,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -305,7 +292,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -355,7 +342,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -441,7 +428,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -490,7 +477,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -555,7 +542,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                 .formParam(
                         "query",
                         """
@@ -582,7 +569,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                 .formParam(
                         "query",
                         """
@@ -609,7 +596,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
         given().log()
                 .all()
                 .when()
-                .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                 .formParam(
                         "query",
                         """
@@ -635,7 +622,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -679,7 +666,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
@@ -719,7 +706,7 @@ public class JfrAnalyticsTest extends AbstractTransactionalTestBase {
                 given().log()
                         .all()
                         .when()
-                        .pathParams("jvmId", selfJvmId, "filename", RECORDING_FILENAME)
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
                         .formParam(
                                 "query",
                                 """
