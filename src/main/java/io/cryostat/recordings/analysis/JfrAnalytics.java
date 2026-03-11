@@ -162,12 +162,13 @@ public class JfrAnalytics {
         public CompletableFuture<Path> asyncLoad(RecordingKey key, Executor executor) {
             return CompletableFuture.supplyAsync(
                     () -> {
+                        Path tempFile = null;
                         try {
                             logger.debugv(
                                     "Loading JFR file from S3: {0}/{1}",
                                     key.jvmId(), key.filename());
 
-                            Path tempFile =
+                            tempFile =
                                     Files.createTempFile(
                                             String.format(
                                                     "analytics-%s-%s", key.jvmId(), key.filename()),
@@ -189,6 +190,13 @@ public class JfrAnalytics {
 
                             return tempFile;
                         } catch (IOException e) {
+                            if (tempFile != null) {
+                                try {
+                                    Files.deleteIfExists(tempFile);
+                                } catch (IOException e2) {
+                                    logger.debug(e2);
+                                }
+                            }
                             throw new RuntimeException(
                                     "Failed to download and cache JFR file: "
                                             + key.jvmId()
