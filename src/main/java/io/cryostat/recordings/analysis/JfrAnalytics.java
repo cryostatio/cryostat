@@ -114,7 +114,7 @@ public class JfrAnalytics {
     @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
     private List<List<String>> executeQueryOnFile(Path jfrFile, String query) throws SQLException {
         Properties properties = new Properties();
-        properties.put("model", JfrSchemaFactory.INLINE_MODEL.formatted(jfrFile));
+        properties.put("model", JfrSchemaFactory.getInlineModel(jfrFile));
 
         try (Connection connection = DriverManager.getConnection("jdbc:calcite:", properties)) {
             PreparedStatement statement = connection.prepareStatement(query);
