@@ -1598,6 +1598,13 @@ paths:
       description: |
         Retrieve the latest aggregate report data across all targets with recent automated analysis reports
         scores. These are multi-dimensional metrics in Prometheus format.
+      parameters:
+        - in: query
+          name: minScore
+          schema:
+            default: -1.0
+            format: double
+            type: number
       responses:
         "200":
           content:
