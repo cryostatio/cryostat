@@ -44,7 +44,6 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.github.benmanes.caffeine.cache.RemovalCause;
 import com.github.benmanes.caffeine.cache.Scheduler;
 import com.github.benmanes.caffeine.cache.Weigher;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
 import io.smallrye.mutiny.Uni;
@@ -111,7 +110,6 @@ public class JfrAnalytics {
                         });
     }
 
-    @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
     private List<List<String>> executeQueryOnFile(Path jfrFile, String query) throws SQLException {
         Properties properties = new Properties();
         properties.put("model", JfrSchemaFactory.getInlineModel(jfrFile));
