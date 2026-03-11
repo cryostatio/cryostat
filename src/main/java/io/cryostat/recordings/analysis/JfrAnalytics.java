@@ -169,7 +169,9 @@ public class JfrAnalytics {
 
                             Path tempFile =
                                     Files.createTempFile(
-                                            "jfr-analytics-" + key.jvmId() + "-", ".jfr");
+                                            String.format(
+                                                    "analytics-%s-%s", key.jvmId(), key.filename()),
+                                            ".jfr");
 
                             try (InputStream inputStream =
                                     recordings.getArchivedRecordingStream(
