@@ -413,6 +413,126 @@ public class RulesTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    public void testPatchAllEditableFields() {
+        // Create initial rule
+        var initialRule = rule.copy();
+        initialRule.put("description", "initial description");
+        initialRule.put("enabled", false);
+        initialRule.put("matchExpression", EXPR_1);
+        initialRule.put("eventSpecifier", "template=Continuous,type=TARGET");
+        initialRule.put("maxAgeSeconds", 60);
+        initialRule.put("maxSizeBytes", 1024);
+        initialRule.put("archivalPeriodSeconds", 300);
+        initialRule.put("initialDelaySeconds", 30);
+
+        given().log()
+                .all()
+                .body(initialRule.toString())
+                .contentType(ContentType.JSON)
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(201)
+                .body(
+                        "name", is(RULE_NAME),
+                        "description", is("initial description"),
+                        "enabled", is(false),
+                        "matchExpression", is(EXPR_1),
+                        "eventSpecifier", is("template=Continuous,type=TARGET"),
+                        "maxAgeSeconds", is(60),
+                        "maxSizeBytes", is(1024),
+                        "archivalPeriodSeconds", is(300),
+                        "initialDelaySeconds", is(30));
+
+        // PATCH all editable fields
+        var patchedRule = new JsonObject();
+        patchedRule.put("description", "updated description");
+        patchedRule.put("enabled", true);
+        patchedRule.put("matchExpression", EXPR_2);
+        patchedRule.put("eventSpecifier", "template=Profiling,type=TARGET");
+        patchedRule.put("maxAgeSeconds", 120);
+        patchedRule.put("maxSizeBytes", 2048);
+        patchedRule.put("archivalPeriodSeconds", 600);
+        patchedRule.put("initialDelaySeconds", 60);
+
+        given().log()
+                .all()
+                .body(patchedRule.toString())
+                .contentType(ContentType.JSON)
+                .patch(RULE_NAME)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .body(
+                        "name", is(RULE_NAME),
+                        "description", is("updated description"),
+                        "enabled", is(true),
+                        "matchExpression", is(EXPR_2),
+                        "eventSpecifier", is("template=Profiling,type=TARGET"),
+                        "maxAgeSeconds", is(120),
+                        "maxSizeBytes", is(2048),
+                        "archivalPeriodSeconds", is(600),
+                        "initialDelaySeconds", is(60));
+    }
+
+    @Test
+    public void testPatchRuleNameShouldFail() {
+        // Create initial rule
+        given().log()
+                .all()
+                .body(rule.toString())
+                .contentType(ContentType.JSON)
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(201)
+                .body("name", is(RULE_NAME));
+
+        // Attempt to PATCH the name field (should fail with 400)
+        var patchWithName = new JsonObject();
+        patchWithName.put("name", "new_rule_name");
+        patchWithName.put("enabled", true);
+
+        given().log()
+                .all()
+                .body(patchWithName.toString())
+                .contentType(ContentType.JSON)
+                .patch(RULE_NAME)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+
+        // Verify the original rule name is unchanged
+        given().log()
+                .all()
+                .get()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.JSON)
+                .statusCode(200)
+                .body(
+                        "size()", is(1),
+                        "[0].name", is(RULE_NAME));
+    }
+
+    @Test
     public void testDeleteWithClean() {
         given().body(rule.toString()).contentType(ContentType.JSON).post().then().statusCode(201);
 

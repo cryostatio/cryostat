@@ -209,6 +209,11 @@ components:
         - 2022-03-10
       format: date
       type: string
+    DiscoveryFillStrategy:
+      enum:
+        - NONE
+        - KUBERNETES
+      type: string
     DiscoveryNode:
       properties:
         children:
@@ -288,6 +293,21 @@ components:
       required:
         - id
         - realm
+      type: object
+    DiscoveryPublication:
+      properties:
+        context:
+          additionalProperties:
+            type: string
+          type:
+            - object
+            - "null"
+        fillStrategy:
+          $ref: '#/components/schemas/DiscoveryFillStrategy'
+        nodes:
+          items:
+            $ref: '#/components/schemas/DiscoveryNode'
+          type: array
       type: object
     Duration:
       examples:
@@ -839,6 +859,42 @@ info:
   version: 4.2.0-snapshot
 openapi: 3.1.0
 paths:
+  /api/beta/audit/target_lineage/{jvmId}:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DiscoveryNode'
+          description: OK
+      summary: Target Lineage By Jvm Id
+      tags:
+        - Audit
+  /api/beta/audit/targets/{jvmId}:
+    get:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Target'
+          description: OK
+      summary: Target By Jvm Id
+      tags:
+        - Audit
   /api/beta/diagnostics/fs/heapdumps:
     get:
       responses:
@@ -1608,6 +1664,37 @@ paths:
       summary: Perform "target analysis" on the specified target
       tags:
         - Reports
+  /api/v4.2/discovery/{id}:
+    post:
+      description: |
+        Using its plugin ID and current token, a discovery plugin uses this endpoint to publish a JSON
+        request body containing a list of discovery nodes. The discovery plugin itself is a Realm node in
+        the overall discovery tree, so the published list of nodes here will replace the plugin Realm
+        node's list of children.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            $ref: '#/components/schemas/UUID'
+        - in: header
+          name: Cryostat-Discovery-Authentication
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DiscoveryPublication'
+        required: true
+      responses:
+        "201":
+          description: Created
+        "400":
+          description: Bad Request
+      summary: Publish updated target discovery information
+      tags:
+        - Discovery
   /api/v4/activedownload/{id}:
     get:
       description: |
@@ -1772,6 +1859,12 @@ paths:
         - Credentials
   /api/v4/discovery:
     get:
+      parameters:
+        - in: query
+          name: mergeRealms
+          schema:
+            default: false
+            type: boolean
       responses:
         "200":
           content:

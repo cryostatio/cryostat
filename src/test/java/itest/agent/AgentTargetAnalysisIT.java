@@ -22,24 +22,23 @@ import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
+import io.cryostat.resources.AgentApplicationResource;
+
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusIntegrationTest;
 import io.restassured.http.ContentType;
-import io.smallrye.mutiny.TimeoutException;
 import io.vertx.core.MultiMap;
 import io.vertx.core.json.JsonObject;
+import itest.resources.S3StorageITResource;
 import jakarta.websocket.DeploymentException;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 
 @QuarkusIntegrationTest
-@EnabledIfEnvironmentVariable(
-        named = "PR_CI",
-        matches = "true",
-        disabledReason =
-                "Runs well in PR CI under Docker, but not on main CI or locally under Podman due to"
-                        + " testcontainers 'Broken Pipe' IOException")
+@QuarkusTestResource(value = AgentApplicationResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(value = S3StorageITResource.class, restrictToAnnotatedClass = true)
 public class AgentTargetAnalysisIT extends AgentTestBase {
 
     @Test
@@ -47,10 +46,8 @@ public class AgentTargetAnalysisIT extends AgentTestBase {
             throws InterruptedException,
                     IOException,
                     DeploymentException,
-                    TimeoutException,
                     ExecutionException,
-                    java.util.concurrent.TimeoutException {
-        Target agent = waitForDiscovery();
+                    TimeoutException {
         long targetId = target.id();
         String archivedRecordingName = null;
         long recordingId = -1;
@@ -96,25 +93,28 @@ public class AgentTargetAnalysisIT extends AgentTestBase {
                             TimeUnit.SECONDS);
 
             JsonObject archiveMessage =
-                    expectWebSocketNotification(
+                    webSocketClient.expectNotification(
                             "ArchiveRecordingSuccess",
                             o ->
                                     archiveJobId[0].equals(
                                             o.getJsonObject("message").getString("jobId")));
             archivedRecordingName = archiveMessage.getJsonObject("message").getString("recording");
 
-            expectWebSocketNotification(
+            webSocketClient.expectNotification(
                     "ReportSuccess",
                     o ->
                             Objects.equals(
-                                    agent.jvmId(), o.getJsonObject("message").getString("jvmId")));
+                                    target.jvmId(), o.getJsonObject("message").getString("jvmId")));
         } finally {
             if (archivedRecordingName != null) {
                 given().log()
                         .all()
                         .when()
                         .pathParams(
-                                "connectUrl", agent.connectUrl(), "filename", archivedRecordingName)
+                                "connectUrl",
+                                target.connectUrl(),
+                                "filename",
+                                archivedRecordingName)
                         .delete("/api/beta/recordings/{connectUrl}/{filename}")
                         .then()
                         .log()
@@ -141,7 +141,7 @@ public class AgentTargetAnalysisIT extends AgentTestBase {
     }
 
     private long startRecording(long targetId, String recordingName, String events)
-            throws java.util.concurrent.TimeoutException, InterruptedException, ExecutionException {
+            throws TimeoutException, InterruptedException, ExecutionException {
         MultiMap form = MultiMap.caseInsensitiveMultiMap();
         form.add("recordingName", recordingName);
         form.add("duration", "5");

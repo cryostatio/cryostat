@@ -18,13 +18,16 @@ package io.cryostat.events;
 import static io.restassured.RestAssured.given;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.resources.S3StorageResource;
 
+import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
+@QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class TargetEventTemplatesTest extends AbstractTransactionalTestBase {
 
     @Test

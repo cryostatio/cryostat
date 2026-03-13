@@ -44,7 +44,7 @@
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.27.2</quarkus.platform.version>
-    <quarkus-quinoa.version>2.7.1</quarkus-quinoa.version>
+    <quarkus-quinoa.version>2.7.2</quarkus-quinoa.version>
     <org.hibernate.orm.hibernate.jfr.version>7.1.4.Final</org.hibernate.orm.hibernate.jfr.version><!-- TODO is there some way to grab the Hibernate version used by Quarkus to match this version? -->
     <org.codehaus.mojo.build.helper.plugin.version>3.6.1</org.codehaus.mojo.build.helper.plugin.version>
     <org.codehaus.mojo.exec.plugin.version>3.6.3</org.codehaus.mojo.exec.plugin.version>
@@ -52,13 +52,13 @@
 
     <com.github.spotbugs.version>4.9.8</com.github.spotbugs.version>
     <com.github.spotbugs.plugin.version>4.9.8.2</com.github.spotbugs.plugin.version>
-    <com.diffplug.spotless.maven.plugin.version>3.2.1</com.diffplug.spotless.maven.plugin.version>
-    <com.google.java-format.version>1.34.1</com.google.java-format.version>
+    <com.diffplug.spotless.maven.plugin.version>3.3.0</com.diffplug.spotless.maven.plugin.version>
+    <com.google.java-format.version>1.35.0</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
-    <surefire-plugin.version>3.5.4</surefire-plugin.version>
+    <surefire-plugin.version>3.5.5</surefire-plugin.version>
     <surefire.rerunFailingTestsCount>0</surefire.rerunFailingTestsCount>
     <skip.surefire.tests>${skipTests}</skip.surefire.tests>
-    <failsafe-plugin.version>3.5.4</failsafe-plugin.version>
+    <failsafe-plugin.version>3.5.5</failsafe-plugin.version>
     <failsafe.rerunFailingTestsCount>${surefire.rerunFailingTestsCount}</failsafe.rerunFailingTestsCount>
   </properties>
   <dependencyManagement>
@@ -175,6 +175,10 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-container-image-podman</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-container-image-docker</artifactId>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
@@ -296,6 +300,10 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-smallrye-fault-tolerance</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-hibernate-envers</artifactId>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
@@ -504,7 +512,6 @@
             <configuration>
               <skipTests>${skipTests}</skipTests>
               <skipITs>${skipITs}</skipITs>
-              <runOrder>random</runOrder>
               <systemPropertyVariables>
                 <native.image.path>${project.build.directory}/${project.build.finalName}-runner</native.image.path>
                 <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>

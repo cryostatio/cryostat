@@ -41,7 +41,8 @@ public class JFRDatasourceResource
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .withExposedPorts(JFR_DATASOURCE_PORT)
                         .withEnv(envMap)
-                        .waitingFor(Wait.forLogMessage(".*Listening on:.*", 1));
+                        .waitingFor(Wait.forLogMessage(".*Listening on:.*", 1))
+                        .withStartupAttempts(3);
         containerNetworkId.ifPresent(container::withNetworkMode);
 
         container.start();

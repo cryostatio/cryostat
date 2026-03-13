@@ -38,8 +38,6 @@ import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportCompleti
 import io.cryostat.recordings.LongRunningRequestGenerator.ArchivedReportRequest;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.targets.Target;
-import io.cryostat.targets.Target.EventKind;
-import io.cryostat.targets.Target.TargetDiscovery;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.cache.Cache;
@@ -120,7 +118,6 @@ public class AnalysisReportAggregator {
                                     cache.as(CaffeineCache.class).put(jvmId, future);
                                 } catch (Exception e) {
                                     logger.warn(e);
-                                    cache.invalidate(jvmId).await().atMost(Duration.ofMillis(100));
                                 }
                             });
         }
@@ -185,13 +182,6 @@ public class AnalysisReportAggregator {
                         });
     }
 
-    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
-    void onMessage(TargetDiscovery event) {
-        if (EventKind.LOST.equals(event.kind())) {
-            cache.invalidate(event.serviceRef().jvmId).await().atMost(Duration.ofMillis(100));
-        }
-    }
-
     public void reset() {
         cache.invalidateAll().await().atMost(Duration.ofMillis(100));
     }
@@ -207,7 +197,6 @@ public class AnalysisReportAggregator {
                     Retrieve the latest aggregate report data across all targets with recent automated analysis reports
                     scores. These are multi-dimensional metrics in Prometheus format.
                     """)
-    // TODO should this include results from lost targets?
     public Multi<String> scrape() {
         var multis =
                 cache.as(CaffeineCache.class).keySet().stream()
@@ -233,7 +222,6 @@ public class AnalysisReportAggregator {
                     Retrieve the latest aggregate report data for a given target's recent automated analysis reports
                     scores. These are multi-dimensional metrics in Prometheus format.
                     """)
-    // TODO should this include results from lost targets?
     public Uni<RestResponse<String>> scrape(@RestPath String jvmId) {
         return getEntry(jvmId)
                 .onItem()
@@ -297,6 +285,7 @@ public class AnalysisReportAggregator {
             list.add(Pair.of(n.nodeType, n.name));
         }
         list.add(Pair.of("jvmId", target.jvmId));
+        list.add(Pair.of("targetId", String.valueOf(target.id)));
         return list;
     }
 

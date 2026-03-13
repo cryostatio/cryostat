@@ -130,6 +130,34 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
                 .body("targets", Matchers.hasSize(0));
     }
 
+    @Test
+    public void testCredentialCheck() {
+        // Ensure self target exists
+        if (selfId < 1) {
+            defineSelfCustomTarget();
+        }
+
+        given().log()
+                .all()
+                .contentType(ContentType.URLENC)
+                .formParam("username", "user")
+                .formParam("password", "pass")
+                .when()
+                .post("/test/{targetId}", selfId)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body(
+                        Matchers.instanceOf(String.class),
+                        Matchers.matchesRegex("[\\s]*\"NA\"[\\s]*"));
+    }
+
     private int createTestCredential() {
         return given().log()
                 .all()

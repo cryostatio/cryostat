@@ -42,7 +42,8 @@ public class ReportsSidecarResource
                 new GenericContainer<>(DockerImageName.parse(IMAGE_NAME))
                         .withExposedPorts(REPORTS_PORT)
                         .withEnv(envMap)
-                        .waitingFor(Wait.forLogMessage(".*Listening on.*", 1));
+                        .waitingFor(Wait.forLogMessage(".*Listening on.*", 1))
+                        .withStartupAttempts(3);
         containerNetworkId.ifPresent(container::withNetworkMode);
 
         container.start();

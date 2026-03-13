@@ -201,5 +201,193 @@ CREATE INDEX IDX_QRTZ_FT_T_G
 CREATE INDEX IDX_QRTZ_FT_TG
   ON QRTZ_FIRED_TRIGGERS (SCHED_NAME, TRIGGER_GROUP);
 
+-- Hibernate Envers audit tables
+-- These tables track historical changes to @Audited entities
+-- Standard Envers columns: REV (revision number), REVTYPE (0=add, 1=modify, 2=delete)
+
+CREATE TABLE REVINFO (
+    REV INTEGER NOT NULL,
+    REVTSTMP BIGINT,
+    username text check (char_length(username) < 64),
+    PRIMARY KEY (REV)
+);
+
+CREATE SEQUENCE REVINFO_SEQ START WITH 1 INCREMENT BY 1;
+
+CREATE TABLE Target_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    connectUrl BYTEA,
+    alias text check (char_length(alias) < 255),
+    jvmId text check (char_length(jvmId) < 255),
+    labels TEXT,
+    annotations TEXT,
+    discoveryNode BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE TABLE Rule_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    name text check (char_length(name) < 255),
+    description text check (char_length(description) < 1024),
+    matchExpression BIGINT,
+    eventSpecifier text check (char_length(eventSpecifier) < 255),
+    archivalPeriodSeconds INTEGER,
+    initialDelaySeconds INTEGER,
+    preservedArchives INTEGER,
+    maxAgeSeconds INTEGER,
+    maxSizeBytes INTEGER,
+    metadata TEXT,
+    enabled BOOLEAN,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE TABLE ActiveRecording_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    target_id BIGINT,
+    name text check (char_length(name) < 64),
+    remoteId BIGINT,
+    state SMALLINT,
+    duration BIGINT,
+    startTime BIGINT,
+    archiveOnStop BOOLEAN,
+    continuous BOOLEAN,
+    toDisk BOOLEAN,
+    maxSize BIGINT,
+    maxAge BIGINT,
+    external BOOLEAN,
+    metadata TEXT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE TABLE MatchExpression_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    script text check (char_length(script) < 1024),
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE TABLE DiscoveryPlugin_AUD (
+    id UUID NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    realm_id BIGINT,
+    callback TEXT,
+    credential_id BIGINT,
+    builtin BOOLEAN,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE TABLE DiscoveryNode_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    name text check (char_length(name) < 255),
+    nodeType text check (char_length(nodeType) < 255),
+    labels TEXT,
+    parentNode BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE TABLE Credential_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    matchExpression BIGINT,
+    username BYTEA,
+    password BYTEA,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_TARGET_AUD_ID ON Target_AUD (id);
+CREATE INDEX IDX_TARGET_AUD_JVMID ON Target_AUD (jvmId);
+CREATE INDEX IDX_TARGET_AUD_REV ON Target_AUD (REV);
+CREATE INDEX IDX_TARGET_AUD_REVTYPE ON Target_AUD (REVTYPE);
+
+CREATE INDEX IDX_RULE_AUD_ID ON Rule_AUD (id);
+CREATE INDEX IDX_RULE_AUD_REV ON Rule_AUD (REV);
+CREATE INDEX IDX_RULE_AUD_REVTYPE ON Rule_AUD (REVTYPE);
+
+CREATE INDEX IDX_ACTIVERECORDING_AUD_ID ON ActiveRecording_AUD (id);
+CREATE INDEX IDX_ACTIVERECORDING_AUD_REV ON ActiveRecording_AUD (REV);
+CREATE INDEX IDX_ACTIVERECORDING_AUD_REVTYPE ON ActiveRecording_AUD (REVTYPE);
+
+CREATE INDEX IDX_MATCHEXPRESSION_AUD_ID ON MatchExpression_AUD (id);
+CREATE INDEX IDX_MATCHEXPRESSION_AUD_REV ON MatchExpression_AUD (REV);
+CREATE INDEX IDX_MATCHEXPRESSION_AUD_REVTYPE ON MatchExpression_AUD (REVTYPE);
+
+CREATE INDEX IDX_DISCOVERYPLUGIN_AUD_ID ON DiscoveryPlugin_AUD (id);
+CREATE INDEX IDX_DISCOVERYPLUGIN_AUD_REV ON DiscoveryPlugin_AUD (REV);
+CREATE INDEX IDX_DISCOVERYPLUGIN_AUD_REVTYPE ON DiscoveryPlugin_AUD (REVTYPE);
+
+CREATE INDEX IDX_DISCOVERYNODE_AUD_ID ON DiscoveryNode_AUD (id);
+CREATE INDEX IDX_DISCOVERYNODE_AUD_REV ON DiscoveryNode_AUD (REV);
+CREATE INDEX IDX_DISCOVERYNODE_AUD_REVTYPE ON DiscoveryNode_AUD (REVTYPE);
+
+CREATE INDEX IDX_CREDENTIAL_AUD_ID ON Credential_AUD (id);
+CREATE INDEX IDX_CREDENTIAL_AUD_REV ON Credential_AUD (REV);
+CREATE INDEX IDX_CREDENTIAL_AUD_REVTYPE ON Credential_AUD (REVTYPE);
+
+CREATE INDEX IDX_TARGET_AUD_REVEND ON Target_AUD (REVEND);
+CREATE INDEX IDX_RULE_AUD_REVEND ON Rule_AUD (REVEND);
+CREATE INDEX IDX_ACTIVERECORDING_AUD_REVEND ON ActiveRecording_AUD (REVEND);
+CREATE INDEX IDX_MATCHEXPRESSION_AUD_REVEND ON MatchExpression_AUD (REVEND);
+CREATE INDEX IDX_DISCOVERYPLUGIN_AUD_REVEND ON DiscoveryPlugin_AUD (REVEND);
+CREATE INDEX IDX_DISCOVERYNODE_AUD_REVEND ON DiscoveryNode_AUD (REVEND);
+CREATE INDEX IDX_CREDENTIAL_AUD_REVEND ON Credential_AUD (REVEND);
+
+-- Pre-seed audit records for Universe and Realm nodes that were created in V4.0.0
+-- These nodes are created directly via SQL migration and don't go through Hibernate/Envers,
+-- so we need to manually create their initial audit records for the Validity Strategy to work correctly.
+
+INSERT INTO REVINFO (REV, REVTSTMP, username) VALUES (0, 0, 'system');
+
+INSERT INTO DiscoveryNode_AUD (id, REV, REVTYPE, REVEND, REVEND_TSTMP, name, nodeType, labels, parentNode)
+SELECT id, 0, 0, NULL, NULL, name, nodeType, labels, parentNode
+FROM DiscoveryNode
+WHERE nodeType IN ('Universe', 'Realm');
+
+INSERT INTO DiscoveryPlugin_AUD (id, REV, REVTYPE, REVEND, REVEND_TSTMP, realm_id, callback, credential_id, builtin)
+SELECT id, 0, 0, NULL, NULL, realm_id, callback, credential_id, builtin
+FROM DiscoveryPlugin
+WHERE builtin = true;
+
+SELECT setval('REVINFO_SEQ', 1, false);
+
+--
 
 COMMIT;

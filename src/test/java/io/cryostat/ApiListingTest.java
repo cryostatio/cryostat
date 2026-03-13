@@ -65,7 +65,7 @@ public class ApiListingTest extends AbstractTestBase {
 
     @Test
     void shouldIncludeApplicationInfo() {
-        resp.body("info.title", Matchers.equalTo("Cryostat API (test)"))
+        resp.body("info.title", Matchers.equalTo("Cryostat API"))
                 .body("info.description", Matchers.equalTo("Cloud-Native JDK Flight Recorder"))
                 .body("info.contact.name", Matchers.equalTo("Cryostat Community"))
                 .body("info.contact.url", Matchers.equalTo("https://cryostat.io"))

@@ -25,18 +25,23 @@ import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
+import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
+import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.util.URIUtil;
 
@@ -61,16 +66,19 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.ForbiddenException;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.InternalServerErrorException;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.faulttolerance.Bulkhead;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -98,6 +106,8 @@ import org.quartz.impl.matchers.GroupMatcher;
 @Path("")
 public class Discovery {
 
+    private static final String SYNTHETIC_REALM_NAME = "Cryostat Discovery";
+
     static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
     private static final String JOB_PERIODIC = "discovery.periodic";
@@ -119,6 +129,7 @@ public class Discovery {
     @Inject DiscoveryJwtValidator jwtValidator;
     @Inject Scheduler scheduler;
     @Inject URIUtil uriUtil;
+    @Inject KubeEndpointSlicesDiscovery k8sDiscovery;
 
     void onStart(@Observes StartupEvent evt) {
         QuarkusTransaction.requiringNew()
@@ -174,8 +185,12 @@ public class Discovery {
     @Path("/api/v4/discovery")
     @RolesAllowed("read")
     @Operation(summary = "Retrieve the entire discovery tree.")
-    public DiscoveryNode get() {
-        return DiscoveryNode.getUniverse();
+    public DiscoveryNode get(
+            @QueryParam("mergeRealms") @DefaultValue("false") boolean mergeRealms) {
+        if (!mergeRealms) {
+            return DiscoveryNode.getUniverse();
+        }
+        return mergeRealms();
     }
 
     @GET
@@ -304,7 +319,7 @@ public class Discovery {
                             ConfigProperties.AGENT_TLS_REQUIRED));
         }
 
-        URI location;
+        List<URI> locations;
         DiscoveryPlugin plugin;
         if (StringUtils.isNotBlank(pluginId) && StringUtils.isNotBlank(priorToken)) {
             // refresh the JWT for existing registration
@@ -318,9 +333,9 @@ public class Discovery {
                 throw new BadRequestException("plugin callback mismatch");
             }
             try {
-                location = jwtFactory.getPluginLocation(plugin);
+                locations = jwtFactory.getPluginLocations(plugin);
                 jwtFactory.parseDiscoveryPluginJwt(
-                        plugin, priorToken, location, remoteAddress, false);
+                        plugin, priorToken, locations, remoteAddress, false);
             } catch (URISyntaxException
                     | UnknownHostException
                     | SocketException
@@ -379,7 +394,7 @@ public class Discovery {
                                     });
 
             try {
-                location = jwtFactory.getPluginLocation(plugin);
+                locations = jwtFactory.getPluginLocations(plugin);
             } catch (URISyntaxException e) {
                 throw new BadRequestException(e);
             }
@@ -408,7 +423,7 @@ public class Discovery {
 
         String token;
         try {
-            token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, location);
+            token = jwtFactory.createDiscoveryPluginJwt(plugin, remoteAddress, locations);
         } catch (URISyntaxException | JOSEException | UnknownHostException | SocketException e) {
             throw new BadRequestException(e);
         } catch (NoSuchAlgorithmException e) {
@@ -445,6 +460,34 @@ public class Discovery {
             @RestPath UUID id,
             @RestHeader("Cryostat-Discovery-Authentication") String token,
             List<DiscoveryNode> body) {
+        publishWithContext(
+                ctx,
+                id,
+                token,
+                new DiscoveryPublication(
+                        body, Optional.of(DiscoveryFillStrategy.NONE), Optional.of(Map.of())));
+    }
+
+    @Transactional
+    @POST
+    @Path("/api/v4.2/discovery/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @PermitAll
+    @Tag(ref = "Discovery")
+    @Operation(
+            summary = "Publish updated target discovery information",
+            description =
+                    """
+                    Using its plugin ID and current token, a discovery plugin uses this endpoint to publish a JSON
+                    request body containing a list of discovery nodes. The discovery plugin itself is a Realm node in
+                    the overall discovery tree, so the published list of nodes here will replace the plugin Realm
+                    node's list of children.
+                    """)
+    public void publishWithContext(
+            @Context RoutingContext ctx,
+            @RestPath UUID id,
+            @RestHeader("Cryostat-Discovery-Authentication") String token,
+            DiscoveryPublication body) {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
         try {
             jwtValidator.validateJwt(ctx, plugin, token, true);
@@ -456,44 +499,83 @@ public class Discovery {
                 | ParseException e) {
             throw new BadRequestException(e);
         }
-        plugin.realm.children.clear();
-        plugin.realm.children.addAll(body);
-        for (var b : body) {
-            if (b.target != null) {
-                try {
-                    if (!uriUtil.validateUri(b.target.connectUrl)) {
-                        throw new BadRequestException(
-                                String.format(
-                                        "Connect URL of \"%s\" is unacceptable with the"
-                                                + " current URI range settings",
-                                        b.target.connectUrl));
-                    }
-                } catch (MalformedURLException e) {
-                    throw new BadRequestException(e);
-                }
-                if (!uriUtil.isJmxUrl(b.target.connectUrl)) {
-                    if (agentTlsRequired && !b.target.connectUrl.getScheme().equals("https")) {
-                        throw new BadRequestException(
-                                String.format(
-                                        "TLS for agent connections is required by (%s)",
-                                        ConfigProperties.AGENT_TLS_REQUIRED));
-                    }
-                    if (!b.target.connectUrl.getScheme().equals("https")
-                            && !b.target.connectUrl.getScheme().equals("http")) {
-                        throw new BadRequestException(
-                                String.format(
-                                        "Target connect URL is neither JMX nor HTTP(S): (%s)",
-                                        b.target.connectUrl.toString()));
-                    }
-                }
-                // Continue since we've verified the connect URL is either JMX or HTTPS with
-                // TLS verification enabled, or HTTP with TLS verification disabled.
-                b.target.discoveryNode = b;
-                b.target.discoveryNode.parent = plugin.realm;
-                b.parent = plugin.realm;
-            }
-            b.persist();
+
+        for (var n : body.nodes) {
+            validatePublishedNode(n);
         }
+
+        plugin.realm.children.clear();
+
+        for (var n : body.nodes) {
+            n.target.discoveryNode = n;
+        }
+        body.fillStrategy.ifPresent(
+                algo -> {
+                    Map<String, String> pubCtx = body.context.orElse(Map.of());
+                    switch (algo) {
+                        case KUBERNETES:
+                            String namespace = pubCtx.get("namespace");
+                            String nodeType = pubCtx.get("nodetype");
+                            String name = pubCtx.get("name");
+                            if (StringUtils.isBlank(namespace)
+                                    || StringUtils.isBlank(nodeType)
+                                    || StringUtils.isBlank(name)) {
+                                String key;
+                                if (StringUtils.isBlank(namespace)) {
+                                    key = "namespace";
+                                } else if (StringUtils.isBlank(nodeType)) {
+                                    key = "nodeType";
+                                } else {
+                                    key = "name";
+                                }
+                                throw new BadRequestException(
+                                        new IllegalArgumentException(
+                                                String.format("%s cannot be blank", key)));
+                            }
+                            DiscoveryNode lineage =
+                                    k8sDiscovery.getOwnershipLineage(namespace, name, nodeType);
+                            DiscoveryNode innermost = innermostNode(lineage);
+                            innermost.children.addAll(body.nodes);
+                            body.nodes.forEach(
+                                    n -> {
+                                        n.parent = innermost;
+                                        n.persist();
+                                    });
+
+                            DiscoveryNode nsNode = new DiscoveryNode();
+                            nsNode.name = namespace;
+                            nsNode.nodeType = KubeDiscoveryNodeType.NAMESPACE.getKind();
+                            nsNode.labels = new HashMap<>();
+                            nsNode.children = new ArrayList<>();
+                            nsNode.target = null;
+                            nsNode.parent = plugin.realm;
+
+                            nsNode.children.add(lineage);
+                            lineage.parent = nsNode;
+
+                            DiscoveryNode current = innermost;
+                            while (true) {
+                                current.persist();
+                                current = current.parent;
+                                if (current == null) {
+                                    break;
+                                }
+                            }
+
+                            nsNode.persist();
+                            plugin.realm.children.add(nsNode);
+                            break;
+                        default:
+                            plugin.realm.children.addAll(body.nodes);
+                            for (var n : body.nodes) {
+                                n.parent = plugin.realm;
+                                n.persist();
+                            }
+                            break;
+                    }
+                });
+
+        plugin.realm.persist();
         plugin.persist();
     }
 
@@ -574,6 +656,155 @@ public class Discovery {
         return DiscoveryPlugin.find("id", id).singleResult();
     }
 
+    private void validatePublishedNode(DiscoveryNode currentNode) {
+        if (currentNode.target == null) {
+            throw new BadRequestException("Published nodes must have embedded targets");
+        }
+        try {
+            if (!uriUtil.validateUri(currentNode.target.connectUrl)) {
+                throw new BadRequestException(
+                        String.format(
+                                "Connect URL of \"%s\" is unacceptable with the"
+                                        + " current URI range settings",
+                                currentNode.target.connectUrl));
+            }
+        } catch (MalformedURLException e) {
+            throw new BadRequestException(e);
+        }
+        if (!uriUtil.isJmxUrl(currentNode.target.connectUrl)) {
+            if (agentTlsRequired && !currentNode.target.connectUrl.getScheme().equals("https")) {
+                throw new BadRequestException(
+                        String.format(
+                                "TLS for agent connections is required by (%s)",
+                                ConfigProperties.AGENT_TLS_REQUIRED));
+            }
+            if (!currentNode.target.connectUrl.getScheme().equals("https")
+                    && !currentNode.target.connectUrl.getScheme().equals("http")) {
+                throw new BadRequestException(
+                        String.format(
+                                "Target connect URL is neither JMX nor HTTP(S): (%s)",
+                                currentNode.target.connectUrl.toString()));
+            }
+        }
+    }
+
+    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
+    private DiscoveryNode mergeRealms() {
+        DiscoveryNode universe = DiscoveryNode.getUniverse();
+        DiscoveryNode mergedRoot = new DiscoveryNode();
+        mergedRoot.id = universe.id;
+        mergedRoot.name = universe.name;
+        mergedRoot.nodeType = universe.nodeType;
+        mergedRoot.labels = new HashMap<>(universe.labels);
+        mergedRoot.children = new ArrayList<>();
+
+        DiscoveryNode syntheticRealm = new DiscoveryNode();
+        syntheticRealm.id = Long.MAX_VALUE;
+        syntheticRealm.name = SYNTHETIC_REALM_NAME;
+        syntheticRealm.nodeType = BaseNodeType.REALM.getKind();
+        syntheticRealm.labels = new HashMap<>();
+        syntheticRealm.children = new ArrayList<>();
+        mergedRoot.children.add(syntheticRealm);
+
+        var mergedNodes = new HashMap<Pair<String, String>, DiscoveryNode>();
+
+        var builtinRealmIds =
+                DiscoveryPlugin.find("#DiscoveryPlugin.getBuiltinRealmIds")
+                        .project(Long.class)
+                        .list();
+
+        for (var realm : universe.children) {
+            var stack = new ArrayDeque<NodeContext>();
+            for (var child : realm.children) {
+                stack.push(new NodeContext(child, null, builtinRealmIds.contains(realm.id)));
+            }
+
+            while (!stack.isEmpty()) {
+                var ctx = stack.pop();
+                var sourceNode = ctx.node;
+                var mergedParent = ctx.parent;
+                var fromBuiltin = ctx.fromBuiltin;
+
+                Pair<String, String> key = Pair.of(sourceNode.nodeType, sourceNode.name);
+
+                DiscoveryNode mergedNode;
+                if (mergedParent == null) {
+                    mergedNode = mergedNodes.computeIfAbsent(key, k -> copyNode(sourceNode));
+                    syntheticRealm.children.add(mergedNode);
+                    if (fromBuiltin) {
+                        mergeNodeProperties(mergedNode, sourceNode);
+                    }
+                } else {
+                    mergedNode =
+                            mergedParent.children.stream()
+                                    .filter(
+                                            n ->
+                                                    n.nodeType.equals(sourceNode.nodeType)
+                                                            && n.name.equals(sourceNode.name))
+                                    .findFirst()
+                                    .orElseGet(
+                                            () -> {
+                                                var node = copyNode(sourceNode);
+                                                mergedParent.children.add(node);
+                                                return node;
+                                            });
+
+                    // if we have collisions, prefer the node which came from a builtin plugin
+                    // and merge properties from discovery plugins in
+                    if (fromBuiltin) {
+                        mergeNodeProperties(mergedNode, sourceNode);
+                    }
+                }
+
+                if (sourceNode.children != null && !sourceNode.children.isEmpty()) {
+                    for (var child : sourceNode.children) {
+                        stack.push(new NodeContext(child, mergedNode, fromBuiltin));
+                    }
+                }
+            }
+        }
+
+        return mergedRoot;
+    }
+
+    /**
+     * Get the innermost node of a hierarchical lineage. This assumes that the ancestor node passed
+     * in is the root of a tree where each node has either 0 or 1 children.
+     */
+    private DiscoveryNode innermostNode(DiscoveryNode ancestor) {
+        DiscoveryNode node = ancestor;
+        while (node.hasChildren()) {
+            node = node.children.get(0);
+        }
+        return node;
+    }
+
+    private DiscoveryNode copyNode(DiscoveryNode source) {
+        var copy = new DiscoveryNode();
+        copy.id = source.id;
+        copy.name = source.name;
+        copy.nodeType = source.nodeType;
+        copy.labels = new HashMap<>(source.labels);
+        copy.children = new ArrayList<>();
+        copy.target = source.target;
+        return copy;
+    }
+
+    private void mergeNodeProperties(DiscoveryNode target, DiscoveryNode source) {
+        if (source.id != null) {
+            target.id = source.id;
+        }
+        if (source.labels != null) {
+            target.labels.putAll(source.labels);
+        }
+        if (source.target != null) {
+            target.target = source.target;
+        }
+    }
+
+    private static record NodeContext(
+            DiscoveryNode node, DiscoveryNode parent, boolean fromBuiltin) {}
+
     /**
      * Check that discovery plugins are still alive/reachable and prompt them to regenerate expiring
      * tokens. Plugins are issued short-lived tokens at registration time. Cryostat periodically
@@ -649,6 +880,17 @@ public class Discovery {
     }
 
     static record PluginRegistration(String id, String token, Map<String, String> env) {}
+
+    static record DiscoveryPublication(
+            List<DiscoveryNode> nodes,
+            Optional<DiscoveryFillStrategy> fillStrategy,
+            Optional<Map<String, String>> context) {}
+
+    enum DiscoveryFillStrategy {
+        NONE,
+        KUBERNETES,
+        ;
+    }
 
     static class DuplicatePluginException extends IllegalArgumentException {
 

@@ -59,6 +59,8 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.envers.Audited;
+import org.hibernate.envers.NotAudited;
 import org.hibernate.type.SqlTypes;
 import org.jboss.logging.Logger;
 
@@ -71,6 +73,7 @@ import org.jboss.logging.Logger;
  * etc. All {@link io.cryostat.targets.Target} instances are associated with a DiscoveryNode which
  * places them in the tree.
  */
+@Audited
 @Entity
 @EntityListeners(DiscoveryNode.Listener.class)
 @Cacheable
@@ -102,6 +105,7 @@ public class DiscoveryNode extends PanacheEntity {
     @OneToMany(fetch = FetchType.LAZY, orphanRemoval = true, mappedBy = "parent")
     @JsonView(Views.Nested.class)
     @Nullable
+    @NotAudited // Inverse side of bidirectional relationship - child DiscoveryNode.parent owns this
     public List<DiscoveryNode> children = new ArrayList<>();
 
     @Nullable
@@ -118,6 +122,7 @@ public class DiscoveryNode extends PanacheEntity {
     @Nullable
     @JsonInclude(value = Include.NON_NULL)
     @JsonView(Views.Flat.class)
+    @NotAudited // Inverse side of bidirectional relationship - Target.discoveryNode owns this (has
     public Target target;
 
     public boolean hasChildren() {
