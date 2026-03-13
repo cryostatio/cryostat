@@ -164,7 +164,7 @@ public class Rules {
             throw new NotFoundException("Rule with name " + name + " not found");
         }
 
-        if (!Objects.equals(body.getString("name"), name)) {
+        if (body.containsKey("name") && !Objects.equals(body.getString("name"), rule.name)) {
             throw new BadRequestException("Rule name cannot be updated");
         }
 
