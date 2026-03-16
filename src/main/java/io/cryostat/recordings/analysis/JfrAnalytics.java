@@ -117,17 +117,23 @@ public class JfrAnalytics {
             return List.of(new ArrayList<>(new JfrSchema(jfrFile).getTableNames()));
         }
         if (query.toLowerCase().strip().startsWith("columns ")) {
-            String[] parts = query.split(" ");
-            if (parts.length != 2) {
-                throw new IllegalArgumentException();
+            String[] parts = query.strip().split("\\s+");
+            if (parts.length < 2) {
+                throw new IllegalArgumentException("Invalid columns query format");
             }
-            String tableName = parts[1].strip();
-            return List.of(
-                    new ArrayList<>(
-                            new JfrSchema(jfrFile)
-                                    .getTable(tableName)
-                                    .getRowType(new JavaTypeFactoryImpl())
-                                    .getFieldNames()));
+            JfrSchema schema = new JfrSchema(jfrFile);
+            JavaTypeFactoryImpl typeFactory = new JavaTypeFactoryImpl();
+            List<List<String>> result = new ArrayList<>();
+
+            for (int i = 1; i < parts.length; i++) {
+                String tableName = parts[i];
+                var table = schema.getTable(tableName);
+                if (table == null) {
+                    throw new IllegalArgumentException("Table not found: " + tableName);
+                }
+                result.add(new ArrayList<>(table.getRowType(typeFactory).getFieldNames()));
+            }
+            return result;
         }
 
         Properties properties = new Properties();
