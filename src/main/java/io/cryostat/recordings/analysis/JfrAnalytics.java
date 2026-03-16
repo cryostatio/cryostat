@@ -54,8 +54,10 @@ import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PathParam;
+import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+import org.moditect.jfranalytics.JfrSchema;
 import org.moditect.jfranalytics.JfrSchemaFactory;
 
 @jakarta.ws.rs.Path("")
@@ -111,6 +113,23 @@ public class JfrAnalytics {
     }
 
     private List<List<String>> executeQueryOnFile(Path jfrFile, String query) throws SQLException {
+        if (query.toLowerCase().strip().equals("tables")) {
+            return List.of(new ArrayList<>(new JfrSchema(jfrFile).getTableNames()));
+        }
+        if (query.toLowerCase().strip().startsWith("columns ")) {
+            String[] parts = query.split(" ");
+            if (parts.length != 2) {
+                throw new IllegalArgumentException();
+            }
+            String tableName = parts[1].strip();
+            return List.of(
+                    new ArrayList<>(
+                            new JfrSchema(jfrFile)
+                                    .getTable(tableName)
+                                    .getRowType(new JavaTypeFactoryImpl())
+                                    .getFieldNames()));
+        }
+
         Properties properties = new Properties();
         properties.put("model", JfrSchemaFactory.getInlineModel(jfrFile));
 
