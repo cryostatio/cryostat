@@ -755,4 +755,337 @@ public class JfrAnalyticsTest {
         MatcherAssert.assertThat(result.get(2).get(3), Matchers.equalTo("Thread-8"));
         MatcherAssert.assertThat(result.get(2).get(4), Matchers.equalTo("422"));
     }
+
+    @Test
+    void testExecuteTablesQuery() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam("query", "tables")
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+
+        List<String> tableNames = result.get(0);
+        MatcherAssert.assertThat(tableNames, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(tableNames.size(), Matchers.greaterThan(0));
+        MatcherAssert.assertThat(tableNames, Matchers.hasItem("jdk.ObjectAllocationSample"));
+        MatcherAssert.assertThat(tableNames, Matchers.hasItem("jdk.ThreadStart"));
+        MatcherAssert.assertThat(tableNames, Matchers.hasItem("jdk.ThreadEnd"));
+    }
+
+    @Test
+    void testExecuteTablesQueryCaseInsensitive() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam("query", "TABLES")
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.greaterThan(0));
+    }
+
+    @Test
+    void testExecuteTablesQueryWithWhitespace() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam("query", "  tables  ")
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.greaterThan(0));
+    }
+
+    @Test
+    void testExecuteColumnsQuery() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam("query", "columns jdk.ObjectAllocationSample")
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+
+        List<String> columnNames = result.get(0);
+        MatcherAssert.assertThat(columnNames, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(columnNames.size(), Matchers.greaterThan(0));
+        MatcherAssert.assertThat(columnNames, Matchers.hasItem("startTime"));
+        MatcherAssert.assertThat(columnNames, Matchers.hasItem("objectClass"));
+        MatcherAssert.assertThat(columnNames, Matchers.hasItem("weight"));
+        MatcherAssert.assertThat(columnNames, Matchers.hasItem("stackTrace"));
+    }
+
+    @Test
+    void testExecuteColumnsQueryMultipleTables() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam("query", "columns jdk.ThreadStart jdk.ThreadEnd")
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result, Matchers.instanceOf(List.class));
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(2));
+
+        List<String> threadStartColumns = result.get(0);
+        MatcherAssert.assertThat(threadStartColumns, Matchers.hasItem("thread"));
+        MatcherAssert.assertThat(threadStartColumns, Matchers.hasItem("parentThread"));
+
+        List<String> threadEndColumns = result.get(1);
+        MatcherAssert.assertThat(threadEndColumns, Matchers.hasItem("thread"));
+    }
+
+    @Test
+    void testExecuteColumnsQueryCaseInsensitive() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam("query", "COLUMNS jdk.ThreadStart")
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.greaterThan(0));
+        MatcherAssert.assertThat(result.get(0), Matchers.hasItem("thread"));
+        MatcherAssert.assertThat(result.get(0), Matchers.hasItem("parentThread"));
+    }
+
+    @Test
+    void testExecuteColumnsQueryWithWhitespace() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam("query", "  columns   jdk.ThreadEnd  ")
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0).size(), Matchers.greaterThan(0));
+    }
+
+    @Test
+    void testExecuteColumnsQueryWithInvalidTableName() {
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                .formParam("query", "columns NonExistentTable")
+                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testExecuteColumnsQueryWithNoTableName() {
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                .formParam("query", "columns")
+                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    void testExecuteColumnsQueryWithDoubleQuotes() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam("query", "columns \"jdk.ObjectAllocationSample\"")
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0), Matchers.hasItem("startTime"));
+        MatcherAssert.assertThat(result.get(0), Matchers.hasItem("objectClass"));
+    }
+
+    @Test
+    void testExecuteColumnsQueryWithSingleQuotes() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam("query", "columns 'jdk.ThreadStart'")
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(1));
+        MatcherAssert.assertThat(result.get(0), Matchers.hasItem("thread"));
+        MatcherAssert.assertThat(result.get(0), Matchers.hasItem("parentThread"));
+    }
+
+    @Test
+    void testExecuteColumnsQueryWithMixedQuotes() {
+        List<List<String>> result =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                        .formParam(
+                                "query",
+                                "columns \"jdk.ThreadStart\" 'jdk.ThreadEnd'"
+                                        + " jdk.ObjectAllocationSample")
+                        .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .and()
+                        .extract()
+                        .body()
+                        .jsonPath()
+                        .getList("$");
+
+        MatcherAssert.assertThat(result, Matchers.notNullValue());
+        MatcherAssert.assertThat(result.size(), Matchers.equalTo(3));
+        MatcherAssert.assertThat(result.get(0), Matchers.hasItem("thread"));
+        MatcherAssert.assertThat(result.get(1), Matchers.hasItem("thread"));
+        MatcherAssert.assertThat(result.get(2), Matchers.hasItem("startTime"));
+    }
 }
