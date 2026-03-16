@@ -126,7 +126,7 @@ public class JfrAnalytics {
             List<List<String>> result = new ArrayList<>();
 
             for (int i = 1; i < parts.length; i++) {
-                String tableName = parts[i];
+                String tableName = parts[i].replaceAll("'", "").replaceAll("\"", "");
                 var table = schema.getTable(tableName);
                 if (table == null) {
                     throw new IllegalArgumentException("Table not found: " + tableName);
