@@ -15,4 +15,4 @@
  */
 package io.cryostat.audit;
 
-public record RevisionSummary(int rev, long revtstmp, String username) {}
+public record RevisionSummary(long rev, long revtstmp, String username) {}

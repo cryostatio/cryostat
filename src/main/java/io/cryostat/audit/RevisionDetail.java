@@ -19,4 +19,4 @@ import java.util.List;
 import java.util.Map;
 
 public record RevisionDetail(
-        int rev, long revtstmp, String username, Map<String, List<Object>> entities) {}
+        long rev, long revtstmp, String username, Map<String, List<Object>> entities) {}

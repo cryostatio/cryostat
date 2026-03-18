@@ -17,11 +17,15 @@ package io.cryostat.audit;
 
 import static io.restassured.RestAssured.given;
 
+import java.util.List;
+import java.util.Map;
+
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -168,8 +172,8 @@ public class AuditTest extends AuditTestBase {
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("revisions", Matchers.instanceOf(java.util.List.class))
-                .body("totalCount", Matchers.greaterThanOrEqualTo(0L));
+                .body("revisions", Matchers.instanceOf(List.class))
+                .body("totalCount", Matchers.equalTo(1)); // Only seed revision
     }
 
     @Test
@@ -189,8 +193,10 @@ public class AuditTest extends AuditTestBase {
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("revisions", Matchers.instanceOf(java.util.List.class))
-                .body("totalCount", Matchers.greaterThanOrEqualTo(0L));
+                .body("revisions", Matchers.instanceOf(List.class))
+                .body(
+                        "totalCount",
+                        Matchers.equalTo(0)); // Seed revision is at timestamp 0, before startTime
     }
 
     @Test
@@ -210,8 +216,10 @@ public class AuditTest extends AuditTestBase {
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("revisions", Matchers.instanceOf(java.util.List.class))
-                .body("totalCount", Matchers.greaterThanOrEqualTo(0L));
+                .body("revisions", Matchers.instanceOf(List.class))
+                .body(
+                        "totalCount",
+                        Matchers.equalTo(1)); // Seed revision is at timestamp 0, within range
     }
 
     @Test
@@ -233,8 +241,10 @@ public class AuditTest extends AuditTestBase {
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("revisions", Matchers.instanceOf(java.util.List.class))
-                .body("totalCount", Matchers.greaterThanOrEqualTo(0L));
+                .body("revisions", Matchers.instanceOf(List.class))
+                .body(
+                        "totalCount",
+                        Matchers.equalTo(0)); // Seed revision is at timestamp 0, before range
     }
 
     @Test
@@ -276,9 +286,11 @@ public class AuditTest extends AuditTestBase {
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("revisions", Matchers.instanceOf(java.util.List.class))
-                .body("revisions.size()", Matchers.lessThanOrEqualTo(10))
-                .body("totalCount", Matchers.greaterThanOrEqualTo(0L));
+                .body("revisions", Matchers.instanceOf(List.class))
+                .body("revisions.size()", Matchers.equalTo(0)) // No revisions in time range
+                .body(
+                        "totalCount",
+                        Matchers.equalTo(0)); // Seed revision is at timestamp 0, before time range
     }
 
     @Test
@@ -340,8 +352,8 @@ public class AuditTest extends AuditTestBase {
                 .and()
                 .contentType(ContentType.JSON)
                 .and()
-                .body("revisions", Matchers.instanceOf(java.util.List.class))
-                .body("revisions.size()", Matchers.lessThanOrEqualTo(5));
+                .body("revisions", Matchers.instanceOf(List.class))
+                .body("revisions.size()", Matchers.equalTo(2)); // Seed revision + target creation
     }
 
     @Test
@@ -376,30 +388,59 @@ public class AuditTest extends AuditTestBase {
                         .extract()
                         .path("revisions[0].rev");
 
-        if (revisionNumber != null) {
-            given().log()
-                    .all()
-                    .when()
-                    .get("revisions/{rev}", revisionNumber)
-                    .then()
-                    .log()
-                    .all()
-                    .assertThat()
-                    .statusCode(200)
-                    .and()
-                    .contentType(ContentType.JSON)
-                    .and()
-                    .body("rev", Matchers.equalTo(revisionNumber))
-                    .body("revtstmp", Matchers.notNullValue())
-                    .body("entities", Matchers.notNullValue());
-        }
+        Assertions.assertNotNull(revisionNumber, "Revision number should not be null");
+
+        given().log()
+                .all()
+                .when()
+                .get("revisions/{rev}", revisionNumber)
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("rev", Matchers.equalTo(revisionNumber))
+                .body("revtstmp", Matchers.notNullValue())
+                .body("entities", Matchers.notNullValue());
     }
 
     @Test
-    public void testGetRevisionDetailReturnsCorrectStructure() {
+    public void testGetRevisionDetailForInvalidRevisionZero() {
+        // Revision 0 exists in the database but Hibernate Envers requires revision > 0
+        // for findRevision() API, so querying revision 0 should return 400
+        given().log()
+                .all()
+                .when()
+                .get("revisions/0")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    public void testSeedRevisionAppearsInList() {
+        // Verify that the seed revision (rev=0) appears in the revisions list
+        given().queryParam("pageSize", 100)
+                .when()
+                .get("revisions")
+                .then()
+                .assertThat()
+                .statusCode(200)
+                .body("revisions", Matchers.hasSize(Matchers.greaterThanOrEqualTo(1)))
+                .body("revisions.find { it.rev == 0 }.username", Matchers.equalTo("system"))
+                .body("revisions.find { it.rev == 0 }.revtstmp", Matchers.equalTo(0));
+    }
+
+    @Test
+    public void testGetRevisionDetailForTargetCreation() {
         defineSelfCustomTarget();
 
-        Integer revisionNumber =
+        Number revisionNumber =
                 given().queryParam("pageSize", 1)
                         .when()
                         .get("revisions")
@@ -409,24 +450,34 @@ public class AuditTest extends AuditTestBase {
                         .extract()
                         .path("revisions[0].rev");
 
-        if (revisionNumber != null) {
-            given().log()
-                    .all()
-                    .when()
-                    .get("revisions/{rev}", revisionNumber)
-                    .then()
-                    .log()
-                    .all()
-                    .assertThat()
-                    .statusCode(200)
-                    .and()
-                    .contentType(ContentType.JSON)
-                    .and()
-                    .body("rev", Matchers.notNullValue())
-                    .body("revtstmp", Matchers.notNullValue())
-                    .body("username", Matchers.anything())
-                    .body("entities", Matchers.instanceOf(java.util.Map.class));
-        }
+        Assertions.assertNotNull(revisionNumber, "Revision number should not be null");
+        long rev = revisionNumber.longValue();
+
+        given().log()
+                .all()
+                .when()
+                .get("revisions/{rev}", rev)
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("rev", Matchers.equalTo(1))
+                .body("revtstmp", Matchers.greaterThan(0L))
+                .body("username", Matchers.notNullValue())
+                .body("entities", Matchers.instanceOf(Map.class))
+                .body("entities.size()", Matchers.greaterThanOrEqualTo(1))
+                .body("entities.keySet()", Matchers.hasItem("Target"))
+                .body(
+                        "entities.Target",
+                        Matchers.allOf(
+                                Matchers.instanceOf(List.class), Matchers.not(Matchers.empty())))
+                .body("entities.Target[0]", Matchers.instanceOf(Map.class))
+                .body("entities.Target[0].connectUrl", Matchers.equalTo(SELF_JMX_URL))
+                .body("entities.Target[0].alias", Matchers.equalTo(SELFTEST_ALIAS));
     }
 
     @Test
@@ -450,7 +501,7 @@ public class AuditTest extends AuditTestBase {
                 .contentType(ContentType.JSON)
                 .and()
                 .body("revisions", Matchers.notNullValue())
-                .body("totalCount", Matchers.greaterThanOrEqualTo(0L));
+                .body("totalCount", Matchers.equalTo(1)); // Target created within time range
     }
 
     @Test

@@ -20,6 +20,8 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.NamedNativeQueries;
+import jakarta.persistence.NamedNativeQuery;
 import jakarta.persistence.SequenceGenerator;
 import jakarta.persistence.Table;
 import org.hibernate.envers.RevisionEntity;
@@ -38,6 +40,38 @@ import org.hibernate.envers.RevisionTimestamp;
 @Entity
 @Table(name = "REVINFO")
 @RevisionEntity(RevisionInfoListener.class)
+@NamedNativeQueries({
+    @NamedNativeQuery(
+            name = "RevisionInfo.findAll",
+            query = "SELECT REV, REVTSTMP, username FROM REVINFO ORDER BY REV DESC"),
+    @NamedNativeQuery(
+            name = "RevisionInfo.findByStartTime",
+            query =
+                    "SELECT REV, REVTSTMP, username FROM REVINFO WHERE REVTSTMP >= :startTime"
+                            + " ORDER BY REV DESC"),
+    @NamedNativeQuery(
+            name = "RevisionInfo.findByEndTime",
+            query =
+                    "SELECT REV, REVTSTMP, username FROM REVINFO WHERE REVTSTMP <= :endTime ORDER"
+                            + " BY REV DESC"),
+    @NamedNativeQuery(
+            name = "RevisionInfo.findByTimeRange",
+            query =
+                    "SELECT REV, REVTSTMP, username FROM REVINFO WHERE REVTSTMP >= :startTime AND"
+                            + " REVTSTMP <= :endTime ORDER BY REV DESC"),
+    @NamedNativeQuery(name = "RevisionInfo.countAll", query = "SELECT COUNT(*) FROM REVINFO"),
+    @NamedNativeQuery(
+            name = "RevisionInfo.countByStartTime",
+            query = "SELECT COUNT(*) FROM REVINFO WHERE REVTSTMP >= :startTime"),
+    @NamedNativeQuery(
+            name = "RevisionInfo.countByEndTime",
+            query = "SELECT COUNT(*) FROM REVINFO WHERE REVTSTMP <= :endTime"),
+    @NamedNativeQuery(
+            name = "RevisionInfo.countByTimeRange",
+            query =
+                    "SELECT COUNT(*) FROM REVINFO WHERE REVTSTMP >= :startTime AND REVTSTMP <="
+                            + " :endTime")
+})
 public class RevisionInfo {
 
     @Id

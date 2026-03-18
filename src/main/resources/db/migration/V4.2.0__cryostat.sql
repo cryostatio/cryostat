@@ -369,6 +369,7 @@ CREATE INDEX IDX_MATCHEXPRESSION_AUD_REVEND ON MatchExpression_AUD (REVEND);
 CREATE INDEX IDX_DISCOVERYPLUGIN_AUD_REVEND ON DiscoveryPlugin_AUD (REVEND);
 CREATE INDEX IDX_DISCOVERYNODE_AUD_REVEND ON DiscoveryNode_AUD (REVEND);
 CREATE INDEX IDX_CREDENTIAL_AUD_REVEND ON Credential_AUD (REVEND);
+CREATE INDEX IDX_REVINFO_REVTSTMP ON REVINFO (REVTSTMP);
 
 -- Pre-seed audit records for Universe and Realm nodes that were created in V4.0.0
 -- These nodes are created directly via SQL migration and don't go through Hibernate/Envers,
