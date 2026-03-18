@@ -16,6 +16,7 @@
 package io.cryostat.audit;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Stack;
 
 import io.cryostat.discovery.DiscoveryNode;
@@ -24,10 +25,12 @@ import io.cryostat.targets.Target;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.envers.AuditReader;
@@ -168,5 +171,25 @@ public class Audit {
             logger.debugv(e, "Failed to find node {0} in audit history", nodeId);
         }
         return null;
+    }
+
+    @GET
+    @Path("revisions")
+    @Produces(MediaType.APPLICATION_JSON)
+    public RevisionsResponse getRevisions(
+            @QueryParam("startTime") Long startTime,
+            @QueryParam("endTime") Long endTime,
+            @QueryParam("page") @DefaultValue("0") int page,
+            @QueryParam("pageSize") @DefaultValue("50") int pageSize) {
+        // TODO: Implement revision query logic
+        return new RevisionsResponse(Collections.emptyList(), 0L);
+    }
+
+    @GET
+    @Path("revisions/{rev}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public RevisionDetail getRevisionDetail(@RestPath int rev) {
+        // TODO: Implement revision detail logic
+        throw new NotFoundException();
     }
 }
