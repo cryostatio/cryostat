@@ -16,12 +16,21 @@
 package io.cryostat.audit;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Stack;
 
+import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryNode;
+import io.cryostat.discovery.DiscoveryPlugin;
+import io.cryostat.expressions.MatchExpression;
+import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.rules.Rule;
 import io.cryostat.targets.Target;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
@@ -35,6 +44,7 @@ import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
+import org.hibernate.envers.exception.RevisionDoesNotExistException;
 import org.hibernate.envers.query.AuditEntity;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestPath;
@@ -43,6 +53,7 @@ import org.jboss.resteasy.reactive.RestPath;
 public class Audit {
 
     @Inject EntityManager em;
+    @Inject ObjectMapper mapper;
     @Inject Logger logger;
 
     @GET
@@ -181,15 +192,144 @@ public class Audit {
             @QueryParam("endTime") Long endTime,
             @QueryParam("page") @DefaultValue("0") int page,
             @QueryParam("pageSize") @DefaultValue("50") int pageSize) {
-        // TODO: Implement revision query logic
-        return new RevisionsResponse(Collections.emptyList(), 0L);
+        if (page < 0) {
+            throw new BadRequestException("Page number must be >= 0");
+        }
+        if (pageSize <= 0) {
+            throw new BadRequestException("Page size must be > 0");
+        }
+        if (pageSize > 100) {
+            throw new BadRequestException("Page size must be <= 100");
+        }
+        if (startTime != null && endTime != null && endTime < startTime) {
+            throw new BadRequestException("End time must be >= start time");
+        }
+
+        try {
+            String dataQueryName;
+            String countQueryName;
+
+            if (startTime != null && endTime != null) {
+                dataQueryName = "RevisionInfo.findByTimeRange";
+                countQueryName = "RevisionInfo.countByTimeRange";
+            } else if (startTime != null) {
+                dataQueryName = "RevisionInfo.findByStartTime";
+                countQueryName = "RevisionInfo.countByStartTime";
+            } else if (endTime != null) {
+                dataQueryName = "RevisionInfo.findByEndTime";
+                countQueryName = "RevisionInfo.countByEndTime";
+            } else {
+                dataQueryName = "RevisionInfo.findAll";
+                countQueryName = "RevisionInfo.countAll";
+            }
+
+            var countQuery = em.createNamedQuery(countQueryName);
+            if (startTime != null) {
+                countQuery.setParameter("startTime", startTime);
+            }
+            if (endTime != null) {
+                countQuery.setParameter("endTime", endTime);
+            }
+            long totalCount = ((Number) countQuery.getSingleResult()).longValue();
+
+            var dataQuery = em.createNamedQuery(dataQueryName);
+            if (startTime != null) {
+                dataQuery.setParameter("startTime", startTime);
+            }
+            if (endTime != null) {
+                dataQuery.setParameter("endTime", endTime);
+            }
+            dataQuery.setFirstResult(page * pageSize);
+            dataQuery.setMaxResults(pageSize);
+
+            @SuppressWarnings("unchecked")
+            List<Object[]> results = dataQuery.getResultList();
+
+            List<RevisionSummary> revisions = new ArrayList<>();
+            for (Object[] row : results) {
+                long rev = ((Number) row[0]).longValue();
+                long revtstmp = ((Number) row[1]).longValue();
+                String username = row[2] != null ? (String) row[2] : null;
+                revisions.add(new RevisionSummary(rev, revtstmp, username));
+            }
+
+            return new RevisionsResponse(revisions, totalCount);
+        } catch (IllegalStateException e) {
+            logger.debug("Audit service not available", e);
+            throw new NotFoundException();
+        }
     }
 
     @GET
     @Path("revisions/{rev}")
     @Produces(MediaType.APPLICATION_JSON)
-    public RevisionDetail getRevisionDetail(@RestPath int rev) {
-        // TODO: Implement revision detail logic
-        throw new NotFoundException();
+    public RevisionDetail getRevisionDetail(@RestPath long rev) {
+        try {
+            AuditReader auditReader = AuditReaderFactory.get(em);
+
+            RevisionInfo revisionInfo;
+            try {
+                revisionInfo = auditReader.findRevision(RevisionInfo.class, rev);
+            } catch (RevisionDoesNotExistException e) {
+                throw new NotFoundException();
+            }
+
+            if (revisionInfo == null) {
+                throw new NotFoundException();
+            }
+
+            Map<String, List<Object>> entitiesByType = new HashMap<>();
+
+            Class<?>[] auditedClasses = {
+                Target.class,
+                Rule.class,
+                ActiveRecording.class,
+                MatchExpression.class,
+                DiscoveryPlugin.class,
+                DiscoveryNode.class,
+                Credential.class
+            };
+
+            for (Class<?> entityClass : auditedClasses) {
+                @SuppressWarnings("unchecked")
+                List<Object> entities =
+                        auditReader
+                                .createQuery()
+                                .forRevisionsOfEntity(entityClass, true, true)
+                                .add(AuditEntity.revisionNumber().eq(rev))
+                                .getResultList();
+
+                if (!entities.isEmpty()) {
+                    // Convert entities to Maps to avoid LazyInitializationException
+                    // when serializing entities with @NotAudited lazy relationships
+                    List<Object> simplifiedEntities = new ArrayList<>();
+                    for (Object entity : entities) {
+                        try {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> entityMap =
+                                    mapper.convertValue(entity, LinkedHashMap.class);
+                            simplifiedEntities.add(entityMap);
+                        } catch (IllegalArgumentException e) {
+                            logger.debugv(
+                                    e,
+                                    "Failed to convert entity {0} to map, skipping",
+                                    entity.getClass().getSimpleName());
+                        }
+                    }
+                    if (!simplifiedEntities.isEmpty()) {
+                        entitiesByType.put(entityClass.getSimpleName(), simplifiedEntities);
+                    }
+                }
+            }
+
+            return new RevisionDetail(
+                    revisionInfo.getId(),
+                    revisionInfo.getTimestamp(),
+                    revisionInfo.getUsername(),
+                    entitiesByType);
+        } catch (IllegalStateException e) {
+            logger.debug("Audit service not available", e);
+            throw new NotFoundException();
+        }
     }
 }
