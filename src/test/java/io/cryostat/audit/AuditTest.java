@@ -548,4 +548,52 @@ public class AuditTest extends AuditTestBase {
                 .body("revisions", Matchers.empty())
                 .body("totalCount", Matchers.equalTo(0));
     }
+
+    @Test
+    public void testGetRevisionDetailRedactsCredentialFields() {
+        String matchExpression = "target.alias == 'io.cryostat.Cryostat'";
+        String username = "testuser";
+        String password = "testpassword";
+
+        given().basePath("/")
+                .contentType(ContentType.URLENC)
+                .formParam("matchExpression", matchExpression)
+                .formParam("username", username)
+                .formParam("password", password)
+                .when()
+                .post("/api/v4/credentials")
+                .then()
+                .statusCode(201);
+
+        Number revisionNumber =
+                given().queryParam("pageSize", 1)
+                        .when()
+                        .get("revisions")
+                        .then()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .path("revisions[0].rev");
+
+        Assertions.assertNotNull(revisionNumber, "Revision number should not be null");
+        long rev = revisionNumber.longValue();
+
+        given().log()
+                .all()
+                .when()
+                .get("revisions/{rev}", rev)
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("entities.Credential", Matchers.notNullValue())
+                .body("entities.Credential", Matchers.instanceOf(List.class))
+                .body("entities.Credential[0].username", Matchers.nullValue())
+                .body("entities.Credential[0].password", Matchers.nullValue())
+                .body("entities.Credential[0].matchExpression", Matchers.notNullValue());
+    }
 }
