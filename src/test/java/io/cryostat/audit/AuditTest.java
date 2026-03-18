@@ -596,4 +596,40 @@ public class AuditTest extends AuditTestBase {
                 .body("entities.Credential[0].password", Matchers.nullValue())
                 .body("entities.Credential[0].matchExpression", Matchers.notNullValue());
     }
+
+    @Test
+    public void testGetRevisionDetailIncludesRevtype() {
+        defineSelfCustomTarget();
+
+        Number revisionNumber =
+                given().queryParam("pageSize", 1)
+                        .when()
+                        .get("revisions")
+                        .then()
+                        .assertThat()
+                        .statusCode(200)
+                        .extract()
+                        .path("revisions[0].rev");
+
+        Assertions.assertNotNull(revisionNumber, "Revision number should not be null");
+        long rev = revisionNumber.longValue();
+
+        given().log()
+                .all()
+                .when()
+                .get("revisions/{rev}", rev)
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("entities.Target", Matchers.notNullValue())
+                .body("entities.Target[0].revtype", Matchers.notNullValue())
+                .body("entities.Target[0].revtype", Matchers.isOneOf(0, 1, 2))
+                .body("entities.Target[0].connectUrl", Matchers.equalTo(SELF_JMX_URL))
+                .body("entities.Target[0].alias", Matchers.equalTo(SELFTEST_ALIAS));
+    }
 }

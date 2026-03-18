@@ -44,6 +44,7 @@ import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
+import org.hibernate.envers.RevisionType;
 import org.hibernate.envers.exception.RevisionDoesNotExistException;
 import org.hibernate.envers.query.AuditEntity;
 import org.jboss.logging.Logger;
@@ -292,28 +293,39 @@ public class Audit {
 
             for (Class<?> entityClass : auditedClasses) {
                 @SuppressWarnings("unchecked")
-                List<Object> entities =
+                List<Object> results =
                         auditReader
                                 .createQuery()
-                                .forRevisionsOfEntity(entityClass, true, true)
+                                .forRevisionsOfEntity(entityClass, false, true)
                                 .add(AuditEntity.revisionNumber().eq(rev))
                                 .getResultList();
 
-                if (!entities.isEmpty()) {
+                if (!results.isEmpty()) {
                     // Convert entities to Maps to avoid LazyInitializationException
                     // when serializing entities with @NotAudited lazy relationships
                     List<Object> simplifiedEntities = new ArrayList<>();
-                    for (Object entity : entities) {
+                    for (Object result : results) {
+                        Object entity = null;
                         try {
+                            Object[] resultArray = (Object[]) result;
+                            entity = resultArray[0];
+                            RevisionType revisionType = (RevisionType) resultArray[2];
+
                             @SuppressWarnings("unchecked")
                             Map<String, Object> entityMap =
                                     mapper.convertValue(entity, LinkedHashMap.class);
+                            entityMap.put("revtype", revisionType.getRepresentation());
                             simplifiedEntities.add(entityMap);
                         } catch (IllegalArgumentException e) {
                             logger.debugv(
                                     e,
                                     "Failed to convert entity {0} to map, skipping",
-                                    entity.getClass().getSimpleName());
+                                    entity != null ? entity.getClass().getSimpleName() : "unknown");
+                        } catch (ClassCastException e) {
+                            logger.debugv(
+                                    e,
+                                    "Failed to extract revision type for entity {0}, skipping",
+                                    entityClass.getSimpleName());
                         }
                     }
                     if (!simplifiedEntities.isEmpty()) {
