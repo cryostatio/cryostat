@@ -341,6 +341,16 @@ public class LongRunningRequestGenerator {
                             new HeapDumpSuccessPayload(request.id(), target.alias)));
         } catch (Exception e) {
             logger.warn("Failed to dump heap");
+
+            io.cryostat.diagnostic.HeapDump.<io.cryostat.diagnostic.HeapDump>find(
+                            "jobId", request.id())
+                    .firstResultOptional()
+                    .ifPresent(
+                            hd -> {
+                                hd.markFailed();
+                                hd.persist();
+                            });
+
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(HEAP_DUMP_FAILURE, new JobIdPayload(request.id())));

@@ -301,6 +301,8 @@ public class Diagnostics {
     @Path("targets/{targetId}/heapdump")
     @RolesAllowed("write")
     @POST
+    @Blocking
+    @Transactional
     @Operation(
             summary = "Initiates a heap dump on the specified target",
             description =
@@ -309,12 +311,17 @@ public class Diagnostics {
                     """)
     public String heapDump(HttpServerResponse response, @RestPath long targetId) {
         log.tracev("Initiating heap dump for target: {0}", targetId);
-        if (!Target.getTargetById(targetId).isAgent()) {
+        Target target = Target.getTargetById(targetId);
+        if (!target.isAgent()) {
             // While we can trigger a heap dump in a JMX target, without the agent
             // we can't retrieve it. We should fail here.
             throw new BadRequestException("Target is not an agent connection.");
         }
-        HeapDumpRequest request = new HeapDumpRequest(UUID.randomUUID().toString(), targetId);
+        String jobId = UUID.randomUUID().toString();
+
+        io.cryostat.diagnostic.HeapDump.requested(target, jobId).persist();
+
+        HeapDumpRequest request = new HeapDumpRequest(jobId, targetId);
         response.endHandler(
                 (e) -> bus.publish(LongRunningRequestGenerator.HEAP_DUMP_REQUEST_ADDRESS, request));
         return request.id();
@@ -336,8 +343,18 @@ public class Diagnostics {
     }
 
     @Blocking
+    @Transactional
     Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId) {
         var dump = helper.addHeapDump(jvmId, heapDump, jobId);
+
+        io.cryostat.diagnostic.HeapDump.<io.cryostat.diagnostic.HeapDump>find("jobId", jobId)
+                .firstResultOptional()
+                .ifPresent(
+                        hd -> {
+                            hd.markCompleted(dump.heapDumpId(), dump.size());
+                            hd.persist();
+                        });
+
         return Map.of("name", dump.heapDumpId());
     }
 

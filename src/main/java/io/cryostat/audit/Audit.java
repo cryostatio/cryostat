@@ -348,7 +348,8 @@ public class Audit {
                 DiscoveryNode.class,
                 Credential.class,
                 GarbageCollection.class,
-                io.cryostat.diagnostic.ThreadDump.class
+                io.cryostat.diagnostic.ThreadDump.class,
+                io.cryostat.diagnostic.HeapDump.class
             };
 
             for (Class<?> entityClass : auditedClasses) {
