@@ -1137,6 +1137,14 @@ public class RecordingHelper {
                     resp.sdkHttpResponse().statusText().orElse(""));
         }
 
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () ->
+                                ArchivedRecordingInfo.<ArchivedRecordingInfo>find(
+                                                "jvmId = ?1 and filename = ?2", jvmId, filename)
+                                        .firstResultOptional()
+                                        .ifPresent(ArchivedRecordingInfo::delete));
+
         switch (storageMode()) {
             case TAGGING:
             // fall-through
@@ -1299,6 +1307,10 @@ public class RecordingHelper {
                                 .build())
                 .completionFuture()
                 .join();
+
+        String finalFilename = filename;
+        QuarkusTransaction.joiningExisting()
+                .run(() -> ArchivedRecordingInfo.of(jvmId, finalFilename, null).persist());
 
         var target = Target.getTargetByJvmId(jvmId);
         ArchivedRecording archivedRecording =

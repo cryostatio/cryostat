@@ -537,4 +537,38 @@ CREATE INDEX IDX_EVENTTEMPLATE_AUD_REV ON EventTemplate_AUD (REV);
 CREATE INDEX IDX_EVENTTEMPLATE_AUD_REVTYPE ON EventTemplate_AUD (REVTYPE);
 CREATE INDEX IDX_EVENTTEMPLATE_AUD_REVEND ON EventTemplate_AUD (REVEND);
 
+CREATE SEQUENCE ArchivedRecording_SEQ START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE ArchivedRecording (
+    id BIGINT NOT NULL DEFAULT nextval('ArchivedRecording_SEQ'),
+    jvmId text check (char_length(jvmId) < 255) NOT NULL,
+    filename text check (char_length(filename) < 255) NOT NULL,
+    activeRecordingId BIGINT,
+    createdAt BIGINT NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_archivedrecording_jvmid_filename UNIQUE (jvmId, filename),
+    CONSTRAINT fk_archivedrecording_activerecording FOREIGN KEY (activeRecordingId)
+        REFERENCES ActiveRecording(id) ON DELETE SET NULL
+);
+
+CREATE TABLE ArchivedRecording_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    jvmId text check (char_length(jvmId) < 255),
+    filename text check (char_length(filename) < 255),
+    activeRecordingId BIGINT,
+    createdAt BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_ARCHIVEDRECORDING_AUD_ID ON ArchivedRecording_AUD (id);
+CREATE INDEX IDX_ARCHIVEDRECORDING_AUD_REV ON ArchivedRecording_AUD (REV);
+CREATE INDEX IDX_ARCHIVEDRECORDING_AUD_REVTYPE ON ArchivedRecording_AUD (REVTYPE);
+CREATE INDEX IDX_ARCHIVEDRECORDING_AUD_REVEND ON ArchivedRecording_AUD (REVEND);
+
 COMMIT;
