@@ -351,7 +351,8 @@ public class Audit {
                 io.cryostat.diagnostic.ThreadDump.class,
                 io.cryostat.diagnostic.HeapDump.class,
                 io.cryostat.events.EventTemplate.class,
-                io.cryostat.recordings.ArchivedRecordingInfo.class
+                io.cryostat.recordings.ArchivedRecordingInfo.class,
+                io.cryostat.jmcagent.ProbeTemplate.class
             };
 
             for (Class<?> entityClass : auditedClasses) {
