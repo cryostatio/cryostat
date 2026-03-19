@@ -420,4 +420,46 @@ CREATE INDEX IDX_GARBAGECOLLECTION_AUD_REV ON GarbageCollection_AUD (REV);
 CREATE INDEX IDX_GARBAGECOLLECTION_AUD_REVTYPE ON GarbageCollection_AUD (REVTYPE);
 CREATE INDEX IDX_GARBAGECOLLECTION_AUD_REVEND ON GarbageCollection_AUD (REVEND);
 
+CREATE SEQUENCE ThreadDump_SEQ START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE ThreadDump (
+    id BIGINT NOT NULL DEFAULT nextval('ThreadDump_SEQ'),
+    target_id BIGINT NOT NULL,
+    jobId text check (char_length(jobId) < 255) NOT NULL,
+    filename text check (char_length(filename) < 255),
+    format text check (char_length(format) < 50) NOT NULL,
+    status text check (char_length(status) < 20) NOT NULL,
+    requestedAt BIGINT NOT NULL,
+    completedAt BIGINT,
+    size BIGINT,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_threaddump_target_jobid UNIQUE (target_id, jobId),
+    CONSTRAINT fk_threaddump_target FOREIGN KEY (target_id)
+        REFERENCES Target(id) ON DELETE CASCADE
+);
+
+CREATE TABLE ThreadDump_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    target_id BIGINT,
+    jobId text check (char_length(jobId) < 255),
+    filename text check (char_length(filename) < 255),
+    format text check (char_length(format) < 50),
+    status text check (char_length(status) < 20),
+    requestedAt BIGINT,
+    completedAt BIGINT,
+    size BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_THREADDUMP_AUD_ID ON ThreadDump_AUD (id);
+CREATE INDEX IDX_THREADDUMP_AUD_REV ON ThreadDump_AUD (REV);
+CREATE INDEX IDX_THREADDUMP_AUD_REVTYPE ON ThreadDump_AUD (REVTYPE);
+CREATE INDEX IDX_THREADDUMP_AUD_REVEND ON ThreadDump_AUD (REVEND);
+
 COMMIT;
