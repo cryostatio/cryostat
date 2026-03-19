@@ -62,6 +62,23 @@ import org.jboss.resteasy.reactive.RestPath;
 @Path("/api/beta/audit/")
 public class Audit {
 
+    static final Class<?>[] AUDITED_CLASSES = {
+        Target.class,
+        Rule.class,
+        ActiveRecording.class,
+        MatchExpression.class,
+        DiscoveryPlugin.class,
+        DiscoveryNode.class,
+        Credential.class,
+        GarbageCollection.class,
+        ThreadDump.class,
+        HeapDump.class,
+        EventTemplate.class,
+        ArchivedRecordingInfo.class,
+        ProbeTemplate.class,
+        AsyncProfilerRecording.class
+    };
+
     @Inject EntityManager em;
     @Inject ObjectMapper mapper;
     @Inject Logger logger;
@@ -344,25 +361,7 @@ public class Audit {
         }
 
         Map<String, List<Object>> entitiesByType = new HashMap<>();
-
-            Class<?>[] auditedClasses = {
-                Target.class,
-                Rule.class,
-                ActiveRecording.class,
-                MatchExpression.class,
-                DiscoveryPlugin.class,
-                DiscoveryNode.class,
-                Credential.class,
-                GarbageCollection.class,
-                ThreadDump.class,
-                HeapDump.class,
-                EventTemplate.class,
-                ArchivedRecordingInfo.class,
-                ProbeTemplate.class,
-                AsyncProfilerRecording.class
-            };
-
-        for (Class<?> entityClass : auditedClasses) {
+        for (Class<?> entityClass : AUDITED_CLASSES) {
             @SuppressWarnings("unchecked")
             List<Object> results =
                     auditReader
@@ -409,7 +408,8 @@ public class Audit {
                     }
                 }
                 if (!simplifiedEntities.isEmpty()) {
-                    entitiesByType.put(entityClass.getSimpleName(), simplifiedEntities);
+                    entitiesByType.putIfAbsent(entityClass.getSimpleName(), new ArrayList<>());
+                    entitiesByType.get(entityClass.getSimpleName()).addAll(simplifiedEntities);
                 }
             }
         }
