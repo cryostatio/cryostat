@@ -41,6 +41,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 import org.apache.commons.lang3.StringUtils;
 import org.hibernate.envers.AuditReader;
 import org.hibernate.envers.AuditReaderFactory;
@@ -262,23 +263,79 @@ public class Audit {
     }
 
     @GET
+    @Path("export")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response exportRevisions(
+            @QueryParam("startTime") Long startTime, @QueryParam("endTime") Long endTime) {
+        if (startTime == null) {
+            throw new BadRequestException("startTime query parameter is required");
+        }
+        if (endTime == null) {
+            throw new BadRequestException("endTime query parameter is required");
+        }
+        if (endTime < startTime) {
+            throw new BadRequestException("End time must be >= start time");
+        }
+
+        try {
+            var dataQuery = em.createNamedQuery("RevisionInfo.findByTimeRange");
+            dataQuery.setParameter("startTime", startTime);
+            dataQuery.setParameter("endTime", endTime);
+
+            @SuppressWarnings("unchecked")
+            List<Object[]> results = dataQuery.getResultList();
+
+            List<RevisionDetail> revisionDetails = new ArrayList<>();
+            AuditReader auditReader = AuditReaderFactory.get(em);
+
+            for (Object[] row : results) {
+                long rev = ((Number) row[0]).longValue();
+                RevisionDetail detail = getRevisionDetailInternal(auditReader, rev);
+                if (detail != null) {
+                    revisionDetails.add(detail);
+                }
+            }
+
+            String filename = String.format("audit-export-%d-%d.json", startTime, endTime);
+            return Response.ok(revisionDetails)
+                    .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                    .build();
+        } catch (IllegalStateException e) {
+            logger.debug("Audit service not available", e);
+            throw new NotFoundException();
+        }
+    }
+
+    @GET
     @Path("revisions/{rev}")
     @Produces(MediaType.APPLICATION_JSON)
     public RevisionDetail getRevisionDetail(@RestPath long rev) {
         try {
             AuditReader auditReader = AuditReaderFactory.get(em);
-
-            RevisionInfo revisionInfo;
-            try {
-                revisionInfo = auditReader.findRevision(RevisionInfo.class, rev);
-            } catch (RevisionDoesNotExistException e) {
+            RevisionDetail detail = getRevisionDetailInternal(auditReader, rev);
+            if (detail == null) {
                 throw new NotFoundException();
             }
+            return detail;
+        } catch (IllegalStateException e) {
+            logger.debug("Audit service not available", e);
+            throw new NotFoundException();
+        }
+    }
 
-            if (revisionInfo == null) {
-                throw new NotFoundException();
-            }
+    private RevisionDetail getRevisionDetailInternal(AuditReader auditReader, long rev) {
+        RevisionInfo revisionInfo;
+        try {
+            revisionInfo = auditReader.findRevision(RevisionInfo.class, rev);
+        } catch (RevisionDoesNotExistException e) {
+            return null;
+        }
 
+        if (revisionInfo == null) {
+            return null;
+        }
+
+        try {
             Map<String, List<Object>> entitiesByType = new HashMap<>();
 
             Class<?>[] auditedClasses = {
@@ -339,9 +396,9 @@ public class Audit {
                     revisionInfo.getTimestamp(),
                     revisionInfo.getUsername(),
                     entitiesByType);
-        } catch (IllegalStateException e) {
-            logger.debug("Audit service not available", e);
-            throw new NotFoundException();
+        } catch (Exception e) {
+            logger.debugv(e, "Failed to get revision detail for revision {0}", rev);
+            return null;
         }
     }
 }
