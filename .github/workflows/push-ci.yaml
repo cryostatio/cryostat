@@ -376,3 +376,11 @@ jobs:
         password: ${{ secrets.REGISTRY_PASSWORD }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+
+  publish-snapshot:
+    needs: [get-pom-properties]
+    uses: ./.github/workflows/maven-central-publish.yml
+    secrets: inherit
+    with:
+      publish-cmd: './release-snapshot.sh'
+    if: ${{ github.repository_owner == 'cryostatio' && endsWith(needs.get-pom-properties.outputs.image-version, '-SNAPSHOT') }}
