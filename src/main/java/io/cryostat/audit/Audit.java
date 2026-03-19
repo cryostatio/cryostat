@@ -349,7 +349,8 @@ public class Audit {
                 Credential.class,
                 GarbageCollection.class,
                 io.cryostat.diagnostic.ThreadDump.class,
-                io.cryostat.diagnostic.HeapDump.class
+                io.cryostat.diagnostic.HeapDump.class,
+                io.cryostat.events.EventTemplate.class
             };
 
         for (Class<?> entityClass : auditedClasses) {
