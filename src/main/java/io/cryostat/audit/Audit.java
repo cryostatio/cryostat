@@ -339,16 +339,17 @@ public class Audit {
 
         Map<String, List<Object>> entitiesByType = new HashMap<>();
 
-        Class<?>[] auditedClasses = {
-            Target.class,
-            Rule.class,
-            ActiveRecording.class,
-            MatchExpression.class,
-            DiscoveryPlugin.class,
-            DiscoveryNode.class,
-            Credential.class,
-            GarbageCollection.class
-        };
+            Class<?>[] auditedClasses = {
+                Target.class,
+                Rule.class,
+                ActiveRecording.class,
+                MatchExpression.class,
+                DiscoveryPlugin.class,
+                DiscoveryNode.class,
+                Credential.class,
+                GarbageCollection.class,
+                io.cryostat.diagnostic.ThreadDump.class
+            };
 
         for (Class<?> entityClass : auditedClasses) {
             @SuppressWarnings("unchecked")

@@ -133,14 +133,20 @@ public class Diagnostics {
 
     @Path("targets/{targetId}/threaddump")
     @RolesAllowed("write")
+    @Blocking
+    @Transactional
     @POST
     public String threadDump(
             HttpServerResponse response,
             @RestPath long targetId,
             @QueryParam("format") @DefaultValue(DiagnosticsHelper.DUMP_THREADS) String format) {
         log.tracev("Creating new thread dump request for target: {0}", targetId);
-        ThreadDumpRequest request =
-                new ThreadDumpRequest(UUID.randomUUID().toString(), targetId, format);
+        Target target = Target.getTargetById(targetId);
+        String jobId = UUID.randomUUID().toString();
+
+        io.cryostat.diagnostic.ThreadDump.requested(target, jobId, format).persist();
+
+        ThreadDumpRequest request = new ThreadDumpRequest(jobId, targetId, format);
         response.endHandler(
                 (e) -> bus.publish(LongRunningRequestGenerator.THREAD_DUMP_ADDRESS, request));
         return request.id();

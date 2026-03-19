@@ -286,6 +286,10 @@ public class DiagnosticsHelper {
             default:
                 throw new IllegalStateException();
         }
+
+        QuarkusTransaction.joiningExisting()
+                .run(() -> io.cryostat.diagnostic.ThreadDump.delete("filename", threadDumpId));
+
         var event =
                 new ThreadDumpEvent(
                         EventCategory.DELETED,
