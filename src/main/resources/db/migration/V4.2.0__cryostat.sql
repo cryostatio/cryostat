@@ -599,4 +599,44 @@ CREATE INDEX IDX_PROBETEMPLATE_AUD_REV ON ProbeTemplate_AUD (REV);
 CREATE INDEX IDX_PROBETEMPLATE_AUD_REVTYPE ON ProbeTemplate_AUD (REVTYPE);
 CREATE INDEX IDX_PROBETEMPLATE_AUD_REVEND ON ProbeTemplate_AUD (REVEND);
 
+CREATE SEQUENCE AsyncProfilerRecording_SEQ START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE AsyncProfilerRecording (
+    id BIGINT NOT NULL DEFAULT nextval('AsyncProfilerRecording_SEQ'),
+    target_id BIGINT NOT NULL,
+    profileId text check (char_length(profileId) < 255) NOT NULL,
+    eventType text check (char_length(eventType) < 50),
+    duration BIGINT,
+    status text check (char_length(status) < 20) NOT NULL,
+    startedAt BIGINT NOT NULL,
+    stoppedAt BIGINT,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_asyncprofilerrecording_target_profileid UNIQUE (target_id, profileId),
+    CONSTRAINT fk_asyncprofilerrecording_target FOREIGN KEY (target_id)
+        REFERENCES Target(id) ON DELETE CASCADE
+);
+
+CREATE TABLE AsyncProfilerRecording_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    target_id BIGINT,
+    profileId text check (char_length(profileId) < 255),
+    eventType text check (char_length(eventType) < 50),
+    duration BIGINT,
+    status text check (char_length(status) < 20),
+    startedAt BIGINT,
+    stoppedAt BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_ID ON AsyncProfilerRecording_AUD (id);
+CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_REV ON AsyncProfilerRecording_AUD (REV);
+CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_REVTYPE ON AsyncProfilerRecording_AUD (REVTYPE);
+CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_REVEND ON AsyncProfilerRecording_AUD (REVEND);
+
 COMMIT;
