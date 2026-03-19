@@ -632,4 +632,157 @@ public class AuditTest extends AuditTestBase {
                 .body("entities.Target[0].connectUrl", Matchers.equalTo(SELF_JMX_URL))
                 .body("entities.Target[0].alias", Matchers.equalTo(SELFTEST_ALIAS));
     }
+
+    @Test
+    public void testExportRevisionsMissingStartTime() {
+        long endTime = System.currentTimeMillis();
+
+        given().log()
+                .all()
+                .queryParam("endTime", endTime)
+                .when()
+                .get("export")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    public void testExportRevisionsMissingEndTime() {
+        long startTime = System.currentTimeMillis() - 86400000L;
+
+        given().log()
+                .all()
+                .queryParam("startTime", startTime)
+                .when()
+                .get("export")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    public void testExportRevisionsInvalidTimeRange() {
+        long startTime = System.currentTimeMillis();
+        long endTime = startTime - 86400000L;
+
+        given().log()
+                .all()
+                .queryParam("startTime", startTime)
+                .queryParam("endTime", endTime)
+                .when()
+                .get("export")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(400);
+    }
+
+    @Test
+    public void testExportRevisionsEmptyRange() {
+        long startTime = System.currentTimeMillis() + 86400000L;
+        long endTime = startTime + 86400000L;
+
+        given().log()
+                .all()
+                .queryParam("startTime", startTime)
+                .queryParam("endTime", endTime)
+                .when()
+                .get("export")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("$", Matchers.instanceOf(List.class))
+                .body("$", Matchers.empty());
+    }
+
+    @Test
+    public void testExportRevisionsWithValidRange() {
+        long startTime = System.currentTimeMillis();
+        defineSelfCustomTarget();
+        long endTime = System.currentTimeMillis();
+
+        given().log()
+                .all()
+                .queryParam("startTime", startTime)
+                .queryParam("endTime", endTime)
+                .when()
+                .get("export")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .header(
+                        "Content-Disposition",
+                        Matchers.startsWith("attachment; filename=\"audit-export-"))
+                .body("$", Matchers.instanceOf(List.class))
+                .body("$", Matchers.hasSize(1))
+                .body("[0].rev", Matchers.notNullValue())
+                .body("[0].revtstmp", Matchers.notNullValue())
+                .body("[0].username", Matchers.notNullValue())
+                .body("[0].entities", Matchers.notNullValue())
+                .body("[0].entities", Matchers.instanceOf(Map.class))
+                .body("[0].entities.Target", Matchers.notNullValue())
+                .body("[0].entities.Target", Matchers.instanceOf(List.class))
+                .body("[0].entities.Target[0].connectUrl", Matchers.equalTo(SELF_JMX_URL))
+                .body("[0].entities.Target[0].alias", Matchers.equalTo(SELFTEST_ALIAS))
+                .body("[0].entities.Target[0].revtype", Matchers.notNullValue());
+    }
+
+    @Test
+    public void testExportRevisionsIncludesAllRevisionDetails() {
+        long startTime = System.currentTimeMillis();
+        defineSelfCustomTarget();
+
+        String matchExpression = "target.alias == 'io.cryostat.Cryostat'";
+        String username = "testuser";
+        String password = "testpassword";
+
+        given().basePath("/")
+                .contentType(ContentType.URLENC)
+                .formParam("matchExpression", matchExpression)
+                .formParam("username", username)
+                .formParam("password", password)
+                .when()
+                .post("/api/v4/credentials")
+                .then()
+                .statusCode(201);
+
+        long endTime = System.currentTimeMillis();
+
+        given().log()
+                .all()
+                .queryParam("startTime", startTime)
+                .queryParam("endTime", endTime)
+                .when()
+                .get("export")
+                .then()
+                .log()
+                .all()
+                .assertThat()
+                .statusCode(200)
+                .and()
+                .contentType(ContentType.JSON)
+                .and()
+                .body("$", Matchers.instanceOf(List.class))
+                .body("$", Matchers.hasSize(2))
+                .body("[0].entities.Credential", Matchers.notNullValue())
+                .body("[0].entities.Credential[0].username", Matchers.nullValue())
+                .body("[0].entities.Credential[0].password", Matchers.nullValue())
+                .body("[1].entities.Target", Matchers.notNullValue());
+    }
 }
