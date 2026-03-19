@@ -22,12 +22,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
+import io.cryostat.asyncprofiler.AsyncProfilerRecording;
 import io.cryostat.credentials.Credential;
 import io.cryostat.diagnostic.GarbageCollection;
+import io.cryostat.diagnostic.HeapDump;
+import io.cryostat.diagnostic.ThreadDump;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.discovery.DiscoveryPlugin;
+import io.cryostat.events.EventTemplate;
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.jmcagent.ProbeTemplate;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.ArchivedRecordingInfo;
 import io.cryostat.rules.Rule;
 import io.cryostat.targets.Target;
 
@@ -348,12 +354,12 @@ public class Audit {
                 DiscoveryNode.class,
                 Credential.class,
                 GarbageCollection.class,
-                io.cryostat.diagnostic.ThreadDump.class,
-                io.cryostat.diagnostic.HeapDump.class,
-                io.cryostat.events.EventTemplate.class,
-                io.cryostat.recordings.ArchivedRecordingInfo.class,
-                io.cryostat.jmcagent.ProbeTemplate.class,
-                io.cryostat.asyncprofiler.AsyncProfilerRecording.class
+                ThreadDump.class,
+                HeapDump.class,
+                EventTemplate.class,
+                ArchivedRecordingInfo.class,
+                ProbeTemplate.class,
+                AsyncProfilerRecording.class
             };
 
             for (Class<?> entityClass : auditedClasses) {
