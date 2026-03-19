@@ -23,8 +23,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
-import java.nio.ByteBuffer;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
@@ -1074,27 +1072,6 @@ public class RecordingHelper {
 
     public String reportUrl(String jvmId, String filename) {
         return String.format("/api/v4/reports/%s", encodedKey(jvmId, filename));
-    }
-
-    private int retryRead(ReadableByteChannel channel, ByteBuffer buffer) throws IOException {
-        int attempts = 30;
-        int read = 0;
-
-        while (attempts > 0) {
-            logger.trace("No bytes read, retrying...");
-            read = channel.read(buffer);
-            if (read > 0 || read < 0) {
-                break;
-            } else {
-                attempts--;
-            }
-        }
-
-        if (read == 0) {
-            throw new IOException("No bytes read after 30 retry attempts");
-        }
-
-        return read;
     }
 
     void safeCloseRecording(JFRConnection conn, IRecordingDescriptor rec) {
