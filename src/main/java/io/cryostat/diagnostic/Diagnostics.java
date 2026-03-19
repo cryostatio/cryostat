@@ -249,11 +249,14 @@ public class Diagnostics {
                     request. This is generally equivalent to a System.gc() call made within the target JVM.
                     """)
     public void gc(@RestPath long targetId) {
+        Target target = Target.getTargetById(targetId);
         targetConnectionManager.executeConnectedTask(
-                Target.getTargetById(targetId),
+                target,
                 conn ->
                         conn.invokeMBeanOperation(
                                 "java.lang:type=Memory", "gc", null, null, Void.class));
+
+        GarbageCollection.of(target).persist();
     }
 
     @Path("fs/heapdumps")

@@ -23,6 +23,7 @@ import java.util.Map;
 import java.util.Stack;
 
 import io.cryostat.credentials.Credential;
+import io.cryostat.diagnostic.GarbageCollection;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.expressions.MatchExpression;
@@ -345,7 +346,8 @@ public class Audit {
             MatchExpression.class,
             DiscoveryPlugin.class,
             DiscoveryNode.class,
-            Credential.class
+            Credential.class,
+            GarbageCollection.class
         };
 
         for (Class<?> entityClass : auditedClasses) {
