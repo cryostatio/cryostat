@@ -503,4 +503,38 @@ CREATE INDEX IDX_HEAPDUMP_AUD_REV ON HeapDump_AUD (REV);
 CREATE INDEX IDX_HEAPDUMP_AUD_REVTYPE ON HeapDump_AUD (REVTYPE);
 CREATE INDEX IDX_HEAPDUMP_AUD_REVEND ON HeapDump_AUD (REVEND);
 
+CREATE SEQUENCE EventTemplate_SEQ START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE EventTemplate (
+    id BIGINT NOT NULL DEFAULT nextval('EventTemplate_SEQ'),
+    templateName text check (char_length(templateName) < 255) NOT NULL,
+    templateType text check (char_length(templateType) < 50) NOT NULL,
+    uploadedAt BIGINT NOT NULL,
+    provider text check (char_length(provider) < 255),
+    description text,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_eventtemplate_name_type UNIQUE (templateName, templateType)
+);
+
+CREATE TABLE EventTemplate_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    templateName text check (char_length(templateName) < 255),
+    templateType text check (char_length(templateType) < 50),
+    uploadedAt BIGINT,
+    provider text check (char_length(provider) < 255),
+    description text,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_EVENTTEMPLATE_AUD_ID ON EventTemplate_AUD (id);
+CREATE INDEX IDX_EVENTTEMPLATE_AUD_REV ON EventTemplate_AUD (REV);
+CREATE INDEX IDX_EVENTTEMPLATE_AUD_REVTYPE ON EventTemplate_AUD (REVTYPE);
+CREATE INDEX IDX_EVENTTEMPLATE_AUD_REVEND ON EventTemplate_AUD (REVEND);
+
 COMMIT;
