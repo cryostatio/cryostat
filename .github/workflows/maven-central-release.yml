@@ -1,0 +1,11 @@
+name: Publish a new Maven Central release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  publish-release:
+    uses: ./.github/workflows/maven-central-publish.yml
+    secrets: inherit
+    with:
+      publish-cmd: './release.sh'

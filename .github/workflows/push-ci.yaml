@@ -273,6 +273,56 @@ jobs:
         name: cryostat-${{ matrix.arch }}-docker
         path: cryostat-${{ matrix.arch }}-docker.tar
 
+  build-jar:
+    name: Build fat JAR
+    if: ${{ github.repository_owner == 'cryostatio' }}
+    needs: [get-pom-properties]
+    runs-on: ubuntu-24.04
+    env:
+      IMAGE_VERSION: ${{ needs.get-pom-properties.outputs.image-version }}
+      frontend-cache-name: cache-yarn
+      SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+    steps:
+    - uses: actions/checkout@v6
+      with:
+        submodules: true
+        fetch-depth: 0
+    - uses: actions/setup-java@v5
+      with:
+        java-version: '21'
+        distribution: 'temurin'
+        cache: 'maven'
+    - run: git submodule init && git submodule update
+    - name: Cache yarn packages and frontend build
+      uses: actions/cache@v5
+      with:
+        path: |
+          ./src/main/webui/.yarn/cache
+          ./src/main/webui/.yarn/install-state.gz
+          ./src/main/webui/node_modules
+          ./src/main/webui/.build_cache
+        key: ${{ runner.os }}-build-${{ env.frontend-cache-name }}-${{ hashFiles('**/yarn.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-build-${{ env.frontend-cache-name }}-
+          ${{ runner.os }}-build-
+          ${{ runner.os }}-
+    - name: Initialize web assets
+      run: |
+        pushd  src/main/webui
+        yarn install && yarn yarn:frzinstall
+        popd
+    - name: Build fat JAR
+      run: |
+        ./mvnw -B -U \
+          -DskipTests \
+          -Dquarkus.container-image.build=false \
+          -Dquarkus.package.jar.type=uber-jar \
+          clean package
+    - uses: actions/upload-artifact@v6
+      with:
+        name: cryostat-${{ env.IMAGE_VERSION }}-jar
+        path: target/cryostat-${{ env.IMAGE_VERSION }}-runner.jar
+
   publish-manifest:
     runs-on: ubuntu-24.04
     if: ${{ github.repository_owner == 'cryostatio' }}
@@ -326,3 +376,11 @@ jobs:
         password: ${{ secrets.REGISTRY_PASSWORD }}
     - name: Print image URL
       run: echo "Image pushed to ${{ steps.push-to-quay.outputs.registry-paths }}"
+
+  publish-snapshot:
+    needs: [get-pom-properties]
+    uses: ./.github/workflows/maven-central-publish.yml
+    secrets: inherit
+    with:
+      publish-cmd: './release-snapshot.sh'
+    if: ${{ github.repository_owner == 'cryostatio' && endsWith(needs.get-pom-properties.outputs.image-version, '-SNAPSHOT') }}
