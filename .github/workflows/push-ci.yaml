@@ -105,7 +105,7 @@ jobs:
     - name: Dump test harness logs
       if: always()
       run: tail -500l test.log
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       if: always()
       with:
         name: cryostat-unittest-${{ matrix.arch }}.log
@@ -179,7 +179,7 @@ jobs:
     - name: Dump test harness logs
       if: always()
       run: tail -500l test.log
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       if: always()
       with:
         name: cryostat-itest-harness-${{ matrix.arch }}.log
@@ -187,7 +187,7 @@ jobs:
     - name: Dump server logs
       if: always()
       run: tail -500l target/quarkus.log
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       if: always()
       with:
         name: cryostat-itest-server-${{ matrix.arch }}.log
@@ -262,13 +262,13 @@ jobs:
           clean package
     - name: Save container image
       run: podman save -o cryostat-${{ matrix.arch }}.tar --format oci-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: cryostat-${{ matrix.arch }}-podman
         path: cryostat-${{ matrix.arch }}.tar
     - name: Save container image (docker)
       run: podman save -o cryostat-${{ matrix.arch }}-docker.tar --format docker-archive ${{ env.CI_IMG }}:linux-${{ matrix.arch }}
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: cryostat-${{ matrix.arch }}-docker
         path: cryostat-${{ matrix.arch }}-docker.tar
@@ -293,7 +293,7 @@ jobs:
         sudo apt update
         sudo apt -y install qemu-user-static
     - name: Download container tarballs
-      uses: actions/download-artifact@v7
+      uses: actions/download-artifact@v8
       with:
         path: containers
         pattern: cryostat-*-podman
