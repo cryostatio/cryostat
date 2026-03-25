@@ -145,7 +145,9 @@ public class JfrAnalyticsTest {
                         .formParam(
                                 "query",
                                 """
-                                SELECT * FROM "JFR"."jdk.ObjectAllocationSample" LIMIT 10
+                                SELECT * FROM "JFR"."jdk.ObjectAllocationSample"
+                                    ORDER BY "startTime"
+                                    LIMIT 10
                                 """)
                         .post("/api/beta/recording_analytics/{jvmId}/{filename}")
                         .then()
