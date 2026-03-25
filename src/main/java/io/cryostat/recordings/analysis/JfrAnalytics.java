@@ -55,6 +55,7 @@ import jakarta.ws.rs.FormParam;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PathParam;
 import org.apache.calcite.jdbc.JavaTypeFactoryImpl;
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.moditect.jfranalytics.JfrSchema;
@@ -95,6 +96,9 @@ public class JfrAnalytics {
             @PathParam("jvmId") String jvmId,
             @PathParam("filename") String filename,
             @FormParam("query") String query) {
+        if (StringUtils.isBlank(query)) {
+            throw new BadRequestException();
+        }
         RecordingKey key = new RecordingKey(jvmId, filename);
 
         return Uni.createFrom()
