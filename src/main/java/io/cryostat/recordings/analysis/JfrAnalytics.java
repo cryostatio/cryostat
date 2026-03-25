@@ -64,6 +64,8 @@ import org.moditect.jfranalytics.JfrSchemaFactory;
 @jakarta.ws.rs.Path("")
 public class JfrAnalytics {
 
+    private static final long BYTES_PER_MB = 1024 * 1024;
+
     @ConfigProperty(name = ConfigProperties.JFR_ANALYTICS_CACHE_MAX_WEIGHT)
     long maxCacheWeight;
 
@@ -166,24 +168,54 @@ public class JfrAnalytics {
 
     private void onCacheRemoval(RecordingKey key, Path tempFile, RemovalCause cause) {
         if (tempFile != null) {
-            try {
-                Files.deleteIfExists(tempFile);
-                logger.debugv(
-                        "Deleted temp file {0} for {1}/{2} due to {3}",
-                        tempFile, key.jvmId(), key.filename(), cause);
-            } catch (IOException e) {
+            executor.execute(() -> deleteWithRetry(key, tempFile, cause, 0));
+        }
+    }
+
+    private void deleteWithRetry(RecordingKey key, Path tempFile, RemovalCause cause, int attempt) {
+        int maxRetries = 3;
+        try {
+            Files.deleteIfExists(tempFile);
+            logger.debugv(
+                    "Deleted temp file {0} for {1}/{2} due to {3}",
+                    tempFile, key.jvmId(), key.filename(), cause);
+        } catch (IOException e) {
+            if (attempt < maxRetries) {
+                long delayMs = (long) Math.pow(2, attempt) * 100;
                 logger.warnv(
+                        "Failed to delete temp file {0} for {1}/{2}, retrying in {3}ms (attempt"
+                                + " {4}/{5})",
+                        tempFile, key.jvmId(), key.filename(), delayMs, attempt + 1, maxRetries);
+                try {
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    logger.warnv("Interrupted while waiting to retry deletion of {0}", tempFile);
+                    return;
+                }
+                deleteWithRetry(key, tempFile, cause, attempt + 1);
+            } else {
+                logger.errorv(
                         e,
-                        "Failed to delete temp file {0} for {1}/{2}",
+                        "Failed to delete temp file {0} for {1}/{2} after {3} attempts. File may"
+                                + " remain on disk.",
                         tempFile,
                         key.jvmId(),
-                        key.filename());
+                        key.filename(),
+                        maxRetries);
             }
         }
     }
 
     record RecordingKey(String jvmId, String filename) {}
 
+    /**
+     * Loads JFR files from storage into temporary files for analysis.
+     *
+     * <p>Note: This loader performs blocking I/O operations (Files.createTempFile, Files.copy,
+     * Files.size) within the async context. These operations are executed on virtual threads via
+     * the provided executor to minimize performance impact under high load.
+     */
     class JfrFileLoader implements AsyncCacheLoader<RecordingKey, Path> {
         @Override
         public CompletableFuture<Path> asyncLoad(RecordingKey key, Executor executor) {
@@ -213,7 +245,7 @@ public class JfrAnalytics {
                                     key.jvmId(),
                                     key.filename(),
                                     tempFile,
-                                    Files.size(tempFile) / (1024 * 1024));
+                                    Files.size(tempFile) / BYTES_PER_MB);
 
                             return tempFile;
                         } catch (IOException e) {
@@ -236,6 +268,12 @@ public class JfrAnalytics {
         }
     }
 
+    /**
+     * Weighs cached JFR files by their size in megabytes for cache eviction policy.
+     *
+     * <p>Note: This weigher performs blocking I/O (Files.size) to determine file size. The
+     * operation is executed on virtual threads to minimize performance impact.
+     */
     static class FileSizeWeigher implements Weigher<RecordingKey, Path> {
 
         private final Logger logger = Logger.getLogger(getClass());
@@ -244,8 +282,8 @@ public class JfrAnalytics {
         public int weigh(RecordingKey key, Path tempFile) {
             try {
                 long sizeInBytes = Files.size(tempFile);
-                long sizeInMB = sizeInBytes / (1024 * 1024);
-                return (int) Math.max(1, sizeInMB);
+                long sizeInMB = sizeInBytes / BYTES_PER_MB;
+                return (int) Math.min(Math.max(1, sizeInMB), Integer.MAX_VALUE);
             } catch (IOException e) {
                 logger.error(e);
                 return 1;
