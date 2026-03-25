@@ -65,6 +65,8 @@ import org.moditect.jfranalytics.JfrSchemaFactory;
 public class JfrAnalytics {
 
     private static final long BYTES_PER_MB = 1024 * 1024;
+    private static final String TABLES_COMMAND = "tables";
+    private static final String COLUMNS_COMMAND = "columns ";
 
     @ConfigProperty(name = ConfigProperties.JFR_ANALYTICS_CACHE_MAX_WEIGHT)
     long maxCacheWeight;
@@ -76,6 +78,7 @@ public class JfrAnalytics {
     @Inject Logger logger;
 
     private final Executor executor = Executors.newVirtualThreadPerTaskExecutor();
+    private final JavaTypeFactoryImpl typeFactory = new JavaTypeFactoryImpl();
     private AsyncLoadingCache<RecordingKey, Path> jfrFileCache;
 
     void onStart(@Observes StartupEvent evt) {
@@ -119,29 +122,50 @@ public class JfrAnalytics {
     }
 
     private List<List<String>> executeQueryOnFile(Path jfrFile, String query) throws SQLException {
-        if (query.toLowerCase().strip().equals("tables")) {
-            return List.of(new ArrayList<>(new JfrSchema(jfrFile).getTableNames()));
-        }
-        if (query.toLowerCase().strip().startsWith("columns ")) {
-            String[] parts = query.strip().split("\\s+");
-            if (parts.length < 2) {
-                throw new IllegalArgumentException("Invalid columns query format");
-            }
-            JfrSchema schema = new JfrSchema(jfrFile);
-            JavaTypeFactoryImpl typeFactory = new JavaTypeFactoryImpl();
-            List<List<String>> result = new ArrayList<>();
+        String normalizedQuery = normalizeQuery(query);
 
-            for (int i = 1; i < parts.length; i++) {
-                String tableName = parts[i].replaceAll("'", "").replaceAll("\"", "");
-                var table = schema.getTable(tableName);
-                if (table == null) {
-                    throw new IllegalArgumentException("Table not found: " + tableName);
-                }
-                result.add(new ArrayList<>(table.getRowType(typeFactory).getFieldNames()));
-            }
-            return result;
+        if (normalizedQuery.equals(TABLES_COMMAND)) {
+            return handleTablesQuery(jfrFile);
         }
 
+        if (normalizedQuery.startsWith(COLUMNS_COMMAND)) {
+            return handleColumnsQuery(jfrFile, query);
+        }
+
+        return executeSqlQuery(jfrFile, query);
+    }
+
+    private String normalizeQuery(String query) {
+        return query.strip().toLowerCase();
+    }
+
+    private List<List<String>> handleTablesQuery(Path jfrFile) {
+        JfrSchema schema = new JfrSchema(jfrFile);
+        return List.of(new ArrayList<>(schema.getTableNames()));
+    }
+
+    private List<List<String>> handleColumnsQuery(Path jfrFile, String query) {
+        String[] parts = query.strip().split("\\s+");
+        if (parts.length < 2) {
+            throw new IllegalArgumentException("Invalid columns query format");
+        }
+
+        JfrSchema schema = new JfrSchema(jfrFile);
+        List<List<String>> result = new ArrayList<>();
+
+        for (int i = 1; i < parts.length; i++) {
+            String tableName = parts[i].replaceAll("['\"]", "");
+            var table = schema.getTable(tableName);
+            if (table == null) {
+                throw new IllegalArgumentException("Table not found: " + tableName);
+            }
+            result.add(new ArrayList<>(table.getRowType(typeFactory).getFieldNames()));
+        }
+
+        return result;
+    }
+
+    private List<List<String>> executeSqlQuery(Path jfrFile, String query) throws SQLException {
         Properties properties = new Properties();
         properties.put("model", JfrSchemaFactory.getInlineModel(jfrFile));
 
@@ -156,8 +180,7 @@ public class JfrAnalytics {
             while (rs.next()) {
                 List<String> row = new ArrayList<>(columnCount);
                 for (int i = 1; i <= columnCount; i++) {
-                    String value = rs.getString(i);
-                    row.add(value);
+                    row.add(rs.getString(i));
                 }
                 result.add(row);
             }
