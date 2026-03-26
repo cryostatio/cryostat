@@ -1300,7 +1300,6 @@ public class RecordingHelper {
                 .completionFuture()
                 .join();
 
-        var target = Target.getTargetByJvmId(jvmId);
         ArchivedRecording archivedRecording =
                 new ArchivedRecording(
                         jvmId,
