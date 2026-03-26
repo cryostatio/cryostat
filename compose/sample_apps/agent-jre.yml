@@ -1,0 +1,20 @@
+services:
+  agent-jre:
+    image: quay.io/redhat-java-monitoring/temurin-jre-cryostat-agent:latest
+    hostname: temurin-jre-cryostat-agent
+    ports:
+      - "10012:10012"
+    expose:
+      - "9978"
+    environment:
+      CRYOSTAT_AGENT_APP_NAME: temurin-jre-cryostat-agent
+      CRYOSTAT_AGENT_WEBSERVER_HOST: temurin-jre-cryostat-agent
+      CRYOSTAT_AGENT_WEBSERVER_PORT: 9978
+      CRYOSTAT_AGENT_CALLBACK: http://temurin-jre-cryostat-agent:9978/
+      CRYOSTAT_AGENT_BASEURI: ${CRYOSTAT_PROXY_PROTOCOL}://${CRYOSTAT_HTTP_HOST}:${CRYOSTAT_PROXY_PORT}/
+      CRYOSTAT_AGENT_BASEURI_RANGE: public
+      CRYOSTAT_AGENT_AUTHORIZATION_TYPE: basic
+      CRYOSTAT_AGENT_AUTHORIZATION_VALUE: user:pass
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_TRUST_ALL: "true"
+      CRYOSTAT_AGENT_WEBCLIENT_TLS_VERIFY_HOSTNAME: "false"
+      CRYOSTAT_AGENT_API_WRITES_ENABLED: "true"
