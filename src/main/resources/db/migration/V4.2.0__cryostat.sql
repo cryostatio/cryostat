@@ -369,6 +369,7 @@ CREATE INDEX IDX_MATCHEXPRESSION_AUD_REVEND ON MatchExpression_AUD (REVEND);
 CREATE INDEX IDX_DISCOVERYPLUGIN_AUD_REVEND ON DiscoveryPlugin_AUD (REVEND);
 CREATE INDEX IDX_DISCOVERYNODE_AUD_REVEND ON DiscoveryNode_AUD (REVEND);
 CREATE INDEX IDX_CREDENTIAL_AUD_REVEND ON Credential_AUD (REVEND);
+CREATE INDEX IDX_REVINFO_REVTSTMP ON REVINFO (REVTSTMP);
 
 -- Pre-seed audit records for Universe and Realm nodes that were created in V4.0.0
 -- These nodes are created directly via SQL migration and don't go through Hibernate/Envers,
@@ -389,5 +390,253 @@ WHERE builtin = true;
 SELECT setval('REVINFO_SEQ', 1, false);
 
 --
+
+CREATE SEQUENCE GarbageCollection_SEQ START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE GarbageCollection (
+    id BIGINT NOT NULL DEFAULT nextval('GarbageCollection_SEQ'),
+    target_id BIGINT NOT NULL,
+    triggeredAt BIGINT NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_garbagecollection_target FOREIGN KEY (target_id)
+        REFERENCES Target(id) ON DELETE CASCADE
+);
+
+CREATE TABLE GarbageCollection_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    target_id BIGINT,
+    triggeredAt BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_GARBAGECOLLECTION_AUD_ID ON GarbageCollection_AUD (id);
+CREATE INDEX IDX_GARBAGECOLLECTION_AUD_REV ON GarbageCollection_AUD (REV);
+CREATE INDEX IDX_GARBAGECOLLECTION_AUD_REVTYPE ON GarbageCollection_AUD (REVTYPE);
+CREATE INDEX IDX_GARBAGECOLLECTION_AUD_REVEND ON GarbageCollection_AUD (REVEND);
+
+CREATE SEQUENCE ThreadDump_SEQ START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE ThreadDump (
+    id BIGINT NOT NULL DEFAULT nextval('ThreadDump_SEQ'),
+    target_id BIGINT NOT NULL,
+    jobId text check (char_length(jobId) < 255) NOT NULL,
+    filename text check (char_length(filename) < 255),
+    format text check (char_length(format) < 50) NOT NULL,
+    status text check (char_length(status) < 20) NOT NULL,
+    requestedAt BIGINT NOT NULL,
+    completedAt BIGINT,
+    size BIGINT,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_threaddump_target_jobid UNIQUE (target_id, jobId),
+    CONSTRAINT fk_threaddump_target FOREIGN KEY (target_id)
+        REFERENCES Target(id) ON DELETE CASCADE
+);
+
+CREATE TABLE ThreadDump_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    target_id BIGINT,
+    jobId text check (char_length(jobId) < 255),
+    filename text check (char_length(filename) < 255),
+    format text check (char_length(format) < 50),
+    status text check (char_length(status) < 20),
+    requestedAt BIGINT,
+    completedAt BIGINT,
+    size BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_THREADDUMP_AUD_ID ON ThreadDump_AUD (id);
+CREATE INDEX IDX_THREADDUMP_AUD_REV ON ThreadDump_AUD (REV);
+CREATE INDEX IDX_THREADDUMP_AUD_REVTYPE ON ThreadDump_AUD (REVTYPE);
+CREATE INDEX IDX_THREADDUMP_AUD_REVEND ON ThreadDump_AUD (REVEND);
+
+-- HeapDump entity and audit table
+CREATE SEQUENCE HeapDump_SEQ START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE HeapDump (
+    id BIGINT NOT NULL DEFAULT nextval('HeapDump_SEQ'),
+    target_id BIGINT NOT NULL,
+    jobId text check (char_length(jobId) < 255) NOT NULL,
+    filename text check (char_length(filename) < 255),
+    status text check (char_length(status) < 20) NOT NULL,
+    requestedAt BIGINT NOT NULL,
+    completedAt BIGINT,
+    size BIGINT,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_heapdump_target_jobid UNIQUE (target_id, jobId),
+    CONSTRAINT fk_heapdump_target FOREIGN KEY (target_id)
+        REFERENCES Target(id) ON DELETE CASCADE
+);
+
+CREATE TABLE HeapDump_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    target_id BIGINT,
+    jobId text check (char_length(jobId) < 255),
+    filename text check (char_length(filename) < 255),
+    status text check (char_length(status) < 20),
+    requestedAt BIGINT,
+    completedAt BIGINT,
+    size BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_HEAPDUMP_AUD_ID ON HeapDump_AUD (id);
+CREATE INDEX IDX_HEAPDUMP_AUD_REV ON HeapDump_AUD (REV);
+CREATE INDEX IDX_HEAPDUMP_AUD_REVTYPE ON HeapDump_AUD (REVTYPE);
+CREATE INDEX IDX_HEAPDUMP_AUD_REVEND ON HeapDump_AUD (REVEND);
+
+CREATE SEQUENCE EventTemplate_SEQ START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE EventTemplate (
+    id BIGINT NOT NULL DEFAULT nextval('EventTemplate_SEQ'),
+    templateName text check (char_length(templateName) < 255) NOT NULL,
+    templateType text check (char_length(templateType) < 50) NOT NULL,
+    uploadedAt BIGINT NOT NULL,
+    provider text check (char_length(provider) < 255),
+    description text,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_eventtemplate_name_type UNIQUE (templateName, templateType)
+);
+
+CREATE TABLE EventTemplate_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    templateName text check (char_length(templateName) < 255),
+    templateType text check (char_length(templateType) < 50),
+    uploadedAt BIGINT,
+    provider text check (char_length(provider) < 255),
+    description text,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_EVENTTEMPLATE_AUD_ID ON EventTemplate_AUD (id);
+CREATE INDEX IDX_EVENTTEMPLATE_AUD_REV ON EventTemplate_AUD (REV);
+CREATE INDEX IDX_EVENTTEMPLATE_AUD_REVTYPE ON EventTemplate_AUD (REVTYPE);
+CREATE INDEX IDX_EVENTTEMPLATE_AUD_REVEND ON EventTemplate_AUD (REVEND);
+
+CREATE SEQUENCE ArchivedRecording_SEQ START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE ArchivedRecording (
+    id BIGINT NOT NULL DEFAULT nextval('ArchivedRecording_SEQ'),
+    jvmId text check (char_length(jvmId) < 255) NOT NULL,
+    filename text check (char_length(filename) < 255) NOT NULL,
+    activeRecordingId BIGINT,
+    createdAt BIGINT NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_archivedrecording_jvmid_filename UNIQUE (jvmId, filename),
+    CONSTRAINT fk_archivedrecording_activerecording FOREIGN KEY (activeRecordingId)
+        REFERENCES ActiveRecording(id) ON DELETE SET NULL
+);
+
+CREATE TABLE ArchivedRecording_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    jvmId text check (char_length(jvmId) < 255),
+    filename text check (char_length(filename) < 255),
+    activeRecordingId BIGINT,
+    createdAt BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_ARCHIVEDRECORDING_AUD_ID ON ArchivedRecording_AUD (id);
+CREATE INDEX IDX_ARCHIVEDRECORDING_AUD_REV ON ArchivedRecording_AUD (REV);
+CREATE INDEX IDX_ARCHIVEDRECORDING_AUD_REVTYPE ON ArchivedRecording_AUD (REVTYPE);
+CREATE INDEX IDX_ARCHIVEDRECORDING_AUD_REVEND ON ArchivedRecording_AUD (REVEND);
+
+CREATE SEQUENCE ProbeTemplate_SEQ START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE ProbeTemplate (
+    id BIGINT NOT NULL DEFAULT nextval('ProbeTemplate_SEQ'),
+    templateName text check (char_length(templateName) < 255) NOT NULL,
+    uploadedAt BIGINT NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_probetemplate_name UNIQUE (templateName)
+);
+
+CREATE TABLE ProbeTemplate_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    templateName text check (char_length(templateName) < 255),
+    uploadedAt BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_PROBETEMPLATE_AUD_ID ON ProbeTemplate_AUD (id);
+CREATE INDEX IDX_PROBETEMPLATE_AUD_REV ON ProbeTemplate_AUD (REV);
+CREATE INDEX IDX_PROBETEMPLATE_AUD_REVTYPE ON ProbeTemplate_AUD (REVTYPE);
+CREATE INDEX IDX_PROBETEMPLATE_AUD_REVEND ON ProbeTemplate_AUD (REVEND);
+
+CREATE SEQUENCE AsyncProfilerRecording_SEQ START WITH 1 INCREMENT BY 50;
+
+CREATE TABLE AsyncProfilerRecording (
+    id BIGINT NOT NULL DEFAULT nextval('AsyncProfilerRecording_SEQ'),
+    target_id BIGINT NOT NULL,
+    profileId text check (char_length(profileId) < 255) NOT NULL,
+    eventType text check (char_length(eventType) < 50),
+    duration BIGINT,
+    status text check (char_length(status) < 20) NOT NULL,
+    startedAt BIGINT NOT NULL,
+    stoppedAt BIGINT,
+    PRIMARY KEY (id),
+    CONSTRAINT uk_asyncprofilerrecording_target_profileid UNIQUE (target_id, profileId),
+    CONSTRAINT fk_asyncprofilerrecording_target FOREIGN KEY (target_id)
+        REFERENCES Target(id) ON DELETE CASCADE
+);
+
+CREATE TABLE AsyncProfilerRecording_AUD (
+    id BIGINT NOT NULL,
+    REV INTEGER NOT NULL,
+    REVTYPE SMALLINT,
+    REVEND INTEGER,
+    REVEND_TSTMP BIGINT,
+    target_id BIGINT,
+    profileId text check (char_length(profileId) < 255),
+    eventType text check (char_length(eventType) < 50),
+    duration BIGINT,
+    status text check (char_length(status) < 20),
+    startedAt BIGINT,
+    stoppedAt BIGINT,
+    PRIMARY KEY (id, REV),
+    FOREIGN KEY (REV) REFERENCES REVINFO (REV),
+    FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
+);
+
+CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_ID ON AsyncProfilerRecording_AUD (id);
+CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_REV ON AsyncProfilerRecording_AUD (REV);
+CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_REVTYPE ON AsyncProfilerRecording_AUD (REVTYPE);
+CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_REVEND ON AsyncProfilerRecording_AUD (REVEND);
 
 COMMIT;

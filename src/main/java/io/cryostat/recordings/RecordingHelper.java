@@ -23,8 +23,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLDecoder;
-import java.nio.ByteBuffer;
-import java.nio.channels.ReadableByteChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.time.Duration;
@@ -1076,27 +1074,6 @@ public class RecordingHelper {
         return String.format("/api/v4/reports/%s", encodedKey(jvmId, filename));
     }
 
-    private int retryRead(ReadableByteChannel channel, ByteBuffer buffer) throws IOException {
-        int attempts = 30;
-        int read = 0;
-
-        while (attempts > 0) {
-            logger.trace("No bytes read, retrying...");
-            read = channel.read(buffer);
-            if (read > 0 || read < 0) {
-                break;
-            } else {
-                attempts--;
-            }
-        }
-
-        if (read == 0) {
-            throw new IOException("No bytes read after 30 retry attempts");
-        }
-
-        return read;
-    }
-
     void safeCloseRecording(JFRConnection conn, IRecordingDescriptor rec) {
         try {
             conn.getService().close(rec);
@@ -1136,6 +1113,14 @@ public class RecordingHelper {
                     resp.sdkHttpResponse().statusCode(),
                     resp.sdkHttpResponse().statusText().orElse(""));
         }
+
+        QuarkusTransaction.joiningExisting()
+                .run(
+                        () ->
+                                ArchivedRecordingInfo.<ArchivedRecordingInfo>find(
+                                                "jvmId = ?1 and filename = ?2", jvmId, filename)
+                                        .firstResultOptional()
+                                        .ifPresent(ArchivedRecordingInfo::delete));
 
         switch (storageMode()) {
             case TAGGING:
@@ -1299,6 +1284,10 @@ public class RecordingHelper {
                                 .build())
                 .completionFuture()
                 .join();
+
+        String finalFilename = filename;
+        QuarkusTransaction.joiningExisting()
+                .run(() -> ArchivedRecordingInfo.of(jvmId, finalFilename, null).persist());
 
         var target = Target.getTargetByJvmId(jvmId);
         ArchivedRecording archivedRecording =

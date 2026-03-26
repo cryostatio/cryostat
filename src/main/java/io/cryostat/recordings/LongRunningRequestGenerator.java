@@ -108,6 +108,16 @@ public class LongRunningRequestGenerator {
         try {
             var target = Target.getTargetById(request.targetId);
             var dump = diagnosticsHelper.dumpThreads(target, request.format, request.id());
+
+            io.cryostat.diagnostic.ThreadDump.<io.cryostat.diagnostic.ThreadDump>find(
+                            "jobId", request.id())
+                    .firstResultOptional()
+                    .ifPresent(
+                            td -> {
+                                td.markCompleted(dump.threadDumpId(), dump.size());
+                                td.persist();
+                            });
+
             var event =
                     new ThreadDumpEvent(
                             EventCategory.CREATED, ThreadDumpEvent.Payload.of(dump, request.id()));
@@ -116,6 +126,16 @@ public class LongRunningRequestGenerator {
                     new Notification(event.category().category(), event.payload()));
         } catch (Exception e) {
             logger.warn("Failed to dump threads");
+
+            io.cryostat.diagnostic.ThreadDump.<io.cryostat.diagnostic.ThreadDump>find(
+                            "jobId", request.id())
+                    .firstResultOptional()
+                    .ifPresent(
+                            td -> {
+                                td.markFailed();
+                                td.persist();
+                            });
+
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
@@ -321,6 +341,16 @@ public class LongRunningRequestGenerator {
                             new HeapDumpSuccessPayload(request.id(), target.alias)));
         } catch (Exception e) {
             logger.warn("Failed to dump heap");
+
+            io.cryostat.diagnostic.HeapDump.<io.cryostat.diagnostic.HeapDump>find(
+                            "jobId", request.id())
+                    .firstResultOptional()
+                    .ifPresent(
+                            hd -> {
+                                hd.markFailed();
+                                hd.persist();
+                            });
+
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(HEAP_DUMP_FAILURE, new JobIdPayload(request.id())));
