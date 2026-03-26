@@ -920,7 +920,7 @@ public class RecordingHelper {
                 new ArchivedRecordingEvent(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
                         ArchivedRecordingEvent.Payload.of(
-                                recording.target.connectUrl, archivedRecording));
+                                recording.target.jvmId, archivedRecording));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),
@@ -1314,7 +1314,7 @@ public class RecordingHelper {
                 new ArchivedRecordingEvent(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
                         ArchivedRecordingEvent.Payload.of(
-                                target.map(t -> t.connectUrl).orElse(null), archivedRecording));
+                                archivedRecording.jvmId(), archivedRecording));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
                 MessagingServer.class.getName(),

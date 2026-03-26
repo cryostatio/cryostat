@@ -298,10 +298,6 @@ public class ActiveRecording extends PanacheEntity {
                 Objects.requireNonNull(payload);
             }
 
-            // FIXME the target connectUrl URI may no longer be known if the target
-            // has disappeared and we are emitting an event regarding an archived recording
-            // originally sourced from that target, or if we are accepting a recording upload from a
-            // client.
             public record Payload(
                     String target, String jvmId, ArchivedRecordings.ArchivedRecording recording) {
                 public Payload {
@@ -312,13 +308,18 @@ public class ActiveRecording extends PanacheEntity {
                         URI connectUrl, ArchivedRecordings.ArchivedRecording recording) {
                     return new Payload(
                             Optional.ofNullable(connectUrl).map(URI::toString).orElse(null),
-                            Optional.ofNullable(connectUrl)
-                                    .flatMap(
-                                            url ->
-                                                    Target.find("connectUrl", url)
-                                                            .<Target>singleResultOptional())
-                                    .map(t -> t.jvmId)
+                            recording.jvmId(),
+                            recording);
+                }
+
+                public static Payload of(
+                        String jvmId, ArchivedRecordings.ArchivedRecording recording) {
+                    return new Payload(
+                            Target.find("jvmId", jvmId)
+                                    .<Target>singleResultOptional()
+                                    .map(t -> t.connectUrl.toString())
                                     .orElse(null),
+                            jvmId,
                             recording);
                 }
             }
