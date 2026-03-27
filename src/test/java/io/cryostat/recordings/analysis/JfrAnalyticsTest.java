@@ -146,7 +146,7 @@ public class JfrAnalyticsTest {
                                 "query",
                                 """
                                 SELECT * FROM "JFR"."jdk.ObjectAllocationSample"
-                                    ORDER BY "startTime"
+                                    ORDER BY "startTime", CLASS_NAME("objectClass"), "weight"
                                     LIMIT 10
                                 """)
                         .post("/api/beta/recording_analytics/{jvmId}/{filename}")
@@ -182,6 +182,13 @@ public class JfrAnalyticsTest {
                 "VirtualThreads",
                 "java.io.BufferedReader.<init>",
                 "[C",
+                "41008"
+            },
+            {
+                "2025-10-16 07:29:07",
+                "VirtualThreads",
+                "java.io.BufferedReader.<init>",
+                "[C",
                 "49216"
             },
             {
@@ -190,13 +197,6 @@ public class JfrAnalyticsTest {
                 "sun.nio.ch.FileChannelImpl.open",
                 "sun/nio/ch/FileChannelImpl",
                 "38432"
-            },
-            {
-                "2025-10-16 07:29:07",
-                "VirtualThreads",
-                "java.io.BufferedReader.<init>",
-                "[C",
-                "41008"
             },
             {
                 "2025-10-16 07:29:07",
