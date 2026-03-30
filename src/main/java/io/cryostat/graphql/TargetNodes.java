@@ -236,36 +236,91 @@ public class TargetNodes {
         try {
             AuditReader ar = AuditReaderFactory.get(em);
 
-            // Get all unique jvmIds from audit history
+            // Get all unique jvmIds from audit history using native SQL
             @SuppressWarnings("unchecked")
-            List<Object[]> results =
-                    ar.createQuery()
-                            .forRevisionsOfEntity(Target.class, true, false)
-                            .addProjection(AuditEntity.property("jvmId").distinct())
+            List<String> jvmIds =
+                    em.createNativeQuery(
+                                    "SELECT DISTINCT jvmId FROM Target_AUD WHERE jvmId IS NOT"
+                                            + " NULL")
                             .getResultList();
 
-            // For each jvmId, get the most recent revision
+            // For each jvmId, get the most recent Target and manually reconstruct its
+            // DiscoveryNode
             List<Target> historicalTargets = new ArrayList<>();
-            for (Object[] row : results) {
-                String jvmId = (String) row[0];
+            for (String jvmId : jvmIds) {
                 if (StringUtils.isNotBlank(jvmId)) {
-                    var q =
-                            ar.createQuery()
-                                    .forRevisionsOfEntity(Target.class, true, false)
-                                    .add(AuditEntity.property("jvmId").eq(jvmId))
-                                    .addOrder(AuditEntity.revisionNumber().desc())
-                                    .setMaxResults(1)
-                                    .getResultList();
-                    if (!q.isEmpty()) {
-                        historicalTargets.add((Target) q.get(0));
+                    Target target = getLatestTargetFromAudit(ar, jvmId);
+                    if (target != null) {
+                        // Manually get the DiscoveryNode to avoid lazy loading issues
+                        DiscoveryNode node = getDiscoveryNodeFromAudit(ar, target);
+                        if (node != null) {
+                            // Set up the bidirectional relationship
+                            node.target = target;
+                            target.discoveryNode = node;
+                            // Clear parent and children to prevent further lazy loading
+                            node.parent = null;
+                            node.children = new ArrayList<>();
+                            historicalTargets.add(target);
+                        }
                     }
                 }
             }
             return historicalTargets;
-        } catch (IllegalStateException e) {
-            logger.debug("Audit service not available", e);
+        } catch (Exception e) {
+            logger.debug("Error querying audit log", e);
             return List.of();
         }
+    }
+
+    private Target getLatestTargetFromAudit(AuditReader ar, String jvmId) {
+        try {
+            @SuppressWarnings("unchecked")
+            var q =
+                    ar.createQuery()
+                            .forRevisionsOfEntity(Target.class, true, true)
+                            .add(AuditEntity.property("jvmId").eq(jvmId))
+                            .addOrder(AuditEntity.revisionNumber().desc())
+                            .setMaxResults(1)
+                            .getResultList();
+            if (!q.isEmpty()) {
+                return (Target) q.get(0);
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to get Target from audit for jvmId: " + jvmId, e);
+        }
+        return null;
+    }
+
+    private DiscoveryNode getDiscoveryNodeFromAudit(AuditReader ar, Target target) {
+        try {
+            // First, get the discoveryNode ID from Target_AUD
+            // We need to find which DiscoveryNode was associated with this Target
+            var result =
+                    em.createNativeQuery(
+                                    "SELECT discoveryNode FROM Target_AUD WHERE id = :id ORDER BY"
+                                            + " REV DESC LIMIT 1")
+                            .setParameter("id", target.id)
+                            .getSingleResult();
+
+            if (result != null) {
+                Long nodeId = ((Number) result).longValue();
+                // Now get the DiscoveryNode from audit history
+                @SuppressWarnings("unchecked")
+                var q =
+                        ar.createQuery()
+                                .forRevisionsOfEntity(DiscoveryNode.class, true, true)
+                                .add(AuditEntity.id().eq(nodeId))
+                                .addOrder(AuditEntity.revisionNumber().desc())
+                                .setMaxResults(1)
+                                .getResultList();
+                if (!q.isEmpty()) {
+                    return (DiscoveryNode) q.get(0);
+                }
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to get DiscoveryNode from audit for target: " + target.id, e);
+        }
+        return null;
     }
 
     public static class Recordings {
