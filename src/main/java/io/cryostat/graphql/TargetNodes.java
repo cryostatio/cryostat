@@ -277,13 +277,17 @@ public class TargetNodes {
             @SuppressWarnings("unchecked")
             var q =
                     ar.createQuery()
-                            .forRevisionsOfEntity(Target.class, true, true)
+                            .forRevisionsOfEntity(Target.class, false, true)
                             .add(AuditEntity.property("jvmId").eq(jvmId))
+                            .add(
+                                    AuditEntity.revisionType()
+                                            .ne(org.hibernate.envers.RevisionType.DEL))
                             .addOrder(AuditEntity.revisionNumber().desc())
                             .setMaxResults(1)
                             .getResultList();
             if (!q.isEmpty()) {
-                return (Target) q.get(0);
+                Object[] result = (Object[]) q.get(0);
+                return (Target) result[0];
             }
         } catch (Exception e) {
             logger.warn("Failed to get Target from audit for jvmId: " + jvmId, e);
@@ -293,28 +297,34 @@ public class TargetNodes {
 
     private DiscoveryNode getDiscoveryNodeFromAudit(AuditReader ar, Target target) {
         try {
-            // First, get the discoveryNode ID from Target_AUD
-            // We need to find which DiscoveryNode was associated with this Target
-            var result =
+            // Get ALL revisions of this Target to find when the DiscoveryNode was set
+            // The Target may be created first with null discoveryNode, then updated later
+            @SuppressWarnings("unchecked")
+            List<Object[]> targetRevisions =
                     em.createNativeQuery(
-                                    "SELECT discoveryNode FROM Target_AUD WHERE id = :id ORDER BY"
-                                            + " REV DESC LIMIT 1")
+                                    "SELECT discoveryNode, REV FROM Target_AUD WHERE id = :id AND"
+                                            + " discoveryNode IS NOT NULL ORDER BY REV DESC")
                             .setParameter("id", target.id)
-                            .getSingleResult();
+                            .getResultList();
 
-            if (result != null) {
-                Long nodeId = ((Number) result).longValue();
+            if (!targetRevisions.isEmpty()) {
+                Object[] latestWithNode = targetRevisions.get(0);
+                Long nodeId = ((Number) latestWithNode[0]).longValue();
                 // Now get the DiscoveryNode from audit history
                 @SuppressWarnings("unchecked")
                 var q =
                         ar.createQuery()
-                                .forRevisionsOfEntity(DiscoveryNode.class, true, true)
+                                .forRevisionsOfEntity(DiscoveryNode.class, false, true)
                                 .add(AuditEntity.id().eq(nodeId))
+                                .add(
+                                        AuditEntity.revisionType()
+                                                .ne(org.hibernate.envers.RevisionType.DEL))
                                 .addOrder(AuditEntity.revisionNumber().desc())
                                 .setMaxResults(1)
                                 .getResultList();
                 if (!q.isEmpty()) {
-                    return (DiscoveryNode) q.get(0);
+                    Object[] revisionResult = (Object[]) q.get(0);
+                    return (DiscoveryNode) revisionResult[0];
                 }
             }
         } catch (Exception e) {
