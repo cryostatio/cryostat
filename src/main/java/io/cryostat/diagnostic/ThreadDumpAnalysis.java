@@ -33,10 +33,10 @@ import me.bechberger.jthreaddump.model.ThreadInfo;
 
 public class ThreadDumpAnalysis {
 
-    public List<Entry<State, Long>> aggregateThreadStates;
-    public List<Entry<String, Long>> aggregateLockInfo;
-    public List<Entry<List<StackFrame>, Long>> aggregateStackTraces;
-    public List<Entry<String, Long>> runningMethods;
+    public List<AggregateThreadStateResult> aggregateThreadStates;
+    public List<AggregateLockInfoResult> aggregateLockInfo;
+    public List<AggregateStackTraceResult> aggregateStackTraces;
+    public List<AggregateMethodResult> runningMethods;
     public List<DeadlockInfo> deadlockInfos;
     public List<ThreadInfo> threads;
     public List<AnalysisResult> specificFindings;
@@ -44,6 +44,10 @@ public class ThreadDumpAnalysis {
     public String jvmInfo;
 
     public ThreadDumpAnalysis(ThreadDump dump) {
+        this.aggregateThreadStates = new ArrayList<>();
+        this.aggregateLockInfo = new ArrayList<>();
+        this.aggregateStackTraces = new ArrayList<>();
+        this.runningMethods = new ArrayList<>();
         this.specificFindings = new ArrayList<>();
         this.jniInfo = dump.jniInfo();
         this.jvmInfo = dump.jvmInfo();
@@ -171,13 +175,32 @@ public class ThreadDumpAnalysis {
                                     strictMaxCount),
                             1));
         }
-        this.aggregateThreadStates = new ArrayList<Entry<State, Long>>(threadStates.entrySet());
-        this.aggregateLockInfo = new ArrayList<Entry<String, Long>>(lockInfo.entrySet());
-        this.aggregateStackTraces =
-                new ArrayList<Entry<List<StackFrame>, Long>>(stackTraces.entrySet());
-        this.runningMethods = new ArrayList<Entry<String, Long>>(aggregateMethods.entrySet());
+        for (Entry<State, Long> t : threadStates.entrySet()) {
+            aggregateThreadStates.add(new AggregateThreadStateResult(t.getKey(), t.getValue()));
+        }
+        for (Entry<String, Long> t : lockInfo.entrySet()) {
+            aggregateLockInfo.add(new AggregateLockInfoResult(t.getKey(), t.getValue()));
+        }
+        for (Entry<String, Long> t : aggregateMethods.entrySet()) {
+            runningMethods.add(new AggregateMethodResult(t.getKey(), t.getValue()));
+        }
+        for (Entry<List<StackFrame>, Long> t : stackTraces.entrySet()) {
+            aggregateStackTraces.add(new AggregateStackTraceResult(t.getKey(), t.getValue()));
+        }
     }
 
     public record AnalysisResult(String resultName, String explanation, int score) {}
+    ;
+
+    public record AggregateThreadStateResult(State data, long count) {}
+    ;
+
+    public record AggregateLockInfoResult(String data, long count) {}
+    ;
+
+    public record AggregateMethodResult(String data, long count) {}
+    ;
+
+    public record AggregateStackTraceResult(List<StackFrame> data, long count) {}
     ;
 }
