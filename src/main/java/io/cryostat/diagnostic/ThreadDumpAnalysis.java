@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 
 import me.bechberger.jthreaddump.model.DeadlockInfo;
@@ -32,10 +33,10 @@ import me.bechberger.jthreaddump.model.ThreadInfo;
 
 public class ThreadDumpAnalysis {
 
-    public Map<State, Long> aggregateThreadStates;
-    public Map<String, Long> aggregateLockInfo;
-    public Map<List<StackFrame>, Long> aggregateStackTraces;
-    public Map<String, Long> runningMethods;
+    public List<Entry<State, Long>> aggregateThreadStates;
+    public List<Entry<String, Long>> aggregateLockInfo;
+    public List<Entry<List<StackFrame>, Long>> aggregateStackTraces;
+    public List<Entry<String, Long>> runningMethods;
     public List<DeadlockInfo> deadlockInfos;
     public List<ThreadInfo> threads;
     public List<AnalysisResult> specificFindings;
@@ -43,18 +44,6 @@ public class ThreadDumpAnalysis {
     public String jvmInfo;
 
     public ThreadDumpAnalysis(ThreadDump dump) {
-        aggregateThreadStates =
-                new HashMap<>(
-                        Map.of(
-                                State.BLOCKED, 0l,
-                                State.NEW, 0l,
-                                State.RUNNABLE, 0l,
-                                State.TERMINATED, 0l,
-                                State.TIMED_WAITING, 0l,
-                                State.WAITING, 0l));
-        aggregateLockInfo = new HashMap<>();
-        aggregateStackTraces = new HashMap<>();
-        runningMethods = new HashMap<>();
         this.specificFindings = new ArrayList<>();
         this.jniInfo = dump.jniInfo();
         this.jvmInfo = dump.jvmInfo();
@@ -68,24 +57,36 @@ public class ThreadDumpAnalysis {
         int logCount = 0;
         int dataSourceContention = 0;
         int strictMaxCount = 0;
+        Map<State, Long> threadStates =
+                new HashMap<>(
+                        Map.of(
+                                State.BLOCKED, 0l,
+                                State.NEW, 0l,
+                                State.RUNNABLE, 0l,
+                                State.TERMINATED, 0l,
+                                State.TIMED_WAITING, 0l,
+                                State.WAITING, 0l));
+        ;
+        Map<String, Long> lockInfo = new HashMap<>();
+        Map<List<StackFrame>, Long> stackTraces = new HashMap<>();
+        Map<String, Long> aggregateMethods = new HashMap<>();
         for (ThreadInfo t : dump.threads()) {
             // Populate the aggregate thread states map
             // Thread state, along with several other fields are null for VM Threads
             if (Objects.nonNull(t.state())) {
-                aggregateThreadStates.put(
-                        t.state(), Long.valueOf(aggregateThreadStates.get(t.state()) + 1));
+                threadStates.put(t.state(), Long.valueOf(threadStates.get(t.state()) + 1));
             }
             // Populate the aggregate synchronizers map
             for (LockInfo l : t.locks()) {
-                aggregateLockInfo.merge(l.className(), 1l, Long::sum);
+                lockInfo.merge(l.className(), 1l, Long::sum);
             }
             // Populate the aggregate stack traces map and method map
-            aggregateStackTraces.merge(t.stackTrace(), 1l, Long::sum);
+            stackTraces.merge(t.stackTrace(), 1l, Long::sum);
             if (!t.stackTrace().isEmpty()) {
                 System.out.println("Stack Frame: " + t.stackTrace().getFirst());
                 String method = t.stackTrace().getFirst().methodName();
                 if (t.state() == State.RUNNABLE) {
-                    runningMethods.merge(method, 1l, Long::sum);
+                    aggregateMethods.merge(method, 1l, Long::sum);
                 }
                 // General Findings
                 if (method.equals("java.util.Arrays.copyOf")) {
@@ -170,6 +171,11 @@ public class ThreadDumpAnalysis {
                                     strictMaxCount),
                             1));
         }
+        this.aggregateThreadStates = new ArrayList<Entry<State, Long>>(threadStates.entrySet());
+        this.aggregateLockInfo = new ArrayList<Entry<String, Long>>(lockInfo.entrySet());
+        this.aggregateStackTraces =
+                new ArrayList<Entry<List<StackFrame>, Long>>(stackTraces.entrySet());
+        this.runningMethods = new ArrayList<Entry<String, Long>>(aggregateMethods.entrySet());
     }
 
     public record AnalysisResult(String resultName, String explanation, int score) {}
