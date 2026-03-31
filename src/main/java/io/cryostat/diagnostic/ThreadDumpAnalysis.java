@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import me.bechberger.jthreaddump.model.DeadlockInfo;
 import me.bechberger.jthreaddump.model.JniInfo;
@@ -43,13 +44,14 @@ public class ThreadDumpAnalysis {
 
     public ThreadDumpAnalysis(ThreadDump dump) {
         aggregateThreadStates =
-                Map.of(
-                        State.BLOCKED, 0l,
-                        State.NEW, 0l,
-                        State.RUNNABLE, 0l,
-                        State.TERMINATED, 0l,
-                        State.TIMED_WAITING, 0l,
-                        State.WAITING, 0l);
+                new HashMap<>(
+                        Map.of(
+                                State.BLOCKED, 0l,
+                                State.NEW, 0l,
+                                State.RUNNABLE, 0l,
+                                State.TERMINATED, 0l,
+                                State.TIMED_WAITING, 0l,
+                                State.WAITING, 0l));
         aggregateLockInfo = new HashMap<>();
         aggregateStackTraces = new HashMap<>();
         runningMethods = new HashMap<>();
@@ -68,35 +70,41 @@ public class ThreadDumpAnalysis {
         int strictMaxCount = 0;
         for (ThreadInfo t : dump.threads()) {
             // Populate the aggregate thread states map
-            aggregateThreadStates.put(
-                    t.state(), Long.valueOf(aggregateThreadStates.get(t.state()) + 1));
+            // Thread state, along with several other fields are null for VM Threads
+            if (Objects.nonNull(t.state())) {
+                aggregateThreadStates.put(
+                        t.state(), Long.valueOf(aggregateThreadStates.get(t.state()) + 1));
+            }
             // Populate the aggregate synchronizers map
             for (LockInfo l : t.locks()) {
                 aggregateLockInfo.merge(l.className(), 1l, Long::sum);
             }
             // Populate the aggregate stack traces map and method map
             aggregateStackTraces.merge(t.stackTrace(), 1l, Long::sum);
-            String method = t.stackTrace().getFirst().methodName();
-            if (t.state() == State.RUNNABLE) {
-                runningMethods.merge(method, 1l, Long::sum);
-            }
-            // General Findings
-            if (method.equals("java.util.Arrays.copyOf")) {
-                copyOfCount++;
-            }
-            // JBoss Specific Findings (from yatda)
-            // Check log contention
-            if (method.equals("org.jboss.logmanager.handlers.WriterHandler.doPublish")) {
-                logCount++;
-            }
-            // Check datasource exhaustion
-            if (method.equals(
-                    "org.jboss.jca.core.connectionmanager.pool.api.Semaphore.tryAcquire")) {
-                dataSourceContention++;
-            }
-            // Check EJB strict max pool exhaustion
-            if (method.equals("org.jboss.as.ejb3.pool.strictmax.StrictMaxPool.get")) {
-                strictMaxCount++;
+            if (!t.stackTrace().isEmpty()) {
+                System.out.println("Stack Frame: " + t.stackTrace().getFirst());
+                String method = t.stackTrace().getFirst().methodName();
+                if (t.state() == State.RUNNABLE) {
+                    runningMethods.merge(method, 1l, Long::sum);
+                }
+                // General Findings
+                if (method.equals("java.util.Arrays.copyOf")) {
+                    copyOfCount++;
+                }
+                // JBoss Specific Findings (from yatda)
+                // Check log contention
+                if (method.equals("org.jboss.logmanager.handlers.WriterHandler.doPublish")) {
+                    logCount++;
+                }
+                // Check datasource exhaustion
+                if (method.equals(
+                        "org.jboss.jca.core.connectionmanager.pool.api.Semaphore.tryAcquire")) {
+                    dataSourceContention++;
+                }
+                // Check EJB strict max pool exhaustion
+                if (method.equals("org.jboss.as.ejb3.pool.strictmax.StrictMaxPool.get")) {
+                    strictMaxCount++;
+                }
             }
         }
         if (copyOfCount > 0) {
