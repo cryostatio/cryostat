@@ -268,7 +268,7 @@ public class AnalysisReportAggregator {
                         (k, v) ->
                                 sb.append(k.replaceAll("[\\.\\s]+", "_"))
                                         .append(chainToLabels(entry.ownerChain()))
-                                        .append('=')
+                                        .append(' ')
                                         .append(v.getScore())
                                         .append('\n'));
         return sb.toString();
