@@ -266,7 +266,10 @@ public class AnalysisReportAggregator {
         entry.report()
                 .forEach(
                         (k, v) ->
-                                sb.append(k.replaceAll("[\\.\\s]+", "_"))
+                                sb.append(
+                                                String.format(
+                                                        "cryostat_%s_score",
+                                                        k.replaceAll("[\\.\\s]+", "_")))
                                         .append(chainToLabels(entry.ownerChain()))
                                         .append(' ')
                                         .append(v.getScore())
@@ -294,7 +297,7 @@ public class AnalysisReportAggregator {
         var list = new ArrayList<Pair<String, String>>();
         while (!ownerChain.isEmpty()) {
             var n = ownerChain.pop();
-            list.add(Pair.of(n.nodeType, n.name));
+            list.add(Pair.of(n.nodeType.toLowerCase(), n.name));
         }
         list.add(Pair.of("jvmId", target.jvmId));
         list.add(Pair.of("targetId", String.valueOf(target.id)));
