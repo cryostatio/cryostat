@@ -103,6 +103,7 @@ public class LongRunningRequestGenerator {
 
     @ConsumeEvent(value = THREAD_DUMP_ADDRESS, blocking = true)
     @Transactional
+    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     public void onMessage(ThreadDumpRequest request) {
         logger.tracev("Job ID: {0} submitted.", request.id());
         try {

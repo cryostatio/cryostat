@@ -344,6 +344,7 @@ public class Diagnostics {
 
     @Blocking
     @Transactional
+    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId) {
         var dump = helper.addHeapDump(jvmId, heapDump, jobId);
 

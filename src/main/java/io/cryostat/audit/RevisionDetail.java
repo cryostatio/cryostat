@@ -20,6 +20,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+@SuppressFBWarnings("EI_EXPOSE_REP")
 public record RevisionDetail(
         long rev, long revtstmp, String username, Map<String, List<Object>> entities) {
     public RevisionDetail(
