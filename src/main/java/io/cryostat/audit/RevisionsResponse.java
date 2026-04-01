@@ -15,6 +15,13 @@
  */
 package io.cryostat.audit;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
-public record RevisionsResponse(List<RevisionSummary> revisions, long totalCount) {}
+public record RevisionsResponse(List<RevisionSummary> revisions, long totalCount) {
+    public RevisionsResponse(List<RevisionSummary> revisions, long totalCount) {
+        this.revisions = Collections.unmodifiableList(new ArrayList<>(revisions));
+        this.totalCount = totalCount;
+    }
+}

@@ -15,8 +15,18 @@
  */
 package io.cryostat.audit;
 
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public record RevisionDetail(
-        long rev, long revtstmp, String username, Map<String, List<Object>> entities) {}
+        long rev, long revtstmp, String username, Map<String, List<Object>> entities) {
+    public RevisionDetail(
+            long rev, long revtstmp, String username, Map<String, List<Object>> entities) {
+        this.rev = rev;
+        this.revtstmp = revtstmp;
+        this.username = username;
+        this.entities = Collections.unmodifiableMap(new HashMap<>(entities));
+    }
+}

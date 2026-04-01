@@ -33,6 +33,7 @@ import io.cryostat.ws.Notification;
 import io.cryostat.ws.notifications.NotificationPayloads.ProbeTemplatePayload;
 import io.cryostat.ws.notifications.NotificationPayloads.ProbeTemplateUploadedPayload;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Observes;
@@ -137,6 +138,14 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                         DeleteObjectRequest.builder().bucket(bucket).key(templateName).build())
                 .sdkHttpResponse()
                 .isSuccessful()) {
+            QuarkusTransaction.joiningExisting()
+                    .run(
+                            () ->
+                                    io.cryostat.jmcagent.ProbeTemplate
+                                            .<io.cryostat.jmcagent.ProbeTemplate>find(
+                                                    "templateName = ?1", templateName)
+                                            .firstResultOptional()
+                                            .ifPresent(io.cryostat.jmcagent.ProbeTemplate::delete));
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
@@ -182,6 +191,10 @@ public class S3ProbeTemplateService implements ProbeTemplateService {
                                     .build())
                     .completionFuture()
                     .join();
+
+            QuarkusTransaction.joiningExisting()
+                    .run(() -> io.cryostat.jmcagent.ProbeTemplate.of(fileName).persist());
+
             bus.publish(
                     MessagingServer.class.getName(),
                     new Notification(
