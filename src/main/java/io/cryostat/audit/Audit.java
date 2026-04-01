@@ -31,6 +31,7 @@ import io.cryostat.rules.Rule;
 import io.cryostat.targets.Target;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.ws.rs.BadRequestException;
@@ -309,7 +310,7 @@ public class Audit {
     @GET
     @Path("revisions/{rev}")
     @Produces(MediaType.APPLICATION_JSON)
-    public RevisionDetail getRevisionDetail(@RestPath long rev) {
+    public RevisionDetail getRevisionDetail(@RestPath long rev) throws Exception {
         try {
             AuditReader auditReader = AuditReaderFactory.get(em);
             RevisionDetail detail = getRevisionDetailInternal(auditReader, rev);
@@ -328,77 +329,81 @@ public class Audit {
         try {
             revisionInfo = auditReader.findRevision(RevisionInfo.class, rev);
         } catch (RevisionDoesNotExistException e) {
-            return null;
+            throw new NotFoundException(e);
         }
 
         if (revisionInfo == null) {
-            return null;
+            throw new NotFoundException("Revision not found");
         }
 
-        try {
-            Map<String, List<Object>> entitiesByType = new HashMap<>();
+        Map<String, List<Object>> entitiesByType = new HashMap<>();
 
-            Class<?>[] auditedClasses = {
-                Target.class,
-                Rule.class,
-                ActiveRecording.class,
-                MatchExpression.class,
-                DiscoveryPlugin.class,
-                DiscoveryNode.class,
-                Credential.class
-            };
+        Class<?>[] auditedClasses = {
+            Target.class,
+            Rule.class,
+            ActiveRecording.class,
+            MatchExpression.class,
+            DiscoveryPlugin.class,
+            DiscoveryNode.class,
+            Credential.class
+        };
 
-            for (Class<?> entityClass : auditedClasses) {
-                @SuppressWarnings("unchecked")
-                List<Object> results =
-                        auditReader
-                                .createQuery()
-                                .forRevisionsOfEntity(entityClass, false, true)
-                                .add(AuditEntity.revisionNumber().eq(rev))
-                                .getResultList();
+        for (Class<?> entityClass : auditedClasses) {
+            @SuppressWarnings("unchecked")
+            List<Object> results =
+                    auditReader
+                            .createQuery()
+                            .forRevisionsOfEntity(entityClass, false, true)
+                            .add(AuditEntity.revisionNumber().eq(rev))
+                            .getResultList();
 
-                if (!results.isEmpty()) {
-                    // Convert entities to Maps to avoid LazyInitializationException
-                    // when serializing entities with @NotAudited lazy relationships
-                    List<Object> simplifiedEntities = new ArrayList<>();
-                    for (Object result : results) {
-                        Object entity = null;
-                        try {
-                            Object[] resultArray = (Object[]) result;
-                            entity = resultArray[0];
-                            RevisionType revisionType = (RevisionType) resultArray[2];
-
-                            @SuppressWarnings("unchecked")
-                            Map<String, Object> entityMap =
-                                    mapper.convertValue(entity, LinkedHashMap.class);
-                            entityMap.put("revtype", revisionType.getRepresentation());
-                            simplifiedEntities.add(entityMap);
-                        } catch (IllegalArgumentException e) {
-                            logger.debugv(
-                                    e,
-                                    "Failed to convert entity {0} to map, skipping",
-                                    entity != null ? entity.getClass().getSimpleName() : "unknown");
-                        } catch (ClassCastException e) {
-                            logger.debugv(
-                                    e,
-                                    "Failed to extract revision type for entity {0}, skipping",
-                                    entityClass.getSimpleName());
+            if (!results.isEmpty()) {
+                // Convert entities to Maps to avoid LazyInitializationException
+                // when serializing entities with @NotAudited lazy relationships
+                List<Object> simplifiedEntities = new ArrayList<>();
+                for (Object result : results) {
+                    Object entity = null;
+                    try {
+                        Object[] resultArray = (Object[]) result;
+                        RevisionType revisionType = (RevisionType) resultArray[2];
+                        entity = resultArray[0];
+                        if (entity == null) {
+                            continue;
                         }
-                    }
-                    if (!simplifiedEntities.isEmpty()) {
-                        entitiesByType.put(entityClass.getSimpleName(), simplifiedEntities);
+
+                        Map<String, Object> entityMap = new HashMap<>();
+                        entityMap.put("revtype", revisionType.getRepresentation());
+                        if (RevisionType.DEL.equals(revisionType)) {
+                            entityMap.put("id", ((PanacheEntity) entity).id);
+                        } else {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> converted =
+                                    mapper.convertValue(entity, LinkedHashMap.class);
+                            entityMap.putAll(converted);
+                        }
+                        simplifiedEntities.add(entityMap);
+                    } catch (IllegalArgumentException e) {
+                        logger.debugv(
+                                e,
+                                "Failed to convert entity {0} to map, skipping",
+                                entity != null ? entity.getClass().getSimpleName() : "unknown");
+                    } catch (ClassCastException e) {
+                        logger.debugv(
+                                e,
+                                "Failed to extract revision type for entity {0}, skipping",
+                                entityClass.getSimpleName());
                     }
                 }
+                if (!simplifiedEntities.isEmpty()) {
+                    entitiesByType.put(entityClass.getSimpleName(), simplifiedEntities);
+                }
             }
-
-            return new RevisionDetail(
-                    revisionInfo.getId(),
-                    revisionInfo.getTimestamp(),
-                    revisionInfo.getUsername(),
-                    entitiesByType);
-        } catch (Exception e) {
-            logger.debugv(e, "Failed to get revision detail for revision {0}", rev);
-            return null;
         }
+
+        return new RevisionDetail(
+                revisionInfo.getId(),
+                revisionInfo.getTimestamp(),
+                revisionInfo.getUsername(),
+                entitiesByType);
     }
 }
