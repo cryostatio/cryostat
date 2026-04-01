@@ -1,0 +1,32 @@
+services:
+  prometheus:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m
+    image: ${PROMETHEUS_IMAGE:-quay.io/prometheus/prometheus:latest}
+    hostname: prometheus
+    ports:
+      - "9990:9090"
+    expose:
+      - "9990"
+    volumes:
+      - prometheus_cfg:/etc/prometheus:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+    healthcheck:
+      test: wget --no-verbose --tries=1 --spider http://localhost:9090/-/healthy || exit 1
+      interval: 10s
+      retries: 3
+      start_period: 30s
+      timeout: 5s
+
+volumes:
+  prometheus_cfg:
+    external: true
+  prometheus_data:
+    driver: local
