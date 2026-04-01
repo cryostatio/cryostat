@@ -100,9 +100,11 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                             MatcherAssert.assertThat(
                                     kv.getKey(),
                                     Matchers.allOf(
-                                            Matchers.containsString("Realm=\"Custom Targets\""),
+                                            Matchers.matchesRegex(
+                                                    "^cryostat_[a-zA-Z0-9_]+_score\\{.+"),
+                                            Matchers.containsString("realm=\"Custom Targets\""),
                                             Matchers.containsString(
-                                                    String.format("JVM=\"%s\"", SELF_JMX_URL))));
+                                                    String.format("jvm=\"%s\"", SELF_JMX_URL))));
                             double score = Double.parseDouble(kv.getValue());
                             MatcherAssert.assertThat(
                                     score,
@@ -166,9 +168,11 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                             MatcherAssert.assertThat(
                                     kv.getKey(),
                                     Matchers.allOf(
-                                            Matchers.containsString("Realm=\"Custom Targets\""),
+                                            Matchers.matchesRegex(
+                                                    "^cryostat_[a-zA-Z0-9_]+_score\\{.+"),
+                                            Matchers.containsString("realm=\"Custom Targets\""),
                                             Matchers.containsString(
-                                                    String.format("JVM=\"%s\"", SELF_JMX_URL))));
+                                                    String.format("jvm=\"%s\"", SELF_JMX_URL))));
                             double score = Double.parseDouble(kv.getValue());
                             MatcherAssert.assertThat(
                                     score,
