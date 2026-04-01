@@ -55,6 +55,9 @@
     <org.codehaus.mojo.build.helper.plugin.version>3.6.1</org.codehaus.mojo.build.helper.plugin.version>
     <org.codehaus.mojo.exec.plugin.version>3.6.3</org.codehaus.mojo.exec.plugin.version>
     <assembly-plugin.version>3.8.0</assembly-plugin.version>
+    <maven-source-plugin.version>3.4.0</maven-source-plugin.version>
+    <maven-javadoc-plugin.version>3.12.0</maven-javadoc-plugin.version>
+    <jreleaser-maven-plugin.version>1.23.0</jreleaser-maven-plugin.version>
 
     <com.github.spotbugs.version>4.9.8</com.github.spotbugs.version>
     <com.github.spotbugs.plugin.version>4.9.8.3</com.github.spotbugs.plugin.version>
@@ -699,6 +702,112 @@
                 <goals>
                   <goal>single</goal>
                 </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>release</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.jreleaser</groupId>
+            <artifactId>jreleaser-maven-plugin</artifactId>
+            <version>${jreleaser-maven-plugin.version}</version>
+            <inherited>false</inherited>
+            <configuration>
+              <jreleaser>
+                <signing>
+                  <active>ALWAYS</active>
+                  <armored>true</armored>
+                </signing>
+                <deploy>
+                  <maven>
+                    <mavenCentral>
+                      <release-deploy>
+                        <active>RELEASE</active>
+                        <url>https://central.sonatype.com/api/v1/publisher</url>
+                        <stagingRepositories>target/staging-deploy</stagingRepositories>
+                      </release-deploy>
+                    </mavenCentral>
+                    <nexus2>
+                      <snapshot-deploy>
+                        <active>SNAPSHOT</active>
+                        <snapshotUrl>https://central.sonatype.com/repository/maven-snapshots/</snapshotUrl>
+                        <applyMavenCentralRules>true</applyMavenCentralRules>
+                        <snapshotSupported>true</snapshotSupported>
+                        <closeRepository>true</closeRepository>
+                        <releaseRepository>true</releaseRepository>
+                        <stagingRepositories>target/staging-deploy</stagingRepositories>
+                      </snapshot-deploy>
+                    </nexus2>
+                  </maven>
+                </deploy>
+              </jreleaser>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+
+    <profile>
+      <id>snapshots</id>
+      <repositories>
+        <repository>
+          <id>central.sonatype.com-snapshot</id>
+          <url>https://central.sonatype.com/repository/maven-snapshots/</url>
+          <releases>
+            <enabled>false</enabled>
+          </releases>
+          <snapshots>
+            <enabled>true</enabled>
+            <updatePolicy>always</updatePolicy>
+          </snapshots>
+        </repository>
+      </repositories>
+    </profile>
+
+    <profile>
+      <id>publication</id>
+      <properties>
+        <altDeploymentRepository>local::file:./target/staging-deploy</altDeploymentRepository>
+      </properties>
+      <build>
+        <defaultGoal>deploy</defaultGoal>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>${maven-javadoc-plugin.version}</version>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+                <configuration>
+                  <attach>true</attach>
+                  <failOnError>false</failOnError>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>${maven-source-plugin.version}</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals>
+                  <goal>jar-no-fork</goal>
+                </goals>
+                <configuration>
+                  <attach>true</attach>
+                </configuration>
               </execution>
             </executions>
           </plugin>
