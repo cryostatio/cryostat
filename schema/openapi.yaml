@@ -608,6 +608,43 @@ components:
             type: integer
           type: array
       type: object
+    RevisionDetail:
+      properties:
+        entities:
+          additionalProperties:
+            items: {}
+            type: array
+          type: object
+        rev:
+          format: int64
+          type: integer
+        revtstmp:
+          format: int64
+          type: integer
+        username:
+          type: string
+      type: object
+    RevisionSummary:
+      properties:
+        rev:
+          format: int64
+          type: integer
+        revtstmp:
+          format: int64
+          type: integer
+        username:
+          type: string
+      type: object
+    RevisionsResponse:
+      properties:
+        revisions:
+          items:
+            $ref: '#/components/schemas/RevisionSummary'
+          type: array
+        totalCount:
+          format: int64
+          type: integer
+      type: object
     Rule:
       properties:
         archivalPeriodSeconds:
@@ -859,6 +896,79 @@ info:
   version: 4.2.0-snapshot
 openapi: 3.1.0
 paths:
+  /api/beta/audit/export:
+    get:
+      parameters:
+        - in: query
+          name: endTime
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: startTime
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          description: OK
+      summary: Export Revisions
+      tags:
+        - Audit
+  /api/beta/audit/revisions:
+    get:
+      parameters:
+        - in: query
+          name: endTime
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: page
+          schema:
+            default: 0
+            format: int32
+            type: integer
+        - in: query
+          name: pageSize
+          schema:
+            default: 50
+            format: int32
+            type: integer
+        - in: query
+          name: startTime
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionsResponse'
+          description: OK
+      summary: Get Revisions
+      tags:
+        - Audit
+  /api/beta/audit/revisions/{rev}:
+    get:
+      parameters:
+        - in: path
+          name: rev
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionDetail'
+          description: OK
+      summary: Get Revision Detail
+      tags:
+        - Audit
   /api/beta/audit/target_lineage/{jvmId}:
     get:
       parameters:
