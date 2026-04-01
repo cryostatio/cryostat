@@ -93,8 +93,8 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                 .map(
                         s ->
                                 Pair.of(
-                                        s.substring(0, s.lastIndexOf('=')),
-                                        s.substring(s.lastIndexOf('=') + 1)))
+                                        s.substring(0, s.lastIndexOf(' ')),
+                                        s.substring(s.lastIndexOf(' ') + 1)))
                 .forEach(
                         kv -> {
                             MatcherAssert.assertThat(
@@ -159,8 +159,8 @@ public class AnalysisReportAggregatorTest extends AbstractTransactionalTestBase 
                 .map(
                         s ->
                                 Pair.of(
-                                        s.substring(0, s.lastIndexOf('=')),
-                                        s.substring(s.lastIndexOf('=') + 1)))
+                                        s.substring(0, s.lastIndexOf(' ')),
+                                        s.substring(s.lastIndexOf(' ') + 1)))
                 .forEach(
                         kv -> {
                             MatcherAssert.assertThat(
