@@ -17,4 +17,7 @@ package io.cryostat.audit;
 
 import java.util.List;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+
+@SuppressFBWarnings("EI_EXPOSE_REP")
 public record RevisionsResponse(List<RevisionSummary> revisions, long totalCount) {}
