@@ -30,6 +30,7 @@ import java.util.UUID;
 import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.LongRunningRequestGenerator;
+import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpAnalysisRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
 import io.cryostat.recordings.LongRunningRequestGenerator.ThreadDumpRequest;
 import io.cryostat.targets.Target;
@@ -154,6 +155,20 @@ public class Diagnostics {
     public List<ThreadDump> getThreadDumps(@RestPath long targetId) {
         log.tracev("Fetching thread dumps for target: {0}", targetId);
         return helper.getThreadDumps(Target.getTargetById(targetId));
+    }
+
+    @Path("targets/{targetId}/heapdump/analyze")
+    @RolesAllowed("read")
+    @Blocking
+    @Transactional
+    @POST
+    public String analyzeHeapDump(
+            HttpServerResponse response, @RestPath long targetId, @RestPath String heapDumpId) {
+        var jobId = UUID.randomUUID().toString();
+        HeapDumpAnalysisRequest request = new HeapDumpAnalysisRequest(jobId, targetId, heapDumpId);
+        response.endHandler(
+                (e) -> bus.publish(LongRunningRequestGenerator.THREAD_DUMP_ADDRESS, request));
+        return jobId;
     }
 
     @DELETE
