@@ -407,7 +407,6 @@ cleanupVolumes() {
     ${container_engine} volume rm credentials || true
     ${container_engine} rm prometheus_cfg_helper || true
     ${container_engine} volume rm prometheus_cfg || true
-    ${container_engine} volume rm prometheus_data || true
 }
 
 if [ "${KEEP_VOLUMES}" != "true" ]; then
