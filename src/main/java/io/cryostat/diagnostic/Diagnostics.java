@@ -166,6 +166,16 @@ public class Diagnostics {
         helper.deleteThreadDump(Target.getTargetById(targetId).jvmId, threadDumpId);
     }
 
+    @POST
+    @Blocking
+    @Transactional
+    @Path("targets/{targetId}/threaddump/{threadDumpId}/analyze")
+    @RolesAllowed("write")
+    public ThreadDumpAnalysis analyzeThreadDump(
+            @RestPath long targetId, @RestPath String threadDumpId) {
+        return helper.analyzeThreadDump(Target.getTargetById(targetId).jvmId, threadDumpId);
+    }
+
     @DELETE
     @Blocking
     @Path("fs/threaddumps/{jvmId}/{threadDumpId}")
