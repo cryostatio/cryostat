@@ -110,6 +110,7 @@ while getopts "hs:prGtAOVXc:bnkv" opt; do
             ;;
         X)
             FILES+=("${DIR}/compose/db-viewer.yml")
+            FILES+=("${DIR}/compose/prometheus.yml")
             ;;
         c)
             container_engine="${OPTARG}"
@@ -356,6 +357,15 @@ createCredentialVolume() {
     fi
 }
 
+createPrometheusCfgVolume() {
+    "${container_engine}" volume create prometheus_cfg
+    "${container_engine}" container create --name prometheus_cfg_helper -v prometheus_cfg:/etc/prometheus registry.access.redhat.com/ubi9/ubi-micro
+    "${container_engine}" cp "${DIR}/compose/prometheus_config.yml" prometheus_cfg_helper:/etc/prometheus/prometheus.yml
+    if [ "${DRY_RUN}" = "true" ]; then
+        "${container_engine}" volume export prometheus_cfg > prometheus_cfg.tar.gz
+    fi
+}
+
 createVolumes() {
     if [ "${USE_PROXY}" = "true" ]; then
         createProxyCfgVolume
@@ -371,6 +381,9 @@ createVolumes() {
     createEventTemplateVolume
     createProbeTemplateVolume
     createCredentialVolume
+    if printf '%s\n' "${FILES[@]}" | grep -q "prometheus.yml"; then
+        createPrometheusCfgVolume
+    fi
 }
 
 cleanupVolumes() {
@@ -392,6 +405,9 @@ cleanupVolumes() {
     ${container_engine} volume rm probes || true
     ${container_engine} rm credentials_helper || true
     ${container_engine} volume rm credentials || true
+    ${container_engine} rm prometheus_cfg_helper || true
+    ${container_engine} volume rm prometheus_cfg || true
+    ${container_engine} volume rm prometheus_data || true
 }
 
 if [ "${KEEP_VOLUMES}" != "true" ]; then
