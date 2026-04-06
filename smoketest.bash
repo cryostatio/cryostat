@@ -362,7 +362,7 @@ createPrometheusCfgVolume() {
     "${container_engine}" container create --name prometheus_cfg_helper -v prometheus_cfg:/etc/prometheus registry.access.redhat.com/ubi9/ubi-micro
     "${container_engine}" cp "${DIR}/compose/prometheus_config.yml" prometheus_cfg_helper:/etc/prometheus/prometheus.yml
     if [ "${DRY_RUN}" = "true" ]; then
-        "${container_engine}" volume export prometheus_cfg > prometheus_cfg.tar.gz
+        "${container_engine}" volume export prometheus_cfg > prometheus_cfg.tar
     fi
 }
 
