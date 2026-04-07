@@ -88,6 +88,42 @@ public class WebSocketTestClient {
     }
 
     /**
+     * Wait for the WebSocket connection to be fully established and ready to receive messages.
+     *
+     * @param timeout The maximum time to wait for connection readiness
+     * @throws InterruptedException if the thread is interrupted while waiting
+     * @throws TimeoutException if the connection is not ready within the timeout
+     */
+    public void awaitFullyConnected(Duration timeout)
+            throws InterruptedException, TimeoutException {
+        long deadlineNanos = System.nanoTime() + timeout.toNanos();
+
+        // Wait for connection to be established
+        while (!isConnected() && System.nanoTime() < deadlineNanos) {
+            client.lock.lock();
+            try {
+                long remainingNanos = deadlineNanos - System.nanoTime();
+                if (remainingNanos <= 0) {
+                    break;
+                }
+                client.newMessageCondition.await(50, TimeUnit.MILLISECONDS);
+            } finally {
+                client.lock.unlock();
+            }
+        }
+
+        if (!isConnected()) {
+            throw new TimeoutException("WebSocket not connected within " + timeout);
+        }
+
+        if (session == null || !session.isOpen()) {
+            throw new IllegalStateException("WebSocket session is not properly initialized");
+        }
+
+        logger.info("WebSocket fully connected and ready");
+    }
+
+    /**
      * Wait for a WebSocket notification with the specified category.
      *
      * @param category The notification category to wait for

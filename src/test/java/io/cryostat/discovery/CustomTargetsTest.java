@@ -23,11 +23,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
@@ -45,7 +40,6 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 public class CustomTargetsTest extends AbstractTransactionalTestBase {
 
-    private final ExecutorService worker = Executors.newCachedThreadPool();
     private String testJvmId;
     private Integer storedCredentialId;
 
@@ -116,43 +110,6 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
     @Test
     void shouldBeAbleToDefineTarget() throws Exception {
         String alias = UUID.randomUUID().toString();
-        CountDownLatch latch = new CountDownLatch(2);
-
-        // Set up WebSocket listeners for notifications
-        Future<JsonObject> credentialsFuture =
-                worker.submit(
-                        () -> {
-                            try {
-                                return webSocketClient.expectNotification(
-                                        "CredentialsStored", Duration.ofSeconds(30));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                latch.countDown();
-                            }
-                        });
-
-        Future<JsonObject> discoveryFuture =
-                worker.submit(
-                        () -> {
-                            try {
-                                return webSocketClient.expectNotification(
-                                        "TargetJvmDiscovery",
-                                        Duration.ofSeconds(30),
-                                        o ->
-                                                "FOUND"
-                                                        .equals(
-                                                                o.getJsonObject("message")
-                                                                        .getJsonObject("event")
-                                                                        .getString("kind")));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                latch.countDown();
-                            }
-                        });
-
-        Thread.sleep(500);
 
         // Create target with credentials
         Response response =
@@ -170,13 +127,26 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                         .response();
 
         JsonObject body = new JsonObject(response.body().asString());
-        latch.await(30, TimeUnit.SECONDS);
 
+        JsonObject credentialsResult =
+                webSocketClient.expectNotification("CredentialsStored", Duration.ofSeconds(5));
+
+        JsonObject discoveryResult =
+                webSocketClient.expectNotification(
+                        "TargetJvmDiscovery",
+                        Duration.ofSeconds(5),
+                        o ->
+                                "FOUND"
+                                        .equals(
+                                                o.getJsonObject("message")
+                                                        .getJsonObject("event")
+                                                        .getString("kind")));
+
+        // Verify HTTP response
         MatcherAssert.assertThat(body.getString("connectUrl"), equalTo(SELF_JMX_URL));
         MatcherAssert.assertThat(body.getString("alias"), equalTo(alias));
 
         // Verify credentials notification
-        JsonObject credentialsResult = credentialsFuture.get();
         JsonObject credentialsMessage = credentialsResult.getJsonObject("message");
         storedCredentialId = credentialsMessage.getInteger("id");
 
@@ -186,7 +156,6 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
                 equalTo(String.format("target.connectUrl == \"%s\"", SELF_JMX_URL)));
 
         // Verify discovery notification
-        JsonObject discoveryResult = discoveryFuture.get();
         JsonObject foundDiscoveryEvent =
                 discoveryResult.getJsonObject("message").getJsonObject("event");
         MatcherAssert.assertThat(foundDiscoveryEvent.getString("kind"), equalTo("FOUND"));
@@ -249,34 +218,37 @@ public class CustomTargetsTest extends AbstractTransactionalTestBase {
         JsonObject createBody = new JsonObject(createResponse.body().asString());
         long targetId = createBody.getLong("id");
 
-        CountDownLatch latch = new CountDownLatch(1);
-
-        // Set up WebSocket listener for LOST notification
-        worker.submit(
-                () -> {
-                    try {
-                        JsonObject notification =
-                                webSocketClient.expectNotification(
-                                        "TargetJvmDiscovery", Duration.ofSeconds(30));
-                        JsonObject event =
-                                notification.getJsonObject("message").getJsonObject("event");
-                        MatcherAssert.assertThat(event.getString("kind"), equalTo("LOST"));
-                        MatcherAssert.assertThat(
-                                event.getJsonObject("serviceRef").getString("connectUrl"),
-                                equalTo(SELF_JMX_URL));
-                        MatcherAssert.assertThat(
-                                event.getJsonObject("serviceRef").getString("alias"),
-                                equalTo(alias));
-                        latch.countDown();
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        // Wait for and consume the FOUND notification from target creation
+        webSocketClient.expectNotification(
+                "TargetJvmDiscovery",
+                Duration.ofSeconds(5),
+                o ->
+                        "FOUND"
+                                .equals(
+                                        o.getJsonObject("message")
+                                                .getJsonObject("event")
+                                                .getString("kind")));
 
         // Delete the target
         given().basePath("/").when().delete("/api/v4/targets/" + targetId).then().statusCode(204);
 
-        latch.await(30, TimeUnit.SECONDS);
+        // Wait for LOST notification
+        JsonObject notification =
+                webSocketClient.expectNotification(
+                        "TargetJvmDiscovery",
+                        Duration.ofSeconds(5),
+                        o ->
+                                "LOST"
+                                        .equals(
+                                                o.getJsonObject("message")
+                                                        .getJsonObject("event")
+                                                        .getString("kind")));
+        JsonObject event = notification.getJsonObject("message").getJsonObject("event");
+        MatcherAssert.assertThat(event.getString("kind"), equalTo("LOST"));
+        MatcherAssert.assertThat(
+                event.getJsonObject("serviceRef").getString("connectUrl"), equalTo(SELF_JMX_URL));
+        MatcherAssert.assertThat(
+                event.getJsonObject("serviceRef").getString("alias"), equalTo(alias));
 
         // Verify that no targets remain
         Response listResponse =

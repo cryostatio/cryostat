@@ -24,6 +24,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 
 import io.cryostat.util.HttpStatusCodeIdentifier;
 import io.cryostat.util.WebSocketTestClient;
@@ -77,12 +78,17 @@ public abstract class AbstractTestBase {
 
     @BeforeEach
     void setupTestBase()
-            throws InterruptedException, SchedulerException, IOException, DeploymentException {
+            throws InterruptedException,
+                    SchedulerException,
+                    IOException,
+                    DeploymentException,
+                    TimeoutException {
         if (webSocketClient == null) {
             webSocketClient = new WebSocketTestClient(wsUri);
         }
         if (!webSocketClient.isConnected()) {
             webSocketClient.connect();
+            webSocketClient.awaitFullyConnected(Duration.ofSeconds(5));
         }
         webSocketClient.clearMessages();
 
