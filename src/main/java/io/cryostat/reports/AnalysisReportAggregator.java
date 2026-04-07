@@ -51,10 +51,13 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
@@ -197,15 +200,24 @@ public class AnalysisReportAggregator {
                     Retrieve the latest aggregate report data across all targets with recent automated analysis reports
                     scores. These are multi-dimensional metrics in Prometheus format.
                     """)
-    public Multi<String> scrape() {
+    public Multi<String> scrape(@QueryParam("minScore") @DefaultValue("-1") double minTargetScore) {
+        if (minTargetScore < -1.0 || minTargetScore > 100.0) {
+            throw new BadRequestException();
+        }
         var multis =
                 cache.as(CaffeineCache.class).keySet().stream()
                         .map(
                                 k ->
-                                        getOrCreateEntry((String) k)
-                                                .onItem()
-                                                .transform(this::stringify)
-                                                .toMulti())
+                                        Multi.createFrom()
+                                                .uni(getOrCreateEntry((String) k))
+                                                .filter(
+                                                        e ->
+                                                                e.report().values().stream()
+                                                                        .anyMatch(
+                                                                                r ->
+                                                                                        r.getScore()
+                                                                                                >= minTargetScore))
+                                                .map(this::stringify))
                         .toList();
         return Multi.createBy().concatenating().streams(multis);
     }
@@ -254,9 +266,12 @@ public class AnalysisReportAggregator {
         entry.report()
                 .forEach(
                         (k, v) ->
-                                sb.append(k.replaceAll("[\\.\\s]+", "_"))
+                                sb.append(
+                                                String.format(
+                                                        "cryostat_%s_score",
+                                                        k.replaceAll("[\\.\\s]+", "_")))
                                         .append(chainToLabels(entry.ownerChain()))
-                                        .append('=')
+                                        .append(' ')
                                         .append(v.getScore())
                                         .append('\n'));
         return sb.toString();
@@ -282,7 +297,7 @@ public class AnalysisReportAggregator {
         var list = new ArrayList<Pair<String, String>>();
         while (!ownerChain.isEmpty()) {
             var n = ownerChain.pop();
-            list.add(Pair.of(n.nodeType, n.name));
+            list.add(Pair.of(n.nodeType.toLowerCase(), n.name));
         }
         list.add(Pair.of("jvmId", target.jvmId));
         list.add(Pair.of("targetId", String.valueOf(target.id)));

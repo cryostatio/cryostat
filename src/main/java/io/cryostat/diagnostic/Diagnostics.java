@@ -337,6 +337,7 @@ public class Diagnostics {
     }
 
     @Blocking
+    @Transactional
     Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId) {
         var dump = helper.addHeapDump(jvmId, heapDump, jobId);
         return Map.of("name", dump.heapDumpId());

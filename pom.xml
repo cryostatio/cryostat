@@ -17,6 +17,10 @@
         <updatePolicy>always</updatePolicy>
       </snapshots>
     </repository>
+    <repository>
+      <id>jitpack.io</id>
+      <url>https://jitpack.io</url>
+    </repository>
   </repositories>
 
   <properties>
@@ -40,19 +44,21 @@
     <org.projectnessie.cel.bom.version>0.5.2</org.projectnessie.cel.bom.version>
     <com.google.protobuf-java.version>4.31.1</com.google.protobuf-java.version>
     <com.nimbusds.jose.jwt.version>10.7</com.nimbusds.jose.jwt.version>
-    <org.testcontainers.bom.version>2.0.3</org.testcontainers.bom.version>
+    <org.testcontainers.bom.version>2.0.4</org.testcontainers.bom.version>
+    <jfr-analytics.version>352daa673e</jfr-analytics.version>
+    <org.apache.calcite.version>1.34.0</org.apache.calcite.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
     <quarkus.platform.version>3.27.2</quarkus.platform.version>
-    <quarkus-quinoa.version>2.7.2</quarkus-quinoa.version>
+    <quarkus-quinoa.version>2.8.0</quarkus-quinoa.version>
     <org.hibernate.orm.hibernate.jfr.version>7.1.4.Final</org.hibernate.orm.hibernate.jfr.version><!-- TODO is there some way to grab the Hibernate version used by Quarkus to match this version? -->
     <org.codehaus.mojo.build.helper.plugin.version>3.6.1</org.codehaus.mojo.build.helper.plugin.version>
     <org.codehaus.mojo.exec.plugin.version>3.6.3</org.codehaus.mojo.exec.plugin.version>
     <assembly-plugin.version>3.8.0</assembly-plugin.version>
 
     <com.github.spotbugs.version>4.9.8</com.github.spotbugs.version>
-    <com.github.spotbugs.plugin.version>4.9.8.2</com.github.spotbugs.plugin.version>
-    <com.diffplug.spotless.maven.plugin.version>3.3.0</com.diffplug.spotless.maven.plugin.version>
+    <com.github.spotbugs.plugin.version>4.9.8.3</com.github.spotbugs.plugin.version>
+    <com.diffplug.spotless.maven.plugin.version>3.4.0</com.diffplug.spotless.maven.plugin.version>
     <com.google.java-format.version>1.35.0</com.google.java-format.version>
     <com.mycila.license.maven.plugin.version>5.0.0</com.mycila.license.maven.plugin.version>
     <surefire-plugin.version>3.5.5</surefire-plugin.version>
@@ -94,6 +100,67 @@
     </dependencies>
   </dependencyManagement>
   <dependencies>
+    <dependency>
+      <groupId>com.github.moditect</groupId>
+      <artifactId>jfr-analytics</artifactId>
+      <version>${jfr-analytics.version}</version>
+    </dependency>
+    <!--
+      Calcite with targeted exclusions not required for jfr-analytics functionality.
+
+      Required dependencies (pulled in transitively):
+      - calcite-linq4j: Core query processing
+      - avatica-core: JDBC driver implementation
+      - jts-core: Spatial type system support (required by Calcite's type system)
+      - json-path: JSONPath support (required by BuiltInMethod)
+      - janino + commons-compiler: Runtime code generation
+      - commons-math3: Mathematical operations (required by TimeFrames)
+      - guava, jackson-*, slf4j-api, commons-lang3, commons-io: Already managed by Quarkus/Cryostat
+
+      Excluded dependencies (not needed for JFR analytics):
+      - jts-io-common: GIS I/O operations
+      - proj4j: Coordinate transformation
+      - jackson-dataformat-yaml: YAML support
+      - uzaygezen-core: Space-filling curves
+      - sketches-core: Approximate algorithms
+      - aggdesigner-algorithm: Aggregate designer
+      - commons-dbcp2: Connection pooling (using in-memory JDBC)
+    -->
+    <dependency>
+      <groupId>org.apache.calcite</groupId>
+      <artifactId>calcite-core</artifactId>
+      <version>${org.apache.calcite.version}</version>
+      <exclusions>
+        <exclusion>
+          <groupId>org.locationtech.jts.io</groupId>
+          <artifactId>jts-io-common</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.locationtech.proj4j</groupId>
+          <artifactId>proj4j</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.fasterxml.jackson.dataformat</groupId>
+          <artifactId>jackson-dataformat-yaml</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.google.uzaygezen</groupId>
+          <artifactId>uzaygezen-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.yahoo.datasketches</groupId>
+          <artifactId>sketches-core</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>net.hydromatic</groupId>
+          <artifactId>aggdesigner-algorithm</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.commons</groupId>
+          <artifactId>commons-dbcp2</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
     <dependency>
       <groupId>io.cryostat</groupId>
       <artifactId>cryostat-core</artifactId>
@@ -307,6 +374,11 @@
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-jacoco</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
       <artifactId>quarkus-junit5</artifactId>
       <scope>test</scope>
     </dependency>
@@ -480,9 +552,6 @@
                 <include>src/main/**/*.java</include>
                 <include>src/test/**/*.java</include>
               </includes>
-              <excludes>
-                <exclude>src/main/java/io/cryostat/util/OutputToReadStream.java</exclude>
-              </excludes>
             </licenseSet>
           </licenseSets>
         </configuration>

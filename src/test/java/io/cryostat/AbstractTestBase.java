@@ -230,6 +230,7 @@ public abstract class AbstractTestBase {
         var jp =
                 spec.pathParam("targetId", this.selfId)
                         .formParam("recordingName", name)
+                        .formParam("replace", "ALWAYS")
                         .post("/api/v4/targets/{targetId}/recordings")
                         .then()
                         .log()

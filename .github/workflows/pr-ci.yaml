@@ -26,7 +26,7 @@ jobs:
     - name: Show warning if permission is denied
       if: |
         !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
-        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
+        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.login != github.event.comment.user.login)
       uses: thollander/actions-comment-pull-request@v3
       with:
         message: |-
@@ -35,7 +35,7 @@ jobs:
     - name: Fail if command permission is denied
       if: |
         !(github.event.comment.author_association == 'MEMBER' || github.event.comment.author_association == 'OWNER')
-        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.name != github.event.comment.user.name)
+        && (!contains(github.event.issue.labels.*.name, 'safe-to-test') || github.event.issue.user.login != github.event.comment.user.login)
       run: exit 1
     - name: React to comment
       uses: actions/github-script@v8
@@ -144,7 +144,7 @@ jobs:
           clean test > test.log 2>&1
     - run: tail -500l test.log
       if: always()
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       if: always()
       with:
         name: cryostat-unittest.log
@@ -253,14 +253,14 @@ jobs:
           clean verify > test.log 2>&1
     - run: tail -500l test.log
       if: always()
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       if: always()
       with:
         name: cryostat-itest-harness.log
         path: test.log
     - run: tail -500l target/quarkus.log
       if: always()
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       if: always()
       with:
         name: cryostat-itest-server.log
@@ -328,15 +328,15 @@ jobs:
         git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/notifications.yaml > /home/runner/work/notifications.diff
         echo "notifications_status=$?" >> "$GITHUB_OUTPUT"
         echo "notifications_diff_file=notifications.diff" >> "$GITHUB_OUTPUT"
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: openapi-diff
         path: /home/runner/work/openapi.diff
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: graphql-diff
         path: /home/runner/work/graphql.diff
-    - uses: actions/upload-artifact@v6
+    - uses: actions/upload-artifact@v7
       with:
         name: notifications-diff
         path: /home/runner/work/notifications.diff
@@ -347,7 +347,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: openapi-diff
     - name: Comment schema check result
@@ -373,7 +373,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: graphql-diff
     - name: Comment schema check result
@@ -399,7 +399,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-    - uses: actions/download-artifact@v7
+    - uses: actions/download-artifact@v8
       with:
         name: notifications-diff
     - name: Comment schema check result
@@ -435,7 +435,7 @@ jobs:
           submodules: true
           fetch-depth: 0
       - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v6
+        uses: crazy-max/ghaction-import-gpg@v7
         with:
           gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
           passphrase: ${{ secrets.GPG_PASSPHRASE }}
@@ -443,17 +443,17 @@ jobs:
           git_user_signingkey: true
           git_commit_gpgsign: true
       - name: Download OpenAPI diff
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: openapi-diff
           path: diffs
       - name: Download GraphQL diff
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: graphql-diff
           path: diffs
       - name: Download Notifications diff
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: notifications-diff
           path: diffs

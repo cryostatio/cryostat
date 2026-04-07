@@ -608,6 +608,43 @@ components:
             type: integer
           type: array
       type: object
+    RevisionDetail:
+      properties:
+        entities:
+          additionalProperties:
+            items: {}
+            type: array
+          type: object
+        rev:
+          format: int64
+          type: integer
+        revtstmp:
+          format: int64
+          type: integer
+        username:
+          type: string
+      type: object
+    RevisionSummary:
+      properties:
+        rev:
+          format: int64
+          type: integer
+        revtstmp:
+          format: int64
+          type: integer
+        username:
+          type: string
+      type: object
+    RevisionsResponse:
+      properties:
+        revisions:
+          items:
+            $ref: '#/components/schemas/RevisionSummary'
+          type: array
+        totalCount:
+          format: int64
+          type: integer
+      type: object
     Rule:
       properties:
         archivalPeriodSeconds:
@@ -859,6 +896,79 @@ info:
   version: 4.2.0-snapshot
 openapi: 3.1.0
 paths:
+  /api/beta/audit/export:
+    get:
+      parameters:
+        - in: query
+          name: endTime
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: startTime
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          description: OK
+      summary: Export Revisions
+      tags:
+        - Audit
+  /api/beta/audit/revisions:
+    get:
+      parameters:
+        - in: query
+          name: endTime
+          schema:
+            format: int64
+            type: integer
+        - in: query
+          name: page
+          schema:
+            default: 0
+            format: int32
+            type: integer
+        - in: query
+          name: pageSize
+          schema:
+            default: 50
+            format: int32
+            type: integer
+        - in: query
+          name: startTime
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionsResponse'
+          description: OK
+      summary: Get Revisions
+      tags:
+        - Audit
+  /api/beta/audit/revisions/{rev}:
+    get:
+      parameters:
+        - in: path
+          name: rev
+          required: true
+          schema:
+            format: int64
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevisionDetail'
+          description: OK
+      summary: Get Revision Detail
+      tags:
+        - Audit
   /api/beta/audit/target_lineage/{jvmId}:
     get:
       parameters:
@@ -1274,6 +1384,44 @@ paths:
       summary: Delete an archived recording by name belonging to the specified target
       tags:
         - Archived Recordings
+  /api/beta/recording_analytics/{jvmId}/{filename}:
+    post:
+      parameters:
+        - in: path
+          name: filename
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              properties:
+                query:
+                  type: string
+              type: object
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  items:
+                    type: string
+                  type: array
+                type: array
+          description: OK
+        "400":
+          description: Bad Request
+      summary: Execute Query
+      tags:
+        - Jfr Analytics
   /api/beta/recordings/{connectUrl}/{filename}:
     delete:
       parameters:
@@ -1560,6 +1708,13 @@ paths:
       description: |
         Retrieve the latest aggregate report data across all targets with recent automated analysis reports
         scores. These are multi-dimensional metrics in Prometheus format.
+      parameters:
+        - in: query
+          name: minScore
+          schema:
+            default: -1.0
+            format: double
+            type: number
       responses:
         "200":
           content:
