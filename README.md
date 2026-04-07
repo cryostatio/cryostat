@@ -185,11 +185,11 @@ from it to add to your other compose manifests, you can add Cryostat in to a com
 To initialize Cryostat's configuration volumes after running the `smoketest.bash -n` script, use the following:
 
 ```bash
-for i in *.tar.gz ; do \
+for i in *.tar ; do \
     f=$(echo $i | cut -d. -f1); \
     echo "Creating volume ${f} from ${i}"; \
     podman volume create $f; \
-    podman volume import $f $f.tar.gz; \
+    podman volume import $f $f.tar; \
 done
 ```
 
