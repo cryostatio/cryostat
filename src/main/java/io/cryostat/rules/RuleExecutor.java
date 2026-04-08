@@ -23,12 +23,16 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.LongRunningRequestGenerator;
+import io.cryostat.recordings.LongRunningRequestGenerator.HeapDumpRequest;
+import io.cryostat.recordings.LongRunningRequestGenerator.ThreadDumpRequest;
 import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
@@ -42,6 +46,7 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
@@ -79,6 +84,9 @@ public class RuleExecutor {
     @Inject MatchExpressionEvaluator evaluator;
     @Inject Scheduler quartz;
 
+    @Inject LongRunningRequestGenerator generator;
+    @Inject EventBus eventBus;
+
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         quartz.shutdown();
     }
@@ -102,6 +110,17 @@ public class RuleExecutor {
                             target, r -> Objects.equals(r.name, rule.getRecordingName()));
             if (priorRecording.isPresent()) {
                 recordingHelper.stopRecording(priorRecording.get()).await().indefinitely();
+            }
+            if (rule.heapDump) {
+                HeapDumpRequest request =
+                        new HeapDumpRequest(UUID.randomUUID().toString(), target.id);
+                eventBus.publish(LongRunningRequestGenerator.HEAP_DUMP_REQUEST_ADDRESS, request);
+            }
+            if (rule.threadDump) {
+                ThreadDumpRequest request =
+                        new ThreadDumpRequest(
+                                UUID.randomUUID().toString(), target.id, "threadPrint");
+                eventBus.publish(LongRunningRequestGenerator.THREAD_DUMP_ADDRESS, request);
             }
             var labels = new HashMap<>(rule.metadata.labels());
             labels.put(RULE_LABEL_KEY, rule.name);

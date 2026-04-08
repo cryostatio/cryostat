@@ -207,6 +207,12 @@ public class Rules {
         if (body.containsKey("metadata")) {
             rule.metadata = body.getJsonObject("metadata").mapTo(Metadata.class);
         }
+        if (body.containsKey("heapDump")) {
+            rule.heapDump = body.getBoolean("heapDump");
+        }
+        if (body.containsKey("threadDump")) {
+            rule.threadDump = body.getBoolean("threadDump");
+        }
 
         rule.persist();
 
@@ -229,7 +235,9 @@ public class Rules {
             @RestForm int maxAgeSeconds,
             @RestForm int maxSizeBytes,
             @RestForm("metadata") Optional<String> rawMetadata,
-            @RestForm boolean enabled)
+            @RestForm boolean enabled,
+            @RestForm boolean heapDump,
+            @RestForm boolean threadDump)
             throws JsonMappingException, JsonProcessingException {
         MatchExpression expr = new MatchExpression(matchExpression);
         expr.persist();
@@ -243,6 +251,8 @@ public class Rules {
         rule.preservedArchives = preservedArchives;
         rule.maxAgeSeconds = maxAgeSeconds;
         rule.maxSizeBytes = maxSizeBytes;
+        rule.heapDump = heapDump;
+        rule.threadDump = threadDump;
         if (rawMetadata.isPresent()) {
             rule.metadata = mapper.readValue(rawMetadata.get(), Metadata.class);
         }
