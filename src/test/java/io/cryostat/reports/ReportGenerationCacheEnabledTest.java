@@ -20,9 +20,6 @@ import static io.restassured.RestAssured.given;
 
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -42,10 +39,6 @@ import org.junit.jupiter.api.Test;
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestBase
         implements QuarkusTestProfile {
-
-    final ExecutorService worker = ForkJoinPool.commonPool();
-
-    static final String TEST_RECORDING_NAME = "reportGenerationCacheEnabled";
 
     @Override
     public Map<String, String> getConfigOverrides() {
@@ -82,9 +75,10 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
                         .when()
                         .basePath("/api/v4/targets/{targetId}/recordings")
                         .pathParam("targetId", targetId)
-                        .formParam("recordingName", TEST_RECORDING_NAME)
+                        .formParam("recordingName", "testGetArchivedCachedReport")
                         .formParam("duration", "5")
                         .formParam("events", "template=ALL")
+                        .formParam("replace", "ALWAYS")
                         .post()
                         .then()
                         .log()
@@ -100,19 +94,7 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
         // Wait some time to get more recording data
         Thread.sleep(5_000);
 
-        // Check that recording archiving concludes
-        Future<JsonObject> archiveFuture =
-                worker.submit(
-                        () -> {
-                            try {
-                                return webSocketClient.expectNotification(
-                                        "ArchiveRecordingSuccess", Duration.ofSeconds(15));
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-
-        // Save the recording to archive
+        // Save the recording to archive (triggers archiving)
         Response saveResponse =
                 given().log()
                         .all()
@@ -136,7 +118,11 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
                         .response();
 
         String archiveJobId = saveResponse.body().asString();
-        JsonObject notification = archiveFuture.get();
+
+        // Wait for archiving to complete
+        JsonObject notification =
+                webSocketClient.expectNotification(
+                        "ArchiveRecordingSuccess", Duration.ofSeconds(15));
         MatcherAssert.assertThat(
                 notification.getJsonObject("message").getMap(),
                 Matchers.hasEntry("jobId", archiveJobId));
@@ -162,21 +148,9 @@ public class ReportGenerationCacheEnabledTest extends AbstractTransactionalTestB
                         .extract()
                         .response();
 
-        // Check that report generation concludes
-        Future<JsonObject> reportFuture =
-                worker.submit(
-                        () -> {
-                            try {
-                                return webSocketClient.expectNotification(
-                                        "ReportSuccess", Duration.ofSeconds(15));
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-
-        // wait for report generation to complete
+        // Wait for report generation to complete
         String reportJobId = jobIdResponse.body().asString();
-        notification = reportFuture.get();
+        notification = webSocketClient.expectNotification("ReportSuccess", Duration.ofSeconds(15));
         MatcherAssert.assertThat(
                 notification.getJsonObject("message").getMap(),
                 Matchers.equalTo(Map.of("jobId", reportJobId, "jvmId", selfJvmId)));
