@@ -22,11 +22,18 @@ import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
+import io.cryostat.asyncprofiler.AsyncProfilerRecording;
 import io.cryostat.credentials.Credential;
+import io.cryostat.diagnostic.GarbageCollection;
+import io.cryostat.diagnostic.HeapDump;
+import io.cryostat.diagnostic.ThreadDump;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.discovery.DiscoveryPlugin;
+import io.cryostat.events.EventTemplate;
 import io.cryostat.expressions.MatchExpression;
+import io.cryostat.jmcagent.ProbeTemplate;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.recordings.ArchivedRecordingInfo;
 import io.cryostat.rules.Rule;
 import io.cryostat.targets.Target;
 
@@ -54,6 +61,23 @@ import org.jboss.resteasy.reactive.RestPath;
 
 @Path("/api/beta/audit/")
 public class Audit {
+
+    static final Class<?>[] AUDITED_CLASSES = {
+        Target.class,
+        Rule.class,
+        ActiveRecording.class,
+        MatchExpression.class,
+        DiscoveryPlugin.class,
+        DiscoveryNode.class,
+        Credential.class,
+        GarbageCollection.class,
+        ThreadDump.class,
+        HeapDump.class,
+        EventTemplate.class,
+        ArchivedRecordingInfo.class,
+        ProbeTemplate.class,
+        AsyncProfilerRecording.class
+    };
 
     @Inject EntityManager em;
     @Inject ObjectMapper mapper;
@@ -337,18 +361,7 @@ public class Audit {
         }
 
         Map<String, List<Object>> entitiesByType = new HashMap<>();
-
-        Class<?>[] auditedClasses = {
-            Target.class,
-            Rule.class,
-            ActiveRecording.class,
-            MatchExpression.class,
-            DiscoveryPlugin.class,
-            DiscoveryNode.class,
-            Credential.class
-        };
-
-        for (Class<?> entityClass : auditedClasses) {
+        for (Class<?> entityClass : AUDITED_CLASSES) {
             @SuppressWarnings("unchecked")
             List<Object> results =
                     auditReader
@@ -395,7 +408,8 @@ public class Audit {
                     }
                 }
                 if (!simplifiedEntities.isEmpty()) {
-                    entitiesByType.put(entityClass.getSimpleName(), simplifiedEntities);
+                    entitiesByType.putIfAbsent(entityClass.getSimpleName(), new ArrayList<>());
+                    entitiesByType.get(entityClass.getSimpleName()).addAll(simplifiedEntities);
                 }
             }
         }

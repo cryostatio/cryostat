@@ -113,6 +113,9 @@ public class AsyncProfiler {
         return executeUni(target, conn -> conn.dumpAsyncProfile(req.events(), duration))
                 .invoke(
                         (id) -> {
+                            AsyncProfilerRecording.started(target, id, req.events(), req.duration())
+                                    .persist();
+
                             JobKey key =
                                     new JobKey(Long.toString(target.id), "async-profiler-update");
                             JobDetail job =
@@ -205,6 +208,13 @@ public class AsyncProfiler {
         return executeUni(target, conn -> conn.deleteAsyncProfile(profileId))
                 .invoke(
                         () -> {
+                            AsyncProfilerRecording.<AsyncProfilerRecording>find(
+                                            "target.id = ?1 and profileId = ?2",
+                                            targetId,
+                                            profileId)
+                                    .firstResultOptional()
+                                    .ifPresent(AsyncProfilerRecording::delete);
+
                             var payload = AsyncProfilerEvent.Payload.of(target, profileId, 0);
                             notify(
                                     new AsyncProfilerEvent(
@@ -304,6 +314,22 @@ public class AsyncProfiler {
                     .with(
                             s -> {
                                 if (s.status().equals(ProfilerStatus.STOPPED)) {
+                                    QuarkusTransaction.joiningExisting()
+                                            .run(
+                                                    () ->
+                                                            AsyncProfilerRecording
+                                                                    .<AsyncProfilerRecording>find(
+                                                                            "target.id = ?1 and"
+                                                                                + " profileId = ?2",
+                                                                            target.id,
+                                                                            id)
+                                                                    .firstResultOptional()
+                                                                    .ifPresent(
+                                                                            apr -> {
+                                                                                apr.markStopped();
+                                                                                apr.persist();
+                                                                            }));
+
                                     var payload =
                                             AsyncProfilerEvent.Payload.of(target, id, duration);
                                     notify(
