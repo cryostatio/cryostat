@@ -22,9 +22,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.util.HttpMimeType;
@@ -43,7 +40,6 @@ import org.junit.jupiter.api.Test;
 public abstract class AbstractRecordingWorkflowTest extends AbstractTransactionalTestBase {
 
     static final String TEST_RECORDING_NAME = "workflow_itest";
-    final ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
     @AfterEach
     void cleanupRecordingWorkflowTest() {
@@ -76,31 +72,24 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
         JsonArray listResp = new JsonArray(listResponse1.body().asString());
         Assertions.assertTrue(listResp.isEmpty());
 
-        // Schedule recording creation asynchronously to allow WebSocket listener to be ready
-        executor.schedule(
-                () -> {
-                    given().log()
-                            .all()
-                            .when()
-                            .basePath("/api/v4/targets/{targetId}/recordings")
-                            .pathParam("targetId", selfId)
-                            .formParam("recordingName", TEST_RECORDING_NAME)
-                            .formParam("duration", "20")
-                            .formParam("events", "template=ALL")
-                            .post()
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .assertThat()
-                            .statusCode(201);
-                },
-                1,
-                TimeUnit.SECONDS);
+        given().log()
+                .all()
+                .when()
+                .basePath("/api/v4/targets/{targetId}/recordings")
+                .pathParam("targetId", selfId)
+                .formParam("recordingName", TEST_RECORDING_NAME)
+                .formParam("duration", "20")
+                .formParam("events", "template=ALL")
+                .post()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(201);
 
         // Wait for ActiveRecordingCreated notification
         webSocketClient.expectNotification("ActiveRecordingCreated");
-        Thread.sleep(1000); // allow time for things to settle
 
         // Verify in-memory recording created
         Response listResponse2 =
@@ -130,29 +119,23 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
                 recordingInfo.getString("name"), Matchers.equalTo(TEST_RECORDING_NAME));
         MatcherAssert.assertThat(recordingInfo.getString("state"), Matchers.equalTo("RUNNING"));
 
-        Thread.sleep(4_000L); // wait some time to save a portion of the recording
+        Thread.sleep(4_000L); // wait some time for JFR to capture data before saving
 
-        // Save a copy of the partial recording dump - schedule asynchronously
-        executor.schedule(
-                () -> {
-                    given().log()
-                            .all()
-                            .when()
-                            .basePath("/api/v4/targets/{targetId}/recordings/{remoteId}")
-                            .pathParam("targetId", selfId)
-                            .pathParam("remoteId", remoteId)
-                            .contentType(HttpMimeType.PLAINTEXT.mime())
-                            .body("SAVE")
-                            .patch()
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .assertThat()
-                            .statusCode(200);
-                },
-                1,
-                TimeUnit.SECONDS);
+        given().log()
+                .all()
+                .when()
+                .basePath("/api/v4/targets/{targetId}/recordings/{remoteId}")
+                .pathParam("targetId", selfId)
+                .pathParam("remoteId", remoteId)
+                .contentType(HttpMimeType.PLAINTEXT.mime())
+                .body("SAVE")
+                .patch()
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
 
         // Wait for the archive request to conclude
         JsonObject archiveNotification =
@@ -224,7 +207,6 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
         // Wait for the recording to complete (duration=20s)
         webSocketClient.expectNotification(
                 "ActiveRecordingStopped", Duration.ofMinutes(1)); // wait for the dump to complete
-        Thread.sleep(1000); // allow time for things to settle
 
         // Verify the in-memory recording list has not changed, except recording is now stopped
         Response listResponse4 =
@@ -267,29 +249,22 @@ public abstract class AbstractRecordingWorkflowTest extends AbstractTransactiona
 
         MatcherAssert.assertThat(inMemoryEvents.size(), Matchers.greaterThan(savedEvents.size()));
 
-        // Test report generation - schedule asynchronously
+        // Trigger report generation
         String reportUrl = recordingInfo.getString("reportUrl");
-        executor.schedule(
-                () -> {
-                    given().log()
-                            .all()
-                            .when()
-                            .basePath("")
-                            .get(reportUrl)
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .assertThat()
-                            .statusCode(
-                                    Matchers.allOf(
-                                            Matchers.greaterThanOrEqualTo(200),
-                                            Matchers.lessThan(300)))
-                            .header("Location", Matchers.notNullValue())
-                            .body(Matchers.notNullValue());
-                },
-                1,
-                TimeUnit.SECONDS);
+        given().log()
+                .all()
+                .when()
+                .basePath("")
+                .get(reportUrl)
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(
+                        Matchers.allOf(Matchers.greaterThanOrEqualTo(200), Matchers.lessThan(300)))
+                .header("Location", Matchers.notNullValue())
+                .body(Matchers.notNullValue());
 
         // Check that report generation concludes
         JsonObject notification = webSocketClient.expectNotification("ReportSuccess");

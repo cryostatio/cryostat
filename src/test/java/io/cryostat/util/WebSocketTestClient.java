@@ -88,6 +88,42 @@ public class WebSocketTestClient {
     }
 
     /**
+     * Wait for the WebSocket connection to be fully established and ready to receive messages.
+     *
+     * @param timeout The maximum time to wait for connection readiness
+     * @throws InterruptedException if the thread is interrupted while waiting
+     * @throws TimeoutException if the connection is not ready within the timeout
+     */
+    public void awaitFullyConnected(Duration timeout)
+            throws InterruptedException, TimeoutException {
+        long deadlineNanos = System.nanoTime() + timeout.toNanos();
+
+        // Wait for connection to be established
+        while (!isConnected() && System.nanoTime() < deadlineNanos) {
+            client.lock.lock();
+            try {
+                long remainingNanos = deadlineNanos - System.nanoTime();
+                if (remainingNanos <= 0) {
+                    break;
+                }
+                client.newMessageCondition.await(50, TimeUnit.MILLISECONDS);
+            } finally {
+                client.lock.unlock();
+            }
+        }
+
+        if (!isConnected()) {
+            throw new TimeoutException("WebSocket not connected within " + timeout);
+        }
+
+        if (session == null || !session.isOpen()) {
+            throw new IllegalStateException("WebSocket session is not properly initialized");
+        }
+
+        logger.info("WebSocket fully connected and ready");
+    }
+
+    /**
      * Wait for a WebSocket notification with the specified category.
      *
      * @param category The notification category to wait for
@@ -159,14 +195,33 @@ public class WebSocketTestClient {
         try {
             int lastCheckedIndex = 0;
 
+            if (!client.messageHistory.isEmpty()) {
+                logger.infov(
+                        "Message history contains {0} messages before search:",
+                        client.messageHistory.size());
+                for (int i = 0; i < client.messageHistory.size(); i++) {
+                    JsonObject msg = client.messageHistory.get(i);
+                    String msgCategory = msg.getJsonObject("meta").getString("category");
+                    logger.infov("  [{0}] category={1}", i, msgCategory);
+                }
+            } else {
+                logger.info("Message history is empty, waiting for new messages");
+            }
+
             while (true) {
                 for (int i = lastCheckedIndex; i < client.messageHistory.size(); i++) {
                     JsonObject obj = client.messageHistory.get(i);
 
                     String msgCategory = obj.getJsonObject("meta").getString("category");
                     if (category.equals(msgCategory) && predicate.test(obj)) {
-                        logger.infov("Found matching notification for category={0}", category);
+                        logger.infov(
+                                "Found and consuming matching notification at index {0} for"
+                                        + " category={1}",
+                                i, category);
                         client.messageHistory.remove(i);
+                        logger.infov(
+                                "Message history now contains {0} messages after consumption",
+                                client.messageHistory.size());
                         return obj;
                     }
                 }
@@ -179,6 +234,16 @@ public class WebSocketTestClient {
                 }
 
                 client.newMessageCondition.await(remainingNanos, TimeUnit.NANOSECONDS);
+            }
+
+            logger.warnv(
+                    "Timeout waiting for category={0}. Message history contains {1} unconsumed"
+                            + " messages:",
+                    category, client.messageHistory.size());
+            for (int i = 0; i < client.messageHistory.size(); i++) {
+                JsonObject msg = client.messageHistory.get(i);
+                String msgCategory = msg.getJsonObject("meta").getString("category");
+                logger.warnv("  [{0}] category={1}", i, msgCategory);
             }
         } finally {
             client.lock.unlock();
@@ -206,6 +271,7 @@ public class WebSocketTestClient {
                 messageHistory.add(obj);
                 newMessageCondition.signalAll();
             } finally {
+                logger.infov("WebSocketTestClient history: {0}", messageHistory);
                 lock.unlock();
             }
         }
