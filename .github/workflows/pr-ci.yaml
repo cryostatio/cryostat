@@ -150,20 +150,15 @@ jobs:
         name: cryostat-unittest.log
         path: test.log
     - name: Add workflow result as comment on PR
-      uses: actions/github-script@v8
       if: always()
-      with:
-        script: |
-          const name = '${{github.workflow}}';
-          const url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
-          const success = '${{ job.status }}' === 'success';
-          const body = `${name}: ${success ? 'Unit tests pass ✅' : 'At least one unit test failed ❌'}\n${url}`;
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: body
-          })
+      run: |
+        > comment.txt
+        echo "${{ github.workflow }}:" >> comment.txt
+        ./parse-test-results.bash test.log "Unit" >> comment.txt
+        echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> comment.txt
+        gh pr comment ${{ github.event.issue.number }} --body-file comment.txt
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
       uses: myrotvorets/set-commit-status-action@v2.0.1
       if: always()
@@ -266,20 +261,15 @@ jobs:
         name: cryostat-itest-server.log
         path: target/quarkus.log
     - name: Add workflow result as comment on PR
-      uses: actions/github-script@v8
       if: always()
-      with:
-        script: |
-          const name = '${{github.workflow}}';
-          const url = '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}';
-          const success = '${{ job.status }}' === 'success';
-          const body = `${name}: ${success ? 'Integration tests pass ✅' : 'At least one integration test failed ❌'}\n${url}`;
-          github.rest.issues.createComment({
-            issue_number: context.issue.number,
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            body: body
-          })
+      run: |
+        > comment.txt
+        echo "${{ github.workflow }}:" >> comment.txt
+        ./parse-test-results.bash test.log "Integration" >> comment.txt
+        echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> comment.txt
+        gh pr comment ${{ github.event.issue.number }} --body-file comment.txt
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
       uses: myrotvorets/set-commit-status-action@v2.0.1
       if: always()
