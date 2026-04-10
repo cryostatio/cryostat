@@ -16,6 +16,7 @@
 package io.cryostat;
 
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
+import io.cryostat.recordings.RecordingNotifications.ActiveRecordingNotification;
 
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.LocalEventBusCodec;
@@ -30,5 +31,8 @@ public class MessageCodecs {
     void onStart(@Observes StartupEvent evt) {
         bus.getDelegate()
                 .registerDefaultCodec(LinkedRecordingDescriptor.class, new LocalEventBusCodec<>());
+        bus.getDelegate()
+                .registerDefaultCodec(
+                        ActiveRecordingNotification.Payload.class, new LocalEventBusCodec<>());
     }
 }

@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.events.ActiveRecordingEvents;
+import io.cryostat.recordings.events.ActiveRecordingEvents.ActiveRecordingSnapshot;
 import io.cryostat.resources.S3StorageResource;
 import io.cryostat.targets.Target;
 
@@ -66,9 +67,7 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
 
         assertThat(event, notNullValue());
         assertThat(event.getRecordingId(), equalTo(recordingId));
-        assertThat(
-                event.getCategory(),
-                equalTo(ActiveRecordings.RecordingEventCategory.ACTIVE_CREATED));
+        assertThat(event.getCategory(), equalTo("ActiveRecordingCreated"));
 
         ActiveRecording recording =
                 QuarkusTransaction.requiringNew().call(() -> ActiveRecording.findById(recordingId));
@@ -90,9 +89,7 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
 
         assertThat(event, notNullValue());
         assertThat(event.getRecordingId(), equalTo(recordingId));
-        assertThat(
-                event.getCategory(),
-                equalTo(ActiveRecordings.RecordingEventCategory.ACTIVE_STOPPED));
+        assertThat(event.getCategory(), equalTo("ActiveRecordingStopped"));
 
         ActiveRecording recording =
                 QuarkusTransaction.requiringNew().call(() -> ActiveRecording.findById(recordingId));
@@ -122,11 +119,9 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
 
         assertThat(event, notNullValue());
         assertThat(event.getRecordingId(), equalTo(recordingId));
-        assertThat(
-                event.getCategory(),
-                equalTo(ActiveRecordings.RecordingEventCategory.ACTIVE_DELETED));
+        assertThat(event.getCategory(), equalTo("ActiveRecordingDeleted"));
         assertThat(event.getPayload(), notNullValue());
-        assertThat(event.getPayload().payload().recording().name(), equalTo(recordingName));
+        assertThat(event.getPayload().recording().name(), equalTo(recordingName));
 
         ActiveRecording recording =
                 QuarkusTransaction.requiringNew().call(() -> ActiveRecording.findById(recordingId));
@@ -149,9 +144,7 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
 
         assertThat(event, notNullValue());
         assertThat(event.getRecordingId(), equalTo(recordingId));
-        assertThat(
-                event.getCategory(),
-                equalTo(ActiveRecordings.RecordingEventCategory.METADATA_UPDATED));
+        assertThat(event.getCategory(), equalTo("RecordingMetadataUpdated"));
 
         ActiveRecording recording =
                 QuarkusTransaction.requiringNew().call(() -> ActiveRecording.findById(recordingId));
@@ -211,6 +204,7 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
     static class TestRecordingService {
 
         @Inject Event<ActiveRecordingEvents.ActiveRecordingMetadataUpdated> metadataUpdatedEvent;
+        @Inject RecordingHelper recordingHelper;
 
         @Transactional
         public Long createRecording(Long targetId, String name) {
@@ -253,7 +247,11 @@ class ActiveRecordingNotificationIntegrationTest extends AbstractTransactionalTe
             recording.persist();
             metadataUpdatedEvent.fire(
                     new ActiveRecordingEvents.ActiveRecordingMetadataUpdated(
-                            recording.id.longValue()));
+                            recording.id.longValue(),
+                            new ActiveRecordingSnapshot(
+                                    recording.target.connectUrl.toString(),
+                                    recordingHelper.toExternalForm(recording),
+                                    recording.target.jvmId)));
         }
 
         @Transactional
