@@ -24,7 +24,6 @@ import org.openjdk.jmc.flightrecorder.configuration.IRecordingDescriptor;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
-import io.cryostat.recordings.RecordingNotifications.ActiveRecordingNotification;
 import io.cryostat.recordings.events.ActiveRecordingEvents;
 import io.cryostat.targets.Target;
 
@@ -202,7 +201,11 @@ public class ActiveRecording extends PanacheEntity {
             }
             createdEvent.fire(
                     new ActiveRecordingEvents.ActiveRecordingCreated(
-                            activeRecording.id.longValue()));
+                            activeRecording.id.longValue(),
+                            new ActiveRecordingEvents.ActiveRecordingSnapshot(
+                                    activeRecording.target.connectUrl.toString(),
+                                    recordingHelper.toExternalForm(activeRecording),
+                                    activeRecording.target.jvmId)));
         }
 
         @PostUpdate
@@ -210,7 +213,11 @@ public class ActiveRecording extends PanacheEntity {
             if (RecordingState.STOPPED.equals(activeRecording.state)) {
                 stoppedEvent.fire(
                         new ActiveRecordingEvents.ActiveRecordingStopped(
-                                activeRecording.id.longValue()));
+                                activeRecording.id.longValue(),
+                                new ActiveRecordingEvents.ActiveRecordingSnapshot(
+                                        activeRecording.target.connectUrl.toString(),
+                                        recordingHelper.toExternalForm(activeRecording),
+                                        activeRecording.target.jvmId)));
                 if (activeRecording.archiveOnStop
                         && (!activeRecording.external
                                 || (activeRecording.external && archiveExternal))) {
@@ -242,10 +249,10 @@ public class ActiveRecording extends PanacheEntity {
             deletedEvent.fire(
                     new ActiveRecordingEvents.ActiveRecordingDeleted(
                             activeRecording.id.longValue(),
-                            new ActiveRecordingNotification(
-                                    ActiveRecordings.RecordingEventCategory.ACTIVE_DELETED,
-                                    ActiveRecordingNotification.Payload.of(
-                                            recordingHelper, activeRecording))));
+                            new ActiveRecordingEvents.ActiveRecordingSnapshot(
+                                    activeRecording.target.connectUrl.toString(),
+                                    recordingHelper.toExternalForm(activeRecording),
+                                    activeRecording.target.jvmId)));
         }
     }
 }

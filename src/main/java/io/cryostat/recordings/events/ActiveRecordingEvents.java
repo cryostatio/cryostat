@@ -17,62 +17,132 @@ package io.cryostat.recordings.events;
 
 import java.util.Objects;
 
+import io.cryostat.events.EntityCreatedEvent;
+import io.cryostat.events.EntityDeletedEvent;
+import io.cryostat.events.EntityUpdatedEvent;
+import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.ActiveRecordings;
-import io.cryostat.recordings.RecordingNotifications.ActiveRecordingNotification;
+import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 
-/**
- * CDI events for ActiveRecording lifecycle changes. These are fired during transactional work and
- * observed after commit so that notification processing only sees committed database state.
- */
 public class ActiveRecordingEvents {
 
-    public abstract static class ActiveRecordingEvent {
-        private final long recordingId;
+    public record ActiveRecordingSnapshot(
+            String target, LinkedRecordingDescriptor recording, String jvmId) {
+        public ActiveRecordingSnapshot {
+            Objects.requireNonNull(target);
+            Objects.requireNonNull(recording);
+        }
+    }
+
+    public static class ActiveRecordingCreated
+            extends EntityCreatedEvent<ActiveRecording, ActiveRecordingSnapshot> {
         private final ActiveRecordings.RecordingEventCategory category;
 
-        protected ActiveRecordingEvent(
-                long recordingId, ActiveRecordings.RecordingEventCategory category) {
-            this.recordingId = recordingId;
-            this.category = Objects.requireNonNull(category);
+        public ActiveRecordingCreated(long recordingId, ActiveRecordingSnapshot snapshot) {
+            super(recordingId, snapshot);
+            this.category = ActiveRecordings.RecordingEventCategory.ACTIVE_CREATED;
         }
 
         public long getRecordingId() {
-            return recordingId;
+            return getEntityId();
         }
 
-        public ActiveRecordings.RecordingEventCategory getCategory() {
-            return category;
+        public ActiveRecordingSnapshot getPayload() {
+            return getSnapshot();
         }
-    }
 
-    public static class ActiveRecordingCreated extends ActiveRecordingEvent {
-        public ActiveRecordingCreated(long recordingId) {
-            super(recordingId, ActiveRecordings.RecordingEventCategory.ACTIVE_CREATED);
+        @Override
+        public String getCategory() {
+            return category.category();
         }
-    }
 
-    public static class ActiveRecordingStopped extends ActiveRecordingEvent {
-        public ActiveRecordingStopped(long recordingId) {
-            super(recordingId, ActiveRecordings.RecordingEventCategory.ACTIVE_STOPPED);
+        @Override
+        public String getEntityType() {
+            return ActiveRecording.class.getSimpleName();
         }
     }
 
-    public static class ActiveRecordingDeleted extends ActiveRecordingEvent {
-        private final ActiveRecordingNotification payload;
+    public static class ActiveRecordingStopped
+            extends EntityUpdatedEvent<ActiveRecording, ActiveRecordingSnapshot> {
+        private final ActiveRecordings.RecordingEventCategory category;
 
-        public ActiveRecordingDeleted(long recordingId, ActiveRecordingNotification payload) {
-            super(recordingId, ActiveRecordings.RecordingEventCategory.ACTIVE_DELETED);
-            this.payload = Objects.requireNonNull(payload);
+        public ActiveRecordingStopped(long recordingId, ActiveRecordingSnapshot snapshot) {
+            super(recordingId, snapshot);
+            this.category = ActiveRecordings.RecordingEventCategory.ACTIVE_STOPPED;
         }
 
-        public ActiveRecordingNotification getPayload() {
-            return payload;
+        public long getRecordingId() {
+            return getEntityId();
+        }
+
+        public ActiveRecordingSnapshot getPayload() {
+            return getSnapshot();
+        }
+
+        @Override
+        public String getCategory() {
+            return category.category();
+        }
+
+        @Override
+        public String getEntityType() {
+            return ActiveRecording.class.getSimpleName();
         }
     }
 
-    public static class ActiveRecordingMetadataUpdated extends ActiveRecordingEvent {
-        public ActiveRecordingMetadataUpdated(long recordingId) {
-            super(recordingId, ActiveRecordings.RecordingEventCategory.METADATA_UPDATED);
+    public static class ActiveRecordingDeleted
+            extends EntityDeletedEvent<ActiveRecording, ActiveRecordingSnapshot> {
+        private final ActiveRecordings.RecordingEventCategory category;
+
+        public ActiveRecordingDeleted(long recordingId, ActiveRecordingSnapshot snapshot) {
+            super(recordingId, snapshot);
+            this.category = ActiveRecordings.RecordingEventCategory.ACTIVE_DELETED;
+        }
+
+        public long getRecordingId() {
+            return getEntityId();
+        }
+
+        public ActiveRecordingSnapshot getPayload() {
+            return getSnapshot();
+        }
+
+        @Override
+        public String getCategory() {
+            return category.category();
+        }
+
+        @Override
+        public String getEntityType() {
+            return ActiveRecording.class.getSimpleName();
+        }
+    }
+
+    public static class ActiveRecordingMetadataUpdated
+            extends EntityUpdatedEvent<ActiveRecording, ActiveRecordingSnapshot> {
+        private final ActiveRecordings.RecordingEventCategory category;
+
+        public ActiveRecordingMetadataUpdated(long recordingId, ActiveRecordingSnapshot snapshot) {
+            super(recordingId, snapshot);
+            this.category = ActiveRecordings.RecordingEventCategory.METADATA_UPDATED;
+        }
+
+        public long getRecordingId() {
+            return getEntityId();
+        }
+
+        public ActiveRecordingSnapshot getPayload() {
+            return getSnapshot();
+        }
+
+        @Override
+        public String getCategory() {
+            return category.category();
+        }
+
+        @Override
+        public String getEntityType() {
+            return ActiveRecording.class.getSimpleName();
         }
     }
 }
