@@ -66,11 +66,11 @@ import io.cryostat.libcryostat.sys.Clock;
 import io.cryostat.libcryostat.sys.FileSystem;
 import io.cryostat.libcryostat.templates.Template;
 import io.cryostat.libcryostat.templates.TemplateType;
-import io.cryostat.recordings.ActiveRecording.Listener.ActiveRecordingEvent;
-import io.cryostat.recordings.ActiveRecording.Listener.ArchivedRecordingEvent;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
 import io.cryostat.recordings.ArchivedRecordings.ArchivedRecording;
+import io.cryostat.recordings.RecordingNotifications.ArchivedRecordingNotification;
+import io.cryostat.recordings.events.ActiveRecordingEvents;
 import io.cryostat.reports.AnalysisReportAggregator;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.TargetConnectionManager;
@@ -86,6 +86,7 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -191,6 +192,7 @@ public class RecordingHelper {
 
     @Inject EventBus bus;
     @Inject Logger logger;
+    @Inject Event<ActiveRecordingEvents.ActiveRecordingMetadataUpdated> metadataUpdatedEvent;
 
     @ConfigProperty(name = ConfigProperties.STORAGE_METADATA_ARCHIVES_STORAGE_MODE)
     String metadataStorageMode;
@@ -915,9 +917,9 @@ public class RecordingHelper {
                 getArchivedRecordingInfo(recording.target.jvmId, filename).orElseThrow();
 
         var event =
-                new ArchivedRecordingEvent(
+                new ArchivedRecordingNotification(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
-                        ArchivedRecordingEvent.Payload.of(
+                        ArchivedRecordingNotification.Payload.of(
                                 recording.target.connectUrl, archivedRecording));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
@@ -1137,9 +1139,9 @@ public class RecordingHelper {
         }
 
         var event =
-                new ArchivedRecordingEvent(
+                new ArchivedRecordingNotification(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_DELETED,
-                        ArchivedRecordingEvent.Payload.of(
+                        ArchivedRecordingNotification.Payload.of(
                                 target.map(t -> t.connectUrl).orElse(null),
                                 new ArchivedRecording(
                                         jvmId,
@@ -1217,20 +1219,12 @@ public class RecordingHelper {
                                 recording.setMetadata(updatedMetadata);
                                 recording.persist();
 
-                                notify(
-                                        new ActiveRecordingEvent(
-                                                ActiveRecordings.RecordingEventCategory
-                                                        .METADATA_UPDATED,
-                                                ActiveRecordingEvent.Payload.of(this, recording)));
+                                metadataUpdatedEvent.fireAsync(
+                                        new ActiveRecordingEvents.ActiveRecordingMetadataUpdated(
+                                                recording.id.longValue()));
                             }
                             return recording;
                         });
-    }
-
-    private void notify(ActiveRecordingEvent event) {
-        bus.publish(
-                MessagingServer.class.getName(),
-                new Notification(event.category().category(), event.payload()));
     }
 
     public static ArchivedRecordingMetadataService.StorageMode storageMode(String name) {
@@ -1300,9 +1294,9 @@ public class RecordingHelper {
                         recording.size(),
                         clock.now().getEpochSecond());
         var event =
-                new ArchivedRecordingEvent(
+                new ArchivedRecordingNotification(
                         ActiveRecordings.RecordingEventCategory.ARCHIVED_CREATED,
-                        ArchivedRecordingEvent.Payload.of(
+                        ArchivedRecordingNotification.Payload.of(
                                 target.map(t -> t.connectUrl).orElse(null), archivedRecording));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
@@ -1373,9 +1367,9 @@ public class RecordingHelper {
 
     private void notifyArchiveMetadataUpdate(String jvmId, ArchivedRecording updatedRecording) {
         var event =
-                new ArchivedRecordingEvent(
+                new ArchivedRecordingNotification(
                         ActiveRecordings.RecordingEventCategory.METADATA_UPDATED,
-                        new ArchivedRecordingEvent.Payload(
+                        new ArchivedRecordingNotification.Payload(
                                 updatedRecording.downloadUrl(), jvmId, updatedRecording));
         bus.publish(event.category().category(), event.payload().recording());
         bus.publish(
