@@ -168,14 +168,15 @@ public class DiagnosticsHelper {
         return t.alias + "_" + uuid + extension;
     }
 
-    public ThreadDumpAnalysis analyzeThreadDump(String jvmId, String threadDumpId) {
+    public ThreadDumpAnalysis analyzeThreadDump(String jvmId, String threadDumpId)
+            throws IOException {
         try {
             InputStream stream = getThreadDumpStream(jvmId, threadDumpId);
             String content = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             return new ThreadDumpAnalysis(ThreadDumpParser.parse(content));
         } catch (IOException ioe) {
             log.errorv("Failed to parse thread dump", ioe);
-            return null;
+            throw ioe;
         }
     }
 

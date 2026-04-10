@@ -87,7 +87,6 @@ public class ThreadDumpAnalysis {
             // Populate the aggregate stack traces map and method map
             stackTraces.merge(t.stackTrace(), 1l, Long::sum);
             if (!t.stackTrace().isEmpty()) {
-                System.out.println("Stack Frame: " + t.stackTrace().getFirst());
                 String method = t.stackTrace().getFirst().methodName();
                 if (t.state() == State.RUNNABLE) {
                     aggregateMethods.merge(method, 1l, Long::sum);
@@ -190,17 +189,12 @@ public class ThreadDumpAnalysis {
     }
 
     public record AnalysisResult(String resultName, String explanation, int score) {}
-    ;
 
     public record AggregateThreadStateResult(State data, long count) {}
-    ;
 
     public record AggregateLockInfoResult(String data, long count) {}
-    ;
 
     public record AggregateMethodResult(String data, long count) {}
-    ;
 
     public record AggregateStackTraceResult(List<StackFrame> data, long count) {}
-    ;
 }
