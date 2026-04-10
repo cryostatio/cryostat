@@ -471,6 +471,25 @@ public class RecordingHelper {
         Metadata meta = new Metadata(labels);
 
         ActiveRecording recording = ActiveRecording.from(target, desc, meta, options);
+
+        // Check if there's a stale database record with the same remoteId and delete it
+        // Use a direct query to bypass any ORM caching issues
+        List<ActiveRecording> staleRecordings =
+                ActiveRecording.find(
+                                "target.id = ?1 and remoteId = ?2", target.id, recording.remoteId)
+                        .list();
+
+        for (ActiveRecording stale : staleRecordings) {
+            logger.warnv(
+                    "Found stale recording id={0} remoteId={1} name={2}, deleting it",
+                    stale.id, stale.remoteId, stale.name);
+            stale.delete();
+        }
+
+        if (!staleRecordings.isEmpty()) {
+            ActiveRecording.flush();
+        }
+
         recording.persist();
 
         // Merge the target entity into the current persistence context since we're in a new
@@ -637,6 +656,9 @@ public class RecordingHelper {
                                                             recording);
                                                     recording.target.persist();
                                                     recording.delete();
+                                                    // Flush to ensure the DELETE is executed before
+                                                    // any subsequent INSERT with the same remoteId
+                                                    ActiveRecording.flush();
                                                     return recording;
                                                 }));
     }
