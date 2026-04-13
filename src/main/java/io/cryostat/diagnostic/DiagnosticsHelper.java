@@ -170,8 +170,7 @@ public class DiagnosticsHelper {
 
     public ThreadDumpAnalysis analyzeThreadDump(String jvmId, String threadDumpId)
             throws IOException {
-        try {
-            InputStream stream = getThreadDumpStream(jvmId, threadDumpId);
+        try (InputStream stream = getThreadDumpStream(jvmId, threadDumpId)) {
             String content = new String(stream.readAllBytes(), StandardCharsets.UTF_8);
             return new ThreadDumpAnalysis(ThreadDumpParser.parse(content));
         } catch (IOException ioe) {
