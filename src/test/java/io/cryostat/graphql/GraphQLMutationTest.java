@@ -21,7 +21,6 @@ import static org.hamcrest.Matchers.*;
 
 import java.time.Duration;
 import java.util.*;
-import java.util.concurrent.*;
 
 import io.cryostat.graphql.GraphQLTestModels.*;
 import io.cryostat.resources.S3StorageResource;
@@ -42,7 +41,6 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
     @Test
     void testStartRecordingMutationOnSpecificTarget() throws Exception {
         String recordingName = "testStartRecordingMutationOnSpecificTarget";
-        CountDownLatch latch = new CountDownLatch(2);
 
         JsonObject query = new JsonObject();
         query.put(
@@ -55,21 +53,7 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                             + " continuous metadata { labels { key value } } } }",
                         recordingName));
 
-        Future<JsonObject> f =
-                worker.submit(
-                        () -> {
-                            try {
-                                return webSocketClient.expectNotification(
-                                        "ActiveRecordingCreated", Duration.ofSeconds(15));
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            } finally {
-                                latch.countDown();
-                            }
-                        });
-
-        Thread.sleep(DATA_COLLECTION_DELAY_MS);
-
+        // Trigger recording creation
         Response response =
                 given().contentType(ContentType.JSON)
                         .body(query.encode())
@@ -82,10 +66,11 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
 
         CreateRecordingMutationResponse actual =
                 mapper.readValue(response.body().asString(), CreateRecordingMutationResponse.class);
-        latch.await(30, TimeUnit.SECONDS);
 
         // Ensure ActiveRecordingCreated notification emitted matches expected values
-        JsonObject notification = f.get(REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        JsonObject notification =
+                webSocketClient.expectNotification(
+                        "ActiveRecordingCreated", Duration.ofSeconds(15));
 
         JsonObject notificationRecording =
                 notification.getJsonObject("message").getJsonObject("recording");
@@ -159,6 +144,8 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
                         .response();
+
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
 
         ArchiveMutationResponse archiveResponse =
                 mapper.readValue(response.body().asString(), ArchiveMutationResponse.class);
@@ -270,6 +257,8 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                         .extract()
                         .response();
 
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
+
         ArchiveMutationResponse archiveResponse =
                 mapper.readValue(response1.body().asString(), ArchiveMutationResponse.class);
         List<ArchivedRecording> archivedRecordings =
@@ -366,6 +355,8 @@ class GraphQLMutationTest extends AbstractGraphQLTestBase {
                         .statusCode(allOf(greaterThanOrEqualTo(200), lessThan(300)))
                         .extract()
                         .response();
+
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
 
         ArchiveMutationResponse archiveResponse =
                 mapper.readValue(response1.body().asString(), ArchiveMutationResponse.class);

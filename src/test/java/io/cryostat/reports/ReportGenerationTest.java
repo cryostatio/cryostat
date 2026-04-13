@@ -21,9 +21,6 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.Future;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.resources.S3StorageResource;
@@ -32,6 +29,7 @@ import io.cryostat.util.HttpMimeType;
 import io.quarkus.test.common.QuarkusTestResource;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.response.Response;
+import io.restassured.response.ValidatableResponse;
 import io.vertx.core.json.JsonObject;
 import org.hamcrest.MatcherAssert;
 import org.hamcrest.Matchers;
@@ -43,10 +41,6 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
 public class ReportGenerationTest extends AbstractTransactionalTestBase {
-
-    final ExecutorService worker = ForkJoinPool.commonPool();
-
-    static final String TEST_RECORDING_NAME = "reportGeneration";
 
     @AfterEach
     void cleanupReportGenerationTest() {
@@ -79,9 +73,10 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
                         .when()
                         .basePath("/api/v4/targets/{targetId}/recordings")
                         .pathParam("targetId", targetId)
-                        .formParam("recordingName", TEST_RECORDING_NAME)
+                        .formParam("recordingName", "testGetActiveReport")
                         .formParam("duration", "5")
                         .formParam("events", "template=ALL")
+                        .formParam("replace", "ALWAYS")
                         .post()
                         .then()
                         .log()
@@ -97,7 +92,7 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
         // Wait some time to get more recording data
         Thread.sleep(5_000);
 
-        // Get a report for the above recording
+        // Get a report for the above recording (triggers report generation)
         Response resp =
                 given().log()
                         .all()
@@ -115,19 +110,9 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
                 Matchers.both(Matchers.greaterThanOrEqualTo(200)).and(Matchers.lessThan(400)));
         MatcherAssert.assertThat(resp, Matchers.notNullValue());
 
-        // Check that report generation concludes
-        Future<JsonObject> f =
-                worker.submit(
-                        () -> {
-                            try {
-                                return webSocketClient.expectNotification(
-                                        "ReportSuccess", Duration.ofSeconds(15));
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-
-        JsonObject notification = f.get();
+        // Wait for report generation to complete
+        JsonObject notification =
+                webSocketClient.expectNotification("ReportSuccess", Duration.ofSeconds(15));
         MatcherAssert.assertThat(notification.getJsonObject("message"), Matchers.notNullValue());
     }
 
@@ -142,9 +127,10 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
                         .when()
                         .basePath("/api/v4/targets/{targetId}/recordings")
                         .pathParam("targetId", targetId)
-                        .formParam("recordingName", TEST_RECORDING_NAME)
+                        .formParam("recordingName", "testGetArchivedReport")
                         .formParam("duration", "5")
                         .formParam("events", "template=ALL")
+                        .formParam("replace", "ALWAYS")
                         .post()
                         .then()
                         .log()
@@ -159,18 +145,6 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
 
         // Wait some time to get more recording data
         Thread.sleep(5_000);
-
-        // Check that recording archiving concludes
-        Future<JsonObject> archiveFuture =
-                worker.submit(
-                        () -> {
-                            try {
-                                return webSocketClient.expectNotification(
-                                        "ArchiveRecordingSuccess", Duration.ofSeconds(15));
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
 
         // Save the recording to archive
         Response saveResponse =
@@ -196,7 +170,11 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
                         .response();
 
         String archiveJobId = saveResponse.body().asString();
-        JsonObject notification = archiveFuture.get();
+
+        // Wait for archiving to complete
+        JsonObject notification =
+                webSocketClient.expectNotification(
+                        "ArchiveRecordingSuccess", Duration.ofSeconds(15));
         MatcherAssert.assertThat(
                 notification.getJsonObject("message").getMap(),
                 Matchers.hasEntry("jobId", archiveJobId));
@@ -222,21 +200,9 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
                         .extract()
                         .response();
 
-        // Check that report generation concludes
-        Future<JsonObject> reportFuture =
-                worker.submit(
-                        () -> {
-                            try {
-                                return webSocketClient.expectNotification(
-                                        "ReportSuccess", Duration.ofSeconds(15));
-                            } catch (InterruptedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-
-        // wait for report generation to complete
+        // Wait for report generation to complete
         String reportJobId = jobIdResponse.body().asString();
-        notification = reportFuture.get();
+        notification = webSocketClient.expectNotification("ReportSuccess", Duration.ofSeconds(15));
         MatcherAssert.assertThat(
                 notification.getJsonObject("message").getMap(),
                 Matchers.equalTo(Map.of("jobId", reportJobId, "jvmId", selfJvmId)));
@@ -254,7 +220,7 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
                         .when()
                         .basePath("/api/v4/targets/{targetId}/recordings")
                         .pathParam("targetId", targetId)
-                        .formParam("recordingName", TEST_RECORDING_NAME)
+                        .formParam("recordingName", "testGetFilteredActiveReport")
                         .formParam("duration", "5")
                         .formParam("events", "template=ALL")
                         .post()
@@ -326,14 +292,16 @@ public class ReportGenerationTest extends AbstractTransactionalTestBase {
 
     @Test
     void testGetReportThrowsWithNonExistentRecordingName() {
-        io.restassured.response.ValidatableResponse response =
+        ValidatableResponse response =
                 given().log()
                         .all()
                         .when()
                         .header("Accept", HttpMimeType.HTML.mime())
                         .get(
                                 String.format(
-                                        "%s/%s", archivedReportRequestURL(), TEST_RECORDING_NAME))
+                                        "%s/%s",
+                                        archivedReportRequestURL(),
+                                        "testGetReportThrowsWithNonExistentRecordingName"))
                         .then()
                         .log()
                         .all();

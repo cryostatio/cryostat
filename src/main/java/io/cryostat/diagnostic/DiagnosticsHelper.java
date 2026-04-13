@@ -201,6 +201,10 @@ public class DiagnosticsHelper {
             default:
                 throw new IllegalStateException();
         }
+
+        QuarkusTransaction.joiningExisting()
+                .run(() -> io.cryostat.diagnostic.HeapDump.delete("filename", heapDumpId));
+
         var event =
                 new HeapDumpEvent(
                         EventCategory.HEAP_DUMP_DELETED,
@@ -298,6 +302,10 @@ public class DiagnosticsHelper {
             default:
                 throw new IllegalStateException();
         }
+
+        QuarkusTransaction.joiningExisting()
+                .run(() -> io.cryostat.diagnostic.ThreadDump.delete("filename", threadDumpId));
+
         var event =
                 new ThreadDumpEvent(
                         EventCategory.DELETED,
