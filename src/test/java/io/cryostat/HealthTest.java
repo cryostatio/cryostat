@@ -30,14 +30,8 @@ import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
-@QuarkusTestResource(
-        value = GrafanaResource.class,
-        restrictToAnnotatedClass = true,
-        parallel = true)
-@QuarkusTestResource(
-        value = JFRDatasourceResource.class,
-        restrictToAnnotatedClass = true,
-        parallel = true)
+@QuarkusTestResource(value = GrafanaResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(value = JFRDatasourceResource.class, restrictToAnnotatedClass = true)
 @TestHTTPEndpoint(Health.class)
 public class HealthTest {
 
