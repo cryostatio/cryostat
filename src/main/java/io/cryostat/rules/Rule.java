@@ -20,14 +20,14 @@ import java.util.Objects;
 
 import io.cryostat.expressions.MatchExpression;
 import io.cryostat.recordings.ActiveRecordings.Metadata;
-import io.cryostat.ws.MessagingServer;
-import io.cryostat.ws.Notification;
+import io.cryostat.rules.events.RuleEvents;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.persistence.Cacheable;
 import jakarta.persistence.CascadeType;
@@ -144,6 +144,9 @@ public class Rule extends PanacheEntity {
     @ApplicationScoped
     static class Listener {
         @Inject EventBus bus;
+        @Inject Event<RuleEvents.RuleCreated> createdEvent;
+        @Inject Event<RuleEvents.RuleUpdated> updatedEvent;
+        @Inject Event<RuleEvents.RuleDeleted> deletedEvent;
 
         @PrePersist
         public void prePersist(Rule rule) {
@@ -157,24 +160,39 @@ public class Rule extends PanacheEntity {
 
         @PostPersist
         public void postPersist(Rule rule) {
-            notify(new RuleEvent(RuleEventCategory.CREATED, rule));
+            RuleEvents.RuleSnapshot snapshot = captureSnapshot(rule);
+            createdEvent.fire(new RuleEvents.RuleCreated(rule.id, snapshot));
+            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.CREATED, rule));
         }
 
         @PostUpdate
         public void postUpdate(Rule rule) {
-            notify(new RuleEvent(RuleEventCategory.UPDATED, rule));
+            RuleEvents.RuleSnapshot snapshot = captureSnapshot(rule);
+            updatedEvent.fire(new RuleEvents.RuleUpdated(rule.id, snapshot));
+            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.UPDATED, rule));
         }
 
         @PostRemove
         public void postRemove(Rule rule) {
-            notify(new RuleEvent(RuleEventCategory.DELETED, rule));
+            RuleEvents.RuleSnapshot snapshot = captureSnapshot(rule);
+            deletedEvent.fire(new RuleEvents.RuleDeleted(rule.id, snapshot));
+            bus.publish(RULE_ADDRESS, new RuleEvent(RuleEventCategory.DELETED, rule));
         }
 
-        private void notify(RuleEvent event) {
-            bus.publish(RULE_ADDRESS, event);
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(event.category().category(), event.rule()));
+        private RuleEvents.RuleSnapshot captureSnapshot(Rule rule) {
+            return new RuleEvents.RuleSnapshot(
+                    rule.id,
+                    rule.name,
+                    rule.description,
+                    rule.matchExpression.id,
+                    rule.eventSpecifier,
+                    rule.archivalPeriodSeconds,
+                    rule.initialDelaySeconds,
+                    rule.preservedArchives,
+                    rule.maxAgeSeconds,
+                    rule.maxSizeBytes,
+                    rule.metadata,
+                    rule.enabled);
         }
     }
 

@@ -18,6 +18,7 @@ package io.cryostat;
 import io.cryostat.expressions.events.MatchExpressionNotificationObserver;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.RecordingNotifications.ActiveRecordingNotification;
+import io.cryostat.rules.events.RuleNotificationObserver;
 import io.cryostat.targets.events.TargetNotificationObserver;
 
 import io.quarkus.runtime.StartupEvent;
@@ -44,5 +45,8 @@ public class MessageCodecs {
                 .registerDefaultCodec(
                         MatchExpressionNotificationObserver.ExpressionPayload.class,
                         new LocalEventBusCodec<>());
+        bus.getDelegate()
+                .registerDefaultCodec(
+                        RuleNotificationObserver.RulePayload.class, new LocalEventBusCodec<>());
     }
 }
