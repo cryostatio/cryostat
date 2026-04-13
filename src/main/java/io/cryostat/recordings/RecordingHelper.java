@@ -487,7 +487,7 @@ public class RecordingHelper {
         }
 
         if (!staleRecordings.isEmpty()) {
-            ActiveRecording.flush();
+            ActiveRecording.getEntityManager().flush();
         }
 
         recording.persist();

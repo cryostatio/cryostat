@@ -114,13 +114,12 @@ public abstract class AbstractTestBase {
 
     @AfterEach
     void cleanupTestBase() throws SchedulerException, IOException {
+        cleanupSelfActiveAndArchivedRecordings();
         shutdownScheduler();
 
         if (webSocketClient != null) {
             webSocketClient.clearMessages();
         }
-
-        cleanupSelfActiveAndArchivedRecordings();
     }
 
     @AfterAll
