@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import me.bechberger.jthreaddump.model.DeadlockInfo;
 import me.bechberger.jthreaddump.model.JniInfo;
 import me.bechberger.jthreaddump.model.LockInfo;
@@ -43,6 +44,7 @@ public class ThreadDumpAnalysis {
     public JniInfo jniInfo;
     public String jvmInfo;
 
+    @SuppressFBWarnings(value = "URF_UNREAD_PUBLIC_OR_PROTECTED_FIELD")
     public ThreadDumpAnalysis(ThreadDump dump) {
         this.aggregateThreadStates = new ArrayList<>();
         this.aggregateLockInfo = new ArrayList<>();
@@ -196,5 +198,6 @@ public class ThreadDumpAnalysis {
 
     public record AggregateMethodResult(String data, long count) {}
 
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public record AggregateStackTraceResult(List<StackFrame> data, long count) {}
 }
