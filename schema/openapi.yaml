@@ -1,7 +1,51 @@
 ---
 components:
   schemas:
+    AggregateLockInfoResult:
+      properties:
+        count:
+          format: int64
+          type: integer
+        data:
+          type: string
+      type: object
+    AggregateMethodResult:
+      properties:
+        count:
+          format: int64
+          type: integer
+        data:
+          type: string
+      type: object
+    AggregateStackTraceResult:
+      properties:
+        count:
+          format: int64
+          type: integer
+        data:
+          items:
+            $ref: '#/components/schemas/StackFrame'
+          type: array
+      type: object
+    AggregateThreadStateResult:
+      properties:
+        count:
+          format: int64
+          type: integer
+        data:
+          type: object
+      type: object
     AnalysisResult:
+      properties:
+        explanation:
+          type: string
+        resultName:
+          type: string
+        score:
+          format: int32
+          type: integer
+      type: object
+    AnalysisResult1:
       properties:
         evaluation:
           $ref: '#/components/schemas/Evaluation'
@@ -209,6 +253,34 @@ components:
         - 2022-03-10
       format: date
       type: string
+    DeadlockInfo:
+      properties:
+        threads:
+          items:
+            $ref: '#/components/schemas/DeadlockedThread'
+          type: array
+      type: object
+    DeadlockedThread:
+      properties:
+        heldBy:
+          type: string
+        locks:
+          items:
+            $ref: '#/components/schemas/LockInfo'
+          type: array
+        stackTrace:
+          items:
+            $ref: '#/components/schemas/StackFrame'
+          type: array
+        threadName:
+          type: string
+        waitingForMonitor:
+          type: string
+        waitingForObject:
+          type: string
+        waitingForObjectType:
+          type: string
+      type: object
     DiscoveryFillStrategy:
       enum:
         - NONE
@@ -417,6 +489,21 @@ components:
         statusMessage:
           type: string
       type: object
+    JniInfo:
+      properties:
+        globalRefs:
+          format: int32
+          type: integer
+        globalRefsMemory:
+          format: int64
+          type: integer
+        weakRefs:
+          format: int32
+          type: integer
+        weakRefsMemory:
+          format: int64
+          type: integer
+      type: object
     JsonObject:
       items:
         properties:
@@ -467,6 +554,25 @@ components:
         - ENTRY
         - EXIT
         - WRAP
+      type: string
+    LockInfo:
+      properties:
+        className:
+          type: string
+        lockId:
+          type: string
+        operation:
+          $ref: '#/components/schemas/LockOperation'
+        ownerThreadId:
+          type: string
+      type: object
+    LockOperation:
+      enum:
+        - LOCKED
+        - WAITING_TO_LOCK
+        - WAITING_ON
+        - PARKING
+        - ELIMINATED
       type: string
     MatchExpression:
       properties:
@@ -742,6 +848,20 @@ components:
         triggerCondition:
           type: string
       type: object
+    StackFrame:
+      properties:
+        className:
+          type: string
+        fileName:
+          type: string
+        lineNumber:
+          format: int32
+          type: integer
+        methodName:
+          type: string
+        nativeMethod:
+          type: boolean
+      type: object
     StartProfileRequest:
       properties:
         duration:
@@ -871,6 +991,78 @@ components:
           type: integer
         threadDumpId:
           type: string
+      type: object
+    ThreadDumpAnalysis:
+      properties:
+        aggregateLockInfo:
+          items:
+            $ref: '#/components/schemas/AggregateLockInfoResult'
+          type: array
+        aggregateStackTraces:
+          items:
+            $ref: '#/components/schemas/AggregateStackTraceResult'
+          type: array
+        aggregateThreadStates:
+          items:
+            $ref: '#/components/schemas/AggregateThreadStateResult'
+          type: array
+        deadlockInfos:
+          items:
+            $ref: '#/components/schemas/DeadlockInfo'
+          type: array
+        jniInfo:
+          $ref: '#/components/schemas/JniInfo'
+        jvmInfo:
+          type: string
+        runningMethods:
+          items:
+            $ref: '#/components/schemas/AggregateMethodResult'
+          type: array
+        specificFindings:
+          items:
+            $ref: '#/components/schemas/AnalysisResult'
+          type: array
+        threads:
+          items:
+            $ref: '#/components/schemas/ThreadInfo'
+          type: array
+      type: object
+    ThreadInfo:
+      properties:
+        additionalInfo:
+          type: string
+        carryingVirtualThreadId:
+          format: int64
+          type: integer
+        cpuTimeSec:
+          format: double
+          type: number
+        daemon:
+          type: boolean
+        elapsedTimeSec:
+          format: double
+          type: number
+        locks:
+          items:
+            $ref: '#/components/schemas/LockInfo'
+          type: array
+        name:
+          type: string
+        nativeId:
+          format: int64
+          type: integer
+        priority:
+          format: int32
+          type: integer
+        stackTrace:
+          items:
+            $ref: '#/components/schemas/StackFrame'
+          type: array
+        state:
+          type: object
+        threadId:
+          format: int64
+          type: integer
       type: object
     TriggerState:
       enum:
@@ -1120,6 +1312,29 @@ paths:
         "400":
           description: Bad Request
       summary: Upload Heap Dump
+      tags:
+        - Diagnostics
+  /api/beta/diagnostics/targets/{jvmId}/threaddump/{threadDumpId}/analyze:
+    post:
+      parameters:
+        - in: path
+          name: jvmId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: threadDumpId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ThreadDumpAnalysis'
+          description: OK
+      summary: Analyze Thread Dump
       tags:
         - Diagnostics
   /api/beta/diagnostics/targets/{targetId}/gc:
@@ -1781,7 +1996,7 @@ paths:
             application/json:
               schema:
                 additionalProperties:
-                  $ref: '#/components/schemas/AnalysisResult'
+                  $ref: '#/components/schemas/AnalysisResult1'
                 type: object
           description: OK
       summary: Retrieve current automated analysis report for a target
