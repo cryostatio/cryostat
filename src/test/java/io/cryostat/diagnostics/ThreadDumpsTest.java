@@ -286,27 +286,22 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     @Test
     public void testAnalysis() throws InterruptedException, TimeoutException {
         int id = defineSelfCustomTarget();
-        Executors.newSingleThreadScheduledExecutor()
-                .schedule(
-                        () -> {
-                            given().log()
-                                    .all()
-                                    .when()
-                                    .pathParam("targetId", id)
-                                    .post("targets/{targetId}/threaddump")
-                                    .then()
-                                    .log()
-                                    .all()
-                                    .and()
-                                    .assertThat()
-                                    .contentType(ContentType.TEXT)
-                                    .statusCode(200)
-                                    .extract()
-                                    .body()
-                                    .asString();
-                        },
-                        1,
-                        TimeUnit.SECONDS);
+
+        given().log()
+                .all()
+                .when()
+                .pathParam("targetId", id)
+                .post("targets/{targetId}/threaddump")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.TEXT)
+                .statusCode(200)
+                .extract()
+                .body()
+                .asString();
 
         webSocketClient.expectNotification("ThreadDumpSuccess");
 
@@ -330,24 +325,31 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
         var threadDumpId = listResponseJson.getString("[0].threadDumpId");
         var jvmId = listResponseJson.getString("[0].jvmId");
 
-        Executors.newSingleThreadScheduledExecutor()
-                .schedule(
-                        () -> {
-                            given().log()
-                                    .all()
-                                    .when()
-                                    .pathParam("jvmId", jvmId)
-                                    .pathParam("threadDumpId", threadDumpId)
-                                    .post("targets/{jvmId}/threaddump/{threadDumpId}/analyze")
-                                    .then()
-                                    .log()
-                                    .all()
-                                    .and()
-                                    .assertThat()
-                                    .statusCode(200);
-                        },
-                        1,
-                        TimeUnit.SECONDS);
+        given().log()
+                .all()
+                .when()
+                .pathParam("jvmId", jvmId)
+                .pathParam("threadDumpId", threadDumpId)
+                .post("targets/{jvmId}/threaddump/{threadDumpId}/analyze")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        given().log()
+                .all()
+                .when()
+                .pathParam("targetId", id)
+                .pathParam("threadDumpId", threadDumpId)
+                .delete("targets/{targetId}/threaddump/{threadDumpId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
     }
 
     @Test
