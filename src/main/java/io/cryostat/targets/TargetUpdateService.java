@@ -23,13 +23,14 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 import io.cryostat.expressions.MatchExpressionEvaluator;
 import io.cryostat.recordings.ActiveRecording;
-import io.cryostat.targets.Target.TargetDiscovery;
+import io.cryostat.targets.events.TargetEvents;
 
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.event.TransactionPhase;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -65,7 +66,7 @@ public class TargetUpdateService {
                 .forEach(
                         t -> {
                             try {
-                                fireTargetUpdate(t);
+                                fireTargetUpdate(t.id);
                             } catch (SchedulerException e) {
                                 logger.warn(e);
                             }
@@ -98,34 +99,37 @@ public class TargetUpdateService {
         for (Target target :
                 matchExpressionEvaluator.getMatchedTargets(credential.matchExpression)) {
             try {
-                fireTargetUpdate(target);
+                fireTargetUpdate(target.id);
             } catch (SchedulerException se) {
                 logger.warn(se);
             }
         }
     }
 
-    @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY)
-    void onMessage(TargetDiscovery event) throws SchedulerException {
-        switch (event.kind()) {
-            case MODIFIED:
-            // fall-through
-            case FOUND:
-                fireTargetUpdate(event.serviceRef());
-                break;
-            default:
-                // no-op
-                break;
+    void onTargetCreated(
+            @Observes(during = TransactionPhase.AFTER_SUCCESS) TargetEvents.TargetCreated event) {
+        try {
+            fireTargetUpdate(event.getEntityId());
+        } catch (SchedulerException e) {
+            logger.warn(e);
         }
     }
 
-    @ConsumeEvent
-    void fireTargetUpdate(Target target) throws SchedulerException {
-        JobKey key = new JobKey(Long.toString(target.id), "target-update");
+    void onTargetUpdated(
+            @Observes(during = TransactionPhase.AFTER_SUCCESS) TargetEvents.TargetUpdated event) {
+        try {
+            fireTargetUpdate(event.getEntityId());
+        } catch (SchedulerException e) {
+            logger.warn(e);
+        }
+    }
+
+    void fireTargetUpdate(long targetId) throws SchedulerException {
+        JobKey key = new JobKey(Long.toString(targetId), "target-update");
         JobDetail job =
                 JobBuilder.newJob(TargetUpdateJob.class)
                         .withIdentity(key)
-                        .usingJobData("targetId", target.id)
+                        .usingJobData("targetId", targetId)
                         .build();
         Trigger trigger =
                 TriggerBuilder.newTrigger()
