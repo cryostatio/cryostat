@@ -329,7 +329,7 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
 
         var threadDumpId = listResponseJson.getString("[0].threadDumpId");
         var jvmId = listResponseJson.getString("[0].jvmId");
-        
+
         Executors.newSingleThreadScheduledExecutor()
                 .schedule(
                         () -> {
