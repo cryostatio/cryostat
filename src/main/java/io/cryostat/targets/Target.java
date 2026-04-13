@@ -31,9 +31,8 @@ import java.util.stream.Collectors;
 
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.recordings.ActiveRecording;
+import io.cryostat.targets.events.TargetEvents;
 import io.cryostat.util.URIUtil;
-import io.cryostat.ws.MessagingServer;
-import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -41,6 +40,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.persistence.Cacheable;
 import jakarta.persistence.CascadeType;
@@ -315,6 +315,9 @@ public class Target extends PanacheEntity {
         @Inject URIUtil uriUtil;
         @Inject Logger logger;
         @Inject EventBus bus;
+        @Inject Event<TargetEvents.TargetCreated> createdEvent;
+        @Inject Event<TargetEvents.TargetUpdated> updatedEvent;
+        @Inject Event<TargetEvents.TargetDeleted> deletedEvent;
 
         @PrePersist
         void prePersist(Target target) {
@@ -345,37 +348,32 @@ public class Target extends PanacheEntity {
 
         @PostPersist
         void postPersist(Target target) {
-            notify(EventKind.FOUND, target);
+            TargetEvents.TargetSnapshot snapshot = captureSnapshot(target);
+            createdEvent.fire(new TargetEvents.TargetCreated(snapshot));
         }
 
         @PostUpdate
         void postUpdate(Target target) {
-            notify(EventKind.MODIFIED, target);
+            TargetEvents.TargetSnapshot snapshot = captureSnapshot(target);
+            updatedEvent.fire(new TargetEvents.TargetUpdated(snapshot));
         }
 
         @PostRemove
         void postRemove(Target target) {
-            notify(EventKind.LOST, target);
+            TargetEvents.TargetSnapshot snapshot = captureSnapshot(target);
+            deletedEvent.fire(new TargetEvents.TargetDeleted(snapshot));
         }
 
-        private void notify(EventKind eventKind, Target target) {
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(
-                            TARGET_JVM_DISCOVERY,
-                            new TargetDiscoveryEvent(
-                                    new TargetDiscovery(eventKind, target, target.jvmId))));
-            bus.publish(TARGET_JVM_DISCOVERY, new TargetDiscovery(eventKind, target, target.jvmId));
-        }
-
-        public record TargetDiscoveryEvent(TargetDiscovery event) {
-            public TargetDiscoveryEvent {
-                Objects.requireNonNull(event);
-            }
-
-            public String jvmId() {
-                return event.serviceRef().jvmId;
-            }
+        private TargetEvents.TargetSnapshot captureSnapshot(Target target) {
+            return new TargetEvents.TargetSnapshot(
+                    target.id,
+                    target.connectUrl,
+                    target.alias,
+                    target.jvmId,
+                    new HashMap<>(target.labels),
+                    new Annotations(
+                            new HashMap<>(target.annotations.platform()),
+                            new HashMap<>(target.annotations.cryostat())));
         }
     }
 }
