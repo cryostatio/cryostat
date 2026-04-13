@@ -53,5 +53,9 @@ public class MessageCodecs {
                 .registerDefaultCodec(
                         CredentialNotificationObserver.CredentialPayload.class,
                         new LocalEventBusCodec<>());
+        bus.getDelegate()
+                .registerDefaultCodec(
+                        CredentialNotificationObserver.MatchExpressionInfo.class,
+                        new LocalEventBusCodec<>());
     }
 }

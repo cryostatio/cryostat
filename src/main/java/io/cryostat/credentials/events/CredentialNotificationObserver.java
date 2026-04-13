@@ -53,9 +53,19 @@ public class CredentialNotificationObserver extends EntityNotificationObserver.S
                 (CredentialEvents.CredentialSnapshot) snapshot;
         MatchExpression matchExpression =
                 MatchExpression.findById(credentialSnapshot.matchExpressionId());
-        return new CredentialPayload(credentialSnapshot.id(), matchExpression, List.of());
+        MatchExpressionInfo matchExpressionInfo =
+                matchExpression != null
+                        ? new MatchExpressionInfo(matchExpression.id, matchExpression.script)
+                        : null;
+        return new CredentialPayload(credentialSnapshot.id(), matchExpressionInfo, List.of());
     }
 
     public record CredentialPayload(
-            long id, MatchExpression matchExpression, List<Target> targets) {}
+            long id, MatchExpressionInfo matchExpression, List<Target> targets) {
+        public CredentialPayload {
+            targets = targets != null ? List.copyOf(targets) : List.of();
+        }
+    }
+
+    public record MatchExpressionInfo(long id, String script) {}
 }
