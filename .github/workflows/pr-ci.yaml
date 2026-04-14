@@ -124,6 +124,10 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
+    - name: Install ansi2txt utility
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y colorized-logs
     - name: Set pending commit status
       uses: myrotvorets/set-commit-status-action@v2.0.1
       if: always()
@@ -201,6 +205,10 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
+    - name: Install ansi2txt utility
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y colorized-logs
     - name: Set pending commit status
       uses: myrotvorets/set-commit-status-action@v2.0.1
       if: always()
