@@ -20,7 +20,8 @@ if command -v ansi2txt &> /dev/null; then
 else
     echo "Warning: ansi2txt utility not found. Proceeding without ANSI color code stripping." >&2
     echo "Install colorized-logs package (Fedora) for better parsing reliability." >&2
-    LOG_CONTENT=$(cat "${LOG_FILE}")
+    # Use tr to remove null bytes which can cause issues with command substitution
+    LOG_CONTENT=$(tr -d '\000' < "${LOG_FILE}")
 fi
 
 # Extract the Results section from the log
