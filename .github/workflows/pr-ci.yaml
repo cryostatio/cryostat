@@ -160,7 +160,7 @@ jobs:
         echo "${{ github.workflow }}:" >> comment.txt
         ./parse-test-results.bash test.log "Unit" >> comment.txt
         echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> comment.txt
-        gh pr comment ${{ github.event.issue.number }} --body-file comment.txt
+        gh pr comment ${{ needs.checkout-branch.outputs.PR_num }} --body-file comment.txt
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
@@ -275,7 +275,7 @@ jobs:
         echo "${{ github.workflow }}:" >> comment.txt
         ./parse-test-results.bash test.log "Integration" >> comment.txt
         echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> comment.txt
-        gh pr comment ${{ github.event.issue.number }} --body-file comment.txt
+        gh pr comment ${{ needs.checkout-branch.outputs.PR_num }} --body-file comment.txt
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
