@@ -31,6 +31,9 @@ channels:
         - $ref: '#/components/messages/CredentialsDeleted'
         - $ref: '#/components/messages/CredentialsStored'
         - $ref: '#/components/messages/CredentialsUpdated'
+        - $ref: '#/components/messages/ExpressionCreated'
+        - $ref: '#/components/messages/ExpressionDeleted'
+        - $ref: '#/components/messages/ExpressionUpdated'
         - $ref: '#/components/messages/GrafanaUploadFailure'
         - $ref: '#/components/messages/GrafanaUploadSuccess'
         - $ref: '#/components/messages/HeapDumpFailure'
@@ -41,6 +44,9 @@ channels:
         - $ref: '#/components/messages/ProbesRemoved'
         - $ref: '#/components/messages/ReportFailure'
         - $ref: '#/components/messages/ReportSuccess'
+        - $ref: '#/components/messages/RuleCreated'
+        - $ref: '#/components/messages/RuleDeleted'
+        - $ref: '#/components/messages/RuleUpdated'
         - $ref: '#/components/messages/TargetJvmDiscovery'
         - $ref: '#/components/messages/TemplateDeleted'
         - $ref: '#/components/messages/TemplateUploaded'
@@ -136,6 +142,8 @@ components:
               matchExpression:
                 type: object
                 properties:
+                  id:
+                    type: integer
                   script:
                     type: string
               targets:
@@ -170,6 +178,8 @@ components:
               matchExpression:
                 type: object
                 properties:
+                  id:
+                    type: integer
                   script:
                     type: string
               targets:
@@ -204,10 +214,99 @@ components:
               matchExpression:
                 type: object
                 properties:
+                  id:
+                    type: integer
                   script:
                     type: string
               targets:
                 type: array
+        required:
+        - meta
+        - message
+    ExpressionCreated:
+      name: ExpressionCreated
+      title: Expression Created
+      summary: 'Notification: ExpressionCreated'
+      description: WebSocket notification for Expression Created events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ExpressionCreated
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              id:
+                type: integer
+              script:
+                type: string
+        required:
+        - meta
+        - message
+    ExpressionDeleted:
+      name: ExpressionDeleted
+      title: Expression Deleted
+      summary: 'Notification: ExpressionDeleted'
+      description: WebSocket notification for Expression Deleted events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ExpressionDeleted
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              id:
+                type: integer
+              script:
+                type: string
+        required:
+        - meta
+        - message
+    ExpressionUpdated:
+      name: ExpressionUpdated
+      title: Expression Updated
+      summary: 'Notification: ExpressionUpdated'
+      description: WebSocket notification for Expression Updated events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ExpressionUpdated
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              id:
+                type: integer
+              script:
+                type: string
         required:
         - meta
         - message
@@ -488,6 +587,165 @@ components:
                 type: string
               jvmId:
                 type: string
+        required:
+        - meta
+        - message
+    RuleCreated:
+      name: RuleCreated
+      title: Rule Created
+      summary: 'Notification: RuleCreated'
+      description: WebSocket notification for Rule Created events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: RuleCreated
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              description:
+                type: string
+              matchExpressionId:
+                type: integer
+              eventSpecifier:
+                type: string
+              archivalPeriodSeconds:
+                type: integer
+              initialDelaySeconds:
+                type: integer
+              preservedArchives:
+                type: integer
+              maxAgeSeconds:
+                type: integer
+              maxSizeBytes:
+                type: integer
+              metadata:
+                type: object
+                properties:
+                  labels:
+                    type: object
+                    additionalProperties: true
+              enabled:
+                type: boolean
+        required:
+        - meta
+        - message
+    RuleDeleted:
+      name: RuleDeleted
+      title: Rule Deleted
+      summary: 'Notification: RuleDeleted'
+      description: WebSocket notification for Rule Deleted events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: RuleDeleted
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              description:
+                type: string
+              matchExpressionId:
+                type: integer
+              eventSpecifier:
+                type: string
+              archivalPeriodSeconds:
+                type: integer
+              initialDelaySeconds:
+                type: integer
+              preservedArchives:
+                type: integer
+              maxAgeSeconds:
+                type: integer
+              maxSizeBytes:
+                type: integer
+              metadata:
+                type: object
+                properties:
+                  labels:
+                    type: object
+                    additionalProperties: true
+              enabled:
+                type: boolean
+        required:
+        - meta
+        - message
+    RuleUpdated:
+      name: RuleUpdated
+      title: Rule Updated
+      summary: 'Notification: RuleUpdated'
+      description: WebSocket notification for Rule Updated events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: RuleUpdated
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              id:
+                type: integer
+              name:
+                type: string
+              description:
+                type: string
+              matchExpressionId:
+                type: integer
+              eventSpecifier:
+                type: string
+              archivalPeriodSeconds:
+                type: integer
+              initialDelaySeconds:
+                type: integer
+              preservedArchives:
+                type: integer
+              maxAgeSeconds:
+                type: integer
+              maxSizeBytes:
+                type: integer
+              metadata:
+                type: object
+                properties:
+                  labels:
+                    type: object
+                    additionalProperties: true
+              enabled:
+                type: boolean
         required:
         - meta
         - message
