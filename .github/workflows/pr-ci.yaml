@@ -137,6 +137,8 @@ jobs:
         token: ${{ secrets.GITHUB_TOKEN }}
         status: pending
     - name: Run unit tests
+      id: run-tests
+      continue-on-error: true
       run: |
         ./mvnw -B -U \
           -Dquarkus.container-image.builder=docker \
@@ -155,12 +157,13 @@ jobs:
         path: test.log
     - name: Add workflow result as comment on PR
       if: always()
+      continue-on-error: true
       run: |
         > comment.txt
         echo "${{ github.workflow }}:" >> comment.txt
         ./parse-test-results.bash test.log "Unit" >> comment.txt
         echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> comment.txt
-        gh pr comment ${{ needs.checkout-branch.outputs.PR_num }} --body-file comment.txt
+        gh pr comment ${{ needs.checkout-branch.outputs.PR_num }} --repo ${{ github.repository }} --body-file comment.txt
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
@@ -170,7 +173,7 @@ jobs:
         context: unit-test
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha}}
         token: ${{ secrets.GITHUB_TOKEN }}
-        status: ${{ job.status }}
+        status: ${{ steps.run-tests.outcome }}
 
   integration-test:
     needs: [checkout-branch]
@@ -244,6 +247,8 @@ jobs:
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa
     - name: Run integration tests
+      id: run-tests
+      continue-on-error: true
       run: |
         ./mvnw -B -U \
           -Dquarkus.container-image.builder=docker \
@@ -270,12 +275,13 @@ jobs:
         path: target/quarkus.log
     - name: Add workflow result as comment on PR
       if: always()
+      continue-on-error: true
       run: |
         > comment.txt
         echo "${{ github.workflow }}:" >> comment.txt
         ./parse-test-results.bash test.log "Integration" >> comment.txt
         echo "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> comment.txt
-        gh pr comment ${{ needs.checkout-branch.outputs.PR_num }} --body-file comment.txt
+        gh pr comment ${{ needs.checkout-branch.outputs.PR_num }} --repo ${{ github.repository }} --body-file comment.txt
       env:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     - name: Set latest commit status
@@ -285,7 +291,7 @@ jobs:
         context: integration-test
         sha: ${{ needs.checkout-branch.outputs.PR_head_sha}}
         token: ${{ secrets.GITHUB_TOKEN }}
-        status: ${{ job.status }}
+        status: ${{ steps.run-tests.outcome }}
 
   update-schemas:
     needs: [checkout-branch]
