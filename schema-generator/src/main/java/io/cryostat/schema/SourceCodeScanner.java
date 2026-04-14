@@ -20,10 +20,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import com.github.javaparser.StaticJavaParser;
 import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.FieldAccessExpr;
 import com.github.javaparser.ast.expr.MethodCallExpr;
@@ -82,7 +85,247 @@ public class SourceCodeScanner {
                             }
                         });
 
+        // Also scan for EntityNotificationObserver subclasses
+        sites.addAll(scanEntityNotificationObservers(javaFile, cu));
+
         return sites;
+    }
+
+    /**
+     * Scan for classes that extend EntityNotificationObserver and extract notification information
+     * from their event handler methods.
+     */
+    private List<NotificationSite> scanEntityNotificationObservers(
+            Path javaFile, CompilationUnit cu) {
+        List<NotificationSite> sites = new ArrayList<>();
+
+        cu.findAll(ClassOrInterfaceDeclaration.class)
+                .forEach(
+                        classDecl -> {
+                            if (extendsEntityNotificationObserver(classDecl)) {
+                                System.out.println(
+                                        "DEBUG: Found EntityNotificationObserver subclass: "
+                                                + classDecl.getNameAsString()
+                                                + " in "
+                                                + javaFile.getFileName());
+                                List<NotificationSite> observerSites =
+                                        extractNotificationSitesFromObserver(
+                                                javaFile, cu, classDecl);
+                                System.out.println(
+                                        "DEBUG: Extracted "
+                                                + observerSites.size()
+                                                + " notification sites from "
+                                                + classDecl.getNameAsString());
+                                sites.addAll(observerSites);
+                            }
+                        });
+
+        return sites;
+    }
+
+    /** Check if a class extends EntityNotificationObserver (directly or via Simple inner class). */
+    private boolean extendsEntityNotificationObserver(ClassOrInterfaceDeclaration classDecl) {
+        boolean result =
+                classDecl.getExtendedTypes().stream()
+                        .anyMatch(
+                                type -> {
+                                    String typeName = type.getNameAsString();
+                                    String typeAsString = type.asString();
+                                    boolean matches =
+                                            typeName.equals("EntityNotificationObserver")
+                                                    || typeName.contains(
+                                                            "EntityNotificationObserver.Simple")
+                                                    || typeAsString.contains(
+                                                            "EntityNotificationObserver");
+                                    if (!matches
+                                            && classDecl.getNameAsString().contains("Observer")) {
+                                        System.out.println(
+                                                "DEBUG: Class "
+                                                        + classDecl.getNameAsString()
+                                                        + " extends "
+                                                        + typeName
+                                                        + " (full: "
+                                                        + typeAsString
+                                                        + ") - no match");
+                                    }
+                                    return matches;
+                                });
+        return result;
+    }
+
+    /**
+     * Extract notification sites from an EntityNotificationObserver subclass. Looks for event
+     * handler methods (onEntityCreated, onEntityUpdated, onEntityDeleted) and extracts the category
+     * and payload type.
+     */
+    private List<NotificationSite> extractNotificationSitesFromObserver(
+            Path javaFile, CompilationUnit cu, ClassOrInterfaceDeclaration observerClass) {
+        List<NotificationSite> sites = new ArrayList<>();
+
+        // Find the buildPayload method to get the payload type
+        Optional<MethodDeclaration> buildPayloadMethod =
+                observerClass.getMethodsByName("buildPayload").stream().findFirst();
+        if (!buildPayloadMethod.isPresent()) {
+            buildPayloadMethod =
+                    observerClass.getMethodsByName("buildCreatedPayload").stream().findFirst();
+        }
+
+        if (!buildPayloadMethod.isPresent()) {
+            System.out.println(
+                    "DEBUG: No buildPayload method found in " + observerClass.getNameAsString());
+            return sites; // No payload method found
+        }
+
+        System.out.println(
+                "DEBUG: Found buildPayload method in " + observerClass.getNameAsString());
+
+        // Extract payload type from the return statement
+        Expression payloadExpr = extractPayloadExpression(buildPayloadMethod.get());
+        if (payloadExpr == null) {
+            System.out.println(
+                    "DEBUG: No payload expression found in buildPayload method of "
+                            + observerClass.getNameAsString());
+            return sites;
+        }
+
+        System.out.println(
+                "DEBUG: Found payload expression: "
+                        + payloadExpr
+                        + " in "
+                        + observerClass.getNameAsString());
+
+        // Find event handler methods and extract categories
+        List<MethodDeclaration> eventHandlers =
+                observerClass.getMethods().stream()
+                        .filter(
+                                method ->
+                                        method.getNameAsString().startsWith("on")
+                                                && method.getParameters().size() == 1)
+                        .toList();
+
+        System.out.println(
+                "DEBUG: Found "
+                        + eventHandlers.size()
+                        + " event handler methods in "
+                        + observerClass.getNameAsString());
+
+        eventHandlers.forEach(
+                eventHandler -> {
+                    // Extract the event type from the parameter
+                    String eventTypeName =
+                            eventHandler
+                                    .getParameter(0)
+                                    .getType()
+                                    .asClassOrInterfaceType()
+                                    .getNameAsString();
+
+                    System.out.println(
+                            "DEBUG: Processing event handler "
+                                    + eventHandler.getNameAsString()
+                                    + " with event type: "
+                                    + eventTypeName);
+
+                    // Find the corresponding event class to get the category
+                    Expression categoryExpr = findCategoryForEventType(cu, eventTypeName, javaFile);
+                    if (categoryExpr != null) {
+                        int lineNumber = eventHandler.getBegin().map(p -> p.line).orElse(-1);
+                        sites.add(
+                                new NotificationSite(
+                                        javaFile.toString(),
+                                        lineNumber,
+                                        categoryExpr,
+                                        payloadExpr,
+                                        eventHandler));
+                    } else {
+                        System.out.println(
+                                "DEBUG: No category found for event type: " + eventTypeName);
+                    }
+                });
+
+        return sites;
+    }
+
+    /**
+     * Extract the payload expression from a buildPayload method. Looks for return statements that
+     * create new payload objects.
+     */
+    private Expression extractPayloadExpression(MethodDeclaration buildPayloadMethod) {
+        // Find return statements in the method
+        return buildPayloadMethod.findAll(com.github.javaparser.ast.stmt.ReturnStmt.class).stream()
+                .map(ret -> ret.getExpression().orElse(null))
+                .filter(expr -> expr instanceof ObjectCreationExpr)
+                .findFirst()
+                .orElse(null);
+    }
+
+    /**
+     * Find the category constant for a given event type. Looks in the same package for the event
+     * class and extracts the category from its getCategory() method.
+     */
+    private Expression findCategoryForEventType(
+            CompilationUnit cu, String eventTypeName, Path javaFile) {
+        // Extract base name from event type (e.g., "CredentialCreated" -> "Credential")
+        // Event types typically end with "Created", "Updated", "Deleted", "Stopped", etc.
+        String baseName =
+                eventTypeName
+                        .replaceAll("(Created|Updated|Deleted|Stopped|MetadataUpdated)$", "")
+                        .replaceAll(".*\\.", "");
+
+        System.out.println(
+                "DEBUG: Looking for event file for " + eventTypeName + ", base name: " + baseName);
+
+        // Try to find the event class file in the same directory
+        // Pattern: <BaseName>Events.java (e.g., CredentialEvents.java)
+        Path eventFilePath = javaFile.getParent().resolve(baseName + "Events.java");
+
+        if (!Files.exists(eventFilePath)) {
+            // Try with ActiveRecording prefix for recording events
+            eventFilePath = javaFile.getParent().resolve("ActiveRecordingEvents.java");
+        }
+
+        if (!Files.exists(eventFilePath)) {
+            return null;
+        }
+
+        try {
+            CompilationUnit eventCu = StaticJavaParser.parse(eventFilePath);
+
+            // Find the event class
+            Optional<ClassOrInterfaceDeclaration> eventClass =
+                    eventCu.findAll(ClassOrInterfaceDeclaration.class).stream()
+                            .filter(
+                                    cls ->
+                                            eventTypeName.endsWith(cls.getNameAsString())
+                                                    || eventTypeName.contains(
+                                                            cls.getNameAsString()))
+                            .findFirst();
+
+            if (!eventClass.isPresent()) {
+                return null;
+            }
+
+            // Find the getCategory() method
+            Optional<MethodDeclaration> getCategoryMethod =
+                    eventClass.get().getMethodsByName("getCategory").stream().findFirst();
+
+            if (!getCategoryMethod.isPresent()) {
+                return null;
+            }
+
+            // Extract the return expression
+            return getCategoryMethod
+                    .get()
+                    .findAll(com.github.javaparser.ast.stmt.ReturnStmt.class)
+                    .stream()
+                    .map(ret -> ret.getExpression().orElse(null))
+                    .filter(expr -> expr != null)
+                    .findFirst()
+                    .orElse(null);
+
+        } catch (IOException e) {
+            System.err.println("Error reading event file " + eventFilePath + ": " + e.getMessage());
+            return null;
+        }
     }
 
     /**
