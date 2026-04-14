@@ -658,6 +658,8 @@ components:
         eventSpecifier:
           pattern: \S
           type: string
+        heapDump:
+          type: boolean
         id:
           format: int64
           type: integer
@@ -684,6 +686,8 @@ components:
           format: int32
           minimum: 0
           type: integer
+        threadDump:
+          type: boolean
       required:
         - name
         - description
@@ -2639,6 +2643,8 @@ paths:
                   type: boolean
                 eventSpecifier:
                   type: string
+                heapDump:
+                  type: boolean
                 initialDelaySeconds:
                   format: int32
                   type: integer
@@ -2659,6 +2665,8 @@ paths:
                 preservedArchives:
                   format: int32
                   type: integer
+                threadDump:
+                  type: boolean
               type: object
           multipart/form-data:
             schema:
@@ -2672,6 +2680,8 @@ paths:
                   type: boolean
                 eventSpecifier:
                   type: string
+                heapDump:
+                  type: boolean
                 initialDelaySeconds:
                   format: int32
                   type: integer
@@ -2692,6 +2702,8 @@ paths:
                 preservedArchives:
                   format: int32
                   type: integer
+                threadDump:
+                  type: boolean
               type: object
         required: true
       responses:
