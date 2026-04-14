@@ -17,6 +17,8 @@ package io.cryostat.ws.notifications;
 
 import java.util.Objects;
 
+import io.cryostat.core.diagnostic.HeapDumpAnalysis;
+
 /**
  * Notification payload record types for WebSocket notifications. These records represent the
  * message payloads sent in WebSocket notifications.
@@ -35,6 +37,32 @@ public final class NotificationPayloads {
         public HeapDumpSuccessPayload {
             Objects.requireNonNull(jobId);
             Objects.requireNonNull(targetAlias);
+        }
+    }
+
+    public record HeapDumpAnalysisSuccessPayload(
+            String jobId, String targetAlias, String heapDumpId) {
+        public HeapDumpAnalysisSuccessPayload {
+            Objects.requireNonNull(jobId);
+            Objects.requireNonNull(targetAlias);
+            Objects.requireNonNull(heapDumpId);
+        }
+    }
+
+    public record HeapDumpReportCompletePayload(
+            String jobId, String targetAlias, String heapDumpId, HeapDumpAnalysis report) {
+        public HeapDumpReportCompletePayload {
+            Objects.requireNonNull(jobId);
+            Objects.requireNonNull(targetAlias);
+            Objects.requireNonNull(heapDumpId);
+            Objects.requireNonNull(report);
+        }
+    }
+
+    public record HeapDumpAnalysisFailurePayload(String jobId, String heapDumpId) {
+        public HeapDumpAnalysisFailurePayload {
+            Objects.requireNonNull(jobId);
+            Objects.requireNonNull(heapDumpId);
         }
     }
 

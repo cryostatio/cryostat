@@ -32,6 +32,7 @@ import java.util.UUID;
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
 import io.cryostat.StorageBuckets;
+import io.cryostat.core.diagnostic.HeapDumpAnalysis;
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
 import io.cryostat.diagnostic.HeapDumpsMetadataService.StorageMode;
@@ -153,6 +154,11 @@ public class DiagnosticsHelper {
                                 signature,
                                 Void.class),
                 uploadFailedTimeout);
+    }
+
+    public HeapDumpAnalysis analyzeHeapDump(String jvmId, String heapDumpId) throws Exception {
+        InputStream stream = getHeapDumpStream(jvmId, heapDumpId);
+        return new HeapDumpAnalysis(heapDumpId, jvmId, stream);
     }
 
     public String generateFileName(String jvmId, String uuid, String extension) {
@@ -525,8 +531,8 @@ public class DiagnosticsHelper {
         return storage.getObject(getRequest);
     }
 
-    public InputStream getHeapDumpStream(String jvmId, String threadDumpID) {
-        return getHeapDumpStream(encodedKey(jvmId, threadDumpID));
+    public InputStream getHeapDumpStream(String jvmId, String heapDumpID) {
+        return getHeapDumpStream(encodedKey(jvmId, heapDumpID));
     }
 
     public InputStream getHeapDumpStream(String encodedKey) {
