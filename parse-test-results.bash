@@ -16,11 +16,10 @@ fi
 
 # Check for ansi2txt utility and use it if available to strip ANSI color codes
 if command -v ansi2txt &> /dev/null; then
-    LOG_CONTENT=$(ansi2txt < "${LOG_FILE}")
+    LOG_CONTENT=$(ansi2txt < "${LOG_FILE}" | tr -d '\000')
 else
     echo "Warning: ansi2txt utility not found. Proceeding without ANSI color code stripping." >&2
     echo "Install colorized-logs package (Fedora) for better parsing reliability." >&2
-    # Use tr to remove null bytes which can cause issues with command substitution
     LOG_CONTENT=$(tr -d '\000' < "${LOG_FILE}")
 fi
 
