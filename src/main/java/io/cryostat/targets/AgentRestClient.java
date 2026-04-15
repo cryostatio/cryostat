@@ -54,6 +54,11 @@ interface AgentRestClient {
     @Produces(MediaType.APPLICATION_OCTET_STREAM)
     Uni<Response> invokeMBeanOperation(InputStream payload);
 
+    @Path("/mbean-query/")
+    @GET
+    @Produces(MediaType.APPLICATION_JSON)
+    Uni<Response> queryMbeanAttributes();
+
     @Path("/smart-triggers/")
     @POST
     Uni<Response> addTriggers(InputStream payload);
