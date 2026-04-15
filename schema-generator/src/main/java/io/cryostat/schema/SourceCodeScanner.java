@@ -247,13 +247,25 @@ public class SourceCodeScanner {
 
     /**
      * Extract the payload expression from a buildPayload method. Looks for return statements that
-     * create new payload objects.
+     * create new payload objects or return entity instances.
      */
     private Expression extractPayloadExpression(MethodDeclaration buildPayloadMethod) {
         // Find return statements in the method
+        Optional<Expression> objectCreation =
+                buildPayloadMethod.findAll(com.github.javaparser.ast.stmt.ReturnStmt.class).stream()
+                        .map(ret -> ret.getExpression().orElse(null))
+                        .filter(expr -> expr instanceof ObjectCreationExpr)
+                        .findFirst();
+
+        if (objectCreation.isPresent()) {
+            return objectCreation.get();
+        }
+
+        // If no object creation found, look for method calls that might return entities
+        // (e.g., Entity.findById(), snapshotToEntity())
         return buildPayloadMethod.findAll(com.github.javaparser.ast.stmt.ReturnStmt.class).stream()
                 .map(ret -> ret.getExpression().orElse(null))
-                .filter(expr -> expr instanceof ObjectCreationExpr)
+                .filter(expr -> expr != null)
                 .findFirst()
                 .orElse(null);
     }
