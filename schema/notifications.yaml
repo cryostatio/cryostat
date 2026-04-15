@@ -28,6 +28,9 @@ channels:
         oneOf:
         - $ref: '#/components/messages/ArchiveRecordingFailure'
         - $ref: '#/components/messages/ArchiveRecordingSuccess'
+        - $ref: '#/components/messages/CredentialsDeleted'
+        - $ref: '#/components/messages/CredentialsStored'
+        - $ref: '#/components/messages/CredentialsUpdated'
         - $ref: '#/components/messages/ExpressionCreated'
         - $ref: '#/components/messages/ExpressionDeleted'
         - $ref: '#/components/messages/ExpressionUpdated'
@@ -109,6 +112,81 @@ components:
                 type: string
               downloadUrl:
                 type: string
+        required:
+        - meta
+        - message
+    CredentialsDeleted:
+      name: CredentialsDeleted
+      title: Credentials Deleted
+      summary: 'Notification: CredentialsDeleted'
+      description: WebSocket notification for Credentials Deleted events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: CredentialsDeleted
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            description: Payload of type UnknownPayload
+        required:
+        - meta
+        - message
+    CredentialsStored:
+      name: CredentialsStored
+      title: Credentials Stored
+      summary: 'Notification: CredentialsStored'
+      description: WebSocket notification for Credentials Stored events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: CredentialsStored
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            description: Payload of type UnknownPayload
+        required:
+        - meta
+        - message
+    CredentialsUpdated:
+      name: CredentialsUpdated
+      title: Credentials Updated
+      summary: 'Notification: CredentialsUpdated'
+      description: WebSocket notification for Credentials Updated events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: CredentialsUpdated
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            description: Payload of type UnknownPayload
         required:
         - meta
         - message
