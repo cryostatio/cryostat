@@ -33,9 +33,10 @@ public abstract class EntityNotificationObserver<E extends PanacheEntity> {
                 "Post-commit: {0} created, id={1}", event.getEntityType(), event.getEntityId());
 
         try {
-            Object payload = buildCreatedPayload(event.getSnapshot());
-            publishNotification(event.getCategory(), payload);
-            publishInternalEvent(event.getCategory(), payload);
+            Object notificationPayload = buildCreatedPayload(event.getSnapshot());
+            Object eventPayload = buildCreatedEventPayload(event.getSnapshot());
+            publishNotification(event.getCategory(), notificationPayload);
+            publishInternalEvent(event.getCategory(), eventPayload);
         } catch (Exception e) {
             logger.error("Failed to send notification for entity created event", e);
         }
@@ -46,9 +47,10 @@ public abstract class EntityNotificationObserver<E extends PanacheEntity> {
                 "Post-commit: {0} updated, id={1}", event.getEntityType(), event.getEntityId());
 
         try {
-            Object payload = buildUpdatedPayload(event.getSnapshot());
-            publishNotification(event.getCategory(), payload);
-            publishInternalEvent(event.getCategory(), payload);
+            Object notificationPayload = buildUpdatedPayload(event.getSnapshot());
+            Object eventPayload = buildUpdatedEventPayload(event.getSnapshot());
+            publishNotification(event.getCategory(), notificationPayload);
+            publishInternalEvent(event.getCategory(), eventPayload);
         } catch (Exception e) {
             logger.error("Failed to send notification for entity updated event", e);
         }
@@ -59,9 +61,10 @@ public abstract class EntityNotificationObserver<E extends PanacheEntity> {
                 "Post-commit: {0} deleted, id={1}", event.getEntityType(), event.getEntityId());
 
         try {
-            Object payload = buildDeletedPayload(event.getSnapshot());
-            publishNotification(event.getCategory(), payload);
-            publishInternalEvent(event.getCategory(), payload);
+            Object notificationPayload = buildDeletedPayload(event.getSnapshot());
+            Object eventPayload = buildDeletedEventPayload(event.getSnapshot());
+            publishNotification(event.getCategory(), notificationPayload);
+            publishInternalEvent(event.getCategory(), eventPayload);
         } catch (Exception e) {
             logger.error("Failed to send notification for entity deleted event", e);
         }
@@ -72,6 +75,18 @@ public abstract class EntityNotificationObserver<E extends PanacheEntity> {
     protected abstract <S> Object buildUpdatedPayload(S snapshot);
 
     protected abstract <S> Object buildDeletedPayload(S snapshot);
+
+    protected <S> Object buildCreatedEventPayload(S snapshot) {
+        return buildCreatedPayload(snapshot);
+    }
+
+    protected <S> Object buildUpdatedEventPayload(S snapshot) {
+        return buildUpdatedPayload(snapshot);
+    }
+
+    protected <S> Object buildDeletedEventPayload(S snapshot) {
+        return buildDeletedPayload(snapshot);
+    }
 
     protected void publishNotification(String category, Object payload) {
         bus.publish(MessagingServer.class.getName(), new Notification(category, payload));
@@ -99,5 +114,24 @@ public abstract class EntityNotificationObserver<E extends PanacheEntity> {
         }
 
         protected abstract <S> Object buildPayload(S snapshot);
+
+        protected <S> Object buildEventPayload(S snapshot) {
+            return buildPayload(snapshot);
+        }
+
+        @Override
+        protected <S> Object buildCreatedEventPayload(S snapshot) {
+            return buildEventPayload(snapshot);
+        }
+
+        @Override
+        protected <S> Object buildUpdatedEventPayload(S snapshot) {
+            return buildEventPayload(snapshot);
+        }
+
+        @Override
+        protected <S> Object buildDeletedEventPayload(S snapshot) {
+            return buildEventPayload(snapshot);
+        }
     }
 }

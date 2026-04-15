@@ -68,6 +68,28 @@ public class TargetNotificationObserver extends EntityNotificationObserver<Targe
                 new TargetDiscovery(EventKind.LOST, serviceRef, targetSnapshot.jvmId()));
     }
 
+    @Override
+    protected <S> Object buildCreatedEventPayload(S snapshot) {
+        TargetEvents.TargetSnapshot targetSnapshot = (TargetEvents.TargetSnapshot) snapshot;
+        Target target = Target.findById(targetSnapshot.id());
+        return new Target.TargetDiscovery(EventKind.FOUND, target, targetSnapshot.jvmId());
+    }
+
+    @Override
+    protected <S> Object buildUpdatedEventPayload(S snapshot) {
+        TargetEvents.TargetSnapshot targetSnapshot = (TargetEvents.TargetSnapshot) snapshot;
+        Target target = Target.findById(targetSnapshot.id());
+        return new Target.TargetDiscovery(EventKind.MODIFIED, target, targetSnapshot.jvmId());
+    }
+
+    @Override
+    protected <S> Object buildDeletedEventPayload(S snapshot) {
+        TargetEvents.TargetSnapshot targetSnapshot = (TargetEvents.TargetSnapshot) snapshot;
+        // reconstruct a Target from the snapshot since the entity has been deleted
+        Target target = snapshotToTarget(targetSnapshot);
+        return new Target.TargetDiscovery(EventKind.LOST, target, targetSnapshot.jvmId());
+    }
+
     public record NotificationPayload(TargetDiscovery event) {}
 
     public record TargetDiscovery(EventKind kind, ServiceRef serviceRef, String jvmId) {}
@@ -104,5 +126,16 @@ public class TargetNotificationObserver extends EntityNotificationObserver<Targe
                 snapshot.labels(),
                 snapshot.annotations(),
                 true);
+    }
+
+    private Target snapshotToTarget(TargetEvents.TargetSnapshot snapshot) {
+        Target target = new Target();
+        target.id = snapshot.id();
+        target.connectUrl = snapshot.connectUrl();
+        target.alias = snapshot.alias();
+        target.labels = snapshot.labels();
+        target.annotations = snapshot.annotations();
+        target.jvmId = snapshot.jvmId();
+        return target;
     }
 }

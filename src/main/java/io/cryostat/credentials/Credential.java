@@ -158,7 +158,9 @@ public class Credential extends PanacheEntity {
 
         private CredentialEvents.CredentialSnapshot createSnapshot(Credential credential) {
             return new CredentialEvents.CredentialSnapshot(
-                    credential.id, credential.matchExpression.id);
+                    credential.id,
+                    credential.matchExpression.id,
+                    credential.matchExpression.script);
         }
     }
 }

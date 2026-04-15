@@ -15,12 +15,9 @@
  */
 package io.cryostat.credentials.events;
 
-import java.util.List;
-
 import io.cryostat.credentials.Credential;
 import io.cryostat.events.EntityNotificationObserver;
 import io.cryostat.expressions.MatchExpression;
-import io.cryostat.targets.Target;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -51,21 +48,32 @@ public class CredentialNotificationObserver extends EntityNotificationObserver.S
     protected <S> Object buildPayload(S snapshot) {
         CredentialEvents.CredentialSnapshot credentialSnapshot =
                 (CredentialEvents.CredentialSnapshot) snapshot;
-        MatchExpression matchExpression =
-                MatchExpression.findById(credentialSnapshot.matchExpressionId());
-        MatchExpressionInfo matchExpressionInfo =
-                matchExpression != null
-                        ? new MatchExpressionInfo(matchExpression.id, matchExpression.script)
-                        : null;
-        return new CredentialPayload(credentialSnapshot.id(), matchExpressionInfo, List.of());
+        return Credential.findById(credentialSnapshot.id());
     }
 
-    public record CredentialPayload(
-            long id, MatchExpressionInfo matchExpression, List<Target> targets) {
-        public CredentialPayload {
-            targets = targets != null ? List.copyOf(targets) : List.of();
-        }
+    @Override
+    protected <S> Object buildDeletedPayload(S snapshot) {
+        // reconstruct from snapshot since entity no longer exists
+        CredentialEvents.CredentialSnapshot credentialSnapshot =
+                (CredentialEvents.CredentialSnapshot) snapshot;
+        return snapshotToCredential(credentialSnapshot);
     }
 
-    public record MatchExpressionInfo(long id, String script) {}
+    @Override
+    protected <S> Object buildDeletedEventPayload(S snapshot) {
+        // reconstruct from snapshot since entity no longer exists
+        CredentialEvents.CredentialSnapshot credentialSnapshot =
+                (CredentialEvents.CredentialSnapshot) snapshot;
+        return snapshotToCredential(credentialSnapshot);
+    }
+
+    private Credential snapshotToCredential(CredentialEvents.CredentialSnapshot snapshot) {
+        Credential credential = new Credential();
+        credential.id = snapshot.id();
+        // reconstruct from snapshot since it may have been cascade-deleted
+        MatchExpression matchExpression = new MatchExpression(snapshot.matchExpressionScript());
+        matchExpression.id = snapshot.matchExpressionId();
+        credential.matchExpression = matchExpression;
+        return credential;
+    }
 }
