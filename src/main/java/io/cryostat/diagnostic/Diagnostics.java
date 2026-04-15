@@ -15,6 +15,7 @@
  */
 package io.cryostat.diagnostic;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -170,6 +171,16 @@ public class Diagnostics {
     public void deleteThreadDump(@RestPath long targetId, @RestPath String threadDumpId) {
         log.tracev("Deleting thread dump with ID: {0}", threadDumpId);
         helper.deleteThreadDump(Target.getTargetById(targetId).jvmId, threadDumpId);
+    }
+
+    @POST
+    @Blocking
+    @Transactional
+    @Path("targets/{jvmId}/threaddump/{threadDumpId}/analyze")
+    @RolesAllowed("write")
+    public ThreadDumpAnalysis analyzeThreadDump(
+            @RestPath String jvmId, @RestPath String threadDumpId) throws IOException {
+        return helper.analyzeThreadDump(jvmId, threadDumpId);
     }
 
     @DELETE

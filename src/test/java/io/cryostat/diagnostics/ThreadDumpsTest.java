@@ -284,6 +284,75 @@ public class ThreadDumpsTest extends AbstractTransactionalTestBase {
     }
 
     @Test
+    public void testAnalysis() throws InterruptedException, TimeoutException {
+        int id = defineSelfCustomTarget();
+
+        given().log()
+                .all()
+                .when()
+                .pathParam("targetId", id)
+                .post("targets/{targetId}/threaddump")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .contentType(ContentType.TEXT)
+                .statusCode(200)
+                .extract()
+                .body()
+                .asString();
+
+        webSocketClient.expectNotification("ThreadDumpSuccess");
+
+        var listResponseJson =
+                given().log()
+                        .all()
+                        .when()
+                        .pathParam("targetId", id)
+                        .get("targets/{targetId}/threaddump")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .contentType(ContentType.JSON)
+                        .statusCode(200)
+                        .body("size()", Matchers.equalTo(1))
+                        .extract()
+                        .jsonPath();
+
+        var threadDumpId = listResponseJson.getString("[0].threadDumpId");
+        var jvmId = listResponseJson.getString("[0].jvmId");
+
+        given().log()
+                .all()
+                .when()
+                .pathParam("jvmId", jvmId)
+                .pathParam("threadDumpId", threadDumpId)
+                .post("targets/{jvmId}/threaddump/{threadDumpId}/analyze")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        given().log()
+                .all()
+                .when()
+                .pathParam("targetId", id)
+                .pathParam("threadDumpId", threadDumpId)
+                .delete("targets/{targetId}/threaddump/{threadDumpId}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
+    @Test
     public void testListInvalid() {
         given().log()
                 .all()
