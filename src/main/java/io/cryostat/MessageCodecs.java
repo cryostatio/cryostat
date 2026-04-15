@@ -15,7 +15,6 @@
  */
 package io.cryostat;
 
-import io.cryostat.credentials.events.CredentialNotificationObserver;
 import io.cryostat.expressions.events.MatchExpressionNotificationObserver;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
 import io.cryostat.recordings.RecordingNotifications.ActiveRecordingNotification;
@@ -49,13 +48,5 @@ public class MessageCodecs {
         bus.getDelegate()
                 .registerDefaultCodec(
                         RuleNotificationObserver.RulePayload.class, new LocalEventBusCodec<>());
-        bus.getDelegate()
-                .registerDefaultCodec(
-                        CredentialNotificationObserver.CredentialPayload.class,
-                        new LocalEventBusCodec<>());
-        bus.getDelegate()
-                .registerDefaultCodec(
-                        CredentialNotificationObserver.MatchExpressionInfo.class,
-                        new LocalEventBusCodec<>());
     }
 }

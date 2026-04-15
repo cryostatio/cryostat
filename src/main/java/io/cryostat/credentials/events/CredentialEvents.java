@@ -24,9 +24,11 @@ import io.cryostat.events.EntityUpdatedEvent;
 
 public class CredentialEvents {
 
-    public record CredentialSnapshot(long id, long matchExpressionId) {
+    public record CredentialSnapshot(
+            long id, long matchExpressionId, String matchExpressionScript) {
         public CredentialSnapshot {
             Objects.requireNonNull(matchExpressionId);
+            Objects.requireNonNull(matchExpressionScript);
         }
     }
 
