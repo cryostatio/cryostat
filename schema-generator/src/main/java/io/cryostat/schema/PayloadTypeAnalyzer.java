@@ -71,26 +71,15 @@ public class PayloadTypeAnalyzer {
             return analyzeType(simpleTypeName);
 
         } catch (Exception e) {
-            // Debug: print expression type
-            System.err.println(
-                    "DEBUG: Failed to resolve expression of type "
-                            + expr.getClass().getSimpleName()
-                            + ": "
-                            + expr);
-
             // Special handling for method calls on local variables (e.g., event.payload())
             // The symbol solver can't resolve these without full method context
             if (expr instanceof MethodCallExpr && enclosingMethod != null) {
                 MethodCallExpr methodCall = (MethodCallExpr) expr;
-                System.err.println(
-                        "DEBUG: Attempting contextual analysis for method call: " + methodCall);
                 Optional<Map<String, Object>> contextualResult =
                         analyzeMethodCallWithContext(methodCall, enclosingMethod);
                 if (contextualResult.isPresent()) {
-                    System.err.println("DEBUG: Contextual analysis succeeded!");
                     return contextualResult.get();
                 }
-                System.err.println("DEBUG: Contextual analysis failed, falling back");
             }
 
             // Fallback to heuristic analysis if type resolution fails
@@ -114,40 +103,24 @@ public class PayloadTypeAnalyzer {
             // Get the scope (e.g., "event" in "event.payload()")
             Optional<Expression> scope = methodCall.getScope();
             if (!scope.isPresent()) {
-                System.err.println("DEBUG: No scope found for method call");
                 return Optional.empty();
             }
-
-            System.err.println(
-                    "DEBUG: Found enclosing method: " + enclosingMethod.getNameAsString());
 
             // If the scope is a simple name (variable/parameter), find its declaration
             if (scope.get() instanceof com.github.javaparser.ast.expr.NameExpr) {
                 com.github.javaparser.ast.expr.NameExpr nameExpr =
                         (com.github.javaparser.ast.expr.NameExpr) scope.get();
                 String varName = nameExpr.getNameAsString();
-                System.err.println("DEBUG: Looking for variable/parameter: " + varName);
 
                 // First, check method parameters
                 for (com.github.javaparser.ast.body.Parameter param :
                         enclosingMethod.getParameters()) {
-                    System.err.println(
-                            "DEBUG: Checking parameter: "
-                                    + param.getNameAsString()
-                                    + " of type "
-                                    + param.getTypeAsString());
                     if (param.getNameAsString().equals(varName)) {
                         String paramType = param.getTypeAsString();
                         String methodName = methodCall.getNameAsString();
-                        System.err.println(
-                                "DEBUG: Found matching parameter! Type: "
-                                        + paramType
-                                        + ", method: "
-                                        + methodName);
 
                         Map<String, Object> result = analyzeRecordAccessor(paramType, methodName);
                         if (result != null) {
-                            System.err.println("DEBUG: Record accessor analysis succeeded!");
                             return Optional.of(result);
                         }
 
@@ -156,35 +129,21 @@ public class PayloadTypeAnalyzer {
                 }
 
                 // If not a parameter, look for local variable declarations in the method body
-                System.err.println("DEBUG: Not a parameter, checking local variables");
                 Optional<String> varType = findLocalVariableType(enclosingMethod, varName);
                 if (varType.isPresent()) {
                     String localVarType = varType.get();
                     String methodName = methodCall.getNameAsString();
-                    System.err.println(
-                            "DEBUG: Found local variable! Type: "
-                                    + localVarType
-                                    + ", method: "
-                                    + methodName);
 
                     Map<String, Object> result = analyzeRecordAccessor(localVarType, methodName);
                     if (result != null) {
-                        System.err.println("DEBUG: Record accessor analysis succeeded!");
                         return Optional.of(result);
                     }
 
                     return Optional.of(analyzeType(localVarType));
                 }
-
-                System.err.println("DEBUG: Variable not found in method");
-            } else {
-                System.err.println(
-                        "DEBUG: Scope is not a NameExpr, it's a "
-                                + scope.get().getClass().getSimpleName());
             }
         } catch (Exception e) {
-            System.err.println("DEBUG: Exception in contextual analysis: " + e.getMessage());
-            e.printStackTrace();
+            // Silently fail contextual analysis
         }
         return Optional.empty();
     }
@@ -213,17 +172,9 @@ public class PayloadTypeAnalyzer {
                                                                 resolvedType =
                                                                         init
                                                                                 .calculateResolvedType();
-                                                        String qualifiedName =
-                                                                resolvedType.describe();
-                                                        System.err.println(
-                                                                "DEBUG: Resolved 'var' type to: "
-                                                                        + qualifiedName);
-                                                        return Optional.of(qualifiedName);
+                                                        return Optional.of(resolvedType.describe());
                                                     } catch (Exception e) {
-                                                        System.err.println(
-                                                                "DEBUG: Could not resolve 'var'"
-                                                                        + " type: "
-                                                                        + e.getMessage());
+                                                        // Could not resolve 'var' type
                                                         // Fallback: try to get type from
                                                         // initializer expression
                                                         if (init.isObjectCreationExpr()) {

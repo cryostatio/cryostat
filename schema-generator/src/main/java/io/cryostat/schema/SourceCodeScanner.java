@@ -103,19 +103,9 @@ public class SourceCodeScanner {
                 .forEach(
                         classDecl -> {
                             if (extendsEntityNotificationObserver(classDecl)) {
-                                System.out.println(
-                                        "DEBUG: Found EntityNotificationObserver subclass: "
-                                                + classDecl.getNameAsString()
-                                                + " in "
-                                                + javaFile.getFileName());
                                 List<NotificationSite> observerSites =
                                         extractNotificationSitesFromObserver(
                                                 javaFile, cu, classDecl);
-                                System.out.println(
-                                        "DEBUG: Extracted "
-                                                + observerSites.size()
-                                                + " notification sites from "
-                                                + classDecl.getNameAsString());
                                 sites.addAll(observerSites);
                             }
                         });
@@ -137,17 +127,6 @@ public class SourceCodeScanner {
                                                             "EntityNotificationObserver.Simple")
                                                     || typeAsString.contains(
                                                             "EntityNotificationObserver");
-                                    if (!matches
-                                            && classDecl.getNameAsString().contains("Observer")) {
-                                        System.out.println(
-                                                "DEBUG: Class "
-                                                        + classDecl.getNameAsString()
-                                                        + " extends "
-                                                        + typeName
-                                                        + " (full: "
-                                                        + typeAsString
-                                                        + ") - no match");
-                                    }
                                     return matches;
                                 });
         return result;
@@ -171,28 +150,14 @@ public class SourceCodeScanner {
         }
 
         if (!buildPayloadMethod.isPresent()) {
-            System.out.println(
-                    "DEBUG: No buildPayload method found in " + observerClass.getNameAsString());
             return sites; // No payload method found
         }
-
-        System.out.println(
-                "DEBUG: Found buildPayload method in " + observerClass.getNameAsString());
 
         // Extract payload type from the return statement
         Expression payloadExpr = extractPayloadExpression(buildPayloadMethod.get());
         if (payloadExpr == null) {
-            System.out.println(
-                    "DEBUG: No payload expression found in buildPayload method of "
-                            + observerClass.getNameAsString());
             return sites;
         }
-
-        System.out.println(
-                "DEBUG: Found payload expression: "
-                        + payloadExpr
-                        + " in "
-                        + observerClass.getNameAsString());
 
         // Find event handler methods and extract categories
         List<MethodDeclaration> eventHandlers =
@@ -203,12 +168,6 @@ public class SourceCodeScanner {
                                                 && method.getParameters().size() == 1)
                         .toList();
 
-        System.out.println(
-                "DEBUG: Found "
-                        + eventHandlers.size()
-                        + " event handler methods in "
-                        + observerClass.getNameAsString());
-
         eventHandlers.forEach(
                 eventHandler -> {
                     // Extract the event type from the parameter
@@ -218,12 +177,6 @@ public class SourceCodeScanner {
                                     .getType()
                                     .asClassOrInterfaceType()
                                     .getNameAsString();
-
-                    System.out.println(
-                            "DEBUG: Processing event handler "
-                                    + eventHandler.getNameAsString()
-                                    + " with event type: "
-                                    + eventTypeName);
 
                     // Find the corresponding event class to get the category
                     Expression categoryExpr = findCategoryForEventType(cu, eventTypeName, javaFile);
@@ -236,9 +189,6 @@ public class SourceCodeScanner {
                                         categoryExpr,
                                         payloadExpr,
                                         eventHandler));
-                    } else {
-                        System.out.println(
-                                "DEBUG: No category found for event type: " + eventTypeName);
                     }
                 });
 
@@ -283,9 +233,6 @@ public class SourceCodeScanner {
                         .replaceAll("(Created|Updated|Deleted|Stopped|MetadataUpdated)$", "")
                         .replaceAll(".*\\.", "");
 
-        System.out.println(
-                "DEBUG: Looking for event file for " + eventTypeName + ", base name: " + baseName);
-
         // Try to find the event class file in the same directory
         // Pattern: <BaseName>Events.java (e.g., CredentialEvents.java)
         Path eventFilePath = javaFile.getParent().resolve(baseName + "Events.java");
@@ -325,19 +272,225 @@ public class SourceCodeScanner {
             }
 
             // Extract the return expression
-            return getCategoryMethod
-                    .get()
-                    .findAll(com.github.javaparser.ast.stmt.ReturnStmt.class)
-                    .stream()
-                    .map(ret -> ret.getExpression().orElse(null))
-                    .filter(expr -> expr != null)
-                    .findFirst()
-                    .orElse(null);
+            Expression categoryExpr =
+                    getCategoryMethod
+                            .get()
+                            .findAll(com.github.javaparser.ast.stmt.ReturnStmt.class)
+                            .stream()
+                            .map(ret -> ret.getExpression().orElse(null))
+                            .filter(expr -> expr != null)
+                            .findFirst()
+                            .orElse(null);
+
+            if (categoryExpr == null) {
+                return null;
+            }
+
+            // If the expression is a method call like "category.category()", resolve the enum
+            // constant
+            if (categoryExpr instanceof com.github.javaparser.ast.expr.MethodCallExpr) {
+                com.github.javaparser.ast.expr.MethodCallExpr methodCall =
+                        (com.github.javaparser.ast.expr.MethodCallExpr) categoryExpr;
+                // Check if it's calling .category() on an enum field
+                if (methodCall.getNameAsString().equals("category")
+                        && methodCall.getScope().isPresent()) {
+                    Expression scope = methodCall.getScope().get();
+                    if (scope instanceof com.github.javaparser.ast.expr.FieldAccessExpr) {
+                        // This is like "this.category" or just "category"
+                        // Find the field declaration and its initializer
+                        String fieldName =
+                                ((com.github.javaparser.ast.expr.FieldAccessExpr) scope)
+                                        .getNameAsString();
+                        Optional<com.github.javaparser.ast.body.FieldDeclaration> fieldDecl =
+                                eventClass.get().getFieldByName(fieldName);
+                        if (fieldDecl.isPresent()) {
+                            // Get the enum constant from the field initializer
+                            return resolveEnumConstant(
+                                    fieldDecl.get(), eventCu, javaFile.getParent());
+                        }
+                    } else if (scope instanceof com.github.javaparser.ast.expr.NameExpr) {
+                        // This is just "category"
+                        String fieldName =
+                                ((com.github.javaparser.ast.expr.NameExpr) scope).getNameAsString();
+                        Optional<com.github.javaparser.ast.body.FieldDeclaration> fieldDecl =
+                                eventClass.get().getFieldByName(fieldName);
+                        if (fieldDecl.isPresent()) {
+                            return resolveEnumConstant(
+                                    fieldDecl.get(), eventCu, javaFile.getParent());
+                        }
+                    }
+                }
+            }
+
+            return categoryExpr;
 
         } catch (IOException e) {
             System.err.println("Error reading event file " + eventFilePath + ": " + e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * Resolve an enum constant to its string value. For example, if a field is initialized with
+     * RecordingEventCategory.ACTIVE_CREATED, this will find the enum constant and extract the
+     * string value passed to its constructor.
+     */
+    private Expression resolveEnumConstant(
+            com.github.javaparser.ast.body.FieldDeclaration fieldDecl,
+            CompilationUnit eventCu,
+            Path packageDir) {
+        // Get the field name
+        String fieldName = fieldDecl.getVariables().get(0).getNameAsString();
+
+        // Get the field initializer (e.g., RecordingEventCategory.ACTIVE_CREATED)
+        Optional<Expression> initializer =
+                fieldDecl.getVariables().stream().findFirst().flatMap(var -> var.getInitializer());
+
+        // If no initializer, try to find it in the constructor
+        if (!initializer.isPresent()) {
+            // Find the class containing this field
+            Optional<com.github.javaparser.ast.body.ClassOrInterfaceDeclaration> containingClass =
+                    fieldDecl.findAncestor(
+                            com.github.javaparser.ast.body.ClassOrInterfaceDeclaration.class);
+
+            if (containingClass.isPresent()) {
+                // Look for constructor assignments
+                for (com.github.javaparser.ast.body.ConstructorDeclaration constructor :
+                        containingClass.get().getConstructors()) {
+                    // Find assignments to this field in the constructor
+                    for (com.github.javaparser.ast.expr.AssignExpr assignment :
+                            constructor.findAll(com.github.javaparser.ast.expr.AssignExpr.class)) {
+                        Expression target = assignment.getTarget();
+                        // Check if this is an assignment to our field (this.category or just
+                        // category)
+                        String assignedFieldName = null;
+                        if (target instanceof com.github.javaparser.ast.expr.FieldAccessExpr) {
+                            com.github.javaparser.ast.expr.FieldAccessExpr fieldAccess =
+                                    (com.github.javaparser.ast.expr.FieldAccessExpr) target;
+                            assignedFieldName = fieldAccess.getNameAsString();
+                        } else if (target instanceof com.github.javaparser.ast.expr.NameExpr) {
+                            assignedFieldName =
+                                    ((com.github.javaparser.ast.expr.NameExpr) target)
+                                            .getNameAsString();
+                        }
+
+                        if (fieldName.equals(assignedFieldName)) {
+                            initializer = Optional.of(assignment.getValue());
+                            break;
+                        }
+                    }
+                    if (initializer.isPresent()) {
+                        break;
+                    }
+                }
+            }
+
+            if (!initializer.isPresent()) {
+                return null;
+            }
+        }
+
+        Expression init = initializer.get();
+        if (!(init instanceof com.github.javaparser.ast.expr.FieldAccessExpr)) {
+            return null;
+        }
+
+        com.github.javaparser.ast.expr.FieldAccessExpr fieldAccess =
+                (com.github.javaparser.ast.expr.FieldAccessExpr) init;
+        String enumConstantName = fieldAccess.getNameAsString();
+        Expression scope = fieldAccess.getScope();
+
+        // Get the enum class name
+        String enumClassName = null;
+        if (scope instanceof com.github.javaparser.ast.expr.NameExpr) {
+            enumClassName = ((com.github.javaparser.ast.expr.NameExpr) scope).getNameAsString();
+        } else if (scope instanceof com.github.javaparser.ast.expr.FieldAccessExpr) {
+            // Handle nested class like ActiveRecordings.RecordingEventCategory
+            com.github.javaparser.ast.expr.FieldAccessExpr nestedAccess =
+                    (com.github.javaparser.ast.expr.FieldAccessExpr) scope;
+            enumClassName = nestedAccess.getNameAsString();
+        }
+
+        if (enumClassName == null) {
+            return null;
+        }
+
+        // Make final for use in lambda expressions
+        final String finalEnumClassName = enumClassName;
+        final String finalEnumConstantName = enumConstantName;
+
+        // Try to find the enum in the same file first
+        Optional<com.github.javaparser.ast.body.EnumDeclaration> enumDecl =
+                eventCu.findAll(com.github.javaparser.ast.body.EnumDeclaration.class).stream()
+                        .filter(e -> e.getNameAsString().equals(finalEnumClassName))
+                        .findFirst();
+
+        // If not found, try to find it in a parent class file (e.g., ActiveRecordings.java)
+        if (!enumDecl.isPresent()) {
+            // Look for files in the parent directory that might contain the enum
+            try {
+                Path parentDir = packageDir.getParent();
+                if (parentDir != null) {
+                    // Try common patterns like ActiveRecordings.java
+                    Path[] possibleFiles = {
+                        packageDir.resolve("ActiveRecordings.java"),
+                        parentDir.resolve("ActiveRecordings.java"),
+                        packageDir.resolve(enumClassName + ".java")
+                    };
+
+                    for (Path possibleFile : possibleFiles) {
+                        if (Files.exists(possibleFile)) {
+                            CompilationUnit cu = StaticJavaParser.parse(possibleFile);
+                            enumDecl =
+                                    cu
+                                            .findAll(
+                                                    com.github.javaparser.ast.body.EnumDeclaration
+                                                            .class)
+                                            .stream()
+                                            .filter(
+                                                    e ->
+                                                            e.getNameAsString()
+                                                                    .equals(finalEnumClassName))
+                                            .findFirst();
+                            if (enumDecl.isPresent()) {
+                                break;
+                            }
+                        }
+                    }
+                }
+            } catch (IOException e) {
+                System.err.println("Error searching for enum class: " + e.getMessage());
+            }
+        }
+
+        if (!enumDecl.isPresent()) {
+            return null;
+        }
+
+        // Find the specific enum constant
+        Optional<com.github.javaparser.ast.body.EnumConstantDeclaration> enumConstant =
+                enumDecl.get().getEntries().stream()
+                        .filter(e -> e.getNameAsString().equals(enumConstantName))
+                        .findFirst();
+
+        if (!enumConstant.isPresent()) {
+            System.out.println(
+                    "DEBUG: Could not find enum constant "
+                            + enumConstantName
+                            + " in "
+                            + enumClassName);
+            return null;
+        }
+
+        // Extract the string argument passed to the enum constructor
+        com.github.javaparser.ast.NodeList<Expression> arguments =
+                enumConstant.get().getArguments();
+        if (arguments.isEmpty()) {
+            return null;
+        }
+
+        // Return the first argument (usually the string constant)
+        return arguments.get(0);
     }
 
     /**
