@@ -32,6 +32,7 @@ import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.RecordDeclaration;
 import com.github.javaparser.ast.expr.Expression;
 import com.github.javaparser.ast.expr.MethodCallExpr;
+import com.github.javaparser.ast.expr.NameExpr;
 import com.github.javaparser.ast.expr.ObjectCreationExpr;
 import com.github.javaparser.resolution.types.ResolvedType;
 
@@ -227,6 +228,25 @@ public class PayloadTypeAnalyzer {
                     && methodCall.getScope().map(s -> s.toString().equals("Map")).orElse(false)) {
                 return createMapSchema();
             }
+
+            // Handle Panache ORM patterns: ClassName.findById(...), ClassName.find(...), etc.
+            // These static methods return instances of the declaring class
+            String methodName = methodCall.getNameAsString();
+            if ((methodName.equals("findById")
+                            || methodName.equals("find")
+                            || methodName.equals("list")
+                            || methodName.equals("stream"))
+                    && methodCall.getScope().isPresent()) {
+                Expression scope = methodCall.getScope().get();
+                // Check if scope is a simple name (class name) rather than an instance
+                if (scope instanceof NameExpr) {
+                    String className = scope.toString();
+                    // Verify it looks like a class name (starts with uppercase)
+                    if (!className.isEmpty() && Character.isUpperCase(className.charAt(0))) {
+                        return analyzeType(className);
+                    }
+                }
+            }
         }
 
         // Handle object creation: new SomePayload(...)
@@ -318,12 +338,43 @@ public class PayloadTypeAnalyzer {
 
         Map<String, Object> properties = new LinkedHashMap<>();
 
-        // Analyze public fields (excluding static final constants)
+        // Analyze public fields (excluding static final constants and Jackson-ignored fields)
         classDecl
                 .getFields()
                 .forEach(
                         field -> {
                             if (field.isPublic() && !(field.isStatic() && field.isFinal())) {
+                                // Skip fields with @JsonIgnore
+                                if (field.getAnnotationByName("JsonIgnore").isPresent()) {
+                                    return;
+                                }
+
+                                // Skip fields with @JsonProperty(access = WRITE_ONLY)
+                                boolean isWriteOnly = false;
+                                var jsonPropertyAnn = field.getAnnotationByName("JsonProperty");
+                                if (jsonPropertyAnn.isPresent()
+                                        && jsonPropertyAnn.get().isNormalAnnotationExpr()) {
+                                    var normalAnn =
+                                            (com.github.javaparser.ast.expr.NormalAnnotationExpr)
+                                                    jsonPropertyAnn.get();
+                                    isWriteOnly =
+                                            normalAnn.getPairs().stream()
+                                                    .anyMatch(
+                                                            pair ->
+                                                                    "access"
+                                                                                    .equals(
+                                                                                            pair
+                                                                                                    .getNameAsString())
+                                                                            && pair.getValue()
+                                                                                    .toString()
+                                                                                    .contains(
+                                                                                            "WRITE_ONLY"));
+                                }
+
+                                if (isWriteOnly) {
+                                    return;
+                                }
+
                                 field.getVariables()
                                         .forEach(
                                                 var -> {
