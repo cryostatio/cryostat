@@ -335,7 +335,12 @@ components:
             - category
           message:
             type: object
-            description: Payload of type UnknownPayload
+            properties:
+              matchExpression:
+                type: object
+                properties:
+                  script:
+                    type: string
         required:
         - meta
         - message
@@ -360,7 +365,12 @@ components:
             - category
           message:
             type: object
-            description: Payload of type UnknownPayload
+            properties:
+              matchExpression:
+                type: object
+                properties:
+                  script:
+                    type: string
         required:
         - meta
         - message
@@ -385,7 +395,12 @@ components:
             - category
           message:
             type: object
-            description: Payload of type UnknownPayload
+            properties:
+              matchExpression:
+                type: object
+                properties:
+                  script:
+                    type: string
         required:
         - meta
         - message
@@ -1030,26 +1045,6 @@ components:
                           cryostat:
                             type: object
                             additionalProperties: true
-                      activeRecordings:
-                        type: array
-                      discoveryNode:
-                        type: object
-                        properties:
-                          name:
-                            type: string
-                          nodeType:
-                            type: string
-                          labels:
-                            type: object
-                            additionalProperties: true
-                          children:
-                            type: array
-                          parent:
-                            type: object
-                            description: Payload of type DiscoveryNode
-                          target:
-                            type: object
-                            description: Payload of type Target
                   jvmId:
                     type: string
         required:
