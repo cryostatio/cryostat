@@ -133,6 +133,31 @@ public abstract class AbstractTestBase {
         if (scheduler.isStarted() && !scheduler.isInStandbyMode()) {
             scheduler.standby();
         }
+
+        // Wait for currently executing jobs to complete before clearing
+        int maxWaitMs = 10000;
+        int waitedMs = 0;
+        int pollIntervalMs = 100;
+        while (!scheduler.getCurrentlyExecutingJobs().isEmpty() && waitedMs < maxWaitMs) {
+            try {
+                long start = System.nanoTime();
+                Thread.sleep(pollIntervalMs);
+                long end = System.nanoTime();
+                long elapsed = Duration.ofNanos(end).minus(Duration.ofNanos(start)).toMillis();
+                waitedMs += elapsed;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                logger.warn("Interrupted while waiting for scheduler jobs to complete");
+                break;
+            }
+        }
+
+        if (!scheduler.getCurrentlyExecutingJobs().isEmpty()) {
+            logger.warnv(
+                    "Scheduler still has {0} executing jobs after {1}ms wait, forcing clear",
+                    scheduler.getCurrentlyExecutingJobs().size(), waitedMs);
+        }
+
         scheduler.clear();
     }
 
