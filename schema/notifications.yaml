@@ -26,6 +26,9 @@ channels:
         notifications about events occurring in Cryostat.
       message:
         oneOf:
+        - $ref: '#/components/messages/ActiveRecordingCreated'
+        - $ref: '#/components/messages/ActiveRecordingDeleted'
+        - $ref: '#/components/messages/ActiveRecordingStopped'
         - $ref: '#/components/messages/ArchiveRecordingFailure'
         - $ref: '#/components/messages/ArchiveRecordingSuccess'
         - $ref: '#/components/messages/CredentialsDeleted'
@@ -42,6 +45,7 @@ channels:
         - $ref: '#/components/messages/ProbeTemplateDeleted'
         - $ref: '#/components/messages/ProbeTemplateUploaded'
         - $ref: '#/components/messages/ProbesRemoved'
+        - $ref: '#/components/messages/RecordingMetadataUpdated'
         - $ref: '#/components/messages/ReportFailure'
         - $ref: '#/components/messages/ReportSuccess'
         - $ref: '#/components/messages/RuleCreated'
@@ -55,6 +59,201 @@ channels:
         - $ref: '#/components/messages/TriggerDeleted'
 components:
   messages:
+    ActiveRecordingCreated:
+      name: ActiveRecordingCreated
+      title: Active Recording Created
+      summary: 'Notification: ActiveRecordingCreated'
+      description: WebSocket notification for Active Recording Created events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ActiveRecordingCreated
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              target:
+                type: string
+              recording:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  remoteId:
+                    type: integer
+                  state:
+                    type: object
+                    description: Payload of type RecordingState
+                  duration:
+                    type: integer
+                  startTime:
+                    type: integer
+                  archiveOnStop:
+                    type: boolean
+                  continuous:
+                    type: boolean
+                  toDisk:
+                    type: boolean
+                  maxSize:
+                    type: integer
+                  maxAge:
+                    type: integer
+                  name:
+                    type: string
+                  downloadUrl:
+                    type: string
+                  reportUrl:
+                    type: string
+                  metadata:
+                    type: object
+                    properties:
+                      labels:
+                        type: object
+                        additionalProperties: true
+              jvmId:
+                type: string
+        required:
+        - meta
+        - message
+    ActiveRecordingDeleted:
+      name: ActiveRecordingDeleted
+      title: Active Recording Deleted
+      summary: 'Notification: ActiveRecordingDeleted'
+      description: WebSocket notification for Active Recording Deleted events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ActiveRecordingDeleted
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              target:
+                type: string
+              recording:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  remoteId:
+                    type: integer
+                  state:
+                    type: object
+                    description: Payload of type RecordingState
+                  duration:
+                    type: integer
+                  startTime:
+                    type: integer
+                  archiveOnStop:
+                    type: boolean
+                  continuous:
+                    type: boolean
+                  toDisk:
+                    type: boolean
+                  maxSize:
+                    type: integer
+                  maxAge:
+                    type: integer
+                  name:
+                    type: string
+                  downloadUrl:
+                    type: string
+                  reportUrl:
+                    type: string
+                  metadata:
+                    type: object
+                    properties:
+                      labels:
+                        type: object
+                        additionalProperties: true
+              jvmId:
+                type: string
+        required:
+        - meta
+        - message
+    ActiveRecordingStopped:
+      name: ActiveRecordingStopped
+      title: Active Recording Stopped
+      summary: 'Notification: ActiveRecordingStopped'
+      description: WebSocket notification for Active Recording Stopped events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: ActiveRecordingStopped
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              target:
+                type: string
+              recording:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  remoteId:
+                    type: integer
+                  state:
+                    type: object
+                    description: Payload of type RecordingState
+                  duration:
+                    type: integer
+                  startTime:
+                    type: integer
+                  archiveOnStop:
+                    type: boolean
+                  continuous:
+                    type: boolean
+                  toDisk:
+                    type: boolean
+                  maxSize:
+                    type: integer
+                  maxAge:
+                    type: integer
+                  name:
+                    type: string
+                  downloadUrl:
+                    type: string
+                  reportUrl:
+                    type: string
+                  metadata:
+                    type: object
+                    properties:
+                      labels:
+                        type: object
+                        additionalProperties: true
+              jvmId:
+                type: string
+        required:
+        - meta
+        - message
     ArchiveRecordingFailure:
       name: ArchiveRecordingFailure
       title: Archive Recording Failure
@@ -497,6 +696,71 @@ components:
               jvmId:
                 type: string
               target:
+                type: string
+        required:
+        - meta
+        - message
+    RecordingMetadataUpdated:
+      name: RecordingMetadataUpdated
+      title: Recording Metadata Updated
+      summary: 'Notification: RecordingMetadataUpdated'
+      description: WebSocket notification for Recording Metadata Updated events
+      payload:
+        type: object
+        description: WebSocket notification message wrapper
+        properties:
+          meta:
+            type: object
+            description: Notification metadata
+            properties:
+              category:
+                type: string
+                const: RecordingMetadataUpdated
+                description: Notification category identifier
+            required:
+            - category
+          message:
+            type: object
+            properties:
+              target:
+                type: string
+              recording:
+                type: object
+                properties:
+                  id:
+                    type: integer
+                  remoteId:
+                    type: integer
+                  state:
+                    type: object
+                    description: Payload of type RecordingState
+                  duration:
+                    type: integer
+                  startTime:
+                    type: integer
+                  archiveOnStop:
+                    type: boolean
+                  continuous:
+                    type: boolean
+                  toDisk:
+                    type: boolean
+                  maxSize:
+                    type: integer
+                  maxAge:
+                    type: integer
+                  name:
+                    type: string
+                  downloadUrl:
+                    type: string
+                  reportUrl:
+                    type: string
+                  metadata:
+                    type: object
+                    properties:
+                      labels:
+                        type: object
+                        additionalProperties: true
+              jvmId:
                 type: string
         required:
         - meta
