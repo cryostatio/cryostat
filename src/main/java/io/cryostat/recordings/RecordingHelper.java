@@ -279,7 +279,11 @@ public class RecordingHelper {
     }
 
     private List<ActiveRecording> listActiveRecordingsImpl(Target target) {
-        target = Target.find("id", target.id).singleResult();
+        // Acquire pessimistic lock on target to prevent concurrent recording operations
+        target =
+                Target.<Target>find("id", target.id)
+                        .withLock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                        .singleResult();
         try {
             var previousRecordings = target.activeRecordings;
             var previousIds =
@@ -338,26 +342,72 @@ public class RecordingHelper {
                 if (externalRecordingAutoanalyze) {
                     labels.put(AnalysisReportAggregator.AUTOANALYZE_LABEL, Boolean.TRUE.toString());
                 }
-                // TODO is there any other metadata to attach here?
-                var recording = ActiveRecording.from(target, descriptor, new Metadata(labels));
-                recording.external = true;
-                if (externalRecordingArchive && recording.external) {
-                    recording.archiveOnStop = true;
+
+                Optional<ActiveRecording> existingOpt =
+                        ActiveRecording.<ActiveRecording>find(
+                                        "target.id = ?1 and remoteId = ?2",
+                                        target.id,
+                                        descriptor.getId())
+                                .firstResultOptional();
+
+                if (existingOpt.isPresent()) {
+                    // same physical JFR recording - merge the new state
+                    ActiveRecording existingRecording = existingOpt.get();
+                    logger.infov(
+                            "Found existing recording id={0} remoteId={1} name={2}, merging state"
+                                    + " from sync",
+                            existingRecording.id,
+                            existingRecording.remoteId,
+                            existingRecording.name);
+
+                    switch (descriptor.getState()) {
+                        case CREATED:
+                            existingRecording.state = RecordingState.DELAYED;
+                            break;
+                        case RUNNING:
+                            existingRecording.state = RecordingState.RUNNING;
+                            break;
+                        case STOPPING:
+                            existingRecording.state = RecordingState.RUNNING;
+                            break;
+                        case STOPPED:
+                            existingRecording.state = RecordingState.STOPPED;
+                            break;
+                        default:
+                            existingRecording.state = RecordingState.NEW;
+                            break;
+                    }
+
+                    if (!labels.isEmpty()) {
+                        var mergedLabels = new HashMap<>(existingRecording.metadata.labels());
+                        mergedLabels.putAll(labels);
+                        existingRecording.metadata = new Metadata(mergedLabels);
+                    }
+
+                    existingRecording.persist();
+                } else {
+                    // TODO is there any other metadata to attach here?
+                    var recording = ActiveRecording.from(target, descriptor, new Metadata(labels));
+                    recording.external = true;
+                    if (externalRecordingArchive && recording.external) {
+                        recording.archiveOnStop = true;
+                    }
+                    // FIXME this is a hack. Older Cryostat versions enforced that recordings' names
+                    // were unique within the target JVM, but this could only be enforced when
+                    // Cryostat was originating the recording creation. Recordings already have
+                    // unique IDs, so enforcing unique names was only for the purpose of providing a
+                    // tidier UI. We should remove this assumption/enforcement and allow recordings
+                    // to have non-unique names. However, the UI is currently built with this
+                    // expectation and often uses recordings' names as unique keys rather than their
+                    // IDs.
+                    while (previousNames.contains(recording.name)) {
+                        recording.name = String.format("%s-%d", recording.name, recording.remoteId);
+                    }
+                    previousNames.add(recording.name);
+                    previousIds.add(recording.remoteId);
+                    recording.persist();
+                    target.activeRecordings.add(recording);
                 }
-                // FIXME this is a hack. Older Cryostat versions enforced that recordings' names
-                // were unique within the target JVM, but this could only be enforced when Cryostat
-                // was originating the recording creation. Recordings already have unique IDs, so
-                // enforcing unique names was only for the purpose of providing a tidier UI. We
-                // should remove this assumption/enforcement and allow recordings to have non-unique
-                // names. However, the UI is currently built with this expectation and often uses
-                // recordings' names as unique keys rather than their IDs.
-                while (previousNames.contains(recording.name)) {
-                    recording.name = String.format("%s-%d", recording.name, recording.remoteId);
-                }
-                previousNames.add(recording.name);
-                previousIds.add(recording.remoteId);
-                recording.persist();
-                target.activeRecordings.add(recording);
             }
             if (updated) {
                 target.persist();
@@ -396,10 +446,16 @@ public class RecordingHelper {
             Template template,
             RecordingOptions options,
             Map<String, String> rawLabels) {
+        // Acquire pessimistic lock on target to prevent concurrent recording operations
+        Target lockedTarget =
+                Target.<Target>find("id", target.id)
+                        .withLock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+                        .singleResult();
+
         String recordingName = options.name();
         RecordingState previousState =
                 connectionManager.executeConnectedTask(
-                        target,
+                        lockedTarget,
                         conn ->
                                 QuarkusTransaction.joiningExisting()
                                         .call(
@@ -411,15 +467,15 @@ public class RecordingHelper {
         if (!restart) {
             throw new EntityExistsException("Recording", recordingName);
         }
-        getActiveRecording(target, r -> r.name.equals(recordingName))
+        getActiveRecording(lockedTarget, r -> r.name.equals(recordingName))
                 .ifPresent(r -> this.deleteRecording(r).await().indefinitely());
         var desc =
                 connectionManager.executeConnectedTask(
-                        target,
+                        lockedTarget,
                         conn -> {
                             RecordingOptionsBuilder optionsBuilder =
                                     recordingOptionsBuilderFactory
-                                            .create(target)
+                                            .create(lockedTarget)
                                             .name(recordingName);
                             if (options.duration().isPresent()) {
                                 optionsBuilder =
@@ -470,37 +526,49 @@ public class RecordingHelper {
         labels.put("template.type", template.getType().toString());
         Metadata meta = new Metadata(labels);
 
-        ActiveRecording recording = ActiveRecording.from(target, desc, meta, options);
+        ActiveRecording recording = ActiveRecording.from(lockedTarget, desc, meta, options);
 
-        // Check if there's a stale database record with the same remoteId and delete it
-        // Use a direct query to bypass any ORM caching issues
-        List<ActiveRecording> staleRecordings =
-                ActiveRecording.find(
-                                "target.id = ?1 and remoteId = ?2", target.id, recording.remoteId)
-                        .list();
+        Optional<ActiveRecording> existingOpt =
+                ActiveRecording.<ActiveRecording>find(
+                                "target.id = ?1 and remoteId = ?2",
+                                lockedTarget.id,
+                                recording.remoteId)
+                        .firstResultOptional();
 
-        for (ActiveRecording stale : staleRecordings) {
-            logger.warnv(
-                    "Found stale recording id={0} remoteId={1} name={2}, deleting it",
-                    stale.id, stale.remoteId, stale.name);
-            stale.delete();
+        if (existingOpt.isPresent()) {
+            ActiveRecording existingRecording = existingOpt.get();
+            logger.infov(
+                    "Found existing recording id={0} remoteId={1} name={2},"
+                            + " merging state from startRecording",
+                    existingRecording.id, existingRecording.remoteId, existingRecording.name);
+
+            existingRecording.name = recording.name;
+            existingRecording.state = recording.state;
+            existingRecording.duration = recording.duration;
+            existingRecording.startTime = recording.startTime;
+            existingRecording.archiveOnStop = recording.archiveOnStop;
+            existingRecording.continuous = recording.continuous;
+            existingRecording.toDisk = recording.toDisk;
+            existingRecording.maxSize = recording.maxSize;
+            existingRecording.maxAge = recording.maxAge;
+            existingRecording.external = recording.external;
+
+            var mergedLabels = new HashMap<>(existingRecording.metadata.labels());
+            mergedLabels.putAll(recording.metadata.labels());
+            existingRecording.metadata = new Metadata(mergedLabels);
+
+            existingRecording.persist();
+            recording = existingRecording;
+        } else {
+            recording.persist();
         }
 
-        if (!staleRecordings.isEmpty()) {
-            ActiveRecording.getEntityManager().flush();
-        }
-
-        recording.persist();
-
-        // Merge the target entity into the current persistence context since we're in a new
-        // transaction
-        Target managedTarget = Target.getEntityManager().merge(target);
-        managedTarget.activeRecordings.add(recording);
+        lockedTarget.activeRecordings.add(recording);
 
         if (!recording.continuous) {
             JobKey key =
                     JobKey.jobKey(
-                            String.format("%s.%d", target.jvmId, recording.remoteId),
+                            String.format("%s.%d", lockedTarget.jvmId, recording.remoteId),
                             "recording.fixed-duration");
             JobDetail jobDetail =
                     JobBuilder.newJob(StopRecordingJob.class)
@@ -525,7 +593,9 @@ public class RecordingHelper {
             }
         }
 
-        logger.debugv("Started recording: {0} {1}", target.connectUrl, target.activeRecordings);
+        logger.debugv(
+                "Started recording: {0} {1}",
+                lockedTarget.connectUrl, lockedTarget.activeRecordings);
 
         return recording;
     }
