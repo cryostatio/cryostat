@@ -1219,6 +1219,50 @@ public class JfrAnalyticsTest {
         MatcherAssert.assertThat(result.get(0).get(0), Matchers.equalTo("0.97504157"));
     }
 
+    /**
+     * Test documenting why PERCENTILE_CONT fails with Apache Calcite and jfr-analytics.
+     *
+     * <p>This test demonstrates that the standard SQL PERCENTILE_CONT function cannot be used with
+     * Apache Calcite and jfr-analytics for calculating percentiles (e.g., p95) of JFR metrics.
+     *
+     * <p><b>ROOT CAUSE IDENTIFIED:</b>
+     *
+     * <p>The query fails with {@code java.lang.UnsupportedOperationException} at {@code
+     * org.apache.calcite.sql.SqlOperatorBinding.getCollationType(SqlOperatorBinding.java:237)}
+     * during query preparation. This occurs because:
+     *
+     * <ol>
+     *   <li>PERCENTILE_CONT is an ordered-set aggregate function (SQL:2003 standard) that requires
+     *       collation type information
+     *   <li>Apache Calcite's {@code SqlOperatorBinding.getCollationType()} throws {@code
+     *       UnsupportedOperationException} by default
+     *   <li>The jfr-analytics library uses Calcite's default configuration without implementing
+     *       collation support for ordered-set aggregates
+     *   <li>The error occurs during the query planning phase (specifically during field trimming)
+     *       when Calcite tries to infer the return type of the PERCENTILE_CONT function
+     * </ol>
+     */
+    @Test
+    void testCPULoadP95WithPercentileCont() {
+        given().log()
+                .all()
+                .when()
+                .pathParams("jvmId", "uploads", "filename", RECORDING_FILENAME)
+                .formParam(
+                        "query",
+                        """
+                        SELECT PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY "machineTotal") as "p95_cpu"
+                        FROM "JFR"."jdk.CPULoad"
+                        """)
+                .post("/api/beta/recording_analytics/{jvmId}/{filename}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(400);
+    }
+
     @Test
     void testNetworkUtilizationMinMaxAvgMetrics() {
         List<List<String>> result =
