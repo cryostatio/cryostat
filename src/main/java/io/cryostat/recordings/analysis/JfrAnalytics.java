@@ -114,9 +114,33 @@ public class JfrAnalytics {
                             try {
                                 return executeQueryOnFile(jfrFile, query);
                             } catch (SQLException e) {
-                                logger.error(e);
+                                logger.errorv(
+                                        e,
+                                        "SQL query execution failed. Query: {0}, Error Code: {1},"
+                                                + " SQL State: {2}, Message: {3}",
+                                        query,
+                                        e.getErrorCode(),
+                                        e.getSQLState(),
+                                        e.getMessage());
                                 throw new BadRequestException(
-                                        "Failed to execute query on JFR file", e);
+                                        String.format(
+                                                "Failed to execute query on JFR file. SQL State:"
+                                                        + " %s, Error Code: %d, Message: %s",
+                                                e.getSQLState(), e.getErrorCode(), e.getMessage()),
+                                        e);
+                            } catch (Exception e) {
+                                logger.errorv(
+                                        e,
+                                        "Unexpected error executing query. Query: {0}, Exception"
+                                                + " Type: {1}, Message: {2}",
+                                        query,
+                                        e.getClass().getName(),
+                                        e.getMessage());
+                                throw new BadRequestException(
+                                        String.format(
+                                                "Failed to execute query on JFR file: %s",
+                                                e.getMessage()),
+                                        e);
                             }
                         });
     }
