@@ -15,17 +15,16 @@
  */
 package io.cryostat.credentials;
 
+import io.cryostat.credentials.events.CredentialEvents;
 import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.expressions.MatchExpression;
-import io.cryostat.ws.MessagingServer;
-import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.persistence.Cacheable;
 import jakarta.persistence.CascadeType;
@@ -44,7 +43,6 @@ import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.ColumnTransformer;
 import org.hibernate.envers.Audited;
-import org.projectnessie.cel.tools.ScriptException;
 
 /**
  * Stored Credentials are used for communicating with secured remote targets. Target JMX servers may
@@ -133,34 +131,36 @@ public class Credential extends PanacheEntity {
 
     @ApplicationScoped
     static class Listener {
-        @Inject EventBus bus;
-        @Inject MatchExpression.TargetMatcher targetMatcher;
+        @Inject Event<CredentialEvents.CredentialCreated> credentialCreatedEvent;
+        @Inject Event<CredentialEvents.CredentialUpdated> credentialUpdatedEvent;
+        @Inject Event<CredentialEvents.CredentialDeleted> credentialDeletedEvent;
 
         @PostPersist
-        public void postPersist(Credential credential) throws ScriptException {
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(
-                            CREDENTIALS_STORED, Credentials.notificationResult(credential)));
-            bus.publish(CREDENTIALS_STORED, credential);
+        public void postPersist(Credential credential) {
+            CredentialEvents.CredentialSnapshot snapshot = createSnapshot(credential);
+            credentialCreatedEvent.fire(
+                    new CredentialEvents.CredentialCreated(credential.id, snapshot));
         }
 
         @PostUpdate
-        public void postUpdate(Credential credential) throws ScriptException {
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(
-                            CREDENTIALS_UPDATED, Credentials.notificationResult(credential)));
-            bus.publish(CREDENTIALS_UPDATED, credential);
+        public void postUpdate(Credential credential) {
+            CredentialEvents.CredentialSnapshot snapshot = createSnapshot(credential);
+            credentialUpdatedEvent.fire(
+                    new CredentialEvents.CredentialUpdated(credential.id, snapshot));
         }
 
         @PostRemove
-        public void postRemove(Credential credential) throws ScriptException {
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(
-                            CREDENTIALS_DELETED, Credentials.notificationResult(credential)));
-            bus.publish(CREDENTIALS_DELETED, credential);
+        public void postRemove(Credential credential) {
+            CredentialEvents.CredentialSnapshot snapshot = createSnapshot(credential);
+            credentialDeletedEvent.fire(
+                    new CredentialEvents.CredentialDeleted(credential.id, snapshot));
+        }
+
+        private CredentialEvents.CredentialSnapshot createSnapshot(Credential credential) {
+            return new CredentialEvents.CredentialSnapshot(
+                    credential.id,
+                    credential.matchExpression.id,
+                    credential.matchExpression.script);
         }
     }
 }

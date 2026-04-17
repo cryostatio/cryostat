@@ -13,26 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.cryostat;
+package io.cryostat.events;
 
-import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
-import org.flywaydb.core.Flyway;
-import org.junit.jupiter.api.BeforeEach;
-import org.quartz.SchedulerException;
+public abstract class EntityLifecycleEventBase<T, S> implements EntityLifecycleEvent<T> {
+    private final long entityId;
+    private final S snapshot;
 
-public abstract class AbstractTransactionalTestBase extends AbstractTestBase {
+    protected EntityLifecycleEventBase(long entityId, S snapshot) {
+        this.entityId = entityId;
+        this.snapshot = snapshot;
+    }
 
-    @Inject Flyway flyway;
-    @Inject EntityManager entityManager;
+    @Override
+    public long getEntityId() {
+        return entityId;
+    }
 
-    @BeforeEach
-    void migrateFlyway() throws SchedulerException {
-        shutdownScheduler();
-        flyway.clean();
-        flyway.migrate();
-        flyway.validate();
-        entityManager.clear();
-        restartScheduler();
+    public S getSnapshot() {
+        return snapshot;
     }
 }

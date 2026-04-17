@@ -15,7 +15,11 @@
  */
 package io.cryostat;
 
+import io.cryostat.expressions.events.MatchExpressionNotificationObserver;
 import io.cryostat.recordings.ActiveRecordings.LinkedRecordingDescriptor;
+import io.cryostat.recordings.RecordingNotifications.ActiveRecordingNotification;
+import io.cryostat.rules.events.RuleNotificationObserver;
+import io.cryostat.targets.events.TargetNotificationObserver;
 
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.LocalEventBusCodec;
@@ -30,5 +34,19 @@ public class MessageCodecs {
     void onStart(@Observes StartupEvent evt) {
         bus.getDelegate()
                 .registerDefaultCodec(LinkedRecordingDescriptor.class, new LocalEventBusCodec<>());
+        bus.getDelegate()
+                .registerDefaultCodec(
+                        ActiveRecordingNotification.Payload.class, new LocalEventBusCodec<>());
+        bus.getDelegate()
+                .registerDefaultCodec(
+                        TargetNotificationObserver.NotificationPayload.class,
+                        new LocalEventBusCodec<>());
+        bus.getDelegate()
+                .registerDefaultCodec(
+                        MatchExpressionNotificationObserver.ExpressionPayload.class,
+                        new LocalEventBusCodec<>());
+        bus.getDelegate()
+                .registerDefaultCodec(
+                        RuleNotificationObserver.RulePayload.class, new LocalEventBusCodec<>());
     }
 }

@@ -21,9 +21,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import io.cryostat.expressions.events.MatchExpressionEvents;
 import io.cryostat.targets.Target;
-import io.cryostat.ws.MessagingServer;
-import io.cryostat.ws.Notification;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
@@ -33,6 +32,7 @@ import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.Nullable;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.persistence.Cacheable;
 import jakarta.persistence.Column;
@@ -141,6 +141,9 @@ public class MatchExpression extends PanacheEntity {
         @Inject EventBus bus;
         @Inject MatchExpressionEvaluator evaluator;
         @Inject Logger logger;
+        @Inject Event<MatchExpressionEvents.MatchExpressionCreated> createdEvent;
+        @Inject Event<MatchExpressionEvents.MatchExpressionUpdated> updatedEvent;
+        @Inject Event<MatchExpressionEvents.MatchExpressionDeleted> deletedEvent;
 
         @PrePersist
         public void prePersist(MatchExpression expr) throws ValidationException {
@@ -154,29 +157,31 @@ public class MatchExpression extends PanacheEntity {
 
         @PostPersist
         public void postPersist(MatchExpression expr) {
+            MatchExpressionEvents.MatchExpressionSnapshot snapshot = captureSnapshot(expr);
+            createdEvent.fire(new MatchExpressionEvents.MatchExpressionCreated(expr.id, snapshot));
             bus.publish(
                     EXPRESSION_ADDRESS, new ExpressionEvent(ExpressionEventCategory.CREATED, expr));
-            notify(ExpressionEventCategory.CREATED, expr);
         }
 
         @PostUpdate
         public void postUpdate(MatchExpression expr) {
+            MatchExpressionEvents.MatchExpressionSnapshot snapshot = captureSnapshot(expr);
+            updatedEvent.fire(new MatchExpressionEvents.MatchExpressionUpdated(expr.id, snapshot));
             bus.publish(
                     EXPRESSION_ADDRESS, new ExpressionEvent(ExpressionEventCategory.UPDATED, expr));
-            notify(ExpressionEventCategory.UPDATED, expr);
         }
 
         @PostRemove
         public void postRemove(MatchExpression expr) {
+            MatchExpressionEvents.MatchExpressionSnapshot snapshot = captureSnapshot(expr);
+            deletedEvent.fire(new MatchExpressionEvents.MatchExpressionDeleted(expr.id, snapshot));
             bus.publish(
                     EXPRESSION_ADDRESS, new ExpressionEvent(ExpressionEventCategory.DELETED, expr));
-            notify(ExpressionEventCategory.DELETED, expr);
         }
 
-        private void notify(ExpressionEventCategory category, MatchExpression expr) {
-            bus.publish(
-                    MessagingServer.class.getName(),
-                    new Notification(category.getCategory(), expr));
+        private MatchExpressionEvents.MatchExpressionSnapshot captureSnapshot(
+                MatchExpression expr) {
+            return new MatchExpressionEvents.MatchExpressionSnapshot(expr.id, expr.script);
         }
     }
 

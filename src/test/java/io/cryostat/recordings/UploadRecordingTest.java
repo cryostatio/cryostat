@@ -37,20 +37,13 @@ import io.restassured.response.Response;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 @QuarkusTestResource(value = S3StorageResource.class, restrictToAnnotatedClass = true)
-@QuarkusTestResource(
-        value = GrafanaResource.class,
-        restrictToAnnotatedClass = true,
-        parallel = true)
-@QuarkusTestResource(
-        value = JFRDatasourceResource.class,
-        restrictToAnnotatedClass = true,
-        parallel = true)
+@QuarkusTestResource(value = GrafanaResource.class, restrictToAnnotatedClass = true)
+@QuarkusTestResource(value = JFRDatasourceResource.class, restrictToAnnotatedClass = true)
 public class UploadRecordingTest extends AbstractTransactionalTestBase {
 
     // TODO this should be a constant somewhere in the server sources
@@ -58,18 +51,11 @@ public class UploadRecordingTest extends AbstractTransactionalTestBase {
     static final String RECORDING_NAME = "upload_recording_it_rec";
     static final int RECORDING_DURATION_SECONDS = 10;
 
-    long recordingRemoteId;
-
     @BeforeEach
     void setupUploadRecordingTest() throws Exception {
         if (selfId < 1) {
             defineSelfCustomTarget();
         }
-    }
-
-    @AfterEach
-    void cleanupUploadRecordingTest() {
-        cleanupSelfActiveAndArchivedRecordings();
     }
 
     @Test
@@ -84,7 +70,7 @@ public class UploadRecordingTest extends AbstractTransactionalTestBase {
                                 "events",
                                 "template=ALL"));
 
-        recordingRemoteId = jp.getLong("remoteId");
+        long recordingRemoteId = jp.getLong("remoteId");
 
         // Wait for the recording to finish
         Thread.sleep(RECORDING_DURATION_SECONDS * 1000L);
