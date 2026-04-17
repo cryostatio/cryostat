@@ -48,6 +48,7 @@ import io.cryostat.core.serialization.JmcSerializableRecordingDescriptor;
 import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback.DiscoveryPluginAuthorizationHeaderFactory;
 import io.cryostat.libcryostat.net.MBeanMetrics;
+import io.cryostat.libcryostat.net.MbeanAttributeMap;
 import io.cryostat.libcryostat.triggers.SmartTrigger;
 import io.cryostat.targets.AgentJFRService.StartRecordingRequest;
 import io.cryostat.util.HttpStatusCodeIdentifier;
@@ -247,6 +248,20 @@ public class AgentClient {
             logger.error("invokeMBeanOperation request failed", e);
             return Uni.createFrom().failure(e);
         }
+    }
+
+    Uni<List<MbeanAttributeMap>> queryMbeanAttributes() {
+        return agentRestClient
+                .queryMbeanAttributes()
+                .map(
+                        Unchecked.function(
+                                resp -> {
+                                    try (resp;
+                                            var is = (InputStream) resp.getEntity()) {
+                                        return Arrays.asList(
+                                                mapper.readValue(is, MbeanAttributeMap[].class));
+                                    }
+                                }));
     }
 
     Uni<IRecordingDescriptor> startRecording(StartRecordingRequest req) {
