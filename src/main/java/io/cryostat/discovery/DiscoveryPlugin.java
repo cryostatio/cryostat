@@ -121,6 +121,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     static class Listener {
 
         @Inject Logger logger;
+        @Inject PluginCallbackFactory callbackFactory;
 
         @PrePersist
         @Transactional
@@ -140,7 +141,7 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 logger.debugv(
                         "Testing discovery plugin callback: {0} @ {1}",
                         plugin.realm.name, plugin.callback);
-                PluginCallback.create(plugin).ping();
+                callbackFactory.create(plugin).ping();
                 logger.debugv(
                         "Registered discovery plugin: {0} @ {1}",
                         plugin.realm.name, plugin.callback);

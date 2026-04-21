@@ -39,7 +39,6 @@ import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
-import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.TargetConnectionManager;
@@ -133,6 +132,7 @@ public class Discovery {
     @Inject Scheduler scheduler;
     @Inject URIUtil uriUtil;
     @Inject KubeEndpointSlicesDiscovery k8sDiscovery;
+    @Inject PluginCallbackFactory callbackFactory;
 
     void onStart(@Observes StartupEvent evt) {
         QuarkusTransaction.requiringNew()
@@ -360,7 +360,7 @@ public class Discovery {
                     .ifPresent(
                             p -> {
                                 try {
-                                    var cb = PluginCallback.create(p);
+                                    var cb = callbackFactory.create(p);
                                     cb.ping();
                                     throw new DuplicatePluginException(
                                             String.format(
@@ -822,6 +822,8 @@ public class Discovery {
         @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_MAX_FAILURES)
         int maxConsecutiveFailures;
 
+        @Inject PluginCallbackFactory callbackFactory;
+
         @Override
         @Transactional
         public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -832,7 +834,7 @@ public class Discovery {
                         DiscoveryPlugin.find(
                                         "id", context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY))
                                 .singleResult();
-                var cb = PluginCallback.create(plugin);
+                var cb = callbackFactory.create(plugin);
                 if (refresh) {
                     cb.refresh();
                     logger.debugv(
