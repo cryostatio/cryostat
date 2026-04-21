@@ -117,6 +117,17 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     @Convert(converter = InstantConverter.class)
     public Instant lastSuccessfulPing;
 
+    @Column(nullable = true)
+    @Convert(converter = InstantConverter.class)
+    public Instant lastFailedPing;
+
+    @Column(nullable = false)
+    public int backoffMultiplier = 1;
+
+    @Column(nullable = true)
+    @Convert(converter = InstantConverter.class)
+    public Instant nextPingAt;
+
     @ApplicationScoped
     static class Listener {
 
@@ -136,6 +147,14 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 var credential = getCredential(plugin);
                 plugin.credential = credential;
                 plugin.callback = UriBuilder.fromUri(plugin.callback).userInfo(null).build();
+            }
+            if (plugin.nextPingAt != null
+                    || plugin.lastFailedPing != null
+                    || plugin.lastSuccessfulPing != null) {
+                logger.debugv(
+                        "Skipping prePersist ping for plugin with existing state: {0} @ {1}",
+                        plugin.realm.name, plugin.callback);
+                return;
             }
             try {
                 logger.debugv(

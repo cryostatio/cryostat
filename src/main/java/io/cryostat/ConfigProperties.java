@@ -52,6 +52,10 @@ public class ConfigProperties {
             "cryostat.discovery.containers.request-timeout";
     public static final String DISCOVERY_PLUGINS_MAX_FAILURES =
             "cryostat.discovery.plugins.max-failures";
+    public static final String DISCOVERY_PLUGINS_PING_PERIOD =
+            "cryostat.discovery.plugins.ping-period";
+    public static final String DISCOVERY_PLUGINS_MAX_BACKOFF_MULTIPLIER =
+            "cryostat.discovery.plugins.max-backoff-multiplier";
 
     public static final String CONNECTIONS_TTL = "cryostat.connections.ttl";
     public static final String CONNECTIONS_FAILED_BACKOFF = "cryostat.connections.failed-backoff";
