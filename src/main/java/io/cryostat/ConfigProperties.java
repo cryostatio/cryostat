@@ -50,6 +50,8 @@ public class ConfigProperties {
     public static final String CONTAINERS_POLL_PERIOD = "cryostat.discovery.containers.poll-period";
     public static final String CONTAINERS_REQUEST_TIMEOUT =
             "cryostat.discovery.containers.request-timeout";
+    public static final String DISCOVERY_PLUGINS_MAX_FAILURES =
+            "cryostat.discovery.plugins.max-failures";
 
     public static final String CONNECTIONS_TTL = "cryostat.connections.ttl";
     public static final String CONNECTIONS_FAILED_BACKOFF = "cryostat.connections.failed-backoff";

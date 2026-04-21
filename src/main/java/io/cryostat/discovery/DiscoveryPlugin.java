@@ -17,6 +17,7 @@ package io.cryostat.discovery;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.time.Instant;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -108,6 +109,13 @@ public class DiscoveryPlugin extends PanacheEntityBase {
 
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     public boolean builtin;
+
+    @Column(nullable = false)
+    public int consecutiveFailures = 0;
+
+    @Column(nullable = true)
+    @Convert(converter = InstantConverter.class)
+    public Instant lastSuccessfulPing;
 
     @ApplicationScoped
     static class Listener {

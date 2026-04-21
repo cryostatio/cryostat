@@ -118,6 +118,9 @@ public class Discovery {
     @ConfigProperty(name = "cryostat.discovery.plugins.ping-period")
     Duration discoveryPingPeriod;
 
+    @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_MAX_FAILURES)
+    int maxConsecutiveFailures;
+
     @ConfigProperty(name = ConfigProperties.AGENT_TLS_REQUIRED)
     boolean agentTlsRequired;
 
@@ -816,6 +819,9 @@ public class Discovery {
     static class RefreshPluginJob implements Job {
         @Inject Logger logger;
 
+        @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_MAX_FAILURES)
+        int maxConsecutiveFailures;
+
         @Override
         @Transactional
         public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -836,6 +842,10 @@ public class Discovery {
                     logger.debugv(
                             "Retained discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
                 }
+
+                plugin.consecutiveFailures = 0;
+                plugin.lastSuccessfulPing = Instant.now();
+                plugin.persist();
             } catch (NoResultException e) {
                 logger.debugv(
                         e,
@@ -846,9 +856,23 @@ public class Discovery {
                 throw ex;
             } catch (Exception e) {
                 if (plugin != null) {
-                    logger.debugv(
-                            e, "Pruned discovery plugin: {0} @ {1}", plugin.realm, plugin.callback);
-                    plugin.delete();
+                    plugin.consecutiveFailures++;
+                    plugin.persist();
+
+                    if (plugin.consecutiveFailures >= maxConsecutiveFailures) {
+                        logger.warnv(
+                                "Pruning discovery plugin after {0} consecutive failures: {1} @"
+                                        + " {2}",
+                                plugin.consecutiveFailures, plugin.realm.name, plugin.callback);
+                        plugin.delete();
+                    } else {
+                        logger.debugv(
+                                "Discovery plugin ping failed ({0}/{1}): {2} @ {3}",
+                                plugin.consecutiveFailures,
+                                maxConsecutiveFailures,
+                                plugin.realm.name,
+                                plugin.callback);
+                    }
                 } else {
                     var ex = new JobExecutionException(e);
                     ex.setUnscheduleFiringTrigger(true);
