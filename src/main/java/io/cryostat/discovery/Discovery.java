@@ -62,6 +62,7 @@ import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
+import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
@@ -83,6 +84,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.faulttolerance.Bulkhead;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestHeader;
@@ -371,31 +373,80 @@ public class Discovery {
                                 } catch (Exception e) {
                                     if (!(e instanceof DuplicatePluginException)) {
                                         logger.debug(e);
-                                        QuarkusTransaction.joiningExisting().run(p::delete);
+                                        UUID oldPluginId = p.id;
+                                        QuarkusTransaction.joiningExisting()
+                                                .run(
+                                                        () -> {
+                                                            try {
+                                                                var existing =
+                                                                        DiscoveryPlugin
+                                                                                .<DiscoveryPlugin>
+                                                                                        findById(
+                                                                                                oldPluginId);
+                                                                if (existing != null) {
+                                                                    existing.delete();
+                                                                    logger.debugv(
+                                                                            "Deleted unreachable"
+                                                                                + " plugin: {0}",
+                                                                            oldPluginId);
+                                                                } else {
+                                                                    logger.debugv(
+                                                                            "Plugin already deleted"
+                                                                                + " (concurrent"
+                                                                                + " cleanup): {0}",
+                                                                            oldPluginId);
+                                                                }
+                                                            } catch (Exception deleteEx) {
+                                                                logger.debugv(
+                                                                        deleteEx,
+                                                                        "Failed to delete"
+                                                                            + " unreachable plugin"
+                                                                            + " (may already be"
+                                                                            + " deleted): {0}",
+                                                                        oldPluginId);
+                                                            }
+                                                        });
                                     }
                                 }
                             });
 
-            // new plugin registration
-            plugin =
-                    QuarkusTransaction.joiningExisting()
-                            .call(
-                                    () -> {
-                                        DiscoveryPlugin p = new DiscoveryPlugin();
-                                        p.callback = callbackUri;
-                                        p.realm =
-                                                DiscoveryNode.environment(
-                                                        requireNonBlank(realmName, "realm"),
-                                                        NodeType.BaseNodeType.REALM);
-                                        p.builtin = false;
+            try {
+                plugin =
+                        QuarkusTransaction.joiningExisting()
+                                .call(
+                                        () -> {
+                                            DiscoveryPlugin p = new DiscoveryPlugin();
+                                            p.callback = callbackUri;
+                                            p.realm =
+                                                    DiscoveryNode.environment(
+                                                            requireNonBlank(realmName, "realm"),
+                                                            NodeType.BaseNodeType.REALM);
+                                            p.builtin = false;
 
-                                        var universe = DiscoveryNode.getUniverse();
-                                        p.realm.parent = universe;
-                                        p.persist();
-                                        universe.children.add(p.realm);
-                                        universe.persist();
-                                        return p;
-                                    });
+                                            var universe = DiscoveryNode.getUniverse();
+                                            p.realm.parent = universe;
+                                            p.persist();
+                                            universe.children.add(p.realm);
+                                            universe.persist();
+                                            return p;
+                                        });
+            } catch (PersistenceException e) {
+                if (e.getCause() instanceof ConstraintViolationException) {
+                    logger.warnv(
+                            "Duplicate callback detected during registration, using existing"
+                                    + " plugin: {0}",
+                            callbackUri);
+                    plugin =
+                            QuarkusTransaction.joiningExisting()
+                                    .call(
+                                            () ->
+                                                    DiscoveryPlugin.<DiscoveryPlugin>find(
+                                                                    "callback", callbackUri)
+                                                            .singleResult());
+                } else {
+                    throw e;
+                }
+            }
 
             try {
                 locations = jwtFactory.getPluginLocations(plugin);
