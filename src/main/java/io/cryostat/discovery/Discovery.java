@@ -61,7 +61,9 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.persistence.NoResultException;
+import jakarta.persistence.OptimisticLockException;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
@@ -136,6 +138,7 @@ public class Discovery {
     @Inject URIUtil uriUtil;
     @Inject KubeEndpointSlicesDiscovery k8sDiscovery;
     @Inject PluginCallbackFactory callbackFactory;
+    @Inject EntityManager entityManager;
 
     void onStart(@Observes StartupEvent evt) {
         QuarkusTransaction.requiringNew()
@@ -544,6 +547,9 @@ public class Discovery {
             @RestHeader("Cryostat-Discovery-Authentication") String token,
             DiscoveryPublication body) {
         DiscoveryPlugin plugin = DiscoveryPlugin.find("id", id).singleResult();
+        DiscoveryNode realm =
+                entityManager.find(
+                        DiscoveryNode.class, plugin.realm.id, LockModeType.PESSIMISTIC_WRITE);
         try {
             jwtValidator.validateJwt(ctx, plugin, token, true);
         } catch (MalformedURLException
@@ -559,12 +565,12 @@ public class Discovery {
             validatePublishedNode(n);
         }
 
-        plugin.realm.children.clear();
+        List<DiscoveryNode> replacementChildren = new ArrayList<>();
 
         for (var n : body.nodes) {
             n.target.discoveryNode = n;
         }
-        body.fillStrategy.ifPresent(
+        body.fillStrategy.ifPresentOrElse(
                 algo -> {
                     Map<String, String> pubCtx = body.context.orElse(Map.of());
                     switch (algo) {
@@ -603,7 +609,6 @@ public class Discovery {
                             nsNode.labels = new HashMap<>();
                             nsNode.children = new ArrayList<>();
                             nsNode.target = null;
-                            nsNode.parent = plugin.realm;
 
                             nsNode.children.add(lineage);
                             lineage.parent = nsNode;
@@ -618,19 +623,26 @@ public class Discovery {
                             }
 
                             nsNode.persist();
-                            plugin.realm.children.add(nsNode);
+                            replacementChildren.add(nsNode);
                             break;
                         default:
-                            plugin.realm.children.addAll(body.nodes);
+                            replacementChildren.addAll(body.nodes);
                             for (var n : body.nodes) {
-                                n.parent = plugin.realm;
+                                n.parent = realm;
                                 n.persist();
                             }
                             break;
                     }
+                },
+                () -> {
+                    replacementChildren.addAll(body.nodes);
+                    for (var n : body.nodes) {
+                        n.parent = realm;
+                        n.persist();
+                    }
                 });
 
-        plugin.realm.persist();
+        replaceChildren(realm, replacementChildren);
         plugin.persist();
     }
 
@@ -740,6 +752,20 @@ public class Discovery {
                                 "Target connect URL is neither JMX nor HTTP(S): (%s)",
                                 currentNode.target.connectUrl.toString()));
             }
+        }
+    }
+
+    private void replaceChildren(DiscoveryNode parent, List<DiscoveryNode> replacementChildren) {
+        List<DiscoveryNode> existingChildren = new ArrayList<>(parent.children);
+        parent.children.clear();
+        existingChildren.forEach(child -> child.parent = null);
+        replacementChildren.forEach(child -> child.parent = parent);
+        parent.children.addAll(replacementChildren);
+        try {
+            parent.persist();
+            entityManager.flush();
+        } catch (OptimisticLockException e) {
+            throw new BadRequestException("Discovery tree update conflict", e);
         }
     }
 
