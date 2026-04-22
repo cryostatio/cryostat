@@ -23,6 +23,7 @@ import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.events.CredentialEvents;
 import io.cryostat.discovery.DiscoveryPlugin;
 import io.cryostat.discovery.InstantConverter;
+import io.cryostat.events.NotificationDirtyCheckSupport;
 import io.cryostat.expressions.MatchExpression;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -172,6 +173,7 @@ public class Credential extends PanacheEntity {
         @Inject Event<CredentialEvents.CredentialCreated> credentialCreatedEvent;
         @Inject Event<CredentialEvents.CredentialUpdated> credentialUpdatedEvent;
         @Inject Event<CredentialEvents.CredentialDeleted> credentialDeletedEvent;
+        @Inject NotificationDirtyCheckSupport dirtyCheckSupport;
 
         @PrePersist
         @PreUpdate
@@ -190,9 +192,11 @@ public class Credential extends PanacheEntity {
 
         @PostUpdate
         public void postUpdate(Credential credential) {
-            CredentialEvents.CredentialSnapshot snapshot = createSnapshot(credential);
-            credentialUpdatedEvent.fire(
-                    new CredentialEvents.CredentialUpdated(credential.id, snapshot));
+            if (dirtyCheckSupport.hasRelevantDirtyProperties(credential)) {
+                CredentialEvents.CredentialSnapshot snapshot = createSnapshot(credential);
+                credentialUpdatedEvent.fire(
+                        new CredentialEvents.CredentialUpdated(credential.id, snapshot));
+            }
         }
 
         @PostRemove
