@@ -202,13 +202,9 @@ components:
       type: string
     Credential:
       properties:
-        expiresAt:
-          $ref: '#/components/schemas/Instant'
         id:
           format: int64
           type: integer
-        lastUsedAt:
-          $ref: '#/components/schemas/Instant'
         matchExpression:
           $ref: '#/components/schemas/MatchExpression'
         password:
@@ -340,26 +336,14 @@ components:
       type: object
     DiscoveryPlugin:
       properties:
-        backoffMultiplier:
-          format: int32
-          type: integer
         builtin:
           readOnly: true
           type: boolean
         callback:
           format: uri
           type: string
-        consecutiveFailures:
-          format: int32
-          type: integer
         id:
           $ref: '#/components/schemas/UUID'
-        lastFailedPing:
-          $ref: '#/components/schemas/Instant'
-        lastSuccessfulPing:
-          $ref: '#/components/schemas/Instant'
-        nextPingAt:
-          $ref: '#/components/schemas/Instant'
         realm:
           $ref: '#/components/schemas/DiscoveryNode'
       required:
@@ -368,26 +352,14 @@ components:
       type: object
     DiscoveryPlugin_Flat:
       properties:
-        backoffMultiplier:
-          format: int32
-          type: integer
         builtin:
           readOnly: true
           type: boolean
         callback:
           format: uri
           type: string
-        consecutiveFailures:
-          format: int32
-          type: integer
         id:
           $ref: '#/components/schemas/UUID'
-        lastFailedPing:
-          $ref: '#/components/schemas/Instant'
-        lastSuccessfulPing:
-          $ref: '#/components/schemas/Instant'
-        nextPingAt:
-          $ref: '#/components/schemas/Instant'
         realm:
           $ref: '#/components/schemas/DiscoveryNode_Flat'
       required:
@@ -517,11 +489,6 @@ components:
         statusMessage:
           type: string
       type: object
-    Instant:
-      examples:
-        - 2022-03-10T16:15:50Z
-      format: date-time
-      type: string
     JniInfo:
       properties:
         globalRefs:
