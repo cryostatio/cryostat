@@ -120,21 +120,26 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     public boolean builtin;
 
     @Column(nullable = false)
+    @JsonIgnore
     public int consecutiveFailures = 0;
 
     @Column(nullable = true)
     @Convert(converter = InstantConverter.class)
+    @JsonIgnore
     public Instant lastSuccessfulPing;
 
     @Column(nullable = true)
     @Convert(converter = InstantConverter.class)
+    @JsonIgnore
     public Instant lastFailedPing;
 
     @Column(nullable = false)
+    @JsonIgnore
     public int backoffMultiplier = 1;
 
     @Column(nullable = true)
     @Convert(converter = InstantConverter.class)
+    @JsonIgnore
     public Instant nextPingAt;
 
     public static Optional<DiscoveryPlugin> findByCallbackAndRealmName(

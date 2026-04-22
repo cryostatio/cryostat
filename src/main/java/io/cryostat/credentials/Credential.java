@@ -148,10 +148,12 @@ public class Credential extends PanacheEntity {
 
     @Column(nullable = true)
     @Convert(converter = InstantConverter.class)
+    @JsonIgnore
     public Instant expiresAt;
 
     @Column(nullable = true)
     @Convert(converter = InstantConverter.class)
+    @JsonIgnore
     public Instant lastUsedAt;
 
     public static List<Credential> findExpired() {
