@@ -15,8 +15,14 @@
  */
 package io.cryostat.credentials;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.util.List;
+
+import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.events.CredentialEvents;
 import io.cryostat.discovery.DiscoveryPlugin;
+import io.cryostat.discovery.InstantConverter;
 import io.cryostat.expressions.MatchExpression;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -29,16 +35,22 @@ import jakarta.inject.Inject;
 import jakarta.persistence.Cacheable;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.NamedQueries;
+import jakarta.persistence.NamedQuery;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.PostPersist;
 import jakarta.persistence.PostRemove;
 import jakarta.persistence.PostUpdate;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.ColumnTransformer;
@@ -63,6 +75,11 @@ import org.hibernate.envers.Audited;
 @Entity
 @EntityListeners(Credential.Listener.class)
 @Cacheable
+@NamedQueries({
+    @NamedQuery(
+            name = "Credential.findExpired",
+            query = "SELECT c FROM Credential c WHERE c.expiresAt IS NOT NULL AND c.expiresAt < ?1")
+})
 public class Credential extends PanacheEntity {
 
     public static final String CREDENTIALS_STORED = "CredentialsStored";
@@ -129,11 +146,38 @@ public class Credential extends PanacheEntity {
     @Nullable
     public DiscoveryPlugin discoveryPlugin;
 
+    @Column(nullable = true)
+    @Convert(converter = InstantConverter.class)
+    public Instant expiresAt;
+
+    @Column(nullable = true)
+    @Convert(converter = InstantConverter.class)
+    public Instant lastUsedAt;
+
+    public static List<Credential> findExpired() {
+        return findExpired(Instant.now());
+    }
+
+    public static List<Credential> findExpired(Instant cutoff) {
+        return Credential.<Credential>find("#Credential.findExpired", cutoff).list();
+    }
+
     @ApplicationScoped
     static class Listener {
+        @ConfigProperty(name = ConfigProperties.CREDENTIAL_EXPIRATION)
+        Duration credentialExpiration;
+
         @Inject Event<CredentialEvents.CredentialCreated> credentialCreatedEvent;
         @Inject Event<CredentialEvents.CredentialUpdated> credentialUpdatedEvent;
         @Inject Event<CredentialEvents.CredentialDeleted> credentialDeletedEvent;
+
+        @PrePersist
+        @PreUpdate
+        public void applyDiscoveryPluginExpiry(Credential credential) {
+            if (credential.discoveryPlugin != null && credential.expiresAt == null) {
+                credential.expiresAt = Instant.now().plus(credentialExpiration);
+            }
+        }
 
         @PostPersist
         public void postPersist(Credential credential) {

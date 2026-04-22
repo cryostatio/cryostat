@@ -21,6 +21,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -117,7 +118,7 @@ public class AgentClient {
         return httpTimeout;
     }
 
-    Uni<Boolean> ping() {
+    public Uni<Boolean> ping() {
         return agentRestClient
                 .ping()
                 .invoke(Response::close)
@@ -645,6 +646,8 @@ public class AgentClient {
                                                 if (credential == null) {
                                                     throw new ConnectionException(NULL_CREDENTIALS);
                                                 }
+                                                credential.lastUsedAt = Instant.now();
+                                                credential.persist();
                                                 return new UsernamePasswordCredentials(
                                                         credential.username, credential.password);
                                             });

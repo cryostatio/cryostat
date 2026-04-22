@@ -26,7 +26,9 @@ import java.util.UUID;
 
 import io.cryostat.AbstractTransactionalTestBase;
 import io.cryostat.ConfigProperties;
+import io.cryostat.credentials.Credential;
 import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
+import io.cryostat.targets.AgentClient;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.InjectMock;
@@ -48,6 +50,7 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
     int maxConsecutiveFailures;
 
     @Inject Discovery.RefreshPluginJob refreshPluginJob;
+    @Inject AgentClient.Factory agentClientFactory;
 
     @InjectMock PluginCallbackFactory callbackFactory;
 
@@ -693,5 +696,69 @@ public class DiscoveryPluginGracePeriodTest extends AbstractTransactionalTestBas
         assertEquals(1, updatedPlugin.backoffMultiplier, "Backoff multiplier should be reset");
         assertNull(updatedPlugin.nextPingAt, "Next ping time should be cleared");
         assertNotNull(updatedPlugin.lastSuccessfulPing, "Last successful ping should be set");
+    }
+
+    @Test
+    public void testAgentCredentialUseUpdatesLastUsedAt() {
+        var credentialId =
+                given().log()
+                        .all()
+                        .when()
+                        .formParams(
+                                Map.of(
+                                        "username",
+                                        "user",
+                                        "password",
+                                        "pass",
+                                        "matchExpression",
+                                        "target.connectUrl =="
+                                                + " 'http://localhost:8081/health/liveness'"))
+                        .contentType(ContentType.URLENC)
+                        .post("/api/v4/credentials")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath()
+                        .getLong("id");
+
+        var callback =
+                String.format(
+                        "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
+
+        given().log()
+                .all()
+                .when()
+                .body(Map.of("realm", "test_last_used_realm", "callback", callback))
+                .contentType(ContentType.JSON)
+                .post("/api/v4/discovery")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(200);
+
+        var beforeUse =
+                QuarkusTransaction.requiringNew()
+                        .call(() -> Credential.<Credential>findById(credentialId));
+        assertNull(beforeUse.lastUsedAt);
+
+        var target = new io.cryostat.targets.Target();
+        target.connectUrl = URI.create("http://localhost:8081/health/liveness");
+
+        var client = agentClientFactory.create(target);
+
+        assertDoesNotThrow(() -> client.ping().await().indefinitely());
+
+        var afterUse =
+                QuarkusTransaction.requiringNew()
+                        .call(() -> Credential.<Credential>findById(credentialId));
+        assertNotNull(afterUse.lastUsedAt);
+        assertTrue(afterUse.lastUsedAt.isBefore(Instant.now().plusSeconds(10)));
     }
 }
