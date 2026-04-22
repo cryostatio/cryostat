@@ -64,7 +64,6 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.LockModeType;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.OptimisticLockException;
-import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
@@ -86,7 +85,6 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.faulttolerance.Bulkhead;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
-import org.hibernate.exception.ConstraintViolationException;
 import org.jboss.logging.Logger;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.RestHeader;
@@ -356,100 +354,99 @@ public class Discovery {
                 throw new InternalServerErrorException(e);
             }
         } else {
-            // check if a plugin record with the same callback already exists. If it does,
-            // ping it:
+            // check if a plugin record with the same callback and realm-name already exists. If it
+            // does, ping it:
             // - if it's still there reject this request as a duplicate
             // - otherwise delete the previous record and accept this new one as a replacement
-            QuarkusTransaction.joiningExisting()
-                    .call(() -> DiscoveryPlugin.<DiscoveryPlugin>find("callback", unauthCallback))
-                    .singleResultOptional()
-                    .ifPresent(
-                            p -> {
-                                try {
-                                    var cb = callbackFactory.create(p);
-                                    cb.ping();
-                                    throw new DuplicatePluginException(
-                                            String.format(
-                                                    "Plugin with callback %s already exists and is"
-                                                            + " still reachable",
-                                                    unauthCallback));
-                                } catch (Exception e) {
-                                    if (!(e instanceof DuplicatePluginException)) {
-                                        logger.debug(e);
-                                        UUID oldPluginId = p.id;
-                                        QuarkusTransaction.joiningExisting()
-                                                .run(
-                                                        () -> {
-                                                            try {
-                                                                var existing =
-                                                                        DiscoveryPlugin
-                                                                                .<DiscoveryPlugin>
-                                                                                        findById(
-                                                                                                oldPluginId);
-                                                                if (existing != null) {
-                                                                    existing.delete();
-                                                                    logger.debugv(
-                                                                            "Deleted unreachable"
-                                                                                + " plugin: {0}",
-                                                                            oldPluginId);
-                                                                } else {
-                                                                    logger.debugv(
-                                                                            "Plugin already deleted"
-                                                                                + " (concurrent"
-                                                                                + " cleanup): {0}",
-                                                                            oldPluginId);
-                                                                }
-                                                            } catch (Exception deleteEx) {
-                                                                logger.debugv(
-                                                                        deleteEx,
-                                                                        "Failed to delete"
-                                                                            + " unreachable plugin"
-                                                                            + " (may already be"
-                                                                            + " deleted): {0}",
-                                                                        oldPluginId);
-                                                            }
-                                                        });
-                                    }
-                                }
-                            });
+            boolean isNewPlugin = false;
+            plugin =
+                    QuarkusTransaction.joiningExisting()
+                            .call(
+                                    () -> {
+                                        Optional<DiscoveryPlugin> existing =
+                                                DiscoveryPlugin.findByCallbackAndRealmName(
+                                                        unauthCallback, realmName);
 
-            try {
-                plugin =
-                        QuarkusTransaction.joiningExisting()
-                                .call(
-                                        () -> {
-                                            DiscoveryPlugin p = new DiscoveryPlugin();
-                                            p.callback = callbackUri;
-                                            p.realm =
-                                                    DiscoveryNode.environment(
-                                                            requireNonBlank(realmName, "realm"),
-                                                            NodeType.BaseNodeType.REALM);
-                                            p.builtin = false;
+                                        if (existing.isPresent()) {
+                                            logger.debugv(
+                                                    "Reusing existing plugin: {0}",
+                                                    existing.get().id);
+                                            return existing.get();
+                                        }
 
-                                            var universe = DiscoveryNode.getUniverse();
-                                            p.realm.parent = universe;
-                                            p.persist();
-                                            universe.children.add(p.realm);
-                                            universe.persist();
-                                            return p;
-                                        });
-            } catch (PersistenceException e) {
-                if (e.getCause() instanceof ConstraintViolationException) {
-                    logger.warnv(
-                            "Duplicate callback detected during registration, using existing"
-                                    + " plugin: {0}",
-                            callbackUri);
-                    plugin =
-                            QuarkusTransaction.joiningExisting()
-                                    .call(
-                                            () ->
-                                                    DiscoveryPlugin.<DiscoveryPlugin>find(
-                                                                    "callback", callbackUri)
-                                                            .singleResult());
-                } else {
-                    throw e;
-                }
-            }
+                                        // Check for plugin with same callback, different realm
+                                        Optional<DiscoveryPlugin> byCallback =
+                                                DiscoveryPlugin.<DiscoveryPlugin>find(
+                                                                "callback", unauthCallback)
+                                                        .singleResultOptional();
+
+                                        if (byCallback.isPresent()) {
+                                            DiscoveryPlugin p = byCallback.get();
+                                            try {
+                                                var cb = callbackFactory.create(p);
+                                                cb.ping();
+                                                // Plugin is reachable but has different realm
+                                                throw new DuplicatePluginException(
+                                                        String.format(
+                                                                "Plugin with callback %s already"
+                                                                        + " exists and is still"
+                                                                        + " reachable",
+                                                                unauthCallback));
+                                            } catch (Exception e) {
+                                                if (!(e instanceof DuplicatePluginException)) {
+                                                    // Plugin unreachable, delete and create new
+                                                    logger.debug(e);
+                                                    UUID oldPluginId = p.id;
+                                                    try {
+                                                        var toDelete =
+                                                                DiscoveryPlugin
+                                                                        .<DiscoveryPlugin>findById(
+                                                                                oldPluginId);
+                                                        if (toDelete != null) {
+                                                            toDelete.delete();
+                                                            logger.debugv(
+                                                                    "Deleted unreachable plugin:"
+                                                                            + " {0}",
+                                                                    oldPluginId);
+                                                        } else {
+                                                            logger.debugv(
+                                                                    "Plugin already deleted"
+                                                                        + " (concurrent cleanup):"
+                                                                        + " {0}",
+                                                                    oldPluginId);
+                                                        }
+                                                    } catch (Exception deleteEx) {
+                                                        logger.debugv(
+                                                                deleteEx,
+                                                                "Failed to delete unreachable"
+                                                                        + " plugin (may already be"
+                                                                        + " deleted): {0}",
+                                                                oldPluginId);
+                                                    }
+                                                } else {
+                                                    throw e;
+                                                }
+                                            }
+                                        }
+
+                                        // Create new plugin
+                                        DiscoveryPlugin p = new DiscoveryPlugin();
+                                        p.callback = callbackUri;
+                                        p.realm =
+                                                DiscoveryNode.environment(
+                                                        requireNonBlank(realmName, "realm"),
+                                                        NodeType.BaseNodeType.REALM);
+                                        p.builtin = false;
+
+                                        var universe = DiscoveryNode.getUniverse();
+                                        p.realm.parent = universe;
+                                        p.persist();
+                                        universe.children.add(p.realm);
+                                        universe.persist();
+
+                                        logger.debugv("Created new plugin: {0}", p.id);
+                                        return p;
+                                    });
 
             try {
                 locations = jwtFactory.getPluginLocations(plugin);
@@ -457,26 +454,29 @@ public class Discovery {
                 throw new BadRequestException(e);
             }
 
-            var dataMap = new JobDataMap();
-            dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
-            dataMap.put(REFRESH_MAP_KEY, true);
-            JobDetail jobDetail =
-                    JobBuilder.newJob(RefreshPluginJob.class)
-                            .withIdentity(plugin.id.toString(), JOB_PERIODIC)
-                            .usingJobData(dataMap)
-                            .build();
-            var trigger =
-                    TriggerBuilder.newTrigger()
-                            .withIdentity(
-                                    jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
-                            .startAt(Date.from(Instant.now().plus(discoveryPingPeriod)))
-                            .withSchedule(
-                                    SimpleScheduleBuilder.simpleSchedule()
-                                            .repeatForever()
-                                            .withIntervalInSeconds(
-                                                    (int) discoveryPingPeriod.toSeconds()))
-                            .build();
-            scheduler.scheduleJob(jobDetail, trigger);
+            isNewPlugin = !scheduler.checkExists(JobKey.jobKey(plugin.id.toString(), JOB_PERIODIC));
+            if (isNewPlugin) {
+                var dataMap = new JobDataMap();
+                dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
+                dataMap.put(REFRESH_MAP_KEY, true);
+                JobDetail jobDetail =
+                        JobBuilder.newJob(RefreshPluginJob.class)
+                                .withIdentity(plugin.id.toString(), JOB_PERIODIC)
+                                .usingJobData(dataMap)
+                                .build();
+                var trigger =
+                        TriggerBuilder.newTrigger()
+                                .withIdentity(
+                                        jobDetail.getKey().getName(), jobDetail.getKey().getGroup())
+                                .startAt(Date.from(Instant.now().plus(discoveryPingPeriod)))
+                                .withSchedule(
+                                        SimpleScheduleBuilder.simpleSchedule()
+                                                .repeatForever()
+                                                .withIntervalInSeconds(
+                                                        (int) discoveryPingPeriod.toSeconds()))
+                                .build();
+                scheduler.scheduleJob(jobDetail, trigger);
+            }
         }
 
         String token;

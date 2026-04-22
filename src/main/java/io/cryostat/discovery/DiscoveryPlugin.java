@@ -18,6 +18,7 @@ package io.cryostat.discovery;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
@@ -75,7 +76,12 @@ import org.jboss.logging.Logger;
 @NamedQueries({
     @NamedQuery(
             name = "DiscoveryPlugin.getBuiltinRealmIds",
-            query = "SELECT p.realm.id FROM DiscoveryPlugin p WHERE p.builtin = true")
+            query = "SELECT p.realm.id FROM DiscoveryPlugin p WHERE p.builtin = true"),
+    @NamedQuery(
+            name = "DiscoveryPlugin.findByCallbackAndRealmName",
+            query =
+                    "SELECT p FROM DiscoveryPlugin p JOIN FETCH p.realm r WHERE p.callback = ?1"
+                            + " AND r.name = ?2")
 })
 public class DiscoveryPlugin extends PanacheEntityBase {
 
@@ -127,6 +133,13 @@ public class DiscoveryPlugin extends PanacheEntityBase {
     @Column(nullable = true)
     @Convert(converter = InstantConverter.class)
     public Instant nextPingAt;
+
+    public static Optional<DiscoveryPlugin> findByCallbackAndRealmName(
+            URI callback, String realmName) {
+        return DiscoveryPlugin.<DiscoveryPlugin>find(
+                        "#DiscoveryPlugin.findByCallbackAndRealmName", callback, realmName)
+                .singleResultOptional();
+    }
 
     @ApplicationScoped
     static class Listener {

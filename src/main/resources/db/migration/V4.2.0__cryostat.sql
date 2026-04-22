@@ -650,4 +650,7 @@ ALTER TABLE DiscoveryPlugin ADD COLUMN lastFailedPing BIGINT;
 ALTER TABLE DiscoveryPlugin ADD COLUMN backoffMultiplier INTEGER NOT NULL DEFAULT 1;
 ALTER TABLE DiscoveryPlugin ADD COLUMN nextPingAt BIGINT;
 
+-- Add unique constraint on DiscoveryNode name for Realm nodes to enforce realm name uniqueness
+CREATE UNIQUE INDEX uk_discovery_node_realm_name ON DiscoveryNode (name) WHERE (nodeType = 'Realm');
+
 COMMIT;

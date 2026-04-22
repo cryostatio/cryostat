@@ -474,6 +474,123 @@ public class DiscoveryPluginTest extends AbstractTransactionalTestBase {
         // subtree
     }
 
+    @Test
+    void testIdempotentRegistration() {
+        // store credentials
+        var credentialId =
+                given().log()
+                        .all()
+                        .when()
+                        .formParams(
+                                Map.of(
+                                        "username",
+                                        "user",
+                                        "password",
+                                        "pass",
+                                        "matchExpression",
+                                        "target.connectUrl =="
+                                                + " 'http://localhost:8081/health/liveness'"))
+                        .contentType(ContentType.URLENC)
+                        .post("/api/v4/credentials")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(201)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath()
+                        .getLong("id");
+
+        // register first time
+        var realmName = "idempotent_test_realm";
+        var callback =
+                String.format(
+                        "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
+        var registration1 =
+                given().log()
+                        .all()
+                        .when()
+                        .body(Map.of("realm", realmName, "callback", callback))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4/discovery")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        var pluginId1 = registration1.getString("id");
+        var pluginToken1 = registration1.getString("token");
+        MatcherAssert.assertThat(
+                pluginId1, Matchers.is(Matchers.not(Matchers.emptyOrNullString())));
+        MatcherAssert.assertThat(
+                pluginToken1, Matchers.is(Matchers.not(Matchers.emptyOrNullString())));
+
+        // register second time with same callback and realm - should be idempotent
+        var registration2 =
+                given().log()
+                        .all()
+                        .when()
+                        .body(Map.of("realm", realmName, "callback", callback))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4/discovery")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        var pluginId2 = registration2.getString("id");
+        var pluginToken2 = registration2.getString("token");
+
+        // Should return the same plugin ID (idempotent)
+        MatcherAssert.assertThat(pluginId2, Matchers.equalTo(pluginId1));
+        // Token should be different (refreshed)
+        MatcherAssert.assertThat(pluginToken2, Matchers.not(Matchers.equalTo(pluginToken1)));
+
+        // register third time - verify still idempotent
+        var registration3 =
+                given().log()
+                        .all()
+                        .when()
+                        .body(Map.of("realm", realmName, "callback", callback))
+                        .contentType(ContentType.JSON)
+                        .post("/api/v4/discovery")
+                        .then()
+                        .log()
+                        .all()
+                        .and()
+                        .assertThat()
+                        .statusCode(200)
+                        .contentType(ContentType.JSON)
+                        .extract()
+                        .jsonPath();
+        var pluginId3 = registration3.getString("id");
+
+        MatcherAssert.assertThat(pluginId3, Matchers.equalTo(pluginId1));
+
+        // cleanup
+        given().log()
+                .all()
+                .when()
+                .header(DISCOVERY_HEADER, pluginToken2)
+                .delete(String.format("/api/v4/discovery/%s", pluginId1))
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204);
+    }
+
     record Node(String name, String nodeType, Target target, List<?> children) {
         Node(String name, String nodeType, Target target) {
             this(name, nodeType, target, null);
