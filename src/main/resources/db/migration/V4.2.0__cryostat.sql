@@ -333,6 +333,8 @@ CREATE TABLE Credential_AUD (
     matchExpression BIGINT,
     username BYTEA,
     password BYTEA,
+    expiresAt BIGINT,
+    lastUsedAt BIGINT,
     PRIMARY KEY (id, REV),
     FOREIGN KEY (REV) REFERENCES REVINFO (REV),
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
