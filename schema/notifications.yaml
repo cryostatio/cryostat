@@ -341,6 +341,12 @@ components:
                 properties:
                   script:
                     type: string
+              expiresAt:
+                type: object
+                description: Payload of type Instant
+              lastUsedAt:
+                type: object
+                description: Payload of type Instant
         required:
         - meta
         - message
@@ -371,6 +377,12 @@ components:
                 properties:
                   script:
                     type: string
+              expiresAt:
+                type: object
+                description: Payload of type Instant
+              lastUsedAt:
+                type: object
+                description: Payload of type Instant
         required:
         - meta
         - message
@@ -401,6 +413,12 @@ components:
                 properties:
                   script:
                     type: string
+              expiresAt:
+                type: object
+                description: Payload of type Instant
+              lastUsedAt:
+                type: object
+                description: Payload of type Instant
         required:
         - meta
         - message

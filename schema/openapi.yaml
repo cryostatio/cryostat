@@ -202,9 +202,13 @@ components:
       type: string
     Credential:
       properties:
+        expiresAt:
+          $ref: '#/components/schemas/Instant'
         id:
           format: int64
           type: integer
+        lastUsedAt:
+          $ref: '#/components/schemas/Instant'
         matchExpression:
           $ref: '#/components/schemas/MatchExpression'
         password:
