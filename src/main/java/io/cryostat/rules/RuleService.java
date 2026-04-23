@@ -197,17 +197,40 @@ public class RuleService {
     public void handleRuleRecordingCleanup(Rule rule) {
         var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
-            recordingHelper
-                    .getActiveRecording(
-                            target, r -> Objects.equals(r.name, rule.getRecordingName()))
-                    .ifPresent(
-                            recording -> {
-                                try {
-                                    recordingHelper.stopRecording(recording).await().indefinitely();
-                                } catch (Exception e) {
-                                    logger.warn(e);
-                                }
-                            });
+            try {
+                QuarkusTransaction.requiringNew()
+                        .run(
+                                () -> {
+                                    recordingHelper
+                                            .getActiveRecording(
+                                                    target,
+                                                    r ->
+                                                            Objects.equals(
+                                                                    r.name,
+                                                                    rule.getRecordingName()))
+                                            .ifPresent(
+                                                    recording -> {
+                                                        try {
+                                                            recordingHelper
+                                                                    .stopRecording(recording)
+                                                                    .await()
+                                                                    .indefinitely();
+                                                        } catch (Exception e) {
+                                                            logger.warnv(
+                                                                    e,
+                                                                    "Failed to stop recording on"
+                                                                            + " target {0}",
+                                                                    target.id);
+                                                            throw new RuntimeException(e);
+                                                        }
+                                                    });
+                                });
+            } catch (Exception e) {
+                logger.warnv(
+                        e,
+                        "Cleanup failed for target {0}, continuing with remaining targets",
+                        target.id);
+            }
         }
     }
 

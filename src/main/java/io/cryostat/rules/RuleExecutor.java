@@ -201,30 +201,44 @@ public class RuleExecutor {
         cancelTasksForRule(rule);
         var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
-            QuarkusTransaction.joiningExisting()
-                    .run(
-                            () -> {
-                                try {
-                                    var opt =
-                                            recordingHelper.getActiveRecording(
-                                                    target,
-                                                    r ->
-                                                            Objects.equals(
-                                                                    r.name,
-                                                                    rule.getRecordingName()));
-                                    if (opt.isEmpty()) {
+            try {
+                QuarkusTransaction.requiringNew()
+                        .run(
+                                () -> {
+                                    try {
+                                        var opt =
+                                                recordingHelper.getActiveRecording(
+                                                        target,
+                                                        r ->
+                                                                Objects.equals(
+                                                                        r.name,
+                                                                        rule.getRecordingName()));
+                                        if (opt.isEmpty()) {
+                                            logger.warnv(
+                                                    "Target {0} did not have expected Automated"
+                                                            + " Rule recording with name {1}",
+                                                    target.id, rule.getRecordingName());
+                                            return;
+                                        }
+                                        var recording = opt.get();
+                                        recordingHelper
+                                                .stopRecording(recording)
+                                                .await()
+                                                .indefinitely();
+                                    } catch (Exception e) {
                                         logger.warnv(
-                                                "Target {0} did not have expected Automated Rule"
-                                                        + " recording with name {1}",
-                                                target.id, rule.getRecordingName());
-                                        return;
+                                                e,
+                                                "Failed to stop recording on target {0}",
+                                                target.id);
+                                        throw new RuntimeException(e);
                                     }
-                                    var recording = opt.get();
-                                    recordingHelper.stopRecording(recording).await().indefinitely();
-                                } catch (Exception e) {
-                                    logger.warn(e);
-                                }
-                            });
+                                });
+            } catch (Exception e) {
+                logger.warnv(
+                        e,
+                        "Cleanup failed for target {0}, continuing with remaining targets",
+                        target.id);
+            }
         }
     }
 
