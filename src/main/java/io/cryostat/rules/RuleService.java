@@ -42,11 +42,14 @@ import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 import jakarta.transaction.Transactional;
+import jakarta.ws.rs.NotFoundException;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.projectnessie.cel.tools.ScriptException;
@@ -75,7 +78,10 @@ public class RuleService {
 
     private final BlockingQueue<ActivationAttempt> activations =
             new PriorityBlockingQueue<>(255, Comparator.comparing(t -> t.attempts.get()));
+    private final BlockingQueue<CleanupAttempt> cleanups =
+            new PriorityBlockingQueue<>(255, Comparator.comparing(t -> t.attempts.get()));
     private final ExecutorService activator = Executors.newSingleThreadExecutor();
+    private final ExecutorService cleaner = Executors.newSingleThreadExecutor();
     private final ExecutorService workers = Executors.newVirtualThreadPerTaskExecutor();
 
     void onStart(@Observes StartupEvent ev) {
@@ -105,48 +111,27 @@ public class RuleService {
                         workers.submit(() -> fireAttemptExecution(fAttempt));
                     }
                 });
-    }
-
-    private void fireAttemptExecution(ActivationAttempt fAttempt) {
-        try {
-            logger.tracev(
-                    "Attempting to activate rule \"{0}\" for" + " target {1} - attempt #{2}",
-                    fAttempt.ruleId, fAttempt.targetId, fAttempt.attempts);
-            bus.request(RuleExecutor.class.getName(), fAttempt)
-                    .await()
-                    .atMost(connectionFailedTimeout);
-            logger.tracev(
-                    "Activated rule \"{0}\" for target {1}", fAttempt.ruleId, fAttempt.targetId);
-        } catch (Exception e) {
-            if (fAttempt != null) {
-                int count = fAttempt.incrementAndGet();
-                int delay = (int) Math.pow(2, count);
-                TimeUnit unit = TimeUnit.SECONDS;
-                int limit = 5;
-                if (count < limit) {
-                    logger.debugv(
-                            "Rule \"{0}\" activation attempt"
-                                    + " #{1} for target {2} failed,"
-                                    + " rescheduling in {3}{4} ...",
-                            fAttempt.ruleId, count - 1, fAttempt.targetId, delay, unit);
-                    Infrastructure.getDefaultWorkerPool()
-                            .schedule(() -> activations.add(fAttempt), delay, unit);
-                } else {
-                    logger.errorv(
-                            "Rule \"{0}\" activation attempt"
-                                    + " #{1} failed for target {2}"
-                                    + " - limit ({3}) reached! Will"
-                                    + " not retry...",
-                            fAttempt.ruleId, count, fAttempt.targetId, limit);
-                }
-            }
-            logger.error(e);
-        }
+        cleaner.submit(
+                () -> {
+                    while (!cleaner.isShutdown()) {
+                        CleanupAttempt attempt = null;
+                        try {
+                            attempt = cleanups.take();
+                        } catch (InterruptedException ie) {
+                            logger.trace(ie);
+                            break;
+                        }
+                        final CleanupAttempt fAttempt = attempt;
+                        workers.submit(() -> fireCleanupExecution(fAttempt));
+                    }
+                });
     }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         activator.shutdown();
+        cleaner.shutdown();
         activations.clear();
+        cleanups.clear();
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
@@ -197,41 +182,147 @@ public class RuleService {
     public void handleRuleRecordingCleanup(Rule rule) {
         var targets = evaluator.getMatchedTargets(rule.matchExpression);
         for (var target : targets) {
-            try {
-                QuarkusTransaction.requiringNew()
-                        .run(
-                                () -> {
-                                    recordingHelper
-                                            .getActiveRecording(
-                                                    target,
-                                                    r ->
-                                                            Objects.equals(
-                                                                    r.name,
-                                                                    rule.getRecordingName()))
-                                            .ifPresent(
-                                                    recording -> {
-                                                        try {
-                                                            recordingHelper
-                                                                    .stopRecording(recording)
-                                                                    .await()
-                                                                    .indefinitely();
-                                                        } catch (Exception e) {
-                                                            logger.warnv(
-                                                                    e,
-                                                                    "Failed to stop recording on"
-                                                                            + " target {0}",
-                                                                    target.id);
-                                                            throw new RuntimeException(e);
-                                                        }
-                                                    });
-                                });
-            } catch (Exception e) {
-                logger.warnv(
-                        e,
-                        "Cleanup failed for target {0}, continuing with remaining targets",
-                        target.id);
+            CleanupAttempt attempt = new CleanupAttempt(rule, target);
+            cleanups.add(attempt);
+            logger.debugv(
+                    "Queued cleanup for recording \"{0}\" on target {1}",
+                    rule.getRecordingName(), target.id);
+        }
+    }
+
+    private void fireAttemptExecution(ActivationAttempt fAttempt) {
+        try {
+            logger.tracev(
+                    "Attempting to activate rule \"{0}\" for" + " target {1} - attempt #{2}",
+                    fAttempt.ruleId, fAttempt.targetId, fAttempt.attempts);
+            bus.request(RuleExecutor.class.getName(), fAttempt)
+                    .await()
+                    .atMost(connectionFailedTimeout);
+            logger.tracev(
+                    "Activated rule \"{0}\" for target {1}", fAttempt.ruleId, fAttempt.targetId);
+        } catch (Exception e) {
+            if (fAttempt != null) {
+                int count = fAttempt.attempts.incrementAndGet();
+                int delay = (int) Math.pow(2, count);
+                TimeUnit unit = TimeUnit.SECONDS;
+                int limit = 5;
+                if (count < limit) {
+                    logger.debugv(
+                            "Rule \"{0}\" activation attempt"
+                                    + " #{1} for target {2} failed,"
+                                    + " rescheduling in {3}{4} ...",
+                            fAttempt.ruleId, count - 1, fAttempt.targetId, delay, unit);
+                    Infrastructure.getDefaultWorkerPool()
+                            .schedule(() -> activations.add(fAttempt), delay, unit);
+                } else {
+                    logger.errorv(
+                            "Rule \"{0}\" activation attempt"
+                                    + " #{1} failed for target {2}"
+                                    + " - limit ({3}) reached! Will"
+                                    + " not retry...",
+                            fAttempt.ruleId, count, fAttempt.targetId, limit);
+                }
+            }
+            logger.error(e);
+        }
+    }
+
+    private void fireCleanupExecution(CleanupAttempt fAttempt) {
+        try {
+            logger.tracev(
+                    "Attempting to cleanup recording \"{0}\" on target {1} - attempt #{2}",
+                    fAttempt.recordingName, fAttempt.targetId, fAttempt.attempts.get());
+
+            QuarkusTransaction.requiringNew()
+                    .run(
+                            () -> {
+                                var targetOpt =
+                                        Target.<Target>find("id", fAttempt.targetId)
+                                                .firstResultOptional();
+                                if (targetOpt.isEmpty()) {
+                                    logger.infov(
+                                            "Target {0} no longer exists, cleanup complete",
+                                            fAttempt.targetId);
+                                    return;
+                                }
+                                Target target = targetOpt.get();
+
+                                var recordingOpt =
+                                        recordingHelper.getActiveRecording(
+                                                target,
+                                                r ->
+                                                        Objects.equals(
+                                                                r.name, fAttempt.recordingName));
+                                if (recordingOpt.isEmpty()) {
+                                    logger.infov(
+                                            "Recording \"{0}\" no longer exists on target {1},"
+                                                    + " cleanup complete",
+                                            fAttempt.recordingName, fAttempt.targetId);
+                                    return;
+                                }
+
+                                var recording = recordingOpt.get();
+                                try {
+                                    recordingHelper.stopRecording(recording).await().indefinitely();
+                                    logger.infov(
+                                            "Successfully stopped recording \"{0}\" on target {1}",
+                                            fAttempt.recordingName, fAttempt.targetId);
+                                } catch (Exception stopEx) {
+                                    throw new RuntimeException(stopEx);
+                                }
+                            });
+        } catch (Exception e) {
+            if (fAttempt != null) {
+                int count = fAttempt.attempts.incrementAndGet();
+                int delay = (int) Math.pow(2, count);
+                TimeUnit unit = TimeUnit.SECONDS;
+                int limit = 5;
+
+                // Check if this is a permanent failure (target/recording gone)
+                boolean isPermanentFailure = isPermanentCleanupFailure(e);
+
+                if (isPermanentFailure) {
+                    logger.infov(
+                            "Recording \"{0}\" cleanup on target {1} failed permanently: {2}."
+                                    + " Will not retry.",
+                            fAttempt.recordingName, fAttempt.targetId, e.getMessage());
+                } else if (count < limit) {
+                    logger.debugv(
+                            "Recording \"{0}\" cleanup attempt #{1} on target {2} failed,"
+                                    + " rescheduling in {3}{4} ...",
+                            fAttempt.recordingName, count - 1, fAttempt.targetId, delay, unit);
+                    Infrastructure.getDefaultWorkerPool()
+                            .schedule(() -> cleanups.add(fAttempt), delay, unit);
+                } else {
+                    logger.errorv(
+                            "Recording \"{0}\" cleanup attempt #{1} failed on target {2}"
+                                    + " - limit ({3}) reached! Will not retry...",
+                            fAttempt.recordingName, count, fAttempt.targetId, limit);
+                }
+            }
+            if (!isPermanentCleanupFailure(e)) {
+                logger.warn(e);
             }
         }
+    }
+
+    private boolean isPermanentCleanupFailure(Throwable t) {
+        if (t == null) {
+            return false;
+        }
+        // Target deleted or recording already stopped/deleted
+        if (t instanceof NoResultException) {
+            return true;
+        }
+        if (t instanceof NotFoundException) {
+            return true;
+        }
+        if (t instanceof HttpException httpEx) {
+            // 404 = recording not found, 400 = bad request (recording already stopped)
+            return httpEx.getStatusCode() == 404 || httpEx.getStatusCode() == 400;
+        }
+        // Check cause recursively
+        return isPermanentCleanupFailure(t.getCause());
     }
 
     private void resetActivations(Rule rule) {
@@ -240,12 +331,23 @@ public class RuleService {
 
     private void resetActivations(Target target) {
         resetActivations(a -> a.targetId == target.id);
+        resetCleanups(c -> c.targetId == target.id);
     }
 
     private void resetActivations(Predicate<ActivationAttempt> p) {
         Iterator<ActivationAttempt> it = activations.iterator();
         while (it.hasNext()) {
             ActivationAttempt attempt = it.next();
+            if (p.test(attempt)) {
+                it.remove();
+            }
+        }
+    }
+
+    private void resetCleanups(Predicate<CleanupAttempt> p) {
+        Iterator<CleanupAttempt> it = cleanups.iterator();
+        while (it.hasNext()) {
+            CleanupAttempt attempt = it.next();
             if (p.test(attempt)) {
                 it.remove();
             }
@@ -306,6 +408,50 @@ public class RuleService {
             if (attempts.get() < 0) {
                 throw new IllegalArgumentException();
             }
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (!(obj instanceof ActivationAttempt other)) return false;
+            return ruleId == other.ruleId && targetId == other.targetId;
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(ruleId, targetId);
+        }
+    }
+
+    @SuppressFBWarnings("EI_EXPOSE_REP")
+    public record CleanupAttempt(
+            String ruleName, long targetId, String recordingName, AtomicInteger attempts) {
+        public CleanupAttempt(Rule rule, Target target) {
+            this(rule.name, target.id, rule.getRecordingName(), new AtomicInteger(0));
+        }
+
+        public CleanupAttempt {
+            Objects.requireNonNull(ruleName);
+            Objects.requireNonNull(recordingName);
+            Objects.requireNonNull(attempts);
+            if (targetId < 0) {
+                throw new IllegalArgumentException();
+            }
+            if (attempts.get() < 0) {
+                throw new IllegalArgumentException();
+            }
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (!(obj instanceof CleanupAttempt other)) return false;
+            return targetId == other.targetId && Objects.equals(recordingName, other.recordingName);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(targetId, recordingName);
         }
 
         public int incrementAndGet() {

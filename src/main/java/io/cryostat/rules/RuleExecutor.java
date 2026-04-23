@@ -38,7 +38,6 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 import io.cryostat.util.EntityExistsException;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -199,47 +198,7 @@ public class RuleExecutor {
     @Transactional
     public void handleRuleRecordingCleanup(Rule rule) {
         cancelTasksForRule(rule);
-        var targets = evaluator.getMatchedTargets(rule.matchExpression);
-        for (var target : targets) {
-            try {
-                QuarkusTransaction.requiringNew()
-                        .run(
-                                () -> {
-                                    try {
-                                        var opt =
-                                                recordingHelper.getActiveRecording(
-                                                        target,
-                                                        r ->
-                                                                Objects.equals(
-                                                                        r.name,
-                                                                        rule.getRecordingName()));
-                                        if (opt.isEmpty()) {
-                                            logger.warnv(
-                                                    "Target {0} did not have expected Automated"
-                                                            + " Rule recording with name {1}",
-                                                    target.id, rule.getRecordingName());
-                                            return;
-                                        }
-                                        var recording = opt.get();
-                                        recordingHelper
-                                                .stopRecording(recording)
-                                                .await()
-                                                .indefinitely();
-                                    } catch (Exception e) {
-                                        logger.warnv(
-                                                e,
-                                                "Failed to stop recording on target {0}",
-                                                target.id);
-                                        throw new RuntimeException(e);
-                                    }
-                                });
-            } catch (Exception e) {
-                logger.warnv(
-                        e,
-                        "Cleanup failed for target {0}, continuing with remaining targets",
-                        target.id);
-            }
-        }
+        logger.debugv("Cancelled scheduled tasks for rule \"{0}\"", rule.name);
     }
 
     private void cancelTasksForRule(Rule rule) {
