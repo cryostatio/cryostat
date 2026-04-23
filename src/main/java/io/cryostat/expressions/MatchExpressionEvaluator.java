@@ -181,16 +181,7 @@ public class MatchExpressionEvaluator {
                                 () -> {
                                     List<Target> allTargets = Target.<Target>listAll();
                                     // Force eager loading of lazy associations before detaching
-                                    allTargets.forEach(
-                                            t -> {
-                                                if (t.annotations != null) {
-                                                    t.annotations.cryostat();
-                                                    t.annotations.platform();
-                                                }
-                                                if (t.labels != null) {
-                                                    t.labels.size();
-                                                }
-                                            });
+                                    allTargets.forEach(this::eagerLoadAssociations);
                                     return allTargets;
                                 });
         List<Target> matched =
@@ -235,6 +226,17 @@ public class MatchExpressionEvaluator {
         }
 
         return matched;
+    }
+
+    @SuppressFBWarnings("RV_RETURN_VALUE_IGNORED_NO_SIDE_EFFECT")
+    private void eagerLoadAssociations(Target t) {
+        if (t.annotations != null) {
+            t.annotations.cryostat();
+            t.annotations.platform();
+        }
+        if (t.labels != null) {
+            t.labels.size();
+        }
     }
 
     @Name("io.cryostat.rules.MatchExpressionEvaluator.MatchExpressionApplies")
