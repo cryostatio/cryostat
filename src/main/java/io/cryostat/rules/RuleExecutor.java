@@ -87,11 +87,26 @@ public class RuleExecutor {
     @Transactional
     Uni<Void> onMessage(ActivationAttempt attempt) {
         logger.tracev(
-                "Attempting to activate rule \"{0}\" for target {1} -" + " attempt #{2}",
+                "Attempting to activate rule \"{0}\" for target {1} - attempt #{2}",
                 attempt.ruleId(), attempt.targetId(), attempt.attempts());
         try {
-            Target target = Target.<Target>find("id", attempt.targetId()).singleResult();
-            Rule rule = Rule.<Rule>find("id", attempt.ruleId()).singleResult();
+            var targetOpt = Target.<Target>find("id", attempt.targetId()).firstResultOptional();
+            if (targetOpt.isEmpty()) {
+                logger.warnv(
+                        "Target {0} no longer exists, skipping rule activation attempt",
+                        attempt.targetId());
+                return Uni.createFrom().nullItem();
+            }
+            Target target = targetOpt.get();
+
+            var ruleOpt = Rule.<Rule>find("id", attempt.ruleId()).firstResultOptional();
+            if (ruleOpt.isEmpty()) {
+                logger.warnv(
+                        "Rule {0} no longer exists, skipping activation attempt", attempt.ruleId());
+                return Uni.createFrom().nullItem();
+            }
+            Rule rule = ruleOpt.get();
+
             Pair<String, TemplateType> pair =
                     recordingHelper.parseEventSpecifier(rule.eventSpecifier);
             Template template =
