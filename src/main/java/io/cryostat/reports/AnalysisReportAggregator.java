@@ -82,7 +82,6 @@ public class AnalysisReportAggregator {
     @Inject RecordingHelper recordingHelper;
 
     @ConsumeEvent(value = ActiveRecordings.ARCHIVED_RECORDING_CREATED, blocking = true)
-    @Transactional
     public void onMessage(ArchivedRecording recording) {
         var autoanalyze = recording.metadata().labels().get(AUTOANALYZE_LABEL);
         if (Boolean.parseBoolean(autoanalyze)) {
@@ -91,19 +90,19 @@ public class AnalysisReportAggregator {
                     .subscribe()
                     .with(
                             entry -> {
-                                if (recording.archivedTime() < entry.timestamp()) {
-                                    // cached data is fresher
-                                    return;
-                                }
-                                var filename = recording.name();
-                                logger.tracev(
-                                        "Triggering batch report processing for {0}/{1}.",
-                                        jvmId, filename);
-                                var request =
-                                        new ArchivedReportRequest(
-                                                UUID.randomUUID().toString(),
-                                                Pair.of(jvmId, filename));
                                 try {
+                                    if (recording.archivedTime() < entry.timestamp()) {
+                                        // cached data is fresher
+                                        return;
+                                    }
+                                    var filename = recording.name();
+                                    logger.tracev(
+                                            "Triggering batch report processing for {0}/{1}.",
+                                            jvmId, filename);
+                                    var request =
+                                            new ArchivedReportRequest(
+                                                    UUID.randomUUID().toString(),
+                                                    Pair.of(jvmId, filename));
                                     var future = new CompletableFuture<Entry>();
                                     bus.<Map<String, AnalysisResult>>request(
                                                     LongRunningRequestGenerator
@@ -120,7 +119,11 @@ public class AnalysisReportAggregator {
                                                                             report.body())));
                                     cache.as(CaffeineCache.class).put(jvmId, future);
                                 } catch (Exception e) {
-                                    logger.warn(e);
+                                    logger.warnv(
+                                            e,
+                                            "Failed to process archived recording {0}/{1}",
+                                            jvmId,
+                                            recording.name());
                                 }
                             });
         }
@@ -129,33 +132,38 @@ public class AnalysisReportAggregator {
     @ConsumeEvent(
             value = LongRunningRequestGenerator.ACTIVE_REPORT_COMPLETE_ADDRESS,
             blocking = true)
-    @Transactional
     public void onMessage(ActiveReportCompletion evt) {
         var jvmId = evt.recording().target.jvmId;
         getOrCreateEntry(jvmId)
                 .subscribe()
                 .with(
                         entry -> {
-                            long now = Instant.now().getEpochSecond();
-                            if (now < entry.timestamp()) {
-                                // cached data is fresher
-                                return;
+                            try {
+                                long now = Instant.now().getEpochSecond();
+                                if (now < entry.timestamp()) {
+                                    // cached data is fresher
+                                    return;
+                                }
+                                cache.as(CaffeineCache.class)
+                                        .put(
+                                                jvmId,
+                                                CompletableFuture.completedFuture(
+                                                        new Entry(
+                                                                now,
+                                                                entry.ownerChain(),
+                                                                evt.report())));
+                            } catch (Exception e) {
+                                logger.warnv(
+                                        e,
+                                        "Failed to update cache for active report for jvmId {0}",
+                                        jvmId);
                             }
-                            cache.as(CaffeineCache.class)
-                                    .put(
-                                            jvmId,
-                                            CompletableFuture.completedFuture(
-                                                    new Entry(
-                                                            now,
-                                                            entry.ownerChain(),
-                                                            evt.report())));
                         });
     }
 
     @ConsumeEvent(
             value = LongRunningRequestGenerator.ARCHIVED_REPORT_COMPLETE_ADDRESS,
             blocking = true)
-    @Transactional
     public void onMessage(ArchivedReportCompletion evt) {
         var jvmId = evt.jvmId();
         var filename = evt.filename();
@@ -163,25 +171,36 @@ public class AnalysisReportAggregator {
                 .subscribe()
                 .with(
                         entry -> {
-                            recordingHelper
-                                    .getArchivedRecordingInfo(jvmId, filename)
-                                    .ifPresent(
-                                            archivedRecording -> {
-                                                if (archivedRecording.archivedTime()
-                                                        < entry.timestamp()) {
-                                                    // cached data is fresher
-                                                    return;
-                                                }
-                                                cache.as(CaffeineCache.class)
-                                                        .put(
-                                                                jvmId,
-                                                                CompletableFuture.completedFuture(
-                                                                        new Entry(
-                                                                                archivedRecording
-                                                                                        .archivedTime(),
-                                                                                entry.ownerChain(),
-                                                                                evt.report())));
-                                            });
+                            try {
+                                recordingHelper
+                                        .getArchivedRecordingInfo(jvmId, filename)
+                                        .ifPresent(
+                                                archivedRecording -> {
+                                                    if (archivedRecording.archivedTime()
+                                                            < entry.timestamp()) {
+                                                        // cached data is fresher
+                                                        return;
+                                                    }
+                                                    cache.as(CaffeineCache.class)
+                                                            .put(
+                                                                    jvmId,
+                                                                    CompletableFuture
+                                                                            .completedFuture(
+                                                                                    new Entry(
+                                                                                            archivedRecording
+                                                                                                    .archivedTime(),
+                                                                                            entry
+                                                                                                    .ownerChain(),
+                                                                                            evt
+                                                                                                    .report())));
+                                                });
+                            } catch (Exception e) {
+                                logger.warnv(
+                                        e,
+                                        "Failed to update cache for archived report {0}/{1}",
+                                        jvmId,
+                                        filename);
+                            }
                         });
     }
 
