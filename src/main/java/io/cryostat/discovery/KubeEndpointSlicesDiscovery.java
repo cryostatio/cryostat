@@ -353,14 +353,21 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
                 Set<Target> observedTargets = observedTargetsWithHierarchy.keySet();
 
-                Target.compare(persistedTargets)
-                        .to(observedTargets)
-                        .removed()
-                        .forEach(
-                                (t) ->
-                                        notify(
-                                                EndpointDiscoveryEvent.from(
-                                                        namespace, t, null, EventKind.LOST)));
+                var removedTargets = Target.compare(persistedTargets).to(observedTargets).removed();
+
+                logger.debugv(
+                        "Namespace {0}: Found {1} persisted targets, {2} observed targets, {3}"
+                                + " removed targets",
+                        namespace,
+                        persistedTargets.size(),
+                        observedTargets.size(),
+                        removedTargets.size());
+
+                removedTargets.forEach(
+                        (t) -> {
+                            logger.debugv("Publishing LOST event for target: {0}", t.connectUrl);
+                            notify(EndpointDiscoveryEvent.from(namespace, t, null, EventKind.LOST));
+                        });
 
                 Target.compare(persistedTargets)
                         .to(observedTargets)
@@ -709,6 +716,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     private void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
+        logger.debugv("Pruning owner chain for target: {0}", target.connectUrl);
         try {
             Target managedTarget = Target.getTargetByConnectUrl(target.connectUrl);
 
@@ -717,32 +725,77 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 return;
             }
 
-            DiscoveryNode child = managedTarget.discoveryNode;
-            while (true) {
+            logger.debugv(
+                    "Found managed target with id {0}, starting pruning from discoveryNode {1}",
+                    managedTarget.id,
+                    managedTarget.discoveryNode != null ? managedTarget.discoveryNode.id : "null");
+
+            DiscoveryNode endpointNode = managedTarget.discoveryNode;
+            if (endpointNode == null || endpointNode.id == null) {
+                logger.debugv("No discoveryNode for target: {0}", target.connectUrl);
+                managedTarget.delete();
+                return;
+            }
+
+            endpointNode = entityManager.find(DiscoveryNode.class, endpointNode.id);
+            logger.debugv(
+                    "Loaded discoveryNode {0} with parent {1}",
+                    endpointNode.id, endpointNode.parent != null ? endpointNode.parent.id : "null");
+
+            // Get the parent BEFORE deleting the target, because deletion will cascade
+            DiscoveryNode child = endpointNode.parent;
+
+            // Delete the target first - this will cascade delete its discoveryNode (the
+            // Endpoint/EndpointSlice)
+            managedTarget.delete();
+            entityManager.flush();
+
+            // If there's no parent, we're done
+            if (child == null) {
+                logger.debugv("No parent node to prune");
+                return;
+            }
+
+            // Walk up the hierarchy, removing childless nodes from their parents
+            // Rely on orphan removal to delete them, don't call delete() explicitly
+            while (child != null) {
                 DiscoveryNode parent = child.parent;
 
                 if (parent == null) {
+                    logger.debugv(
+                            "Reached orphaned node {0} (id={1}), relying on orphan removal",
+                            child.name, child.id);
                     break;
                 }
 
-                parent.children.remove(child);
-                child.parent = null;
-                parent.persist();
-
-                entityManager.flush(); // Ensure removal is persisted
                 entityManager.refresh(parent); // Reload from DB with current children
 
-                if (parent.hasChildren()
-                        || parent.nodeType.equals(KubeDiscoveryNodeType.NAMESPACE.getKind())) {
+                boolean hasChildren = parent.hasChildren();
+                boolean isNamespace =
+                        parent.nodeType.equals(KubeDiscoveryNodeType.NAMESPACE.getKind());
+                logger.debugv(
+                        "Parent node {0} (id={1}, type={2}): hasChildren={3}, isNamespace={4}",
+                        parent.name, parent.id, parent.nodeType, hasChildren, isNamespace);
+
+                if (hasChildren || isNamespace) {
+                    logger.debugv("Stopping pruning at parent node {0}", parent.name);
+                    // Remove child from parent's collection - orphan removal will delete it
+                    parent.children.remove(child);
+                    child.parent = null;
                     break;
                 }
 
+                logger.debugv("Continuing to prune parent node {0}", parent.name);
+                // Remove child from parent's collection - orphan removal will delete it
+                parent.children.remove(child);
+                child.parent = null;
+
+                // Move up to check the parent too
                 child = parent;
             }
 
             entityManager.flush();
             nsNode.persist();
-            managedTarget.delete();
 
         } catch (EntityNotFoundException e) {
             logger.debugv("Target was deleted during pruning operation: {0}", target.connectUrl, e);
@@ -794,12 +847,68 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         podNode.children.add(targetNode);
         targetNode.parent = podNode;
 
-        DiscoveryNode rootNode = buildOwnershipHierarchy(pod.getLeft(), podNode);
+        DiscoveryNode rootNode = buildOwnershipHierarchyWithDbLookup(pod.getLeft(), podNode);
 
         nsNode.children.add(rootNode);
         rootNode.parent = nsNode;
 
         return rootNode;
+    }
+
+    /**
+     * Builds the ownership hierarchy using database lookups to reuse existing nodes.
+     *
+     * @param kubeObj The Kubernetes object to start from
+     * @param node The DiscoveryNode representing the Kubernetes object
+     * @return The root node of the ownership chain (the topmost owner)
+     */
+    private DiscoveryNode buildOwnershipHierarchyWithDbLookup(
+            HasMetadata kubeObj, DiscoveryNode node) {
+        Pair<HasMetadata, DiscoveryNode> current = Pair.of(kubeObj, node);
+
+        while (true) {
+            Pair<HasMetadata, DiscoveryNode> owner = getOwnerNodeWithDbLookup(current);
+            if (owner == null) {
+                break;
+            }
+
+            DiscoveryNode ownerNode = owner.getRight();
+            DiscoveryNode childNode = current.getRight();
+
+            if (!ownerNode.children.contains(childNode)) {
+                ownerNode.children.add(childNode);
+            }
+            childNode.parent = ownerNode;
+
+            current = owner;
+        }
+
+        return current.getRight();
+    }
+
+    /**
+     * Gets the owner node using database lookup to reuse existing nodes.
+     *
+     * @param child Pair of Kubernetes object and its DiscoveryNode
+     * @return Pair of owner Kubernetes object and its DiscoveryNode from DB, or null if no owner
+     */
+    private Pair<HasMetadata, DiscoveryNode> getOwnerNodeWithDbLookup(
+            Pair<HasMetadata, DiscoveryNode> child) {
+        HasMetadata childRef = child.getLeft();
+        if (childRef == null) {
+            return null;
+        }
+        List<OwnerReference> owners = childRef.getMetadata().getOwnerReferences();
+        if (owners.isEmpty()) {
+            return null;
+        }
+        String namespace = childRef.getMetadata().getNamespace();
+        OwnerReference owner =
+                owners.stream()
+                        .filter(o -> KubeDiscoveryNodeType.fromKubernetesKind(o.getKind()) != null)
+                        .findFirst()
+                        .orElse(owners.get(0));
+        return queryForNode(namespace, owner.getName(), owner.getKind());
     }
 
     private void persistNodeChain(DiscoveryNode nsNode, Target target, DiscoveryNode targetNode) {
