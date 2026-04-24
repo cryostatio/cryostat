@@ -952,6 +952,13 @@ public class Discovery {
                                         p.backoffMultiplier = 1;
                                         p.nextPingAt = null;
                                         p.persist();
+
+                                        logger.debugv(
+                                                "Plugin ping successful - lastSuccessfulPing: {0},"
+                                                        + " consecutiveFailures reset to 0,"
+                                                        + " backoffMultiplier reset to 1: {1} @"
+                                                        + " {2}",
+                                                p.lastSuccessfulPing, p.realm.name, p.callback);
                                     } catch (NoResultException e) {
                                         throw e;
                                     } catch (Exception e) {
@@ -991,6 +998,19 @@ public class Discovery {
                                                             p.backoffMultiplier);
                                             p.nextPingAt = Instant.now().plus(backoffPeriod);
                                             p.persist();
+
+                                            logger.debugv(
+                                                    "Plugin ping failed - lastFailedPing: {0},"
+                                                            + " consecutiveFailures: {1}/{2},"
+                                                            + " backoffMultiplier: {3}, nextPingAt:"
+                                                            + " {4}: {5} @ {6}",
+                                                    p.lastFailedPing,
+                                                    p.consecutiveFailures,
+                                                    maxConsecutiveFailures,
+                                                    p.backoffMultiplier,
+                                                    p.nextPingAt,
+                                                    p.realm.name,
+                                                    p.callback);
 
                                             if (p.consecutiveFailures >= maxConsecutiveFailures) {
                                                 logger.warnv(
