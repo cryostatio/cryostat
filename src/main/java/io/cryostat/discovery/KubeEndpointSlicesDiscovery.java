@@ -1048,7 +1048,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 DiscoveryNode.byTypeWithName(
                         nodeType,
                         name,
-                        n -> namespace.equals(n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY)),
+                        n ->
+                                namespace.equals(n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY))
+                                        && isInKubernetesApiRealm(n),
                         n -> {
                             Map<String, String> labels = new HashMap<>();
                             if (kubeObj != null && kubeObj.getMetadata().getLabels() != null) {
@@ -1059,6 +1061,25 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                             n.labels.putAll(labels);
                         });
         return Pair.of(kubeObj, node);
+    }
+
+    /**
+     * Check if a node belongs to the KubernetesApi Realm by walking up its parent chain.
+     *
+     * @param node The node to check
+     * @return true if the node is in the KubernetesApi Realm, false otherwise
+     */
+    private boolean isInKubernetesApiRealm(DiscoveryNode node) {
+        DiscoveryNode current = node;
+        while (current != null) {
+            if (current.nodeType != null
+                    && current.nodeType.equals(NodeType.BaseNodeType.REALM.getKind())
+                    && REALM.equals(current.name)) {
+                return true;
+            }
+            current = current.parent;
+        }
+        return false;
     }
 
     @DisallowConcurrentExecution
