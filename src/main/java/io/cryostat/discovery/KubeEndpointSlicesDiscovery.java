@@ -61,6 +61,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import jakarta.transaction.Transactional.TxType;
@@ -708,31 +709,46 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     private void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
-        target = Target.getTargetByConnectUrl(target.connectUrl);
+        try {
+            Target managedTarget = Target.getTargetByConnectUrl(target.connectUrl);
 
-        DiscoveryNode child = target.discoveryNode;
-        while (true) {
-            DiscoveryNode parent = child.parent;
-
-            if (parent == null) {
-                break;
+            if (managedTarget == null || managedTarget.id == null) {
+                logger.debugv("Target already deleted: {0}", target.connectUrl);
+                return;
             }
 
-            parent.children.remove(child);
-            child.parent = null;
-            parent.persist();
+            DiscoveryNode child = managedTarget.discoveryNode;
+            while (true) {
+                DiscoveryNode parent = child.parent;
 
-            if (parent.hasChildren()
-                    || parent.nodeType.equals(KubeDiscoveryNodeType.NAMESPACE.getKind())) {
-                break;
+                if (parent == null) {
+                    break;
+                }
+
+                parent.children.remove(child);
+                child.parent = null;
+                parent.persist();
+
+                entityManager.flush(); // Ensure removal is persisted
+                entityManager.refresh(parent); // Reload from DB with current children
+
+                if (parent.hasChildren()
+                        || parent.nodeType.equals(KubeDiscoveryNodeType.NAMESPACE.getKind())) {
+                    break;
+                }
+
+                child = parent;
             }
 
-            child = parent;
+            entityManager.flush();
+            nsNode.persist();
+            managedTarget.delete();
+
+        } catch (EntityNotFoundException e) {
+            logger.debugv("Target was deleted during pruning operation: {0}", target.connectUrl, e);
+            entityManager.flush();
+            nsNode.persist();
         }
-
-        entityManager.flush();
-        nsNode.persist();
-        target.delete();
     }
 
     /**
