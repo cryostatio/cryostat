@@ -17,13 +17,11 @@ package io.cryostat.discovery;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -59,7 +57,6 @@ import jakarta.ws.rs.core.MultivaluedHashMap;
 import jakarta.ws.rs.core.MultivaluedMap;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.hibernate.annotations.Cache;
 import org.hibernate.annotations.CacheConcurrencyStrategy;
 import org.hibernate.annotations.UuidGenerator;
@@ -155,9 +152,6 @@ public class DiscoveryPlugin extends PanacheEntityBase {
         @Inject Logger logger;
         @Inject PluginCallbackFactory callbackFactory;
 
-        @ConfigProperty(name = ConfigProperties.CREDENTIAL_EXPIRATION)
-        Duration credentialExpiration;
-
         @PrePersist
         @Transactional
         public void prePersist(DiscoveryPlugin plugin) {
@@ -171,9 +165,6 @@ public class DiscoveryPlugin extends PanacheEntityBase {
                 var credential = getCredential(plugin);
                 plugin.credential = credential;
                 credential.discoveryPlugin = plugin;
-                if (credential.expiresAt == null) {
-                    credential.expiresAt = Instant.now().plus(credentialExpiration);
-                }
                 plugin.callback = UriBuilder.fromUri(plugin.callback).userInfo(null).build();
             }
             if (plugin.nextPingAt != null

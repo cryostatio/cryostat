@@ -16,19 +16,15 @@
 package io.cryostat.credentials;
 
 import static io.restassured.RestAssured.given;
-import static org.junit.jupiter.api.Assertions.assertNull;
 
-import java.time.Instant;
 import java.util.List;
 
 import io.cryostat.AbstractTransactionalTestBase;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.common.http.TestHTTPEndpoint;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
 import org.hamcrest.Matchers;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -160,70 +156,6 @@ public class CredentialsTest extends AbstractTransactionalTestBase {
                 .body(
                         Matchers.instanceOf(String.class),
                         Matchers.matchesRegex("[\\s]*\"NA\"[\\s]*"));
-    }
-
-    @Test
-    void testCreatedCredentialsDoNotExpireByDefault() {
-        int id = createTestCredential();
-
-        var credential =
-                QuarkusTransaction.requiringNew()
-                        .call(() -> Credential.<Credential>findById((long) id));
-
-        assertNull(credential.expiresAt);
-        assertNull(credential.lastUsedAt);
-    }
-
-    @Test
-    void testPluginCredentialGetsDefaultExpiryWhenAssociated() {
-        var credentialId =
-                given().log()
-                        .all()
-                        .contentType(ContentType.URLENC)
-                        .formParam(
-                                "matchExpression",
-                                "target.connectUrl == 'http://localhost:8081/health/liveness'")
-                        .formParam("username", "user")
-                        .formParam("password", "pass")
-                        .when()
-                        .post()
-                        .then()
-                        .log()
-                        .all()
-                        .and()
-                        .assertThat()
-                        .statusCode(201)
-                        .contentType(ContentType.JSON)
-                        .extract()
-                        .jsonPath()
-                        .getLong("id");
-
-        var callback =
-                String.format(
-                        "http://storedcredentials:%d@localhost:8081/health/liveness", credentialId);
-
-        given().log()
-                .all()
-                .when()
-                .body(java.util.Map.of("realm", "expiry_test_realm", "callback", callback))
-                .contentType(ContentType.JSON)
-                .post("http://localhost:8081/api/v4/discovery")
-                .then()
-                .log()
-                .all()
-                .and()
-                .assertThat()
-                .statusCode(200);
-
-        var credential =
-                QuarkusTransaction.requiringNew()
-                        .call(() -> Credential.<Credential>findById(credentialId));
-
-        Assertions.assertNotNull(credential.expiresAt);
-        Assertions.assertTrue(
-                !credential.expiresAt.isBefore(Instant.now().plusSeconds(3500))
-                        && !credential.expiresAt.isAfter(Instant.now().plusSeconds(3700)));
-        assertNull(credential.lastUsedAt);
     }
 
     private int createTestCredential() {
