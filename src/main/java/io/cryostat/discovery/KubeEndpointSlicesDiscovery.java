@@ -60,6 +60,8 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import jakarta.transaction.Transactional.TxType;
 import org.apache.commons.lang3.StringUtils;
@@ -114,6 +116,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     @Inject Scheduler scheduler;
 
     @Inject EventBus bus;
+
+    @Inject EntityManager entityManager;
 
     @ConfigProperty(name = "cryostat.discovery.kubernetes.enabled")
     boolean enabled;
@@ -383,11 +387,18 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     public void handleEndpointEvent(EndpointDiscoveryEvent evt) {
         String namespace = evt.namespace;
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
+        realm = entityManager.find(DiscoveryNode.class, realm.id, LockModeType.PESSIMISTIC_WRITE);
+        DiscoveryNode lockedRealm = realm;
         DiscoveryNode nsNode =
-                DiscoveryNode.getChild(realm, n -> n.name.equals(namespace))
-                        .orElse(
-                                DiscoveryNode.environment(
-                                        namespace, KubeDiscoveryNodeType.NAMESPACE));
+                DiscoveryNode.getChild(lockedRealm, n -> n.name.equals(namespace))
+                        .orElseGet(
+                                () -> {
+                                    DiscoveryNode created =
+                                            DiscoveryNode.environment(
+                                                    namespace, KubeDiscoveryNodeType.NAMESPACE);
+                                    created.parent = lockedRealm;
+                                    return created;
+                                });
 
         if (evt.eventKind == EventKind.FOUND) {
             persistOwnerChain(nsNode, evt.target, evt.objRef);
@@ -402,6 +413,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             realm.children.add(nsNode);
             nsNode.parent = realm;
         }
+        entityManager.flush();
         realm.persist();
     }
 
@@ -718,6 +730,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             child = parent;
         }
 
+        entityManager.flush();
         nsNode.persist();
         target.delete();
     }
@@ -807,6 +820,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
 
         // Finally persist the namespace node
+        entityManager.flush();
         nsNode.persist();
     }
 

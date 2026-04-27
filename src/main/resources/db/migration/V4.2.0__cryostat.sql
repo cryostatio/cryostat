@@ -299,6 +299,11 @@ CREATE TABLE DiscoveryPlugin_AUD (
     callback TEXT,
     credential_id BIGINT,
     builtin BOOLEAN,
+    consecutiveFailures INTEGER,
+    lastSuccessfulPing BIGINT,
+    lastFailedPing BIGINT,
+    backoffMultiplier INTEGER,
+    nextPingAt BIGINT,
     PRIMARY KEY (id, REV),
     FOREIGN KEY (REV) REFERENCES REVINFO (REV),
     FOREIGN KEY (REVEND) REFERENCES REVINFO (REV)
@@ -638,5 +643,14 @@ CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_ID ON AsyncProfilerRecording_AUD (id
 CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_REV ON AsyncProfilerRecording_AUD (REV);
 CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_REVTYPE ON AsyncProfilerRecording_AUD (REVTYPE);
 CREATE INDEX IDX_ASYNCPROFILERRECORDING_AUD_REVEND ON AsyncProfilerRecording_AUD (REVEND);
+
+ALTER TABLE DiscoveryPlugin ADD COLUMN consecutiveFailures INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE DiscoveryPlugin ADD COLUMN lastSuccessfulPing BIGINT;
+ALTER TABLE DiscoveryPlugin ADD COLUMN lastFailedPing BIGINT;
+ALTER TABLE DiscoveryPlugin ADD COLUMN backoffMultiplier INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE DiscoveryPlugin ADD COLUMN nextPingAt BIGINT;
+
+-- Add unique constraint on DiscoveryNode name for Realm nodes to enforce realm name uniqueness
+CREATE UNIQUE INDEX uk_discovery_node_realm_name ON DiscoveryNode (name) WHERE (nodeType = 'Realm');
 
 COMMIT;

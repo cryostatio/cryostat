@@ -39,6 +39,8 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
 import jakarta.ws.rs.Consumes;
@@ -78,6 +80,7 @@ public class CustomDiscovery {
 
     @Inject Logger logger;
     @Inject EventBus bus;
+    @Inject EntityManager entityManager;
     @Inject TargetConnectionManager connectionManager;
     @Inject URIUtil uriUtil;
 
@@ -200,11 +203,16 @@ public class CustomDiscovery {
                                         DiscoveryNode.target(target, NodeType.BaseNodeType.JVM);
                                 target.discoveryNode = node;
                                 DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
+                                realm =
+                                        entityManager.find(
+                                                DiscoveryNode.class,
+                                                realm.id,
+                                                LockModeType.PESSIMISTIC_WRITE);
 
-                                realm.children.add(node);
                                 node.parent = realm;
                                 target.persist();
                                 node.persist();
+                                realm.children.add(node);
                                 realm.persist();
 
                                 return ResponseBuilder.<Target>created(
@@ -239,6 +247,7 @@ public class CustomDiscovery {
     public void delete(@RestPath long id) throws URISyntaxException {
         Target target = Target.find("id", id).singleResult();
         DiscoveryNode realm = DiscoveryNode.getRealm(REALM).orElseThrow();
+        realm = entityManager.find(DiscoveryNode.class, realm.id, LockModeType.PESSIMISTIC_WRITE);
         boolean withinRealm = realm.children.remove(target.discoveryNode);
         if (!withinRealm) {
             throw new BadRequestException();

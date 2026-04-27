@@ -19,8 +19,10 @@ import io.cryostat.recordings.ActiveRecording;
 import io.cryostat.recordings.RecordingHelper;
 
 import jakarta.inject.Inject;
+import jakarta.persistence.NoResultException;
 import jakarta.persistence.PersistenceException;
 import jakarta.transaction.Transactional;
+import org.hibernate.ObjectDeletedException;
 import org.jboss.logging.Logger;
 import org.quartz.DisallowConcurrentExecution;
 import org.quartz.Job;
@@ -49,10 +51,17 @@ public class ActiveRecordingUpdateJob implements Job {
         Target target;
         try {
             target = Target.getTargetById(recording.target.id);
-        } catch (PersistenceException e) {
-            // the target was lost in the meantime, so we can stop worrying about this update
+        } catch (NoResultException | ObjectDeletedException e) {
+            // target disappeared in the meantime. No big deal.
             logger.debug(e);
-            return;
+            JobExecutionException ex = new JobExecutionException(e);
+            ex.setRefireImmediately(false);
+            ex.setUnscheduleFiringTrigger(true);
+            throw ex;
+        } catch (PersistenceException e) {
+            JobExecutionException ex = new JobExecutionException(e);
+            ex.setRefireImmediately(false);
+            throw ex;
         }
         // FIXME hacky. This opens a remote connection on each call and updates our database with
         // the data we find there. We should have some remote connection callback (JMX listener,
