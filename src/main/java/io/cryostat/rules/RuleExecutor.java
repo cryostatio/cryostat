@@ -250,6 +250,7 @@ public class RuleExecutor {
                         .usingJobData("ruleName", rule.name)
                         .usingJobData("recording", recording.remoteId)
                         .usingJobData("preservedArchives", rule.preservedArchives)
+                        .usingJobData("retryCount", 0)
                         .build();
 
         if (quartz.checkExists(jobDetail.getKey())) {
