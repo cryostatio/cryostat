@@ -298,6 +298,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       SEGMENT_DOWNLOAD_TIMEOUT_MINS: '5'
+    permissions:
+      statuses: write
     outputs:
       OPENAPI_STATUS: ${{ steps.schema-update.outputs.openapi_status }}
       OPENAPI_DIFF_FILE: ${{ steps.schema-update.outputs.openapi_diff_file }}
@@ -317,6 +319,27 @@ jobs:
         java-version: '21'
         distribution: 'temurin'
         cache: 'maven'
+    - name: Set pending commit status for OpenAPI schema
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      with:
+        context: openapi-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: pending
+    - name: Set pending commit status for GraphQL schema
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      with:
+        context: graphql-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: pending
+    - name: Set pending commit status for Notifications schema
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      with:
+        context: notifications-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: pending
     - run: git submodule init && git submodule update
     - id: schema-update
       name: Update schemas
@@ -346,10 +369,11 @@ jobs:
         path: /home/runner/work/notifications.diff
 
   compare-openapi-schema:
-    needs: [update-schemas]
+    needs: [update-schemas, checkout-branch]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      statuses: write
     steps:
     - uses: actions/download-artifact@v8
       with:
@@ -370,12 +394,22 @@ jobs:
             repo: context.repo.repo,
             body: commentBody
           });
+    - name: Set commit status
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      if: always()
+      with:
+        context: openapi-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ needs.update-schemas.outputs.OPENAPI_STATUS == '0' && 'success' || 'failure' }}
+        description: ${{ needs.update-schemas.outputs.OPENAPI_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
 
   compare-graphql-schema:
-    needs: [update-schemas]
+    needs: [update-schemas, checkout-branch]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      statuses: write
     steps:
     - uses: actions/download-artifact@v8
       with:
@@ -396,12 +430,22 @@ jobs:
             repo: context.repo.repo,
             body: commentBody
           });
+    - name: Set commit status
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      if: always()
+      with:
+        context: graphql-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ needs.update-schemas.outputs.GRAPHQL_STATUS == '0' && 'success' || 'failure' }}
+        description: ${{ needs.update-schemas.outputs.GRAPHQL_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
 
   compare-notifications-schema:
-    needs: [update-schemas]
+    needs: [update-schemas, checkout-branch]
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write
+      statuses: write
     steps:
     - uses: actions/download-artifact@v8
       with:
@@ -422,79 +466,12 @@ jobs:
             repo: context.repo.repo,
             body: commentBody
           });
-
-  auto-commit-schemas:
-    needs: [compare-graphql-schema, compare-openapi-schema, compare-notifications-schema, checkout-branch, update-schemas]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-    if: needs.update-schemas.outputs.OPENAPI_STATUS != '0' || needs.update-schemas.outputs.GRAPHQL_STATUS != '0' || needs.update-schemas.outputs.NOTIFICATIONS_STATUS != '0'
-    steps:
-      - name: Check out PR branch
-        uses: actions/checkout@v6
-        with:
-          repository: ${{ needs.checkout-branch.outputs.PR_repo }}
-          ref: ${{ needs.checkout-branch.outputs.PR_head_ref }}
-          submodules: true
-          fetch-depth: 0
-      - name: Import GPG key
-        uses: crazy-max/ghaction-import-gpg@v7
-        with:
-          gpg_private_key: ${{ secrets.GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          git_config_global: true
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-      - name: Download OpenAPI diff
-        uses: actions/download-artifact@v8
-        with:
-          name: openapi-diff
-          path: diffs
-      - name: Download GraphQL diff
-        uses: actions/download-artifact@v8
-        with:
-          name: graphql-diff
-          path: diffs
-      - name: Download Notifications diff
-        uses: actions/download-artifact@v8
-        with:
-          name: notifications-diff
-          path: diffs
-      - name: List downloaded files
-        run: ls -l diffs/
-      - name: Apply OpenAPI diff
-        if: needs.update-schemas.outputs.OPENAPI_STATUS != '0'
-        run: |
-          patch -p1 < diffs/openapi.diff
-          echo "Contents of OpenAPI schema after patch:"
-          cat schema/openapi.yaml
-      - name: Apply GraphQL diff
-        if: needs.update-schemas.outputs.GRAPHQL_STATUS != '0'
-        run: |
-          patch -p1 < diffs/graphql.diff
-          echo "Contents of GraphQL schema after patch:"
-          cat schema/schema.graphql
-      - name: Apply Notifications diff
-        if: needs.update-schemas.outputs.NOTIFICATIONS_STATUS != '0'
-        run: |
-          patch -p1 < diffs/notifications.diff
-          echo "Contents of Notifications schema after patch:"
-          cat schema/notifications.yaml
-      - name: Commit and push schema changes
-        run: |
-          git add schema/openapi.yaml schema/schema.graphql schema/notifications.yaml
-          git commit -S -m "chore(schema): automatic update"
-          git push origin ${{ needs.checkout-branch.outputs.PR_head_ref }}
-      - name: Comment on schema update
-        uses: actions/github-script@v9
-        with:
-          script: |
-            const prNumber = ${{ needs.checkout-branch.outputs.PR_num }};
-            const comment = "Schema changes committed by the CI.";
-            github.rest.issues.createComment({
-              issue_number: prNumber,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: comment
-            });
+    - name: Set commit status
+      uses: myrotvorets/set-commit-status-action@v2.0.1
+      if: always()
+      with:
+        context: notifications-schema-check
+        sha: ${{ needs.checkout-branch.outputs.PR_head_sha }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        status: ${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS == '0' && 'success' || 'failure' }}
+        description: ${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS == '0' && 'No schema changes' || 'Schema update required' }}
