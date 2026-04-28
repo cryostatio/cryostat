@@ -139,7 +139,7 @@ public class RuleExecutor {
                 scheduleArchival(rule, target, recording);
             }
         } catch (Exception e) {
-            logger.warn(e);
+            logger.error("Rule execution failed", e);
             return Uni.createFrom().failure(e);
         }
 
@@ -242,6 +242,9 @@ public class RuleExecutor {
 
     private void scheduleArchival(Rule rule, Target target, ActiveRecording recording)
             throws SchedulerException {
+        logger.debugv(
+                "Scheduling archiver job for rule {0} on target {1} recording {2}",
+                rule.id, target.jvmId, recording.remoteId);
         JobDetail jobDetail =
                 JobBuilder.newJob(ScheduledArchiveJob.class)
                         .withIdentity(
@@ -254,6 +257,9 @@ public class RuleExecutor {
                         .build();
 
         if (quartz.checkExists(jobDetail.getKey())) {
+            logger.debugv(
+                    "Archiver job for rule {0} on target {1} recording {2} already existed",
+                    rule.id, target.jvmId, recording.remoteId);
             return;
         }
 
@@ -275,6 +281,9 @@ public class RuleExecutor {
                         .build();
         try {
             quartz.scheduleJob(jobDetail, trigger);
+            logger.debugv(
+                    "Scheduled archiver job for rule {0} on target {1} recording {2}",
+                    rule.id, target.jvmId, recording.remoteId);
         } catch (SchedulerException e) {
             logger.errorv(
                     e,
