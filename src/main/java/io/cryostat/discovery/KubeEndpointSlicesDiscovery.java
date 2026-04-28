@@ -770,6 +770,10 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
                 entityManager.refresh(parent); // Reload from DB with current children
 
+                // Remove child from parent's collection - orphan removal will delete it
+                parent.children.remove(child);
+                child.parent = null;
+
                 boolean hasChildren = parent.hasChildren();
                 boolean isNamespace =
                         parent.nodeType.equals(KubeDiscoveryNodeType.NAMESPACE.getKind());
@@ -779,9 +783,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
                 if (hasChildren || isNamespace) {
                     logger.debugv("Stopping pruning at parent node {0}", parent.name);
-                    // Remove child from parent's collection - orphan removal will delete it
-                    parent.children.remove(child);
-                    child.parent = null;
                     break;
                 }
 
