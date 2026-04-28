@@ -36,6 +36,7 @@ import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
+import org.quartz.PersistJobDataAfterExecution;
 import org.quartz.SimpleScheduleBuilder;
 import org.quartz.SimpleTrigger;
 import org.quartz.TriggerBuilder;
@@ -51,6 +52,7 @@ import software.amazon.awssdk.services.s3.model.S3Object;
  * @see io.cryostat.rules.Rule
  * @see io.cryostat.rules.RuleExecutor
  */
+@PersistJobDataAfterExecution
 class ScheduledArchiveJob implements Job {
 
     @Inject RecordingHelper recordingHelper;
