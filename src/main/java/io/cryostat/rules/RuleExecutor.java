@@ -38,7 +38,6 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 import io.cryostat.util.EntityExistsException;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -87,11 +86,26 @@ public class RuleExecutor {
     @Transactional
     Uni<Void> onMessage(ActivationAttempt attempt) {
         logger.tracev(
-                "Attempting to activate rule \"{0}\" for target {1} -" + " attempt #{2}",
+                "Attempting to activate rule \"{0}\" for target {1} - attempt #{2}",
                 attempt.ruleId(), attempt.targetId(), attempt.attempts());
         try {
-            Target target = Target.<Target>find("id", attempt.targetId()).singleResult();
-            Rule rule = Rule.<Rule>find("id", attempt.ruleId()).singleResult();
+            var targetOpt = Target.<Target>find("id", attempt.targetId()).firstResultOptional();
+            if (targetOpt.isEmpty()) {
+                logger.warnv(
+                        "Target {0} no longer exists, skipping rule activation attempt",
+                        attempt.targetId());
+                return Uni.createFrom().nullItem();
+            }
+            Target target = targetOpt.get();
+
+            var ruleOpt = Rule.<Rule>find("id", attempt.ruleId()).firstResultOptional();
+            if (ruleOpt.isEmpty()) {
+                logger.warnv(
+                        "Rule {0} no longer exists, skipping activation attempt", attempt.ruleId());
+                return Uni.createFrom().nullItem();
+            }
+            Rule rule = ruleOpt.get();
+
             Pair<String, TemplateType> pair =
                     recordingHelper.parseEventSpecifier(rule.eventSpecifier);
             Template template =
@@ -125,7 +139,7 @@ public class RuleExecutor {
                 scheduleArchival(rule, target, recording);
             }
         } catch (Exception e) {
-            logger.warn(e);
+            logger.error("Rule execution failed", e);
             return Uni.createFrom().failure(e);
         }
 
@@ -184,33 +198,7 @@ public class RuleExecutor {
     @Transactional
     public void handleRuleRecordingCleanup(Rule rule) {
         cancelTasksForRule(rule);
-        var targets = evaluator.getMatchedTargets(rule.matchExpression);
-        for (var target : targets) {
-            QuarkusTransaction.joiningExisting()
-                    .run(
-                            () -> {
-                                try {
-                                    var opt =
-                                            recordingHelper.getActiveRecording(
-                                                    target,
-                                                    r ->
-                                                            Objects.equals(
-                                                                    r.name,
-                                                                    rule.getRecordingName()));
-                                    if (opt.isEmpty()) {
-                                        logger.warnv(
-                                                "Target {0} did not have expected Automated Rule"
-                                                        + " recording with name {1}",
-                                                target.id, rule.getRecordingName());
-                                        return;
-                                    }
-                                    var recording = opt.get();
-                                    recordingHelper.stopRecording(recording).await().indefinitely();
-                                } catch (Exception e) {
-                                    logger.warn(e);
-                                }
-                            });
-        }
+        logger.debugv("Cancelled scheduled tasks for rule \"{0}\"", rule.name);
     }
 
     private void cancelTasksForRule(Rule rule) {
@@ -254,6 +242,9 @@ public class RuleExecutor {
 
     private void scheduleArchival(Rule rule, Target target, ActiveRecording recording)
             throws SchedulerException {
+        logger.debugv(
+                "Scheduling archiver job for rule {0} on target {1} recording {2}",
+                rule.id, target.jvmId, recording.remoteId);
         JobDetail jobDetail =
                 JobBuilder.newJob(ScheduledArchiveJob.class)
                         .withIdentity(
@@ -262,9 +253,13 @@ public class RuleExecutor {
                         .usingJobData("ruleName", rule.name)
                         .usingJobData("recording", recording.remoteId)
                         .usingJobData("preservedArchives", rule.preservedArchives)
+                        .usingJobData("retryCount", 0)
                         .build();
 
         if (quartz.checkExists(jobDetail.getKey())) {
+            logger.debugv(
+                    "Archiver job for rule {0} on target {1} recording {2} already existed",
+                    rule.id, target.jvmId, recording.remoteId);
             return;
         }
 
@@ -286,6 +281,9 @@ public class RuleExecutor {
                         .build();
         try {
             quartz.scheduleJob(jobDetail, trigger);
+            logger.debugv(
+                    "Scheduled archiver job for rule {0} on target {1} recording {2}",
+                    rule.id, target.jvmId, recording.remoteId);
         } catch (SchedulerException e) {
             logger.errorv(
                     e,
