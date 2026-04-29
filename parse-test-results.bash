@@ -14,20 +14,35 @@ if [ ! -f "${LOG_FILE}" ]; then
     exit 1
 fi
 
+# Create a temporary file for processed log
+TEMP_LOG=$(mktemp)
+
+function cleanup() {
+    set +e
+    rm -f "${TEMP_LOG}"
+    rm -f "${TEMP_RESULTS}"
+    rm -f "${TEMP_FAILURES}"
+    rm -f "${TEMP_FLAKES}"
+    exit 0
+}
+trap cleanup EXIT
+
 # Check for ansi2txt utility and use it if available to strip ANSI color codes
+# Always use tr to remove null bytes which can cause issues
 if command -v ansi2txt &> /dev/null; then
-    LOG_CONTENT=$(ansi2txt < "${LOG_FILE}" | tr -d '\000')
+    ansi2txt < "${LOG_FILE}" | tr -d '\000' > "${TEMP_LOG}"
 else
     echo "Warning: ansi2txt utility not found. Proceeding without ANSI color code stripping." >&2
     echo "Install colorized-logs package (Fedora) for better parsing reliability." >&2
-    LOG_CONTENT=$(tr -d '\000' < "${LOG_FILE}")
+    tr -d '\000' < "${LOG_FILE}" > "${TEMP_LOG}"
 fi
 
-# Extract the Results section from the log
-RESULTS_SECTION=$(echo "${LOG_CONTENT}" | sed -n '/^\[INFO\] Results:/,/^\[INFO\] --------/p' | tail -n +2)
+# Extract the Results section from the log to another temp file
+TEMP_RESULTS=$(mktemp)
+sed -n '/^\[INFO\] Results:/,/^\[INFO\] --------/p' "${TEMP_LOG}" | tail -n +2 > "${TEMP_RESULTS}"
 
 # Extract test statistics line
-STATS_LINE=$(echo "${RESULTS_SECTION}" | grep -E "Tests run:" | tail -n 1)
+STATS_LINE=$(grep -E "Tests run:" "${TEMP_RESULTS}" | tail -n 1)
 
 if [ -z "${STATS_LINE}" ]; then
     echo "Error: Could not find test statistics in log file"
@@ -57,63 +72,63 @@ else
     EMOJI="✅"
 fi
 
-SUMMARY="${TEST_TYPE} tests ${STATUS} ${EMOJI}\n"
-SUMMARY="${SUMMARY}${STATS_LINE}\n"
+echo "${TEST_TYPE} tests ${STATUS} ${EMOJI}"
+echo "${STATS_LINE}"
 
 if [ "${FAILURES}" -gt 0 ] || [ "${ERRORS}" -gt 0 ]; then
-    SUMMARY="${SUMMARY}\nFailed tests:\n"
+    echo ""
+    echo "Failed tests:"
     
-    FAILURE_SECTION=$(echo "${RESULTS_SECTION}" | sed -n '/^\[ERROR\] Failures:/,/^\[INFO\]$/p')
+    # Extract failure section to temp file
+    TEMP_FAILURES=$(mktemp)
+    sed -n '/^\[ERROR\] Failures:/,/^\[INFO\]$/p' "${TEMP_RESULTS}" > "${TEMP_FAILURES}"
     
     # Parse failed test names (format: io.cryostat.FooTest.testBar)
     # Match lines that look like fully qualified test names (contain at least two dots for package.Class.method)
-    FAILED_TESTS=$(echo "${FAILURE_SECTION}" | grep -E '^\[ERROR\] [a-zA-Z][a-zA-Z0-9._]*\.[a-zA-Z][a-zA-Z0-9_]*\.[a-zA-Z][a-zA-Z0-9_]*' | sed 's/^\[ERROR\] //')
-    
-    # Group by class
     CURRENT_CLASS=""
-    while IFS= read -r test_name; do
-        if [ -n "${test_name}" ]; then
+    while IFS= read -r line; do
+        if echo "${line}" | grep -qE '^\[ERROR\] [a-zA-Z][a-zA-Z0-9._]*\.[a-zA-Z][a-zA-Z0-9_]*\.[a-zA-Z][a-zA-Z0-9_]*'; then
+            test_name=$(echo "${line}" | sed 's/^\[ERROR\] //')
             # Extract class name (everything before the last dot)
             CLASS_NAME=$(echo "${test_name}" | sed 's/\.[^.]*$//')
             # Extract method name (everything after the last dot)
             METHOD_NAME=$(echo "${test_name}" | sed 's/.*\.//')
             
             if [ "${CLASS_NAME}" != "${CURRENT_CLASS}" ]; then
-                SUMMARY="${SUMMARY}- ${CLASS_NAME}\n"
+                echo "- ${CLASS_NAME}"
                 CURRENT_CLASS="${CLASS_NAME}"
             fi
-            SUMMARY="${SUMMARY}  - ${METHOD_NAME}\n"
+            echo "  - ${METHOD_NAME}"
         fi
-    done <<< "${FAILED_TESTS}"
+    done < "${TEMP_FAILURES}"
 fi
 
 if [ "${FLAKES}" -gt 0 ]; then
-    SUMMARY="${SUMMARY}\nFlaky tests:\n"
+    echo ""
+    echo "Flaky tests:"
     
-    FLAKES_SECTION=$(echo "${RESULTS_SECTION}" | sed -n '/^\[WARNING\] Flakes:/,/^\[INFO\]$/p')
+    # Extract flakes section to temp file
+    TEMP_FLAKES=$(mktemp)
+    sed -n '/^\[WARNING\] Flakes:/,/^\[INFO\]$/p' "${TEMP_RESULTS}" > "${TEMP_FLAKES}"
     
     # Match lines that look like fully qualified test names (contain at least two dots for package.Class.method)
-    FLAKY_TESTS=$(echo "${FLAKES_SECTION}" | grep -E '^\[WARNING\] [a-zA-Z][a-zA-Z0-9._]*\.[a-zA-Z][a-zA-Z0-9_]*\.[a-zA-Z][a-zA-Z0-9_]*' | sed 's/^\[WARNING\] //')
-    
-    # Group by class
     CURRENT_CLASS=""
-    while IFS= read -r test_name; do
-        if [ -n "${test_name}" ]; then
+    while IFS= read -r line; do
+        if echo "${line}" | grep -qE '^\[WARNING\] [a-zA-Z][a-zA-Z0-9._]*\.[a-zA-Z][a-zA-Z0-9_]*\.[a-zA-Z][a-zA-Z0-9_]*'; then
+            test_name=$(echo "${line}" | sed 's/^\[WARNING\] //')
             # Extract class name (everything before the last dot)
             CLASS_NAME=$(echo "${test_name}" | sed 's/\.[^.]*$//')
             # Extract method name (everything after the last dot)
             METHOD_NAME=$(echo "${test_name}" | sed 's/.*\.//')
             
             if [ "${CLASS_NAME}" != "${CURRENT_CLASS}" ]; then
-                SUMMARY="${SUMMARY}- ${CLASS_NAME}\n"
+                echo "- ${CLASS_NAME}"
                 CURRENT_CLASS="${CLASS_NAME}"
             fi
-            SUMMARY="${SUMMARY}  - ${METHOD_NAME}\n"
+            echo "  - ${METHOD_NAME}"
         fi
-    done <<< "${FLAKY_TESTS}"
+    done < "${TEMP_FLAKES}"
 fi
-
-echo -e "${SUMMARY}"
 
 if [ "${FAILURES}" -gt 0 ] || [ "${ERRORS}" -gt 0 ]; then
     exit 1
