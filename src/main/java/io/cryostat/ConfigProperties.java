@@ -56,6 +56,12 @@ public class ConfigProperties {
             "cryostat.discovery.plugins.ping-period";
     public static final String DISCOVERY_PLUGINS_MAX_BACKOFF_MULTIPLIER =
             "cryostat.discovery.plugins.max-backoff-multiplier";
+    public static final String DISCOVERY_PLUGINS_PING_WORKER_POOL_SIZE =
+            "cryostat.discovery.plugins.ping.worker-pool-size";
+    public static final String DISCOVERY_PLUGINS_PING_DELAY_MS =
+            "cryostat.discovery.plugins.ping.delay-ms";
+    public static final String DISCOVERY_PLUGINS_PING_TIMEOUT_MS =
+            "cryostat.discovery.plugins.ping.timeout-ms";
 
     public static final String CONNECTIONS_TTL = "cryostat.connections.ttl";
     public static final String CONNECTIONS_FAILED_BACKOFF = "cryostat.connections.failed-backoff";
