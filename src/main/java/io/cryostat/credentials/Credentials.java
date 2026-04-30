@@ -37,6 +37,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.faulttolerance.api.RateLimit;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.enterprise.event.Observes;
@@ -201,6 +202,7 @@ public class Credentials {
     @Bulkhead
     @Timeout
     @Retry(retryOn = {SQLException.class, PersistenceException.class})
+    @RateLimit
     @POST
     @RolesAllowed("write")
     @Operation(
