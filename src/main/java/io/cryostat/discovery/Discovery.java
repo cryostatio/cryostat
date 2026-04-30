@@ -82,6 +82,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.faulttolerance.Bulkhead;
+import org.eclipse.microprofile.faulttolerance.Retry;
+import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
@@ -198,6 +200,8 @@ public class Discovery {
     }
 
     @Bulkhead
+    @Timeout
+    @Retry(retryOn = {OptimisticLockException.class})
     @Blocking
     @POST
     @Path("/api/v4/discovery")
@@ -479,6 +483,9 @@ public class Discovery {
     }
 
     @Transactional
+    @Bulkhead
+    @Timeout
+    @Retry(retryOn = {OptimisticLockException.class})
     @POST
     @Path("/api/v4.2/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
