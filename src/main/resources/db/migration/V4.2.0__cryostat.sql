@@ -653,4 +653,20 @@ ALTER TABLE DiscoveryPlugin ADD COLUMN nextPingAt BIGINT;
 -- Add unique constraint on DiscoveryNode name for Realm nodes to enforce realm name uniqueness
 CREATE UNIQUE INDEX uk_discovery_node_realm_name ON DiscoveryNode (name) WHERE (nodeType = 'Realm');
 
+-- Clean up any existing startup jobs from previous versions (4.1.0 and earlier)
+-- These jobs are no longer used as StartupPluginPinger now triggers existing periodic jobs on startup
+-- The old job group was "discovery.startup" with individual plugin IDs as job names
+DELETE FROM QRTZ_SIMPLE_TRIGGERS
+WHERE (SCHED_NAME, TRIGGER_NAME, TRIGGER_GROUP) IN (
+    SELECT SCHED_NAME, TRIGGER_NAME, TRIGGER_GROUP
+    FROM QRTZ_TRIGGERS
+    WHERE JOB_GROUP = 'discovery.startup'
+);
+
+DELETE FROM QRTZ_TRIGGERS
+WHERE JOB_GROUP = 'discovery.startup';
+
+DELETE FROM QRTZ_JOB_DETAILS
+WHERE JOB_GROUP = 'discovery.startup';
+
 COMMIT;
