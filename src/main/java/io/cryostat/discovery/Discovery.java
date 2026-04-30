@@ -52,6 +52,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.faulttolerance.api.RateLimit;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -202,6 +203,7 @@ public class Discovery {
     @Bulkhead
     @Timeout
     @Retry(retryOn = {OptimisticLockException.class})
+    @RateLimit
     @Blocking
     @POST
     @Path("/api/v4/discovery")
@@ -486,6 +488,7 @@ public class Discovery {
     @Bulkhead
     @Timeout
     @Retry(retryOn = {OptimisticLockException.class})
+    @RateLimit
     @POST
     @Path("/api/v4.2/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
