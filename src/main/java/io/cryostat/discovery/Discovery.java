@@ -457,6 +457,10 @@ public class Discovery {
     }
 
     @Transactional
+    @Bulkhead
+    @Timeout
+    @Retry(retryOn = {OptimisticLockException.class})
+    @RateLimit
     @POST
     @Path("/api/v4/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
