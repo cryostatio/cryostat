@@ -56,6 +56,9 @@ public class StartupPluginPinger {
     @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_PING_TIMEOUT_MS)
     long timeoutMs;
 
+    @ConfigProperty(name = ConfigProperties.DISCOVERY_PLUGINS_PING_STARTUP_GRACE_PERIOD_MS)
+    long startupGracePeriodMs;
+
     private ExecutorService executorService;
 
     /**
@@ -81,7 +84,8 @@ public class StartupPluginPinger {
         }
 
         List<PluginData> pluginDataList = fetchPluginData();
-        triggerJobsSequentially(pluginDataList, scheduler)
+        applyStartupGracePeriod()
+                .thenCompose(v -> triggerJobsSequentially(pluginDataList, scheduler))
                 .whenComplete(
                         (v, ex) -> {
                             if (ex != null) {
@@ -100,6 +104,27 @@ public class StartupPluginPinger {
                                         .filter(p -> !p.builtin)
                                         .map(PluginData::from)
                                         .toList());
+    }
+
+    CompletableFuture<Void> applyStartupGracePeriod() {
+        if (startupGracePeriodMs <= 0) {
+            return CompletableFuture.completedFuture(null);
+        }
+
+        logger.debugv(
+                "Applying startup grace period of {0}ms before triggering plugin ping jobs",
+                startupGracePeriodMs);
+
+        return CompletableFuture.runAsync(
+                () -> {
+                    try {
+                        Thread.sleep(startupGracePeriodMs);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        logger.warn("Interrupted during startup grace period", e);
+                    }
+                },
+                executorService);
     }
 
     /**

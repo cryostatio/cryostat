@@ -62,6 +62,8 @@ public class ConfigProperties {
             "cryostat.discovery.plugins.ping.delay-ms";
     public static final String DISCOVERY_PLUGINS_PING_TIMEOUT_MS =
             "cryostat.discovery.plugins.ping.timeout-ms";
+    public static final String DISCOVERY_PLUGINS_PING_STARTUP_GRACE_PERIOD_MS =
+            "cryostat.discovery.plugins.ping.startup-grace-period-ms";
 
     public static final String CONNECTIONS_TTL = "cryostat.connections.ttl";
     public static final String CONNECTIONS_FAILED_BACKOFF = "cryostat.connections.failed-backoff";
