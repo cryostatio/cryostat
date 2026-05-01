@@ -51,8 +51,8 @@ import com.nimbusds.jwt.proc.BadJWTException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
-import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.faulttolerance.api.RateLimit;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -83,6 +83,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.faulttolerance.Bulkhead;
+import org.eclipse.microprofile.faulttolerance.Retry;
+import org.eclipse.microprofile.faulttolerance.Timeout;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 import org.jboss.logging.Logger;
@@ -113,7 +115,6 @@ public class Discovery {
     static final String X_FORWARDED_FOR = "X-Forwarded-For";
 
     private static final String JOB_PERIODIC = "discovery.periodic";
-    private static final String JOB_STARTUP = "discovery.startup";
     private static final String PLUGIN_ID_MAP_KEY = "pluginId";
     private static final String REFRESH_MAP_KEY = "refresh";
 
@@ -137,52 +138,6 @@ public class Discovery {
     @Inject KubeEndpointSlicesDiscovery k8sDiscovery;
     @Inject PluginCallbackFactory callbackFactory;
     @Inject EntityManager entityManager;
-
-    void onStart(@Observes StartupEvent evt) {
-        QuarkusTransaction.requiringNew()
-                .run(
-                        () -> {
-                            DiscoveryPlugin.<DiscoveryPlugin>findAll().list().stream()
-                                    .filter(p -> !p.builtin)
-                                    .forEach(
-                                            plugin -> {
-                                                var dataMap = new JobDataMap();
-                                                dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
-                                                dataMap.put(REFRESH_MAP_KEY, true);
-                                                JobDetail jobDetail =
-                                                        JobBuilder.newJob(RefreshPluginJob.class)
-                                                                .withIdentity(
-                                                                        plugin.id.toString(),
-                                                                        JOB_STARTUP)
-                                                                .usingJobData(dataMap)
-                                                                .build();
-                                                var trigger =
-                                                        TriggerBuilder.newTrigger()
-                                                                .withIdentity(
-                                                                        jobDetail
-                                                                                .getKey()
-                                                                                .getName(),
-                                                                        jobDetail
-                                                                                .getKey()
-                                                                                .getGroup())
-                                                                .startNow()
-                                                                .withSchedule(
-                                                                        SimpleScheduleBuilder
-                                                                                .simpleSchedule()
-                                                                                .withRepeatCount(0))
-                                                                .build();
-                                                try {
-                                                    if (!scheduler.checkExists(trigger.getKey())) {
-                                                        scheduler.scheduleJob(jobDetail, trigger);
-                                                    }
-                                                } catch (SchedulerException e) {
-                                                    logger.warn(
-                                                            "Failed to schedule plugin prune job",
-                                                            e);
-                                                }
-                                            });
-                        });
-    }
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         scheduler.shutdown();
@@ -246,6 +201,9 @@ public class Discovery {
     }
 
     @Bulkhead
+    @Timeout
+    @Retry(retryOn = {OptimisticLockException.class})
+    @RateLimit
     @Blocking
     @POST
     @Path("/api/v4/discovery")
@@ -454,7 +412,7 @@ public class Discovery {
                 throw new BadRequestException(e);
             }
 
-            isNewPlugin = !scheduler.checkExists(JobKey.jobKey(plugin.id.toString(), JOB_PERIODIC));
+            isNewPlugin = !scheduler.checkExists(getPeriodicJobKey(plugin));
             if (isNewPlugin) {
                 var dataMap = new JobDataMap();
                 dataMap.put(PLUGIN_ID_MAP_KEY, plugin.id);
@@ -499,6 +457,10 @@ public class Discovery {
     }
 
     @Transactional
+    @Bulkhead
+    @Timeout
+    @Retry(retryOn = {OptimisticLockException.class})
+    @RateLimit
     @POST
     @Path("/api/v4/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -527,6 +489,10 @@ public class Discovery {
     }
 
     @Transactional
+    @Bulkhead
+    @Timeout
+    @Retry(retryOn = {OptimisticLockException.class})
+    @RateLimit
     @POST
     @Path("/api/v4.2/discovery/{id}")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -680,7 +646,6 @@ public class Discovery {
 
         Set<JobKey> jobKeys = new HashSet<>();
         jobKeys.addAll(scheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_PERIODIC)));
-        jobKeys.addAll(scheduler.getJobKeys(GroupMatcher.jobGroupEquals(JOB_STARTUP)));
         for (var key : jobKeys) {
             if (!Objects.equals(plugin.id.toString(), key.getName())) {
                 continue;
@@ -1052,6 +1017,26 @@ public class Discovery {
                     String.format("Parameter \"%s\" may not be blank", name));
         }
         return in;
+    }
+
+    /**
+     * Create a JobKey for a plugin's periodic refresh job.
+     *
+     * @param plugin The plugin to create a JobKey for
+     * @return JobKey for the plugin's periodic refresh job
+     */
+    static JobKey getPeriodicJobKey(DiscoveryPlugin plugin) {
+        return getPeriodicJobKey(plugin.id);
+    }
+
+    /**
+     * Create a JobKey for a plugin's periodic refresh job using the plugin ID.
+     *
+     * @param pluginId The plugin ID to create a JobKey for
+     * @return JobKey for the plugin's periodic refresh job
+     */
+    static JobKey getPeriodicJobKey(UUID pluginId) {
+        return JobKey.jobKey(pluginId.toString(), JOB_PERIODIC);
     }
 
     private InetAddress getRemoteAddress(RoutingContext ctx) {
