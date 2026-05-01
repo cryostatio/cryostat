@@ -23,6 +23,7 @@ import io.cryostat.util.EntityExistsException;
 
 import com.nimbusds.jwt.proc.BadJWTException;
 import io.netty.handler.codec.http.HttpResponseStatus;
+import io.smallrye.faulttolerance.api.RateLimitException;
 import io.smallrye.mutiny.TimeoutException;
 import jakarta.inject.Inject;
 import jakarta.persistence.NoResultException;
@@ -140,6 +141,12 @@ public class ExceptionMappers {
 
     @ServerExceptionMapper
     public RestResponse<Void> mapBulkheadException(BulkheadException ex) {
+        logger.warn(ex);
+        return RestResponse.status(HttpResponseStatus.TOO_MANY_REQUESTS.code());
+    }
+
+    @ServerExceptionMapper
+    public RestResponse<Void> mapRateLimitException(RateLimitException ex) {
         logger.warn(ex);
         return RestResponse.status(HttpResponseStatus.TOO_MANY_REQUESTS.code());
     }
