@@ -23,7 +23,6 @@ function cleanup() {
     rm -f "${TEMP_RESULTS}"
     rm -f "${TEMP_FAILURES}"
     rm -f "${TEMP_FLAKES}"
-    exit 0
 }
 trap cleanup EXIT
 

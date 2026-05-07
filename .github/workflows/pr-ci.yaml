@@ -301,12 +301,12 @@ jobs:
     permissions:
       statuses: write
     outputs:
-      OPENAPI_STATUS: ${{ steps.schema-update.outputs.openapi_status }}
-      OPENAPI_DIFF_FILE: ${{ steps.schema-update.outputs.openapi_diff_file }}
-      GRAPHQL_STATUS: ${{ steps.schema-update.outputs.graphql_status }}
-      GRAPHQL_DIFF_FILE: ${{ steps.schema-update.outputs.graphql_diff_file }}
-      NOTIFICATIONS_STATUS: ${{ steps.schema-update.outputs.notifications_status }}
-      NOTIFICATIONS_DIFF_FILE: ${{ steps.schema-update.outputs.notifications_diff_file }}
+      OPENAPI_STATUS: ${{ fromJSON(steps.schema-update.outputs.outputs).openapi_status }}
+      OPENAPI_DIFF_FILE: ${{ fromJSON(steps.schema-update.outputs.outputs).openapi_diff_file }}
+      GRAPHQL_STATUS: ${{ fromJSON(steps.schema-update.outputs.outputs).graphql_status }}
+      GRAPHQL_DIFF_FILE: ${{ fromJSON(steps.schema-update.outputs.outputs).graphql_diff_file }}
+      NOTIFICATIONS_STATUS: ${{ fromJSON(steps.schema-update.outputs.outputs).notifications_status }}
+      NOTIFICATIONS_DIFF_FILE: ${{ fromJSON(steps.schema-update.outputs.outputs).notifications_diff_file }}
     steps:
     - uses: actions/checkout@v6
       with:
@@ -348,15 +348,21 @@ jobs:
         attempt_limit: 3
         command: |
           bash /home/runner/work/cryostat/cryostat/schema/update.bash 90 15
-          set +e
+
           git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/openapi.yaml > /home/runner/work/openapi.diff
-          echo "openapi_status=$?" >> "$GITHUB_OUTPUT"
-          echo "openapi_diff_file=openapi.diff" >> "$GITHUB_OUTPUT"
+          OPENAPI_STATUS=$?
+
           git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/schema.graphql > /home/runner/work/graphql.diff
-          echo "graphql_status=$?" >> "$GITHUB_OUTPUT"
-          echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
+          GRAPHQL_STATUS=$?
+
           git diff -U10 --exit-code /home/runner/work/cryostat/cryostat/schema/notifications.yaml > /home/runner/work/notifications.diff
-          echo "notifications_status=$?" >> "$GITHUB_OUTPUT"
+          NOTIFICATIONS_STATUS=$?
+
+          echo "openapi_status=${OPENAPI_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "openapi_diff_file=openapi.diff" >> "$GITHUB_OUTPUT"
+          echo "graphql_status=${GRAPHQL_STATUS}" >> "$GITHUB_OUTPUT"
+          echo "graphql_diff_file=graphql.diff" >> "$GITHUB_OUTPUT"
+          echo "notifications_status=${NOTIFICATIONS_STATUS}" >> "$GITHUB_OUTPUT"
           echo "notifications_diff_file=notifications.diff" >> "$GITHUB_OUTPUT"
     - uses: actions/upload-artifact@v7
       with:
@@ -388,7 +394,7 @@ jobs:
           const diffFmt = s => {
             return "```diff\n" + s + "\n```";
           };
-          const commentBody = ${{ needs.update-schemas.outputs.OPENAPI_STATUS }} == '0'
+          const commentBody = '${{ needs.update-schemas.outputs.OPENAPI_STATUS }}' == '0'
             ? `No OpenAPI schema changes detected.`
             : `OpenAPI schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.OPENAPI_DIFF_FILE }}'))}`;
           github.rest.issues.createComment({
@@ -424,7 +430,7 @@ jobs:
           const diffFmt = s => {
             return "```diff\n" + s + "\n```";
           };
-          const commentBody = ${{ needs.update-schemas.outputs.GRAPHQL_STATUS }} == '0'
+          const commentBody = '${{ needs.update-schemas.outputs.GRAPHQL_STATUS }}' == '0'
             ? `No GraphQL schema changes detected.`
             : `GraphQL schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.GRAPHQL_DIFF_FILE }}'))}`;
           github.rest.issues.createComment({
@@ -460,7 +466,7 @@ jobs:
           const diffFmt = s => {
             return "```diff\n" + s + "\n```";
           };
-          const commentBody = ${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS }} == '0'
+          const commentBody = '${{ needs.update-schemas.outputs.NOTIFICATIONS_STATUS }}' == '0'
             ? `No WebSocket notifications schema changes detected.`
             : `WebSocket notifications schema change detected:\n\n${diffFmt(require('fs').readFileSync('${{ needs.update-schemas.outputs.NOTIFICATIONS_DIFF_FILE }}'))}`;
           github.rest.issues.createComment({
