@@ -30,7 +30,6 @@ import io.cryostat.resources.AgentApplicationResource;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import itest.bases.WebSocketTestBase;
-import junit.framework.AssertionFailedError;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -217,8 +216,7 @@ public class AgentTestBase extends WebSocketTestBase {
                     elapsed += (now - last);
                     last = now;
                     if (Duration.ofNanos(elapsed).compareTo(DISCOVERY_TIMEOUT) > 0) {
-                        throw new RuntimeException(
-                                new AssertionFailedError("Timed out waiting for target discovery"));
+                        throw new IllegalStateException("Timed out waiting for target discovery");
                     }
                     try {
                         Thread.sleep(DISCOVERY_PERIOD.toMillis());
