@@ -20,7 +20,7 @@
   },
   "packageRules": [
     {
-      "description": "Require approval for Quarkus minor version updates",
+      "description": "Require approval for Quarkus major and minor version updates",
       "matchManagers": [
         "maven"
       ],
@@ -29,6 +29,27 @@
         "minor"
       ],
       "dependencyDashboardApproval": true,
+      "matchPackageNames": [
+        "/^io\\.quarkus:/",
+        "/^io\\.quarkus\\.platform:/"
+      ]
+    },
+    {
+      "description": "Create PR for Quarkus patch version updates",
+      "matchManagers": [
+        "maven"
+      ],
+      "matchUpdateTypes": [
+        "patch",
+        "pin",
+        "pinDigest",
+        "digest",
+        "lockFileMaintenance",
+        "rollback",
+        "bump",
+        "replacement"
+      ],
+      "prCreation": "immediate",
       "matchPackageNames": [
         "/^io\\.quarkus:/",
         "/^io\\.quarkus\\.platform:/"
