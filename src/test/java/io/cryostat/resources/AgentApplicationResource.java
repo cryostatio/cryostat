@@ -22,8 +22,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import io.quarkus.test.common.DevServicesContext;
 import io.quarkus.test.common.QuarkusTestResourceLifecycleManager;
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
@@ -91,13 +89,6 @@ public class AgentApplicationResource
 
                                     @Override
                                     public void close() {}
-
-                                    @Override
-                                    public Statement apply(
-                                            Statement base, Description description) {
-                                        throw new UnsupportedOperationException(
-                                                "Unimplemented method 'apply'");
-                                    }
                                 });
         authProxy = new AuthProxyContainer(network, cryostatPort.get());
 
