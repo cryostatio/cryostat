@@ -15,6 +15,8 @@
  */
 package io.cryostat.reports;
 
+import java.time.Duration;
+
 import io.cryostat.ConfigProperties;
 import io.cryostat.discovery.DiscoveryNode;
 import io.cryostat.recordings.ActiveRecording;
@@ -27,6 +29,7 @@ import io.cryostat.targets.Target.TargetDiscovery;
 import io.quarkus.cache.Cache;
 import io.quarkus.cache.CacheName;
 import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.Blocking;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.PreRemove;
@@ -54,6 +57,7 @@ class MemoryCachingReportsListener {
 
     @Inject Logger logger;
 
+    @Blocking
     @ConsumeEvent(value = ActiveRecordings.ARCHIVED_RECORDING_DELETED)
     public void handleArchivedRecordingDeletion(ArchivedRecording recording) {
         logger.tracev("archived recording cache invalidation: {0}", recording.name());
@@ -66,7 +70,7 @@ class MemoryCachingReportsListener {
         }
         String key = RecordingHelper.archivedRecordingKey(jvmId, recording.name());
         logger.tracev("Picked up deletion of archived recording: {0}", key);
-        archivedCache.invalidate(key);
+        archivedCache.invalidate(key).await().atMost(Duration.ofSeconds(5));
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY)
@@ -84,6 +88,7 @@ class MemoryCachingReportsListener {
     }
 
     @PreRemove
+    @Blocking
     @ConsumeEvent(value = ActiveRecordings.ACTIVE_RECORDING_DELETED)
     void handleActiveRecordingDeletion(ActiveRecording recording) {
         logger.tracev(
@@ -96,7 +101,7 @@ class MemoryCachingReportsListener {
         logger.tracev(
                 "Picked up deletion of active recording: {0} / {1} ({2})",
                 recording.target.alias, recording.name, key);
-        activeCache.invalidate(key);
+        activeCache.invalidate(key).await().atMost(Duration.ofSeconds(5));
     }
 
     @PreRemove
