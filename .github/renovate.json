@@ -74,16 +74,6 @@
       "matchPackageNames": [
         "/^com\\.google\\.protobuf:/"
       ]
-    },
-    {
-      "description": "Require approval for hibernate-jfr updates",
-      "matchManagers": [
-        "maven"
-      ],
-      "dependencyDashboardApproval": true,
-      "matchPackageNames": [
-        "/^org\\.hibernate\\.orm:hibernate-jfr/"
-      ]
     }
   ]
 }
