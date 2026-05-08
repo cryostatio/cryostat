@@ -442,7 +442,7 @@
         <executions>
           <execution>
             <id>validate-hibernate-version-alignment</id>
-            <phase>validate</phase>
+            <phase>process-sources</phase>
             <goals>
               <goal>exec</goal>
             </goals>

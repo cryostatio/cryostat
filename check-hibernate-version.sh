@@ -6,8 +6,13 @@ set -e
 
 HIBERNATE_JFR_VERSION="$1"
 
+# Skip validation if running in quiet mode with DforceStdout (used by CI for property extraction)
+if ps -o args= $PPID | grep -q "DforceStdout"; then
+    exit 0
+fi
+
 if [ -z "$HIBERNATE_JFR_VERSION" ]; then
-    echo "ERROR: hibernate-jfr version not provided"
+    echo "ERROR: hibernate-jfr version not provided" >&2
     exit 1
 fi
 
@@ -15,19 +20,19 @@ fi
 HIBERNATE_CORE_VERSION=$(mvn help:evaluate -Dexpression=project.dependencyManagement.dependencies -DforceStdout -q 2>/dev/null | grep -A 2 "hibernate-core" | grep "<version>" | head -1 | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
 
 if [ -z "$HIBERNATE_CORE_VERSION" ]; then
-    echo "ERROR: Could not determine hibernate-core version from dependency management"
+    echo "ERROR: Could not determine hibernate-core version from dependency management" >&2
     exit 1
 fi
 
-echo "hibernate-jfr version: $HIBERNATE_JFR_VERSION"
-echo "hibernate-core version: $HIBERNATE_CORE_VERSION"
+echo "hibernate-jfr version: $HIBERNATE_JFR_VERSION" >&2
+echo "hibernate-core version: $HIBERNATE_CORE_VERSION" >&2
 
 if [ "$HIBERNATE_JFR_VERSION" != "$HIBERNATE_CORE_VERSION" ]; then
-    echo ""
-    echo "ERROR: hibernate-jfr version ($HIBERNATE_JFR_VERSION) does not match hibernate-core version ($HIBERNATE_CORE_VERSION) from Quarkus BOM"
-    echo "Update org.hibernate.orm.hibernate.jfr.version property in pom.xml to $HIBERNATE_CORE_VERSION"
+    echo "" >&2
+    echo "ERROR: hibernate-jfr version ($HIBERNATE_JFR_VERSION) does not match hibernate-core version ($HIBERNATE_CORE_VERSION) from Quarkus BOM" >&2
+    echo "Update org.hibernate.orm.hibernate.jfr.version property in pom.xml to $HIBERNATE_CORE_VERSION" >&2
     exit 1
 fi
 
-echo "✓ Hibernate versions are aligned"
+echo "✓ Hibernate versions are aligned" >&2
 exit 0
