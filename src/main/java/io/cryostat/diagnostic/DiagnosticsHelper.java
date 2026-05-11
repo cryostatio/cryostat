@@ -18,7 +18,6 @@ package io.cryostat.diagnostic;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,9 +27,13 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.Producers;
+import io.cryostat.ProgressInputStream;
 import io.cryostat.StorageBuckets;
 import io.cryostat.diagnostic.Diagnostics.HeapDump;
 import io.cryostat.diagnostic.Diagnostics.ThreadDump;
@@ -45,8 +48,6 @@ import io.cryostat.ws.Notification;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
-import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import io.vertx.ext.web.handler.HttpException;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -61,8 +62,8 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
 import software.amazon.awssdk.core.async.AsyncRequestBody;
+import software.amazon.awssdk.services.s3.S3AsyncClient;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
@@ -77,7 +78,6 @@ import software.amazon.awssdk.services.s3.model.S3Object;
 import software.amazon.awssdk.services.s3.model.Tag;
 import software.amazon.awssdk.services.s3.model.Tagging;
 import software.amazon.awssdk.transfer.s3.S3TransferManager;
-import software.amazon.awssdk.transfer.s3.model.UploadFileRequest;
 import software.amazon.awssdk.transfer.s3.model.UploadRequest;
 
 @ApplicationScoped
@@ -119,6 +119,7 @@ public class DiagnosticsHelper {
     @Inject Instance<ThreadDumpsMetadataService> threadDumpsMetadataService;
 
     @Inject S3Client storage;
+    @Inject S3AsyncClient storageAsync;
     @Inject S3TransferManager transferManager;
     @Inject Logger log;
     @Inject Clock clock;
@@ -126,6 +127,8 @@ public class DiagnosticsHelper {
     @Inject EventBus bus;
     @Inject TargetConnectionManager targetConnectionManager;
     @Inject StorageBuckets buckets;
+
+    final ExecutorService partUploader = Executors.newVirtualThreadPerTaskExecutor();
 
     void onStart(@Observes StartupEvent evt) {
         log.tracev("Creating heap dump bucket: {0}", heapDumpBucket);
@@ -431,8 +434,9 @@ public class DiagnosticsHelper {
                 new Metadata(Map.of()));
     }
 
-    public HeapDump addHeapDump(String jvmId, FileUpload heapDump, String requestId) {
-        String filename = heapDump.fileName().strip();
+    public HeapDump addHeapDump(
+            String jvmId, InputStream heapDumpStream, String filename, String requestId) {
+        filename = filename.strip();
         if (StringUtils.isBlank(filename)) {
             throw new BadRequestException();
         }
@@ -440,6 +444,11 @@ public class DiagnosticsHelper {
             filename = filename + ".hprof";
         }
         log.tracev("Putting Heap dump into storage with key: {0}", storageKey(jvmId, filename));
+
+        AtomicLong bytesUploaded = new AtomicLong(0);
+        ProgressInputStream progressStream =
+                new ProgressInputStream(heapDumpStream, bytesUploaded::addAndGet);
+
         var req =
                 PutObjectRequest.builder()
                         .bucket(heapDumpBucket)
@@ -465,25 +474,28 @@ public class DiagnosticsHelper {
                 throw new IllegalStateException();
         }
 
-        Uni.createFrom()
-                .completionStage(
-                        transferManager
-                                .uploadFile(
-                                        UploadFileRequest.builder()
-                                                .putObjectRequest(req.build())
-                                                .source(heapDump.filePath())
-                                                .build())
-                                .completionFuture())
-                .runSubscriptionOn(Infrastructure.getDefaultExecutor())
-                .await()
-                .atMost(uploadFailedTimeout);
+        try {
+            storageAsync
+                    .putObject(
+                            req.build(),
+                            AsyncRequestBody.fromInputStream(progressStream, null, partUploader))
+                    .join();
+        } finally {
+            try {
+                progressStream.close();
+            } catch (IOException ioe) {
+                log.warn("Failed to close progress stream", ioe);
+            }
+        }
+
+        long uploadedSize = bytesUploaded.get();
         var dump =
                 new HeapDump(
                         jvmId,
                         heapDumpDownloadUrl(jvmId, filename),
                         filename,
                         clock.now().getEpochSecond(),
-                        heapDump.filePath().toFile().length(),
+                        uploadedSize,
                         new Metadata(Map.of()));
         var event =
                 new HeapDumpEvent(
@@ -492,12 +504,6 @@ public class DiagnosticsHelper {
                 MessagingServer.class.getName(),
                 new Notification(event.category().category(), event.payload()));
 
-        try {
-            // Clean up temporary files
-            Files.delete(heapDump.filePath());
-        } catch (IOException ioe) {
-            log.warn(ioe);
-        }
         return dump;
     }
 
