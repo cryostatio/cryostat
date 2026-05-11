@@ -79,7 +79,6 @@ import io.cryostat.util.HttpMimeType;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
-import io.quarkiverse.amazon.s3.runtime.S3Crt;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
@@ -168,7 +167,7 @@ public class RecordingHelper {
     public static final String DATASOURCE_FILENAME = "cryostat-analysis.jfr";
 
     @Inject S3Client storage;
-    @Inject @S3Crt S3AsyncClient storageAsync;
+    @Inject S3AsyncClient storageAsync;
     @Inject S3TransferManager transferManager;
     final ExecutorService partUploader = Executors.newVirtualThreadPerTaskExecutor();
 
