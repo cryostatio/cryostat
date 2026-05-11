@@ -42,6 +42,7 @@ import io.cryostat.targets.TargetConnectionManager;
 import io.cryostat.ws.MessagingServer;
 import io.cryostat.ws.Notification;
 
+import io.quarkiverse.amazon.s3.runtime.S3Crt;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.common.annotation.Identifier;
@@ -119,7 +120,7 @@ public class DiagnosticsHelper {
     @Inject Instance<ThreadDumpsMetadataService> threadDumpsMetadataService;
 
     @Inject S3Client storage;
-    @Inject S3TransferManager transferManager;
+    @Inject @S3Crt S3TransferManager transferManager;
     @Inject Logger log;
     @Inject Clock clock;
 
