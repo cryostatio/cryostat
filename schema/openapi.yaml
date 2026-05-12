@@ -1297,12 +1297,9 @@ paths:
             type: string
       requestBody:
         content:
-          application/x-www-form-urlencoded:
+          multipart/form-data:
             schema:
               properties:
-                heapDump:
-                  format: binary
-                  type: string
                 jobId:
                   type: string
                 labels:
@@ -1692,7 +1689,7 @@ paths:
             type: string
       requestBody:
         content:
-          application/x-www-form-urlencoded:
+          multipart/form-data:
             schema:
               properties:
                 labels:
@@ -1701,7 +1698,6 @@ paths:
                   format: int32
                   type: integer
                 recording:
-                  format: binary
                   type: string
               type: object
         required: true
@@ -2757,13 +2753,12 @@ paths:
         Cryostat, so that Cryostat can be used to perform online analysis of the file.
       requestBody:
         content:
-          application/x-www-form-urlencoded:
+          multipart/form-data:
             schema:
               properties:
                 labels:
                   $ref: '#/components/schemas/JsonObject'
                 recording:
-                  format: binary
                   type: string
               type: object
         required: true
