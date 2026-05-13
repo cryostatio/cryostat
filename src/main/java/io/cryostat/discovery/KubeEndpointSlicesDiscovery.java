@@ -691,7 +691,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     /**
-     * Creates an in-memory DiscoveryNodeDTO for a target without database access.
+     * Creates an in-memory DiscoveryNodeDTO for a target without database access. The node name
+     * includes the address and port to ensure uniqueness per endpoint.
      *
      * @param tuple The TargetTuple containing target information
      * @return DiscoveryNodeDTO representing the target
@@ -700,8 +701,15 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         Map<String, String> labels = new HashMap<>();
         labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, tuple.objRef.getNamespace());
 
+        // Create a unique name for this endpoint by including address and port
+        // This ensures each endpoint in an EndpointSlice gets its own DiscoveryNode
+        String uniqueName =
+                String.format(
+                        "%s-%s-%d",
+                        tuple.objRef.getName(), tuple.addr.replace(".", "-"), tuple.port.getPort());
+
         return new DiscoveryNodeDTO(
-                tuple.objRef.getName(),
+                uniqueName,
                 KubeDiscoveryNodeType.ENDPOINT_SLICE.getKind(),
                 labels,
                 new ArrayList<>(),
