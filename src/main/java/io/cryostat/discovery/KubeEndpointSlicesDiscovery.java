@@ -1348,14 +1348,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                     entity.children.stream()
                             .anyMatch(
                                     existing ->
-                                            existing.name.equals(childEntity.name)
-                                                    && existing.nodeType.equals(
-                                                            childEntity.nodeType)
-                                                    && Objects.equals(
-                                                            existing.labels.get(
-                                                                    DISCOVERY_NAMESPACE_LABEL_KEY),
-                                                            childEntity.labels.get(
-                                                                    DISCOVERY_NAMESPACE_LABEL_KEY)));
+                                            existing == childEntity
+                                                    || (existing.id != null
+                                                            && existing.id.equals(childEntity.id)));
             if (!childExists) {
                 entity.children.add(childEntity);
             }
