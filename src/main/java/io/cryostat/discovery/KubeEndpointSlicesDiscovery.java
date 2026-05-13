@@ -433,7 +433,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             realm.children.add(nsNode);
             nsNode.parent = realm;
         }
-        entityManager.flush();
         realm.persist();
     }
 
@@ -760,7 +759,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             // Delete the target first - this will cascade delete its discoveryNode (the
             // Endpoint/EndpointSlice)
             managedTarget.delete();
-            entityManager.flush();
 
             // If there's no parent, we're done
             if (child == null) {
@@ -807,8 +805,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 child = parent;
             }
 
-            entityManager.flush();
-
             String namespace = nsNode.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY);
             if (namespace != null) {
                 logger.debugv("Cleaning up orphaned nodes in namespace: {0}", namespace);
@@ -833,7 +829,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                     logger.debugv(
                             "Removed {0} orphaned nodes from namespace {1}",
                             orphans.size(), namespace);
-                    entityManager.flush();
                 }
             }
 
@@ -841,7 +836,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
         } catch (EntityNotFoundException e) {
             logger.debugv("Target was deleted during pruning operation: {0}", target.connectUrl, e);
-            entityManager.flush();
             nsNode.persist();
         }
     }
