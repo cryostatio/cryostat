@@ -416,6 +416,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                             DiscoveryNode.environment(
                                                     namespace, KubeDiscoveryNodeType.NAMESPACE);
                                     created.parent = lockedRealm;
+                                    created.persist();
                                     return created;
                                 });
 
@@ -921,80 +922,79 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         return rootNode;
     }
 
-    /**
-     * Builds the ownership hierarchy using database lookups to reuse existing nodes.
-     *
-     * @param kubeObj The Kubernetes object to start from
-     * @param node The DiscoveryNode representing the Kubernetes object
-     * @return The root node of the ownership chain (the topmost owner)
-     */
     private DiscoveryNode buildOwnershipHierarchyWithDbLookup(
             HasMetadata kubeObj, DiscoveryNode node) {
-        Pair<HasMetadata, DiscoveryNode> current = Pair.of(kubeObj, node);
+        // Build a list of node descriptors from child to parent
+        List<NodeDescriptor> hierarchy = new ArrayList<>();
+        HasMetadata current = kubeObj;
 
-        while (true) {
-            Pair<HasMetadata, DiscoveryNode> owner = getOwnerNodeWithDbLookup(current);
-            if (owner == null) {
+        while (current != null) {
+            List<OwnerReference> owners = current.getMetadata().getOwnerReferences();
+            if (owners.isEmpty()) {
                 break;
             }
 
-            DiscoveryNode ownerNode = owner.getRight();
-            DiscoveryNode childNode = current.getRight();
+            String namespace = current.getMetadata().getNamespace();
+            OwnerReference owner =
+                    owners.stream()
+                            .filter(
+                                    o ->
+                                            KubeDiscoveryNodeType.fromKubernetesKind(o.getKind())
+                                                    != null)
+                            .findFirst()
+                            .orElse(owners.get(0));
 
-            if (!ownerNode.children.contains(childNode)) {
-                ownerNode.children.add(childNode);
+            Pair<HasMetadata, DiscoveryNode> ownerPair =
+                    queryForNodeReadOnly(namespace, owner.getName(), owner.getKind());
+
+            if (ownerPair == null || ownerPair.getLeft() == null) {
+                break;
             }
-            childNode.parent = ownerNode;
 
-            current = owner;
-        }
+            HasMetadata ownerObj = ownerPair.getLeft();
+            DiscoveryNode existingNode = ownerPair.getRight();
 
-        return current.getRight();
-    }
-
-    /**
-     * Gets the owner node using database lookup to reuse existing nodes.
-     *
-     * @param child Pair of Kubernetes object and its DiscoveryNode
-     * @return Pair of owner Kubernetes object and its DiscoveryNode from DB, or null if no owner
-     */
-    private Pair<HasMetadata, DiscoveryNode> getOwnerNodeWithDbLookup(
-            Pair<HasMetadata, DiscoveryNode> child) {
-        HasMetadata childRef = child.getLeft();
-        if (childRef == null) {
-            return null;
-        }
-        List<OwnerReference> owners = childRef.getMetadata().getOwnerReferences();
-        if (owners.isEmpty()) {
-            return null;
-        }
-        String namespace = childRef.getMetadata().getNamespace();
-        OwnerReference owner =
-                owners.stream()
-                        .filter(o -> KubeDiscoveryNodeType.fromKubernetesKind(o.getKind()) != null)
-                        .findFirst()
-                        .orElse(owners.get(0));
-
-        Pair<HasMetadata, DiscoveryNode> ownerPair =
-                queryForNodeReadOnly(namespace, owner.getName(), owner.getKind());
-
-        if (ownerPair == null || ownerPair.getLeft() == null) {
-            return null;
-        }
-
-        HasMetadata ownerObj = ownerPair.getLeft();
-        DiscoveryNode ownerNode = ownerPair.getRight();
-
-        if (ownerNode == null) {
             Map<String, String> labels = new HashMap<>();
             if (ownerObj.getMetadata().getLabels() != null) {
                 labels.putAll(ownerObj.getMetadata().getLabels());
             }
-            ownerNode =
-                    findOrCreateNodeInMemory(namespace, owner.getName(), owner.getKind(), labels);
+
+            Long id = null;
+            if (existingNode != null) {
+                id = existingNode.id;
+            }
+            NodeDescriptor descriptor =
+                    new NodeDescriptor(namespace, owner.getName(), owner.getKind(), labels, id);
+            hierarchy.add(descriptor);
+
+            current = ownerObj;
         }
 
-        return Pair.of(ownerObj, ownerNode);
+        // Now create/link nodes from parent to child, only creating entities when needed
+        DiscoveryNode parentNode = node;
+        for (NodeDescriptor descriptor : hierarchy) {
+            DiscoveryNode ownerNode;
+            if (descriptor.existingId != null) {
+                // Node exists in DB, fetch it
+                ownerNode = DiscoveryNode.findById(descriptor.existingId);
+            } else {
+                // Create new node entity only now, when we know it's part of a valid chain
+                ownerNode =
+                        findOrCreateNodeInMemory(
+                                descriptor.namespace,
+                                descriptor.name,
+                                descriptor.kind,
+                                descriptor.labels);
+            }
+
+            if (!ownerNode.children.contains(parentNode)) {
+                ownerNode.children.add(parentNode);
+            }
+            parentNode.parent = ownerNode;
+            parentNode = ownerNode;
+        }
+
+        return parentNode;
     }
 
     void persistNodeChain(DiscoveryNode nsNode, Target target, DiscoveryNode targetNode) {
@@ -1012,6 +1012,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 continue;
             }
 
+            final String nodeNamespace = node.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY);
             DiscoveryNode existingNode =
                     DiscoveryNode.<DiscoveryNode>find(
                                     "#DiscoveryNode.byTypeWithName",
@@ -1020,11 +1021,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                             .stream()
                             .filter(
                                     n ->
-                                            node.labels
-                                                            .get(DISCOVERY_NAMESPACE_LABEL_KEY)
-                                                            .equals(
-                                                                    n.labels.get(
-                                                                            DISCOVERY_NAMESPACE_LABEL_KEY))
+                                            nodeNamespace.equals(
+                                                            n.labels.get(
+                                                                    DISCOVERY_NAMESPACE_LABEL_KEY))
                                                     && isInKubernetesApiRealm(n))
                             .findFirst()
                             .orElse(null);
@@ -1073,11 +1072,9 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 }
 
                 node.persist();
+                nodeChain.set(i, node);
             }
         }
-
-        entityManager.flush();
-        nsNode.persist();
 
         // Now that all nodes are persisted, persist the Target
         // The targetNode should now have an ID from the database
@@ -1340,6 +1337,21 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
         return false;
     }
+
+    /**
+     * Builds the ownership hierarchy using database lookups to reuse existing nodes.
+     *
+     * @param kubeObj The Kubernetes object to start from
+     * @param node The DiscoveryNode representing the Kubernetes object
+     * @return The root node of the ownership chain (the topmost owner)
+     */
+    /** Represents a node in the ownership hierarchy that hasn't been persisted yet. */
+    record NodeDescriptor(
+            String namespace,
+            String name,
+            String kind,
+            Map<String, String> labels,
+            Long existingId) {}
 
     @DisallowConcurrentExecution
     static class EndpointsResyncJob implements Job {
