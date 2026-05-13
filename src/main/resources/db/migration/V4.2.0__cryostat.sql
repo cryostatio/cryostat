@@ -669,4 +669,11 @@ WHERE JOB_GROUP = 'discovery.startup';
 DELETE FROM QRTZ_JOB_DETAILS
 WHERE JOB_GROUP = 'discovery.startup';
 
+DELETE FROM Target WHERE discoveryNode IS NOT NULL;
+UPDATE DiscoveryNode SET parentNode = NULL;
+DELETE FROM DiscoveryNode
+WHERE id NOT IN (
+    SELECT realm_id FROM DiscoveryPlugin WHERE builtin = true
+);
+
 COMMIT;

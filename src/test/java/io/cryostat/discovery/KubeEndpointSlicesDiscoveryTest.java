@@ -18,11 +18,14 @@ package io.cryostat.discovery;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+import java.net.URI;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import io.cryostat.AbstractTransactionalTestBase;
+import io.cryostat.targets.Target;
 
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectReference;
@@ -44,12 +47,16 @@ import io.fabric8.kubernetes.client.dsl.MixedOperation;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.PodResource;
 import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
+import io.quarkus.panache.common.Parameters;
 import io.quarkus.test.InjectMock;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.TestProfile;
 import io.quarkus.test.junit.mockito.MockitoConfig;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
+import jakarta.transaction.Transactional;
+import org.apache.commons.lang3.tuple.Pair;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -75,6 +82,8 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
     EventBus bus;
 
     @Inject KubeEndpointSlicesDiscovery discovery;
+
+    @Inject EntityManager entityManager;
 
     @Test
     void testGetTargetTuplesFromReturnsEmptyListWhenPortsAreNull() {
@@ -620,5 +629,299 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
                 "test-namespace",
                 result.labels.get(KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY));
         assertNull(result.parent);
+    }
+
+    @Test
+    @Transactional
+    @SuppressWarnings("unchecked")
+    void testQueryForNodeReadOnlyDoesNotPersist() throws Exception {
+        Pod pod = mock(Pod.class);
+        ObjectMeta podMeta = mock(ObjectMeta.class);
+        when(podMeta.getOwnerReferences()).thenReturn(List.of());
+        when(podMeta.getNamespace()).thenReturn("test-namespace");
+        when(podMeta.getLabels()).thenReturn(Map.of("app", "test-app"));
+        when(pod.getMetadata()).thenReturn(podMeta);
+
+        MixedOperation<Pod, PodList, PodResource> podOp = mock(MixedOperation.class);
+        NonNamespaceOperation<Pod, PodList, PodResource> nsOp = mock(NonNamespaceOperation.class);
+        PodResource podResource = mock(PodResource.class);
+        when(client.pods()).thenReturn(podOp);
+        when(podOp.inNamespace("test-namespace")).thenReturn(nsOp);
+        when(nsOp.withName("test-pod")).thenReturn(podResource);
+        when(podResource.get()).thenReturn(pod);
+
+        long nodeCountBefore = DiscoveryNode.count();
+
+        var result = discovery.queryForNodeReadOnly("test-namespace", "test-pod", "Pod");
+
+        long nodeCountAfter = DiscoveryNode.count();
+
+        assertNotNull(result, "Result should not be null");
+        assertEquals(
+                nodeCountBefore,
+                nodeCountAfter,
+                "queryForNodeReadOnly should not create any database records");
+
+        @SuppressWarnings("unchecked")
+        Pair<?, ?> resultPair = (Pair<?, ?>) result;
+        assertNotNull(resultPair.getLeft(), "Kubernetes object should be returned");
+        assertNull(resultPair.getRight(), "DiscoveryNode should be null since nothing in DB");
+    }
+
+    @Test
+    @Transactional
+    void testFindOrCreateNodeInMemoryReusesExisting() throws Exception {
+        // Get the existing Realm node (created by the discovery plugin)
+        DiscoveryNode realmNode =
+                DiscoveryNode.getRealm(KubeEndpointSlicesDiscovery.REALM).orElseThrow();
+
+        // Create the existing Pod node with proper parent chain
+        DiscoveryNode existingNode = new DiscoveryNode();
+        existingNode.name = "test-pod";
+        existingNode.nodeType = "Pod";
+        existingNode.labels = new HashMap<>();
+        existingNode.labels.put(
+                KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
+        existingNode.parent = realmNode;
+        existingNode.children = new ArrayList<>();
+        existingNode.persist();
+
+        realmNode.children.add(existingNode);
+        realmNode.persist();
+
+        long nodeCountBefore = DiscoveryNode.count();
+
+        Map<String, String> labels = Map.of("app", "test-app");
+        var result =
+                discovery.findOrCreateNodeInMemory("test-namespace", "test-pod", "Pod", labels);
+
+        long nodeCountAfter = DiscoveryNode.count();
+
+        assertNotNull(result, "Result should not be null");
+        assertEquals(
+                nodeCountBefore,
+                nodeCountAfter,
+                "findOrCreateNodeInMemory should not create duplicate nodes");
+
+        DiscoveryNode returnedNode = (DiscoveryNode) result;
+        assertEquals(
+                existingNode.id, returnedNode.id, "Should return the existing node from database");
+        assertEquals("test-pod", returnedNode.name);
+        assertEquals("Pod", returnedNode.nodeType);
+    }
+
+    @Test
+    @Transactional
+    void testFindOrCreateNodeInMemoryCreatesNewNode() throws Exception {
+        long nodeCountBefore = DiscoveryNode.count();
+
+        Map<String, String> labels = Map.of("app", "test-app", "realm", "KubernetesApi");
+        var result = discovery.findOrCreateNodeInMemory("test-namespace", "new-pod", "Pod", labels);
+
+        long nodeCountAfter = DiscoveryNode.count();
+
+        assertNotNull(result, "Result should not be null");
+        assertEquals(
+                nodeCountBefore,
+                nodeCountAfter,
+                "findOrCreateNodeInMemory should NOT persist the new node to database");
+
+        DiscoveryNode newNode = (DiscoveryNode) result;
+        assertNull(newNode.id, "New node should not have an ID (not persisted)");
+        assertEquals("new-pod", newNode.name, "Node should have correct name");
+        assertEquals("Pod", newNode.nodeType, "Node should have correct type");
+        assertEquals(
+                "test-namespace",
+                newNode.labels.get(KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY),
+                "Node should have namespace label");
+        assertTrue(
+                newNode.labels.containsKey("app"),
+                "Node should have app label from provided labels");
+    }
+
+    @Test
+    @Transactional
+    void testFindOrphanedNodesDetectsOrphans() throws Exception {
+        DiscoveryNode nsNode = new DiscoveryNode();
+        nsNode.name = "test-namespace";
+        nsNode.nodeType = "Namespace";
+        nsNode.labels = new HashMap<>();
+        nsNode.labels.put(
+                KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
+        nsNode.labels.put("realm", "KubernetesApi");
+        nsNode.children = new ArrayList<>();
+        nsNode.persist();
+
+        DiscoveryNode orphanPod1 = new DiscoveryNode();
+        orphanPod1.name = "orphan-pod-1";
+        orphanPod1.nodeType = "Pod";
+        orphanPod1.labels = new HashMap<>();
+        orphanPod1.labels.put(
+                KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
+        orphanPod1.labels.put("realm", "KubernetesApi");
+        orphanPod1.children = new ArrayList<>();
+        orphanPod1.parent = nsNode;
+        orphanPod1.persist();
+
+        DiscoveryNode orphanPod2 = new DiscoveryNode();
+        orphanPod2.name = "orphan-pod-2";
+        orphanPod2.nodeType = "Pod";
+        orphanPod2.labels = new HashMap<>();
+        orphanPod2.labels.put(
+                KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
+        orphanPod2.labels.put("realm", "KubernetesApi");
+        orphanPod2.children = new ArrayList<>();
+        orphanPod2.parent = nsNode;
+        orphanPod2.persist();
+
+        DiscoveryNode validPod = new DiscoveryNode();
+        validPod.name = "valid-pod";
+        validPod.nodeType = "Pod";
+        validPod.labels = new HashMap<>();
+        validPod.labels.put(
+                KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
+        validPod.labels.put("realm", "KubernetesApi");
+        validPod.children = new ArrayList<>();
+        validPod.parent = nsNode;
+        validPod.persist();
+
+        DiscoveryNode endpointNode = new DiscoveryNode();
+        endpointNode.name = "valid-endpoint";
+        endpointNode.nodeType = "Endpoint";
+        endpointNode.labels = new HashMap<>();
+        endpointNode.labels.put(
+                KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
+        endpointNode.labels.put("realm", "KubernetesApi");
+        endpointNode.children = new ArrayList<>();
+        endpointNode.parent = validPod;
+        endpointNode.persist();
+        validPod.children.add(endpointNode);
+
+        Target target = new Target();
+        target.connectUrl = URI.create("service:jmx:rmi:///jndi/rmi://192.168.1.100:9091/jmxrmi");
+        target.alias = "valid-target";
+        target.discoveryNode = endpointNode;
+        target.persist();
+
+        List<DiscoveryNode> orphans = discovery.findOrphanedNodesInNamespace("test-namespace");
+
+        assertNotNull(orphans, "Result should not be null");
+        assertEquals(2, orphans.size(), "Should find exactly 2 orphaned nodes");
+
+        List<String> orphanNames = orphans.stream().map(n -> n.name).toList();
+        assertTrue(
+                orphanNames.contains("orphan-pod-1"),
+                "Should include orphan-pod-1 in orphaned nodes");
+        assertTrue(
+                orphanNames.contains("orphan-pod-2"),
+                "Should include orphan-pod-2 in orphaned nodes");
+        assertFalse(
+                orphanNames.contains("valid-pod"),
+                "Should NOT include valid-pod (has children) in orphaned nodes");
+        assertFalse(
+                orphanNames.contains("valid-endpoint"),
+                "Should NOT include valid-endpoint (has Target) in orphaned nodes");
+    }
+
+    @Test
+    @Transactional
+    void testNodesNotCreatedWithoutValidInformerSetup() {
+        // This test verifies that nodes are NOT persisted when there's no valid
+        // EndpointSlice informer setup. This is the correct behavior - we should only
+        // persist nodes that have valid EndpointSlice descendants.
+
+        var event = KubeEndpointSlicesDiscovery.NamespaceQueryEvent.from("test-namespace");
+        long nodeCountBefore = DiscoveryNode.count();
+
+        // This will fail internally due to missing informer, but should not crash
+        try {
+            discovery.handleQueryEvent(event);
+        } catch (Exception e) {
+            // Expected - informer not set up
+        }
+        entityManager.flush();
+        entityManager.clear();
+
+        long nodeCountAfter = DiscoveryNode.count();
+
+        assertEquals(
+                nodeCountBefore,
+                nodeCountAfter,
+                "Should not create any nodes without valid informer setup");
+    }
+
+    @Test
+    @Transactional
+    @SuppressWarnings("unchecked")
+    void testNonJmxPodsDoNotCreateNodes() {
+        EndpointSlice slice = mock(EndpointSlice.class);
+        ObjectMeta sliceMeta = mock(ObjectMeta.class);
+        when(sliceMeta.getNamespace()).thenReturn("test-namespace");
+        when(sliceMeta.getName()).thenReturn("non-jmx-slice");
+        when(slice.getMetadata()).thenReturn(sliceMeta);
+        when(slice.getAddressType()).thenReturn("ipv4");
+
+        EndpointPort port = mock(EndpointPort.class);
+        when(port.getName()).thenReturn("http");
+        when(port.getPort()).thenReturn(8080);
+        when(slice.getPorts()).thenReturn(List.of(port));
+
+        Endpoint endpoint = mock(Endpoint.class);
+        when(endpoint.getAddresses()).thenReturn(List.of("192.168.1.200"));
+
+        ObjectReference targetRef = mock(ObjectReference.class);
+        when(targetRef.getNamespace()).thenReturn("test-namespace");
+        when(targetRef.getName()).thenReturn("non-jmx-pod");
+        when(targetRef.getKind()).thenReturn("Pod");
+        when(endpoint.getTargetRef()).thenReturn(targetRef);
+
+        EndpointConditions conditions = mock(EndpointConditions.class);
+        when(conditions.getReady()).thenReturn(true);
+        when(conditions.getServing()).thenReturn(true);
+        when(conditions.getTerminating()).thenReturn(false);
+        when(endpoint.getConditions()).thenReturn(conditions);
+
+        when(slice.getEndpoints()).thenReturn(List.of(endpoint));
+
+        Pod pod = mock(Pod.class);
+        ObjectMeta podMeta = mock(ObjectMeta.class);
+        when(podMeta.getOwnerReferences()).thenReturn(List.of());
+        when(podMeta.getNamespace()).thenReturn("test-namespace");
+        when(podMeta.getLabels()).thenReturn(Map.of("app", "non-jmx-app"));
+        when(pod.getMetadata()).thenReturn(podMeta);
+
+        MixedOperation<Pod, PodList, PodResource> podOp = mock(MixedOperation.class);
+        NonNamespaceOperation<Pod, PodList, PodResource> nsOp = mock(NonNamespaceOperation.class);
+        PodResource podResource = mock(PodResource.class);
+        when(client.pods()).thenReturn(podOp);
+        when(podOp.inNamespace("test-namespace")).thenReturn(nsOp);
+        when(nsOp.withName("non-jmx-pod")).thenReturn(podResource);
+        when(podResource.get()).thenReturn(pod);
+
+        long nodeCountBefore = DiscoveryNode.count();
+        long targetCountBefore = Target.count();
+
+        discovery.onAdd(slice);
+        entityManager.flush();
+        entityManager.clear();
+
+        long nodeCountAfter = DiscoveryNode.count();
+        long targetCountAfter = Target.count();
+
+        assertEquals(
+                nodeCountBefore,
+                nodeCountAfter,
+                "No DiscoveryNodes should be created for non-JMX Pods");
+        assertEquals(
+                targetCountBefore,
+                targetCountAfter,
+                "No Targets should be created for non-JMX Pods");
+
+        long podNodeCount =
+                DiscoveryNode.<DiscoveryNode>find(
+                                "#DiscoveryNode.byTypeWithName",
+                                Parameters.with("nodeType", "Pod").and("name", "non-jmx-pod"))
+                        .count();
+        assertEquals(0, podNodeCount, "No Pod node should exist for non-JMX pod");
     }
 }
