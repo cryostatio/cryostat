@@ -1076,7 +1076,12 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         logger.debugv("Persisting namespace node: {0} (id: {1})", nsNode.name, nsNode.id);
         nsNode.persist();
 
-        // Persist the Target last (after all nodes are persisted)
+        // Flush to ensure all DiscoveryNode changes are written to DB
+        // This prevents other transactions from seeing stale/incomplete entities
+        entityManager.flush();
+        logger.debugv("Flushed DiscoveryNode changes to database");
+
+        // Persist the Target last (after all nodes are persisted and flushed)
         logger.debugv("Persisting target: {0}", target.connectUrl);
         target.persist();
 
