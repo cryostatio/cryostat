@@ -543,9 +543,17 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         HasMetadata obj =
                 nodeCache.computeIfAbsent(
                         cacheKey,
-                        k ->
-                                queryForNode(ref.getNamespace(), ref.getName(), ref.getKind())
-                                        .getLeft());
+                        k -> {
+                            KubeDiscoveryNodeType nodeType =
+                                    KubeDiscoveryNodeType.fromKubernetesKind(ref.getKind());
+                            if (nodeType == null) {
+                                return null;
+                            }
+                            return nodeType.getQueryFunction()
+                                    .apply(client)
+                                    .apply(ref.getNamespace())
+                                    .apply(ref.getName());
+                        });
 
         return new TargetTuple(ref, obj, transformedAddr, port, endpoint.getConditions());
     }
@@ -1150,45 +1158,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
         node.labels.putAll(labels);
 
-        return Pair.of(kubeObj, node);
-    }
-
-    /**
-     * Queries Kubernetes API for a node and retrieves or creates a DiscoveryNode from the database.
-     * This method DOES access the database.
-     *
-     * @param namespace Kubernetes namespace
-     * @param name Resource name
-     * @param kind Resource kind
-     * @return Pair of Kubernetes object and DiscoveryNode from database, or null if not found
-     */
-    private Pair<HasMetadata, DiscoveryNode> queryForNode(
-            String namespace, String name, String kind) {
-
-        KubeDiscoveryNodeType nodeType = KubeDiscoveryNodeType.fromKubernetesKind(kind);
-        if (nodeType == null) {
-            return null;
-        }
-
-        HasMetadata kubeObj =
-                nodeType.getQueryFunction().apply(client).apply(namespace).apply(name);
-
-        DiscoveryNode node =
-                DiscoveryNode.byTypeWithName(
-                        nodeType,
-                        name,
-                        n ->
-                                namespace.equals(n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY))
-                                        && isInKubernetesApiRealm(n),
-                        n -> {
-                            Map<String, String> labels = new HashMap<>();
-                            if (kubeObj != null && kubeObj.getMetadata().getLabels() != null) {
-                                labels.putAll(kubeObj.getMetadata().getLabels());
-                            }
-                            // Add namespace to label to retrieve node later
-                            labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
-                            n.labels.putAll(labels);
-                        });
         return Pair.of(kubeObj, node);
     }
 
