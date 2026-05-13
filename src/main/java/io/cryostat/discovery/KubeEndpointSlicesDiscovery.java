@@ -1436,14 +1436,18 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         logger.debugv("Persisting owner chain from DTO for target: {0}", targetDto.connectUrl());
 
         URI connectUrl = URI.create(targetDto.connectUrl());
-        Target existingTarget = Target.getTargetByConnectUrl(connectUrl);
 
-        if (existingTarget != null) {
+        Optional<Target> existingTarget =
+                Target.<Target>find("connectUrl", connectUrl).singleResultOptional();
+
+        if (existingTarget.isPresent()) {
             logger.debugv(
                     "Target already exists for connectUrl: {0} (id: {1}), skipping persistence",
-                    connectUrl, existingTarget.id);
+                    connectUrl, existingTarget.get().id);
             return;
         }
+
+        logger.debugv("No existing target found for connectUrl: {0}, creating new", connectUrl);
 
         // Convert the DTO tree to entities
         DiscoveryNode leafNode = convertDtoTreeToEntities(hierarchyRoot, nsNode);
