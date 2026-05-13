@@ -1002,9 +1002,8 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
         List<DiscoveryNode> nodeChain = collectNodeChain(targetNode, nsNode);
 
-        target.persist();
-
         // Persist nodes from parent to child (top to bottom)
+        // This ensures all nodes exist before we persist the Target
         for (int i = nodeChain.size() - 1; i >= 0; i--) {
             DiscoveryNode node = nodeChain.get(i);
 
@@ -1046,6 +1045,12 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                         existingNode.children.add(child);
                     }
                 }
+
+                // Special case: if this is the targetNode (EndpointSlice), update the target
+                // reference
+                if (node == targetNode) {
+                    target.discoveryNode = existingNode;
+                }
             } else {
                 logger.debugv("Persisting new node: {0} (type: {1})", node.name, node.nodeType);
 
@@ -1073,6 +1078,10 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
         entityManager.flush();
         nsNode.persist();
+
+        // Now that all nodes are persisted, persist the Target
+        // The targetNode should now have an ID from the database
+        target.persist();
 
         logger.debugv("Node chain persistence complete for target: {0}", target.connectUrl);
     }
