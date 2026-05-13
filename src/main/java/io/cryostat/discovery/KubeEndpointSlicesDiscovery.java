@@ -1059,16 +1059,22 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         for (int i = nodeChain.size() - 1; i >= 0; i--) {
             DiscoveryNode node = nodeChain.get(i);
 
-            // Skip nodes that are already persisted (loaded from DB)
             if (node.id != null) {
-                logger.debugv("Node already persisted: {0} (id: {1})", node.name, node.id);
-                continue;
+                // Node already exists in DB - persist any relationship changes
+                logger.debugv(
+                        "Node already persisted, persisting updates: {0} (id: {1})",
+                        node.name, node.id);
+                node.persist();
+            } else {
+                // Persist new nodes
+                logger.debugv("Persisting new node: {0} (type: {1})", node.name, node.nodeType);
+                node.persist();
             }
-
-            // Persist new nodes
-            logger.debugv("Persisting new node: {0} (type: {1})", node.name, node.nodeType);
-            node.persist();
         }
+
+        // Persist namespace node to save any relationship changes
+        logger.debugv("Persisting namespace node: {0} (id: {1})", nsNode.name, nsNode.id);
+        nsNode.persist();
 
         // Persist the Target last (after all nodes are persisted)
         logger.debugv("Persisting target: {0}", target.connectUrl);
