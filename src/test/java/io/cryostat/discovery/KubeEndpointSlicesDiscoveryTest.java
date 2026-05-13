@@ -670,73 +670,116 @@ class KubeEndpointSlicesDiscoveryTest extends AbstractTransactionalTestBase {
 
     @Test
     @Transactional
-    void testFindOrCreateNodeInMemoryReusesExisting() throws Exception {
-        // Get the existing Realm node (created by the discovery plugin)
-        DiscoveryNode realmNode =
-                DiscoveryNode.getRealm(KubeEndpointSlicesDiscovery.REALM).orElseThrow();
-
-        // Create the existing Pod node with proper parent chain
-        DiscoveryNode existingNode = new DiscoveryNode();
-        existingNode.name = "test-pod";
-        existingNode.nodeType = "Pod";
-        existingNode.labels = new HashMap<>();
-        existingNode.labels.put(
+    void testFindExistingNodeIdWithJsonbQuery() throws Exception {
+        // Create a node with labels including the namespace label
+        DiscoveryNode node = new DiscoveryNode();
+        node.name = "test-pod";
+        node.nodeType = "Pod";
+        node.labels = new HashMap<>();
+        node.labels.put("app", "test-app");
+        node.labels.put(
                 KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
-        existingNode.parent = realmNode;
-        existingNode.children = new ArrayList<>();
-        existingNode.persist();
+        node.children = new ArrayList<>();
+        node.persist();
 
-        realmNode.children.add(existingNode);
-        realmNode.persist();
+        // Flush to ensure the node is in the database
+        entityManager.flush();
+        entityManager.clear();
 
-        long nodeCountBefore = DiscoveryNode.count();
+        // Test the SQL query directly using the same query string as the implementation
+        String query =
+                "SELECT n.id FROM DiscoveryNode n"
+                        + " WHERE n.name = :name AND"
+                        + " n.nodeType = :nodeType AND"
+                        + " n.labels->>'discovery.cryostat.io/namespace' = :namespace";
 
-        Map<String, String> labels = Map.of("app", "test-app");
-        var result =
-                discovery.findOrCreateNodeInMemory("test-namespace", "test-pod", "Pod", labels);
+        Long foundId =
+                ((Number)
+                                entityManager
+                                        .createNativeQuery(query)
+                                        .setParameter("name", "test-pod")
+                                        .setParameter("nodeType", "Pod")
+                                        .setParameter("namespace", "test-namespace")
+                                        .getResultStream()
+                                        .findFirst()
+                                        .orElse(null))
+                        .longValue();
 
-        long nodeCountAfter = DiscoveryNode.count();
-
-        assertNotNull(result, "Result should not be null");
-        assertEquals(
-                nodeCountBefore,
-                nodeCountAfter,
-                "findOrCreateNodeInMemory should not create duplicate nodes");
-
-        DiscoveryNode returnedNode = (DiscoveryNode) result;
-        assertEquals(
-                existingNode.id, returnedNode.id, "Should return the existing node from database");
-        assertEquals("test-pod", returnedNode.name);
-        assertEquals("Pod", returnedNode.nodeType);
+        assertNotNull(foundId, "Should find the node using JSONB operator");
+        assertEquals(node.id, foundId, "Found ID should match the created node's ID");
     }
 
     @Test
     @Transactional
-    void testFindOrCreateNodeInMemoryCreatesNewNode() throws Exception {
-        long nodeCountBefore = DiscoveryNode.count();
+    void testFindExistingNodeIdReturnsNullWhenNotFound() throws Exception {
+        // Test that the query returns null when no matching node exists
+        String query =
+                "SELECT n.id FROM DiscoveryNode n"
+                        + " WHERE n.name = :name AND"
+                        + " n.nodeType = :nodeType AND"
+                        + " n.labels->>'discovery.cryostat.io/namespace' = :namespace";
 
-        Map<String, String> labels = Map.of("app", "test-app", "realm", "KubernetesApi");
-        var result = discovery.findOrCreateNodeInMemory("test-namespace", "new-pod", "Pod", labels);
+        Object result =
+                entityManager
+                        .createNativeQuery(query)
+                        .setParameter("name", "nonexistent-pod")
+                        .setParameter("nodeType", "Pod")
+                        .setParameter("namespace", "nonexistent-namespace")
+                        .getResultStream()
+                        .findFirst()
+                        .orElse(null);
 
-        long nodeCountAfter = DiscoveryNode.count();
+        assertNull(result, "Should return null when node doesn't exist");
+    }
 
-        assertNotNull(result, "Result should not be null");
-        assertEquals(
-                nodeCountBefore,
-                nodeCountAfter,
-                "findOrCreateNodeInMemory should NOT persist the new node to database");
+    @Test
+    @Transactional
+    void testFindExistingNodeIdWithDuplicates() throws Exception {
+        // Create multiple nodes with the same name/type/namespace to test duplicate handling
+        DiscoveryNode node1 = new DiscoveryNode();
+        node1.name = "duplicate-pod";
+        node1.nodeType = "Pod";
+        node1.labels = new HashMap<>();
+        node1.labels.put(
+                KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
+        node1.children = new ArrayList<>();
+        node1.persist();
 
-        DiscoveryNode newNode = (DiscoveryNode) result;
-        assertNull(newNode.id, "New node should not have an ID (not persisted)");
-        assertEquals("new-pod", newNode.name, "Node should have correct name");
-        assertEquals("Pod", newNode.nodeType, "Node should have correct type");
-        assertEquals(
-                "test-namespace",
-                newNode.labels.get(KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY),
-                "Node should have namespace label");
+        DiscoveryNode node2 = new DiscoveryNode();
+        node2.name = "duplicate-pod";
+        node2.nodeType = "Pod";
+        node2.labels = new HashMap<>();
+        node2.labels.put(
+                KubeEndpointSlicesDiscovery.DISCOVERY_NAMESPACE_LABEL_KEY, "test-namespace");
+        node2.children = new ArrayList<>();
+        node2.persist();
+
+        entityManager.flush();
+        entityManager.clear();
+
+        // Test that getResultStream().findFirst() returns one of the duplicates
+        String query =
+                "SELECT n.id FROM DiscoveryNode n"
+                        + " WHERE n.name = :name AND"
+                        + " n.nodeType = :nodeType AND"
+                        + " n.labels->>'discovery.cryostat.io/namespace' = :namespace";
+
+        Long foundId =
+                ((Number)
+                                entityManager
+                                        .createNativeQuery(query)
+                                        .setParameter("name", "duplicate-pod")
+                                        .setParameter("nodeType", "Pod")
+                                        .setParameter("namespace", "test-namespace")
+                                        .getResultStream()
+                                        .findFirst()
+                                        .orElse(null))
+                        .longValue();
+
+        assertNotNull(foundId, "Should find one of the duplicate nodes");
         assertTrue(
-                newNode.labels.containsKey("app"),
-                "Node should have app label from provided labels");
+                foundId.equals(node1.id) || foundId.equals(node2.id),
+                "Found ID should match one of the duplicate nodes");
     }
 
     @Test

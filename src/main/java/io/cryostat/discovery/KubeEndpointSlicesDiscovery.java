@@ -614,7 +614,12 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                             Objects.equals(
                                                     ep.getMetadata().getNamespace(), namespace));
         } else {
-            endpoints = safeGetInformers().get(namespace).getStore().list().stream();
+            var informer = safeGetInformers().get(namespace);
+            if (informer == null) {
+                logger.warnv("No informer found for namespace: {0}", namespace);
+                return result;
+            }
+            endpoints = informer.getStore().list().stream();
         }
 
         endpoints
