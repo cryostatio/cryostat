@@ -916,10 +916,17 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
         logger.debugv("Pruning owner chain for target: {0}", target.connectUrl);
         try {
-            Target managedTarget = Target.getTargetByConnectUrl(target.connectUrl);
+            Optional<Target> managedTargetOpt =
+                    Target.<Target>find("connectUrl", target.connectUrl).singleResultOptional();
 
-            if (managedTarget == null || managedTarget.id == null) {
+            if (managedTargetOpt.isEmpty()) {
                 logger.debugv("Target already deleted: {0}", target.connectUrl);
+                return;
+            }
+
+            Target managedTarget = managedTargetOpt.get();
+            if (managedTarget.id == null) {
+                logger.debugv("Target has no id: {0}", target.connectUrl);
                 return;
             }
 
