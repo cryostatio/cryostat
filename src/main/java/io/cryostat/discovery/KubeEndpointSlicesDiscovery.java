@@ -939,7 +939,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 return;
             }
 
-            endpointNode = entityManager.find(DiscoveryNode.class, endpointNode.id);
+            endpointNode = DiscoveryNode.findById(endpointNode.id);
             logger.debugv(
                     "Loaded discoveryNode {0} with parent {1}",
                     endpointNode.id, endpointNode.parent != null ? endpointNode.parent.id : "null");
@@ -1279,7 +1279,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
      * <p>This method walks the DTO tree from root to leaf (depth-first) and:
      *
      * <ul>
-     *   <li>If existsInDb=true: Loads existing entity using entityManager.find()
+     *   <li>If existsInDb=true: Loads existing entity using DiscoveryNode.findById()
      *   <li>If existsInDb=false: Creates new DiscoveryNode() entity
      *   <li>Builds parent-child relationships bidirectionally
      *   <li>Ensures the topmost new node links to the namespace node
@@ -1319,10 +1319,10 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         DiscoveryNode entity;
 
         if (dto.existsInDb()) {
-            // Load existing entity from database
+            // Load existing entity from database using Panache
             logger.debugv(
                     "Loading existing node from DB: {0} (id: {1})", dto.name(), dto.existingId());
-            entity = entityManager.find(DiscoveryNode.class, dto.existingId());
+            entity = DiscoveryNode.findById(dto.existingId());
 
             if (entity == null) {
                 logger.warnv(
