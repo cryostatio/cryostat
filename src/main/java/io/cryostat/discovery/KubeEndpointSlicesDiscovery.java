@@ -1293,7 +1293,37 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         logger.debugv("Converting DTO tree to entities, root: {0}", rootDto.name());
 
         // Walk the tree depth-first, converting DTOs to entities
-        DiscoveryNode rootEntity = convertDtoNodeToEntity(rootDto, nsNode, true);
+        DiscoveryNode rootEntity = convertDtoNodeToEntity(rootDto, nsNode, false);
+
+        // Find the topmost node in the chain (the one without a parent)
+        DiscoveryNode topmost = rootEntity;
+        while (topmost.parent != null && !topmost.parent.equals(nsNode)) {
+            topmost = topmost.parent;
+        }
+
+        // Ensure the topmost node is linked to the namespace
+        if (topmost.parent == null || !topmost.parent.equals(nsNode)) {
+            topmost.parent = nsNode;
+            logger.debugv(
+                    "Set parent of topmost node {0} to namespace {1}", topmost.name, nsNode.name);
+        }
+
+        // Add to namespace children if not already present
+        final Long topmostId = topmost.id;
+        final DiscoveryNode topmostNode = topmost;
+        boolean alreadyChild =
+                nsNode.children.stream()
+                        .anyMatch(
+                                child ->
+                                        child == topmostNode
+                                                || (child.id != null
+                                                        && topmostId != null
+                                                        && child.id.equals(topmostId)));
+        if (!alreadyChild) {
+            nsNode.children.add(topmost);
+            logger.debugv(
+                    "Added topmost node {0} to namespace {1} children", topmost.name, nsNode.name);
+        }
 
         // Find and return the leaf node (EndpointSlice wrapper)
         DiscoveryNode leafNode = rootEntity;
@@ -1316,20 +1346,22 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
      */
     private DiscoveryNode convertDtoNodeToEntity(
             DiscoveryNodeDTO dto, DiscoveryNode nsNode, boolean isRoot) {
-        DiscoveryNode entity;
+        final DiscoveryNode entity;
 
         if (dto.existsInDb()) {
             // Load existing entity from database using Panache
             logger.debugv(
                     "Loading existing node from DB: {0} (id: {1})", dto.name(), dto.existingId());
-            entity = DiscoveryNode.findById(dto.existingId());
+            DiscoveryNode loaded = DiscoveryNode.findById(dto.existingId());
 
-            if (entity == null) {
+            if (loaded == null) {
                 logger.warnv(
                         "Node marked as existing but not found in DB: {0} (id: {1}), creating new"
                                 + " node",
                         dto.name(), dto.existingId());
                 entity = createNewNodeEntity(dto);
+            } else {
+                entity = loaded;
             }
         } else {
             // Create new entity
@@ -1354,15 +1386,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             if (!childExists) {
                 entity.children.add(childEntity);
             }
-        }
-
-        // If this is the root node and it's new, link it to the namespace
-        if (isRoot && !dto.existsInDb()) {
-            entity.parent = nsNode;
-            if (!nsNode.children.contains(entity)) {
-                nsNode.children.add(entity);
-            }
-            logger.debugv("Linked root node {0} to namespace {1}", entity.name, nsNode.name);
         }
 
         return entity;
