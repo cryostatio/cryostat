@@ -1300,6 +1300,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         logger.debugv("Converting DTO tree to entities, root: {0}", rootDto.name());
 
         // Walk the tree depth-first, converting DTOs to entities
+        // This returns the root of the converted tree
         DiscoveryNode rootEntity = convertDtoNodeToEntity(rootDto, nsNode, false);
 
         // Find the topmost node in the chain (the one without a parent)
@@ -1332,14 +1333,49 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                     "Added topmost node {0} to namespace {1} children", topmost.name, nsNode.name);
         }
 
-        // Find and return the leaf node (EndpointSlice wrapper)
-        DiscoveryNode leafNode = rootEntity;
-        while (!leafNode.children.isEmpty()) {
-            leafNode = leafNode.children.get(0);
-        }
+        // Find and return the leaf node (EndpointSlice wrapper) by walking down from rootEntity
+        // We need to walk down the DTO tree structure, not the entity children collection,
+        // because the entity children may include nodes from previous discoveries
+        DiscoveryNode leafNode = findLeafNodeFromDto(rootDto, rootEntity);
 
         logger.debugv("DTO tree conversion complete, leaf node: {0}", leafNode.name);
         return leafNode;
+    }
+
+    /**
+     * Finds the leaf node entity that corresponds to the leaf of the DTO tree. This walks down the
+     * DTO tree structure to find the correct leaf, rather than using the entity's children
+     * collection which may contain nodes from previous discoveries.
+     *
+     * @param dto The DTO node to search from
+     * @param entity The corresponding entity node
+     * @return The leaf node entity
+     */
+    private DiscoveryNode findLeafNodeFromDto(DiscoveryNodeDTO dto, DiscoveryNode entity) {
+        // If this DTO has no children, this entity is the leaf
+        if (dto.children().isEmpty()) {
+            return entity;
+        }
+
+        // Otherwise, find the child entity that matches the first DTO child
+        DiscoveryNodeDTO childDto = dto.children().get(0);
+
+        // Find the matching child entity by name and type
+        DiscoveryNode childEntity =
+                entity.children.stream()
+                        .filter(
+                                child ->
+                                        child.name.equals(childDto.name())
+                                                && child.nodeType.equals(childDto.nodeType()))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "Could not find child entity for DTO: "
+                                                        + childDto.name()));
+
+        // Recursively search down the tree
+        return findLeafNodeFromDto(childDto, childEntity);
     }
 
     /**
