@@ -1004,6 +1004,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
         target.persist();
 
+        // Persist nodes from parent to child (top to bottom)
         for (int i = nodeChain.size() - 1; i >= 0; i--) {
             DiscoveryNode node = nodeChain.get(i);
 
@@ -1034,16 +1035,29 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                         "Reusing existing node from DB: {0} (id: {1})",
                         existingNode.name, existingNode.id);
 
-                if (node.parent != null) {
-                    if (!existingNode.children.contains(node)) {
-                        existingNode.children.add(node);
-                    }
-                    node.parent = existingNode;
-                }
-
+                // Update the chain to use the existing node
                 nodeChain.set(i, existingNode);
+
+                // Update child's parent reference to point to the existing node
+                if (i > 0) {
+                    DiscoveryNode child = nodeChain.get(i - 1);
+                    child.parent = existingNode;
+                    if (!existingNode.children.contains(child)) {
+                        existingNode.children.add(child);
+                    }
+                }
             } else {
                 logger.debugv("Persisting new node: {0} (type: {1})", node.name, node.nodeType);
+
+                // Ensure parent reference is set before persisting
+                if (i < nodeChain.size() - 1) {
+                    DiscoveryNode parent = nodeChain.get(i + 1);
+                    node.parent = parent;
+                    if (!parent.children.contains(node)) {
+                        parent.children.add(node);
+                    }
+                }
+
                 node.persist();
             }
         }
