@@ -120,8 +120,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             "SELECT n.id FROM DiscoveryNode n"
                     + " WHERE n.name = :name AND"
                     + " n.nodeType = :nodeType AND"
-                    + " jsonb_extract_path_text(n.labels,"
-                    + " 'discovery.cryostat.io/namespace') = :namespace";
+                    + " n.labels->>'discovery.cryostat.io/namespace' = :namespace";
 
     private static final List<String> EMPTY_PORT_NAMES = new ArrayList<>();
 
@@ -1239,14 +1238,23 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
      */
     private Long findExistingNodeId(String namespace, String name, String nodeType) {
         try {
-            return entityManager
-                    .createQuery(FIND_NAMESPACED_NODE_SQL, Long.class)
-                    .setParameter("name", name)
-                    .setParameter("nodeType", nodeType)
-                    .setParameter("namespace", namespace)
-                    .getSingleResult();
+            Object result =
+                    entityManager
+                            .createNativeQuery(FIND_NAMESPACED_NODE_SQL)
+                            .setParameter("name", name)
+                            .setParameter("nodeType", nodeType)
+                            .setParameter("namespace", namespace)
+                            .getResultStream()
+                            .findFirst()
+                            .orElse(null);
+            return result != null ? ((Number) result).longValue() : null;
         } catch (Exception e) {
-            // Node not found or multiple results - treat as not existing
+            logger.errorv(
+                    e,
+                    "Error finding existing node: name={0}, type={1}, namespace={2}",
+                    name,
+                    nodeType,
+                    namespace);
             return null;
         }
     }
