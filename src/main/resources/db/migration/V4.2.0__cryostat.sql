@@ -669,19 +669,4 @@ WHERE JOB_GROUP = 'discovery.startup';
 DELETE FROM QRTZ_JOB_DETAILS
 WHERE JOB_GROUP = 'discovery.startup';
 
--- Delete all discovered Targets (those with a discoveryNode reference)
-DELETE FROM Target WHERE discoveryNode IS NOT NULL;
-
--- Clear all parent references to avoid foreign key constraint issues during deletion
-UPDATE DiscoveryNode SET parentNode = NULL;
-
--- Delete all DiscoveryNodes EXCEPT:
--- 1. The Universe node (nodeType = 'Universe')
--- 2. Realm nodes that are referenced by builtin DiscoveryPlugins
-DELETE FROM DiscoveryNode
-WHERE nodeType != 'Universe'
-  AND id NOT IN (
-    SELECT realm_id FROM DiscoveryPlugin WHERE builtin = true
-);
-
 COMMIT;
