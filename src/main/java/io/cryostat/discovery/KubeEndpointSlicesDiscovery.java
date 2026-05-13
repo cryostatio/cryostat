@@ -1343,7 +1343,20 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
 
             // Build bidirectional relationship
             childEntity.parent = entity;
-            if (!entity.children.contains(childEntity)) {
+
+            boolean childExists =
+                    entity.children.stream()
+                            .anyMatch(
+                                    existing ->
+                                            existing.name.equals(childEntity.name)
+                                                    && existing.nodeType.equals(
+                                                            childEntity.nodeType)
+                                                    && Objects.equals(
+                                                            existing.labels.get(
+                                                                    DISCOVERY_NAMESPACE_LABEL_KEY),
+                                                            childEntity.labels.get(
+                                                                    DISCOVERY_NAMESPACE_LABEL_KEY)));
+            if (!childExists) {
                 entity.children.add(childEntity);
             }
         }
