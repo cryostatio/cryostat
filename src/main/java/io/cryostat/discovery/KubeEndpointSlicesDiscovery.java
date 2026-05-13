@@ -1050,7 +1050,16 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 logger.debugv("Persisting new node: {0} (type: {1})", node.name, node.nodeType);
 
                 // Ensure parent reference is set before persisting
-                if (i < nodeChain.size() - 1) {
+                // The topmost node in the chain (i == nodeChain.size() - 1) has nsNode as parent
+                // All other nodes have the next node in the chain as parent
+                if (i == nodeChain.size() - 1) {
+                    // Topmost node in chain - parent is the namespace node
+                    node.parent = nsNode;
+                    if (!nsNode.children.contains(node)) {
+                        nsNode.children.add(node);
+                    }
+                } else {
+                    // Not topmost - parent is next node in chain
                     DiscoveryNode parent = nodeChain.get(i + 1);
                     node.parent = parent;
                     if (!parent.children.contains(node)) {
