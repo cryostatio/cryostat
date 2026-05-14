@@ -39,6 +39,7 @@ import java.util.UUID;
 
 import io.cryostat.ConfigProperties;
 import io.cryostat.credentials.Credential;
+import io.cryostat.discovery.DiscoveryPlugin.PluginCallback;
 import io.cryostat.discovery.KubeEndpointSlicesDiscovery.KubeDiscoveryNodeType;
 import io.cryostat.discovery.NodeType.BaseNodeType;
 import io.cryostat.targets.TargetConnectionManager;
@@ -80,6 +81,7 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.UriBuilder;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.eclipse.microprofile.faulttolerance.Bulkhead;
@@ -878,135 +880,131 @@ public class Discovery {
         public void execute(JobExecutionContext context) throws JobExecutionException {
             boolean refresh = context.getMergedJobDataMap().getBoolean(REFRESH_MAP_KEY);
             UUID pluginId = (UUID) context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY);
+            if (pluginId == null) {
+                var ex =
+                        new JobExecutionException(
+                                new NullPointerException("pluginId cannot be null"));
+                ex.setUnscheduleFiringTrigger(true);
+                throw ex;
+            }
 
             try {
                 QuarkusTransaction.requiringNew()
                         .run(
                                 () -> {
-                                    try {
-                                        var p = DiscoveryPlugin.<DiscoveryPlugin>findById(pluginId);
+                                    var p = DiscoveryPlugin.<DiscoveryPlugin>findById(pluginId);
 
-                                        if (p == null) {
-                                            throw new NoResultException(
-                                                    "Plugin not found: " + pluginId);
-                                        }
-
-                                        if (p.nextPingAt != null
-                                                && Instant.now().isBefore(p.nextPingAt)) {
-                                            logger.debugv(
-                                                    "Skipping ping due to backoff: {0} @ {1}",
-                                                    p.realm.name, p.callback);
-                                            return;
-                                        }
-
-                                        var cb = callbackFactory.create(p);
-                                        if (refresh) {
-                                            cb.refresh();
-                                            logger.debugv(
-                                                    "Refreshed discovery plugin: {0} @ {1}",
-                                                    p.realm.name, p.callback);
-                                        } else {
-                                            cb.ping();
-                                            logger.debugv(
-                                                    "Retained discovery plugin: {0} @ {1}",
-                                                    p.realm.name, p.callback);
-                                        }
-
-                                        p.consecutiveFailures = 0;
-                                        p.lastSuccessfulPing = Instant.now();
-                                        p.backoffMultiplier = 1;
-                                        p.nextPingAt = null;
-                                        p.persist();
-
-                                        logger.debugv(
-                                                "Plugin ping successful - lastSuccessfulPing: {0},"
-                                                        + " consecutiveFailures reset to 0,"
-                                                        + " backoffMultiplier reset to 1: {1} @"
-                                                        + " {2}",
-                                                p.lastSuccessfulPing, p.realm.name, p.callback);
-                                    } catch (NoResultException e) {
-                                        throw e;
-                                    } catch (Exception e) {
-                                        throw new RuntimeException(e);
+                                    if (p == null) {
+                                        throw new NoResultException(
+                                                "Plugin not found: " + pluginId);
                                     }
+
+                                    if (p.nextPingAt != null
+                                            && Instant.now().isBefore(p.nextPingAt)) {
+                                        logger.debugv(
+                                                "Skipping ping due to backoff: {0} @ {1}",
+                                                p.realm.name, p.callback);
+                                        return;
+                                    }
+
+                                    PluginCallback cb;
+                                    try {
+                                        cb = callbackFactory.create(p);
+                                    } catch (URISyntaxException use) {
+                                        throw new IllegalStateException(use);
+                                    }
+                                    if (refresh) {
+                                        cb.refresh();
+                                        logger.debugv(
+                                                "Refreshed discovery plugin: {0} @ {1}",
+                                                p.realm.name, p.callback);
+                                    } else {
+                                        cb.ping();
+                                        logger.debugv(
+                                                "Retained discovery plugin: {0} @ {1}",
+                                                p.realm.name, p.callback);
+                                    }
+
+                                    p.consecutiveFailures = 0;
+                                    p.lastSuccessfulPing = Instant.now();
+                                    p.backoffMultiplier = 1;
+                                    p.nextPingAt = null;
+                                    p.persist();
+
+                                    logger.debugv(
+                                            "Plugin ping successful - lastSuccessfulPing: {0},"
+                                                    + " consecutiveFailures reset to 0,"
+                                                    + " backoffMultiplier reset to 1: {1} @"
+                                                    + " {2}",
+                                            p.lastSuccessfulPing, p.realm.name, p.callback);
                                 });
-            } catch (NoResultException e) {
-                logger.debugv(
-                        e,
-                        "Unscheduled job for nonexistent discovery plugin: {0}",
-                        context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY));
-                var ex = new JobExecutionException(e);
-                ex.setUnscheduleFiringTrigger(true);
-                throw ex;
             } catch (Exception e) {
-                // Unwrap RuntimeException wrappers to get the actual cause
-                Throwable cause = e;
-                while (cause instanceof RuntimeException && cause.getCause() != null) {
-                    cause = cause.getCause();
-                }
+                logger.warnv(e, "Plugin ping failed");
 
-                if (pluginId != null) {
-                    final Throwable finalCause = cause;
-                    QuarkusTransaction.requiringNew()
-                            .run(
-                                    () -> {
-                                        var p = DiscoveryPlugin.<DiscoveryPlugin>findById(pluginId);
-                                        if (p != null) {
-                                            p.consecutiveFailures++;
-                                            p.lastFailedPing = Instant.now();
-                                            p.backoffMultiplier =
-                                                    Math.min(
-                                                            p.backoffMultiplier * 2,
-                                                            maxBackoffMultiplier);
-                                            Duration backoffPeriod =
-                                                    basePingPeriod.multipliedBy(
-                                                            p.backoffMultiplier);
-                                            p.nextPingAt = Instant.now().plus(backoffPeriod);
-                                            p.persist();
-
-                                            logger.debugv(
-                                                    "Plugin ping failed - lastFailedPing: {0},"
-                                                            + " consecutiveFailures: {1}/{2},"
-                                                            + " backoffMultiplier: {3}, nextPingAt:"
-                                                            + " {4}: {5} @ {6}",
-                                                    p.lastFailedPing,
-                                                    p.consecutiveFailures,
-                                                    maxConsecutiveFailures,
-                                                    p.backoffMultiplier,
-                                                    p.nextPingAt,
-                                                    p.realm.name,
-                                                    p.callback);
-
-                                            if (p.consecutiveFailures >= maxConsecutiveFailures) {
-                                                logger.warnv(
-                                                        "Pruning discovery plugin after {0}"
-                                                                + " consecutive failures: {1} @"
-                                                                + " {2}",
-                                                        p.consecutiveFailures,
-                                                        p.realm.name,
-                                                        p.callback);
-                                                p.delete();
-                                            } else {
-                                                logger.warnv(
-                                                        finalCause,
-                                                        "Plugin ping failed ({0}/{1}), backing off"
-                                                                + " for {2}: {3} @ {4}",
-                                                        p.consecutiveFailures,
-                                                        maxConsecutiveFailures,
-                                                        backoffPeriod,
-                                                        p.realm.name,
-                                                        p.callback);
-                                            }
-                                        }
-                                    });
-
-                    var ex = new JobExecutionException(e);
-                    throw ex;
-                } else {
+                boolean noSuchPlugin = ExceptionUtils.indexOfType(e, NoResultException.class) >= 0;
+                boolean unknownHost =
+                        ExceptionUtils.indexOfType(e, UnknownHostException.class) >= 0;
+                boolean illegalState =
+                        ExceptionUtils.indexOfType(e, IllegalStateException.class) >= 0;
+                if (noSuchPlugin || unknownHost || illegalState) {
+                    logger.warnv(
+                            "Unscheduled job for unknown discovery plugin: {0}",
+                            context.getMergedJobDataMap().get(PLUGIN_ID_MAP_KEY));
                     var ex = new JobExecutionException(e);
                     ex.setUnscheduleFiringTrigger(true);
                     throw ex;
                 }
+
+                QuarkusTransaction.joiningExisting()
+                        .run(
+                                () -> {
+                                    var p = DiscoveryPlugin.<DiscoveryPlugin>findById(pluginId);
+                                    if (p != null) {
+                                        p.consecutiveFailures++;
+                                        p.lastFailedPing = Instant.now();
+                                        p.backoffMultiplier =
+                                                Math.min(
+                                                        p.backoffMultiplier * 2,
+                                                        maxBackoffMultiplier);
+                                        Duration backoffPeriod =
+                                                basePingPeriod.multipliedBy(p.backoffMultiplier);
+                                        p.nextPingAt = Instant.now().plus(backoffPeriod);
+                                        p.persist();
+
+                                        logger.debugv(
+                                                "Plugin ping failed - lastFailedPing: {0},"
+                                                        + " consecutiveFailures: {1}/{2},"
+                                                        + " backoffMultiplier: {3}, nextPingAt:"
+                                                        + " {4}: {5} @ {6}",
+                                                p.lastFailedPing,
+                                                p.consecutiveFailures,
+                                                maxConsecutiveFailures,
+                                                p.backoffMultiplier,
+                                                p.nextPingAt,
+                                                p.realm.name,
+                                                p.callback);
+
+                                        if (p.consecutiveFailures >= maxConsecutiveFailures) {
+                                            logger.warnv(
+                                                    "Pruning discovery plugin after {0}"
+                                                            + " consecutive failures: {1} @"
+                                                            + " {2}",
+                                                    p.consecutiveFailures,
+                                                    p.realm.name,
+                                                    p.callback);
+                                            p.delete();
+                                        } else {
+                                            logger.warnv(
+                                                    "Plugin ping failed ({0}/{1}), backing off"
+                                                            + " for {2}: {3} @ {4}",
+                                                    p.consecutiveFailures,
+                                                    maxConsecutiveFailures,
+                                                    backoffPeriod,
+                                                    p.realm.name,
+                                                    p.callback);
+                                        }
+                                    }
+                                });
             }
         }
     }

@@ -99,8 +99,6 @@ public class TargetUpdateJob implements Job {
                                         target.connectUrl, target.alias, t.jvmId);
                                 return true;
                             } catch (PersistenceException e) {
-                                t.jvmId = null;
-                                t.persist();
                                 logger.warn(e);
                                 return false;
                             } catch (Exception e) {

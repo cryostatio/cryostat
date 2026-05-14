@@ -233,6 +233,9 @@ public class Credentials {
     }
 
     @Transactional
+    @Bulkhead
+    @Timeout
+    @RateLimit
     @DELETE
     @RolesAllowed("write")
     @Path("/{id}")
