@@ -413,7 +413,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                             DiscoveryNodeDTO hierarchy =
                                     observedTargetsWithHierarchy.get(targetDto);
                             logger.debugv(
-                                    "Publishing FOUND event for target: {0} (DTO flow)",
+                                    "Publishing FOUND event for target: {0}",
                                     targetDto.connectUrl());
                             notify(
                                     EndpointDiscoveryEvent.from(
