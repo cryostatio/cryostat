@@ -27,7 +27,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.Stack;
 import java.util.concurrent.Callable;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -53,6 +52,7 @@ import io.fabric8.kubernetes.api.model.discovery.v1.EndpointSlice;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.informers.ResourceEventHandler;
 import io.fabric8.kubernetes.client.informers.SharedIndexInformer;
+import io.quarkus.panache.common.Parameters;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.vertx.ConsumeEvent;
@@ -103,6 +103,24 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     public static final String REALM = "KubernetesApi";
 
     public static final String DISCOVERY_NAMESPACE_LABEL_KEY = "discovery.cryostat.io/namespace";
+
+    // SQL query to find orphaned nodes - nodes with no children and no associated Target
+    // Uses native SQL to access JSONB map keys/values which HQL doesn't support well
+    private static final String FIND_ORPHANED_NODES_SQL =
+            "SELECT n.* FROM DiscoveryNode n "
+                    + "WHERE n.labels->:namespaceKey = to_jsonb(CAST(:namespace AS text)) "
+                    + "AND (SELECT COUNT(*) FROM DiscoveryNode c WHERE c.parentNode = n.id) = 0 "
+                    + "AND n.nodeType != :namespaceType "
+                    + "AND NOT EXISTS ("
+                    + "  SELECT 1 FROM Target t WHERE t.discoveryNode = n.id"
+                    + ")";
+    // SQL query to find existing DiscoveryNode entities by name/nodeType within a particular
+    // namespace
+    private static final String FIND_NAMESPACED_NODE_SQL =
+            "SELECT n.id FROM DiscoveryNode n"
+                    + " WHERE n.name = :name AND"
+                    + " n.nodeType = :nodeType AND"
+                    + " n.labels->>'discovery.cryostat.io/namespace' = :namespace";
 
     private static final List<String> EMPTY_PORT_NAMES = new ArrayList<>();
 
@@ -348,20 +366,41 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             try {
                 Set<Target> persistedTargets = queryPersistedTargets(namespace);
 
-                Map<Target, TargetWithHierarchy> observedTargetsWithHierarchy =
-                        buildInMemoryTreeForNamespace(namespace);
+                Map<TargetDTO, DiscoveryNodeDTO> observedTargetsWithHierarchy =
+                        buildInMemoryTreeForNamespaceDTO(namespace);
 
-                Set<Target> observedTargets = observedTargetsWithHierarchy.keySet();
+                Set<TargetDTO> observedTargetDtos = observedTargetsWithHierarchy.keySet();
 
-                var removedTargets = Target.compare(persistedTargets).to(observedTargets).removed();
+                Set<String> observedConnectUrls =
+                        observedTargetDtos.stream()
+                                .map(TargetDTO::connectUrl)
+                                .collect(Collectors.toSet());
+
+                Set<String> persistedConnectUrls =
+                        persistedTargets.stream()
+                                .map(t -> t.connectUrl.toString())
+                                .collect(Collectors.toSet());
+
+                // Find removed targets (in persisted but not in observed)
+                Set<Target> removedTargets =
+                        persistedTargets.stream()
+                                .filter(t -> !observedConnectUrls.contains(t.connectUrl.toString()))
+                                .collect(Collectors.toSet());
+
+                // Find added targets (in observed but not in persisted)
+                Set<TargetDTO> addedTargetDtos =
+                        observedTargetDtos.stream()
+                                .filter(dto -> !persistedConnectUrls.contains(dto.connectUrl()))
+                                .collect(Collectors.toSet());
 
                 logger.debugv(
                         "Namespace {0}: Found {1} persisted targets, {2} observed targets, {3}"
-                                + " removed targets",
+                                + " removed targets, {4} added targets",
                         namespace,
                         persistedTargets.size(),
-                        observedTargets.size(),
-                        removedTargets.size());
+                        observedTargetDtos.size(),
+                        removedTargets.size(),
+                        addedTargetDtos.size());
 
                 removedTargets.forEach(
                         (t) -> {
@@ -369,20 +408,22 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                             notify(EndpointDiscoveryEvent.from(namespace, t, null, EventKind.LOST));
                         });
 
-                Target.compare(persistedTargets)
-                        .to(observedTargets)
-                        .added()
-                        .forEach(
-                                (t) -> {
-                                    TargetWithHierarchy hierarchy =
-                                            observedTargetsWithHierarchy.get(t);
-                                    notify(
-                                            EndpointDiscoveryEvent.from(
-                                                    namespace,
-                                                    t,
-                                                    hierarchy.objRef,
-                                                    EventKind.FOUND));
-                                });
+                addedTargetDtos.forEach(
+                        (targetDto) -> {
+                            DiscoveryNodeDTO hierarchy =
+                                    observedTargetsWithHierarchy.get(targetDto);
+                            logger.debugv(
+                                    "Publishing FOUND event for target: {0}",
+                                    targetDto.connectUrl());
+                            notify(
+                                    EndpointDiscoveryEvent.from(
+                                            namespace,
+                                            null,
+                                            null,
+                                            EventKind.FOUND,
+                                            targetDto,
+                                            hierarchy));
+                        });
             } catch (Exception e) {
                 logger.errorv(
                         e, "Failed to synchronize EndpointSlices in namespace {0}", namespace);
@@ -405,11 +446,19 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                             DiscoveryNode.environment(
                                                     namespace, KubeDiscoveryNodeType.NAMESPACE);
                                     created.parent = lockedRealm;
+                                    created.persist();
                                     return created;
                                 });
 
         if (evt.eventKind == EventKind.FOUND) {
-            persistOwnerChain(nsNode, evt.target, evt.objRef);
+            if (evt.targetDto != null && evt.hierarchyRoot != null) {
+                logger.debugv("Persisting target from DTO: {0}", evt.targetDto.connectUrl());
+                persistOwnerChainFromDTO(nsNode, evt.targetDto, evt.hierarchyRoot);
+            } else {
+                logger.warnv(
+                        "FOUND event missing DTOs for target: {0}",
+                        evt.target != null ? evt.target.connectUrl : "null");
+            }
         } else {
             pruneOwnerChain(nsNode, evt.target);
         }
@@ -421,7 +470,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             realm.children.add(nsNode);
             nsNode.parent = realm;
         }
-        entityManager.flush();
         realm.persist();
     }
 
@@ -494,9 +542,17 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         HasMetadata obj =
                 nodeCache.computeIfAbsent(
                         cacheKey,
-                        k ->
-                                queryForNode(ref.getNamespace(), ref.getName(), ref.getKind())
-                                        .getLeft());
+                        k -> {
+                            KubeDiscoveryNodeType nodeType =
+                                    KubeDiscoveryNodeType.fromKubernetesKind(ref.getKind());
+                            if (nodeType == null) {
+                                return null;
+                            }
+                            return nodeType.getQueryFunction()
+                                    .apply(client)
+                                    .apply(ref.getNamespace())
+                                    .apply(ref.getName());
+                        });
 
         return new TargetTuple(ref, obj, transformedAddr, port, endpoint.getConditions());
     }
@@ -539,15 +595,15 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     /**
-     * Build in-memory discovery tree for all targets in a namespace. This method does NOT persist
-     * anything to the database - it only queries Kubernetes API and builds the tree structure in
-     * memory.
+     * Build in-memory discovery tree for all targets in a namespace using DTOs. This method does
+     * NOT persist anything to the database - it only queries Kubernetes API and builds the tree
+     * structure in memory using DTOs.
      *
      * @param namespace The Kubernetes namespace
-     * @return Map of Target to TargetWithHierarchy containing the full ownership chain
+     * @return Map of TargetDTO to DiscoveryNodeDTO containing the full ownership chain
      */
-    private Map<Target, TargetWithHierarchy> buildInMemoryTreeForNamespace(String namespace) {
-        Map<Target, TargetWithHierarchy> result = new HashMap<>();
+    private Map<TargetDTO, DiscoveryNodeDTO> buildInMemoryTreeForNamespaceDTO(String namespace) {
+        Map<TargetDTO, DiscoveryNodeDTO> result = new HashMap<>();
 
         Stream<EndpointSlice> endpoints;
         if (kubeConfig.watchAllNamespaces()) {
@@ -558,7 +614,12 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                                             Objects.equals(
                                                     ep.getMetadata().getNamespace(), namespace));
         } else {
-            endpoints = safeGetInformers().get(namespace).getStore().list().stream();
+            var informer = safeGetInformers().get(namespace);
+            if (informer == null) {
+                logger.warnv("No informer found for namespace: {0}", namespace);
+                return result;
+            }
+            endpoints = informer.getStore().list().stream();
         }
 
         endpoints
@@ -569,8 +630,16 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                         (tuple) -> {
                             Target t = tuple.toTarget();
                             if (t != null) {
-                                DiscoveryNode hierarchyRoot = buildOwnershipLineageForTarget(tuple);
-                                result.put(t, new TargetWithHierarchy(tuple.objRef, hierarchyRoot));
+                                DiscoveryNodeDTO hierarchyRoot =
+                                        buildOwnershipLineageForTargetDTO(tuple);
+                                TargetDTO targetDTO =
+                                        new TargetDTO(
+                                                t.connectUrl.toString(),
+                                                t.alias,
+                                                new HashMap<>(t.labels),
+                                                t.annotations,
+                                                hierarchyRoot);
+                                result.put(targetDTO, hierarchyRoot);
                             }
                         });
 
@@ -578,33 +647,42 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     /**
-     * Builds the complete ownership lineage for a target, from the leaf node (EndpointSlice)
-     * through Pod, ReplicaSet, Deployment, up to the Namespace. This method constructs the entire
-     * tree in memory without any database access.
+     * Builds the complete ownership lineage for a target using DTOs, from the leaf node
+     * (EndpointSlice) through Pod, ReplicaSet, Deployment, up to the Namespace. This method
+     * constructs the entire tree in memory without creating Hibernate entities.
      *
      * @param tuple The TargetTuple containing target information and Kubernetes references
-     * @return The root DiscoveryNode of the ownership hierarchy (typically a Namespace or the
+     * @return The root DiscoveryNodeDTO of the ownership hierarchy (typically a Namespace or the
      *     highest owner)
      */
-    private DiscoveryNode buildOwnershipLineageForTarget(TargetTuple tuple) {
+    private DiscoveryNodeDTO buildOwnershipLineageForTargetDTO(TargetTuple tuple) {
         String targetKind = tuple.objRef.getKind();
         KubeDiscoveryNodeType targetType = KubeDiscoveryNodeType.fromKubernetesKind(targetKind);
 
-        DiscoveryNode targetNode = createInMemoryTargetNode(tuple);
+        DiscoveryNodeDTO targetNode = createInMemoryTargetNodeDTO(tuple);
 
         if (targetType == KubeDiscoveryNodeType.POD) {
-            Pair<HasMetadata, DiscoveryNode> pod =
-                    queryForNodeInMemory(
+            Pair<HasMetadata, DiscoveryNodeDTO> pod =
+                    queryForNodeDTO(
                             tuple.objRef.getNamespace(),
                             tuple.objRef.getName(),
                             tuple.objRef.getKind());
 
             if (pod != null) {
-                DiscoveryNode podNode = pod.getRight();
-                podNode.children.add(targetNode);
-                targetNode.parent = podNode;
+                DiscoveryNodeDTO podNode = pod.getRight();
+                List<DiscoveryNodeDTO> podChildren = new ArrayList<>(podNode.children());
+                podChildren.add(targetNode);
+                DiscoveryNodeDTO updatedPodNode =
+                        new DiscoveryNodeDTO(
+                                podNode.name(),
+                                podNode.nodeType(),
+                                podNode.labels(),
+                                podChildren,
+                                podNode.parent(),
+                                podNode.existingId());
 
-                DiscoveryNode rootNode = buildOwnershipHierarchy(pod.getLeft(), podNode);
+                DiscoveryNodeDTO rootNode =
+                        buildOwnershipHierarchyDTO(pod.getLeft(), updatedPodNode);
                 return rootNode;
             }
         }
@@ -613,19 +691,139 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     /**
-     * Creates an in-memory DiscoveryNode for a target without database access.
+     * Creates an in-memory DiscoveryNodeDTO for a target without database access. The node name
+     * includes the address and port to ensure uniqueness per endpoint.
      *
      * @param tuple The TargetTuple containing target information
-     * @return In-memory DiscoveryNode representing the target
+     * @return DiscoveryNodeDTO representing the target
      */
-    private DiscoveryNode createInMemoryTargetNode(TargetTuple tuple) {
-        DiscoveryNode targetNode = new DiscoveryNode();
-        targetNode.name = tuple.objRef.getName();
-        targetNode.nodeType = KubeDiscoveryNodeType.ENDPOINT_SLICE.getKind();
-        targetNode.labels = new HashMap<>();
-        targetNode.labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, tuple.objRef.getNamespace());
-        targetNode.children = new ArrayList<>();
-        return targetNode;
+    private DiscoveryNodeDTO createInMemoryTargetNodeDTO(TargetTuple tuple) {
+        Map<String, String> labels = new HashMap<>();
+        labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, tuple.objRef.getNamespace());
+
+        Target target = tuple.toTarget();
+        String nodeName = target.connectUrl.toString();
+
+        return new DiscoveryNodeDTO(
+                nodeName,
+                KubeDiscoveryNodeType.ENDPOINT_SLICE.getKind(),
+                labels,
+                new ArrayList<>(),
+                null,
+                null);
+    }
+
+    /**
+     * Queries Kubernetes API for a node and creates a DiscoveryNodeDTO. Checks if the node exists
+     * in the database and marks the DTO accordingly.
+     *
+     * @param namespace Kubernetes namespace
+     * @param name Resource name
+     * @param kind Resource kind
+     * @return Pair of Kubernetes object and DiscoveryNodeDTO, or null if not found
+     */
+    private Pair<HasMetadata, DiscoveryNodeDTO> queryForNodeDTO(
+            String namespace, String name, String kind) {
+
+        KubeDiscoveryNodeType nodeType = KubeDiscoveryNodeType.fromKubernetesKind(kind);
+        if (nodeType == null) {
+            return null;
+        }
+
+        HasMetadata kubeObj =
+                nodeType.getQueryFunction().apply(client).apply(namespace).apply(name);
+
+        Map<String, String> labels = new HashMap<>();
+        if (kubeObj != null && kubeObj.getMetadata().getLabels() != null) {
+            labels.putAll(kubeObj.getMetadata().getLabels());
+        }
+        labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
+
+        Long existingId = findExistingNodeId(namespace, name, nodeType.getKind());
+
+        DiscoveryNodeDTO nodeDTO =
+                new DiscoveryNodeDTO(
+                        name, nodeType.getKind(), labels, new ArrayList<>(), null, existingId);
+
+        return Pair.of(kubeObj, nodeDTO);
+    }
+
+    /**
+     * Builds the ownership hierarchy for a given Kubernetes object by chasing owner references up
+     * the chain using DTOs. This method does NOT persist any nodes or create Hibernate entities -
+     * it only constructs the hierarchical relationships in memory using DTOs. Stops walking up the
+     * hierarchy when reaching an existing node (common ancestor).
+     *
+     * @param kubeObj The Kubernetes object to start from
+     * @param node The DiscoveryNodeDTO representing the Kubernetes object
+     * @return The root DiscoveryNodeDTO of the ownership chain (the topmost owner)
+     */
+    private DiscoveryNodeDTO buildOwnershipHierarchyDTO(
+            HasMetadata kubeObj, DiscoveryNodeDTO node) {
+        Pair<HasMetadata, DiscoveryNodeDTO> current = Pair.of(kubeObj, node);
+
+        while (true) {
+            DiscoveryNodeDTO currentNode = current.getRight();
+
+            if (currentNode.existsInDb()) {
+                logger.debugv(
+                        "Reached existing node in DB: {0}/{1} (id: {2}), stopping hierarchy walk",
+                        currentNode.name(), currentNode.nodeType(), currentNode.existingId());
+                break;
+            }
+
+            Pair<HasMetadata, DiscoveryNodeDTO> owner = getOwnerNodeDTO(current);
+            if (owner == null) {
+                break;
+            }
+
+            DiscoveryNodeDTO ownerNode = owner.getRight();
+            DiscoveryNodeDTO childNode = currentNode;
+
+            List<DiscoveryNodeDTO> ownerChildren = new ArrayList<>(ownerNode.children());
+            if (!ownerChildren.contains(childNode)) {
+                ownerChildren.add(childNode);
+            }
+
+            DiscoveryNodeDTO updatedOwnerNode =
+                    new DiscoveryNodeDTO(
+                            ownerNode.name(),
+                            ownerNode.nodeType(),
+                            ownerNode.labels(),
+                            ownerChildren,
+                            ownerNode.parent(),
+                            ownerNode.existingId());
+
+            current = Pair.of(owner.getLeft(), updatedOwnerNode);
+        }
+
+        return current.getRight();
+    }
+
+    /**
+     * Gets the owner node for a given child node by querying Kubernetes API. Creates a
+     * DiscoveryNodeDTO and checks if it exists in the database.
+     *
+     * @param child Pair of Kubernetes object and its DiscoveryNodeDTO
+     * @return Pair of owner Kubernetes object and its DiscoveryNodeDTO, or null if no owner
+     */
+    private Pair<HasMetadata, DiscoveryNodeDTO> getOwnerNodeDTO(
+            Pair<HasMetadata, DiscoveryNodeDTO> child) {
+        HasMetadata childRef = child.getLeft();
+        if (childRef == null) {
+            return null;
+        }
+        List<OwnerReference> owners = childRef.getMetadata().getOwnerReferences();
+        if (owners.isEmpty()) {
+            return null;
+        }
+        String namespace = childRef.getMetadata().getNamespace();
+        OwnerReference owner =
+                owners.stream()
+                        .filter(o -> KubeDiscoveryNodeType.fromKubernetesKind(o.getKind()) != null)
+                        .findFirst()
+                        .orElse(owners.get(0));
+        return queryForNodeDTO(namespace, owner.getName(), owner.getKind());
     }
 
     /**
@@ -715,13 +913,20 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         return current.getRight();
     }
 
-    private void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
+    void pruneOwnerChain(DiscoveryNode nsNode, Target target) {
         logger.debugv("Pruning owner chain for target: {0}", target.connectUrl);
         try {
-            Target managedTarget = Target.getTargetByConnectUrl(target.connectUrl);
+            Optional<Target> managedTargetOpt =
+                    Target.<Target>find("connectUrl", target.connectUrl).singleResultOptional();
 
-            if (managedTarget == null || managedTarget.id == null) {
+            if (managedTargetOpt.isEmpty()) {
                 logger.debugv("Target already deleted: {0}", target.connectUrl);
+                return;
+            }
+
+            Target managedTarget = managedTargetOpt.get();
+            if (managedTarget.id == null) {
+                logger.debugv("Target has no id: {0}", target.connectUrl);
                 return;
             }
 
@@ -737,7 +942,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 return;
             }
 
-            endpointNode = entityManager.find(DiscoveryNode.class, endpointNode.id);
+            endpointNode = DiscoveryNode.findById(endpointNode.id);
             logger.debugv(
                     "Loaded discoveryNode {0} with parent {1}",
                     endpointNode.id, endpointNode.parent != null ? endpointNode.parent.id : "null");
@@ -748,7 +953,6 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             // Delete the target first - this will cascade delete its discoveryNode (the
             // Endpoint/EndpointSlice)
             managedTarget.delete();
-            entityManager.flush();
 
             // If there's no parent, we're done
             if (child == null) {
@@ -795,159 +999,96 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
                 child = parent;
             }
 
-            entityManager.flush();
+            String namespace = nsNode.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY);
+            if (namespace != null) {
+                logger.debugv("Cleaning up orphaned nodes in namespace: {0}", namespace);
+                List<DiscoveryNode> orphans = findOrphanedNodesInNamespace(namespace);
+
+                for (DiscoveryNode orphan : orphans) {
+                    logger.debugv(
+                            "Removing orphaned node: {0} (id: {1}, type: {2})",
+                            orphan.name, orphan.id, orphan.nodeType);
+
+                    DiscoveryNode orphanParent = orphan.parent;
+                    if (orphanParent != null) {
+                        entityManager.refresh(orphanParent);
+                        orphanParent.children.remove(orphan);
+                        orphan.parent = null;
+                    }
+
+                    orphan.delete();
+                }
+
+                if (!orphans.isEmpty()) {
+                    logger.debugv(
+                            "Removed {0} orphaned nodes from namespace {1}",
+                            orphans.size(), namespace);
+                }
+            }
+
             nsNode.persist();
 
         } catch (EntityNotFoundException e) {
             logger.debugv("Target was deleted during pruning operation: {0}", target.connectUrl, e);
-            entityManager.flush();
             nsNode.persist();
         }
     }
 
     /**
-     * Persists the ownership chain to the database. This is Stage 2 of the two-stage process. The
-     * in-memory tree should already be built before calling this method.
+     * Persists the node chain to the database. This method works with pre-converted entities that
+     * are already linked in parent-child relationships by convertDtoTreeToEntities().
+     *
+     * <p>The method:
+     *
+     * <ol>
+     *   <li>Walks up from leaf to root, collecting nodes
+     *   <li>Persists from root to leaf (to satisfy foreign key constraints)
+     *   <li>Persists the Target last
+     *   <li>Ensures namespace and realm are persisted
+     * </ol>
      *
      * @param nsNode The namespace node
      * @param target The target to persist
-     * @param targetRef The Kubernetes object reference for the target
+     * @param targetNode The leaf node (EndpointSlice wrapper)
      */
-    private void persistOwnerChain(DiscoveryNode nsNode, Target target, ObjectReference targetRef) {
-        DiscoveryNode targetNode = createTargetNode(target, targetRef);
-        target.discoveryNode = targetNode;
+    void persistNodeChain(DiscoveryNode nsNode, Target target, DiscoveryNode targetNode) {
+        logger.debugv("Persisting node chain for target: {0}", target.connectUrl);
 
-        buildOwnershipHierarchy(targetRef, targetNode, nsNode);
-        persistNodeChain(nsNode, target, targetNode);
-    }
-
-    private DiscoveryNode createTargetNode(Target target, ObjectReference targetRef) {
-        return DiscoveryNode.target(
-                target,
-                KubeDiscoveryNodeType.ENDPOINT_SLICE,
-                n ->
-                        n.labels.putAll(
-                                Map.of(DISCOVERY_NAMESPACE_LABEL_KEY, targetRef.getNamespace())));
-    }
-
-    private DiscoveryNode buildOwnershipHierarchy(
-            ObjectReference targetRef, DiscoveryNode targetNode, DiscoveryNode nsNode) {
-        KubeDiscoveryNodeType targetType =
-                KubeDiscoveryNodeType.fromKubernetesKind(targetRef.getKind());
-
-        if (targetType != KubeDiscoveryNodeType.POD) {
-            nsNode.children.add(targetNode);
-            targetNode.parent = nsNode;
-            return targetNode;
-        }
-
-        Pair<HasMetadata, DiscoveryNode> pod =
-                queryForNode(targetRef.getNamespace(), targetRef.getName(), targetRef.getKind());
-
-        DiscoveryNode podNode = pod.getRight();
-        podNode.children.add(targetNode);
-        targetNode.parent = podNode;
-
-        DiscoveryNode rootNode = buildOwnershipHierarchyWithDbLookup(pod.getLeft(), podNode);
-
-        nsNode.children.add(rootNode);
-        rootNode.parent = nsNode;
-
-        return rootNode;
-    }
-
-    /**
-     * Builds the ownership hierarchy using database lookups to reuse existing nodes.
-     *
-     * @param kubeObj The Kubernetes object to start from
-     * @param node The DiscoveryNode representing the Kubernetes object
-     * @return The root node of the ownership chain (the topmost owner)
-     */
-    private DiscoveryNode buildOwnershipHierarchyWithDbLookup(
-            HasMetadata kubeObj, DiscoveryNode node) {
-        Pair<HasMetadata, DiscoveryNode> current = Pair.of(kubeObj, node);
-
-        while (true) {
-            Pair<HasMetadata, DiscoveryNode> owner = getOwnerNodeWithDbLookup(current);
-            if (owner == null) {
-                break;
-            }
-
-            DiscoveryNode ownerNode = owner.getRight();
-            DiscoveryNode childNode = current.getRight();
-
-            if (!ownerNode.children.contains(childNode)) {
-                ownerNode.children.add(childNode);
-            }
-            childNode.parent = ownerNode;
-
-            current = owner;
-        }
-
-        return current.getRight();
-    }
-
-    /**
-     * Gets the owner node using database lookup to reuse existing nodes.
-     *
-     * @param child Pair of Kubernetes object and its DiscoveryNode
-     * @return Pair of owner Kubernetes object and its DiscoveryNode from DB, or null if no owner
-     */
-    private Pair<HasMetadata, DiscoveryNode> getOwnerNodeWithDbLookup(
-            Pair<HasMetadata, DiscoveryNode> child) {
-        HasMetadata childRef = child.getLeft();
-        if (childRef == null) {
-            return null;
-        }
-        List<OwnerReference> owners = childRef.getMetadata().getOwnerReferences();
-        if (owners.isEmpty()) {
-            return null;
-        }
-        String namespace = childRef.getMetadata().getNamespace();
-        OwnerReference owner =
-                owners.stream()
-                        .filter(o -> KubeDiscoveryNodeType.fromKubernetesKind(o.getKind()) != null)
-                        .findFirst()
-                        .orElse(owners.get(0));
-        return queryForNode(namespace, owner.getName(), owner.getKind());
-    }
-
-    private void persistNodeChain(DiscoveryNode nsNode, Target target, DiscoveryNode targetNode) {
+        // Collect the node chain from leaf to root
         List<DiscoveryNode> nodeChain = collectNodeChain(targetNode, nsNode);
 
-        target.persist();
-
+        // Persist nodes from parent to child (root to leaf)
+        // This ensures foreign key constraints are satisfied
         for (int i = nodeChain.size() - 1; i >= 0; i--) {
-            nodeChain.get(i).persist();
-        }
+            DiscoveryNode node = nodeChain.get(i);
 
-        // Use Stack-based iterative approach to persist all nodes at once
-        // This ensures we persist from leaf to root
-        Stack<DiscoveryNode> stack = new Stack<>();
-        Set<DiscoveryNode> visited = new HashSet<>();
-
-        // Start from the target node and traverse up to collect all nodes
-        DiscoveryNode current = targetNode;
-        while (current != null && current != nsNode) {
-            if (!visited.contains(current)) {
-                stack.push(current);
-                visited.add(current);
+            if (node.id != null) {
+                // Node already exists in DB - persist any relationship changes
+                logger.debugv(
+                        "Node already persisted, persisting updates: {0} (id: {1})",
+                        node.name, node.id);
+                node.persist();
+            } else {
+                // Persist new nodes
+                logger.debugv("Persisting new node: {0} (type: {1})", node.name, node.nodeType);
+                node.persist();
             }
-            current = current.parent;
         }
 
-        // Persist target first (it has the associated Target entity)
+        // Persist namespace node to save any relationship changes
+        logger.debugv("Persisting namespace node: {0} (id: {1})", nsNode.name, nsNode.id);
+        nsNode.persist();
+
+        // Flush to ensure all DiscoveryNode changes are written to DB
+        // This prevents other transactions from seeing stale/incomplete entities
+        entityManager.flush();
+        logger.debugv("Flushed DiscoveryNode changes to database");
+
+        // Persist the Target last (after all nodes are persisted and flushed)
+        logger.debugv("Persisting target: {0}", target.connectUrl);
         target.persist();
 
-        // Persist all nodes in the chain from top to bottom
-        while (!stack.isEmpty()) {
-            DiscoveryNode node = stack.pop();
-            node.persist();
-        }
-
-        // Finally persist the namespace node
-        entityManager.flush();
-        nsNode.persist();
+        logger.debugv("Node chain persistence complete for target: {0}", target.connectUrl);
     }
 
     private List<DiscoveryNode> collectNodeChain(DiscoveryNode startNode, DiscoveryNode endNode) {
@@ -960,6 +1101,27 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
 
         return chain;
+    }
+
+    /**
+     * Finds orphaned nodes in a namespace that have no children and no associated Target. These are
+     * intermediate nodes (like Pods, Deployments, etc.) that were created during hierarchy building
+     * but are no longer needed.
+     *
+     * @param namespace The namespace to search for orphaned nodes
+     * @return List of orphaned DiscoveryNodes
+     */
+    List<DiscoveryNode> findOrphanedNodesInNamespace(String namespace) {
+        List<DiscoveryNode> orphans =
+                entityManager
+                        .createNativeQuery(FIND_ORPHANED_NODES_SQL, DiscoveryNode.class)
+                        .setParameter("namespaceKey", DISCOVERY_NAMESPACE_LABEL_KEY)
+                        .setParameter("namespace", namespace)
+                        .setParameter("namespaceType", KubeDiscoveryNodeType.NAMESPACE.getKind())
+                        .getResultList();
+
+        logger.debugv("Found {0} orphaned nodes in namespace {1}", orphans.size(), namespace);
+        return orphans;
     }
 
     /**
@@ -1026,42 +1188,51 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     /**
-     * Queries Kubernetes API for a node and retrieves or creates a DiscoveryNode from the database.
-     * This method DOES access the database.
+     * Queries Kubernetes API for a node and retrieves existing DiscoveryNode from the database.
+     * This is a pure query method that NEVER persists nodes.
      *
      * @param namespace Kubernetes namespace
      * @param name Resource name
      * @param kind Resource kind
-     * @return Pair of Kubernetes object and DiscoveryNode from database, or null if not found
+     * @return Pair of Kubernetes object and existing DiscoveryNode from database, or null if K8s
+     *     object not found
      */
-    private Pair<HasMetadata, DiscoveryNode> queryForNode(
+    Pair<HasMetadata, DiscoveryNode> queryForNodeReadOnly(
             String namespace, String name, String kind) {
 
         KubeDiscoveryNodeType nodeType = KubeDiscoveryNodeType.fromKubernetesKind(kind);
         if (nodeType == null) {
+            logger.debugv("Unknown Kubernetes kind: {0}", kind);
             return null;
         }
 
         HasMetadata kubeObj =
                 nodeType.getQueryFunction().apply(client).apply(namespace).apply(name);
 
-        DiscoveryNode node =
-                DiscoveryNode.byTypeWithName(
-                        nodeType,
-                        name,
-                        n ->
-                                namespace.equals(n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY))
-                                        && isInKubernetesApiRealm(n),
-                        n -> {
-                            Map<String, String> labels = new HashMap<>();
-                            if (kubeObj != null && kubeObj.getMetadata().getLabels() != null) {
-                                labels.putAll(kubeObj.getMetadata().getLabels());
-                            }
-                            // Add namespace to label to retrieve node later
-                            labels.put(DISCOVERY_NAMESPACE_LABEL_KEY, namespace);
-                            n.labels.putAll(labels);
-                        });
-        return Pair.of(kubeObj, node);
+        if (kubeObj == null) {
+            logger.debugv(
+                    "Kubernetes object not found: {0}/{1} (kind: {2})", namespace, name, kind);
+            return null;
+        }
+
+        DiscoveryNode existingNode =
+                DiscoveryNode.<DiscoveryNode>find(
+                                "#DiscoveryNode.byTypeWithName",
+                                Parameters.with("nodeType", nodeType.getKind()).and("name", name))
+                        .stream()
+                        .filter(
+                                n ->
+                                        namespace.equals(
+                                                        n.labels.get(DISCOVERY_NAMESPACE_LABEL_KEY))
+                                                && isInKubernetesApiRealm(n))
+                        .findFirst()
+                        .orElse(null);
+
+        logger.debugv(
+                "Query read-only for {0}/{1} (kind: {2}): found in DB = {3}",
+                namespace, name, kind, existingNode != null);
+
+        return Pair.of(kubeObj, existingNode);
     }
 
     /**
@@ -1081,6 +1252,264 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
             current = current.parent;
         }
         return false;
+    }
+
+    /**
+     * Queries the database to find an existing DiscoveryNode by composite ID. A DiscoveryNode is
+     * uniquely identified by: name + nodeType + namespace label.
+     *
+     * @param namespace The namespace from the discovery.cryostat.io/namespace label
+     * @param name The node name
+     * @param nodeType The node type (e.g., "Pod", "Deployment")
+     * @return The node ID if found, null otherwise
+     */
+    private Long findExistingNodeId(String namespace, String name, String nodeType) {
+        try {
+            Object result =
+                    entityManager
+                            .createNativeQuery(FIND_NAMESPACED_NODE_SQL)
+                            .setParameter("name", name)
+                            .setParameter("nodeType", nodeType)
+                            .setParameter("namespace", namespace)
+                            .getResultStream()
+                            .findFirst()
+                            .orElse(null);
+            return result != null ? ((Number) result).longValue() : null;
+        } catch (Exception e) {
+            logger.errorv(
+                    e,
+                    "Error finding existing node: name={0}, type={1}, namespace={2}",
+                    name,
+                    nodeType,
+                    namespace);
+            return null;
+        }
+    }
+
+    /**
+     * Converts a DiscoveryNodeDTO tree to DiscoveryNode entities. This is the bridge between the
+     * DTO world (in-memory tree building) and the entity world (persistence).
+     *
+     * <p>This method walks the DTO tree from root to leaf (depth-first) and:
+     *
+     * <ul>
+     *   <li>If existsInDb=true: Loads existing entity using DiscoveryNode.findById()
+     *   <li>If existsInDb=false: Creates new DiscoveryNode() entity
+     *   <li>Builds parent-child relationships bidirectionally
+     *   <li>Ensures the topmost new node links to the namespace node
+     * </ul>
+     *
+     * @param rootDto The root of the DTO tree to convert
+     * @param nsNode The namespace node to link the topmost new node to
+     * @return The leaf node (EndpointSlice wrapper) entity
+     */
+    private DiscoveryNode convertDtoTreeToEntities(DiscoveryNodeDTO rootDto, DiscoveryNode nsNode) {
+        logger.debugv("Converting DTO tree to entities, root: {0}", rootDto.name());
+
+        // Walk the tree depth-first, converting DTOs to entities
+        // This returns the root of the converted tree
+        DiscoveryNode rootEntity = convertDtoNodeToEntity(rootDto, nsNode, false);
+
+        // Find the topmost node in the chain (the one without a parent)
+        DiscoveryNode topmost = rootEntity;
+        while (topmost.parent != null && !topmost.parent.equals(nsNode)) {
+            topmost = topmost.parent;
+        }
+
+        // Ensure the topmost node is linked to the namespace
+        if (topmost.parent == null || !topmost.parent.equals(nsNode)) {
+            topmost.parent = nsNode;
+            logger.debugv(
+                    "Set parent of topmost node {0} to namespace {1}", topmost.name, nsNode.name);
+        }
+
+        // Add to namespace children if not already present
+        final Long topmostId = topmost.id;
+        final DiscoveryNode topmostNode = topmost;
+        boolean alreadyChild =
+                nsNode.children.stream()
+                        .anyMatch(
+                                child ->
+                                        child == topmostNode
+                                                || (child.id != null
+                                                        && topmostId != null
+                                                        && child.id.equals(topmostId)));
+        if (!alreadyChild) {
+            nsNode.children.add(topmost);
+            logger.debugv(
+                    "Added topmost node {0} to namespace {1} children", topmost.name, nsNode.name);
+        }
+
+        // Find and return the leaf node (EndpointSlice wrapper) by walking down from rootEntity
+        // We need to walk down the DTO tree structure, not the entity children collection,
+        // because the entity children may include nodes from previous discoveries
+        DiscoveryNode leafNode = findLeafNodeFromDto(rootDto, rootEntity);
+
+        logger.debugv("DTO tree conversion complete, leaf node: {0}", leafNode.name);
+        return leafNode;
+    }
+
+    /**
+     * Finds the leaf node entity that corresponds to the leaf of the DTO tree. This walks down the
+     * DTO tree structure to find the correct leaf, rather than using the entity's children
+     * collection which may contain nodes from previous discoveries.
+     *
+     * @param dto The DTO node to search from
+     * @param entity The corresponding entity node
+     * @return The leaf node entity
+     */
+    private DiscoveryNode findLeafNodeFromDto(DiscoveryNodeDTO dto, DiscoveryNode entity) {
+        // If this DTO has no children, this entity is the leaf
+        if (dto.children().isEmpty()) {
+            return entity;
+        }
+
+        // Otherwise, find the child entity that matches the first DTO child
+        DiscoveryNodeDTO childDto = dto.children().get(0);
+
+        // Find the matching child entity by name and type
+        DiscoveryNode childEntity =
+                entity.children.stream()
+                        .filter(
+                                child ->
+                                        child.name.equals(childDto.name())
+                                                && child.nodeType.equals(childDto.nodeType()))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "Could not find child entity for DTO: "
+                                                        + childDto.name()));
+
+        // Recursively search down the tree
+        return findLeafNodeFromDto(childDto, childEntity);
+    }
+
+    /**
+     * Recursively converts a single DiscoveryNodeDTO to a DiscoveryNode entity, including all its
+     * children.
+     *
+     * @param dto The DTO to convert
+     * @param nsNode The namespace node (used for linking the topmost new node)
+     * @param isRoot Whether this is the root node of the tree
+     * @return The converted entity
+     */
+    private DiscoveryNode convertDtoNodeToEntity(
+            DiscoveryNodeDTO dto, DiscoveryNode nsNode, boolean isRoot) {
+        final DiscoveryNode entity;
+
+        if (dto.existsInDb()) {
+            // Load existing entity from database using Panache
+            logger.debugv(
+                    "Loading existing node from DB: {0} (id: {1})", dto.name(), dto.existingId());
+            DiscoveryNode loaded = DiscoveryNode.findById(dto.existingId());
+
+            if (loaded == null) {
+                logger.warnv(
+                        "Node marked as existing but not found in DB: {0} (id: {1}), creating new"
+                                + " node",
+                        dto.name(), dto.existingId());
+                entity = createNewNodeEntity(dto);
+            } else {
+                entity = loaded;
+            }
+        } else {
+            // Create new entity
+            logger.debugv("Creating new node entity: {0} (type: {1})", dto.name(), dto.nodeType());
+            entity = createNewNodeEntity(dto);
+        }
+
+        // Convert children recursively
+        for (DiscoveryNodeDTO childDto : dto.children()) {
+            DiscoveryNode childEntity = convertDtoNodeToEntity(childDto, nsNode, false);
+
+            // Build bidirectional relationship
+            childEntity.parent = entity;
+
+            boolean childExists =
+                    entity.children.stream()
+                            .anyMatch(
+                                    existing ->
+                                            existing == childEntity
+                                                    || (existing.id != null
+                                                            && existing.id.equals(childEntity.id)));
+            if (!childExists) {
+                entity.children.add(childEntity);
+            }
+        }
+
+        return entity;
+    }
+
+    /**
+     * Creates a new DiscoveryNode entity from a DTO.
+     *
+     * @param dto The DTO to convert
+     * @return A new DiscoveryNode entity
+     */
+    private DiscoveryNode createNewNodeEntity(DiscoveryNodeDTO dto) {
+        DiscoveryNode node = new DiscoveryNode();
+        node.name = dto.name();
+        node.nodeType = dto.nodeType();
+        node.labels = new HashMap<>(dto.labels());
+        node.children = new ArrayList<>();
+        node.target = null;
+        return node;
+    }
+
+    /**
+     * Persists the ownership chain from DTOs.
+     *
+     * <p>This method:
+     *
+     * <ol>
+     *   <li>Converts the DTO tree to entities using convertDtoTreeToEntities()
+     *   <li>Gets the leaf node (EndpointSlice wrapper) from conversion
+     *   <li>Creates the Target entity from TargetDTO
+     *   <li>Links Target to its DiscoveryNode
+     *   <li>Calls persistNodeChain() with the converted entities
+     * </ol>
+     *
+     * @param nsNode The namespace node
+     * @param targetDto The target DTO to persist
+     * @param hierarchyRoot The root of the DTO hierarchy
+     */
+    private void persistOwnerChainFromDTO(
+            DiscoveryNode nsNode, TargetDTO targetDto, DiscoveryNodeDTO hierarchyRoot) {
+        logger.debugv("Persisting owner chain from DTO for target: {0}", targetDto.connectUrl());
+
+        URI connectUrl = URI.create(targetDto.connectUrl());
+
+        Optional<Target> existingTarget =
+                Target.<Target>find("connectUrl", connectUrl).singleResultOptional();
+
+        if (existingTarget.isPresent()) {
+            logger.debugv(
+                    "Target already exists for connectUrl: {0} (id: {1}), skipping persistence",
+                    connectUrl, existingTarget.get().id);
+            return;
+        }
+
+        logger.debugv("No existing target found for connectUrl: {0}, creating new", connectUrl);
+
+        // Convert the DTO tree to entities
+        DiscoveryNode leafNode = convertDtoTreeToEntities(hierarchyRoot, nsNode);
+
+        // Create the Target entity from DTO
+        Target target = new Target();
+        target.connectUrl = connectUrl;
+        target.alias = targetDto.alias();
+        target.labels = new HashMap<>(targetDto.labels());
+        target.annotations = targetDto.annotations();
+
+        // Link Target to its DiscoveryNode
+        target.discoveryNode = leafNode;
+        leafNode.target = target;
+
+        logger.debugv("Calling persistNodeChain for target: {0}", target.connectUrl);
+
+        // Persist the node chain
+        persistNodeChain(nsNode, target, leafNode);
     }
 
     @DisallowConcurrentExecution
@@ -1150,7 +1579,7 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
         }
     }
 
-    private static record NamespaceQueryEvent(Collection<String> namespaces) {
+    static record NamespaceQueryEvent(Collection<String> namespaces) {
         static NamespaceQueryEvent from(Collection<String> namespaces) {
             return new NamespaceQueryEvent(namespaces);
         }
@@ -1161,15 +1590,61 @@ public class KubeEndpointSlicesDiscovery implements ResourceEventHandler<Endpoin
     }
 
     private static record EndpointDiscoveryEvent(
-            String namespace, Target target, ObjectReference objRef, EventKind eventKind) {
+            String namespace,
+            Target target,
+            ObjectReference objRef,
+            EventKind eventKind,
+            TargetDTO targetDto,
+            DiscoveryNodeDTO hierarchyRoot) {
         static EndpointDiscoveryEvent from(
                 String namespace, Target target, ObjectReference objRef, EventKind eventKind) {
-            return new EndpointDiscoveryEvent(namespace, target, objRef, eventKind);
+            return new EndpointDiscoveryEvent(namespace, target, objRef, eventKind, null, null);
+        }
+
+        static EndpointDiscoveryEvent from(
+                String namespace,
+                Target target,
+                ObjectReference objRef,
+                EventKind eventKind,
+                TargetDTO targetDto,
+                DiscoveryNodeDTO hierarchyRoot) {
+            return new EndpointDiscoveryEvent(
+                    namespace, target, objRef, eventKind, targetDto, hierarchyRoot);
         }
     }
 
-    private static record TargetWithHierarchy(
-            ObjectReference objRef, DiscoveryNode hierarchyRoot) {}
+    /**
+     * Represents a Target before it becomes a Hibernate entity. Used to build the discovery tree in
+     * memory without creating entities.
+     */
+    record TargetDTO(
+            String connectUrl,
+            String alias,
+            Map<String, String> labels,
+            Target.Annotations annotations,
+            DiscoveryNodeDTO discoveryNode) {}
+
+    /**
+     * Represents a DiscoveryNode before it becomes a Hibernate entity. Used to build the discovery
+     * tree in memory without creating entities. The existingId holds the database ID if this node
+     * already exists in the database (null if it's a new node).
+     */
+    record DiscoveryNodeDTO(
+            String name,
+            String nodeType,
+            Map<String, String> labels,
+            List<DiscoveryNodeDTO> children,
+            DiscoveryNodeDTO parent,
+            Long existingId) {
+        /**
+         * Returns true if this node already exists in the database.
+         *
+         * @return true if existingId is not null, false otherwise
+         */
+        boolean existsInDb() {
+            return existingId != null;
+        }
+    }
 
     class TargetTuple {
         ObjectReference objRef;
