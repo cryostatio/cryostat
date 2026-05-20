@@ -17,7 +17,8 @@ if [ -z "$HIBERNATE_JFR_VERSION" ]; then
 fi
 
 # Get the hibernate-core version from the effective POM
-HIBERNATE_CORE_VERSION=$(mvn help:evaluate -Dexpression=project.dependencyManagement.dependencies -DforceStdout -q 2>/dev/null | grep -A 2 "hibernate-core" | grep "<version>" | head -1 | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
+DIR="$(dirname "$(readlink -f "$0")")"
+HIBERNATE_CORE_VERSION=$("${DIR}/mvnw" help:evaluate -Dexpression=project.dependencyManagement.dependencies -DforceStdout -q 2>/dev/null | grep -A 2 "hibernate-core" | grep "<version>" | head -1 | sed 's/.*<version>\(.*\)<\/version>.*/\1/')
 
 if [ -z "$HIBERNATE_CORE_VERSION" ]; then
     echo "ERROR: Could not determine hibernate-core version from dependency management" >&2
