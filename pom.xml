@@ -25,7 +25,7 @@
 
   <properties>
     <quarkus.application.version>${cryostat.imageVersionLower}</quarkus.application.version>
-    <java.version>21</java.version>
+    <java.version>25</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
@@ -49,9 +49,9 @@
     <org.apache.calcite.version>1.34.0</org.apache.calcite.version>
     <quarkus.platform.artifact-id>quarkus-bom</quarkus.platform.artifact-id>
     <quarkus.platform.group-id>io.quarkus.platform</quarkus.platform.group-id>
-    <quarkus.platform.version>3.27.3.1</quarkus.platform.version>
+    <quarkus.platform.version>3.33.1.1</quarkus.platform.version>
     <quarkus-quinoa.version>2.8.1</quarkus-quinoa.version>
-    <org.hibernate.orm.hibernate.jfr.version>7.1.18.Final</org.hibernate.orm.hibernate.jfr.version>
+    <org.hibernate.orm.hibernate.jfr.version>7.2.6.Final</org.hibernate.orm.hibernate.jfr.version>
     <org.codehaus.mojo.build.helper.plugin.version>3.6.1</org.codehaus.mojo.build.helper.plugin.version>
     <org.codehaus.mojo.exec.plugin.version>3.6.3</org.codehaus.mojo.exec.plugin.version>
     <assembly-plugin.version>3.8.0</assembly-plugin.version>
@@ -298,7 +298,7 @@
     </dependency>
     <dependency>
       <groupId>software.amazon.awssdk</groupId>
-      <artifactId>netty-nio-client</artifactId>
+      <artifactId>aws-crt-client</artifactId>
     </dependency>
     <dependency>
       <groupId>org.apache.commons</groupId>
@@ -374,12 +374,12 @@
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-junit5</artifactId>
+      <artifactId>quarkus-junit</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-junit5-mockito</artifactId>
+      <artifactId>quarkus-junit-mockito</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -400,7 +400,7 @@
     </dependency>
     <dependency>
       <groupId>org.testcontainers</groupId>
-      <artifactId>junit-jupiter</artifactId>
+      <artifactId>testcontainers-junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -575,6 +575,7 @@
             <quarkus.test.arg-line>--network-alias=${quarkus.test.network-alias}</quarkus.test.arg-line>
           </systemPropertyVariables>
           <skipTests>${skip.surefire.tests}</skipTests>
+          <argLine>@{argLine}</argLine>
         </configuration>
       </plugin>
       <plugin>
@@ -599,6 +600,9 @@
             </configuration>
           </execution>
         </executions>
+        <configuration>
+          <argLine>@{argLine}</argLine>
+        </configuration>
       </plugin>
     </plugins>
   </build>

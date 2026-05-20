@@ -113,7 +113,7 @@ jobs:
         fetch-depth: 0
     - uses: actions/setup-java@v5
       with:
-        java-version: '21'
+        java-version: '25'
         distribution: 'temurin'
         cache: 'maven'
     - uses: DamianReeves/write-file-action@v1.3
@@ -197,7 +197,7 @@ jobs:
         fetch-depth: 0
     - uses: actions/setup-java@v5
       with:
-        java-version: '21'
+        java-version: '25'
         distribution: 'temurin'
         cache: 'maven'
     - uses: DamianReeves/write-file-action@v1.3
@@ -316,7 +316,7 @@ jobs:
         fetch-depth: 0
     - uses: actions/setup-java@v5
       with:
-        java-version: '21'
+        java-version: '25'
         distribution: 'temurin'
         cache: 'maven'
     - name: Set pending commit status for OpenAPI schema
