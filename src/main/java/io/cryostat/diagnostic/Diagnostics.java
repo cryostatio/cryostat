@@ -16,6 +16,7 @@
 package io.cryostat.diagnostic;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Duration;
@@ -23,7 +24,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
@@ -47,6 +47,7 @@ import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
@@ -55,6 +56,7 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.HttpHeaders;
+import jakarta.ws.rs.core.MediaType;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -66,7 +68,8 @@ import org.jboss.resteasy.reactive.RestPath;
 import org.jboss.resteasy.reactive.RestQuery;
 import org.jboss.resteasy.reactive.RestResponse;
 import org.jboss.resteasy.reactive.RestResponse.ResponseBuilder;
-import org.jboss.resteasy.reactive.multipart.FileUpload;
+import org.jboss.resteasy.reactive.server.multipart.FormValue;
+import org.jboss.resteasy.reactive.server.multipart.MultipartFormDataInput;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
@@ -338,36 +341,41 @@ public class Diagnostics {
         return request.id();
     }
 
+    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
     @Path("heapdump/upload/{jvmId}")
     @RolesAllowed("read")
     @Blocking
     @POST
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
     public void uploadHeapDump(
             @RestPath String jvmId,
-            @Parameter(required = true) @RestForm("heapDump") FileUpload heapDump,
-            @Parameter(required = true) @RestForm("jobId") String jobId,
-            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels) {
+            @RestForm("jobId") String jobId,
+            @Parameter(required = false) @RestForm("labels") JsonObject rawLabels,
+            MultipartFormDataInput input) {
         log.tracev(
                 "Received heap dump upload request for target: {0} with job ID {1}", jvmId, jobId);
         jvmId = jvmId.strip();
-        doUpload(heapDump, jvmId, jobId);
-    }
+        FormValue heapDumpPart =
+                input.getValues().getOrDefault("heapDump", List.of()).stream()
+                        .findFirst()
+                        .orElse(null);
+        if (heapDumpPart == null || !heapDumpPart.isFileItem()) {
+            throw new BadRequestException();
+        }
+        String filename = heapDumpPart.getFileName().strip();
+        try (InputStream heapDump = heapDumpPart.getFileItem().getInputStream()) {
+            var dump = helper.addHeapDump(jvmId, heapDump, filename, jobId);
 
-    @Blocking
-    @Transactional
-    @SuppressFBWarnings("DLS_DEAD_LOCAL_STORE")
-    Map<String, Object> doUpload(FileUpload heapDump, String jvmId, String jobId) {
-        var dump = helper.addHeapDump(jvmId, heapDump, jobId);
-
-        io.cryostat.diagnostic.HeapDump.<io.cryostat.diagnostic.HeapDump>find("jobId", jobId)
-                .firstResultOptional()
-                .ifPresent(
-                        hd -> {
-                            hd.markCompleted(dump.heapDumpId(), dump.size());
-                            hd.persist();
-                        });
-
-        return Map.of("name", dump.heapDumpId());
+            io.cryostat.diagnostic.HeapDump.<io.cryostat.diagnostic.HeapDump>find("jobId", jobId)
+                    .firstResultOptional()
+                    .ifPresent(
+                            hd -> {
+                                hd.markCompleted(dump.heapDumpId(), dump.size());
+                                hd.persist();
+                            });
+        } catch (IOException ioe) {
+            throw new BadRequestException(ioe);
+        }
     }
 
     @Path("targets/{targetId}/heapdump")
