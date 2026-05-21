@@ -107,7 +107,12 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .then()
                 .statusCode(201);
 
-        // stop further background jobs before checking results
+        // Wait for at least one deletion to occur before stopping the rule
+        // Archive jobs run every 10s with preservedArchives=3, so deletion happens when 3 exist
+        // This should occur by the 4th archive job (~30s), but allow extra time for delays
+        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(45));
+
+        // Now stop further background jobs before checking results
         worker.schedule(
                 () -> {
                     given().log()
@@ -125,15 +130,11 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                             .statusCode(204)
                             .body(Matchers.emptyOrNullString());
                 },
-                // this is enough time for 4-5 copies to be made, but we expect the oldest to get
-                // rolled over so 3 should remain
-                50,
+                // Schedule deletion shortly after we've confirmed at least one deletion occurred
+                5,
                 TimeUnit.SECONDS);
 
-        // Wait 60s to allow for archive job to run after 50s rule deletion
-        // Archive jobs run every 10s, so we need buffer time for the job after deletion
-        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(60));
-        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(65));
+        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(10));
 
         given().log()
                 .all()
