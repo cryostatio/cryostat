@@ -124,6 +124,13 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
+    - uses: DamianReeves/write-file-action@v1.3
+      with:
+        path: /etc/containers/containers.conf
+        write-mode: overwrite
+        contents: |
+          [engine]
+          service_timeout=0
     - name: Install ansi2txt utility
       run: |
         sudo apt-get update
@@ -208,6 +215,13 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
+    - uses: DamianReeves/write-file-action@v1.3
+      with:
+        path: /etc/containers/containers.conf
+        write-mode: overwrite
+        contents: |
+          [engine]
+          service_timeout=0
     - name: Install ansi2txt utility
       run: |
         sudo apt-get update
