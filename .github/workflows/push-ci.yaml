@@ -57,6 +57,13 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
+    - uses: DamianReeves/write-file-action@v1.3
+      with:
+        path: /etc/containers/containers.conf
+        write-mode: overwrite
+        contents: |
+          [engine]
+          service_timeout=0
     - name: Install qemu
       run: |
         sudo apt update
@@ -130,6 +137,13 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
+    - uses: DamianReeves/write-file-action@v1.3
+      with:
+        path: /etc/containers/containers.conf
+        write-mode: overwrite
+        contents: |
+          [engine]
+          service_timeout=0
     - name: Add CRIU PPA
       run: sudo add-apt-repository ppa:criu/ppa
     - name: Install qemu
