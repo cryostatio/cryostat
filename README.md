@@ -96,6 +96,8 @@ $ sudo bash -c 'echo -e "[engine]\nservice_timeout=0" >> /etc/containers/contain
 export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
 ```
 
+If developing usingn `docker` then the above should be unnecessary.
+
 Initialize submodules before building:
 
 ```bash
