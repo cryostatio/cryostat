@@ -87,20 +87,13 @@ For ease and convenience, it is suggested to use `podman` with the following con
 
 ```bash
 $ systemctl --user enable --now podman.socket
+$ # hack to work around testcontainers/podman "Broken pipe" issue
+$ sudo bash -c 'echo -e "[engine]\nservice_timeout=0" >> /etc/containers/containers.conf'
 ```
 
 `$HOME/.bashrc` (or equivalent shell configuration)
 ```bash
 export DOCKER_HOST=unix:///run/user/$(id -u)/podman/podman.sock
-```
-
-`$HOME/.testcontainers.properties`
-```properties
-docker.client.strategy=org.testcontainers.dockerclient.UnixSocketClientProviderStrategy
-ryuk.container.image=quay.io/infinispan-test/ryuk\:0.8.1
-tinyimage.container.image=registry.access.redhat.com/ubi9/ubi-micro
-ryuk.container.privileged=true
-testcontainers.reuse.enable=false
 ```
 
 Initialize submodules before building:
