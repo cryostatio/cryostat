@@ -130,7 +130,9 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 50,
                 TimeUnit.SECONDS);
 
-        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(50));
+        // Wait 60s to allow for archive job to run after 50s rule deletion
+        // Archive jobs run every 10s, so we need buffer time for the job after deletion
+        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(60));
         webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(65));
 
         given().log()
