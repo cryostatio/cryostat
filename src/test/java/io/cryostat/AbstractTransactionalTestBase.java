@@ -15,6 +15,9 @@
  */
 package io.cryostat;
 
+import java.util.List;
+
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import org.flywaydb.core.Flyway;
@@ -29,10 +32,36 @@ public abstract class AbstractTransactionalTestBase extends AbstractTestBase {
     @BeforeEach
     void migrateFlyway() throws SchedulerException {
         shutdownScheduler();
+        QuarkusTransaction.requiringNew().run(this::cleanAuditRecords);
         flyway.clean();
         flyway.migrate();
         flyway.validate();
         entityManager.clear();
         restartScheduler();
+    }
+
+    void cleanAuditRecords() {
+        List<String> tables =
+                List.of(
+                        "Target",
+                        "Rule",
+                        "ActiveRecording",
+                        "MatchExpression",
+                        "DiscoveryPlugin",
+                        "DiscoveryNode",
+                        "Credential",
+                        "GarbageCollection",
+                        "ThreadDump",
+                        "HeapDump",
+                        "EventTemplate",
+                        "ArchivedRecording",
+                        "ProbeTemplate",
+                        "AsyncProfilerRecording");
+        for (String table : tables) {
+            entityManager
+                    .createNativeQuery(String.format("DELETE FROM %s_AUD", table))
+                    .executeUpdate();
+        }
+        entityManager.createNativeQuery("DELETE FROM REVINFO").executeUpdate();
     }
 }
