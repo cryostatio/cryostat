@@ -106,16 +106,18 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .then()
                 .statusCode(201);
 
+        // Wait for the rule to activate and start the recording
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
+
         // Wait for archives to be created. With preservedArchives=3 and archivalPeriodSeconds=10:
         // Note: initialDelaySeconds=0 is converted to archivalPeriodSeconds (10s) in RuleExecutor
-        // - 1st archive at ~10s (initial delay)
-        // - 2nd archive at ~20s
-        // - 3rd archive at ~30s
-        // - 4th archive at ~40s (triggers deletion of 1st, then creates 4th)
+        // - 1st archive at ~10s after recording starts (initial delay)
+        // - 2nd archive at ~20s after recording starts
+        // - 3rd archive at ~30s after recording starts
+        // - 4th archive at ~40s after recording starts (triggers deletion of 1st, then creates 4th)
 
-        // Wait for first 3 archives to be created (allow time for rule activation + recording
-        // start)
-        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(20));
+        // Wait for first 3 archives to be created
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
 
