@@ -116,8 +116,11 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
 
-        // Now wait for the deletion that should occur with the 4th archive
+        // Now wait for the deletion that should occur with the 4th archive job
         webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(20));
+
+        // Wait for the 4th archive to be created (happens after deletion in same job)
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(5));
 
         // Stop further background jobs before checking results
         given().log()
