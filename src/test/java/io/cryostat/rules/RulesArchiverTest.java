@@ -107,34 +107,36 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .then()
                 .statusCode(201);
 
-        // Wait for at least one deletion to occur before stopping the rule
-        // Archive jobs run every 10s with preservedArchives=3, so deletion happens when 3 exist
-        // This should occur by the 4th archive job (~30s), but allow extra time for delays
-        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(45));
+        // Wait for archives to be created. With preservedArchives=3 and archivalPeriodSeconds=10:
+        // - 1st archive at ~0s
+        // - 2nd archive at ~10s
+        // - 3rd archive at ~20s
+        // - 4th archive at ~30s (triggers deletion of 1st, then creates 4th)
+        // Wait for 3 archives to be created to ensure we're at the point where deletion will occur
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
 
-        // Now stop further background jobs before checking results
-        worker.schedule(
-                () -> {
-                    given().log()
-                            .all()
-                            // do not clean, or else Cryostat will archive the recording on stop and
-                            // create an additional copy
-                            .queryParam("clean", false)
-                            .pathParam("ruleName", RULE_NAME)
-                            .delete("/api/v4/rules/{ruleName}")
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .assertThat()
-                            .statusCode(204)
-                            .body(Matchers.emptyOrNullString());
-                },
-                // Schedule deletion shortly after we've confirmed at least one deletion occurred
-                5,
-                TimeUnit.SECONDS);
+        // Now wait for the deletion that should occur with the 4th archive
+        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(20));
 
-        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(10));
+        // Stop further background jobs before checking results
+        given().log()
+                .all()
+                // do not clean, or else Cryostat will archive the recording on stop and
+                // create an additional copy
+                .queryParam("clean", false)
+                .pathParam("ruleName", RULE_NAME)
+                .delete("/api/v4/rules/{ruleName}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204)
+                .body(Matchers.emptyOrNullString());
+
+        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
 
         given().log()
                 .all()
