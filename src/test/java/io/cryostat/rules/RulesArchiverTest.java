@@ -22,7 +22,6 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
@@ -107,31 +106,44 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .then()
                 .statusCode(201);
 
-        // stop further background jobs before checking results
-        worker.schedule(
-                () -> {
-                    given().log()
-                            .all()
-                            // do not clean, or else Cryostat will archive the recording on stop and
-                            // create an additional copy
-                            .queryParam("clean", false)
-                            .pathParam("ruleName", RULE_NAME)
-                            .delete("/api/v4/rules/{ruleName}")
-                            .then()
-                            .log()
-                            .all()
-                            .and()
-                            .assertThat()
-                            .statusCode(204)
-                            .body(Matchers.emptyOrNullString());
-                },
-                // this is enough time for 4-5 copies to be made, but we expect the oldest to get
-                // rolled over so 3 should remain
-                50,
-                TimeUnit.SECONDS);
+        // Wait for the rule to activate and start the recording
+        webSocketClient.expectNotification("ActiveRecordingCreated", Duration.ofSeconds(10));
 
-        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(50));
-        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(65));
+        // Wait for archives to be created. With preservedArchives=3 and archivalPeriodSeconds=10:
+        // Note: initialDelaySeconds=0 is converted to archivalPeriodSeconds (10s) in RuleExecutor
+        // - 1st archive at ~10s after recording starts (initial delay)
+        // - 2nd archive at ~20s after recording starts
+        // - 3rd archive at ~30s after recording starts
+        // - 4th archive at ~40s after recording starts (triggers deletion of 1st, then creates 4th)
+
+        // Wait for first 3 archives to be created
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
+
+        // Wait for deletion that occurs with 4th archive job
+        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(15));
+
+        // Wait for the 4th archive to be created (happens after deletion in same job)
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(5));
+
+        // Stop further background jobs before checking results
+        given().log()
+                .all()
+                // do not clean, or else Cryostat will archive the recording on stop and
+                // create an additional copy
+                .queryParam("clean", false)
+                .pathParam("ruleName", RULE_NAME)
+                .delete("/api/v4/rules/{ruleName}")
+                .then()
+                .log()
+                .all()
+                .and()
+                .assertThat()
+                .statusCode(204)
+                .body(Matchers.emptyOrNullString());
+
+        webSocketClient.expectNotification("RuleDeleted", Duration.ofSeconds(5));
 
         given().log()
                 .all()
