@@ -107,17 +107,20 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                 .statusCode(201);
 
         // Wait for archives to be created. With preservedArchives=3 and archivalPeriodSeconds=10:
-        // - 1st archive at ~0s
-        // - 2nd archive at ~10s
-        // - 3rd archive at ~20s
-        // - 4th archive at ~30s (triggers deletion of 1st, then creates 4th)
-        // Wait for 3 archives to be created to ensure we're at the point where deletion will occur
-        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
+        // Note: initialDelaySeconds=0 is converted to archivalPeriodSeconds (10s) in RuleExecutor
+        // - 1st archive at ~10s (initial delay)
+        // - 2nd archive at ~20s
+        // - 3rd archive at ~30s
+        // - 4th archive at ~40s (triggers deletion of 1st, then creates 4th)
+
+        // Wait for first 3 archives to be created (allow time for rule activation + recording
+        // start)
+        webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(20));
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(15));
 
-        // Now wait for the deletion that should occur with the 4th archive job
-        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(20));
+        // Wait for deletion that occurs with 4th archive job
+        webSocketClient.expectNotification("ArchivedRecordingDeleted", Duration.ofSeconds(15));
 
         // Wait for the 4th archive to be created (happens after deletion in same job)
         webSocketClient.expectNotification("ArchivedRecordingCreated", Duration.ofSeconds(5));
