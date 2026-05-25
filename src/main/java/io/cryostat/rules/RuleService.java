@@ -130,8 +130,19 @@ public class RuleService {
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         activator.shutdown();
         cleaner.shutdown();
+        clearQueues();
+    }
+
+    /**
+     * Clear activation and cleanup queues. This is primarily useful for testing to ensure clean
+     * state between test runs.
+     */
+    public void clearQueues() {
         activations.clear();
         cleanups.clear();
+        logger.debugv(
+                "Cleared activation and cleanup queues (activations: {0}, cleanups: {1})",
+                activations.size(), cleanups.size());
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
