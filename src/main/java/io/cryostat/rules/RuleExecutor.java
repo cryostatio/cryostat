@@ -38,6 +38,7 @@ import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 import io.cryostat.util.EntityExistsException;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -83,7 +84,6 @@ public class RuleExecutor {
     }
 
     @ConsumeEvent(blocking = true)
-    @Transactional
     Uni<Void> onMessage(ActivationAttempt attempt) {
         logger.tracev(
                 "Attempting to activate rule \"{0}\" for target {1} - attempt #{2}",
@@ -106,56 +106,7 @@ public class RuleExecutor {
         }
         Rule rule = ruleOpt.get();
 
-        try {
-            Pair<String, TemplateType> pair =
-                    recordingHelper.parseEventSpecifier(rule.eventSpecifier);
-            Template template =
-                    recordingHelper.getPreferredTemplate(target, pair.getKey(), pair.getValue());
-
-            var priorRecording =
-                    recordingHelper.getActiveRecording(
-                            target, r -> Objects.equals(r.name, rule.getRecordingName()));
-            if (priorRecording.isPresent()) {
-                recordingHelper.stopRecording(priorRecording.get()).await().indefinitely();
-            }
-            var labels = new HashMap<>(rule.metadata.labels());
-            labels.put(RULE_LABEL_KEY, rule.name);
-            ActiveRecording recording = null;
-            try {
-                recording =
-                        recordingHelper
-                                .startRecording(
-                                        target,
-                                        RecordingReplace.STOPPED,
-                                        template,
-                                        createRecordingOptions(rule),
-                                        labels)
-                                .await()
-                                .atMost(java.time.Duration.ofSeconds(30));
-            } catch (EntityExistsException eee) {
-                logger.debugv(
-                        "Recording \"{0}\" already exists on target {1}, fetching existing"
-                                + " recording",
-                        rule.getRecordingName(), target.id);
-                var existingRecording =
-                        recordingHelper.getActiveRecording(
-                                target, r -> Objects.equals(r.name, rule.getRecordingName()));
-                if (existingRecording.isPresent()) {
-                    recording = existingRecording.get();
-                } else {
-                    logger.warnv(
-                            "Recording \"{0}\" should exist on target {1} but was not found",
-                            rule.getRecordingName(), target.id);
-                }
-            }
-            if (recording != null && rule.isArchiver()) {
-                scheduleArchival(rule, target, recording);
-            }
-            return Uni.createFrom().nullItem();
-        } catch (Exception e) {
-            logger.error("Rule execution failed", e);
-            return Uni.createFrom().failure(e);
-        }
+        return QuarkusTransaction.joiningExisting().call(() -> activate(target, rule));
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
@@ -211,6 +162,59 @@ public class RuleExecutor {
     public void handleRuleRecordingCleanup(Rule rule) {
         cancelTasksForRule(rule);
         logger.debugv("Cancelled scheduled tasks for rule \"{0}\"", rule.name);
+    }
+
+    private Uni<Void> activate(Target target, Rule rule) {
+        try {
+            Pair<String, TemplateType> pair =
+                    recordingHelper.parseEventSpecifier(rule.eventSpecifier);
+            Template template =
+                    recordingHelper.getPreferredTemplate(target, pair.getKey(), pair.getValue());
+
+            var priorRecording =
+                    recordingHelper.getActiveRecording(
+                            target, r -> Objects.equals(r.name, rule.getRecordingName()));
+            if (priorRecording.isPresent()) {
+                recordingHelper.stopRecording(priorRecording.get()).await().indefinitely();
+            }
+            var labels = new HashMap<>(rule.metadata.labels());
+            labels.put(RULE_LABEL_KEY, rule.name);
+            ActiveRecording recording = null;
+            try {
+                recording =
+                        recordingHelper
+                                .startRecording(
+                                        target,
+                                        RecordingReplace.STOPPED,
+                                        template,
+                                        createRecordingOptions(rule),
+                                        labels)
+                                .await()
+                                .atMost(java.time.Duration.ofSeconds(30));
+            } catch (EntityExistsException eee) {
+                logger.debugv(
+                        "Recording \"{0}\" already exists on target {1}, fetching existing"
+                                + " recording",
+                        rule.getRecordingName(), target.id);
+                var existingRecording =
+                        recordingHelper.getActiveRecording(
+                                target, r -> Objects.equals(r.name, rule.getRecordingName()));
+                if (existingRecording.isPresent()) {
+                    recording = existingRecording.get();
+                } else {
+                    logger.warnv(
+                            "Recording \"{0}\" should exist on target {1} but was not found",
+                            rule.getRecordingName(), target.id);
+                }
+            }
+            if (recording != null && rule.isArchiver()) {
+                scheduleArchival(rule, target, recording);
+            }
+            return Uni.createFrom().nullItem();
+        } catch (Exception e) {
+            logger.error("Rule execution failed", e);
+            return Uni.createFrom().failure(e);
+        }
     }
 
     private void cancelTasksForRule(Rule rule) {
