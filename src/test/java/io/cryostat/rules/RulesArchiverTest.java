@@ -20,8 +20,6 @@ import static io.restassured.RestAssured.given;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeoutException;
 
 import io.cryostat.AbstractTransactionalTestBase;
@@ -58,9 +56,6 @@ public class RulesArchiverTest extends AbstractTransactionalTestBase {
                     }
                     """,
                     RULE_NAME);
-
-    private static final ScheduledExecutorService worker =
-            Executors.newSingleThreadScheduledExecutor();
 
     @AfterEach
     void cleanupRulesArchiverTest() {
