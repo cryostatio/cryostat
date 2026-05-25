@@ -33,12 +33,10 @@ import io.cryostat.recordings.RecordingHelper;
 import io.cryostat.recordings.RecordingHelper.RecordingOptions;
 import io.cryostat.recordings.RecordingHelper.RecordingReplace;
 import io.cryostat.rules.Rule.RuleEvent;
-import io.cryostat.rules.RuleService.ActivationAttempt;
 import io.cryostat.targets.Target;
 import io.cryostat.targets.Target.TargetDiscovery;
 import io.cryostat.util.EntityExistsException;
 
-import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.runtime.ShutdownEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -81,32 +79,6 @@ public class RuleExecutor {
 
     void onStop(@Observes ShutdownEvent evt) throws SchedulerException {
         quartz.shutdown();
-    }
-
-    @ConsumeEvent(blocking = true)
-    Uni<Void> onMessage(ActivationAttempt attempt) {
-        logger.tracev(
-                "Attempting to activate rule \"{0}\" for target {1} - attempt #{2}",
-                attempt.ruleId(), attempt.targetId(), attempt.attempts());
-
-        var targetOpt = Target.<Target>find("id", attempt.targetId()).firstResultOptional();
-        if (targetOpt.isEmpty()) {
-            logger.warnv(
-                    "Target {0} no longer exists, skipping rule activation attempt",
-                    attempt.targetId());
-            return Uni.createFrom().nullItem();
-        }
-        Target target = targetOpt.get();
-
-        var ruleOpt = Rule.<Rule>find("id", attempt.ruleId()).firstResultOptional();
-        if (ruleOpt.isEmpty()) {
-            logger.warnv(
-                    "Rule {0} no longer exists, skipping activation attempt", attempt.ruleId());
-            return Uni.createFrom().nullItem();
-        }
-        Rule rule = ruleOpt.get();
-
-        return QuarkusTransaction.joiningExisting().call(() -> activate(target, rule));
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
@@ -164,7 +136,7 @@ public class RuleExecutor {
         logger.debugv("Cancelled scheduled tasks for rule \"{0}\"", rule.name);
     }
 
-    private Uni<Void> activate(Target target, Rule rule) {
+    public Uni<Void> activate(Target target, Rule rule) {
         try {
             Pair<String, TemplateType> pair =
                     recordingHelper.parseEventSpecifier(rule.eventSpecifier);
