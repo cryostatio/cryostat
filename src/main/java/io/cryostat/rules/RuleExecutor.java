@@ -88,24 +88,25 @@ public class RuleExecutor {
         logger.tracev(
                 "Attempting to activate rule \"{0}\" for target {1} - attempt #{2}",
                 attempt.ruleId(), attempt.targetId(), attempt.attempts());
+
+        var targetOpt = Target.<Target>find("id", attempt.targetId()).firstResultOptional();
+        if (targetOpt.isEmpty()) {
+            logger.warnv(
+                    "Target {0} no longer exists, skipping rule activation attempt",
+                    attempt.targetId());
+            return Uni.createFrom().nullItem();
+        }
+        Target target = targetOpt.get();
+
+        var ruleOpt = Rule.<Rule>find("id", attempt.ruleId()).firstResultOptional();
+        if (ruleOpt.isEmpty()) {
+            logger.warnv(
+                    "Rule {0} no longer exists, skipping activation attempt", attempt.ruleId());
+            return Uni.createFrom().nullItem();
+        }
+        Rule rule = ruleOpt.get();
+
         try {
-            var targetOpt = Target.<Target>find("id", attempt.targetId()).firstResultOptional();
-            if (targetOpt.isEmpty()) {
-                logger.warnv(
-                        "Target {0} no longer exists, skipping rule activation attempt",
-                        attempt.targetId());
-                return Uni.createFrom().nullItem();
-            }
-            Target target = targetOpt.get();
-
-            var ruleOpt = Rule.<Rule>find("id", attempt.ruleId()).firstResultOptional();
-            if (ruleOpt.isEmpty()) {
-                logger.warnv(
-                        "Rule {0} no longer exists, skipping activation attempt", attempt.ruleId());
-                return Uni.createFrom().nullItem();
-            }
-            Rule rule = ruleOpt.get();
-
             Pair<String, TemplateType> pair =
                     recordingHelper.parseEventSpecifier(rule.eventSpecifier);
             Template template =
@@ -130,20 +131,31 @@ public class RuleExecutor {
                                         createRecordingOptions(rule),
                                         labels)
                                 .await()
-                                .indefinitely();
+                                .atMost(java.time.Duration.ofSeconds(30));
             } catch (EntityExistsException eee) {
-                // ignore - the recording already existed and was running, so we don't want to
-                // replace it - but we should continue on to reschedule the periodic archival job
+                logger.debugv(
+                        "Recording \"{0}\" already exists on target {1}, fetching existing"
+                                + " recording",
+                        rule.getRecordingName(), target.id);
+                var existingRecording =
+                        recordingHelper.getActiveRecording(
+                                target, r -> Objects.equals(r.name, rule.getRecordingName()));
+                if (existingRecording.isPresent()) {
+                    recording = existingRecording.get();
+                } else {
+                    logger.warnv(
+                            "Recording \"{0}\" should exist on target {1} but was not found",
+                            rule.getRecordingName(), target.id);
+                }
             }
             if (recording != null && rule.isArchiver()) {
                 scheduleArchival(rule, target, recording);
             }
+            return Uni.createFrom().nullItem();
         } catch (Exception e) {
             logger.error("Rule execution failed", e);
             return Uni.createFrom().failure(e);
         }
-
-        return Uni.createFrom().nullItem();
     }
 
     @ConsumeEvent(value = Target.TARGET_JVM_DISCOVERY, blocking = true)
