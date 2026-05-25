@@ -293,11 +293,19 @@ public class RecordingHelper {
             List<IRecordingDescriptor> descriptors =
                     connectionManager.executeConnectedTask(
                             target, conn -> conn.getService().getAvailableRecordings());
+
+            var remoteIds =
+                    new HashSet<>(descriptors.stream().map(IRecordingDescriptor::getId).toList());
+
             boolean updated = false;
             var it = target.activeRecordings.iterator();
             while (it.hasNext()) {
                 var r = it.next();
-                if (!previousIds.contains(r.remoteId)) {
+                if (!remoteIds.contains(r.remoteId)) {
+                    logger.warnv(
+                            "Orphaned recording detected: id={0} remoteId={1} name={2} on target"
+                                    + " {3}, removing from database",
+                            r.id, r.remoteId, r.name, target.connectUrl);
                     r.delete();
                     it.remove();
                     updated |= true;
