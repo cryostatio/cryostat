@@ -209,10 +209,20 @@ public class RuleExecutor {
             }
             if (recording != null && rule.isArchiver()) {
                 scheduleArchival(rule, target, recording);
+            } else if (recording == null) {
+                logger.errorv(
+                        "Failed to activate rule \"{0}\" on target {1}: recording is null",
+                        rule.name, target.connectUrl);
+                throw new IllegalStateException(
+                        "Recording activation failed but no exception was thrown");
             }
             return Uni.createFrom().nullItem();
         } catch (Exception e) {
-            logger.error("Rule execution failed", e);
+            logger.errorv(
+                    e,
+                    "Rule \"{0}\" activation failed on target {1}",
+                    rule.name,
+                    target.connectUrl);
             return Uni.createFrom().failure(e);
         }
     }
