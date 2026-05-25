@@ -15,6 +15,8 @@
  */
 package io.cryostat;
 
+import io.cryostat.rules.RuleService;
+
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import org.flywaydb.core.Flyway;
@@ -25,6 +27,7 @@ public abstract class AbstractTransactionalTestBase extends AbstractTestBase {
 
     @Inject Flyway flyway;
     @Inject EntityManager entityManager;
+    @Inject RuleService ruleService;
 
     @BeforeEach
     void migrateFlyway() throws SchedulerException {
@@ -33,6 +36,7 @@ public abstract class AbstractTransactionalTestBase extends AbstractTestBase {
         flyway.migrate();
         flyway.validate();
         entityManager.clear();
+        ruleService.clearQueues();
         restartScheduler();
     }
 }
