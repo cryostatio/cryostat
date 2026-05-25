@@ -205,7 +205,7 @@ public class RuleService {
                 int count = fAttempt.attempts.incrementAndGet();
                 int delay = (int) Math.pow(2, count);
                 TimeUnit unit = TimeUnit.SECONDS;
-                int limit = 5;
+                int limit = 12;
                 if (count < limit) {
                     logger.debugv(
                             "Rule \"{0}\" activation attempt"
