@@ -51,6 +51,12 @@ class Liveness {
     public Uni<Void> liveness() {
         Target self = new Target();
         self.connectUrl = URI.create("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi");
-        return tcm.executeDirect(self, Optional.empty(), conn -> null);
+        return tcm.executeDirect(
+                self,
+                Optional.empty(),
+                conn -> {
+                    conn.getJvmIdentifier();
+                    return null;
+                });
     }
 }
