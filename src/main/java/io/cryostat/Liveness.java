@@ -15,8 +15,16 @@
  */
 package io.cryostat;
 
+import java.net.URI;
+import java.util.Optional;
+
+import io.cryostat.targets.Target;
+import io.cryostat.targets.TargetConnectionManager;
+
 import io.smallrye.common.annotation.Blocking;
+import io.smallrye.mutiny.Uni;
 import jakarta.annotation.security.PermitAll;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import org.eclipse.microprofile.openapi.annotations.Operation;
@@ -24,12 +32,9 @@ import org.eclipse.microprofile.openapi.annotations.Operation;
 @Path("")
 class Liveness {
 
+    @Inject TargetConnectionManager tcm;
+
     @GET
-    // This does not actually block, but we force it to execute on the worker pool so that the
-    // status check reports not only that the event loop dispatch thread is alive and responsive,
-    // but that the worker pool is also actively servicing requests. If we don't force this then
-    // this handler only checks if the event loop is alive, but the worker pool may be blocked or
-    // otherwise unresponsive and the application as a whole will not be usable.
     @Blocking
     @Path("/health/liveness")
     @PermitAll
@@ -37,10 +42,15 @@ class Liveness {
             summary = "Check if the application is able to accept and respond to requests.",
             description =
                     """
-                    Performs a no-op on a worker thread. This is a simply check to determine if
-                    the application has available threads to service requests. HTTP 204 No Content
-                    is the only expected response. If the application is not live and no worker
-                    threads are available, then the client will never receive a response.
+                    Performs a simple target connection request on a worker thread.
+                    This is a simply check to determine if the application has available threads
+                    to service requests. HTTP 204 No Content is the only expected response.
+                    If the application is not live and no worker threads are available,
+                    then the client will never receive a response.
                     """)
-    public void liveness() {}
+    public Uni<Void> liveness() {
+        Target self = new Target();
+        self.connectUrl = URI.create("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi");
+        return tcm.executeDirect(self, Optional.empty(), conn -> null);
+    }
 }
