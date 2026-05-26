@@ -388,6 +388,7 @@ public class RuleService {
                                     "rule-activations")
                             .usingJobData("ruleName", rule.name)
                             .usingJobData("jvmId", target.jvmId)
+                            .requestRecovery()
                             .build();
 
             if (quartz.checkExists(job.getKey())) {
@@ -429,6 +430,7 @@ public class RuleService {
                             .usingJobData("ruleName", rule.name)
                             .usingJobData("jvmId", target.jvmId)
                             .usingJobData("recordingName", rule.getRecordingName())
+                            .requestRecovery()
                             .build();
 
             if (quartz.checkExists(job.getKey())) {
