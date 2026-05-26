@@ -34,6 +34,13 @@ class Liveness {
 
     @Inject TargetConnectionManager tcm;
 
+    static final Target SELF;
+
+    static {
+        SELF = new Target();
+        SELF.connectUrl = URI.create("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi");
+    }
+
     @GET
     @Blocking
     @Path("/health/liveness")
@@ -49,10 +56,8 @@ class Liveness {
                     then the client will never receive a response.
                     """)
     public Uni<Void> liveness() {
-        Target self = new Target();
-        self.connectUrl = URI.create("service:jmx:rmi:///jndi/rmi://localhost:0/jmxrmi");
         return tcm.executeDirect(
-                self,
+                SELF,
                 Optional.empty(),
                 conn -> {
                     conn.getJvmIdentifier();
