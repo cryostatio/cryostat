@@ -19,6 +19,7 @@ import java.net.URI;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 
+import io.cryostat.core.diagnostic.InterruptibleHeapDumpReportGenerator;
 import io.cryostat.core.reports.InterruptibleReportGenerator;
 import io.cryostat.core.util.RuleFilterParser;
 import io.cryostat.libcryostat.sys.Clock;
@@ -86,6 +87,16 @@ public class Producers {
         boolean singleThread = Runtime.getRuntime().availableProcessors() < 2;
         return new InterruptibleReportGenerator(
                 singleThread ? Executors.newSingleThreadExecutor() : ForkJoinPool.commonPool());
+    }
+
+    @Produces
+    // RequestScoped so that each individual report generation request has its own interruptible
+    // generator with an independent task queueing thread which dispatches to the shared common pool
+    @RequestScoped
+    @DefaultBean
+    public static InterruptibleHeapDumpReportGenerator
+            produceInterruptibleHeapDumpReportGenerator() {
+        return new InterruptibleHeapDumpReportGenerator();
     }
 
     @Produces
