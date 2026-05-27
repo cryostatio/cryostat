@@ -130,8 +130,6 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
-    - name: Add CRIU PPA
-      run: sudo add-apt-repository ppa:criu/ppa
     - name: Install qemu
       run: |
         sudo apt update
@@ -217,8 +215,6 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
-    - name: Add CRIU PPA
-      run: sudo add-apt-repository ppa:criu/ppa
     - name: Install qemu
       run: |
         sudo apt update
@@ -286,8 +282,6 @@ jobs:
           [[registry]]
           location = "docker.io"
           blocked = true
-    - name: Add CRIU PPA
-      run: sudo add-apt-repository ppa:criu/ppa
     - name: Install qemu
       run: |
         sudo apt update
