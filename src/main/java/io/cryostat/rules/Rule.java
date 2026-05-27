@@ -102,6 +102,10 @@ public class Rule extends PanacheEntity {
 
     public boolean enabled;
 
+    public boolean heapDump;
+
+    public boolean threadDump;
+
     public String getName() {
         return this.name;
     }
