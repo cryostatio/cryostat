@@ -825,14 +825,14 @@ components:
       type: object
     SmartTrigger:
       properties:
+        ID:
+          type: string
         durationConstraint:
           type: string
         expression:
           type: string
         firstMetTime:
           $ref: '#/components/schemas/Date'
-        iD:
-          type: string
         id:
           type: string
         recordingTemplateName:
@@ -1103,6 +1103,9 @@ paths:
             type: integer
       responses:
         "200":
+          content:
+            application/json:
+              schema: {}
           description: OK
       summary: Export Revisions
       tags:
@@ -2028,6 +2031,9 @@ paths:
         required: true
       responses:
         "200":
+          content:
+            application/json:
+              schema: {}
           description: OK
         "400":
           description: Bad Request
@@ -2818,6 +2824,9 @@ paths:
         required: true
       responses:
         "200":
+          content:
+            application/json:
+              schema: {}
           description: OK
       summary: Get an automated analysis report
       tags:
@@ -3557,6 +3566,9 @@ paths:
         required: true
       responses:
         "200":
+          content:
+            application/json:
+              schema: {}
           description: OK
       summary: Get an automated analysis report for a particular recording on the specified target
       tags:
