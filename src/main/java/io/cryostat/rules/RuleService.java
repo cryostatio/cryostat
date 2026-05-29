@@ -263,7 +263,10 @@ public class RuleService {
 
                                 var recording = recordingOpt.get();
                                 try {
-                                    recordingHelper.stopRecording(recording).await().indefinitely();
+                                    recordingHelper
+                                            .stopRecording(recording)
+                                            .await()
+                                            .atMost(connectionFailedTimeout);
                                     logger.infov(
                                             "Successfully stopped recording \"{0}\" on target {1}",
                                             fAttempt.recordingName, fAttempt.targetId);
