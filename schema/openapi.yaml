@@ -3619,16 +3619,17 @@ paths:
   /health/liveness:
     get:
       description: |
-        Performs a no-op on a worker thread. This is a simply check to determine if
-        the application has available threads to service requests. HTTP 204 No Content
-        is the only expected response. If the application is not live and no worker
-        threads are available, then the client will never receive a response.
+        Performs a simple target connection request on a worker thread.
+        This is a simply check to determine if the application has available threads
+        to service requests. HTTP 204 No Content is the only expected response.
+        If the application is not live and no worker threads are available,
+        then the client will never receive a response.
       responses:
         "204":
           description: No Content
       summary: Check if the application is able to accept and respond to requests.
       tags:
-        - Health
+        - Liveness
 tags:
   - description: |
       Endpoints for Discovery Plugins to register with a Cryostat instance, refresh their registration
